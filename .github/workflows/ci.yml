@@ -22,9 +22,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      # The base component library is a private git dependency.
+      # The base component library is a private git dependency. npm fetches GitHub dependencies over
+      # SSH first, so every GitHub URL form is rewritten to HTTPS with the read token.
       - name: Let git read the base component library
-        run: git config --global url."https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/".insteadOf "https://github.com/FlamboyantEngineer/"
+        env:
+          TOKEN: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
+        run: |
+          base="https://x-access-token:${TOKEN}@github.com/FlamboyantEngineer/"
+          git config --global --add url."$base".insteadOf "https://github.com/FlamboyantEngineer/"
+          git config --global --add url."$base".insteadOf "ssh://git@github.com/FlamboyantEngineer/"
+          git config --global --add url."$base".insteadOf "git@github.com:FlamboyantEngineer/"
       - run: npm ci
       - name: Checks
         run: npm run check
