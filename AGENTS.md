@@ -12,6 +12,8 @@ npm run check:references && npm run check:specs
 npm run test:changed   # unit tests related to your changes since origin/dev
 ```
 
+For a change to pagination, measuring or a lab (`labs/`, `e2e/`, `src/pagination/`), also run the browser tests: `npm run build:labs && npm run test:labs`. Set `CHROMIUM_PATH` when Playwright's own browser is not installed.
+
 `npm run check` runs every gate, as CI does. Never weaken a lint rule, the denylist or a check to get green.
 
 ## Rules

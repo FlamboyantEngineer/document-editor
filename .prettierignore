@@ -6,3 +6,4 @@ playwright-report/
 package-lock.json
 CHANGELOG.md
 .changeset/*.md
+labs/build/

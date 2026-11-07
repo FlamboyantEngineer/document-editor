@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <meta
+      name="description"
+      content="A document measured in an editor view and laid out on fixed-height pages."
+    />
+    <title>Pagination · Labs</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #eef0f3;
+        color: #1d2129;
+        font:
+          16px/1.5 Georgia,
+          serif;
+      }
+      .lab-measure {
+        position: absolute;
+        left: -10000px;
+        top: 0;
+      }
+      .lab-measure,
+      .lab-page-content {
+        width: 480px;
+      }
+      .lab-pages {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+      }
+      .lab-page {
+        box-sizing: content-box;
+        padding: 32px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+      }
+      .lab-page-content > :first-child {
+        margin-top: 0;
+      }
+      .lab-page-content > :last-child {
+        margin-bottom: 0;
+      }
+      p,
+      pre,
+      ul,
+      ol,
+      blockquote,
+      table {
+        margin: 0 0 12px;
+      }
+      h1,
+      h2 {
+        margin: 16px 0 8px;
+        line-height: 1.2;
+      }
+      pre {
+        padding: 8px;
+        background: #f3f4f6;
+        font: 14px/20px monospace;
+        white-space: pre-wrap;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      td,
+      th {
+        border: 1px solid #c4c8cf;
+        padding: 4px 8px;
+      }
+      td > p,
+      th > p {
+        margin: 0;
+      }
+    </style>
+    <script type="module" src="build/pagination.js"></script>
+  </head>
+  <body>
+    <main id="lab-root">
+      <h1>Pagination</h1>
+      <p>The document below is measured in an editor view and laid out on pages 360 pixels tall.</p>
+      <div class="lab-measure" aria-hidden="true"></div>
+      <div class="lab-pages"></div>
+    </main>
+  </body>
+</html>
