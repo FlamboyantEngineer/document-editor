@@ -52,7 +52,7 @@ function regionsTemplate(tall: boolean): TemplateFile {
 const SAMPLE = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power', 'Storage']);
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-measure');
+  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
   const pagesRoot = document.querySelector('.lab-pages');
   const name = document.querySelector<HTMLInputElement>('input[name="document-name"]');
   const tall = document.querySelector<HTMLInputElement>('input[name="tall-header"]');

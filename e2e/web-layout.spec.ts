@@ -18,7 +18,7 @@ test.describe('web layout lab', () => {
   }) => {
     await lab.open('web-layout');
     await expect(page.locator('.lab-content .pm-page')).toHaveCount(1);
-    const surface = await page.locator('.de-document').boundingBox();
+    const surface = await page.locator('.de-document-editor').boundingBox();
     const pageBox = await page.locator('.lab-content .pm-page').boundingBox();
     const content = await page.locator('.lab-content .pm-page-content').boundingBox();
     const title = await page.locator('.de-document-title').boundingBox();

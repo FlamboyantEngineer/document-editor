@@ -84,7 +84,7 @@ const CONTROLS = {
 } as const;
 
 function render(): void {
-  const surface = document.querySelector<HTMLElement>('.de-document');
+  const surface = document.querySelector<HTMLElement>('.de-document-editor');
   const content = document.querySelector('.lab-content');
   const byline = document.querySelector('.lab-byline');
   const mode = document.querySelector<HTMLInputElement>('input[name="authoring"]');

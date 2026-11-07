@@ -60,7 +60,8 @@ interface ContentsRows {
   readonly empty: boolean;
 }
 
-interface ContentsState {
+/** What a contents plugin keeps: the catalog, and the rows each list block shows. */
+export interface ContentsState {
   readonly catalog: DocumentCatalog;
   readonly decorations: DecorationSet;
 }
@@ -179,14 +180,6 @@ function draw(dom: HTMLElement, node: ProseMirrorNode, drawing: Drawing) {
   dom.dataset.deMeasureKey = key;
 }
 
-/** Lists of contents: the plugin that keeps their catalog, and the node view that draws them. */
-export interface Contents {
-  readonly plugin: Plugin<ContentsState>;
-  readonly nodeViews: {
-    toc_block: NodeViewConstructor;
-  };
-}
-
 /** Takes the reader to what an entry names, with the caret at its start. */
 function goTo(view: EditorView, entry: CatalogEntry) {
   const { doc } = view.state;
@@ -201,19 +194,11 @@ export function contentsCatalog(state: EditorState): DocumentCatalog | null {
 }
 
 /**
- * Lists of contents drawn from the document under its template. After the template changes, a
- * host dispatches a transaction with `contentsKey` meta to draw them again.
+ * Lists of contents drawn from the document under its template: a plugin that keeps the catalog
+ * and draws each `toc_block` with its node view, in every view it runs in. After the template
+ * changes, a host dispatches a transaction with `contentsKey` meta to draw them again.
  */
-export function createContents({ template, labels = {} }: ContentsOptions): Contents {
-  const plugin = new Plugin<ContentsState>({
-    key: contentsKey,
-    state: {
-      init: (_config, state) => stateOf(state.doc, template()),
-      apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(contentsKey) ? stateOf(tr.doc, template()) : value,
-    },
-    props: { decorations: (state) => contentsKey.getState(state)?.decorations ?? null },
-  });
+export function createContents({ template, labels = {} }: ContentsOptions): Plugin<ContentsState> {
   const drawingFor = (
     node: ProseMirrorNode,
     rows: ContentsRows,
@@ -227,37 +212,44 @@ export function createContents({ template, labels = {} }: ContentsOptions): Cont
       navigate,
     };
   };
-  return {
-    plugin,
-    nodeViews: {
-      toc_block: (...[node, view, , decorations]) => {
-        const dom = document.createElement('div');
-        dom.className = 'de-contents';
-        dom.contentEditable = 'false';
-        let current = node;
-        let rows = rowsIn(decorations);
-        const navigate = (index: number) => {
-          const entry = rows.entries[index];
-          if (entry) goTo(view, entry);
-        };
-        const render = (next: ProseMirrorNode, decos: readonly Decoration[]) => {
-          current = next;
-          rows = rowsIn(decos);
-          dom.dataset.contentsType = String(next.attrs.tocType);
-          draw(dom, next, drawingFor(next, rows, navigate));
-        };
-        render(node, decorations);
-        return {
-          dom,
-          update: (next, decos) => {
-            if (next.type !== current.type) return false;
-            render(next, decos);
-            return true;
-          },
-          ignoreMutation: () => true,
-          stopEvent: (event) => event.type === 'mousedown' || event.type === 'click',
-        };
+  const view: NodeViewConstructor = (...[node, editor, , decorations]) => {
+    const dom = document.createElement('div');
+    dom.className = 'de-contents';
+    dom.contentEditable = 'false';
+    let current = node;
+    let rows = rowsIn(decorations);
+    const navigate = (index: number) => {
+      const entry = rows.entries[index];
+      if (entry) goTo(editor, entry);
+    };
+    const render = (next: ProseMirrorNode, decos: readonly Decoration[]) => {
+      current = next;
+      rows = rowsIn(decos);
+      dom.dataset.contentsType = String(next.attrs.tocType);
+      draw(dom, next, drawingFor(next, rows, navigate));
+    };
+    render(node, decorations);
+    return {
+      dom,
+      update: (next, decos) => {
+        if (next.type !== current.type) return false;
+        render(next, decos);
+        return true;
       },
-    },
+      ignoreMutation: () => true,
+      stopEvent: (event) => event.type === 'mousedown' || event.type === 'click',
+    };
   };
+  return new Plugin<ContentsState>({
+    key: contentsKey,
+    state: {
+      init: (_config, state) => stateOf(state.doc, template()),
+      apply: (tr, value) =>
+        tr.docChanged || tr.getMeta(contentsKey) ? stateOf(tr.doc, template()) : value,
+    },
+    props: {
+      decorations: (state) => contentsKey.getState(state)?.decorations ?? null,
+      nodeViews: { toc_block: view },
+    },
+  });
 }
