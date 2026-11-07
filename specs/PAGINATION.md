@@ -52,3 +52,47 @@ A host whose own node types split shall add their rules to `FRAGMENT_RULES`, and
 
 Implementation: `src/model/pagination/fragments.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/pagination/fragments.test.ts`
+
+## DOCE-PAGINATION-2 - Page layout
+
+### DOCE-PAGINATION-2.1 - Filling pages
+
+`layoutPages(blocks, { pageHeight })` shall lay a section's measured blocks (`LayoutBlock`) out on pages in order, each page taking the blocks that fit its content height less a safety margin of `PAGE_SAFETY_MARGIN_PX`, and every page at least one block (`layoutNextPage` fills one). No blocks shall lay out on no pages.
+
+Implementation: `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/page-layout.test.ts`
+
+### DOCE-PAGINATION-2.2 - Margins
+
+Blocks on a page shall take their heights plus, between two blocks, the larger of their facing margins (`stackedHeight`); the first block's top margin and the last block's bottom margin shall not count.
+
+Implementation: `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/page-layout.test.ts`
+
+### DOCE-PAGINATION-2.3 - Splitting
+
+A block that does not fit shall be split by its type's layout rule (`LAYOUT_RULES`, `split`) into a fragment that fits and the fragments after it, which the layout places next. A block that cannot split shall start the next page, or, on an empty page, stay there whole however tall it is.
+
+Implementation: `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/page-layout.test.ts`
+
+### DOCE-PAGINATION-2.4 - Page breaks
+
+A page shall end after a page break, and before a block that starts a page (`breakBefore`), such as each fragment after a split's first.
+
+Implementation: `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/page-layout.test.ts`
+
+### DOCE-PAGINATION-2.5 - Headings keep with what they head
+
+A heading shall move to the next page with the deeper headings directly under it and the block they head, when that block's type keeps with a heading (`keepsWithHeading`) and the group does not fit. Of a splittable block, only its first line (`leadLineHeight`) shall need to fit. A document title shall rank above every heading level.
+
+Implementation: `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/page-layout.test.ts`
+
+### DOCE-PAGINATION-2.6 - Page height
+
+The page height shall be a number, or a function of the blocks that would be on the page and its index, so the space their footnotes take is left out.
+
+Implementation: `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/page-layout.test.ts`

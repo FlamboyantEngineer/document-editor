@@ -110,6 +110,23 @@ export {
   wholeNode,
 } from './pagination/fragments.js';
 export type {
+  LayoutBlock,
+  LayoutRule,
+  LayoutRules,
+  PageHeight,
+  PageLayoutOptions,
+  SplitBlock,
+  SplitContext,
+} from './pagination/page-layout.js';
+export {
+  headingLevel,
+  LAYOUT_RULES,
+  layoutNextPage,
+  layoutPages,
+  PAGE_SAFETY_MARGIN_PX,
+  stackedHeight,
+} from './pagination/page-layout.js';
+export type {
   FormatReferenceInput,
   ReferenceBaseline,
   ReferenceTargetBaseline,
