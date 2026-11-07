@@ -96,4 +96,13 @@ test.describe('contents lab', () => {
     );
     expect(heading).toBe('Storage responses');
   });
+
+  test('DOCE-CONTENTS-2.5 lists the nodes a configured kind names', async ({ lab, page }) => {
+    await lab.open('contents');
+    const list = page.locator('.lab-pages .de-contents[data-contents-type="quotes"]');
+    await expect(list.locator('.de-contents__title')).toHaveText('Table of Quotations');
+    const entries = list.locator('.de-contents__entry');
+    await expect(entries).toHaveCount(3);
+    await expect(entries.first()).toContainText('“Q”Quoted in chapter 1.');
+  });
 });
