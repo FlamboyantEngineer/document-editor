@@ -71,6 +71,13 @@ Starting a section at the caret shall lay the moved blocks out on pages of the n
 Implementation: `src/engine/document-sections.ts`, `labs/src/sections.lab.tsx`
 Verification: `e2e/sections.spec.ts`
 
+### DOCE-SECTIONS-3.4 - Centered pages
+
+On pages, the reference stylesheet shall stack every page in one column, each centered in the editor, whatever its section's page size or orientation, with the same gap between pages as between sections.
+
+Implementation: `labs/reference/document.css`, `labs/src/sections.lab.tsx`
+Verification: `e2e/sections.spec.ts`
+
 ## Hooks
 
 | Hook             | Kind      | Values    | Description                                             |

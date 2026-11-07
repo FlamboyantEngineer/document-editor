@@ -73,4 +73,25 @@ test.describe('sections lab', () => {
     await expect.poll(() => outline(page)).toEqual(['-|portrait', 'appendix|landscape']);
     await expect(sections(page).nth(0)).toContainText('Typed Each requirement');
   });
+
+  test('DOCE-SECTIONS-3.4 centers every page, portrait or landscape, in one column', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('sections');
+    await expect.poll(() => outline(page)).toEqual(['-|portrait', 'appendix|landscape']);
+    const boxes = await page
+      .locator('.de-document-editor__content .pm-page')
+      .evaluateAll((pages) =>
+        pages.map((each) => each.getBoundingClientRect().toJSON() as DOMRect),
+      );
+    const surface = await page.locator('.de-document-editor__content').boundingBox();
+    const middle = (surface?.x ?? 0) + (surface?.width ?? 0) / 2;
+    expect(new Set(boxes.map((box) => Math.round(box.width))).size).toBe(2);
+    for (const [index, box] of boxes.entries()) {
+      expect(box.x + box.width / 2).toBeCloseTo(middle, 0);
+      const next = boxes[index + 1];
+      if (next) expect(next.y - box.bottom).toBeCloseTo(24, 0);
+    }
+  });
 });
