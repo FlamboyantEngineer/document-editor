@@ -2,6 +2,30 @@
 
 export type { Contents, ContentsLabels, ContentsOptions, ContentsType } from './contents.js';
 export { CONTENTS_LABELS, contentsCatalog, contentsKey, createContents } from './contents.js';
+export type { DocumentEditingOptions } from './document-editing.js';
+export {
+  createDocumentEditing,
+  createDocumentEditingExtension,
+  documentKeys,
+} from './document-editing.js';
+export {
+  changeParagraphLevel,
+  clearFormatting,
+  deleteEmptyListItem,
+  FORMATTING_MARKS,
+  insertPageBreak,
+  joinAcrossPages,
+  selectBody,
+  splitBlockKeepingLevel,
+  wrapInListAndJoin,
+} from './editing-commands.js';
+export type { ElementIdsOptions } from './element-ids.js';
+export {
+  assignElementIds,
+  createElementId,
+  createElementIds,
+  ELEMENT_ID_PATTERN,
+} from './element-ids.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {
   activeLayoutPreset,

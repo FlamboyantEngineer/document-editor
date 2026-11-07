@@ -14,11 +14,11 @@ const SENTENCE =
 
 export const text = (value: string): StoredNode => ({ type: 'text', text: value });
 export const variable = (key: string): StoredNode => ({ type: 'variable', attrs: { key } });
-const paragraph = (sentences: number): StoredNode => ({
+export const paragraph = (sentences: number): StoredNode => ({
   type: 'paragraph',
   content: [text(Array.from({ length: sentences }, () => SENTENCE).join(' '))],
 });
-const heading = (level: number, value: string): StoredNode => ({
+export const heading = (level: number, value: string): StoredNode => ({
   type: 'heading',
   attrs: { level },
   content: [text(value)],
@@ -27,7 +27,7 @@ const cell = (type: 'tableCell' | 'tableHeader', value: string): StoredNode => (
   type,
   content: [{ type: 'paragraph', content: [text(value)] }],
 });
-const list = (type: 'bulletList' | 'orderedList', items: string[]): StoredNode => ({
+export const list = (type: 'bulletList' | 'orderedList', items: string[]): StoredNode => ({
   type,
   content: items.map((value) => ({
     type: 'listItem',
