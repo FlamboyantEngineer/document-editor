@@ -1,6 +1,6 @@
 # Document editor
 
-`DocumentEditor` shows a document in its template and lets the writer edit it. The caller holds the editor state (`state`, `onStateChange`), as with every engine of the base library, and builds it with the plugins the document runs, such as `createDocumentEditing` and `createContents`; the editor adds and removes the pagination itself.
+`DocumentEditor` shows a document in its template and lets the writer edit it. The caller holds the editor state (`state`, `onStateChange`), as with every engine of the base library, and builds it with the plugins the document runs, such as `createDocumentEditing` and `createContents`; the editor adds and removes the pagination and the sections plugin (DOCE-SECTIONS) itself.
 
 ## DOCE-EDITOR-1 - The editor
 
@@ -20,7 +20,7 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/do
 
 ### DOCE-EDITOR-1.3 - Page layout
 
-In page layout (the default) the editor shall measure the document in a hidden slot inside it, with the state's plugins, and keep it on pages of its template's height inside the margins after every change and when the template changes (DOCE-PAGINATION-7).
+In page layout (the default) the editor shall measure the document in a hidden slot inside it, with the state's plugins, and keep each section on pages of its template scope's height inside the margins after every change and when the template changes (DOCE-PAGINATION-7).
 
 Implementation: `src/components/document-editor/use-document-layout.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`

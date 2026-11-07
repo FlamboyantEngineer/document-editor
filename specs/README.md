@@ -13,6 +13,7 @@ Each file in this directory specifies one component, one family of components, o
 | [TEMPLATES.md](TEMPLATES.md)             | Template CSS values, inheritance, footnotes, captions and sections.     |
 | [PAGINATION.md](PAGINATION.md)           | Laying sections out on pages, and joining split blocks back.            |
 | [LAYOUT.md](LAYOUT.md)                   | The web layout, layout sections and their commands, and reading time.   |
+| [SECTIONS.md](SECTIONS.md)               | A document's sections in their template scopes, and their commands.     |
 | [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.             |
 | [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.             |
 | [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.            |
