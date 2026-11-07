@@ -96,3 +96,40 @@ The page height shall be a number, or a function of the blocks that would be on 
 
 Implementation: `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/page-layout.test.ts`
+
+## DOCE-PAGINATION-3 - Text splits
+
+### DOCE-PAGINATION-3.1 - Paragraphs
+
+A paragraph the editor measured (`TextMeasurement`: the rendered height and lines of its text between two content offsets) shall split after the last word whose text, with the paragraph's height beyond its text, fits (`splitParagraph`, `planParagraphSplit`). The second fragment shall start at the next word, start a page, take the rest of the height and keep its offset in the whole paragraph, so it splits again against the same measurement. Inline nodes that are not text shall stay with the word they touch (`contentText`).
+
+Implementation: `src/model/pagination/text-split.ts`, `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/text-split.test.ts`
+
+### DOCE-PAGINATION-3.2 - Two lines on each side
+
+Each fragment of a split paragraph shall keep at least `MINIMUM_SPLIT_LINES` (two) rendered lines; a split that would leave the second fragment fewer than its minimum shall move back a line when the first keeps enough, and otherwise the paragraph shall not split there.
+
+Implementation: `src/model/pagination/text-split.ts`
+Verification: `src/model/pagination/text-split.test.ts`
+
+### DOCE-PAGINATION-3.3 - Code
+
+A measured code block shall split at the last line break whose lines fit with the block's height beyond its text, which each fragment repeats (`splitCode`, `planCodeSplit`). Neither fragment shall keep the line break, the second shall not be empty, and it shall be marked continued and number its lines on from the first.
+
+Implementation: `src/model/pagination/text-split.ts`
+Verification: `src/model/pagination/text-split.test.ts`
+
+### DOCE-PAGINATION-3.4 - Linked code
+
+Linked code shall split the same way by its code, its second fragment numbered on from its start line.
+
+Implementation: `src/model/pagination/text-split.ts`
+Verification: `src/model/pagination/text-split.test.ts`
+
+### DOCE-PAGINATION-3.5 - Laid out and joined back
+
+A measured paragraph laid out across pages shall split once per page, and its fragments shall join back into the whole paragraph (DOCE-PAGINATION-1.2).
+
+Implementation: `src/model/pagination/text-split.ts`, `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/text-split.test.ts`
