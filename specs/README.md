@@ -12,6 +12,7 @@ Each file in this directory specifies one component, one family of components, o
 | [NUMBERING.md](NUMBERING.md)             | Numbering formats, counter styles and caption placement.                |
 | [TEMPLATES.md](TEMPLATES.md)             | Template CSS values, inheritance, footnotes, captions and sections.     |
 | [PAGINATION.md](PAGINATION.md)           | Laying sections out on pages, and joining split blocks back.            |
+| [LAYOUT.md](LAYOUT.md)                   | The web layout, layout sections and their commands, and reading time.   |
 | `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.           |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.

@@ -219,3 +219,65 @@
   font-size: var(--doc-footnote-text-font-size, 10px);
   line-height: var(--doc-footnote-text-line-height, 1.4);
 }
+
+/*
+ * Web layout: the surface (`data-layout="web"`) shows each section as one page that fills its
+ * container and grows with its content, inset only by the template's margins.
+ */
+.de-document[data-layout='web'] .pm-section {
+  display: block;
+}
+
+.de-document[data-layout='web'] .pm-page {
+  width: auto;
+  height: auto;
+  box-shadow: none;
+}
+
+/* A document title shown above the content, outside it, in the template's title style. */
+.de-document-title {
+  margin: 0 0 4px;
+  color: var(--doc-title-color, inherit);
+  font-family: var(--doc-title-font-family, inherit);
+  font-size: var(--doc-title-font-size, 24px);
+  font-weight: var(--doc-title-font-weight, 700);
+}
+
+/*
+ * Layout sections: columns side by side at their preset's widths, equal for a preset the
+ * stylesheet does not know. While authoring (`data-mode="authoring"`) each column shows its box;
+ * otherwise the box is transparent, so switching modes moves nothing.
+ */
+.doc-layout-section {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+
+.doc-layout-section[data-layout-preset='third-two-thirds'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.doc-layout-section[data-layout-preset='two-thirds-third'] {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.doc-layout-column {
+  border: 1px dashed transparent;
+  border-radius: 4px;
+  padding: 5px;
+}
+
+.de-document[data-mode='authoring'] .doc-layout-column {
+  border-color: #94a3b8;
+}
+
+.doc-layout-column > :first-child {
+  margin-top: 0;
+}
+
+.doc-layout-column > :last-child {
+  margin-bottom: 0;
+}
