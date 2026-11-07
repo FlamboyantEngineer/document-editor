@@ -100,6 +100,13 @@ export {
   paragraphNumberingIndentationStyle,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
+export type { ChildLayout, ContainerMeasurement } from './pagination/container-split.js';
+export {
+  isContainerMeasurement,
+  splitBlockquote,
+  splitList,
+  splitListItem,
+} from './pagination/container-split.js';
 export type { FragmentRule, FragmentRules, JoinedFragment } from './pagination/fragments.js';
 export {
   continuesFragment,
@@ -112,6 +119,7 @@ export {
 export type {
   LayoutBlock,
   LayoutRule,
+  LayoutRuleOptions,
   LayoutRules,
   PageHeight,
   PageLayoutOptions,
@@ -119,6 +127,7 @@ export type {
   SplitContext,
 } from './pagination/page-layout.js';
 export {
+  createLayoutRules,
   headingLevel,
   LAYOUT_RULES,
   layoutNextPage,
@@ -126,6 +135,7 @@ export {
   PAGE_SAFETY_MARGIN_PX,
   stackedHeight,
 } from './pagination/page-layout.js';
+export { isHeaderRow, leadingHeaderRows, splitTableWith } from './pagination/table-split.js';
 export type {
   TextMeasure,
   TextMeasurement,
@@ -141,6 +151,7 @@ export {
   splitCode,
   splitLinkedCode,
   splitParagraph,
+  splitParagraphWith,
   splitTextNode,
 } from './pagination/text-split.js';
 export type {

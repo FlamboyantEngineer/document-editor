@@ -6,7 +6,7 @@ The editor lays each section out on pages. A block that does not fit where it fa
 
 ### DOCE-PAGINATION-1.1 - Fragment rules
 
-Each splittable node type shall have a fragment rule (`FRAGMENT_RULES`) naming the attribute values of a whole block; a node holding any other value shall be a fragment (`isFragment`). The rules shall cover paragraphs, code blocks, linked code, tables, bullet and ordered lists, list items and tables of contents.
+Each splittable node type shall have a fragment rule (`FRAGMENT_RULES`) naming the attribute values of a whole block; a node holding any other value shall be a fragment (`isFragment`). The rules shall cover paragraphs, code blocks, linked code, tables, quotes, bullet and ordered lists, list items and tables of contents.
 
 Implementation: `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -27,7 +27,7 @@ Verification: `src/model/pagination/fragments.test.ts`
 
 ### DOCE-PAGINATION-1.4 - Tables
 
-A table's fragments shall join their body rows in order under the first fragment's leading header rows, so header rows a continuation repeats appear once.
+A table's fragments shall join their rows in order, without the leading header rows a continuation repeats from the first fragment, so they appear once.
 
 Implementation: `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -133,3 +133,40 @@ A measured paragraph laid out across pages shall split once per page, and its fr
 
 Implementation: `src/model/pagination/text-split.ts`, `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/text-split.test.ts`
+
+## DOCE-PAGINATION-4 - Container and table splits
+
+### DOCE-PAGINATION-4.1 - Lists between items
+
+A list the editor measured (`ContainerMeasurement`: where each item sits, from the top of the fragment's first item) shall split before the first item that crosses the page's foot when that item cannot split (`splitList`). The second part shall take the rest of the height, start a page and keep its items' layouts; an ordered list's second part shall number on from the items before it.
+
+Implementation: `src/model/pagination/container-split.ts`, `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/container-split.test.ts`
+
+### DOCE-PAGINATION-4.2 - Through an item
+
+An item that crosses the page's foot shall split by its own children the same way (`splitListItem`), through a child that splits by its own rule, so a list splits inside a paragraph of an item or inside a nested list. A paragraph's second fragment inside an item shall keep at least three rendered lines (`splitParagraphWith`), and the item continuation shall be marked continued.
+
+Implementation: `src/model/pagination/container-split.ts`, `src/model/pagination/text-split.ts`
+Verification: `src/model/pagination/container-split.test.ts`
+
+### DOCE-PAGINATION-4.3 - Item continuations
+
+An item's second fragment that starts with a block other than a paragraph shall open with an empty paragraph and be marked continued. An item shall not split where either fragment would hold only that empty paragraph.
+
+Implementation: `src/model/pagination/container-split.ts`
+Verification: `src/model/pagination/container-split.test.ts`
+
+### DOCE-PAGINATION-4.4 - Quotes
+
+A measured quote shall split between or through its blocks as a list does (`splitBlockquote`), and its fragments shall join back (DOCE-PAGINATION-1.1).
+
+Implementation: `src/model/pagination/container-split.ts`, `src/model/pagination/fragments.ts`
+Verification: `src/model/pagination/container-split.test.ts`
+
+### DOCE-PAGINATION-4.5 - Tables
+
+A measured table shall split after its last body row that fits with its height beyond its rows (`splitTableWith`), never inside its leading header rows, and not when it has one body row. Its second part shall repeat the header rows when the template's `styles.table.repeatHeader` asks for it (`createLayoutRules({ repeatTableHeader })`, by default it does). Joining shall drop only header rows that repeat the first part's.
+
+Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`
+Verification: `src/model/pagination/container-split.test.ts`

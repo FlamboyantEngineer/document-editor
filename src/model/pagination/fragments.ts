@@ -137,7 +137,7 @@ function joinListItems(previous: ProseMirrorNode, next: ProseMirrorNode, rules: 
   return { content: joinChildren(children(previous), nextChildren, rules) };
 }
 
-function joinLists(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
+function joinContainers(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
   return { content: joinChildren(children(previous), children(next), rules) };
 }
 
@@ -152,12 +152,13 @@ function splitHeaderRows(table: ProseMirrorNode) {
   return { header: rows.slice(0, headerCount), body: rows.slice(headerCount) };
 }
 
-// A table's continuation repeats its header rows; the whole table keeps them once.
+// A table's continuation may repeat its header rows; the whole table keeps them once.
 function joinTables(previous: ProseMirrorNode, next: ProseMirrorNode) {
-  const left = splitHeaderRows(previous);
-  const right = splitHeaderRows(next);
-  const header = left.header.length ? left.header : right.header;
-  return { content: [...header, ...left.body, ...right.body] };
+  const { header } = splitHeaderRows(previous);
+  const rows = children(next);
+  const repeats =
+    header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
+  return { content: [...children(previous), ...(repeats ? rows.slice(header.length) : rows)] };
 }
 
 // A code block splits at a line break and drops it, so joining puts it back.
@@ -186,8 +187,9 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   },
   linked_code_block: { whole: { ...PART, codeBlockContinued: false }, join: joinLinkedCode },
   table: { whole: PART, join: joinTables },
-  bullet_list: { whole: PART, join: joinLists },
-  ordered_list: { whole: PART, join: joinLists },
+  blockquote: { whole: PART, join: joinContainers },
+  bullet_list: { whole: PART, join: joinContainers },
+  ordered_list: { whole: PART, join: joinContainers },
   list_item: { whole: { ...PART, orphanedListContinuation: false }, join: joinListItems },
   toc_block: {
     whole: { entryStart: 0, entryEnd: null, showTitle: true },

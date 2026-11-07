@@ -3,6 +3,8 @@
 // its type's split, which the editor provides because splitting measures text.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { splitBlockquote, splitList, splitListItem } from './container-split.js';
+import { splitTableWith } from './table-split.js';
 import { splitCode, splitParagraph } from './text-split.js';
 
 /** A block with the measurements its page layout needs, in CSS pixels. */
@@ -67,25 +69,41 @@ export const PAGE_SAFETY_MARGIN_PX = 2;
 
 const KEEPS_WITH_HEADING: LayoutRule = { keepsWithHeading: true };
 const CODE: LayoutRule = { keepsWithHeading: true, split: splitCode };
+const LIST: LayoutRule = { keepsWithHeading: true, split: splitList };
+
+/** What the layout rules follow from a document's template. */
+export interface LayoutRuleOptions {
+  /** Whether a split table's later parts repeat its header rows; by default they do. */
+  repeatTableHeader?: boolean | undefined;
+}
 
 /**
- * The layout rules of the document schema's block types. A text block splits when the editor
- * measured its text (`TextMeasurement`).
+ * The layout rules of the document schema's block types. A block splits when the editor measured
+ * it: a text block's text (`TextMeasurement`), or where a container's children sit
+ * (`ContainerMeasurement`).
  */
-export const LAYOUT_RULES: LayoutRules = Object.freeze({
-  paragraph: { keepsWithHeading: true, split: splitParagraph },
-  heading: KEEPS_WITH_HEADING,
-  blockquote: KEEPS_WITH_HEADING,
-  bullet_list: KEEPS_WITH_HEADING,
-  ordered_list: KEEPS_WITH_HEADING,
-  figure: KEEPS_WITH_HEADING,
-  math_display: KEEPS_WITH_HEADING,
-  table: KEEPS_WITH_HEADING,
-  code_block: CODE,
-  linked_code_block: CODE,
-  toc_block: {},
-  page_break: { endsPage: true },
-});
+export function createLayoutRules({
+  repeatTableHeader = true,
+}: LayoutRuleOptions = {}): LayoutRules {
+  return Object.freeze({
+    paragraph: { keepsWithHeading: true, split: splitParagraph },
+    heading: KEEPS_WITH_HEADING,
+    blockquote: { keepsWithHeading: true, split: splitBlockquote },
+    bullet_list: LIST,
+    ordered_list: LIST,
+    list_item: { split: splitListItem },
+    figure: KEEPS_WITH_HEADING,
+    math_display: KEEPS_WITH_HEADING,
+    table: { keepsWithHeading: true, split: splitTableWith(repeatTableHeader) },
+    code_block: CODE,
+    linked_code_block: CODE,
+    toc_block: {},
+    page_break: { endsPage: true },
+  });
+}
+
+/** The layout rules with the default options. */
+export const LAYOUT_RULES: LayoutRules = createLayoutRules();
 
 // Measurements are compared at a thousandth of a pixel, so sums of fractional heights stay stable.
 function snap(value: number): number {
