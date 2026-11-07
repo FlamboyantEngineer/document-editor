@@ -20,7 +20,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.3 - Revisions guard saves
 
-A save shall name the revision its content was edited from. The document store shall refuse a save whose base revision is not the stored revision with a `conflict` error, and return the new revision when it accepts one.
+A stored document or template shall come with its saved state: `revision`, the host's own identifier for it, such as a UUID, which the editor only compares for equality, and `sequence`, an integer that orders saved states, by which alone the editor sorts them. Documents and templates shall be stored in the library's stored formats (DOCE-FORMAT). A save shall name the revision its content was edited from. The document store shall refuse a save whose base revision is not the stored revision with a `conflict` error, and return the new saved state when it accepts one.
 
 Implementation: `src/host/adapters.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`

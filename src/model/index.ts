@@ -1,6 +1,44 @@
 // The document model: the schema and the helpers that read and write stored documents. It reads no
 // DOM when it loads, so a server imports it to read, write and check the documents the editor makes.
 
+export type {
+  DocumentFile,
+  StoredContent,
+  StoredMark,
+  StoredNode,
+  StoredSection,
+  StoredTypeMapping,
+} from './format/document-format.js';
+export {
+  DOCUMENT_FORMAT_VERSION,
+  STORED_MARK_TYPES,
+  STORED_NODE_TYPES,
+} from './format/document-format.js';
+export {
+  type DocumentFormatError,
+  isDocumentFormatError,
+  readDocumentFile,
+  writeDocumentFile,
+} from './format/document-format-convert.js';
+export type * from './format/template-format.js';
+export { TEMPLATE_FORMAT_VERSION } from './format/template-format.js';
+export type { TemplateResolutionOptions } from './format/template-format-resolve.js';
+export {
+  hasTemplateParentCycle,
+  hasTemplateParentCycleAsync,
+  mergeTemplateFiles,
+  resolveSectionRegion,
+  resolveTemplateFile,
+  resolveTemplateFileAsync,
+} from './format/template-format-resolve.js';
+export type { SettingShape } from './format/template-format-shape.js';
+export { TEMPLATE_SHAPE } from './format/template-format-shape.js';
+export type { TemplateValidationOptions } from './format/template-format-validate.js';
+export {
+  isTemplateColor,
+  isTemplateLength,
+  validateTemplateFile,
+} from './format/template-format-validate.js';
 export type { AbbreviationReferenceAttrs, GlossaryEntry } from './glossary.js';
 export {
   ABBREVIATION_CACHE_REFRESH_META,

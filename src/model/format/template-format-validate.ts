@@ -1,0 +1,203 @@
+// Whether a stored template is valid: every setting is one the format knows, with a value of its
+// kind, and the template's identity, references and sections are consistent. A template's content,
+// such as a header, is checked against the schema when one is given.
+
+import type { Schema } from 'prosemirror-model';
+import { referenceFormatError, referenceFormatKeys } from '../reference-format.js';
+import { DOCUMENT_FORMAT_VERSION } from './document-format.js';
+import { readDocumentFile } from './document-format-convert.js';
+import { TEMPLATE_FORMAT_VERSION } from './template-format.js';
+import { type SettingShape, TEMPLATE_SHAPE } from './template-format-shape.js';
+
+type LooseRecord = Record<string, unknown>;
+
+const LENGTH = /^-?\d+(?:\.\d+)?(?:px|pt|mm|cm|in|em|rem|%)$/;
+const COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const TEMPLATE_ID = /^[A-Za-z0-9_-]+$/;
+const SECTION_NAME = /^[a-z0-9_]+$/;
+const NAME_MAX_LENGTH = 120;
+// Control characters, line and paragraph separators, and bidi and zero-width formatting.
+const NAME_DISALLOWED =
+  // eslint-disable-next-line no-control-regex -- matches control characters on purpose
+  /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028\u2029\u202a-\u202e\u2060\ufeff]/;
+
+/** What a template is validated against. */
+export interface TemplateValidationOptions {
+  /** The host's own external reference types (DOCE-SCHEMA-4.1). */
+  referenceTypes?: readonly string[] | undefined;
+  /** The schema a template's content is read with; without one, content is not checked. */
+  schema?: Schema | undefined;
+}
+
+interface Walk {
+  path: string;
+  errors: string[];
+  schema: Schema | undefined;
+}
+
+const at = (walk: Walk, path: string): Walk => ({ ...walk, path });
+
+function isRecord(value: unknown): value is LooseRecord {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** Whether a value is a CSS length with its unit. */
+export function isTemplateLength(value: unknown): boolean {
+  return typeof value === 'string' && LENGTH.test(value);
+}
+
+/** Whether a value is a hex color. */
+export function isTemplateColor(value: unknown): boolean {
+  return typeof value === 'string' && COLOR.test(value);
+}
+
+const LEAF_CHECKS: Readonly<Record<string, [(value: unknown) => boolean, string]>> = {
+  length: [isTemplateLength, 'must be a length with a unit, such as 12pt'],
+  color: [isTemplateColor, 'must be a hex color'],
+  text: [(value) => typeof value === 'string', 'must be text'],
+  boolean: [(value) => typeof value === 'boolean', 'must be true or false'],
+  lineHeight: [
+    (value) => typeof value === 'number' && Number.isFinite(value) && value > 0,
+    'must be a positive number',
+  ],
+  weight: [
+    (value) => Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 1000,
+    'must be a font weight from 1 to 1000',
+  ],
+  any: [() => true, ''],
+};
+
+function checkContent(value: unknown, walk: Walk): void {
+  const { path } = walk;
+  if (!Array.isArray(value)) {
+    walk.errors.push(`${path} must be a list of content`);
+    return;
+  }
+  if (!walk.schema) return;
+  try {
+    readDocumentFile(
+      { formatVersion: DOCUMENT_FORMAT_VERSION, sections: [{ content: value }] },
+      walk.schema,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'is not valid content';
+    walk.errors.push(`${path}: ${message.replace(/^sections\[0\]\.content/, '')}`);
+  }
+}
+
+function checkObject(fields: Readonly<Record<string, SettingShape>>, value: unknown, walk: Walk) {
+  const { path } = walk;
+  if (!isRecord(value)) {
+    walk.errors.push(`${path} must be an object`);
+    return;
+  }
+  for (const [key, entry] of Object.entries(value)) {
+    const shape = fields[key];
+    if (shape) checkValue(shape, entry, at(walk, `${path}.${key}`));
+    else walk.errors.push(`${path}.${key} is not a template setting`);
+  }
+}
+
+function checkValue(shape: SettingShape, value: unknown, walk: Walk): void {
+  if (value === null || value === undefined) return;
+  const { path } = walk;
+  if (typeof shape === 'string') {
+    if (shape === 'content') {
+      checkContent(value, walk);
+      return;
+    }
+    const [check, message] = LEAF_CHECKS[shape] ?? [() => true, ''];
+    if (!check(value)) walk.errors.push(`${path} ${message}`);
+    return;
+  }
+  if ('oneOf' in shape) {
+    if (!shape.oneOf.includes(value as string)) {
+      walk.errors.push(`${path} must be one of ${shape.oneOf.join(', ')}`);
+    }
+  } else if ('object' in shape) {
+    checkObject(shape.object, value, walk);
+  } else if ('list' in shape) {
+    if (!Array.isArray(value)) walk.errors.push(`${path} must be a list`);
+    else
+      value.forEach((entry, index) => {
+        checkValue(shape.list, entry, at(walk, `${path}[${String(index)}]`));
+      });
+  } else if (!isRecord(value)) {
+    walk.errors.push(`${path} must be an object`);
+  } else {
+    for (const [key, entry] of Object.entries(value))
+      checkValue(shape.record, entry, at(walk, `${path}.${key}`));
+  }
+}
+
+function identityErrors(template: LooseRecord): string[] {
+  const errors: string[] = [];
+  if (typeof template.id !== 'string' || !TEMPLATE_ID.test(template.id)) {
+    errors.push('template.id must use letters, digits, underscores or hyphens');
+  }
+  const name = template.name;
+  if (typeof name === 'string' && name.length > NAME_MAX_LENGTH) {
+    errors.push(`template.name must be at most ${String(NAME_MAX_LENGTH)} characters`);
+  } else if (typeof name === 'string' && NAME_DISALLOWED.test(name)) {
+    errors.push('template.name must not contain control or formatting characters');
+  }
+  if (typeof template.parent === 'string' && template.parent === template.id) {
+    errors.push('template.parent must not be the template itself');
+  }
+  return errors;
+}
+
+function referenceErrors(template: LooseRecord, referenceTypes: readonly string[] = []): string[] {
+  const references = isRecord(template.references) ? template.references : {};
+  const keys = new Set(referenceFormatKeys(referenceTypes));
+  const errors: string[] = [];
+  for (const group of ['formats', 'links']) {
+    const settings = isRecord(references[group]) ? (references[group] as LooseRecord) : {};
+    for (const [key, value] of Object.entries(settings)) {
+      if (!keys.has(key))
+        errors.push(`template.references.${group}.${key} is not a reference type`);
+      const error =
+        group === 'formats' && typeof value === 'string' ? referenceFormatError(value) : null;
+      if (error) errors.push(`template.references.formats.${key}: ${error}`);
+    }
+  }
+  return errors;
+}
+
+function sectionErrors(template: LooseRecord): string[] {
+  const sections = Array.isArray(template.sections) ? template.sections : [];
+  const names = new Set<string>();
+  const errors: string[] = [];
+  sections.forEach((section: unknown, index) => {
+    const at = `template.sections[${String(index)}]`;
+    const name = isRecord(section) ? section.name : undefined;
+    if (typeof name !== 'string' || !SECTION_NAME.test(name)) {
+      errors.push(`${at}.name must use lower-case letters, digits or underscores`);
+    } else if (names.has(name)) {
+      errors.push(`${at}.name is used by another section`);
+    } else {
+      names.add(name);
+    }
+  });
+  return errors;
+}
+
+/** The errors of a stored template, each naming its setting; none when it is valid. */
+export function validateTemplateFile(
+  template: unknown,
+  options: TemplateValidationOptions = {},
+): string[] {
+  if (!isRecord(template)) return ['template must be an object'];
+  if (template.formatVersion !== TEMPLATE_FORMAT_VERSION) {
+    return [`template.formatVersion must be ${String(TEMPLATE_FORMAT_VERSION)}`];
+  }
+  const walk: Walk = { path: 'template', errors: [], schema: options.schema };
+  const { formatVersion: _version, ...settings } = template;
+  checkValue(TEMPLATE_SHAPE, settings, walk);
+  return [
+    ...identityErrors(template),
+    ...walk.errors,
+    ...referenceErrors(template, options.referenceTypes),
+    ...sectionErrors(template),
+  ];
+}

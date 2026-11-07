@@ -1,3 +1,5 @@
+import type { DocumentFile } from '../model/format/document-format.js';
+import type { TemplateFile } from '../model/format/template-format.js';
 import type { EditorCapabilities } from './capabilities.js';
 
 /** A failure the host reports for a request it could not complete. */
@@ -32,35 +34,36 @@ export interface PermissionsAdapter {
   capabilities(documentId: string): Promise<EditorCapabilities>;
 }
 
-/** A stored document: its serialized content and the revision it was read at. */
-export interface StoredDocument {
-  id: string;
-  /** Monotonic revision the host assigns; saves name the revision they build on. */
+/**
+ * A saved state of a stored item. The revision is the host's own identifier, such as a UUID, which
+ * the editor only compares; the sequence orders saved states, and the editor sorts by it alone.
+ */
+export interface SavedState {
   revision: string;
-  /** The serialized document, exactly as the editor produced it. */
-  content: unknown;
-  /** The template the document uses, when it uses one. */
-  templateId?: string | undefined;
+  sequence: number;
+}
+
+/** A stored document: its content, in the stored format, and the saved state it was read at. */
+export interface StoredDocument extends SavedState {
+  id: string;
+  content: DocumentFile;
 }
 
 export interface DocumentSave {
-  content: unknown;
-  /** The revision this content was edited from. A newer stored revision fails as `conflict`. */
+  content: DocumentFile;
+  /** The revision this content was edited from. Any other stored revision fails as `conflict`. */
   baseRevision: string;
 }
 
 export interface DocumentStoreAdapter {
   load(documentId: string, signal?: AbortSignal): Promise<HostResult<StoredDocument>>;
-  /** Saves new content and returns the new revision. */
-  save(documentId: string, save: DocumentSave): Promise<HostResult<{ revision: string }>>;
+  /** Saves new content and returns the new saved state. */
+  save(documentId: string, save: DocumentSave): Promise<HostResult<SavedState>>;
 }
 
-/** A stored template payload, before its inheritance chain is resolved. */
-export interface StoredTemplate {
-  id: string;
-  /** The template it inherits from, when it has one. */
-  parentId?: string | undefined;
-  payload: unknown;
+/** A stored template, in the stored format, before the chain it inherits is resolved. */
+export interface StoredTemplate extends SavedState {
+  template: TemplateFile;
 }
 
 export interface TemplateSourceAdapter {
