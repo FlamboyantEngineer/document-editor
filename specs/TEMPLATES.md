@@ -79,3 +79,47 @@ Verification: `src/model/templates/template-sections.test.ts`
 
 Implementation: `src/model/templates/template-sections.ts`
 Verification: `src/model/templates/template-sections.test.ts`
+
+## DOCE-TEMPLATES-5 - Template properties
+
+### DOCE-TEMPLATES-5.1 - Page metrics
+
+`templatePageMetrics(template, section)` shall give a scope's page width, height and margins in CSS pixels, with width and height swapped for a landscape page. A section's page settings shall apply over the template's, and an unknown page size shall measure nothing.
+
+Implementation: `src/model/templates/template-properties.ts`
+Verification: `src/model/templates/template-properties.test.ts`
+
+### DOCE-TEMPLATES-5.2 - Style properties
+
+`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table and code block settings, its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies.
+
+Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`
+Verification: `src/model/templates/template-properties.test.ts`
+
+### DOCE-TEMPLATES-5.3 - Numbering properties
+
+`templateProperties` shall write each heading level's numbering as CSS counter content with an enabled flag, each figure, table, code block and equation number as counter content, and, for each heading level that restarts object numbers, the counters it sets (`--doc-h<level>-counter-set-extra`). An equation's number shall sit inside its wrapper once.
+
+Implementation: `src/model/templates/template-properties.ts`
+Verification: `src/model/templates/template-properties.test.ts`
+
+### DOCE-TEMPLATES-5.4 - Section scopes
+
+`templateProperties` with a section shall apply the section's styles, page and footnote settings over the template's, so a host sets them on that section.
+
+Implementation: `src/model/templates/template-properties.ts`
+Verification: `src/model/templates/template-properties.test.ts`
+
+### DOCE-TEMPLATES-5.5 - Styled pages
+
+A document whose root carries a template's properties, styled by the reference stylesheet, shall show pages of the template's size whose content fits inside its margins, with headings numbered in the template's format.
+
+Implementation: `labs/reference/document.css`, `labs/src/templates.lab.ts`
+Verification: `e2e/templates.spec.ts`
+
+### DOCE-TEMPLATES-5.6 - Switching templates
+
+Setting another template's properties and refreshing the pagination with `remeasure` shall restyle the document and lay it out again on pages of the new template's size.
+
+Implementation: `labs/src/templates.lab.ts`
+Verification: `e2e/templates.spec.ts`

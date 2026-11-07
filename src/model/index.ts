@@ -262,6 +262,17 @@ export {
   PAGE_SIZE_DIMENSIONS,
   resolveFontStack,
 } from './templates/template-css-values.js';
+export type {
+  CustomProperties,
+  FontStacks,
+  PageMetrics,
+  TemplatePropertiesOptions,
+} from './templates/template-properties.js';
+export {
+  templatePageMetrics,
+  templateProperties,
+  textStyleProperties,
+} from './templates/template-properties.js';
 export type { ResolvedFootnoteSettings } from './templates/template-scopes.js';
 export {
   buildCaptionCssVarEntries,
