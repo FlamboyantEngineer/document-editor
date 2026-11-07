@@ -106,11 +106,16 @@ describe('split block fragments', () => {
     ]);
   });
 
-  it('DOCE-PAGINATION-1.7 joins a host type by the rule the host adds', () => {
-    const rules = { ...FRAGMENT_RULES, blockquote: { whole: { splitPartIndex: null } } };
+  it('DOCE-PAGINATION-1.7 joins a type only by the rule it has', () => {
+    const { blockquote: rule, ...withoutQuotes } = FRAGMENT_RULES;
+    if (!rule) throw new Error('blockquote rule');
     const quote = (index: number, text: string) =>
       node('blockquote', { dataId: 'q1', splitPartIndex: index }, [paragraph(null, text)]);
-    expect(joinFragments([quote(0, 'A'), quote(1, 'B')])).toHaveLength(2);
-    expect(joinFragments([quote(0, 'A'), quote(1, 'B')], rules)).toHaveLength(1);
+    expect(joinFragments([quote(0, 'A'), quote(1, 'B')], withoutQuotes)).toHaveLength(2);
+    const [joined] = joinFragments([quote(0, 'A'), quote(1, 'B')], {
+      ...withoutQuotes,
+      blockquote: rule,
+    });
+    expect(joined?.childCount).toBe(2);
   });
 });

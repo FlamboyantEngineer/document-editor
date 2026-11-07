@@ -245,17 +245,23 @@ function splitBlock(
   };
 }
 
-/** Splits a measured paragraph to fit a height. */
-export function splitParagraph(block: LayoutBlock, fitting: number): SplitBlock | null {
-  if (!isTextMeasurement(block.measurement)) return null;
-  const plan = planParagraphSplit({
-    text: contentText(block.node),
-    height: block.height,
-    fitting,
-    measurement: block.measurement,
-  });
-  return plan ? splitBlock(block, plan, splitTextNode(block.node, plan)) : null;
+/** A paragraph split whose second fragment keeps at least the given rendered lines. */
+export function splitParagraphWith(minimumTrailingLines: number) {
+  return (block: LayoutBlock, fitting: number): SplitBlock | null => {
+    if (!isTextMeasurement(block.measurement)) return null;
+    const plan = planParagraphSplit({
+      text: contentText(block.node),
+      height: block.height,
+      fitting,
+      measurement: block.measurement,
+      minimumTrailingLines,
+    });
+    return plan ? splitBlock(block, plan, splitTextNode(block.node, plan)) : null;
+  };
 }
+
+/** Splits a measured paragraph to fit a height. */
+export const splitParagraph = splitParagraphWith(MINIMUM_SPLIT_LINES);
 
 /** Splits a measured code block or linked code to fit a height. */
 export function splitCode(block: LayoutBlock, fitting: number): SplitBlock | null {
