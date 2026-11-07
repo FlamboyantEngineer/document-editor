@@ -1,10 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { DocumentFile } from '../model/index.js';
 import { FULL_CAPABILITIES } from './capabilities.js';
 import { createMemoryHost } from './memory-host.js';
 
-const CONTENT = { type: 'doc', content: [{ type: 'paragraph' }] };
+const CONTENT: DocumentFile = {
+  formatVersion: 1,
+  sections: [{ content: [{ type: 'paragraph' }] }],
+};
 
 describe('createMemoryHost', () => {
   it('DOCE-HOST-1.1 DOCE-HOST-3.1 is a complete host with a default reader', async () => {
@@ -23,11 +27,13 @@ describe('createMemoryHost', () => {
 
   it('DOCE-HOST-1.3 accepts a save on the stored revision and refuses a stale one', async () => {
     const { documents } = createMemoryHost({ documents: [{ id: 'a', content: CONTENT }] });
-    const first = await documents.save('a', { content: CONTENT, baseRevision: '1' });
-    expect(first).toEqual({ ok: true, value: { revision: '2' } });
-    const stale = await documents.save('a', { content: CONTENT, baseRevision: '1' });
+    const first = await documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
+    expect(first).toEqual({ ok: true, value: { revision: 'rev-2', sequence: 2 } });
+    const stale = await documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
     expect(stale).toEqual({ ok: false, error: { kind: 'conflict' } });
-    await expect(documents.load('a')).resolves.toMatchObject({ value: { revision: '2' } });
+    await expect(documents.load('a')).resolves.toMatchObject({
+      value: { revision: 'rev-2', sequence: 2 },
+    });
   });
 
   it('DOCE-HOST-3.2 returns copies and shares nothing between hosts', async () => {
@@ -35,21 +41,24 @@ describe('createMemoryHost', () => {
     const host = createMemoryHost(options);
     const loaded = await host.documents.load('a');
     if (!loaded.ok) throw new Error('The document should load.');
-    (loaded.value.content as { type: string }).type = 'changed';
+    loaded.value.content.sections = [];
     await expect(host.documents.load('a')).resolves.toMatchObject({ value: { content: CONTENT } });
 
-    await host.documents.save('a', { content: { type: 'doc' }, baseRevision: '1' });
+    await host.documents.save('a', {
+      content: { formatVersion: 1, sections: [] },
+      baseRevision: 'rev-1',
+    });
     const other = await createMemoryHost(options).documents.load('a');
-    expect(other).toMatchObject({ value: { revision: '1', content: CONTENT } });
+    expect(other).toMatchObject({ value: { revision: 'rev-1', content: CONTENT } });
   });
 
   it('DOCE-HOST-3.2 returns template copies', async () => {
-    const host = createMemoryHost({ templates: [{ id: 't', payload: { name: 'Report' } }] });
+    const host = createMemoryHost({ templates: [{ formatVersion: 1, id: 't', name: 'Report' }] });
     const first = await host.templates?.load('t');
     if (!first?.ok) throw new Error('The template should load.');
-    (first.value.payload as { name: string }).name = 'Changed';
+    first.value.template.name = 'Changed';
     await expect(host.templates?.load('t')).resolves.toMatchObject({
-      value: { payload: { name: 'Report' } },
+      value: { template: { name: 'Report' }, revision: 'rev-1', sequence: 1 },
     });
   });
 

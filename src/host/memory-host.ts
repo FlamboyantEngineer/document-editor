@@ -1,3 +1,4 @@
+import type { TemplateFile } from '../model/format/template-format.js';
 import type {
   AssetAdapter,
   DocumentStoreAdapter,
@@ -5,6 +6,7 @@ import type {
   EditorPerson,
   HostResult,
   IdentityAdapter,
+  SavedState,
   StoredAsset,
   StoredDocument,
   StoredTemplate,
@@ -19,8 +21,8 @@ export interface MemoryHostOptions {
   people?: readonly EditorPerson[] | undefined;
   /** The reader's capabilities on every document. Defaults to all of them. */
   capabilities?: EditorCapabilities | undefined;
-  documents?: readonly Omit<StoredDocument, 'revision'>[] | undefined;
-  templates?: readonly StoredTemplate[] | undefined;
+  documents?: readonly Pick<StoredDocument, 'id' | 'content'>[] | undefined;
+  templates?: readonly TemplateFile[] | undefined;
 }
 
 const DEFAULT_PERSON: EditorPerson = { id: 'reader', name: 'Reader' };
@@ -45,9 +47,16 @@ function createMemoryIdentity(person: EditorPerson, people: readonly EditorPerso
   return identity;
 }
 
+// The in-memory host's revisions are opaque text, as a host's may be; the sequence orders them.
+function savedState(sequence: number): SavedState {
+  return { revision: `rev-${String(sequence)}`, sequence };
+}
+
 function createMemoryDocuments(initial: MemoryHostOptions['documents']): DocumentStoreAdapter {
   const stored = new Map<string, StoredDocument>();
-  for (const document of initial ?? []) stored.set(document.id, { ...document, revision: '1' });
+  for (const document of initial ?? []) {
+    stored.set(document.id, { ...document, ...savedState(1) });
+  }
   return {
     load: (documentId) => {
       const document = stored.get(documentId);
@@ -61,15 +70,17 @@ function createMemoryDocuments(initial: MemoryHostOptions['documents']): Documen
       if (current.revision !== save.baseRevision) {
         return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
       }
-      const revision = String(Number(current.revision) + 1);
-      stored.set(documentId, { ...current, content: structuredClone(save.content), revision });
-      return Promise.resolve({ ok: true, value: { revision } });
+      const state = savedState(current.sequence + 1);
+      stored.set(documentId, { ...current, content: structuredClone(save.content), ...state });
+      return Promise.resolve({ ok: true, value: state });
     },
   };
 }
 
-function createMemoryTemplates(templates: readonly StoredTemplate[]): TemplateSourceAdapter {
-  const byId = new Map(templates.map((template) => [template.id, template]));
+function createMemoryTemplates(templates: readonly TemplateFile[]): TemplateSourceAdapter {
+  const byId = new Map<string, StoredTemplate>(
+    templates.map((template) => [template.id, { template, ...savedState(1) }]),
+  );
   return {
     load: (templateId) => {
       const template = byId.get(templateId);
