@@ -13,14 +13,10 @@ describe('paragraph numbering', () => {
   it('DOCE-NUMBERING-3.1 resolves a paragraph level format and indentation', () => {
     const config = {
       styleConfig: parseNumberingStyle('1.1.1'),
-      numberingLevels: [
-        { numberingStyle: 'a)' },
-        { numberingStyle: 'i.', indentation: 12, numberIndent: '5mm', textIndent: 'wide' },
-      ],
+      levels: [{ format: 'a)' }, { format: 'i.', numberIndent: '5mm', textIndent: null }],
     };
     expect(resolveParagraphLevelStyle(config, 2)).toEqual({
       styleConfig: parseNumberingStyle('i.'),
-      indentation: 12,
       numberIndent: '5mm',
       textIndent: undefined,
     });
@@ -61,11 +57,11 @@ describe('paragraph numbering', () => {
     );
     expect(
       paragraphNumberingIndentationStyle(
-        { styleConfig: null, indentation: 0, numberIndent: 4, textIndent: '2em' },
+        { styleConfig: null, numberIndent: '4px', textIndent: '2em' },
         3,
       ),
     ).toBe(
-      '--doc-paragraph-indentation: 0px; --doc-paragraph-number-indent: 4px; --doc-paragraph-text-indent: 2em;',
+      '--doc-paragraph-indentation: 40pt; --doc-paragraph-number-indent: 4px; --doc-paragraph-text-indent: 2em;',
     );
   });
 });

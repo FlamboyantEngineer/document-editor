@@ -1,7 +1,5 @@
-// The CSS values a template's stored settings become: page sizes and margins, sizes and texts, and
-// font stacks. The editor and a host's export both read them, so a printed page matches the screen.
-
-import { storedText } from '../stored-text.js';
+// The CSS values a template's settings become: page sizes, lengths in pixels and safe font stacks.
+// The editor and a host's export both read them, so a printed page matches the screen.
 
 /** CSS pixels per millimetre. */
 export const MM_TO_CSS_PX = 96 / 25.4;
@@ -32,65 +30,24 @@ export const PAGE_SIZE_DIMENSIONS: Readonly<Record<string, { width: string; heig
     'US Government Legal': { width: '8.5in', height: '13in' },
   });
 
-/** The unit a bare margin number is in: millimetres for an ISO page size, inches otherwise. */
-export function resolveTemplateMarginUnit(pageSize: unknown): string {
-  return /^A\d+$/.test((storedText(pageSize) ?? '').trim().toUpperCase()) ? 'mm' : 'in';
-}
-
-/** A non-negative number of millimetres or inches in CSS pixels. */
-export function formatNumericMarginToCssPx(value: number, numericUnit = 'mm'): string {
-  const multiplier = numericUnit.trim().toLowerCase() === 'in' ? 96 : MM_TO_CSS_PX;
-  return `${String(Math.max(0, value) * multiplier)}px`;
-}
-
-/** A margin in CSS pixels, from a bare number in the given unit or a length in mm, in, pt or px. */
-export function parseMarginToCssPx(value: unknown, numericUnit = 'mm'): string | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return formatNumericMarginToCssPx(value, numericUnit);
-  }
-  const raw = (storedText(value) ?? '').trim();
-  const parsed = Number.parseFloat(raw);
-  if (!raw || !Number.isFinite(parsed)) return null;
-  if (raw.endsWith('mm')) return formatNumericMarginToCssPx(parsed, 'mm');
-  if (raw.endsWith('in')) return formatNumericMarginToCssPx(parsed, 'in');
-  if (raw.endsWith('pt')) return `${String(Math.max(0, parsed) * (96 / 72))}px`;
-  return `${String(Math.max(0, parsed))}px`;
-}
-
-/** A CSS size: a value with its unit as written, a bare number in pixels, or the fallback. */
-export function toTemplateCssSizeValue(value: unknown, fallback = '0px'): string {
-  const raw = (storedText(value) ?? '').trim();
-  if (!raw) return fallback;
-  return /[a-z%]+$/i.test(raw) ? raw : `${raw}px`;
-}
-
-/** A trimmed CSS text value, or the fallback when it is empty. */
-export function toTemplateCssTextValue(value: unknown, fallback = ''): string {
-  const raw = storedText(value);
-  if (raw === null) return fallback;
-  return raw.trim() || fallback;
-}
-
-/** Text to show as written, or the fallback when it is blank. */
-export function toTemplateDisplayText(value: unknown, fallback = ''): string {
-  const raw = storedText(value);
-  return raw?.trim() ? raw : fallback;
-}
+const PX_PER_UNIT: Readonly<Record<string, number>> = Object.freeze({
+  px: 1,
+  pt: 96 / 72,
+  in: 96,
+  mm: MM_TO_CSS_PX,
+  cm: MM_TO_CSS_PX * 10,
+});
 
 /**
- * A text style's line height: `lineHeight`, else `lineSpacing`. An unset line height is saved as
- * an empty string; like an absent value it falls back to `lineSpacing`, rather than setting every
- * line to height 0.
+ * An absolute length in non-negative CSS pixels, such as a margin; null for a relative length,
+ * such as `2em`, or anything that is not a length.
  */
-export function resolveTemplateStyleLineHeight(
-  style: { lineHeight?: unknown; lineSpacing?: unknown } | null | undefined,
-): unknown {
-  for (const value of [style?.lineHeight, style?.lineSpacing]) {
-    if (value === null || value === undefined) continue;
-    if (typeof value === 'string' && !value.trim()) continue;
-    return value;
-  }
-  return undefined;
+export function lengthToCssPx(length: unknown): string | null {
+  if (typeof length !== 'string') return null;
+  const match = /^(-?\d+(?:\.\d+)?)(px|pt|in|mm|cm)$/.exec(length.trim());
+  const unit = match?.[2];
+  if (!match || !unit) return null;
+  return `${String(Math.max(0, Number(match[1]) * (PX_PER_UNIT[unit] ?? 1)))}px`;
 }
 
 const GENERIC_FONT_FAMILIES = new Set([
@@ -131,17 +88,17 @@ function sanitizeFontFamily(token: string): string {
 }
 
 /**
- * A template font as a safe CSS font stack. A family the host serves itself is written as the
- * stack it names in `fontStacks`, such as the family with its fallbacks.
+ * A template font as a safe CSS font stack, or the fallback when it names none. A family the host
+ * serves itself is written as the stack it names in `fontStacks`, such as the family with its
+ * fallbacks.
  */
-export function resolveTemplateFontFamilyCssText(
-  value: unknown,
+export function resolveFontStack(
+  font: string | null | undefined,
   fallback = '',
   fontStacks: Readonly<Record<string, string>> = {},
 ): string {
-  const raw = toTemplateCssTextValue(value, fallback);
+  const raw = font?.trim() || fallback;
   const hosted = Object.hasOwn(fontStacks, raw) ? fontStacks[raw] : undefined;
   if (hosted) return hosted;
-  const sanitized = raw.split(',').map(sanitizeFontFamily).filter(Boolean).join(', ');
-  return sanitized || toTemplateCssTextValue(fallback, '');
+  return raw.split(',').map(sanitizeFontFamily).filter(Boolean).join(', ') || fallback;
 }

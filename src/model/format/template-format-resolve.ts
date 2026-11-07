@@ -2,7 +2,7 @@
 // names none inherits the host's base template. The host loads each template from its own store; the
 // one walk is driven by a synchronous or an asynchronous loader.
 
-import { cloneDocumentTemplateMetricValue as cloneJson } from '../templates/template-metrics.js';
+import { cloneJson } from '../clone-json.js';
 import type { RegionSettings, TemplateFile, TemplateSection } from './template-format.js';
 
 type LooseRecord = Record<string, unknown>;
@@ -24,6 +24,17 @@ function mergeValue(parent: unknown, child: unknown, key: string): unknown {
     merged[name] = mergeValue(parent[name], child[name], name);
   }
   return merged;
+}
+
+/**
+ * Settings over the settings they inherit, into a copy, by the template inheritance rule: a
+ * section's styles over the template's, for example.
+ */
+export function mergeTemplateSettings<T>(
+  inherited: T | null | undefined,
+  own: T | null | undefined,
+): T {
+  return mergeValue(inherited, own, '') as T;
 }
 
 /**

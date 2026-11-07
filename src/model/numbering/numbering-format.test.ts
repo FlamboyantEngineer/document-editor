@@ -4,8 +4,7 @@ import {
   DOCUMENT_COUNTER_STYLE_CSS,
   formatCounterValue,
   formatRoman,
-  mergeSectionObjectStyle,
-  normalizeNumberingPattern,
+  mergeTemplateSettings,
   OBJECT_CONTEXT_COUNTER_STYLE_CSS,
   parseNumberingStyle,
   parseRoman,
@@ -14,6 +13,7 @@ import {
   resolveObjectContextCounterStyle,
   resolveObjectContextSeparatorCounterStyle,
   ROMAN_COUNTER_STYLE_CSS,
+  type TemplateStyles,
 } from '../index.js';
 
 describe('numbering formats', () => {
@@ -30,21 +30,14 @@ describe('numbering formats', () => {
     expect(parseNumberingStyle('').levels).toEqual([{ token: '1', separator: '' }]);
   });
 
-  it('DOCE-NUMBERING-1.1 reads a list style name as its one-level format', () => {
-    expect(normalizeNumberingPattern('upper-roman')).toBe('I.');
-    expect(normalizeNumberingPattern(' lower-latin ')).toBe('a.');
-    expect(normalizeNumberingPattern('1-1')).toBe('1-1');
-    expect(parseNumberingStyle('decimal').trailingSeparator).toBe('.');
-  });
-
   it('DOCE-NUMBERING-1.2 names a counter style for each format character', () => {
     expect(resolveCounterStyleToken('1')).toBe('decimal');
     expect(resolveCounterStyleToken('a')).toBe('lower-alpha');
     expect(resolveCounterStyleToken('A')).toBe('upper-alpha');
     expect(resolveCounterStyleToken('I')).toBe('upper-roman');
     expect(resolveCounterStyleToken('i')).toBe('lower-roman');
-    expect(resolveCounterStyleToken('R')).toBe('upper-roman');
-    expect(resolveCounterStyleToken('old-upper-roman')).toBe('upper-roman');
+    expect(resolveCounterStyleToken('R')).toBe('upper-alpha');
+    expect(resolveCounterStyleToken('7')).toBe('decimal');
     expect(resolveCounterStyleToken('?')).toBe('decimal');
     expect(resolveCssCounterStyleToken('i')).toBe('de-lower-roman');
     expect(resolveCssCounterStyleToken('a')).toBe('lower-alpha');
@@ -64,8 +57,8 @@ describe('numbering formats', () => {
   it('DOCE-NUMBERING-1.4 prints a counter in a format character style', () => {
     expect(formatCounterValue(27, 'A')).toBe('AA');
     expect(formatCounterValue(3, 'i')).toBe('iii');
-    expect(formatCounterValue('12', '1')).toBe('12');
-    expect(formatCounterValue('x', '1')).toBe('1');
+    expect(formatCounterValue(12, '1')).toBe('12');
+    expect(formatCounterValue(1.5, '1')).toBe('1');
     expect(formatCounterValue(0, 'a')).toBe('a');
   });
 
@@ -85,14 +78,20 @@ describe('numbering formats', () => {
       `${ROMAN_COUNTER_STYLE_CSS}\n${OBJECT_CONTEXT_COUNTER_STYLE_CSS}`,
     );
   });
+});
 
-  it('DOCE-NUMBERING-1.6 lets a section format override the document format unless blank', () => {
+describe('section numbering formats', () => {
+  it('DOCE-NUMBERING-1.6 lets a section format override the document format', () => {
+    const merged = mergeTemplateSettings<TemplateStyles>(
+      { table: { numbering: { format: '1.', prefix: 'Table ' } } },
+      { table: { numbering: { format: 'A-1', prefix: null } } },
+    );
+    expect(merged.table?.numbering).toEqual({ format: 'A-1', prefix: 'Table ' });
     expect(
-      mergeSectionObjectStyle({ numberingStyle: '1.', label: 'Table' }, { numberingStyle: ' ' }),
-    ).toEqual({ numberingStyle: '1.', label: 'Table' });
-    expect(
-      mergeSectionObjectStyle({ numberingStyle: '1.' }, { numberingStyle: 'A-1', label: 'Annex' }),
-    ).toEqual({ numberingStyle: 'A-1', label: 'Annex' });
-    expect(mergeSectionObjectStyle(null, undefined)).toEqual({});
+      mergeTemplateSettings<TemplateStyles>(
+        { table: { numbering: { format: '1.' } } },
+        { table: { numbering: { format: '' } } },
+      ).table?.numbering?.format,
+    ).toBe('');
   });
 });

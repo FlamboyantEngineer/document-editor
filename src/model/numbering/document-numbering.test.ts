@@ -51,23 +51,22 @@ describe('document numbering content', () => {
 
   it('DOCE-NUMBERING-2.4 escapes authored text for a quoted CSS string in a style element', () => {
     expect(escapeCssContent('a"b\\c\n</style>')).toBe('a\\"b\\\\c\\A \\3C /style\\3E ');
-    expect(escapeCssContent(null)).toBe('');
-    expect(escapeCssContent(7)).toBe('7');
+    expect(escapeCssContent('')).toBe('');
   });
 
-  it('DOCE-NUMBERING-2.5 inherits what a paragraph style does not set', () => {
-    const inherited = resolveParagraphNumberingConfig({
-      numberingStyle: '1.',
-      prefix: 'P',
-      numberingLevels: [{ numberingStyle: 'a)' }],
+  it('DOCE-NUMBERING-2.5 reads a paragraph style numbering, off without a format', () => {
+    const levels = [{ format: 'a)' }];
+    const config = resolveParagraphNumberingConfig({
+      numbering: { format: '1.', prefix: 'P', levels },
     });
-    expect(inherited?.styleConfig?.levels).toEqual([{ token: '1', separator: '.' }]);
-    const child = resolveParagraphNumberingConfig({ suffix: ')' }, inherited);
-    expect(child).toMatchObject({ prefix: 'P', suffix: ')', styleConfig: inherited?.styleConfig });
-    expect(child?.numberingLevels).toBe(inherited?.numberingLevels);
-    expect(resolveParagraphNumberingConfig({ numberingStyle: '' }, inherited)?.styleConfig).toEqual(
-      { levels: [], trailingSeparator: '', hasTrailingSeparator: false },
-    );
-    expect(resolveParagraphNumberingConfig(null, inherited)).toBe(inherited);
+    expect(config).toEqual({
+      styleConfig: parseNumberingStyle('1.'),
+      levels,
+      prefix: 'P',
+      suffix: '',
+    });
+    const off = { levels: [], trailingSeparator: '', hasTrailingSeparator: false };
+    expect(resolveParagraphNumberingConfig({ numbering: { format: '' } }).styleConfig).toEqual(off);
+    expect(resolveParagraphNumberingConfig(null).styleConfig).toEqual(off);
   });
 });

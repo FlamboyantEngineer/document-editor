@@ -2,7 +2,7 @@
 // numbering formats. The values are quoted CSS strings inside a style element, so every authored
 // text is escaped for both.
 
-import { storedText } from '../stored-text.js';
+import type { ParagraphLevelSettings, ParagraphSettings } from '../format/template-format.js';
 import {
   canOmitObjectContextLevel,
   type NumberingStyleConfig,
@@ -11,7 +11,6 @@ import {
   resolveObjectContextCounterStyle,
   resolveObjectContextSeparatorCounterStyle,
 } from './numbering-format.js';
-import type { ParagraphNumberingLevel } from './paragraph-numbering.js';
 
 /** The text a template sets before and after a number. */
 export interface NumberingAffixes {
@@ -19,9 +18,9 @@ export interface NumberingAffixes {
   suffix?: string | undefined;
 }
 
-/** A paragraph style's numbering, as inherited down the styles. */
+/** A paragraph style's numbering. */
 export interface ParagraphNumberingConfig {
-  numberingLevels?: ParagraphNumberingLevel[] | undefined;
+  levels?: ParagraphLevelSettings[] | undefined;
   styleConfig: NumberingStyleConfig | null;
   prefix: string;
   suffix: string;
@@ -50,8 +49,7 @@ export function buildDisabledNumberingStyle(): NumberingStyleConfig {
  * Authored text as the inside of a double-quoted CSS string in a style element: backslashes,
  * quotes and line breaks escaped, and `<` and `>` too, so it can never close the style element.
  */
-export function escapeCssContent(value: unknown): string {
-  const text = typeof value === 'string' ? value : value ? String(value as number) : '';
+export function escapeCssContent(text: string): string {
   return text
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
@@ -62,41 +60,25 @@ export function escapeCssContent(value: unknown): string {
     .replace(/>/g, '\\3E ');
 }
 
-const quoted = (value: unknown) => `"${escapeCssContent(value)}"`;
+const quoted = (value: string) => `"${escapeCssContent(value)}"`;
 
 /** Whether a prefix needs the format's trailing separator before the number. */
-export function shouldInsertPrefixSeparator(prefix: unknown, trailingSeparator: unknown): boolean {
+export function shouldInsertPrefixSeparator(prefix: string, trailingSeparator: string): boolean {
   if (!prefix || !trailingSeparator) return false;
-  return !/\s$/.test(String(prefix as string));
+  return !/\s$/.test(prefix);
 }
 
-/** A style's own format, a disabled one when it sets an empty format, or the inherited one. */
-function resolveStyleFormat(
-  style: { numberingStyle?: unknown },
-  inherited: ParagraphNumberingConfig | null,
-): NumberingStyleConfig | null {
-  if (!Object.hasOwn(style, 'numberingStyle')) return inherited?.styleConfig ?? null;
-  const format = style.numberingStyle ? (storedText(style.numberingStyle) ?? '').trim() : '';
-  return format ? parseNumberingStyle(format) : buildDisabledNumberingStyle();
-}
-
-/** A paragraph style's numbering, or the inherited one for what the style does not set. */
+/** A paragraph style's numbering; an empty or absent format numbers nothing. */
 export function resolveParagraphNumberingConfig(
-  paragraphStyle: unknown,
-  inherited: ParagraphNumberingConfig | null = null,
-): ParagraphNumberingConfig | null {
-  if (!paragraphStyle || typeof paragraphStyle !== 'object') return inherited;
-  const style = paragraphStyle as {
-    numberingStyle?: unknown;
-    prefix?: unknown;
-    suffix?: unknown;
-    numberingLevels?: ParagraphNumberingLevel[];
-  };
+  settings: ParagraphSettings | null | undefined,
+): ParagraphNumberingConfig {
+  const numbering = settings?.numbering;
+  const format = numbering?.format?.trim();
   return {
-    styleConfig: resolveStyleFormat(style, inherited),
-    numberingLevels: style.numberingLevels ?? inherited?.numberingLevels,
-    prefix: storedText(style.prefix) ?? inherited?.prefix ?? '',
-    suffix: storedText(style.suffix) ?? inherited?.suffix ?? '',
+    styleConfig: format ? parseNumberingStyle(format) : buildDisabledNumberingStyle(),
+    levels: numbering?.levels ?? undefined,
+    prefix: numbering?.prefix ?? '',
+    suffix: numbering?.suffix ?? '',
   };
 }
 
