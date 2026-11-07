@@ -20,7 +20,7 @@ Verification: `src/model/format/document-format.test.ts`
 
 ### DOCE-FORMAT-1.3 - Content only
 
-`writeDocumentFile(doc)` shall store a document whose sections are not split across pages. It shall leave out pages, page headers and footers, a section's generated styles and copies of its template regions, the part an element is of a split one, continued markers, rendered text such as a variable's value, and other layout state.
+`writeDocumentFile(doc, { template, fragmentRules })` shall store each block split across pages as one whole block (DOCE-PAGINATION-1). It shall leave out pages, page headers and footers, a section's generated styles and copies of its template regions, the part an element is of a split one, continued markers, the entry range a table of contents' part shows, rendered text such as a variable's value, and other layout state.
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`

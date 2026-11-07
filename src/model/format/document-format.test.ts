@@ -1,4 +1,4 @@
-import type { Node } from 'prosemirror-model';
+import { Fragment, type Node } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../../test/document-markup.js';
 import {
@@ -53,7 +53,7 @@ const FILE: DocumentFile = {
 describe('stored document format', () => {
   it('DOCE-FORMAT-1.1 reads a stored document and writes it back unchanged', () => {
     const doc = readDocumentFile(FILE, documentSchema);
-    expect(writeDocumentFile(doc, 'report')).toEqual(FILE);
+    expect(writeDocumentFile(doc, { template: 'report' })).toEqual(FILE);
   });
 
   it('DOCE-FORMAT-1.2 lays each stored section out on one page for the editor', () => {
@@ -102,6 +102,32 @@ describe('stored document format', () => {
           { type: 'paragraph', attrs: { id: 'p1' }, content: [{ type: 'text', text: 'Text' }] },
         ],
       },
+    ]);
+  });
+
+  it('DOCE-FORMAT-1.3 stores a block split across pages as one whole block', () => {
+    const doc = readDocumentFile(FILE, documentSchema);
+    const section = doc.child(0);
+    const page = section.child(0);
+    const [header, , footnotes, footer] = page.content.content;
+    const part = (index: number, text: string) =>
+      documentSchema.node('paragraph', { dataId: 'p9', splitPartIndex: index }, [
+        documentSchema.text(text),
+      ]);
+    const onPage = (block: Node) =>
+      page.copy(
+        Fragment.from([
+          header,
+          documentSchema.node('page_content', null, [block]),
+          footnotes,
+          footer,
+        ] as Node[]),
+      );
+    const split = doc.copy(
+      Fragment.from(section.copy(Fragment.from([onPage(part(0, 'Run ')), onPage(part(1, 'on'))]))),
+    );
+    expect(writeDocumentFile(split).sections[0]?.content).toEqual([
+      { type: 'paragraph', attrs: { id: 'p9' }, content: [{ type: 'text', text: 'Run on' }] },
     ]);
   });
 

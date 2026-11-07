@@ -3,6 +3,7 @@
 // it is cited, with its text, and the editor keeps its text in the page's footnote area.
 
 import type { Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import { FRAGMENT_RULES, type FragmentRules, joinFragments } from '../pagination/fragments.js';
 import {
   DOCUMENT_FORMAT_VERSION,
   type DocumentFile,
@@ -18,6 +19,14 @@ import {
 } from './document-format.js';
 
 type Attrs = Record<string, unknown>;
+
+/** What a stored document is written with. */
+export interface DocumentWriteOptions {
+  /** The id of the template the document uses. */
+  template?: string | null | undefined;
+  /** How split blocks are joined; a host adds rules for its own splittable types. */
+  fragmentRules?: FragmentRules | undefined;
+}
 
 /** A stored document that cannot be read, with the path of the first problem. */
 export interface DocumentFormatError extends Error {
@@ -126,18 +135,19 @@ function sectionContent(section: ProseMirrorNode, footnotes: Map<string, ProseMi
 }
 
 /**
- * The stored form of an editor document whose sections are not split across pages: its sections'
- * content in order, and the content outside any section as unnamed sections.
+ * The stored form of an editor document: its sections' content in order, with every block split
+ * across pages joined whole, and the content outside any section as unnamed sections.
  */
 export function writeDocumentFile(
   doc: ProseMirrorNode,
-  template: string | null = null,
+  { template = null, fragmentRules = FRAGMENT_RULES }: DocumentWriteOptions = {},
 ): DocumentFile {
   const sections: StoredSection[] = [];
   let loose: ProseMirrorNode[] = [];
   const write = (blocks: ProseMirrorNode[], name: string | null, footnotes = new Map()) => {
     const context: WriteContext = { footnotes };
-    sections.push({ name, content: blocks.map((block) => writeNode(block, context)) });
+    const content = joinFragments(blocks, fragmentRules).map((block) => writeNode(block, context));
+    sections.push({ name, content });
   };
   doc.forEach((child) => {
     if (child.type.name !== 'page_section') {
