@@ -54,7 +54,7 @@ function caretBlockId({ selection }: EditorState): string {
 }
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-measure');
+  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
   const pagesRoot = document.querySelector('.lab-pages');
   const blockId = document.querySelector<HTMLOutputElement>('output[name="block-id"]');
   if (!measureIn || !pagesRoot || !blockId) return;

@@ -63,7 +63,7 @@ function sample() {
 }
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-measure');
+  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
   const pagesRoot = document.querySelector('.lab-pages');
   const insert = document.querySelector<HTMLButtonElement>('button[name="insert-chapter"]');
   if (!measureIn || !pagesRoot || !insert) return;
@@ -72,16 +72,14 @@ function render(): void {
   const pagination = createPagination({
     measureIn,
     pageHeight: () => bodyHeight(TEMPLATE),
-    plugins: [contents.plugin],
-    nodeViews: contents.nodeViews,
+    plugins: [contents],
   });
   const schema = createDocumentSchema();
   const editor: EditorView = new EditorView(pagesRoot, {
     state: EditorState.create({
       doc: readDocumentFile(sample(), schema),
-      plugins: [pagination.plugin, contents.plugin],
+      plugins: [pagination.plugin, contents],
     }),
-    nodeViews: contents.nodeViews,
     dispatchTransaction(tr) {
       editor.updateState(editor.state.apply(tr));
       const { dataset } = document.documentElement;

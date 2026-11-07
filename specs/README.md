@@ -15,6 +15,7 @@ Each file in this directory specifies one component, one family of components, o
 | [LAYOUT.md](LAYOUT.md)                   | The web layout, layout sections and their commands, and reading time.   |
 | [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.             |
 | [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.             |
+| [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.            |
 | `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.           |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.

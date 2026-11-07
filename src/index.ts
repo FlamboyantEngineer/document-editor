@@ -1,3 +1,4 @@
+export * from './components/index.js';
 export * from './engine/index.js';
 export * from './host/index.js';
 export * from './model/index.js';

@@ -47,7 +47,7 @@ const TEMPLATES: Readonly<Record<string, TemplateFile>> = Object.fromEntries(
 const SAMPLE = sampleDocument(['Scope', 'Interfaces', 'Timing']);
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-measure');
+  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
   const pagesRoot = document.querySelector('.lab-pages');
   const choices = document.querySelectorAll<HTMLInputElement>('input[name="template"]');
   if (!measureIn || !pagesRoot) return;

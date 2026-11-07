@@ -4,20 +4,24 @@
  * and code with them. Hosts write their own; labs use this one.
  */
 
-.de-document .ProseMirror,
-.de-measure .ProseMirror {
+.de-document-editor .ProseMirror,
+.de-document-editor__measure .ProseMirror {
   outline: none;
   counter-reset: h1 h2 h3 h4 h5 h6 figure table codeblock equation ordered-list;
   color: var(--doc-paragraph-color, #111827);
 }
 
-.de-document .pm-section {
+.de-document-editor__content {
+  white-space: pre-wrap;
+}
+
+.de-document-editor .pm-section {
   display: flex;
   flex-wrap: wrap;
   gap: 24px;
 }
 
-.de-document .pm-page {
+.de-document-editor .pm-page {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -29,11 +33,11 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
-.de-document .pm-page-content {
+.de-document-editor .pm-page-content {
   flex: 1;
 }
 
-.de-measure {
+.de-document-editor__measure {
   position: absolute;
   top: 0;
   left: -100000px;
@@ -224,11 +228,11 @@
  * Web layout: the surface (`data-layout="web"`) shows each section as one page that fills its
  * container and grows with its content, inset only by the template's margins.
  */
-.de-document[data-layout='web'] .pm-section {
+.de-document-editor[data-layout='web'] .pm-section {
   display: block;
 }
 
-.de-document[data-layout='web'] .pm-page {
+.de-document-editor[data-layout='web'] .pm-page {
   width: auto;
   height: auto;
   box-shadow: none;
@@ -270,7 +274,7 @@
   padding: 5px;
 }
 
-.de-document[data-mode='authoring'] .doc-layout-column {
+.de-document-editor[data-mode='authoring'] .doc-layout-column {
   border-color: #94a3b8;
 }
 
