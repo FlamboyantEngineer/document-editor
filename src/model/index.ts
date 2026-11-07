@@ -12,6 +12,59 @@ export {
   normalizeGlossaryInput,
   prefillAbbreviation,
 } from './glossary.js';
+export type { CaptionPlacement } from './numbering/caption-placement.js';
+export {
+  buildCaptionPlacementVariables,
+  resolveCaptionPlacement,
+} from './numbering/caption-placement.js';
+export type {
+  CounterContent,
+  NumberingAffixes,
+  ObjectCounterOptions,
+  ParagraphNumberingConfig,
+} from './numbering/document-numbering.js';
+export {
+  buildDisabledNumberingStyle,
+  buildHeadingCounterContent,
+  buildObjectCounterContent,
+  buildParagraphCounterContent,
+  escapeCssContent,
+  resolveObjectContextHeadingToken,
+  resolveParagraphNumberingConfig,
+  shouldInsertPrefixSeparator,
+} from './numbering/document-numbering.js';
+export type {
+  CounterStyle,
+  NumberingStyleConfig,
+  NumberingStyleLevel,
+} from './numbering/numbering-format.js';
+export {
+  canOmitObjectContextLevel,
+  DOCUMENT_COUNTER_STYLE_CSS,
+  formatCounterValue,
+  formatRoman,
+  mergeSectionObjectStyle,
+  normalizeNumberingPattern,
+  OBJECT_CONTEXT_COUNTER_STYLE_CSS,
+  parseNumberingStyle,
+  parseRoman,
+  resolveCounterStyleToken,
+  resolveCssCounterStyleToken,
+  resolveObjectContextCounterStyle,
+  resolveObjectContextSeparatorCounterStyle,
+  ROMAN_COUNTER_STYLE_CSS,
+} from './numbering/numbering-format.js';
+export type {
+  ParagraphLevelStyle,
+  ParagraphNumberingLevel,
+} from './numbering/paragraph-numbering.js';
+export {
+  advanceParagraphCounters,
+  hasParagraphNumberingContent,
+  hasParagraphNumberingText,
+  paragraphNumberingIndentationStyle,
+  resolveParagraphLevelStyle,
+} from './numbering/paragraph-numbering.js';
 export type {
   FormatReferenceInput,
   ReferenceBaseline,
@@ -106,3 +159,40 @@ export {
   SIGNATURE_VECTOR_LIMITS,
   validateSignaturePathData,
 } from './signature-vector.js';
+export { storedText, textOf } from './stored-text.js';
+export {
+  formatNumericMarginToCssPx,
+  MM_TO_CSS_PX,
+  PAGE_SIZE_DIMENSIONS,
+  parseMarginToCssPx,
+  resolveTemplateFontFamilyCssText,
+  resolveTemplateMarginUnit,
+  resolveTemplateStyleLineHeight,
+  toTemplateCssSizeValue,
+  toTemplateCssTextValue,
+  toTemplateDisplayText,
+} from './templates/template-css-values.js';
+export type {
+  RegionSpacingScopes,
+  TemplateFootnoteSeparatorSettings,
+  TemplateFootnoteSettings,
+} from './templates/template-metrics.js';
+export {
+  buildTemplateCaptionCssVarEntries,
+  buildTemplateFootnoteCssVarEntries,
+  cloneDocumentTemplateMetricValue,
+  DOCUMENT_TEMPLATE_PAGE_METRIC_FALLBACK,
+  isTemplateRegionInheritanceRequested,
+  mergeDocumentTemplateMetricDefaults,
+  resolveMergedTemplateFootnoteSettings,
+  resolveRegionSpacingToContentCssPx,
+  shouldInheritDocumentTemplateMetricValue,
+  templateSectionRestartsHeadingNumbering,
+} from './templates/template-metrics.js';
+export type { TemplateSectionLike } from './templates/template-sections.js';
+export {
+  findSectionByName,
+  normalizeTemplateSectionName,
+  resolveDocumentStructuralVariables,
+  resolveRequiredTemplateSections,
+} from './templates/template-sections.js';

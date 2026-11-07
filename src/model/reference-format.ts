@@ -6,6 +6,8 @@
 // inside that document, which refines its format key to `<type>-<kind>`. A host adds its own external
 // types through the schema options.
 
+import { textOf as toText } from './stored-text.js';
+
 /** The kinds of target a reference can point at. */
 export const REFERENCE_TARGET_KINDS = [
   'heading',
@@ -69,11 +71,6 @@ export function normalizeStructuredRevision(raw: unknown): StructuredRevision | 
   const minor = source.minorRevision;
   const minorText = minor === null || minor === undefined ? '' : toText(minor).trim();
   return { majorRevision: major, minorRevision: minorText || null };
-}
-
-function toText(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 /** The format keys of the internal types and of each external type, with its target kinds. */
