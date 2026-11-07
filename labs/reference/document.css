@@ -390,3 +390,48 @@
 .de-document-editor [data-suggestion-split-kind='deletion'] {
   box-shadow: -6px 0 0 -3px #cf222e;
 }
+
+/* The comments margin sits beside the pages; the layer draws the anchors' highlights itself. */
+.de-document-comments {
+  align-items: start;
+}
+
+.de-document-comments mark[data-comment-id] {
+  background: transparent;
+  color: inherit;
+}
+
+.de-document-comments__margin {
+  min-height: 100%;
+}
+
+.de-document-comments__draft,
+.de-document-comments__suggestion {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.de-document-comments__suggestion[data-active] {
+  box-shadow: 0 0 0 2px #0969da;
+}
+
+.de-document-comments__summary {
+  margin: 0;
+}
+
+.de-document-comments__summary ins {
+  color: #116329;
+}
+
+.de-document-comments__summary del {
+  color: #a40e26;
+}
+
+.de-document-comments__decisions {
+  display: flex;
+  gap: 8px;
+}

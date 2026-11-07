@@ -85,6 +85,53 @@ export interface AssetAdapter {
   resolveUrl(assetId: string): string;
 }
 
+/** One comment of a thread: the opening comment or a reply. */
+export interface CommentEntry {
+  id: string;
+  /** The id of the person who wrote it. */
+  author: string;
+  text: string;
+  /** When it was posted: an ISO 8601 date and time. */
+  createdAt: string;
+}
+
+/** A comment thread on a document, anchored to its text or to a suggestion. */
+export interface CommentThread {
+  /** The thread's id, which the document's anchor names. The editor chooses it. */
+  id: string;
+  state: 'open' | 'resolved';
+  /** The text the thread was started on. */
+  quote: string;
+  /** The suggestion the thread discusses, when it does. */
+  suggestion: string | null;
+  /** The opening comment, then the replies, oldest first. */
+  entries: CommentEntry[];
+}
+
+/** A thread to start: its id, what it quotes, its opening comment, and its suggestion. */
+export interface NewCommentThread {
+  id: string;
+  quote: string;
+  text: string;
+  suggestion?: string | null | undefined;
+}
+
+/**
+ * Where a document's comment threads are kept. The store attributes each comment to the reader
+ * and returns the thread as it is after the change.
+ */
+export interface CommentStoreAdapter {
+  list(documentId: string, signal?: AbortSignal): Promise<HostResult<CommentThread[]>>;
+  create(documentId: string, thread: NewCommentThread): Promise<HostResult<CommentThread>>;
+  reply(documentId: string, threadId: string, text: string): Promise<HostResult<CommentThread>>;
+  setState(
+    documentId: string,
+    threadId: string,
+    state: CommentThread['state'],
+  ): Promise<HostResult<CommentThread>>;
+  remove(documentId: string, threadId: string): Promise<HostResult<null>>;
+}
+
 export type FeedbackTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface FeedbackAdapter {
@@ -107,6 +154,7 @@ export interface EditorHost {
   documents: DocumentStoreAdapter;
   templates?: TemplateSourceAdapter | undefined;
   assets?: AssetAdapter | undefined;
+  comments?: CommentStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;
   telemetry?: TelemetryAdapter | undefined;
 }

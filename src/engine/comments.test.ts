@@ -1,0 +1,130 @@
+import type { Node } from 'prosemirror-model';
+import { type Command, EditorState, TextSelection } from 'prosemirror-state';
+import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
+import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
+import {
+  addCommentAnchor,
+  linkSuggestionThread,
+  listCommentAnchors,
+  removeCommentAnchor,
+  selectedText,
+  setCommentState,
+} from './comments.js';
+import { listSuggestions } from './suggestion-decisions.js';
+import { suggestTransaction } from './suggestions.js';
+
+const paragraph = (value: string): StoredNode => ({
+  type: 'paragraph',
+  content: [{ type: 'text', text: value }],
+});
+const read = (...content: StoredNode[]) =>
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+
+function positionOf(doc: Node, value: string): number {
+  let found = -1;
+  doc.descendants((node, pos) => {
+    if (found < 0 && node.isText && node.text?.includes(value))
+      found = pos + node.text.indexOf(value);
+    return found < 0;
+  });
+  return found;
+}
+
+function run(state: EditorState, command: Command): EditorState | null {
+  let next: EditorState | null = null;
+  const done = command(state, (tr) => {
+    next = state.apply(tr);
+  });
+  return done ? (next ?? state) : null;
+}
+
+// A document with "blue" selected in its first paragraph and "Gamma" in its second.
+function selected(from: string, to: string) {
+  const doc = read(paragraph('Alpha blue'), paragraph('Gamma delta'));
+  const start = positionOf(doc, from);
+  const end = positionOf(doc, to) + to.length;
+  return EditorState.create({ doc, selection: TextSelection.create(doc, start, end) });
+}
+
+describe('comment anchors', () => {
+  it('DOCE-COMMENTS-1.1 anchors a thread to the selected text, across blocks', () => {
+    const state = selected('blue', 'Gamma');
+    expect(selectedText(state)).toBe('blue Gamma');
+    const next = run(state, addCommentAnchor('t1'));
+    expect(next && listCommentAnchors(next.doc)).toEqual([
+      {
+        thread: 't1',
+        state: 'open',
+        from: positionOf(state.doc, 'blue'),
+        to: positionOf(state.doc, 'Gamma') + 5,
+        text: 'blueGamma',
+      },
+    ]);
+  });
+
+  it('DOCE-COMMENTS-1.1 refuses an empty or blank selection', () => {
+    const doc = read(paragraph('Alpha blue'));
+    const caret = EditorState.create({ doc, selection: TextSelection.create(doc, 3) });
+    expect(selectedText(caret)).toBe('');
+    expect(run(caret, addCommentAnchor('t1'))).toBeNull();
+    const at = positionOf(doc, ' blue');
+    const blank = EditorState.create({ doc, selection: TextSelection.create(doc, at, at + 1) });
+    expect(run(blank, addCommentAnchor('t1'))).toBeNull();
+  });
+
+  it('DOCE-COMMENTS-1.2 lists anchors in reading order, one per thread', () => {
+    const late = run(selected('Gamma', 'Gamma'), addCommentAnchor('late'));
+    const from = late ? positionOf(late.doc, 'Alpha') : 0;
+    const early =
+      late &&
+      run(
+        late.apply(late.tr.setSelection(TextSelection.create(late.doc, from, from + 5))),
+        addCommentAnchor('early'),
+      );
+    expect(early && listCommentAnchors(early.doc).map((anchor) => anchor.thread)).toEqual([
+      'early',
+      'late',
+    ]);
+  });
+
+  it('DOCE-COMMENTS-1.3 resolves, reopens and removes an anchor, keeping its text', () => {
+    const anchored = run(selected('blue', 'blue'), addCommentAnchor('t1'));
+    const resolved = anchored && run(anchored, setCommentState('t1', 'resolved'));
+    expect(resolved && listCommentAnchors(resolved.doc)).toEqual([
+      expect.objectContaining({ thread: 't1', state: 'resolved', text: 'blue' }),
+    ]);
+    const reopened = resolved && run(resolved, setCommentState('t1', 'open'));
+    expect(reopened && listCommentAnchors(reopened.doc)[0]?.state).toBe('open');
+    const removed = reopened && run(reopened, removeCommentAnchor('t1'));
+    expect(removed && listCommentAnchors(removed.doc)).toEqual([]);
+    expect(removed?.doc.textContent).toBe('Alpha blueGamma delta');
+    expect(anchored && run(anchored, removeCommentAnchor('other'))).toBeNull();
+  });
+
+  it('DOCE-COMMENTS-1.4 stores anchors with their thread and state', () => {
+    const anchored = run(selected('blue', 'blue'), addCommentAnchor('t1'));
+    const resolved = anchored && run(anchored, setCommentState('t1', 'resolved'));
+    const file = resolved ? writeDocumentFile(resolved.doc) : null;
+    const [first] = file?.sections[0]?.content ?? [];
+    expect(first?.content?.find((child) => child.text === 'blue')?.marks).toEqual([
+      { type: 'comment', attrs: { thread: 't1', state: 'resolved' } },
+    ]);
+    const again = file ? readDocumentFile(file, documentSchema) : null;
+    expect(again && resolved?.doc.eq(again)).toBe(true);
+  });
+
+  it('DOCE-COMMENTS-1.5 names the thread a suggestion is discussed in', () => {
+    const state = selected('blue', 'blue');
+    const tr = suggestTransaction(state.tr.insertText('gamma'), state, {
+      author: 'writer',
+      newId: () => 's1',
+    });
+    const suggested = tr ? state.apply(tr) : null;
+    const linked = suggested && run(suggested, linkSuggestionThread('s1', 't1'));
+    expect(linked && listSuggestions(linked.doc)).toEqual([
+      expect.objectContaining({ id: 's1', thread: 't1' }),
+    ]);
+    expect(suggested && run(suggested, linkSuggestionThread('none', 't1'))).toBeNull();
+  });
+});

@@ -1,5 +1,14 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type { CommentAnchor, CommentState } from './comments.js';
+export {
+  addCommentAnchor,
+  linkSuggestionThread,
+  listCommentAnchors,
+  removeCommentAnchor,
+  selectedText,
+  setCommentState,
+} from './comments.js';
 export type { ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
 export { CONTENTS_LABELS, contentsCatalog, contentsKey, createContents } from './contents.js';
 export type { DocumentEditingOptions } from './document-editing.js';

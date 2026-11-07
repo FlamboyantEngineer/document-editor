@@ -15,6 +15,10 @@ import { type ComponentType, type CSSProperties, type ReactNode, useMemo, useRef
 import { suggestTransaction } from '../../engine/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import {
+  DocumentComments,
+  type DocumentCommentsOptions,
+} from '../document-comments/document-comments.js';
 import { type DocumentLayout, useDocumentLayout } from './use-document-layout.js';
 
 /** What a document editor shows and how. */
@@ -33,6 +37,8 @@ export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
   suggesting?: boolean | undefined;
   /** The writer suggestions are attributed to. */
   author?: string | null | undefined;
+  /** Shows the document's comment threads and suggestions in a margin beside it. */
+  comments?: DocumentCommentsOptions | undefined;
   /** React views by node type name, beside the views the plugins draw. */
   nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
   /** Notifications of the engine's commits. */
@@ -71,11 +77,22 @@ function useSuggesting(
 export function DocumentEditor(props: DocumentEditorProps) {
   const { state, onStateChange, template, layout = 'page', editable = true } = props;
   const { nodeViews, events, children, className, suggesting = false, author = null } = props;
+  const { comments } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange });
   const style = useMemo(() => templateProperties(template) as CSSProperties, [template]);
   const viewProps = useMemo(() => ({ editable: () => editable }), [editable]);
   const dispatchTransaction = useSuggesting(editable && suggesting, author, events);
+  const content = (
+    <RichTextEngineContent
+      {...hooks.slot('content')}
+      role="textbox"
+      aria-multiline="true"
+      aria-readonly={editable ? undefined : 'true'}
+      aria-label={props['aria-label']}
+      aria-labelledby={props['aria-labelledby']}
+    />
+  );
   return (
     <div
       {...hooks.root({
@@ -100,14 +117,18 @@ export function DocumentEditor(props: DocumentEditorProps) {
         nodeViews={nodeViews}
         props={viewProps}
       >
-        <RichTextEngineContent
-          {...hooks.slot('content')}
-          role="textbox"
-          aria-multiline="true"
-          aria-readonly={editable ? undefined : 'true'}
-          aria-label={props['aria-label']}
-          aria-labelledby={props['aria-labelledby']}
-        />
+        {comments ? (
+          <DocumentComments
+            {...comments}
+            state={state}
+            onStateChange={onStateChange}
+            canDecide={editable && !suggesting}
+          >
+            {content}
+          </DocumentComments>
+        ) : (
+          content
+        )}
         {children}
       </RichTextEngineHost>
     </div>
