@@ -1,16 +1,12 @@
 // A block that does not fit on a page is split into fragments, one per page, each a node of the
 // block's own type marked as a part. Joining puts the fragments back into one whole block, so the
 // stored document and the editing document never hold pages' parts. Each splittable type has a rule.
+// Joins are steps on a transform, so positions in the fragments map onto the whole block.
 
-import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, type NodeType } from 'prosemirror-model';
+import { Transform } from 'prosemirror-transform';
 
 type Attrs = Record<string, unknown>;
-
-/** What two fragments become when joined: their content, and any attributes that change. */
-export interface JoinedFragment {
-  attrs?: Attrs | undefined;
-  content: Fragment | readonly ProseMirrorNode[] | null;
-}
 
 /** How one node type's fragments are recognised and joined. */
 export interface FragmentRule {
@@ -18,8 +14,11 @@ export interface FragmentRule {
   readonly whole: Readonly<Attrs>;
   /** Whether `next` continues `previous`; by default, both are the same split element. */
   continues?: (previous: ProseMirrorNode, next: ProseMirrorNode) => boolean;
-  /** The two fragments as one; by default, their content in order. */
-  join?: (previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) => JoinedFragment;
+  /**
+   * Joins the fragment that starts at `pos` into the block that ends there, by steps on the
+   * transform; by default their content joins. The joined block takes the rule's whole attributes.
+   */
+  join?: (tr: Transform, pos: number, rules: FragmentRules) => void;
 }
 
 /** Fragment rules by node type name. */
@@ -66,24 +65,69 @@ export function continuesFragment(
   return sameSplitElement(previous, next, rules);
 }
 
-/** A node as a whole block: itself when it is not a fragment. */
-export function wholeNode(node: ProseMirrorNode, rules: FragmentRules = FRAGMENT_RULES) {
-  const rule = ruleFor(rules, node.type.name);
-  if (!rule || !isFragment(node, rules)) return node;
-  return node.type.create({ ...node.attrs, ...rule.whole }, node.content, node.marks);
+/** Gives the node at `pos` its rule's whole attributes, so a fragment becomes a whole block. */
+export function makeWhole(tr: Transform, pos: number, rules: FragmentRules = FRAGMENT_RULES): void {
+  const node = tr.doc.nodeAt(pos);
+  const rule = node ? ruleFor(rules, node.type.name) : undefined;
+  if (!node || !rule) return;
+  for (const [name, value] of Object.entries(rule.whole)) {
+    if ((node.attrs[name] ?? null) !== value) tr.setNodeAttribute(pos, name, value);
+  }
 }
 
-function joinTwo(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
+/** Joins the fragment that starts at `pos` into the block that ends there, by its type's rule. */
+export function joinAt(tr: Transform, pos: number, rules: FragmentRules = FRAGMENT_RULES): void {
+  const previous = tr.doc.resolve(pos).nodeBefore;
+  if (!previous) return;
+  const start = pos - previous.nodeSize;
   const rule = ruleFor(rules, previous.type.name);
-  const joined = rule?.join
-    ? rule.join(previous, next, rules)
-    : { content: previous.content.append(next.content) };
-  const content = joined.content === null ? null : Fragment.from(joined.content);
-  return previous.type.create(
-    { ...previous.attrs, ...joined.attrs, ...rule?.whole },
-    content,
-    previous.marks,
-  );
+  if (rule?.join) rule.join(tr, pos, rules);
+  else tr.join(pos);
+  makeWhole(tr, start, rules);
+}
+
+/** Sibling blocks in a transform's document: where the first starts, and the blocks before joins. */
+export interface BlockRun {
+  readonly from: number;
+  readonly blocks: readonly ProseMirrorNode[];
+}
+
+/**
+ * Joins each run of fragments among sibling blocks in the transform's document; a fragment whose
+ * other parts are missing becomes whole.
+ */
+export function joinBlocks(
+  tr: Transform,
+  { from, blocks }: BlockRun,
+  rules: FragmentRules = FRAGMENT_RULES,
+): void {
+  let start = from;
+  let previous: ProseMirrorNode | undefined;
+  for (const block of blocks) {
+    const last = previous ? tr.doc.nodeAt(start) : null;
+    const boundary = last ? start + last.nodeSize : start;
+    if (previous && continuesFragment(previous, block, rules)) {
+      joinAt(tr, boundary, rules);
+    } else {
+      start = boundary;
+      makeWhole(tr, start, rules);
+    }
+    previous = block;
+  }
+}
+
+function children(node: ProseMirrorNode): ProseMirrorNode[] {
+  const nodes: ProseMirrorNode[] = [];
+  node.forEach((child) => nodes.push(child));
+  return nodes;
+}
+
+// A node type that holds the blocks, for the transform that joins them: the document, or for
+// blocks that only go inside another, such as list items, one that holds them.
+function containerFor(blocks: readonly ProseMirrorNode[], { schema }: NodeType): NodeType {
+  const content = Fragment.from([...blocks]);
+  const types = [schema.topNodeType, ...Object.values(schema.nodes)];
+  return types.find((type) => type.validContent(content)) ?? schema.topNodeType;
 }
 
 /**
@@ -94,82 +138,84 @@ export function joinFragments(
   blocks: readonly ProseMirrorNode[],
   rules: FragmentRules = FRAGMENT_RULES,
 ): ProseMirrorNode[] {
-  const joined: ProseMirrorNode[] = [];
-  let previous: ProseMirrorNode | undefined;
-  for (const block of blocks) {
-    const last = joined.at(-1);
-    if (last && previous && continuesFragment(previous, block, rules)) {
-      joined[joined.length - 1] = joinTwo(last, block, rules);
-    } else {
-      joined.push(wholeNode(block, rules));
-    }
-    previous = block;
+  const [first] = blocks;
+  if (!first) return [];
+  const tr = new Transform(containerFor(blocks, first.type).create(null, blocks));
+  joinBlocks(tr, { from: 0, blocks }, rules);
+  return children(tr.doc);
+}
+
+// After two containers join at `pos`, their facing children meet one position inside.
+function joinFacingChildren(tr: Transform, inner: number, rules: FragmentRules) {
+  const $inner = tr.doc.resolve(inner);
+  const { nodeBefore, nodeAfter } = $inner;
+  if (nodeBefore && nodeAfter && continuesFragment(nodeBefore, nodeAfter, rules)) {
+    joinAt(tr, inner, rules);
   }
-  return joined;
 }
 
-function children(node: ProseMirrorNode): ProseMirrorNode[] {
-  const nodes: ProseMirrorNode[] = [];
-  node.forEach((child) => nodes.push(child));
-  return nodes;
-}
-
-/** Two containers' children in order, the child split across them joined. */
-export function joinChildren(
-  previous: readonly ProseMirrorNode[],
-  next: readonly ProseMirrorNode[],
-  rules: FragmentRules,
-): ProseMirrorNode[] {
-  const last = previous.at(-1);
-  const [first, ...rest] = next;
-  if (!last || !first || !continuesFragment(last, first, rules)) return [...previous, ...next];
-  return [...previous.slice(0, -1), joinTwo(last, first, rules), ...rest];
+function joinContainers(tr: Transform, pos: number, rules: FragmentRules) {
+  tr.join(pos);
+  joinFacingChildren(tr, pos - 1, rules);
 }
 
 // The empty paragraph a list item's continuation opens with when its split falls between children.
-function isContinuationPlaceholder(node: ProseMirrorNode | undefined): boolean {
+function isContinuationPlaceholder(node: ProseMirrorNode | null | undefined): boolean {
   return node?.type.name === 'paragraph' && node.content.size === 0 && !node.attrs.dataId;
 }
 
-function joinListItems(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
-  const nextChildren = children(next);
-  if (isContinuationPlaceholder(nextChildren[0])) nextChildren.shift();
-  return { content: joinChildren(children(previous), nextChildren, rules) };
-}
-
-function joinContainers(previous: ProseMirrorNode, next: ProseMirrorNode, rules: FragmentRules) {
-  return { content: joinChildren(children(previous), children(next), rules) };
+function joinListItems(tr: Transform, pos: number, rules: FragmentRules) {
+  tr.join(pos);
+  const inner = pos - 1;
+  const placeholder = tr.doc.nodeAt(inner);
+  if (isContinuationPlaceholder(placeholder) && placeholder) {
+    tr.delete(inner, inner + placeholder.nodeSize);
+  }
+  joinFacingChildren(tr, inner, rules);
 }
 
 function isHeaderRow(row: ProseMirrorNode): boolean {
   return row.childCount > 0 && children(row).every((cell) => cell.type.name === 'table_header');
 }
 
-function splitHeaderRows(table: ProseMirrorNode) {
+function headerRows(table: ProseMirrorNode): ProseMirrorNode[] {
   const rows = children(table);
   const count = rows.findIndex((row) => !isHeaderRow(row));
-  const headerCount = count < 0 ? rows.length : count;
-  return { header: rows.slice(0, headerCount), body: rows.slice(headerCount) };
+  return rows.slice(0, count < 0 ? rows.length : count);
 }
 
 // A table's continuation may repeat its header rows; the whole table keeps them once.
-function joinTables(previous: ProseMirrorNode, next: ProseMirrorNode) {
-  const { header } = splitHeaderRows(previous);
+function joinTables(tr: Transform, pos: number) {
+  const $pos = tr.doc.resolve(pos);
+  const { nodeBefore: previous, nodeAfter: next } = $pos;
+  if (!previous || !next) return;
+  const header = headerRows(previous);
   const rows = children(next);
   const repeats =
     header.length > 0 && header.every((row, index) => rows[index] && row.eq(rows[index]));
-  return { content: [...children(previous), ...(repeats ? rows.slice(header.length) : rows)] };
+  tr.join(pos);
+  if (!repeats) return;
+  const size = header.reduce((sum, row) => sum + row.nodeSize, 0);
+  tr.delete(pos - 1, pos - 1 + size);
 }
 
 // A code block splits at a line break and drops it, so joining puts it back.
-function joinCodeBlocks(previous: ProseMirrorNode, next: ProseMirrorNode) {
-  const lineBreak = previous.type.schema.text('\n');
-  return { content: previous.content.append(Fragment.from(lineBreak)).append(next.content) };
+function joinCodeBlocks(tr: Transform, pos: number) {
+  tr.insert(pos - 1, tr.doc.type.schema.text('\n'));
+  tr.join(pos + 1);
 }
 
-function joinLinkedCode(previous: ProseMirrorNode, next: ProseMirrorNode) {
+function joinLinkedCode(tr: Transform, pos: number) {
+  const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
+  if (!previous || !next) return;
   const code = `${String(previous.attrs.code ?? '')}\n${String(next.attrs.code ?? '')}`;
-  return { attrs: { code }, content: null };
+  tr.delete(pos, pos + next.nodeSize);
+  tr.setNodeAttribute(pos - previous.nodeSize, 'code', code);
+}
+
+function dropContinuation(tr: Transform, pos: number) {
+  const next = tr.doc.nodeAt(pos);
+  if (next) tr.delete(pos, pos + next.nodeSize);
 }
 
 function sameContentsSettings(previous: ProseMirrorNode, next: ProseMirrorNode): boolean {
@@ -194,6 +240,6 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   toc_block: {
     whole: { entryStart: 0, entryEnd: null, showTitle: true },
     continues: sameContentsSettings,
-    join: () => ({ content: null }),
+    join: dropContinuation,
   },
 });

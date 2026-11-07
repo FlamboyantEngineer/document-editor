@@ -1,15 +1,22 @@
-// Measures a sample document in a hidden editor view, lays its section out on fixed-height pages
-// and renders each page's blocks, so a browser test can check where the pages break.
+// Shows a sample document on fixed-height pages in an editor view. Its whole document is measured
+// in a hidden view and laid out, and the editor moves onto each new layout by steps: after every
+// edit, and when the page width changes, with the caret staying on its text and undo undoing edits.
 
-import { DOMSerializer, Fragment, type Node } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
+import { baseKeymap } from 'prosemirror-commands';
+import { history, redo, undo } from 'prosemirror-history';
+import { keymap } from 'prosemirror-keymap';
+import type { Node } from 'prosemirror-model';
+import { EditorState, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import {
   createDocumentSchema,
   type DocumentFile,
-  joinFragments,
+  joinDocumentPages,
   layoutPages,
+  projectDocument,
   readDocumentFile,
+  repaginate,
+  type SectionPages,
   type StoredNode,
 } from '../../src/model/index.js';
 import { measureChildBlocks } from '../../src/pagination/index.js';
@@ -94,50 +101,117 @@ const SAMPLE: DocumentFile = {
   ],
 };
 
-function pageContentPos(doc: Node): number {
-  let found = -1;
+// Where each section's page content starts.
+function contentPositions(doc: Node): number[] {
+  const positions: number[] = [];
   doc.descendants((node, pos) => {
-    if (found >= 0) return false;
-    if (node.type.name === 'page_content') found = pos;
-    return found < 0;
+    if (node.type.name === 'page_content') positions.push(pos);
+    return (
+      node.type.name === 'doc' || node.type.name === 'page_section' || node.type.name === 'page'
+    );
   });
-  return found;
+  return positions;
+}
+
+/** The pages wide and narrow, in pixels. */
+const WIDTHS = { wide: 480, narrow: 340 } as const;
+
+interface Lab {
+  readonly measuring: EditorView;
+  readonly editor: EditorView;
+}
+
+// Measures the whole document in the hidden view and lays each section out on pages.
+function layOut(measuring: EditorView, whole: Node): SectionPages[] {
+  measuring.updateState(EditorState.create({ doc: whole }));
+  return contentPositions(whole).map((pos) =>
+    layoutPages(measureChildBlocks(measuring, pos), { pageHeight: PAGE_HEIGHT }).map((page) =>
+      page.map((block) => block.node),
+    ),
+  );
+}
+
+// Whether two whole documents hold the same content, whatever their page numbers.
+function sameContent(left: Node, right: Node): boolean {
+  const contents = (doc: Node) => contentPositions(doc).map((pos) => doc.nodeAt(pos));
+  const rightContents = contents(right);
+  return contents(left).every((content, index) => {
+    const other = rightContents[index];
+    return Boolean(content && other?.eq(content));
+  });
+}
+
+// Records what a test reads: whether the pages join back into the whole document they were laid out
+// from, the text at the caret, and how many pages there are.
+function reportCaret({ state }: EditorView): void {
+  const { from } = state.selection;
+  document.documentElement.dataset.labCaretText = state.doc.textBetween(from, from + 12);
+}
+
+function report(lab: Lab, whole: Node): void {
+  const { dataset } = document.documentElement;
+  dataset.labJoinsWhole = String(sameContent(joinDocumentPages(lab.editor.state.doc).doc, whole));
+  reportCaret(lab.editor);
+  dataset.labPages = String(document.querySelectorAll('.lab-pages .pm-page').length);
+}
+
+const PAGINATION = 'lab-pagination';
+
+// Lays the editor's document out again and steps the editor onto the new pages.
+function repaginateEditor(lab: Lab): void {
+  const { state } = lab.editor;
+  const whole = joinDocumentPages(state.doc).doc;
+  const target = projectDocument(whole, layOut(lab.measuring, whole));
+  const tr = state.tr;
+  repaginate(tr, target);
+  if (tr.docChanged) {
+    lab.editor.dispatch(tr.setMeta(PAGINATION, true).setMeta('addToHistory', false));
+  }
+  report(lab, whole);
+}
+
+function setWidth(lab: Lab, button: HTMLButtonElement): void {
+  const narrow = button.getAttribute('aria-pressed') !== 'true';
+  button.setAttribute('aria-pressed', String(narrow));
+  const width = narrow ? WIDTHS.narrow : WIDTHS.wide;
+  document.documentElement.style.setProperty('--lab-width', `${String(width)}px`);
+  repaginateEditor(lab);
 }
 
 function render(): void {
   const measure = document.querySelector('.lab-measure');
   const pagesRoot = document.querySelector('.lab-pages');
-  if (!measure || !pagesRoot) return;
+  const button = document.querySelector<HTMLButtonElement>('.lab-narrow');
+  if (!measure || !pagesRoot || !button) return;
   const schema = createDocumentSchema();
-  const doc = readDocumentFile(SAMPLE, schema);
-  const view = new EditorView(measure, {
-    state: EditorState.create({ doc }),
+  const read = readDocumentFile(SAMPLE, schema);
+  const measuring = new EditorView(measure, {
+    state: EditorState.create({ doc: read }),
     editable: () => false,
   });
-  const content = doc.nodeAt(pageContentPos(doc));
-  const blocks = measureChildBlocks(view, pageContentPos(doc));
-  const pages = layoutPages(blocks, { pageHeight: PAGE_HEIGHT });
-  const serializer = DOMSerializer.fromSchema(schema);
-  pages.forEach((page, index) => {
-    const pageElement = document.createElement('section');
-    pageElement.className = 'lab-page';
-    pageElement.setAttribute('aria-label', `Page ${String(index + 1)}`);
-    const contentElement = document.createElement('div');
-    contentElement.className = 'lab-page-content';
-    contentElement.style.height = `${String(PAGE_HEIGHT)}px`;
-    contentElement.append(
-      serializer.serializeFragment(Fragment.from(page.map((block) => block.node))),
-    );
-    pageElement.append(contentElement);
-    pagesRoot.append(pageElement);
-  });
-  const joined = joinFragments(pages.flat().map((block) => block.node));
-  const whole = content
-    ? joined.length === content.childCount &&
-      joined.every((node, index) => node.eq(content.child(index)))
-    : false;
-  document.documentElement.dataset.labJoinsWhole = String(whole);
-  view.destroy();
+  let pending = 0;
+  const lab: Lab = {
+    measuring,
+    editor: new EditorView(pagesRoot, {
+      state: EditorState.create({
+        doc: projectDocument(read, layOut(measuring, read)),
+        plugins: [
+          history(),
+          keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
+          keymap(baseKeymap),
+        ],
+      }),
+      dispatchTransaction(tr: Transaction) {
+        lab.editor.updateState(lab.editor.state.apply(tr));
+        reportCaret(lab.editor);
+        if (!tr.docChanged || tr.getMeta(PAGINATION)) return;
+        cancelAnimationFrame(pending);
+        pending = requestAnimationFrame(() => repaginateEditor(lab));
+      },
+    }),
+  };
+  button.addEventListener('click', () => setWidth(lab, button));
+  report(lab, read);
   document.documentElement.dataset.labReady = 'true';
 }
 

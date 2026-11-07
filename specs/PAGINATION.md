@@ -1,6 +1,6 @@
 # Pagination
 
-The editor lays each section out on pages. A block that does not fit where it falls is split into fragments, one per page: nodes of the block's own type marked as parts by their part number (`splitPartIndex`) and their type's continuation attributes. The stored document and the editing document hold whole blocks only, so joining fragments back is part of the model, and a server joins them the way the editor does.
+The editor lays each section out on pages. A block that does not fit where it falls is split into fragments, one per page: nodes of the block's own type marked as parts by their part number (`splitPartIndex`) and their type's continuation attributes. The stored document and the editing document hold whole blocks only, so joining fragments back is part of the model, and a server joins them the way the editor does. Joins are steps on a transform, so the way from one page layout to another is a transform too, and positions map through it.
 
 ## DOCE-PAGINATION-1 - Fragments
 
@@ -13,7 +13,7 @@ Verification: `src/model/pagination/fragments.test.ts`
 
 ### DOCE-PAGINATION-1.2 - Joining fragments
 
-`joinFragments(blocks)` shall join each run of fragments into one whole block, in order. A node shall continue the block before it (`continuesFragment`) when both have the same type, at least one is a fragment, and they share an id or their part numbers follow on. Two whole blocks that share an id shall stay apart. A fragment whose other parts are missing shall become whole on its own. Paragraph fragments shall join their content.
+`joinFragments(blocks)` shall join each run of fragments into one whole block, in order, by the steps `joinBlocks` and `joinAt` add to a transform. A node shall continue the block before it (`continuesFragment`) when both have the same type, at least one is a fragment, and they share an id or their part numbers follow on. Two whole blocks that share an id shall stay apart. A fragment whose other parts are missing shall become whole on its own. Paragraph fragments shall join their content.
 
 Implementation: `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -34,7 +34,7 @@ Verification: `src/model/pagination/fragments.test.ts`
 
 ### DOCE-PAGINATION-1.5 - Lists
 
-A list's fragments shall join their items, and an item split across them shall join its children the same way (`joinChildren`), without the empty paragraph a continuation opens with. The joined list shall keep its first fragment's start number.
+A list's fragments shall join their items, and an item split across them shall join its facing children the same way, without the empty paragraph a continuation opens with. The joined list shall keep its first fragment's start number.
 
 Implementation: `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -48,7 +48,7 @@ Verification: `src/model/pagination/fragments.test.ts`
 
 ### DOCE-PAGINATION-1.7 - Host rules
 
-A host whose own node types split shall add their rules to `FRAGMENT_RULES`, and pass the rules to `joinFragments` and to `writeDocumentFile` (`fragmentRules`). A type without a rule shall never join.
+A host whose own node types split shall add their rules to `FRAGMENT_RULES`, each joining by steps on a transform (`join(tr, pos, rules)`), and pass the rules to `joinFragments` and to `writeDocumentFile` (`fragmentRules`). A type without a rule shall never join.
 
 Implementation: `src/model/pagination/fragments.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -185,4 +185,48 @@ Verification: `e2e/pagination.spec.ts`
 A block's `leadLineHeight` shall be how far its first line of text reaches below its top, through a container's first child, so a heading stays on the page where the block it heads begins. Blocks laid out from measurements shall split across pages and join back into the measured document.
 
 Implementation: `src/pagination/measure-blocks.ts`
+Verification: `e2e/pagination.spec.ts`
+
+## DOCE-PAGINATION-6 - Projection
+
+### DOCE-PAGINATION-6.1 - The whole document
+
+`joinDocumentPages(doc)` shall join each section's pages into one page by steps: the first page's header with the last page's footer, every page's footnote entries, and the content with the fragments that meet there joined (`joinSectionPages`, which can join a range of pages). Its transform's mapping shall map a position in the paged text onto the same text in the whole document.
+
+Implementation: `src/model/pagination/page-transform.ts`
+Verification: `src/model/pagination/page-projection.test.ts`
+
+### DOCE-PAGINATION-6.2 - The paged document
+
+`projectDocument(whole, sections)` shall put each section's blocks on the pages its layout gives (`SectionPages`), each page with its section's header and footer numbered through the document (`pageNumber`, `totalPages`) and the entries of the footnotes its blocks cite. Footnotes shall be numbered through the document, or restart on each page (`footnoteNumbering: 'page'`), on their markers and their entries. A section without a layout shall keep its blocks on one page.
+
+Implementation: `src/model/pagination/page-projection.ts`
+Verification: `src/model/pagination/page-projection.test.ts`
+
+### DOCE-PAGINATION-6.3 - Repaginating by steps
+
+`repaginate(tr, target)` shall step a paged document onto another layout of the same content: in each section, the pages between those it begins and ends with alike (`sameStructure`) shall be joined and split again as the target's own join inverted, with attributes such as page numbers set by attribute steps. Text in the content shall keep its position through the steps, so the selection and the undo history follow it, and the pages before the first change shall stay the same nodes.
+
+Implementation: `src/model/pagination/repaginate.ts`
+Verification: `src/model/pagination/page-projection.test.ts`
+
+### DOCE-PAGINATION-6.4 - Growing, shrinking and replacing
+
+Repaginating shall add and remove pages, rejoin a code block's line break and split it again. A section the steps cannot reach shall be replaced whole, and a document with other children replaced, so the result is always the target.
+
+Implementation: `src/model/pagination/repaginate.ts`
+Verification: `src/model/pagination/page-projection.test.ts`
+
+### DOCE-PAGINATION-6.5 - A new width
+
+When the page width changes, the pages shall be laid out again from the measured whole document and the editor moved onto them by steps, with the caret on the same text.
+
+Implementation: `src/model/pagination/repaginate.ts`, `labs/src/pagination.lab.ts`
+Verification: `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-6.6 - Typing and undo
+
+As the writer types, the pages shall be laid out again, with the caret where the typing left it and every page holding its content, and undo shall undo the typing through the repaginations, which stay out of the history.
+
+Implementation: `src/model/pagination/repaginate.ts`, `labs/src/pagination.lab.ts`
 Verification: `e2e/pagination.spec.ts`
