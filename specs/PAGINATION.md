@@ -187,6 +187,13 @@ A block's `leadLineHeight` shall be how far its first line of text reaches below
 Implementation: `src/pagination/measure-blocks.ts`
 Verification: `e2e/pagination.spec.ts`
 
+### DOCE-PAGINATION-5.3 - Measurement cache
+
+Given a cache (`createMeasureCache`), measuring shall reuse a block's measurement while its node is the same, at the node's new position, measure a changed block again, and measure everything again after `clear()`.
+
+Implementation: `src/pagination/measure-blocks.ts`
+Verification: `src/pagination/measure-blocks.test.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document
@@ -198,7 +205,7 @@ Verification: `src/model/pagination/page-projection.test.ts`
 
 ### DOCE-PAGINATION-6.2 - The paged document
 
-`projectDocument(whole, sections)` shall put each section's blocks on the pages its layout gives (`SectionPages`), each page with its section's header and footer numbered through the document (`pageNumber`, `totalPages`) and the entries of the footnotes its blocks cite. Footnotes shall be numbered through the document, or restart on each page (`footnoteNumbering: 'page'`), on their markers and their entries. A section without a layout shall keep its blocks on one page.
+`projectDocument(whole, sections)` shall put each section's blocks on the pages its layout gives (`SectionPages`), each page with its section's header and footer numbered through the document (`pageNumber`, `totalPages`) and the entries of the footnotes its blocks are first to cite, so each entry appears once. Footnotes shall be numbered through the document, or restart on each page (`footnoteNumbering: 'page'`), on their markers and their entries. A section without a layout shall keep its blocks on one page.
 
 Implementation: `src/model/pagination/page-projection.ts`
 Verification: `src/model/pagination/page-projection.test.ts`
@@ -229,4 +236,27 @@ Verification: `e2e/pagination.spec.ts`
 As the writer types, the pages shall be laid out again, with the caret where the typing left it and every page holding its content, and undo shall undo the typing through the repaginations, which stay out of the history.
 
 Implementation: `src/model/pagination/repaginate.ts`, `labs/src/pagination.lab.ts`
+Verification: `e2e/pagination.spec.ts`
+
+## DOCE-PAGINATION-7 - Keeping an editor paginated
+
+### DOCE-PAGINATION-7.1 - The pagination plugin
+
+`createPagination({ measureIn, pageHeight })` shall keep an editor on its pages: a hidden view mounted in `measureIn` shall render the whole document and follow the editor's by the smallest replacement, so unchanged blocks keep their rendering and cached measurements; after each change, on the next frame and never during composition, the pages shall be laid out from it (`layoutDocument`) and the editor stepped onto them (DOCE-PAGINATION-6.3) in a transaction marked as pagination (`isPaginationTransaction`) and kept out of the undo history. `refresh({ remeasure })` shall lay the pages out again, forgetting measurements after a width or style change.
+
+Implementation: `src/pagination/pagination.ts`, `src/pagination/layout-document.ts`
+Verification: `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-7.2 - Room for footnotes
+
+Each page shall leave room for the footnote entries it holds: their measured heights and the area's own height beyond them (`measureFootnotes`, `footnoteAreaHeight`). An entry shall be on the first page that cites it, numbered through the document, unless footnotes are numbered on each page.
+
+Implementation: `src/pagination/layout-document.ts`, `src/pagination/measure-footnotes.ts`, `src/model/pagination/page-projection.ts`
+Verification: `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-7.3 - A caret in a moving footnote
+
+A selection in a footnote entry that moves to another page shall move with it, at the same place in the entry's text.
+
+Implementation: `src/pagination/pagination.ts`
 Verification: `e2e/pagination.spec.ts`

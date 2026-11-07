@@ -1,6 +1,6 @@
 // Builds the paged document from the whole document and each section's page layout: every page gets
 // its section's header and footer numbered through the document, its blocks, and the entries of the
-// footnotes its blocks cite, numbered through the document or on each page.
+// footnotes its blocks are first to cite, numbered through the document or on each page.
 
 import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
 
@@ -112,10 +112,9 @@ function projectPage(
     numbering.count = 0;
     numbering.numbers.clear();
   }
-  const ids = citedFootnotes(blocks);
-  for (const id of ids) {
-    if (!numbering.numbers.has(id)) numbering.numbers.set(id, (numbering.count += 1));
-  }
+  // A footnote's entry goes on the first page that cites it, or on each page numbered on its own.
+  const ids = citedFootnotes(blocks).filter((id) => !numbering.numbers.has(id));
+  for (const id of ids) numbering.numbers.set(id, (numbering.count += 1));
   const pageNumbers = { pageNumber: numbering.page, totalPages: numbering.totalPages };
   const regions = childrenOf(parts.page).map((region) => {
     const name = region.type.name;

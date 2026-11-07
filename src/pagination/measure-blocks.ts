@@ -1,15 +1,56 @@
 // Measures laid-out blocks in an editor view for the page layout: each block's height and margins,
 // where a container's children sit, and, lazily, the height and lines of a text block's text
-// between two offsets. It only reads layout, so measuring a section forces one layout at most.
+// between two offsets. It only reads layout, so measuring a section forces one layout at most. A
+// cache keeps each block's measurement while its node stays, moving it with the node's position.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import type { ChildLayout, LayoutBlock, TextMeasure, TextMeasurement } from '../model/index.js';
 
+/** Measured blocks kept by node, so a block that has not changed is not measured again. */
+export interface MeasureCache {
+  /** Forgets every measurement, as when the width or the styles change. */
+  clear(): void;
+}
+
+interface CacheEntry {
+  readonly block: LayoutBlock;
+  readonly placement: Placement;
+}
+
+const cacheEntries = new WeakMap<MeasureCache, { entries: WeakMap<ProseMirrorNode, CacheEntry> }>();
+
+/** A cache for measured blocks. */
+export function createMeasureCache(): MeasureCache {
+  const store = { entries: new WeakMap<ProseMirrorNode, CacheEntry>() };
+  const cache: MeasureCache = {
+    clear: () => {
+      store.entries = new WeakMap();
+    },
+  };
+  cacheEntries.set(cache, store);
+  return cache;
+}
+
+// The measurement a cache keeps for a node, moved to the node's position now.
+function cachedBlock(cache: MeasureCache | undefined, node: ProseMirrorNode, pos: number) {
+  const entry = cache ? cacheEntries.get(cache)?.entries.get(node) : undefined;
+  if (!entry) return undefined;
+  entry.placement.pos = pos;
+  return entry.block;
+}
+
 /** How blocks are measured. */
 export interface MeasureOptions {
   /** How much the view is scaled on screen, such as by a zoom; measurements are divided by it. */
   scale?: number | undefined;
+  /** Where measurements are kept between passes. */
+  cache?: MeasureCache | undefined;
+}
+
+// Where a measured block is now; its lazy measurements read positions through it.
+interface Placement {
+  pos: number;
 }
 
 const CONTAINER_TYPES = new Set([
@@ -24,6 +65,7 @@ const TEXT_TYPES = new Set(['paragraph', 'code_block']);
 interface Measuring {
   readonly view: EditorView;
   readonly scale: number;
+  readonly placement: Placement;
 }
 
 function elementOf(view: EditorView, pos: number): HTMLElement | null {
@@ -52,12 +94,14 @@ function measureRange(range: Range, scale: number): TextMeasure {
   };
 }
 
-// A text block's text, by content offset, through the view's positions.
-function textMeasurement(measuring: Measuring, pos: number): TextMeasurement {
-  const { view, scale } = measuring;
+// A text block's text, by content offset, through the view's positions. `relative` is where the
+// text block sits from the measured block's start.
+function textMeasurement(measuring: Measuring, relative: number): TextMeasurement {
+  const { view, scale, placement } = measuring;
   return {
     offset: 0,
     measure: (from, to) => {
+      const pos = placement.pos + relative;
       const start = view.domAtPos(pos + 1 + from);
       const end = view.domAtPos(pos + 1 + to);
       const range = view.dom.ownerDocument.createRange();
@@ -83,15 +127,18 @@ function textPoint(element: Element, index: number): { node: Node; offset: numbe
 }
 
 // Linked code's code, by character, through the element that renders it.
-function codeMeasurement(measuring: Measuring, element: HTMLElement): TextMeasurement | null {
-  const code = element.querySelector('code');
-  if (!code) return null;
+function codeMeasurement(measuring: Measuring, relative: number): TextMeasurement | null {
+  const codeAt = () =>
+    elementOf(measuring.view, measuring.placement.pos + relative)?.querySelector('code');
+  const first = codeAt();
+  if (!first) return null;
   return {
     offset: 0,
     measure: (from, to) => {
+      const code = codeAt() ?? first;
       const start = textPoint(code, from);
       const end = textPoint(code, to);
-      const range = element.ownerDocument.createRange();
+      const range = code.ownerDocument.createRange();
       range.setStart(start.node, start.offset);
       range.setEnd(end.node, end.offset);
       return measureRange(range, measuring.scale);
@@ -99,17 +146,13 @@ function codeMeasurement(measuring: Measuring, element: HTMLElement): TextMeasur
   };
 }
 
-function childLayouts(
-  measuring: Measuring,
-  node: ProseMirrorNode,
-  pos: number,
-): ChildLayout[] | null {
+function childLayouts(measuring: Measuring, node: ProseMirrorNode, relative: number) {
   const layouts: ChildLayout[] = [];
   let origin: number | null = null;
   let complete = true;
   node.forEach((child, offset) => {
-    const childPos = pos + 1 + offset;
-    const element = elementOf(measuring.view, childPos);
+    const childRelative = relative + 1 + offset;
+    const element = elementOf(measuring.view, measuring.placement.pos + childRelative);
     if (!element) {
       complete = false;
       return;
@@ -119,24 +162,24 @@ function childLayouts(
     layouts.push({
       top: (rect.top - origin) / measuring.scale,
       bottom: (rect.bottom - origin) / measuring.scale,
-      measurement: measureContent(measuring, { node: child, pos: childPos, element }),
+      measurement: measureContent(measuring, { node: child, relative: childRelative }),
     });
   });
   return complete ? layouts : null;
 }
 
+// A node inside a measured block, by where it sits from the block's start.
 interface Placed {
   readonly node: ProseMirrorNode;
-  readonly pos: number;
-  readonly element: HTMLElement;
+  readonly relative: number;
 }
 
-function measureContent(measuring: Measuring, { node, pos, element }: Placed): unknown {
+function measureContent(measuring: Measuring, { node, relative }: Placed): unknown {
   const name = node.type.name;
-  if (TEXT_TYPES.has(name)) return textMeasurement(measuring, pos);
-  if (name === 'linked_code_block') return codeMeasurement(measuring, element);
+  if (TEXT_TYPES.has(name)) return textMeasurement(measuring, relative);
+  if (name === 'linked_code_block') return codeMeasurement(measuring, relative);
   if (!CONTAINER_TYPES.has(name)) return undefined;
-  const children = childLayouts(measuring, node, pos);
+  const children = childLayouts(measuring, node, relative);
   return children ? { children } : undefined;
 }
 
@@ -170,18 +213,26 @@ export function measureBlock(
   options: MeasureOptions = {},
 ): LayoutBlock | null {
   const node = view.state.doc.nodeAt(pos);
+  if (!node) return null;
+  const cached = cachedBlock(options.cache, node, pos);
+  if (cached) return cached;
   const element = elementOf(view, pos);
-  if (!node || !element) return null;
-  const measuring = { view, scale: options.scale && options.scale > 0 ? options.scale : 1 };
+  if (!element) return null;
+  const scale = options.scale && options.scale > 0 ? options.scale : 1;
+  const measuring = { view, scale, placement: { pos } };
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  return {
+  const block: LayoutBlock = {
     node,
-    height: element.getBoundingClientRect().height / measuring.scale,
+    height: element.getBoundingClientRect().height / scale,
     marginTop: px(style?.marginTop ?? ''),
     marginBottom: px(style?.marginBottom ?? ''),
     leadLineHeight: leadLineHeight(measuring, node, pos),
-    measurement: measureContent(measuring, { node, pos, element }),
+    measurement: measureContent(measuring, { node, relative: 0 }),
   };
+  if (options.cache) {
+    cacheEntries.get(options.cache)?.entries.set(node, { block, placement: measuring.placement });
+  }
+  return block;
 }
 
 /** The blocks a node at a position holds, measured in order, such as a page's content. */

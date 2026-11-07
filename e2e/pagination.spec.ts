@@ -5,14 +5,17 @@ const PAGE_HEIGHT = 360;
 
 const pages = (page: Page) => page.locator('.lab-pages .pm-page');
 
-// How far each page's blocks reach, from the top of the first to the foot of the last.
+// How far each page's blocks and footnotes reach, from the top of the first block to the foot of
+// the last block or of the footnote area.
 async function contentHeights(page: Page): Promise<number[]> {
-  return page.locator('.lab-pages .pm-page-content').evaluateAll((contents) =>
-    contents.map((content) => {
-      const children = [...content.children];
-      const first = children[0]?.getBoundingClientRect();
-      const last = children.at(-1)?.getBoundingClientRect();
-      return first && last ? last.bottom - first.top : 0;
+  return page.locator('.lab-pages .pm-page').evaluateAll((pages) =>
+    pages.map((each) => {
+      const blocks = [...(each.querySelector('.pm-page-content')?.children ?? [])];
+      const notes = each.querySelector('.pm-page-footnotes');
+      const first = blocks[0]?.getBoundingClientRect();
+      const last = blocks.at(-1)?.getBoundingClientRect();
+      const noteHeight = notes?.childElementCount ? notes.getBoundingClientRect().height : 0;
+      return first && last ? last.bottom - first.top + noteHeight : 0;
     }),
   );
 }
@@ -64,7 +67,7 @@ test.describe('pagination lab', () => {
     await expectPagesHoldContent(page);
   });
 
-  test('DOCE-PAGINATION-6.6 lays the pages out again as the writer types and undoes', async ({
+  test('DOCE-PAGINATION-6.6 DOCE-PAGINATION-7.1 lays the pages out again as the writer types and undoes', async ({
     lab,
     page,
   }) => {
@@ -85,5 +88,40 @@ test.describe('pagination lab', () => {
     await expect(typed).toHaveCount(0);
     await expect.poll(() => pages(page).count()).toBe(before);
     await expectPagesHoldContent(page);
+  });
+
+  test('DOCE-PAGINATION-7.2 puts each footnote on the page that cites it and leaves it room', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('pagination');
+    for (const id of ['n1', 'n2']) {
+      const citing = pages(page).filter({ has: page.locator(`sup[data-footnote-id="${id}"]`) });
+      await expect(citing).toHaveCount(1);
+      await expect(citing.locator(`.pm-footnote-entry[data-footnote-id="${id}"]`)).toHaveCount(1);
+    }
+    await expect(page.locator('.lab-pages .pm-footnote-entry')).toHaveCount(2);
+    await expect(page.locator('.lab-pages sup[data-footnote-id="n2"]')).toHaveText('2');
+    await expectPagesHoldContent(page);
+  });
+
+  test('DOCE-PAGINATION-7.3 keeps the caret in a footnote that moves to another page', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('pagination');
+    const entry = page.locator('.lab-pages .pm-footnote-entry[data-footnote-id="n1"]');
+    await entry.getByText('The meter').click({ position: { x: 1, y: 6 } });
+    const html = page.locator('html');
+    await expect(html).toHaveAttribute('data-lab-caret-text', /^The meter/);
+    const before = await pages(page).count();
+    // Pressed without taking the focus, so the writer keeps typing in the footnote.
+    await page.getByRole('button', { name: 'Narrow pages' }).dispatchEvent('click');
+    await expect(html).not.toHaveAttribute('data-lab-pages', String(before));
+    await expect
+      .poll(async () => (await html.getAttribute('data-lab-caret-text')) ?? '')
+      .toMatch(/^The meter/);
+    await page.keyboard.type('Note: ');
+    await expect(entry).toContainText('Note: The meter');
   });
 });
