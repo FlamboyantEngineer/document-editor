@@ -3,6 +3,7 @@
 // its type's split, which the editor provides because splitting measures text.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { splitCode, splitParagraph } from './text-split.js';
 
 /** A block with the measurements its page layout needs, in CSS pixels. */
 export interface LayoutBlock {
@@ -65,10 +66,14 @@ export interface PageLayoutOptions {
 export const PAGE_SAFETY_MARGIN_PX = 2;
 
 const KEEPS_WITH_HEADING: LayoutRule = { keepsWithHeading: true };
+const CODE: LayoutRule = { keepsWithHeading: true, split: splitCode };
 
-/** The layout rules of the document schema's block types, before the editor adds its splits. */
+/**
+ * The layout rules of the document schema's block types. A text block splits when the editor
+ * measured its text (`TextMeasurement`).
+ */
 export const LAYOUT_RULES: LayoutRules = Object.freeze({
-  paragraph: KEEPS_WITH_HEADING,
+  paragraph: { keepsWithHeading: true, split: splitParagraph },
   heading: KEEPS_WITH_HEADING,
   blockquote: KEEPS_WITH_HEADING,
   bullet_list: KEEPS_WITH_HEADING,
@@ -76,8 +81,8 @@ export const LAYOUT_RULES: LayoutRules = Object.freeze({
   figure: KEEPS_WITH_HEADING,
   math_display: KEEPS_WITH_HEADING,
   table: KEEPS_WITH_HEADING,
-  code_block: KEEPS_WITH_HEADING,
-  linked_code_block: KEEPS_WITH_HEADING,
+  code_block: CODE,
+  linked_code_block: CODE,
   toc_block: {},
   page_break: { endsPage: true },
 });

@@ -127,6 +127,23 @@ export {
   stackedHeight,
 } from './pagination/page-layout.js';
 export type {
+  TextMeasure,
+  TextMeasurement,
+  TextSplitInput,
+  TextSplitPlan,
+} from './pagination/text-split.js';
+export {
+  contentText,
+  isTextMeasurement,
+  MINIMUM_SPLIT_LINES,
+  planCodeSplit,
+  planParagraphSplit,
+  splitCode,
+  splitLinkedCode,
+  splitParagraph,
+  splitTextNode,
+} from './pagination/text-split.js';
+export type {
   FormatReferenceInput,
   ReferenceBaseline,
   ReferenceTargetBaseline,
