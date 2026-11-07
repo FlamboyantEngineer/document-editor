@@ -4,7 +4,6 @@
 // the editor and an export all lay the document out the same way.
 
 import type {
-  NumberingSettings,
   PageSettings,
   TemplateFile,
   TemplateSection,
@@ -13,14 +12,18 @@ import type {
 import { mergeTemplateSettings } from '../format/template-format-resolve.js';
 import { buildCaptionPlacementVariables } from '../numbering/caption-placement.js';
 import {
-  buildDisabledNumberingStyle,
   buildHeadingCounterContent,
   buildObjectCounterContent,
   buildParagraphCounterContent,
   resolveParagraphNumberingConfig,
 } from '../numbering/document-numbering.js';
-import { type NumberingStyleConfig, parseNumberingStyle } from '../numbering/numbering-format.js';
 import { lengthToCssPx, PAGE_SIZE_DIMENSIONS } from './template-css-values.js';
+import {
+  NUMBERED_OBJECT_KINDS,
+  type NumberedObjectKind,
+  resolveHeadingNumbering,
+  resolveObjectNumbering,
+} from './template-numbering.js';
 import {
   buildCaptionCssVarEntries,
   buildFootnoteCssVarEntries,
@@ -50,12 +53,18 @@ export interface PageMetrics {
   margins: { top: number; right: number; bottom: number; left: number };
 }
 
-const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
-
 function scopeOf(template: TemplateFile, section: TemplateSection | null | undefined) {
-  const styles = mergeTemplateSettings<TemplateStyles>(template.styles ?? {}, section?.styles);
+  const styles = templateScopeStyles(template, section);
   const page = mergeTemplateSettings<PageSettings>(template.page ?? {}, section?.page);
   return { styles, page };
+}
+
+/** A scope's styles: a section's over the template's, or the template's for the document. */
+export function templateScopeStyles(
+  template: TemplateFile,
+  section: TemplateSection | null | undefined,
+): TemplateStyles {
+  return mergeTemplateSettings<TemplateStyles>(template.styles ?? {}, section?.styles);
 }
 
 function pixels(length: string | null | undefined): number {
@@ -98,39 +107,12 @@ function pageProperties(metrics: PageMetrics): CustomProperties {
   };
 }
 
-function styleConfigOf(numbering: NumberingSettings | null | undefined): NumberingStyleConfig {
-  const format = numbering?.format?.trim();
-  return format ? parseNumberingStyle(format) : buildDisabledNumberingStyle();
-}
-
-function affixes(numbering: NumberingSettings | null | undefined) {
-  return { prefix: numbering?.prefix ?? '', suffix: numbering?.suffix ?? '' };
-}
-
-// How deep the headings an object's number counts go, which restart its counter.
-function objectContextDepth(config: NumberingStyleConfig): number | null {
-  const depth = Math.max(0, config.levels.length - 1);
-  return depth >= 1 && depth <= 6 ? depth : null;
-}
-
-const OBJECTS = [
-  ['figure', 'figure', 'figure'],
-  ['table', 'table', 'table'],
-  ['codeBlock', 'codeblock', 'code'],
-  ['equation', 'equation', 'equation'],
-] as const;
-
-// An equation's number sits inside its wrapper, so a prefix or suffix that repeats it drops it.
-function equationAffixes(styles: TemplateStyles) {
-  const equation = styles.equation;
-  const wrapper = equation?.wrapper ?? '()';
-  const open = wrapper.slice(0, 1);
-  const close = wrapper.length > 1 ? wrapper.slice(-1) : '';
-  let { prefix, suffix } = affixes(equation?.numbering);
-  if (open && prefix.startsWith(open)) prefix = prefix.slice(1);
-  if (close && suffix.endsWith(close)) suffix = suffix.slice(0, -1);
-  return { prefix: open + prefix, suffix: suffix + close };
-}
+const OBJECT_COUNTERS: Readonly<Record<NumberedObjectKind, readonly [string, string]>> = {
+  figure: ['figure', 'figure'],
+  table: ['table', 'table'],
+  codeBlock: ['codeblock', 'code'],
+  equation: ['equation', 'equation'],
+};
 
 function numberingProperties(styles: TemplateStyles): CustomProperties {
   const properties: CustomProperties = {};
@@ -138,26 +120,23 @@ function numberingProperties(styles: TemplateStyles): CustomProperties {
   const paragraphContent = buildParagraphCounterContent(paragraph.styleConfig, paragraph);
   properties['--doc-paragraph-numbering-enabled'] = paragraphContent.enabled ? '1' : '0';
   properties['--doc-paragraph-counter-content'] = paragraphContent.content;
-  const headings = HEADING_LEVELS.map((level) => styles[`heading${level}`]?.numbering);
-  const headingConfigs = headings.map(styleConfigOf);
-  HEADING_LEVELS.forEach((level, index) => {
-    const config = headingConfigs[index] ?? buildDisabledNumberingStyle();
-    const content = buildHeadingCounterContent(config, level, affixes(headings[index]));
-    properties[`--doc-heading-${String(level)}-numbering-enabled`] = content.enabled ? '1' : '0';
-    properties[`--doc-heading-${String(level)}-counter-content`] = content.content;
+  const headings = resolveHeadingNumbering(styles);
+  headings.forEach(({ config, prefix, suffix }, index) => {
+    const level = String(index + 1);
+    const content = buildHeadingCounterContent(config, index + 1, { prefix, suffix });
+    properties[`--doc-heading-${level}-numbering-enabled`] = content.enabled ? '1' : '0';
+    properties[`--doc-heading-${level}-counter-content`] = content.content;
   });
-  const resets: string[][] = HEADING_LEVELS.map(() => []);
-  for (const [style, counter, name] of OBJECTS) {
-    const numbering = styles[style]?.numbering;
-    const config = styleConfigOf(numbering);
-    const depth = objectContextDepth(config);
-    if (depth) resets[depth - 1]?.push(`${counter} 0`);
-    const { prefix, suffix } = style === 'equation' ? equationAffixes(styles) : affixes(numbering);
+  const resets: string[][] = headings.map(() => []);
+  for (const kind of NUMBERED_OBJECT_KINDS) {
+    const [counter, name] = OBJECT_COUNTERS[kind];
+    const { config, prefix, suffix, restartLevel } = resolveObjectNumbering(styles, kind);
+    if (restartLevel) resets[restartLevel - 1]?.push(`${counter} 0`);
     properties[`--doc-${name}-counter-content`] = buildObjectCounterContent(config, counter, {
       prefix,
       suffix,
-      headingNumbering: headingConfigs,
-      captionLabel: style !== 'equation',
+      headingNumbering: headings.map((heading) => heading.config),
+      captionLabel: kind !== 'equation',
     });
   }
   resets.forEach((counters, index) => {

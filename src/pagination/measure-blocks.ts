@@ -1,11 +1,19 @@
 // Measures laid-out blocks in an editor view for the page layout: each block's height and margins,
-// where a container's children sit, and, lazily, the height and lines of a text block's text
-// between two offsets. It only reads layout, so measuring a section forces one layout at most. A
-// cache keeps each block's measurement while its node stays, moving it with the node's position.
+// where a container's children or a list of contents' rows sit, and, lazily, the height and lines
+// of a text block's text between two offsets. It only reads layout, so measuring a section forces
+// one layout at most. A cache keeps each block's measurement while its node stays, moving it with
+// the node's position. A block whose rendering depends on more than its node, such as a list of
+// contents, says so with a measure key (`data-de-measure-key`), and a changed key measures it again.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
-import type { ChildLayout, LayoutBlock, TextMeasure, TextMeasurement } from '../model/index.js';
+import type {
+  ChildLayout,
+  LayoutBlock,
+  RowsMeasurement,
+  TextMeasure,
+  TextMeasurement,
+} from '../model/index.js';
 
 /** Measured blocks kept by node, so a block that has not changed is not measured again. */
 export interface MeasureCache {
@@ -16,6 +24,7 @@ export interface MeasureCache {
 interface CacheEntry {
   readonly block: LayoutBlock;
   readonly placement: Placement;
+  readonly key: string | undefined;
 }
 
 const cacheEntries = new WeakMap<MeasureCache, { entries: WeakMap<ProseMirrorNode, CacheEntry> }>();
@@ -32,11 +41,18 @@ export function createMeasureCache(): MeasureCache {
   return cache;
 }
 
-// The measurement a cache keeps for a node, moved to the node's position now.
-function cachedBlock(cache: MeasureCache | undefined, node: ProseMirrorNode, pos: number) {
+/** The attribute a block's element names what else its rendering depends on with. */
+const MEASURE_KEY = 'deMeasureKey';
+
+// The measurement a cache keeps for a node rendered as it was, moved to the node's position now.
+function cachedBlock(
+  cache: MeasureCache | undefined,
+  node: ProseMirrorNode,
+  at: { readonly pos: number; readonly element: HTMLElement },
+) {
   const entry = cache ? cacheEntries.get(cache)?.entries.get(node) : undefined;
-  if (!entry) return undefined;
-  entry.placement.pos = pos;
+  if (!entry || entry.key !== at.element.dataset[MEASURE_KEY]) return undefined;
+  entry.placement.pos = at.pos;
   return entry.block;
 }
 
@@ -174,8 +190,24 @@ interface Placed {
   readonly relative: number;
 }
 
+// Where a list of contents' entry rows sit from its top.
+function rowsMeasurement(measuring: Measuring, relative: number): RowsMeasurement | undefined {
+  const element = elementOf(measuring.view, measuring.placement.pos + relative);
+  if (!element) return undefined;
+  const top = element.getBoundingClientRect().top;
+  const rows = [...element.querySelectorAll('.de-contents__entry')].map((row) => {
+    const rect = row.getBoundingClientRect();
+    return {
+      top: (rect.top - top) / measuring.scale,
+      bottom: (rect.bottom - top) / measuring.scale,
+    };
+  });
+  return { rows };
+}
+
 function measureContent(measuring: Measuring, { node, relative }: Placed): unknown {
   const name = node.type.name;
+  if (name === 'toc_block') return rowsMeasurement(measuring, relative);
   if (TEXT_TYPES.has(name)) return textMeasurement(measuring, relative);
   if (name === 'linked_code_block') return codeMeasurement(measuring, relative);
   if (!CONTAINER_TYPES.has(name)) return undefined;
@@ -214,10 +246,10 @@ export function measureBlock(
 ): LayoutBlock | null {
   const node = view.state.doc.nodeAt(pos);
   if (!node) return null;
-  const cached = cachedBlock(options.cache, node, pos);
-  if (cached) return cached;
   const element = elementOf(view, pos);
   if (!element) return null;
+  const cached = cachedBlock(options.cache, node, { pos, element });
+  if (cached) return cached;
   const scale = options.scale && options.scale > 0 ? options.scale : 1;
   const measuring = { view, scale, placement: { pos } };
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
@@ -230,7 +262,10 @@ export function measureBlock(
     measurement: measureContent(measuring, { node, relative: 0 }),
   };
   if (options.cache) {
-    cacheEntries.get(options.cache)?.entries.set(node, { block, placement: measuring.placement });
+    const key = element.dataset[MEASURE_KEY];
+    cacheEntries
+      .get(options.cache)
+      ?.entries.set(node, { block, placement: measuring.placement, key });
   }
   return block;
 }

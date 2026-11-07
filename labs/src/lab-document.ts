@@ -47,6 +47,7 @@ function chapter(name: string): StoredNode[] {
     list('orderedList', ['Detect the condition', 'Report it', 'Recover']),
     {
       type: 'table',
+      attrs: { caption: `${name} limits` },
       content: [
         {
           type: 'tableRow',

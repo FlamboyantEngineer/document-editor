@@ -121,3 +121,19 @@ Verification: `src/model/numbering/paragraph-numbering.test.ts`
 
 Implementation: `src/model/numbering/caption-placement.ts`
 Verification: `src/model/numbering/caption-placement.test.ts`
+
+## DOCE-NUMBERING-5 - Number text
+
+### DOCE-NUMBERING-5.1 - Heading numbers
+
+`headingNumberText(config, level, counters, affixes)` shall write a heading's number as its counter content prints it: one counter per level down to its own, with its prefix, suffix and separators, and `0` for a counter nothing has advanced yet. A format that does not number the level shall give an empty text.
+
+Implementation: `src/model/numbering/numbering-text.ts`
+Verification: `src/model/numbering/numbering-text.test.ts`
+
+### DOCE-NUMBERING-5.2 - Object numbers
+
+`objectNumberText(config, count, headingCounters, options)` shall write an object's number as its caption's counter content prints it, with its caption label and the heading context its numbering asks for, leaving out the context levels its separator allows it to omit.
+
+Implementation: `src/model/numbering/numbering-text.ts`, `src/model/templates/template-numbering.ts`
+Verification: `src/model/numbering/numbering-text.test.ts`

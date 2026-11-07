@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { splitBlockquote, splitList, splitListItem } from './container-split.js';
+import { splitContents } from './contents-split.js';
 import { splitTableWith } from './table-split.js';
 import { splitCode, splitParagraph } from './text-split.js';
 
@@ -97,7 +98,7 @@ export function createLayoutRules({
     table: { keepsWithHeading: true, split: splitTableWith(repeatTableHeader) },
     code_block: CODE,
     linked_code_block: CODE,
-    toc_block: {},
+    toc_block: { split: splitContents },
     page_break: { endsPage: true },
   });
 }

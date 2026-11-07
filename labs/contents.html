@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <meta
+      name="description"
+      content="A table of contents and a table of tables drawn live from the document, numbered and paged."
+    />
+    <title>Contents · Labs</title>
+    <link rel="stylesheet" href="reference/document.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #eef0f3;
+        color: #1d2129;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      fieldset {
+        display: flex;
+        gap: 16px;
+        margin: 0 0 16px;
+        border: 0;
+        padding: 0;
+      }
+    </style>
+    <script type="module" src="build/contents.js"></script>
+  </head>
+  <body>
+    <main id="lab-root">
+      <h1>Contents</h1>
+      <p>
+        The table of contents and the table of tables list the document's headings and tables,
+        numbered as the document numbers them, with the page each one is on. The table of contents
+        continues on the next page. Insert a chapter and every number after it changes; select an
+        entry to go to what it names.
+      </p>
+      <p><button type="button" name="insert-chapter">Insert a chapter at the start</button></p>
+      <div class="de-measure" aria-hidden="true"></div>
+      <div class="lab-pages de-document"></div>
+    </main>
+  </body>
+</html>
