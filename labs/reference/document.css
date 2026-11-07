@@ -1,0 +1,193 @@
+/*
+ * A reference stylesheet for documents: it reads the custom properties a template sets
+ * (`templateProperties`) and lays out the editor's pages, page regions, headings, lists, tables
+ * and code with them. Hosts write their own; labs use this one.
+ */
+
+.de-document .ProseMirror,
+.de-measure .ProseMirror {
+  outline: none;
+  counter-reset: h1 h2 h3 h4 h5 h6 figure table codeblock equation ordered-list;
+  color: var(--doc-paragraph-color, #111827);
+}
+
+.de-document .pm-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.de-document .pm-page {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: var(--doc-page-width);
+  height: var(--doc-page-height);
+  padding: var(--doc-page-margin-top) var(--doc-page-margin-right) var(--doc-page-margin-bottom)
+    var(--doc-page-margin-left);
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+}
+
+.de-document .pm-page-content {
+  flex: 1;
+}
+
+.de-measure {
+  position: absolute;
+  top: 0;
+  left: -100000px;
+  width: calc(var(--doc-page-width) - var(--doc-page-margin-left) - var(--doc-page-margin-right));
+}
+
+.de-document .pm-page-header,
+.de-document .pm-page-footer,
+.de-measure .pm-page-header,
+.de-measure .pm-page-footer,
+.pm-page-footnotes:empty {
+  display: none;
+}
+
+.pm-page-content > :first-child {
+  margin-top: 0;
+}
+
+.pm-page-content > :last-child {
+  margin-bottom: 0;
+}
+
+.pm-page-content p {
+  margin: var(--doc-paragraph-margin-top, 0) 0 var(--doc-paragraph-margin-bottom, 0);
+  font-family: var(--doc-paragraph-font-family, serif);
+  font-size: var(--doc-paragraph-font-size, 12px);
+  line-height: var(--doc-paragraph-line-height, 1.5);
+  text-align: var(--doc-paragraph-text-align, left);
+}
+
+.pm-page-content h1 {
+  counter-increment: h1;
+  counter-set: h2 0 h3 0 h4 0 h5 0 h6 0 var(--doc-h1-counter-set-extra,);
+}
+
+.pm-page-content h2 {
+  counter-increment: h2;
+  counter-set: h3 0 h4 0 h5 0 h6 0 var(--doc-h2-counter-set-extra,);
+}
+
+.pm-page-content h3 {
+  counter-increment: h3;
+  counter-set: h4 0 h5 0 h6 0 var(--doc-h3-counter-set-extra,);
+}
+
+.pm-page-content h1,
+.pm-page-content h2,
+.pm-page-content h3 {
+  line-height: 1.2;
+}
+
+.pm-page-content h1 {
+  margin: var(--doc-heading-1-margin-top) 0 var(--doc-heading-1-margin-bottom);
+  color: var(--doc-heading-1-color);
+  font-family: var(--doc-heading-1-font-family, inherit);
+  font-size: var(--doc-heading-1-font-size);
+  font-weight: var(--doc-heading-1-font-weight, 700);
+}
+
+.pm-page-content h2 {
+  margin: var(--doc-heading-2-margin-top) 0 var(--doc-heading-2-margin-bottom);
+  color: var(--doc-heading-2-color);
+  font-family: var(--doc-heading-2-font-family, inherit);
+  font-size: var(--doc-heading-2-font-size);
+  font-weight: var(--doc-heading-2-font-weight, 700);
+}
+
+.pm-page-content h3 {
+  margin: var(--doc-heading-3-margin-top) 0 var(--doc-heading-3-margin-bottom);
+  color: var(--doc-heading-3-color);
+  font-family: var(--doc-heading-3-font-family, inherit);
+  font-size: var(--doc-heading-3-font-size);
+  font-weight: var(--doc-heading-3-font-weight, 700);
+}
+
+.pm-page-content h1::before {
+  content: var(--doc-heading-1-counter-content);
+}
+
+.pm-page-content h2::before {
+  content: var(--doc-heading-2-counter-content);
+}
+
+.pm-page-content h3::before {
+  content: var(--doc-heading-3-counter-content);
+}
+
+.pm-page-content ul,
+.pm-page-content ol {
+  font-family: var(--doc-paragraph-font-family, serif);
+  font-size: var(--doc-paragraph-font-size, 12px);
+  margin: var(--doc-list-margin-top, 0) 0 var(--doc-list-margin-bottom, 0);
+  padding-left: var(--doc-list-indentation, 24pt);
+}
+
+.pm-page-content ul {
+  list-style-type: var(--doc-ul-list-style-type, disc);
+}
+
+.pm-page-content ol {
+  counter-reset: ordered-list;
+  list-style-type: var(--doc-ol-list-style-type, decimal);
+}
+
+.pm-page-content ol > li {
+  counter-increment: ordered-list;
+}
+
+.pm-page-content ol > li::marker {
+  content: var(--doc-ol-counter-content, counter(ordered-list) '. ');
+}
+
+.pm-page-content li > p {
+  margin: 0;
+}
+
+.pm-page-content table {
+  width: 100%;
+  margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
+  border-collapse: collapse;
+}
+
+.pm-page-content td,
+.pm-page-content th {
+  padding: var(--doc-table-cell-padding, 4px);
+  border: var(--doc-table-border-width, 1px) solid var(--doc-table-border-color, #334155);
+  text-align: left;
+}
+
+.pm-page-content th {
+  background: var(--doc-table-header-background);
+  color: var(--doc-table-header-color);
+  font-weight: var(--doc-table-header-font-weight, 700);
+}
+
+.pm-page-content td > p,
+.pm-page-content th > p {
+  margin: 0;
+}
+
+.pm-page-content pre {
+  margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
+  padding: 8px;
+  background: var(--doc-code-background);
+  color: var(--doc-code-color);
+  font-family: var(--doc-code-font-family, monospace);
+  font-size: var(--doc-code-font-size);
+  white-space: pre-wrap;
+}
+
+.pm-page-footnotes {
+  border-top: var(--doc-footnote-separator-border, 1px solid);
+  padding-top: var(--doc-footnote-spacing-to-content, 6px);
+  font-family: var(--doc-footnote-text-font-family, inherit);
+  font-size: var(--doc-footnote-text-font-size, 10px);
+  line-height: var(--doc-footnote-text-line-height, 1.4);
+}
