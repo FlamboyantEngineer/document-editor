@@ -5,6 +5,7 @@ export type {
   CommentThread,
   DocumentSave,
   DocumentStoreAdapter,
+  DocumentVersion,
   EditorHost,
   EditorPerson,
   FeedbackAdapter,
@@ -19,6 +20,7 @@ export type {
   StoredTemplate,
   TelemetryAdapter,
   TemplateSourceAdapter,
+  VersionStoreAdapter,
 } from './adapters.js';
 export type {
   ConnectionAccess,

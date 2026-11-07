@@ -4,6 +4,7 @@
 // the editor and an export all lay the document out the same way.
 
 import type {
+  ChangeBarSettings,
   PageSettings,
   TemplateFile,
   TemplateSection,
@@ -146,6 +147,29 @@ function numberingProperties(styles: TemplateStyles): CustomProperties {
   return properties;
 }
 
+const CHANGE_KINDS = ['insertions', 'deletions', 'modifications', 'formatting'] as const;
+
+// The change bars' colors, a disabled kind's transparent, their width, and the side they are on:
+// `--doc-change-bar-left` or `-right` places a bar its offset outside a block, the other is `auto`.
+function changeBarProperties(bars: ChangeBarSettings | null | undefined): CustomProperties {
+  if (!bars) return {};
+  const properties: CustomProperties = {};
+  for (const kind of CHANGE_KINDS) {
+    const setting = bars[kind];
+    if (!setting) continue;
+    const color = setting.enabled === false ? 'transparent' : setting.color;
+    if (color) properties[`--doc-change-bar-${kind}-color`] = color;
+  }
+  const width = lengthToCssPx(bars.width) ?? '4px';
+  const offset = lengthToCssPx(bars.offset) ?? '8px';
+  const outside = `calc(-1 * (${offset} + ${width}))`;
+  const right = bars.side === 'right';
+  properties['--doc-change-bar-width'] = width;
+  properties['--doc-change-bar-left'] = right ? 'auto' : outside;
+  properties['--doc-change-bar-right'] = right ? outside : 'auto';
+  return properties;
+}
+
 /**
  * The custom properties a scope of a resolved template sets: the template's for the document, or a
  * section's, with its own settings over the template's. Settings no scope sets are left out.
@@ -160,6 +184,7 @@ export function templateProperties(
     ...textStyleProperties(styles, fontStacks),
     ...numberingProperties(styles),
     ...buildCaptionPlacementVariables(styles),
+    ...(section ? {} : changeBarProperties(template.changeBars)),
   };
   for (const [name, value] of buildCaptionCssVarEntries(styles, fontStacks)) {
     if (value) properties[name] = value;

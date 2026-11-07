@@ -63,3 +63,15 @@ export {
 } from './suggestion-decisions.js';
 export type { SuggestOptions } from './suggestions.js';
 export { suggestionsKey, suggestTransaction } from './suggestions.js';
+export type { TextSegment } from './text-diff.js';
+export { diffText } from './text-diff.js';
+export type { VersionChangeDisplay, VersionChangesOptions } from './version-changes.js';
+export {
+  createVersionChanges,
+  refreshVersionChanges,
+  versionChangeDecorations,
+  versionChanges,
+  versionChangesKey,
+} from './version-changes.js';
+export type { VersionBlock, VersionChange, VersionChangeKind } from './version-compare.js';
+export { collectVersionBlocks, compareVersions } from './version-compare.js';

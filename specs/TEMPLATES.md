@@ -131,6 +131,13 @@ A template resolved without a base template (`baseTemplateId: null`) shall set o
 Implementation: `src/model/templates/template-properties.ts`, `src/model/format/template-format-resolve.ts`
 Verification: `src/model/templates/template-properties.test.ts`
 
+### DOCE-TEMPLATES-5.8 - Change bar properties
+
+`templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
+
+Implementation: `src/model/templates/template-properties.ts`
+Verification: `src/model/templates/template-properties.test.ts`
+
 ## DOCE-TEMPLATES-6 - Page regions
 
 ### DOCE-TEMPLATES-6.1 - Header and footer content

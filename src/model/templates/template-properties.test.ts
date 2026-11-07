@@ -98,4 +98,28 @@ describe('template properties', () => {
     expect(properties['--doc-heading-2-numbering-enabled']).toBe('0');
     expect(properties['--doc-paragraph-font-family']).toBeUndefined();
   });
+
+  it('DOCE-TEMPLATES-5.8 writes the change bars, a disabled kind transparent, on their side', () => {
+    const properties = templateProperties(BASE_TEMPLATE);
+    expect(properties).toMatchObject({
+      '--doc-change-bar-insertions-color': '#00dd00',
+      '--doc-change-bar-deletions-color': '#dd0000',
+      '--doc-change-bar-modifications-color': '#0000dd',
+      '--doc-change-bar-formatting-color': '#dd00dd',
+      '--doc-change-bar-width': '5px',
+      '--doc-change-bar-left': 'calc(-1 * (10px + 5px))',
+      '--doc-change-bar-right': 'auto',
+    });
+    const right = templateProperties({
+      formatVersion: 1,
+      id: 'right',
+      changeBars: { side: 'right', insertions: { enabled: false, color: '#00dd00' } },
+    });
+    expect(right['--doc-change-bar-insertions-color']).toBe('transparent');
+    expect(right['--doc-change-bar-left']).toBe('auto');
+    expect(right['--doc-change-bar-right']).toBe('calc(-1 * (8px + 4px))');
+    expect(templateProperties(BASE_TEMPLATE, { section: { name: 'appendix' } })).not.toHaveProperty(
+      '--doc-change-bar-width',
+    );
+  });
 });

@@ -1,7 +1,9 @@
+import type { DocumentFile } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type {
   AssetAdapter,
   DocumentStoreAdapter,
+  DocumentVersion,
   EditorHost,
   EditorPerson,
   HostResult,
@@ -11,6 +13,7 @@ import type {
   StoredDocument,
   StoredTemplate,
   TemplateSourceAdapter,
+  VersionStoreAdapter,
 } from './adapters.js';
 import { type EditorCapabilities, FULL_CAPABILITIES } from './capabilities.js';
 import { createMemoryComments, type MemoryCommentsOptions } from './memory-comments.js';
@@ -26,6 +29,8 @@ export interface MemoryHostOptions {
   templates?: readonly TemplateFile[] | undefined;
   /** The comment threads the store starts with, and the time comments are posted at. */
   comments?: MemoryCommentsOptions | undefined;
+  /** The time a document is saved at, which its version records. Defaults to now. */
+  now?: (() => Date) | undefined;
 }
 
 const DEFAULT_PERSON: EditorPerson = { id: 'reader', name: 'Reader' };
@@ -55,27 +60,49 @@ function savedState(sequence: number): SavedState {
   return { revision: `rev-${String(sequence)}`, sequence };
 }
 
-function createMemoryDocuments(initial: MemoryHostOptions['documents']): DocumentStoreAdapter {
-  const stored = new Map<string, StoredDocument>();
-  for (const document of initial ?? []) {
-    stored.set(document.id, { ...document, ...savedState(1) });
-  }
+// Every saved state of each document, oldest first, which the documents and versions share.
+type History = Map<string, (DocumentVersion & { content: DocumentFile })[]>;
+
+function createMemoryDocuments(
+  history: History,
+  record: (documentId: string, content: DocumentFile, sequence: number) => void,
+): DocumentStoreAdapter {
+  const latest = (documentId: string) => history.get(documentId)?.at(-1);
   return {
     load: (documentId) => {
-      const document = stored.get(documentId);
-      return Promise.resolve(
-        document ? { ok: true, value: structuredClone(document) } : notFound(documentId),
-      );
+      const version = latest(documentId);
+      if (!version) return Promise.resolve(notFound(documentId));
+      const { revision, sequence, content } = version;
+      return Promise.resolve({
+        ok: true,
+        value: structuredClone({ id: documentId, revision, sequence, content }),
+      });
     },
     save: (documentId, save) => {
-      const current = stored.get(documentId);
+      const current = latest(documentId);
       if (!current) return Promise.resolve(notFound(documentId));
       if (current.revision !== save.baseRevision) {
         return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
       }
-      const state = savedState(current.sequence + 1);
-      stored.set(documentId, { ...current, content: structuredClone(save.content), ...state });
-      return Promise.resolve({ ok: true, value: state });
+      record(documentId, save.content, current.sequence + 1);
+      return Promise.resolve({ ok: true, value: savedState(current.sequence + 1) });
+    },
+  };
+}
+
+function createMemoryVersions(history: History): VersionStoreAdapter {
+  return {
+    list: (documentId) => {
+      const versions = history.get(documentId);
+      if (!versions) return Promise.resolve(notFound(documentId));
+      const listed = versions.map(({ content: _, ...version }) => version).reverse();
+      return Promise.resolve({ ok: true, value: structuredClone(listed) });
+    },
+    load: (documentId, revision) => {
+      const version = history.get(documentId)?.find((each) => each.revision === revision);
+      return Promise.resolve(
+        version ? { ok: true, value: structuredClone(version.content) } : notFound(revision),
+      );
     },
   };
 }
@@ -119,10 +146,25 @@ function createMemoryAssets(): AssetAdapter {
 export function createMemoryHost(options: MemoryHostOptions = {}): EditorHost {
   const capabilities = options.capabilities ?? FULL_CAPABILITIES;
   const identity = createMemoryIdentity(options.person ?? DEFAULT_PERSON, options.people ?? []);
+  const now = options.now ?? (() => new Date());
+  const history: History = new Map();
+  const record = (documentId: string, content: DocumentFile, sequence: number) => {
+    const versions = history.get(documentId) ?? [];
+    versions.push({
+      ...savedState(sequence),
+      savedAt: now().toISOString(),
+      author: identity.currentPerson().id,
+      label: null,
+      content: structuredClone(content),
+    });
+    history.set(documentId, versions);
+  };
+  for (const document of options.documents ?? []) record(document.id, document.content, 1);
   return {
     identity,
     permissions: { capabilities: () => Promise.resolve(capabilities) },
-    documents: createMemoryDocuments(options.documents),
+    documents: createMemoryDocuments(history, record),
+    versions: createMemoryVersions(history),
     templates: createMemoryTemplates(options.templates ?? []),
     assets: createMemoryAssets(),
     comments: createMemoryComments(identity, options.comments),

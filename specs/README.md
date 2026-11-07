@@ -16,6 +16,7 @@ Each file in this directory specifies one component, one family of components, o
 | [SECTIONS.md](SECTIONS.md)               | A document's sections in their template scopes, and their commands.     |
 | [SUGGESTIONS.md](SUGGESTIONS.md)         | Suggest mode, suggested insertions and deletions, and deciding them.    |
 | [COMMENTS.md](COMMENTS.md)               | Comment anchors, the comments margin and suggestion threads.            |
+| [VERSIONS.md](VERSIONS.md)               | Comparing versions and showing their changes, with change bars.         |
 | [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.             |
 | [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.             |
 | [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.            |

@@ -1,5 +1,5 @@
 // Keeps a document editor's state in its layout. Each section is shown in its template section's
-// scope. On pages, a pagination measures the document in a hidden view inside the editor and lays
+// scope, and its changes from an older version, when there is one, are shown on it. On pages, a pagination measures the document in a hidden view inside the editor and lays
 // it out after every change, each section on pages of its own size; in the web layout each section
 // is one page, so leaving the pages joins them back.
 
@@ -7,7 +7,13 @@ import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Plugin } from 'prosemirror-state';
 import { type RefObject, useEffect, useRef } from 'react';
-import { createDocumentSections, documentSectionsKey } from '../../engine/index.js';
+import {
+  createDocumentSections,
+  createVersionChanges,
+  documentSectionsKey,
+  refreshVersionChanges,
+  type VersionChangeDisplay,
+} from '../../engine/index.js';
 import {
   findTemplateSection,
   joinDocumentPages,
@@ -25,6 +31,15 @@ export interface DocumentLayoutOptions {
   readonly template: TemplateFile;
   readonly state: EditorState;
   readonly onStateChange: (update: RichTextStateUpdate) => void;
+  /** The older version the document is compared with, and how its changes show. */
+  readonly compare: DocumentComparison | null;
+}
+
+/** An older version to show a document's changes from, as change bars or marked in place. */
+export interface DocumentComparison {
+  readonly previous: ProseMirrorNode;
+  /** Defaults to markup. */
+  readonly display?: VersionChangeDisplay | undefined;
 }
 
 // The height inside the page margins of a section's template scope.
@@ -34,15 +49,17 @@ function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
   return height - margins.top - margins.bottom;
 }
 
-// The plugins the measuring view runs: the editor's, with the sections plugin once.
-function withSections(plugins: readonly Plugin[], sections: Plugin | null): Plugin[] {
-  const others = plugins.filter((plugin) => plugin !== sections);
-  return sections ? [...others, sections] : others;
+// The plugins the measuring view runs: the editor's, with the layout's own plugins once.
+function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
+  return [...plugins.filter((plugin) => !own.includes(plugin)), ...own];
 }
 
 // A state with its sections shown in the template again, out of the history.
 const restyleSections = (state: EditorState) =>
   state.apply(state.tr.setMeta(documentSectionsKey, true).setMeta('addToHistory', false));
+
+// A state compared with the older version again, out of the history.
+const recompare = (state: EditorState) => state.apply(refreshVersionChanges(state.tr));
 
 // A state with each section's pages joined into one, out of the history.
 function joinPages(state: EditorState): EditorState {
@@ -68,19 +85,25 @@ export function useDocumentLayout(
     latest.current = options;
   });
   const refresh = useRef<(() => void) | null>(null);
-  const sectionsPlugin = useRef<Plugin | null>(null);
+  const ownPlugins = useRef<readonly Plugin[]>([]);
 
   useEffect(() => {
-    const sections = createDocumentSections({ template: () => latest.current.template });
-    sectionsPlugin.current = sections;
+    const own = [
+      createDocumentSections({ template: () => latest.current.template }),
+      createVersionChanges({
+        previous: () => latest.current.compare?.previous ?? null,
+        display: () => latest.current.compare?.display ?? 'markup',
+      }),
+    ];
+    ownPlugins.current = own;
     const { onStateChange } = latest.current;
     onStateChange((state) =>
-      restyleSections(state.reconfigure({ plugins: [...state.plugins, sections] })),
+      restyleSections(state.reconfigure({ plugins: [...state.plugins, ...own] })),
     );
     return () => {
-      sectionsPlugin.current = null;
+      ownPlugins.current = [];
       onStateChange((state) =>
-        state.reconfigure({ plugins: state.plugins.filter((plugin) => plugin !== sections) }),
+        state.reconfigure({ plugins: state.plugins.filter((plugin) => !own.includes(plugin)) }),
       );
     };
   }, []);
@@ -94,7 +117,7 @@ export function useDocumentLayout(
     const pagination = createPagination({
       measureIn: element,
       pageHeight: (section) => bodyHeight(latest.current.template, section),
-      plugins: withSections(latest.current.state.plugins, sectionsPlugin.current),
+      plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
     });
     refresh.current = () => {
       pagination.refresh({ remeasure: true });
@@ -115,4 +138,10 @@ export function useDocumentLayout(
     latest.current.onStateChange(restyleSections);
     refresh.current?.();
   }, [template]);
+
+  const { previous, display } = options.compare ?? {};
+  useEffect(() => {
+    latest.current.onStateChange(recompare);
+    refresh.current?.();
+  }, [previous, display]);
 }

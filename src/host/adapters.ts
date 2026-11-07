@@ -61,6 +61,28 @@ export interface DocumentStoreAdapter {
   save(documentId: string, save: DocumentSave): Promise<HostResult<SavedState>>;
 }
 
+/** A saved version of a document. */
+export interface DocumentVersion extends SavedState {
+  /** When it was saved: an ISO 8601 date and time. */
+  savedAt: string;
+  /** The id of the person who saved it, when the host knows. */
+  author: string | null;
+  /** The version's name; null for a version saved automatically. */
+  label: string | null;
+}
+
+/** A document's saved versions, to show its history and compare one with another. */
+export interface VersionStoreAdapter {
+  /** The document's versions, newest first. */
+  list(documentId: string, signal?: AbortSignal): Promise<HostResult<DocumentVersion[]>>;
+  /** A version's content, by its revision. */
+  load(
+    documentId: string,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<HostResult<DocumentFile>>;
+}
+
 /** A stored template, in the stored format, before the chain it inherits is resolved. */
 export interface StoredTemplate extends SavedState {
   template: TemplateFile;
@@ -155,6 +177,7 @@ export interface EditorHost {
   templates?: TemplateSourceAdapter | undefined;
   assets?: AssetAdapter | undefined;
   comments?: CommentStoreAdapter | undefined;
+  versions?: VersionStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;
   telemetry?: TelemetryAdapter | undefined;
 }
