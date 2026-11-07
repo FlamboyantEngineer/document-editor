@@ -26,7 +26,7 @@ import {
 export const MAX_PARAGRAPH_LEVEL = 6;
 
 /** The node types a suggestion can split, which record the split they came from. */
-const SPLIT_SUGGESTION_NODES = new Set(['paragraph', 'figure', 'layout_section']);
+const SPLIT_SUGGESTION_NODES = new Set(['paragraph', 'heading', 'figure', 'layout_section']);
 
 /** A paragraph level from 1 to the deepest; anything else reads as 1. */
 export function normalizeParagraphLevel(value: unknown): number {

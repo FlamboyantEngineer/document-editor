@@ -43,3 +43,14 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
+export {
+  acceptAllSuggestions,
+  acceptSuggestion,
+  decideSuggestions,
+  listSuggestions,
+  rejectAllSuggestions,
+  rejectSuggestion,
+} from './suggestion-decisions.js';
+export type { SuggestOptions } from './suggestions.js';
+export { suggestionsKey, suggestTransaction } from './suggestions.js';
