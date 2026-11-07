@@ -6,7 +6,7 @@
     <link rel="icon" href="data:," />
     <meta
       name="description"
-      content="A document laid out on fixed-height pages, which follow its edits and the page width."
+      content="A document laid out on fixed-height pages with footnotes, which follow its edits and the page width."
     />
     <title>Pagination · Labs</title>
     <style>
@@ -37,13 +37,32 @@
         gap: 24px;
       }
       .lab-pages .pm-page {
+        display: flex;
+        flex-direction: column;
         box-sizing: content-box;
+        height: 360px;
         padding: 32px;
         background: #fff;
         box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
       }
       .lab-pages .pm-page-content {
-        height: 360px;
+        flex: 1;
+      }
+      .pm-page-footnotes {
+        border-top: 1px solid #c4c8cf;
+        padding-top: 6px;
+        font-size: 13px;
+        line-height: 18px;
+      }
+      .pm-footnote-entry {
+        margin: 0 0 4px;
+      }
+      .pm-footnote-entry-number {
+        margin-right: 6px;
+      }
+      .footnote-reference {
+        font-size: 11px;
+        line-height: 0;
       }
       .ProseMirror {
         outline: none;
@@ -103,8 +122,9 @@
     <main id="lab-root">
       <h1>Pagination</h1>
       <p>
-        The document is measured in a hidden view and laid out on pages 360 pixels tall. Type in it,
-        or change the page width: the pages follow, and the caret stays where it was.
+        The document is measured in a hidden view and laid out on pages 360 pixels tall, each
+        leaving room for its footnotes. Type in it, or change the page width: the pages follow, and
+        the caret stays where it was.
       </p>
       <button type="button" class="lab-narrow" aria-pressed="false">Narrow pages</button>
       <div class="lab-measure" aria-hidden="true"></div>

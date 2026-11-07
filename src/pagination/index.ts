@@ -1,4 +1,11 @@
-// The editor's pagination runtime: measuring laid-out blocks for the model's page layout.
+// The editor's pagination runtime: measuring laid-out blocks, laying the whole document out on
+// pages, and keeping an editor on its pages as it changes.
 
-export type { MeasureOptions } from './measure-blocks.js';
-export { measureBlock, measureChildBlocks } from './measure-blocks.js';
+export type { DocumentLayoutOptions, SectionPageHeight } from './layout-document.js';
+export { layoutDocument } from './layout-document.js';
+export type { MeasureCache, MeasureOptions } from './measure-blocks.js';
+export { createMeasureCache, measureBlock, measureChildBlocks } from './measure-blocks.js';
+export type { FootnoteArea } from './measure-footnotes.js';
+export { footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
+export type { Pagination, PaginationOptions } from './pagination.js';
+export { createPagination, isPaginationTransaction, paginationKey } from './pagination.js';

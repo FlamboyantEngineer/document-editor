@@ -1,6 +1,7 @@
-// Shows a sample document on fixed-height pages in an editor view. Its whole document is measured
-// in a hidden view and laid out, and the editor moves onto each new layout by steps: after every
-// edit, and when the page width changes, with the caret staying on its text and undo undoing edits.
+// Shows a sample document on fixed-height pages in an editor kept paginated by `createPagination`:
+// its whole document is measured in a hidden view, and the editor moves onto each new layout by
+// steps after every edit and when the page width changes, with the caret staying on its text, undo
+// undoing edits, and each page leaving room for the footnotes it holds.
 
 import { baseKeymap } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
@@ -12,14 +13,11 @@ import {
   createDocumentSchema,
   type DocumentFile,
   joinDocumentPages,
-  layoutPages,
-  projectDocument,
   readDocumentFile,
-  repaginate,
-  type SectionPages,
+  sameStructure,
   type StoredNode,
 } from '../../src/model/index.js';
-import { measureChildBlocks } from '../../src/pagination/index.js';
+import { createPagination, isPaginationTransaction } from '../../src/pagination/index.js';
 
 /** The content height of each page, in pixels. */
 const PAGE_HEIGHT = 360;
@@ -43,6 +41,16 @@ const paragraph = (id: string, sentences: number): StoredNode => ({
     ),
   ],
 });
+const footnote = (id: string, value: string): StoredNode => ({
+  type: 'footnote',
+  attrs: { id },
+  content: [text(value)],
+});
+const cited = (id: string, before: string, note: StoredNode): StoredNode => ({
+  type: 'paragraph',
+  attrs: { id },
+  content: [text(before), note, text(` ${SENTENCES[1] ?? ''} ${SENTENCES[2] ?? ''}`)],
+});
 const item = (id: string, value: string): StoredNode => ({
   type: 'listItem',
   attrs: { id },
@@ -64,6 +72,14 @@ const SAMPLE: DocumentFile = {
       content: [
         { type: 'heading', attrs: { id: 'h1', level: 1 }, content: [text('Survey notes')] },
         paragraph('p1', 6),
+        cited(
+          'f1p',
+          'Readings were taken with a calibrated meter.',
+          footnote(
+            'n1',
+            'The meter was calibrated the morning of the survey, against the reference.',
+          ),
+        ),
         paragraph('p2', 12),
         { type: 'heading', attrs: { id: 'h2', level: 2 }, content: [text('Rooms')] },
         {
@@ -95,6 +111,11 @@ const SAMPLE: DocumentFile = {
             ),
           ],
         },
+        cited(
+          'f2p',
+          'Two rooms were measured again a week later.',
+          footnote('n2', 'The second visit used the same meter and the same order of rooms.'),
+        ),
         paragraph('p3', 8),
       ],
     },
@@ -113,106 +134,63 @@ function contentPositions(doc: Node): number[] {
   return positions;
 }
 
-/** The pages wide and narrow, in pixels. */
-const WIDTHS = { wide: 480, narrow: 340 } as const;
-
-interface Lab {
-  readonly measuring: EditorView;
-  readonly editor: EditorView;
-}
-
-// Measures the whole document in the hidden view and lays each section out on pages.
-function layOut(measuring: EditorView, whole: Node): SectionPages[] {
-  measuring.updateState(EditorState.create({ doc: whole }));
-  return contentPositions(whole).map((pos) =>
-    layoutPages(measureChildBlocks(measuring, pos), { pageHeight: PAGE_HEIGHT }).map((page) =>
-      page.map((block) => block.node),
-    ),
-  );
-}
-
-// Whether two whole documents hold the same content, whatever their page numbers.
+// Whether two whole documents hold the same content, whatever their page and footnote numbers.
 function sameContent(left: Node, right: Node): boolean {
   const contents = (doc: Node) => contentPositions(doc).map((pos) => doc.nodeAt(pos));
   const rightContents = contents(right);
   return contents(left).every((content, index) => {
     const other = rightContents[index];
-    return Boolean(content && other?.eq(content));
+    return Boolean(content && other && sameStructure(content, other));
   });
 }
 
-// Records what a test reads: whether the pages join back into the whole document they were laid out
-// from, the text at the caret, and how many pages there are.
+/** The pages wide and narrow, in pixels. */
+const WIDTHS = { wide: 480, narrow: 300 } as const;
+
 function reportCaret({ state }: EditorView): void {
   const { from } = state.selection;
   document.documentElement.dataset.labCaretText = state.doc.textBetween(from, from + 12);
 }
 
-function report(lab: Lab, whole: Node): void {
+// Records what a test reads after the editor moved onto new pages: whether they join back into
+// the content they were laid out from, and how many there are.
+function reportPages(tr: Transaction): void {
   const { dataset } = document.documentElement;
-  dataset.labJoinsWhole = String(sameContent(joinDocumentPages(lab.editor.state.doc).doc, whole));
-  reportCaret(lab.editor);
+  const before = joinDocumentPages(tr.before).doc;
+  dataset.labJoinsWhole = String(sameContent(joinDocumentPages(tr.doc).doc, before));
   dataset.labPages = String(document.querySelectorAll('.lab-pages .pm-page').length);
-}
-
-const PAGINATION = 'lab-pagination';
-
-// Lays the editor's document out again and steps the editor onto the new pages.
-function repaginateEditor(lab: Lab): void {
-  const { state } = lab.editor;
-  const whole = joinDocumentPages(state.doc).doc;
-  const target = projectDocument(whole, layOut(lab.measuring, whole));
-  const tr = state.tr;
-  repaginate(tr, target);
-  if (tr.docChanged) {
-    lab.editor.dispatch(tr.setMeta(PAGINATION, true).setMeta('addToHistory', false));
-  }
-  report(lab, whole);
-}
-
-function setWidth(lab: Lab, button: HTMLButtonElement): void {
-  const narrow = button.getAttribute('aria-pressed') !== 'true';
-  button.setAttribute('aria-pressed', String(narrow));
-  const width = narrow ? WIDTHS.narrow : WIDTHS.wide;
-  document.documentElement.style.setProperty('--lab-width', `${String(width)}px`);
-  repaginateEditor(lab);
+  dataset.labReady = 'true';
 }
 
 function render(): void {
-  const measure = document.querySelector('.lab-measure');
+  const measureIn = document.querySelector<HTMLElement>('.lab-measure');
   const pagesRoot = document.querySelector('.lab-pages');
   const button = document.querySelector<HTMLButtonElement>('.lab-narrow');
-  if (!measure || !pagesRoot || !button) return;
-  const schema = createDocumentSchema();
-  const read = readDocumentFile(SAMPLE, schema);
-  const measuring = new EditorView(measure, {
-    state: EditorState.create({ doc: read }),
-    editable: () => false,
-  });
-  let pending = 0;
-  const lab: Lab = {
-    measuring,
-    editor: new EditorView(pagesRoot, {
-      state: EditorState.create({
-        doc: projectDocument(read, layOut(measuring, read)),
-        plugins: [
-          history(),
-          keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
-          keymap(baseKeymap),
-        ],
-      }),
-      dispatchTransaction(tr: Transaction) {
-        lab.editor.updateState(lab.editor.state.apply(tr));
-        reportCaret(lab.editor);
-        if (!tr.docChanged || tr.getMeta(PAGINATION)) return;
-        cancelAnimationFrame(pending);
-        pending = requestAnimationFrame(() => repaginateEditor(lab));
-      },
+  if (!measureIn || !pagesRoot || !button) return;
+  const pagination = createPagination({ measureIn, pageHeight: PAGE_HEIGHT });
+  const editor: EditorView = new EditorView(pagesRoot, {
+    state: EditorState.create({
+      doc: readDocumentFile(SAMPLE, createDocumentSchema()),
+      plugins: [
+        pagination.plugin,
+        history(),
+        keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
+        keymap(baseKeymap),
+      ],
     }),
-  };
-  button.addEventListener('click', () => setWidth(lab, button));
-  report(lab, read);
-  document.documentElement.dataset.labReady = 'true';
+    dispatchTransaction(tr: Transaction) {
+      editor.updateState(editor.state.apply(tr));
+      reportCaret(editor);
+      if (isPaginationTransaction(tr)) reportPages(tr);
+    },
+  });
+  button.addEventListener('click', () => {
+    const narrow = button.getAttribute('aria-pressed') !== 'true';
+    button.setAttribute('aria-pressed', String(narrow));
+    const width = narrow ? WIDTHS.narrow : WIDTHS.wide;
+    document.documentElement.style.setProperty('--lab-width', `${String(width)}px`);
+    pagination.refresh({ remeasure: true });
+  });
 }
 
 render();
