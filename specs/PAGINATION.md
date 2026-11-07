@@ -242,7 +242,7 @@ Verification: `e2e/pagination.spec.ts`
 
 ### DOCE-PAGINATION-7.1 - The pagination plugin
 
-`createPagination({ measureIn, pageHeight })` shall keep an editor on its pages: a hidden view mounted in `measureIn` shall render the whole document and follow the editor's by the smallest replacement, so unchanged blocks keep their rendering and cached measurements; after each change, on the next frame and never during composition, the pages shall be laid out from it (`layoutDocument`) and the editor stepped onto them (DOCE-PAGINATION-6.3) in a transaction marked as pagination (`isPaginationTransaction`) and kept out of the undo history. `refresh({ remeasure })` shall lay the pages out again, forgetting measurements after a width or style change.
+`createPagination({ measureIn, pageHeight })` shall keep an editor on its pages: a hidden view mounted in `measureIn` shall render the whole document and follow the editor's by the smallest replacement, so unchanged blocks keep their rendering and cached measurements; after each change, on the next frame and never during composition, the pages shall be laid out from it (`layoutDocument`) and the editor stepped onto them (DOCE-PAGINATION-6.3) in a transaction marked as pagination (`isPaginationTransaction`) and kept out of the undo history. `refresh({ remeasure })` shall lay the pages out again, forgetting measurements and starting the measuring view's plugins over after a width or style change or a change to a value a plugin shows. The measuring view shall render with the `nodeViews` and `plugins` the editor renders with, so blocks and regions measure as they show.
 
 Implementation: `src/pagination/pagination.ts`, `src/pagination/layout-document.ts`
 Verification: `e2e/pagination.spec.ts`
@@ -260,3 +260,19 @@ A selection in a footnote entry that moves to another page shall move with it, a
 
 Implementation: `src/pagination/pagination.ts`
 Verification: `e2e/pagination.spec.ts`
+
+## DOCE-PAGINATION-8 - Page headers and footers
+
+### DOCE-PAGINATION-8.1 - Room for headers and footers
+
+`pageHeight` shall be a section's page height inside its margins. Each page of a section shall leave room for its header and footer as the measuring view renders them, with their margins, so content never runs into them; a region the view hides shall take none.
+
+Implementation: `src/pagination/layout-document.ts`
+Verification: `e2e/page-regions.spec.ts`
+
+### DOCE-PAGINATION-8.2 - Page variables
+
+`createPageVariables({ value })` shall show the value of each variable in a page header or footer inside it: `page.current` the page's number, `page.total` the document's page count, and any other key the host's `value`, or nothing. `refreshPageVariables(view)` shall show the values again after a host value changed, outside the undo history.
+
+Implementation: `src/pagination/page-variables.ts`
+Verification: `src/pagination/page-variables.test.ts`, `e2e/page-regions.spec.ts`

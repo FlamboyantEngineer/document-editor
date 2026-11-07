@@ -1,5 +1,5 @@
 // Lays a whole document out on pages from a view that renders it: each section's blocks measured,
-// and each page left the room the footnote entries it will hold take.
+// and each page left the room its header and footer and the footnote entries it will hold take.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
@@ -12,7 +12,10 @@ import {
 import { type MeasureCache, measureChildBlocks } from './measure-blocks.js';
 import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 
-/** A section's page content height in CSS pixels, before its footnotes. */
+/**
+ * A section's page height inside its margins, in CSS pixels. Its header, footer and footnotes take
+ * their room from it.
+ */
 export type SectionPageHeight = number | ((section: ProseMirrorNode, index: number) => number);
 
 /** How a whole document is laid out. */
@@ -47,6 +50,8 @@ interface SectionPlace {
   readonly section: ProseMirrorNode;
   readonly content: number;
   readonly footnotes: number | null;
+  /** The header's and footer's positions. */
+  readonly regions: number[];
 }
 
 // Where each section's page content and footnote area start in a whole document.
@@ -57,14 +62,29 @@ function sectionPlaces(doc: ProseMirrorNode): SectionPlace[] {
     if (!page) return;
     let content: number | null = null;
     let footnotes: number | null = null;
+    const regions: number[] = [];
     page.forEach((region, regionOffset) => {
       const pos = offset + 2 + regionOffset;
-      if (region.type.name === 'page_content') content = pos;
-      if (region.type.name === 'page_footnotes') footnotes = pos;
+      const name = region.type.name;
+      if (name === 'page_content') content = pos;
+      if (name === 'page_footnotes') footnotes = pos;
+      if (name === 'page_header' || name === 'page_footer') regions.push(pos);
     });
-    if (content !== null) places.push({ section, content, footnotes });
+    if (content !== null) places.push({ section, content, footnotes, regions });
   });
   return places;
+}
+
+// The room a page header or footer takes, with its margins; one the view hides takes none.
+function regionHeight(view: EditorView, pos: number, ratio: number): number {
+  const dom = view.nodeDOM(pos);
+  if (!dom || dom.nodeType !== 1) return 0;
+  const element = dom as HTMLElement;
+  const { height } = element.getBoundingClientRect();
+  if (!height) return 0;
+  const style = getComputedStyle(element);
+  const margins = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+  return height / ratio + margins;
 }
 
 interface SectionFill {
@@ -95,14 +115,18 @@ function layoutSection(fill: SectionFill, options: DocumentLayoutOptions): Secti
 
 /**
  * The pages of each section of the whole document a view renders, as `projectDocument` takes them:
- * every block measured, cached ones reused, and each page short by its footnote entries' height.
+ * every block measured, cached ones reused, and each page short by its header's, its footer's and
+ * its footnote entries' heights.
  */
 export function layoutDocument(view: EditorView, options: DocumentLayoutOptions): SectionPages[] {
   const { scale, cache } = options;
+  const ratio = scale && scale > 0 ? scale : 1;
   const shown = new Set<string>();
-  return sectionPlaces(view.state.doc).map(({ section, content, footnotes }, index) => {
+  return sectionPlaces(view.state.doc).map(({ section, content, footnotes, regions }, index) => {
     const height = options.pageHeight;
-    const baseHeight = typeof height === 'function' ? height(section, index) : height;
+    const pageHeight = typeof height === 'function' ? height(section, index) : height;
+    const regionsHeight = regions.reduce((sum, pos) => sum + regionHeight(view, pos, ratio), 0);
+    const baseHeight = pageHeight - regionsHeight;
     return layoutSection(
       {
         blocks: measureChildBlocks(view, content, { scale, cache }),

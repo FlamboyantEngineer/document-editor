@@ -269,6 +269,18 @@ function readNode(stored: unknown, path: string, context: ReadContext): ProseMir
   }
 }
 
+/**
+ * The editor nodes of stored content outside a section, such as a template's page header. Footnotes
+ * in it are read as markers without entries. Content it cannot read throws a `DocumentFormatError`.
+ */
+export function readStoredContent(
+  content: unknown,
+  schema: Schema,
+  path = 'content',
+): ProseMirrorNode[] {
+  return readContent(content, path, { schema, footnotes: [] });
+}
+
 function readSection(stored: unknown, path: string, schema: Schema): ProseMirrorNode {
   if (!isRecord(stored)) throw formatError(path, 'a section must be an object');
   const context: ReadContext = { schema, footnotes: [] };

@@ -13,7 +13,7 @@ Verification: `src/model/format/document-format.test.ts`
 
 ### DOCE-FORMAT-1.2 - Read for the editor
 
-`readDocumentFile(file, schema)` shall build the editor's document: each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out.
+`readDocumentFile(file, schema)` shall build the editor's document: each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
 
 Implementation: `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`

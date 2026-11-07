@@ -19,6 +19,7 @@ export {
   type DocumentWriteOptions,
   isDocumentFormatError,
   readDocumentFile,
+  readStoredContent,
   writeDocumentFile,
 } from './format/document-format-convert.js';
 export type * from './format/template-format.js';
@@ -256,6 +257,7 @@ export {
 } from './signature-vector.js';
 export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
+export { setPageRegions } from './templates/page-regions.js';
 export {
   lengthToCssPx,
   MM_TO_CSS_PX,

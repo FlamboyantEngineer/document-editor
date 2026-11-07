@@ -40,12 +40,38 @@
   width: calc(var(--doc-page-width) - var(--doc-page-margin-left) - var(--doc-page-margin-right));
 }
 
-.de-document .pm-page-header,
-.de-document .pm-page-footer,
-.de-measure .pm-page-header,
-.de-measure .pm-page-footer,
+.pm-page-header:empty,
+.pm-page-footer:empty,
 .pm-page-footnotes:empty {
   display: none;
+}
+
+.pm-page-header,
+.pm-page-footer {
+  display: flow-root;
+}
+
+.pm-page-header > :first-child,
+.pm-page-footer > :first-child {
+  margin-top: 0;
+}
+
+.pm-page-header > :last-child,
+.pm-page-footer > :last-child {
+  margin-bottom: 0;
+}
+
+.pm-page-header {
+  margin-bottom: var(--doc-page-header-content-gap, 0);
+}
+
+.pm-page-footer {
+  margin-top: var(--doc-page-footer-content-gap, 0);
+}
+
+.pm-page-header,
+.pm-page-footer {
+  color: #475569;
 }
 
 .pm-page-content > :first-child {
@@ -56,7 +82,9 @@
   margin-bottom: 0;
 }
 
-.pm-page-content p {
+.pm-page-content p,
+.pm-page-header p,
+.pm-page-footer p {
   margin: var(--doc-paragraph-margin-top, 0) 0 var(--doc-paragraph-margin-bottom, 0);
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
