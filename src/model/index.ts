@@ -16,6 +16,7 @@ export {
 } from './format/document-format.js';
 export {
   type DocumentFormatError,
+  type DocumentWriteOptions,
   isDocumentFormatError,
   readDocumentFile,
   writeDocumentFile,
@@ -99,6 +100,15 @@ export {
   paragraphNumberingIndentationStyle,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
+export type { FragmentRule, FragmentRules, JoinedFragment } from './pagination/fragments.js';
+export {
+  continuesFragment,
+  FRAGMENT_RULES,
+  isFragment,
+  joinChildren,
+  joinFragments,
+  wholeNode,
+} from './pagination/fragments.js';
 export type {
   FormatReferenceInput,
   ReferenceBaseline,
