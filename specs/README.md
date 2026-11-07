@@ -14,6 +14,7 @@ Each file in this directory specifies one component, one family of components, o
 | [PAGINATION.md](PAGINATION.md)           | Laying sections out on pages, and joining split blocks back.            |
 | [LAYOUT.md](LAYOUT.md)                   | The web layout, layout sections and their commands, and reading time.   |
 | [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.             |
+| [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.             |
 | `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.           |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.

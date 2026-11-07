@@ -1,0 +1,79 @@
+# Editing
+
+A document is edited through the plugins `createDocumentEditing(schema, options)` returns, or the kit extension `createDocumentEditingExtension(options)` contributes: the undo history, element ids and the document's keys, ahead of ProseMirror's base keymap. Other extensions' keys come before them.
+
+## DOCE-EDITING-1 - Element ids
+
+### DOCE-EDITING-1.1 - Unique ids
+
+After a local change that adds or moves elements, every element of the content shall hold an id of eight hexadecimal digits that no earlier element holds (`assignElementIds`): an element without one, with one of another form, or with one an earlier element holds gets a fresh one. The parts a split element is laid out in shall share its id, and page chrome (sections, pages, headers, footers and footnote areas) shall get none.
+
+Implementation: `src/engine/element-ids.ts`
+Verification: `src/engine/document-editing.test.ts`
+
+### DOCE-EDITING-1.2 - Authorship
+
+An element that gets an id because it was new or copied another's, as the second half of a split paragraph does, shall be attributed to the writer `author` names. An element that keeps its id keeps its author.
+
+Implementation: `src/engine/element-ids.ts`
+Verification: `src/engine/document-editing.test.ts`
+
+### DOCE-EDITING-1.3 - Changes left alone
+
+Changes from elsewhere (`isRemote`), changes that stay out of the history, such as the pagination's, and changes that only edit text or marks shall not be given ids, so typing never walks the document.
+
+Implementation: `src/engine/element-ids.ts`
+Verification: `src/engine/document-editing.test.ts`
+
+## DOCE-EDITING-2 - Keys
+
+### DOCE-EDITING-2.1 - Formatting and block types
+
+`Mod-b`, `Mod-i`, `Mod-u`, `Mod-Shift-s`, `Mod-.`, `Mod-,` and `Mod-Alt-i` shall toggle bold, italic, underline, strikethrough, superscript, subscript and code. `Mod-Shift-1` to `Mod-Shift-6` shall make the selected blocks headings of that level and `Mod-Shift-0` paragraphs. `Mod-\` shall clear character formatting and turn headings back into paragraphs; links, comments and suggestions stay.
+
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
+Verification: `src/engine/document-editing.test.ts`
+
+### DOCE-EDITING-2.2 - Lists
+
+`Mod-Shift-8` and `Mod-Shift-7` shall wrap the selected blocks in a bulleted or numbered list, joined with a list of the same kind right before or after. In a list, Tab and Shift-Tab shall nest and lift the item, Enter in an empty item shall lift it, and Backspace at the start of an empty item shall remove it.
+
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
+Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
+
+### DOCE-EDITING-2.3 - Enter
+
+Enter shall add a line in code, split a list item, add a paragraph after a selected block, lift an empty block out of its parent, or split the text block; a split paragraph's new half shall keep its level.
+
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
+Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
+
+### DOCE-EDITING-2.4 - Across pages
+
+Backspace at the start of a page's first text block, and Delete at the end of its last, shall act on the text across the page break (`joinAcrossPages`): the other part of a split element loses its last or first character, and any other text block joins this one. The pagination then lays the pages out again, with the caret where it was in the text.
+
+Implementation: `src/engine/editing-commands.ts`, `labs/src/editing.lab.ts`
+Verification: `e2e/editing.spec.ts`
+
+### DOCE-EDITING-2.5 - Paragraph levels
+
+Outside a list, where the template numbers paragraphs, Tab and Shift-Tab shall move the selected top-level paragraphs one level deeper or shallower, between 1 and 6; the parts of a split paragraph keep one level. Tab and Shift-Tab shall never move the focus out of the document.
+
+Implementation: `src/engine/editing-commands.ts`
+Verification: `src/engine/document-editing.test.ts`
+
+### DOCE-EDITING-2.6 - Select All and page breaks
+
+`Mod-a` shall select the body of every page, from its first text block to its last, without the page chrome; a document without pages selects everything. `Mod-Alt-Enter` shall insert a page break after the top-level block holding the selection, with the caret in the text block after it, which it adds when there is none. `Mod-z` shall undo, and `Mod-y` and `Mod-Shift-z` redo.
+
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
+Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
+
+## DOCE-EDITING-3 - Installing editing
+
+### DOCE-EDITING-3.1 - The editing extension
+
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
+
+Implementation: `src/engine/document-editing.ts`
+Verification: `src/engine/document-editing.test.ts`

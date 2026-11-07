@@ -1,0 +1,135 @@
+// Keeps every element of a document's content identified: after a local change, each element
+// without an id, or with an id an earlier element already holds, gets a fresh one, and the elements
+// a local change adds are attributed to the writer. The parts a split element is laid out in share
+// its id. Page chrome is view content and is left as it is.
+
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
+import { AddMarkStep, RemoveMarkStep, ReplaceStep, type Step } from 'prosemirror-transform';
+
+/** What an element id looks like: eight lower-case hexadecimal digits. */
+export const ELEMENT_ID_PATTERN = /^[a-f0-9]{8}$/;
+
+/** A fresh random element id. */
+export function createElementId(): string {
+  const [value = 0] = crypto.getRandomValues(new Uint32Array(1));
+  return value.toString(16).padStart(8, '0');
+}
+
+/** How an editor identifies its elements. */
+export interface ElementIdsOptions {
+  /** The writer the elements a local change adds are attributed to, or null for none. */
+  author?: (() => string | null) | undefined;
+  /** Whether a transaction came from elsewhere, such as a collaborator or the server. */
+  isRemote?: ((tr: Transaction) => boolean) | undefined;
+  /** Makes a fresh id; random by default. */
+  newId?: (() => string) | undefined;
+}
+
+/** Page chrome: view content the pagination draws, which holds no stored elements. */
+const CHROME = new Set(['page_section', 'page', 'page_content']);
+const DRAWN = new Set(['page_header', 'page_footer', 'page_footnotes']);
+
+const isSplitPart = (node: ProseMirrorNode) =>
+  node.attrs.splitPartIndex !== null && node.attrs.splitPartIndex !== undefined;
+
+// The empty paragraph a list item's later part opens with when the pagination splits it.
+const isPlaceholder = (node: ProseMirrorNode, parent: ProseMirrorNode | null) =>
+  parent?.type.name === 'list_item' &&
+  parent.firstChild === node &&
+  isSplitPart(parent) &&
+  node.type.name === 'paragraph' &&
+  node.content.size === 0 &&
+  !node.attrs.dataId;
+
+// A step that only changes text or marks inside text blocks, which adds no element.
+function isTextStep(step: Step): boolean {
+  if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) return true;
+  if (!(step instanceof ReplaceStep)) return false;
+  let inline = true;
+  step.slice.content.descendants((node) => {
+    if (!node.isInline) inline = false;
+    return inline;
+  });
+  return inline;
+}
+
+/**
+ * Gives each element without a valid id, or with one an earlier element holds, a fresh id, and
+ * returns whether it changed the document. Elements that get one are attributed to `author` when
+ * they have no author, or when they copied another element's id, as a split does.
+ */
+export function assignElementIds(
+  tr: Transaction,
+  { author = null, newId = createElementId }: AssignOptions,
+): boolean {
+  const walk: Walk = { tr, seen: new Map(), author, newId, changed: false };
+  tr.doc.descendants((node, pos, parent) => {
+    if (node.isText || DRAWN.has(node.type.name)) return false;
+    if (!CHROME.has(node.type.name) && !isPlaceholder(node, parent)) identify(walk, node, pos);
+    return true;
+  });
+  return walk.changed;
+}
+
+/** How `assignElementIds` attributes and makes ids. */
+interface AssignOptions {
+  author?: string | null | undefined;
+  newId?: (() => string) | undefined;
+}
+
+// The state of one walk: the ids met so far, each with whether a split part held it.
+interface Walk {
+  readonly tr: Transaction;
+  readonly seen: Map<string, boolean>;
+  readonly author: string | null;
+  readonly newId: () => string;
+  changed: boolean;
+}
+
+// Keeps an element's id when it is valid and its own, or a split part's of the same element, or
+// gives it a fresh one.
+function identify(walk: Walk, node: ProseMirrorNode, pos: number): void {
+  const id: unknown = node.attrs.dataId;
+  const splitPart = isSplitPart(node);
+  const earlier = typeof id === 'string' ? walk.seen.get(id) : undefined;
+  const valid = typeof id === 'string' && ELEMENT_ID_PATTERN.test(id);
+  if (valid && earlier === undefined) walk.seen.set(id, splitPart);
+  if (valid && (earlier === undefined || (earlier && splitPart))) return;
+  let fresh = walk.newId();
+  while (walk.seen.has(fresh)) fresh = walk.newId();
+  walk.seen.set(fresh, splitPart);
+  const copied = valid && earlier !== undefined;
+  walk.tr.setNodeMarkup(pos, null, {
+    ...node.attrs,
+    dataId: fresh,
+    dataAuthor: copied || !node.attrs.dataAuthor ? walk.author : node.attrs.dataAuthor,
+    dataAiSession: copied ? null : node.attrs.dataAiSession,
+  });
+  walk.changed = true;
+}
+
+const elementIdsKey = new PluginKey('element-ids');
+
+/**
+ * Keeps the elements of a document identified after each local change. Changes that stay out of
+ * the history, such as the pagination's, and changes from elsewhere are left as they are, and so
+ * are changes that only edit text.
+ */
+export function createElementIds({
+  author = () => null,
+  isRemote = () => false,
+  newId,
+}: ElementIdsOptions = {}): Plugin {
+  const isLocalEdit = (tr: Transaction) =>
+    tr.docChanged && tr.getMeta('addToHistory') !== false && !isRemote(tr);
+  return new Plugin({
+    key: elementIdsKey,
+    appendTransaction(transactions, _before, after) {
+      const edits = transactions.filter(isLocalEdit);
+      if (edits.every((tr) => tr.steps.every(isTextStep))) return null;
+      const tr = after.tr;
+      return assignElementIds(tr, { author: author(), newId }) ? tr : null;
+    },
+  });
+}

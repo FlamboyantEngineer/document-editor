@@ -1,0 +1,237 @@
+import type { Node } from 'prosemirror-model';
+import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
+import { describe, expect, it, vi } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
+import {
+  createDocumentKit,
+  readDocumentFile,
+  type StoredNode,
+  type TemplateFile,
+} from '../model/index.js';
+import {
+  createDocumentEditing,
+  createDocumentEditingExtension,
+  documentKeys,
+} from './document-editing.js';
+import { assignElementIds, createElementIds, ELEMENT_ID_PATTERN } from './element-ids.js';
+
+const text = (value: string): StoredNode[] => (value ? [{ type: 'text', text: value }] : []);
+const paragraph = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
+  type: 'paragraph',
+  attrs,
+  content: text(value),
+});
+const item = (value: string): StoredNode => ({ type: 'listItem', content: [paragraph(value)] });
+const bullets = (...values: string[]): StoredNode => ({
+  type: 'bulletList',
+  content: values.map(item),
+});
+const read = (...content: StoredNode[]) =>
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+
+function positionOf(doc: Node, value: string): number {
+  let found = -1;
+  doc.descendants((node, pos) => {
+    if (found < 0 && node.isText && node.text?.includes(value))
+      found = pos + node.text.indexOf(value);
+    return found < 0;
+  });
+  return found;
+}
+
+const NUMBERED: TemplateFile = {
+  formatVersion: 1,
+  id: 'numbered',
+  styles: { paragraph: { numbering: { format: '1.1' } } },
+};
+
+function stateAt(
+  doc: Node,
+  at: string | [string, string],
+  plugins = createDocumentEditing(documentSchema),
+) {
+  const state = EditorState.create({ doc, plugins });
+  const [from, to] = typeof at === 'string' ? [at, at] : at;
+  const start = positionOf(doc, from);
+  const end = typeof at === 'string' ? start : positionOf(doc, to) + to.length;
+  return state.apply(state.tr.setSelection(TextSelection.create(doc, start, end)));
+}
+
+function run(state: EditorState, command: Command | undefined): EditorState {
+  let next = state;
+  expect(command?.(state, (tr) => (next = next.applyTransaction(tr).state))).toBe(true);
+  return next;
+}
+
+const hasStrong = (state: EditorState) => {
+  const type = state.schema.marks.strong;
+  return Boolean(type && state.doc.rangeHasMark(state.selection.from, state.selection.to, type));
+};
+
+const key = (name: string, template?: () => TemplateFile) =>
+  documentKeys(documentSchema, template)[name];
+
+// The top-level blocks of the first page.
+const body = (state: EditorState) => state.doc.child(0).child(0).child(1);
+const outline = (state: EditorState) =>
+  body(state).children.map((block) => `${block.type.name}:${block.textContent}`);
+
+describe('element ids', () => {
+  it('DOCE-EDITING-1.1 gives each element a fresh id, unique in the document', () => {
+    let state = stateAt(read(paragraph('Alpha blue', { id: '0000000a' })), 'blue');
+    state = run(state, key('Enter'));
+    const [first, second] = body(state).children;
+    expect(first?.attrs.dataId).toBe('0000000a');
+    expect(String(second?.attrs.dataId)).toMatch(ELEMENT_ID_PATTERN);
+    expect(second?.attrs.dataId).not.toBe('0000000a');
+    const repaired = read(paragraph('A', { id: 'd0d0d0d0' }), paragraph('B', { id: 'd0d0d0d0' }));
+    const tr = EditorState.create({ doc: repaired }).tr;
+    expect(assignElementIds(tr, { newId: () => 'feedbeef' })).toBe(true);
+    expect(tr.doc.child(0).child(0).child(1).child(1).attrs.dataId).toBe('feedbeef');
+  });
+
+  it('DOCE-EDITING-1.2 attributes the elements a local change adds to the writer', () => {
+    const plugins = createDocumentEditing(documentSchema, { author: () => 'writer' });
+    const doc = read(paragraph('Alpha blue', { id: '0000000a', author: 'first' }));
+    const state = run(stateAt(doc, 'blue', plugins), key('Enter'));
+    const [first, second] = body(state).children;
+    expect(first?.attrs.dataAuthor).toBe('first');
+    expect(second?.attrs.dataAuthor).toBe('writer');
+  });
+
+  it('DOCE-EDITING-1.3 leaves remote, pagination and typing changes as they are', () => {
+    const newId = vi.fn(() => '0000000b');
+    const remote = new Set<Transaction>();
+    const plugin = createElementIds({ newId, isRemote: (tr) => remote.has(tr) });
+    const state = stateAt(read(paragraph('Alpha', { id: '0000000a' })), 'Alpha', [plugin]);
+    const block = documentSchema.node('paragraph', { dataId: '0000000a' });
+    const end = positionOf(state.doc, 'Alpha') + 'Alpha'.length + 1;
+    const fromElsewhere = state.tr.insert(end, block);
+    remote.add(fromElsewhere);
+    state.applyTransaction(fromElsewhere);
+    state.applyTransaction(state.tr.insert(end, block).setMeta('addToHistory', false));
+    state.applyTransaction(state.tr.insertText('!'));
+    expect(newId).not.toHaveBeenCalled();
+    const doc = read(paragraph('A', { id: '0000000a' }), paragraph('B', { id: '0000000a' }));
+    const tr = EditorState.create({ doc }).tr;
+    tr.doc.descendants((node, pos) => {
+      if (node.type.name === 'paragraph')
+        tr.setNodeMarkup(pos, null, { ...node.attrs, splitPartIndex: pos > 10 ? 1 : 0 });
+      return true;
+    });
+    expect(assignElementIds(tr, { newId })).toBe(false);
+  });
+});
+
+describe('document keys', () => {
+  it('DOCE-EDITING-2.1 formats text and sets block types', () => {
+    let state = stateAt(read(paragraph('Alpha')), ['Alpha', 'Alpha']);
+    state = run(state, key('Mod-b'));
+    expect(hasStrong(state)).toBe(true);
+    state = run(state, key('Mod-Shift-2'));
+    expect(outline(state)).toEqual(['heading:Alpha']);
+    expect(body(state).child(0).attrs.level).toBe(2);
+    state = run(state, key('Mod-\\'));
+    expect(outline(state)).toEqual(['paragraph:Alpha']);
+    expect(hasStrong(state)).toBe(false);
+  });
+
+  it('DOCE-EDITING-2.2 wraps lists that join their neighbours, and nests and removes items', () => {
+    let state = stateAt(read(bullets('One'), paragraph('Two')), 'Two');
+    state = run(state, key('Mod-Shift-8'));
+    expect(outline(state)).toEqual(['bullet_list:OneTwo']);
+    state = run(state, key('Tab'));
+    expect(body(state).child(0).child(0).childCount).toBe(2);
+    state = run(state, key('Shift-Tab'));
+    expect(body(state).child(0).childCount).toBe(2);
+    state = run(stateAt(read(bullets('One', '')), 'One'), (s, d) => {
+      const pos = s.doc.resolve(positionOf(s.doc, 'One') + 3).after(-1) + 2;
+      d?.(s.tr.setSelection(TextSelection.create(s.doc, pos)));
+      return true;
+    });
+    state = run(state, key('Backspace'));
+    expect(body(state).child(0).childCount).toBe(1);
+  });
+
+  it('DOCE-EDITING-2.3 splits a paragraph with Enter, keeping its level', () => {
+    const doc = read(paragraph('Alpha blue', { level: 2 }));
+    const state = run(stateAt(doc, 'blue'), key('Enter'));
+    expect(outline(state)).toEqual(['paragraph:Alpha ', 'paragraph:blue']);
+    expect(body(state).children.map((block) => block.attrs.paragraphLevel)).toEqual([2, 2]);
+  });
+
+  it('DOCE-EDITING-2.4 joins text across a page break with Backspace and Delete', () => {
+    const block = (value: string, id: string) =>
+      value === '|'
+        ? documentSchema.node('page_break')
+        : documentSchema.node('paragraph', { dataId: id }, documentSchema.text(value));
+    const pageOf = (blocks: Node[]) =>
+      documentSchema.node('page', null, [
+        documentSchema.node('page_header'),
+        documentSchema.node('page_content', null, blocks),
+        documentSchema.node('page_footnotes'),
+        documentSchema.node('page_footer'),
+      ]);
+    const paged = (first: Node[], second: Node[]) =>
+      documentSchema.node('doc', null, [
+        documentSchema.node('page_section', null, [pageOf(first), pageOf(second)]),
+      ]);
+    const texts = (state: EditorState) => {
+      const all: string[] = [];
+      state.doc.descendants((node) => {
+        if (node.isTextblock) all.push(node.textContent);
+        return !node.isTextblock;
+      });
+      return all;
+    };
+    const split = paged([block('Alpha', 'aaaaaaaa')], [block('blue', 'aaaaaaaa')]);
+    expect(texts(run(stateAt(split, 'blue'), key('Backspace')))).toEqual(['Alph', 'blue']);
+    const two = paged([block('Alpha', 'aaaaaaaa')], [block('Blue', 'bbbbbbbb')]);
+    expect(texts(run(stateAt(two, 'Blue'), key('Backspace')))).toEqual(['AlphaBlue']);
+    const atEnd = stateAt(two, 'Alpha');
+    const end = atEnd.apply(
+      atEnd.tr.setSelection(TextSelection.create(two, positionOf(two, 'Alpha') + 5)),
+    );
+    expect(texts(run(end, key('Delete')))).toEqual(['AlphaBlue']);
+    const broken = paged([block('Alpha', 'aaaaaaaa'), block('|', '')], [block('Blue', 'bbbbbbbb')]);
+    const selected = run(stateAt(broken, 'Blue'), key('Backspace'));
+    expect(selected.selection.from).toBe(positionOf(broken, 'Alpha') + 6);
+    expect(texts(run(selected, key('Backspace')))).toEqual(['Alpha', 'Blue']);
+  });
+
+  it('DOCE-EDITING-2.5 changes paragraph levels with Tab where the template numbers paragraphs', () => {
+    const doc = read(paragraph('Alpha'));
+    let state = run(
+      stateAt(doc, 'Alpha'),
+      key('Tab', () => NUMBERED),
+    );
+    expect(body(state).child(0).attrs.paragraphLevel).toBe(2);
+    state = run(
+      state,
+      key('Shift-Tab', () => NUMBERED),
+    );
+    expect(body(state).child(0).attrs.paragraphLevel).toBe(1);
+    const plain = run(stateAt(doc, 'Alpha'), key('Tab'));
+    expect(body(plain).child(0).attrs.paragraphLevel).toBe(1);
+  });
+
+  it('DOCE-EDITING-2.6 selects the body, and inserts a page break below the block', () => {
+    let state = run(stateAt(read(paragraph('Alpha'), paragraph('Omega')), 'Alpha'), key('Mod-a'));
+    expect(state.doc.textBetween(state.selection.from, state.selection.to)).toBe('AlphaOmega');
+    state = run(stateAt(read(paragraph('Alpha')), 'Alpha'), key('Mod-Alt-Enter'));
+    expect(outline(state)).toEqual(['paragraph:Alpha', 'page_break:', 'paragraph:']);
+    expect(state.selection.$from.parent.type.name).toBe('paragraph');
+  });
+});
+
+describe('the editing extension', () => {
+  it('DOCE-EDITING-3.1 installs the history, the element ids and the keymaps in a kit', () => {
+    const kit = createDocumentKit({ extensions: [createDocumentEditingExtension()] });
+    expect(kit.pluginOrder).toEqual(['history', 'element-ids', 'keymap']);
+    expect(kit.buildPlugins(undefined)).toHaveLength(4);
+    const shared = createDocumentKit({
+      extensions: [createDocumentEditingExtension({ history: false })],
+    });
+    expect(shared.buildPlugins(undefined)).toHaveLength(3);
+  });
+});
