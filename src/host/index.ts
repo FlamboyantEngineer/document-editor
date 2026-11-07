@@ -1,5 +1,8 @@
 export type {
   AssetAdapter,
+  CommentEntry,
+  CommentStoreAdapter,
+  CommentThread,
   DocumentSave,
   DocumentStoreAdapter,
   EditorHost,
@@ -9,6 +12,7 @@ export type {
   HostError,
   HostResult,
   IdentityAdapter,
+  NewCommentThread,
   PermissionsAdapter,
   StoredAsset,
   StoredDocument,
@@ -28,5 +32,7 @@ export {
   READ_ONLY_CAPABILITIES,
   resolveEditingMode,
 } from './capabilities.js';
+export type { MemoryCommentsOptions } from './memory-comments.js';
+export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHostOptions } from './memory-host.js';
 export { createMemoryHost } from './memory-host.js';

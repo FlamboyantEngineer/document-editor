@@ -13,6 +13,7 @@ import type {
   TemplateSourceAdapter,
 } from './adapters.js';
 import { type EditorCapabilities, FULL_CAPABILITIES } from './capabilities.js';
+import { createMemoryComments, type MemoryCommentsOptions } from './memory-comments.js';
 
 export interface MemoryHostOptions {
   /** The reader. Defaults to a person named Reader. */
@@ -23,6 +24,8 @@ export interface MemoryHostOptions {
   capabilities?: EditorCapabilities | undefined;
   documents?: readonly Pick<StoredDocument, 'id' | 'content'>[] | undefined;
   templates?: readonly TemplateFile[] | undefined;
+  /** The comment threads the store starts with, and the time comments are posted at. */
+  comments?: MemoryCommentsOptions | undefined;
 }
 
 const DEFAULT_PERSON: EditorPerson = { id: 'reader', name: 'Reader' };
@@ -115,11 +118,13 @@ function createMemoryAssets(): AssetAdapter {
  */
 export function createMemoryHost(options: MemoryHostOptions = {}): EditorHost {
   const capabilities = options.capabilities ?? FULL_CAPABILITIES;
+  const identity = createMemoryIdentity(options.person ?? DEFAULT_PERSON, options.people ?? []);
   return {
-    identity: createMemoryIdentity(options.person ?? DEFAULT_PERSON, options.people ?? []),
+    identity,
     permissions: { capabilities: () => Promise.resolve(capabilities) },
     documents: createMemoryDocuments(options.documents),
     templates: createMemoryTemplates(options.templates ?? []),
     assets: createMemoryAssets(),
+    comments: createMemoryComments(identity, options.comments),
   };
 }

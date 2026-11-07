@@ -6,7 +6,7 @@ The editor reaches everything outside itself through adapters the host passes in
 
 ### DOCE-HOST-1.1 - One host object
 
-The editor shall receive its host as one `EditorHost` object. `identity`, `permissions` and `documents` shall be required; `templates`, `assets`, `feedback` and `telemetry` shall be optional, and a feature whose adapter is absent shall stay off rather than fail.
+The editor shall receive its host as one `EditorHost` object. `identity`, `permissions` and `documents` shall be required; `templates`, `assets`, `comments`, `feedback` and `telemetry` shall be optional, and a feature whose adapter is absent shall stay off rather than fail.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -30,6 +30,13 @@ Verification: `src/host/memory-host.test.ts`
 Library source shall not read or write `localStorage` or `sessionStorage`. Persisted interface state goes through the storage adapter of the base component library's provider, which the host supplies.
 
 Implementation: `eslint.config.js`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-1.5 - Comment store
+
+The host's `comments` adapter shall keep each document's comment threads: `list`, `create` with the id the editor chose, the text it quotes, its opening comment and its suggestion, `reply`, `setState` to `open` or `resolved`, and `remove`. It shall attribute each comment to the reader, with the time it was posted, and return the thread as it is after the change.
+
+Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
 ## DOCE-HOST-2 - Capabilities
@@ -59,14 +66,14 @@ Verification: `src/host/capabilities.test.ts`
 
 ### DOCE-HOST-3.1 - Complete standalone host
 
-`createMemoryHost(options)` shall return an `EditorHost` with in-memory identity, permissions, documents, templates and assets. It shall default to a reader named Reader with every capability and no documents.
+`createMemoryHost(options)` shall return an `EditorHost` with in-memory identity, permissions, documents, templates, assets and comments. It shall default to a reader named Reader with every capability and no documents.
 
 Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-3.2 - Isolated values
 
-The in-memory stores shall return copies, so a caller that mutates a loaded document or template does not change what is stored, and two hosts shall share nothing.
+The in-memory stores shall return copies, so a caller that mutates a loaded document, template or thread does not change what is stored, and two hosts shall share nothing.
 
 Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -76,4 +83,11 @@ Verification: `src/host/memory-host.test.ts`
 The in-memory identity adapter shall find people whose names contain the query, ignoring case and surrounding spaces, and resolve people by id, leaving out unknown ids. The reader is always among the people it knows.
 
 Implementation: `src/host/memory-host.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.4 - In-memory comments
+
+`createMemoryComments(identity, options)`, which the in-memory host uses, shall keep threads by document, starting with `options.threads`, attribute comments to the identity's reader at `options.now`, refuse a thread id already used with a `conflict` error, and answer a missing thread with a `not-found` error.
+
+Implementation: `src/host/memory-comments.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`

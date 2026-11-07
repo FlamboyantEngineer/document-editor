@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-// Bundles every labs/src/<name>.lab.ts(x) into labs/build/<name>.js (ESM with shared chunks).
+// Bundles every labs/src/<name>.lab.ts(x) into labs/build/<name>.js (ESM with shared chunks), and
+// copies the base library's reference stylesheet to labs/build/ui-components.css.
 //   node scripts/build-labs.mjs [--dev] [--watch]
 
-import { rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 import { labsDir, listLabSources } from './lib/labs.mjs';
 import { flag } from './lib/script.mjs';
@@ -14,6 +16,12 @@ const watch = flag('watch');
 const labs = listLabSources();
 
 rmSync(outdir, { recursive: true, force: true });
+// The base library's reference stylesheet, which styles the controls labs show beside the document.
+mkdirSync(outdir, { recursive: true });
+copyFileSync(
+  fileURLToPath(import.meta.resolve('@flamboyantengineer/ui-components/reference.css')),
+  join(outdir, 'ui-components.css'),
+);
 
 /** @type {import('esbuild').BuildOptions} */
 const options = {
