@@ -170,3 +170,19 @@ A measured table shall split after its last body row that fits with its height b
 
 Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/container-split.test.ts`
+
+## DOCE-PAGINATION-5 - Measuring
+
+### DOCE-PAGINATION-5.1 - Measured blocks
+
+`measureChildBlocks(view, pos)` shall measure the blocks a node holds as an editor view laid them out, such as a page's content: each block's height and margins, divided by the view's on-screen `scale`; a text block's text between two content offsets, lazily, as a `TextMeasurement`; linked code's code by character; and where each child of a list, list item, quote or table sits, as a `ContainerMeasurement`, with the children measured the same way. Laid out with these measurements, every page's blocks shall fit its height.
+
+Implementation: `src/pagination/measure-blocks.ts`
+Verification: `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-5.2 - First lines
+
+A block's `leadLineHeight` shall be how far its first line of text reaches below its top, through a container's first child, so a heading stays on the page where the block it heads begins. Blocks laid out from measurements shall split across pages and join back into the measured document.
+
+Implementation: `src/pagination/measure-blocks.ts`
+Verification: `e2e/pagination.spec.ts`

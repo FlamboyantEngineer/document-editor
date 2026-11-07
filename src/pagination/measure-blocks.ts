@@ -1,0 +1,200 @@
+// Measures laid-out blocks in an editor view for the page layout: each block's height and margins,
+// where a container's children sit, and, lazily, the height and lines of a text block's text
+// between two offsets. It only reads layout, so measuring a section forces one layout at most.
+
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { EditorView } from 'prosemirror-view';
+import type { ChildLayout, LayoutBlock, TextMeasure, TextMeasurement } from '../model/index.js';
+
+/** How blocks are measured. */
+export interface MeasureOptions {
+  /** How much the view is scaled on screen, such as by a zoom; measurements are divided by it. */
+  scale?: number | undefined;
+}
+
+const CONTAINER_TYPES = new Set([
+  'blockquote',
+  'bullet_list',
+  'ordered_list',
+  'list_item',
+  'table',
+]);
+const TEXT_TYPES = new Set(['paragraph', 'code_block']);
+
+interface Measuring {
+  readonly view: EditorView;
+  readonly scale: number;
+}
+
+function elementOf(view: EditorView, pos: number): HTMLElement | null {
+  const dom = view.nodeDOM(pos);
+  return dom && dom.nodeType === 1 ? (dom as HTMLElement) : null;
+}
+
+function px(value: string): number {
+  const number = Number.parseFloat(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+// The distinct lines a range's boxes sit on.
+function countLines(rects: Iterable<DOMRect>): number {
+  const tops = new Set<number>();
+  for (const rect of rects) {
+    if (rect.height > 0.5 && rect.width > 0.5) tops.add(Math.round(rect.top));
+  }
+  return tops.size;
+}
+
+function measureRange(range: Range, scale: number): TextMeasure {
+  return {
+    height: range.getBoundingClientRect().height / scale,
+    lines: countLines(range.getClientRects()),
+  };
+}
+
+// A text block's text, by content offset, through the view's positions.
+function textMeasurement(measuring: Measuring, pos: number): TextMeasurement {
+  const { view, scale } = measuring;
+  return {
+    offset: 0,
+    measure: (from, to) => {
+      const start = view.domAtPos(pos + 1 + from);
+      const end = view.domAtPos(pos + 1 + to);
+      const range = view.dom.ownerDocument.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      return measureRange(range, scale);
+    },
+  };
+}
+
+// The text node and offset a character of an element's text falls at.
+function textPoint(element: Element, index: number): { node: Node; offset: number } {
+  const walker = element.ownerDocument.createTreeWalker(element, 4);
+  let remaining = index;
+  let last: Node = element;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const length = node.nodeValue?.length ?? 0;
+    if (remaining <= length) return { node, offset: remaining };
+    remaining -= length;
+    last = node;
+  }
+  return { node: last, offset: last.nodeValue?.length ?? 0 };
+}
+
+// Linked code's code, by character, through the element that renders it.
+function codeMeasurement(measuring: Measuring, element: HTMLElement): TextMeasurement | null {
+  const code = element.querySelector('code');
+  if (!code) return null;
+  return {
+    offset: 0,
+    measure: (from, to) => {
+      const start = textPoint(code, from);
+      const end = textPoint(code, to);
+      const range = element.ownerDocument.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      return measureRange(range, measuring.scale);
+    },
+  };
+}
+
+function childLayouts(
+  measuring: Measuring,
+  node: ProseMirrorNode,
+  pos: number,
+): ChildLayout[] | null {
+  const layouts: ChildLayout[] = [];
+  let origin: number | null = null;
+  let complete = true;
+  node.forEach((child, offset) => {
+    const childPos = pos + 1 + offset;
+    const element = elementOf(measuring.view, childPos);
+    if (!element) {
+      complete = false;
+      return;
+    }
+    const rect = element.getBoundingClientRect();
+    origin ??= rect.top;
+    layouts.push({
+      top: (rect.top - origin) / measuring.scale,
+      bottom: (rect.bottom - origin) / measuring.scale,
+      measurement: measureContent(measuring, { node: child, pos: childPos, element }),
+    });
+  });
+  return complete ? layouts : null;
+}
+
+interface Placed {
+  readonly node: ProseMirrorNode;
+  readonly pos: number;
+  readonly element: HTMLElement;
+}
+
+function measureContent(measuring: Measuring, { node, pos, element }: Placed): unknown {
+  const name = node.type.name;
+  if (TEXT_TYPES.has(name)) return textMeasurement(measuring, pos);
+  if (name === 'linked_code_block') return codeMeasurement(measuring, element);
+  if (!CONTAINER_TYPES.has(name)) return undefined;
+  const children = childLayouts(measuring, node, pos);
+  return children ? { children } : undefined;
+}
+
+// How far a block's first line of text reaches below its top: a text block's own first line, or a
+// container's first child's, which a heading before the block keeps on its page.
+function leadLineHeight(measuring: Measuring, node: ProseMirrorNode, pos: number): number | null {
+  const { view, scale } = measuring;
+  const element = elementOf(view, pos);
+  if (!element) return null;
+  const top = element.getBoundingClientRect().top;
+  if (CONTAINER_TYPES.has(node.type.name) && node.firstChild) {
+    const childPos = pos + 1;
+    const child = elementOf(view, childPos);
+    const lead = child ? leadLineHeight(measuring, node.firstChild, childPos) : null;
+    return child && lead !== null ? (child.getBoundingClientRect().top - top) / scale + lead : null;
+  }
+  if (!TEXT_TYPES.has(node.type.name) || node.content.size === 0) return null;
+  const start = view.domAtPos(pos + 1);
+  const end = view.domAtPos(pos + 1 + node.content.size);
+  const range = view.dom.ownerDocument.createRange();
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
+  const [first] = range.getClientRects();
+  return first ? (first.bottom - top) / scale : null;
+}
+
+/** One block the view laid out at a position, measured; null when it has no element. */
+export function measureBlock(
+  view: EditorView,
+  pos: number,
+  options: MeasureOptions = {},
+): LayoutBlock | null {
+  const node = view.state.doc.nodeAt(pos);
+  const element = elementOf(view, pos);
+  if (!node || !element) return null;
+  const measuring = { view, scale: options.scale && options.scale > 0 ? options.scale : 1 };
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  return {
+    node,
+    height: element.getBoundingClientRect().height / measuring.scale,
+    marginTop: px(style?.marginTop ?? ''),
+    marginBottom: px(style?.marginBottom ?? ''),
+    leadLineHeight: leadLineHeight(measuring, node, pos),
+    measurement: measureContent(measuring, { node, pos, element }),
+  };
+}
+
+/** The blocks a node at a position holds, measured in order, such as a page's content. */
+export function measureChildBlocks(
+  view: EditorView,
+  pos: number,
+  options: MeasureOptions = {},
+): LayoutBlock[] {
+  const parent = view.state.doc.nodeAt(pos);
+  const blocks: LayoutBlock[] = [];
+  parent?.forEach((_child, offset) => {
+    const block = measureBlock(view, pos + 1 + offset, options);
+    if (block) blocks.push(block);
+  });
+  return blocks;
+}

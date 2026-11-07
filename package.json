@@ -59,6 +59,9 @@
     "test:watch": "vitest",
     "check:references": "node scripts/check-references.mjs",
     "check:specs": "node scripts/check-specs.mjs",
+    "build:labs": "node scripts/build-labs.mjs",
+    "serve:labs": "node scripts/serve-labs.mjs",
+    "test:labs": "playwright test",
     "check": "node scripts/check.mjs"
   },
   "peerDependencies": {
@@ -80,6 +83,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@handlewithcare/react-prosemirror": "^3.2.11",
+    "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -88,6 +92,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#d855bd5446df8150dff4600edcb9d86cfd822d69",
+    "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
     "eslint-plugin-jest-dom": "^5.10.1",
     "eslint-plugin-react-hooks": "^7.1.1",
