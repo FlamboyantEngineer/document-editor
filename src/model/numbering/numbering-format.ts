@@ -2,8 +2,6 @@
 // and each character names a counter style. Roman numerals have counter styles of their own, since
 // a browser's built-in roman styles stop at 3999.
 
-import { textOf as toText } from '../stored-text.js';
-
 /** How a counter prints. */
 export type CounterStyle =
   'decimal' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman';
@@ -74,70 +72,24 @@ export function parseRoman(value: unknown): number | null {
   return cursor === upper.length && total > 0 && formatRoman(total) === upper ? total : null;
 }
 
-/**
- * The counter style a format character or style name names. A prefixed roman style name, as an
- * earlier stylesheet wrote it, reads as the roman style; anything unknown reads as decimal.
- */
-export function resolveCounterStyleToken(value: unknown): CounterStyle {
-  const token = toText(value).trim();
-  if (token === 'R' || /^(?:[a-z]+-)?upper-roman$/.test(token) || /^[IVXLCDM]+$/.test(token)) {
-    return 'upper-roman';
-  }
-  if (/^(?:[a-z]+-)?lower-roman$/.test(token) || /^[ivxlcdm]+$/.test(token)) return 'lower-roman';
-  if (token === 'decimal' || token === 'decimal-leading-zero') return 'decimal';
-  if (token === 'lower-alpha' || token === 'lower-latin' || /^[a-z]+$/.test(token)) {
-    return 'lower-alpha';
-  }
-  if (token === 'upper-alpha' || token === 'upper-latin' || /^[A-Z]+$/.test(token)) {
-    return 'upper-alpha';
-  }
+/** The counter style a format character names: digits decimal, `i` and `I` roman, other letters alphabetic. */
+export function resolveCounterStyleToken(token: string): CounterStyle {
+  if (token === 'I') return 'upper-roman';
+  if (token === 'i') return 'lower-roman';
+  if (/^[a-z]$/.test(token)) return 'lower-alpha';
+  if (/^[A-Z]$/.test(token)) return 'upper-alpha';
   return 'decimal';
 }
 
 /** The CSS counter style a format character prints with: the library's own for roman numerals. */
-export function resolveCssCounterStyleToken(token: unknown): string {
+export function resolveCssCounterStyleToken(token: string): string {
   const style = resolveCounterStyleToken(token);
   return style.endsWith('-roman') ? `de-${style}` : style;
 }
 
-const LEGACY_PATTERNS: Readonly<Record<string, string>> = {
-  decimal: '1.',
-  'lower-alpha': 'a.',
-  'upper-alpha': 'A.',
-  'lower-latin': 'a.',
-  'upper-latin': 'A.',
-  'lower-roman': 'i.',
-  'upper-roman': 'I.',
-};
-
-/** A numbering format, with a list style name read as its one-level format. */
-export function normalizeNumberingPattern(value: unknown): string {
-  const pattern = toText(value).trim();
-  return LEGACY_PATTERNS[pattern] ?? pattern;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
-}
-
-/**
- * A section's object style over the document's. A blank section format is not an override: an
- * emptied field is saved as `''` and inherits the document's format.
- */
-export function mergeSectionObjectStyle<T extends object>(
-  documentStyle: unknown,
-  sectionStyle: unknown,
-): T {
-  const section = asRecord(sectionStyle);
-  if (typeof section.numberingStyle === 'string' && !section.numberingStyle.trim()) {
-    delete section.numberingStyle;
-  }
-  return { ...asRecord(documentStyle), ...section } as T;
-}
-
 /** A numbering format's levels. Each level is one character, so `11` and `IA` are two levels. */
-export function parseNumberingStyle(value: unknown): NumberingStyleConfig {
-  const pattern = normalizeNumberingPattern(value);
+export function parseNumberingStyle(format: string | null | undefined): NumberingStyleConfig {
+  const pattern = format?.trim() ?? '';
   const levels = Array.from(pattern.matchAll(/([A-Za-z0-9])([^A-Za-z0-9]*)/g), (match) => ({
     token: match[1] ?? '1',
     separator: match[2] ?? '',
@@ -158,10 +110,9 @@ function alphabetic(counter: number): string {
   return output;
 }
 
-/** A counter's text in a format character's style. A missing or invalid value counts as 1. */
-export function formatCounterValue(value: unknown, token: unknown): string {
-  const parsed = Number.parseInt(toText(value), 10);
-  const counter = Number.isSafeInteger(parsed) ? Math.max(1, parsed) : 1;
+/** A counter's text in a format character's style. A value below 1 or not an integer counts as 1. */
+export function formatCounterValue(value: number, token: string): string {
+  const counter = Number.isSafeInteger(value) ? Math.max(1, value) : 1;
   const style = resolveCounterStyleToken(token);
   if (style === 'decimal') return String(counter);
   if (style === 'upper-roman' || style === 'lower-roman') {

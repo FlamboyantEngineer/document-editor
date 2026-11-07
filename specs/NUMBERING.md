@@ -1,19 +1,19 @@
 # Numbering
 
-A template numbers headings, paragraphs and captioned objects with numbering formats such as `1.1`, `a)` or `I-1`. The model turns a format into the CSS `content` and counter styles the document's stylesheet uses, so the editor, a preview and an export number the same way. Stored formats are a compatibility contract: a format reads the same in every version. The model reads no DOM, so a server builds the same numbering.
+A template numbers headings, paragraphs and captioned objects with numbering formats such as `1.1`, `a)` or `I-1`. Formats are stored in the template format (DOCE-FORMAT-2). The model turns a format into the CSS `content` and counter styles the document's stylesheet uses, so the editor, a preview and an export number the same way. The model reads no DOM, so a server builds the same numbering.
 
 ## DOCE-NUMBERING-1 - Formats
 
 ### DOCE-NUMBERING-1.1 - One level per character
 
-`parseNumberingStyle(format)` shall read one level per letter or digit, with the text after it as that level's separator, so `11` and `IA` are two levels; the last separator is the format's trailing separator. An empty format shall read as `1`. A list style name, such as `upper-roman` or `lower-latin`, shall read as its one-level format with a trailing `.` (`normalizeNumberingPattern`).
+`parseNumberingStyle(format)` shall read one level per letter or digit, with the text after it as that level's separator, so `11` and `IA` are two levels; the last separator is the format's trailing separator. An empty format shall read as `1`.
 
 Implementation: `src/model/numbering/numbering-format.ts`
 Verification: `src/model/numbering/numbering-format.test.ts`
 
 ### DOCE-NUMBERING-1.2 - Counter styles
 
-A format character shall name its counter style: `1` decimal, a lower-case letter lower alpha and an upper-case letter upper alpha, `i` and `I` (any roman letters, and `R`) lower and upper roman. A style name shall read as itself, a prefixed roman style name (`<prefix>-upper-roman`) as the roman style, and anything else as decimal. Roman styles shall print with the library's own counter styles, `de-upper-roman` and `de-lower-roman` (`resolveCssCounterStyleToken`).
+A format character shall name its counter style: `i` and `I` lower and upper roman, any other lower-case or upper-case letter lower and upper alpha, and anything else decimal. Roman styles shall print with the library's own counter styles, `de-upper-roman` and `de-lower-roman` (`resolveCssCounterStyleToken`).
 
 Implementation: `src/model/numbering/numbering-format.ts`
 Verification: `src/model/numbering/numbering-format.test.ts`
@@ -27,7 +27,7 @@ Verification: `src/model/numbering/numbering-format.test.ts`
 
 ### DOCE-NUMBERING-1.4 - Counter text
 
-`formatCounterValue(value, character)` shall print a counter in the character's style, alphabetic counters continuing `Z`, `AA`. A missing, invalid or non-positive value shall count as 1.
+`formatCounterValue(value, character)` shall print a counter in the character's style, alphabetic counters continuing `Z`, `AA`. A value below 1 or not an integer shall count as 1.
 
 Implementation: `src/model/numbering/numbering-format.ts`
 Verification: `src/model/numbering/numbering-format.test.ts`
@@ -41,9 +41,9 @@ Verification: `src/model/numbering/numbering-format.test.ts`
 
 ### DOCE-NUMBERING-1.6 - Section formats
 
-A section's object style shall override the document's (`mergeSectionObjectStyle`), except that a blank section format inherits the document's, since an emptied field is saved as an empty string.
+A section's object styles shall merge over the document's by the template inheritance rule (DOCE-FORMAT-3.1, `mergeTemplateSettings`): a section's format replaces the document's, an empty format included, and what it leaves unset is the document's.
 
-Implementation: `src/model/numbering/numbering-format.ts`
+Implementation: `src/model/format/template-format-resolve.ts`
 Verification: `src/model/numbering/numbering-format.test.ts`
 
 ## DOCE-NUMBERING-2 - Numbering content
@@ -76,9 +76,9 @@ Authored text in numbering content shall be escaped for a double-quoted CSS stri
 Implementation: `src/model/numbering/document-numbering.ts`
 Verification: `src/model/numbering/document-numbering.test.ts`
 
-### DOCE-NUMBERING-2.5 - Inherited paragraph styles
+### DOCE-NUMBERING-2.5 - Paragraph styles
 
-`resolveParagraphNumberingConfig(style, inherited)` shall take a paragraph style's format, levels, prefix and suffix, and the inherited ones for what it does not set. An empty format shall switch numbering off.
+`resolveParagraphNumberingConfig(settings)` shall read a paragraph style's numbering: its format, levels, prefix and suffix. An empty or absent format shall switch numbering off.
 
 Implementation: `src/model/numbering/document-numbering.ts`
 Verification: `src/model/numbering/document-numbering.test.ts`
@@ -87,7 +87,7 @@ Verification: `src/model/numbering/document-numbering.test.ts`
 
 ### DOCE-NUMBERING-3.1 - Paragraph levels
 
-`resolveParagraphLevelStyle(config, level, headingDepth)` shall take the format and indentation of the configured row for the paragraph's displayed depth (heading depth plus level), else the style's format. Below a heading only the paragraph's own levels shall be kept. An indentation shall be a non-negative number of pixels or a length in `pt`, `px`, `mm`, `cm`, `in`, `em` or `rem`; anything else is unset.
+`resolveParagraphLevelStyle(config, level, headingDepth)` shall take the format and the number and text positions of the configured level for the paragraph's displayed depth (heading depth plus level), else the style's format. Below a heading only the paragraph's own levels shall be kept.
 
 Implementation: `src/model/numbering/paragraph-numbering.ts`
 Verification: `src/model/numbering/paragraph-numbering.test.ts`
@@ -108,7 +108,7 @@ Verification: `src/model/numbering/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-3.4 - Paragraph indentation
 
-`paragraphNumberingIndentationStyle` shall set `--doc-paragraph-indentation`, `--doc-paragraph-number-indent` and `--doc-paragraph-text-indent` from the level's settings, a bare number in pixels. A level without its own indentation shall be indented 20pt per level below the first.
+`paragraphNumberingIndentationStyle` shall indent a numbered paragraph 20pt per level below the first (`--doc-paragraph-indentation`) and set `--doc-paragraph-number-indent` and `--doc-paragraph-text-indent` when its level sets the number and text positions.
 
 Implementation: `src/model/numbering/paragraph-numbering.ts`
 Verification: `src/model/numbering/paragraph-numbering.test.ts`
@@ -117,7 +117,7 @@ Verification: `src/model/numbering/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-4.1 - Caption placement
 
-`buildCaptionPlacementVariables(styles)` shall place table, figure and code block captions above or below their object, as `--doc-table-caption-side` (`top`, `bottom`), `--doc-figure-caption-order` and `--doc-code-caption-order` (`-1` above, `1` below). Figures shall default to below and tables and code blocks to above; without defaults only the kinds a style sets are given.
+`buildCaptionPlacementVariables(styles)` shall place table, figure and code block captions where each style's `caption.placement` says, as `--doc-table-caption-side` (`top`, `bottom`), `--doc-figure-caption-order` and `--doc-code-caption-order` (`-1` above, `1` below). Figures shall default to below and tables and code blocks to above; without defaults only the kinds a style sets are given.
 
 Implementation: `src/model/numbering/caption-placement.ts`
 Verification: `src/model/numbering/caption-placement.test.ts`

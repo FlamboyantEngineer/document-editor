@@ -27,6 +27,7 @@ export {
   hasTemplateParentCycle,
   hasTemplateParentCycleAsync,
   mergeTemplateFiles,
+  mergeTemplateSettings,
   resolveSectionRegion,
   resolveTemplateFile,
   resolveTemplateFileAsync,
@@ -81,8 +82,6 @@ export {
   DOCUMENT_COUNTER_STYLE_CSS,
   formatCounterValue,
   formatRoman,
-  mergeSectionObjectStyle,
-  normalizeNumberingPattern,
   OBJECT_CONTEXT_COUNTER_STYLE_CSS,
   parseNumberingStyle,
   parseRoman,
@@ -92,10 +91,7 @@ export {
   resolveObjectContextSeparatorCounterStyle,
   ROMAN_COUNTER_STYLE_CSS,
 } from './numbering/numbering-format.js';
-export type {
-  ParagraphLevelStyle,
-  ParagraphNumberingLevel,
-} from './numbering/paragraph-numbering.js';
+export type { ParagraphLevelStyle } from './numbering/paragraph-numbering.js';
 export {
   advanceParagraphCounters,
   hasParagraphNumberingContent,
@@ -198,39 +194,19 @@ export {
   validateSignaturePathData,
 } from './signature-vector.js';
 export { storedText, textOf } from './stored-text.js';
+export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export {
-  formatNumericMarginToCssPx,
+  lengthToCssPx,
   MM_TO_CSS_PX,
   PAGE_SIZE_DIMENSIONS,
-  parseMarginToCssPx,
-  resolveTemplateFontFamilyCssText,
-  resolveTemplateMarginUnit,
-  resolveTemplateStyleLineHeight,
-  toTemplateCssSizeValue,
-  toTemplateCssTextValue,
-  toTemplateDisplayText,
+  resolveFontStack,
 } from './templates/template-css-values.js';
-export type {
-  RegionSpacingScopes,
-  TemplateFootnoteSeparatorSettings,
-  TemplateFootnoteSettings,
-} from './templates/template-metrics.js';
+export type { ResolvedFootnoteSettings } from './templates/template-scopes.js';
 export {
-  buildTemplateCaptionCssVarEntries,
-  buildTemplateFootnoteCssVarEntries,
-  cloneDocumentTemplateMetricValue,
-  DOCUMENT_TEMPLATE_PAGE_METRIC_FALLBACK,
-  isTemplateRegionInheritanceRequested,
-  mergeDocumentTemplateMetricDefaults,
-  resolveMergedTemplateFootnoteSettings,
-  resolveRegionSpacingToContentCssPx,
-  shouldInheritDocumentTemplateMetricValue,
-  templateSectionRestartsHeadingNumbering,
-} from './templates/template-metrics.js';
-export type { TemplateSectionLike } from './templates/template-sections.js';
-export {
-  findSectionByName,
-  normalizeTemplateSectionName,
-  resolveDocumentStructuralVariables,
-  resolveRequiredTemplateSections,
-} from './templates/template-sections.js';
+  buildCaptionCssVarEntries,
+  buildFootnoteCssVarEntries,
+  resolveFootnoteSettings,
+  resolveRegionSpacing,
+  sectionRestartsNumbering,
+} from './templates/template-scopes.js';
+export { findTemplateSection, requiredTemplateSections } from './templates/template-sections.js';
