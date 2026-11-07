@@ -1,0 +1,61 @@
+// Where each document node and mark type sits in the schema. Parsers try node types in this order
+// and marks nest in it, so it is part of how stored and pasted documents read. Ordinals step by
+// ten; the gaps are free for a host's own types (`order` on its extension's types).
+
+/** The ordinal of each built-in node type. */
+export const DOCUMENT_NODE_ORDER = Object.freeze({
+  doc: 0,
+  dynamic_template: 10,
+  page_section: 40,
+  page: 50,
+  page_content: 60,
+  page_footnotes: 70,
+  footnote_entry: 80,
+  page_header: 90,
+  page_footer: 100,
+  paragraph: 110,
+  blockquote: 120,
+  page_break: 130,
+  toc_block: 140,
+  horizontal_rule: 150,
+  heading: 160,
+  code_block: 170,
+  text: 180,
+  template_variable: 190,
+  mention: 200,
+  figure: 230,
+  footnote_reference: 240,
+  image: 260,
+  hard_break: 270,
+  ordered_list: 280,
+  bullet_list: 290,
+  list_item: 300,
+  table: 310,
+  table_row: 320,
+  table_cell: 330,
+  table_header: 340,
+  linked_code_block: 350,
+  math_inline: 360,
+  math_display: 370,
+  signature: 380,
+  abbreviation_reference: 400,
+  layout_section: 410,
+  layout_column: 420,
+});
+
+/** The ordinal of each built-in mark type. */
+export const DOCUMENT_MARK_ORDER = Object.freeze({
+  link: 0,
+  em: 10,
+  strong: 20,
+  code: 30,
+  contributor: 40,
+  strike: 50,
+  underline: 60,
+  superscript: 70,
+  subscript: 80,
+  comment_highlight: 90,
+  insertion: 100,
+  deletion: 110,
+  reference: 120,
+});

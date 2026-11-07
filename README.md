@@ -11,10 +11,11 @@ The library is in early `0.x` development and has no release yet.
 
 ## Entry points
 
-| Entry point                                | Contents                                                    |
-| ------------------------------------------ | ----------------------------------------------------------- |
-| `@flamboyantengineer/document-editor`      | Everything below.                                           |
-| `@flamboyantengineer/document-editor/host` | Host adapter contracts, capabilities and an in-memory host. |
+| Entry point                                 | Contents                                                                   |
+| ------------------------------------------- | -------------------------------------------------------------------------- |
+| `@flamboyantengineer/document-editor`       | Everything below.                                                          |
+| `@flamboyantengineer/document-editor/host`  | Host adapter contracts, capabilities and an in-memory host.                |
+| `@flamboyantengineer/document-editor/model` | The document schema and stored-markup helpers, safe to import on a server. |
 
 ## Develop
 

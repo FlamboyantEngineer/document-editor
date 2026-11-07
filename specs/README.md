@@ -4,10 +4,11 @@ Each file in this directory specifies one component, one family of components, o
 
 ## Ownership
 
-| Document                             | Owns                                                                |
-| ------------------------------------ | ------------------------------------------------------------------- |
-| [HOST-ADAPTERS.md](HOST-ADAPTERS.md) | The adapters a host passes in, capabilities and the in-memory host. |
-| `<AREA>.md`                          | One area's behaviour and, for a component, **its hook list**.       |
+| Document                                 | Owns                                                                    |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| [HOST-ADAPTERS.md](HOST-ADAPTERS.md)     | The adapters a host passes in, capabilities and the in-memory host.     |
+| [DOCUMENT-SCHEMA.md](DOCUMENT-SCHEMA.md) | The document's node and mark types, their stored markup and references. |
+| `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.           |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.
 
