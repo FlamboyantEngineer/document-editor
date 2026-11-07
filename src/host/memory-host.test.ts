@@ -139,6 +139,39 @@ describe('createMemoryHost', () => {
     await expect(comments?.list('doc')).resolves.toMatchObject({ value: [{ entries: [] }] });
   });
 
+  it('DOCE-HOST-1.6 DOCE-HOST-3.5 keeps each saved version, newest first', async () => {
+    const host = createMemoryHost({
+      person: { id: 'p1', name: 'Ada' },
+      documents: [{ id: 'a', content: CONTENT }],
+      now: () => new Date('2026-01-02T03:04:05Z'),
+    });
+    const changed: DocumentFile = { formatVersion: 1, sections: [] };
+    await host.documents.save('a', { content: changed, baseRevision: 'rev-1' });
+    const listed = await host.versions?.list('a');
+    expect(listed).toEqual({
+      ok: true,
+      value: [
+        {
+          revision: 'rev-2',
+          sequence: 2,
+          savedAt: '2026-01-02T03:04:05.000Z',
+          author: 'p1',
+          label: null,
+        },
+        {
+          revision: 'rev-1',
+          sequence: 1,
+          savedAt: '2026-01-02T03:04:05.000Z',
+          author: 'p1',
+          label: null,
+        },
+      ],
+    });
+    await expect(host.versions?.load('a', 'rev-1')).resolves.toEqual({ ok: true, value: CONTENT });
+    await expect(host.versions?.load('a', 'rev-9')).resolves.toMatchObject({ ok: false });
+    await expect(host.documents.load('a')).resolves.toMatchObject({ value: { content: changed } });
+  });
+
   it('DOCE-HOST-1.4 keeps library source away from browser storage', () => {
     const config = readFileSync(join(process.cwd(), 'eslint.config.js'), 'utf8');
     expect(config).toContain("'localStorage', 'sessionStorage'");

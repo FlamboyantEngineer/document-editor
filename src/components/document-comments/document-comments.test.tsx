@@ -109,7 +109,10 @@ describe('DocumentComments', () => {
     render(<Harness host={host()} />);
     const margin = screen.getByRole('list', { name: 'Comments' });
     expect(await within(margin).findByText('Is blue right?')).toBeInTheDocument();
-    expect(within(margin).getByText('Ada Lovelace', { selector: 'strong' })).toBeInTheDocument();
+    // Authors' names come from the identity adapter once the threads are listed.
+    expect(
+      await within(margin).findByText('Ada Lovelace', { selector: 'strong' }),
+    ).toBeInTheDocument();
     expect(within(margin).getByText('epsilon')).toBeInTheDocument();
     expect(within(margin).queryByText('Old')).not.toBeInTheDocument();
     expect(within(margin).getAllByRole('group', { name: 'Comment thread' })).toHaveLength(1);

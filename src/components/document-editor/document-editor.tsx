@@ -19,7 +19,11 @@ import {
   DocumentComments,
   type DocumentCommentsOptions,
 } from '../document-comments/document-comments.js';
-import { type DocumentLayout, useDocumentLayout } from './use-document-layout.js';
+import {
+  type DocumentComparison,
+  type DocumentLayout,
+  useDocumentLayout,
+} from './use-document-layout.js';
 
 /** What a document editor shows and how. */
 export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
@@ -37,6 +41,8 @@ export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
   suggesting?: boolean | undefined;
   /** The writer suggestions are attributed to. */
   author?: string | null | undefined;
+  /** Shows the document's changes from an older version (`createVersionChanges`). */
+  compare?: DocumentComparison | null | undefined;
   /** Shows the document's comment threads and suggestions in a margin beside it. */
   comments?: DocumentCommentsOptions | undefined;
   /** React views by node type name, beside the views the plugins draw. */
@@ -77,9 +83,9 @@ function useSuggesting(
 export function DocumentEditor(props: DocumentEditorProps) {
   const { state, onStateChange, template, layout = 'page', editable = true } = props;
   const { nodeViews, events, children, className, suggesting = false, author = null } = props;
-  const { comments } = props;
+  const { comments, compare = null } = props;
   const measureIn = useRef<HTMLDivElement>(null);
-  useDocumentLayout(measureIn, { layout, template, state, onStateChange });
+  useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
   const style = useMemo(() => templateProperties(template) as CSSProperties, [template]);
   const viewProps = useMemo(() => ({ editable: () => editable }), [editable]);
   const dispatchTransaction = useSuggesting(editable && suggesting, author, events);
@@ -102,6 +108,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
           layout,
           mode: editable ? 'authoring' : 'reading',
           suggesting: editable && suggesting,
+          comparing: compare ? (compare.display ?? 'markup') : undefined,
         },
       })}
       style={style}

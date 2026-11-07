@@ -391,6 +391,60 @@
   box-shadow: -6px 0 0 -3px #cf222e;
 }
 
+/*
+ * Changes from an older version: a bar beside each changed block in its kind's color, from the
+ * template's change bar settings; in markup, words a block gained and lost, and blocks it lost.
+ */
+.de-document-editor [data-diff-change],
+.de-document-editor [data-diff-deletion] {
+  position: relative;
+}
+
+.de-document-editor [data-diff-change]::after,
+.de-document-editor [data-diff-deletion]:not([data-diff-change])::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--doc-change-bar-left, -12px);
+  right: var(--doc-change-bar-right, auto);
+  width: var(--doc-change-bar-width, 4px);
+  background: var(--doc-change-bar-modifications-color, #0000dd);
+}
+
+.de-document-editor [data-diff-change='insertion']::after {
+  background: var(--doc-change-bar-insertions-color, #00dd00);
+}
+
+.de-document-editor [data-diff-deletion]:not([data-diff-change])::after {
+  background: var(--doc-change-bar-deletions-color, #dd0000);
+}
+
+.de-document-editor [data-diff-change='formatting']::after {
+  background: var(--doc-change-bar-formatting-color, #dd00dd);
+}
+
+.de-document-editor span[data-diff-change='insertion'] {
+  position: static;
+  background: color-mix(in srgb, var(--doc-change-bar-insertions-color, #00dd00) 18%, transparent);
+  text-decoration: underline;
+}
+
+.de-document-editor del[data-diff-change='deletion'] {
+  position: static;
+  color: var(--doc-change-bar-deletions-color, #dd0000);
+}
+
+.de-document-editor span[data-diff-change]::after,
+.de-document-editor del[data-diff-change]::after {
+  content: none;
+}
+
+/* The text of a block lost before a block, or after the last one, on its own line. */
+.de-document-editor del[data-diff-block] {
+  display: block;
+}
+
 /* The comments margin sits beside the pages; the layer draws the anchors' highlights itself. */
 .de-document-comments {
   align-items: start;

@@ -6,7 +6,7 @@ The editor reaches everything outside itself through adapters the host passes in
 
 ### DOCE-HOST-1.1 - One host object
 
-The editor shall receive its host as one `EditorHost` object. `identity`, `permissions` and `documents` shall be required; `templates`, `assets`, `comments`, `feedback` and `telemetry` shall be optional, and a feature whose adapter is absent shall stay off rather than fail.
+The editor shall receive its host as one `EditorHost` object. `identity`, `permissions` and `documents` shall be required; `templates`, `assets`, `comments`, `versions`, `feedback` and `telemetry` shall be optional, and a feature whose adapter is absent shall stay off rather than fail.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -39,6 +39,13 @@ The host's `comments` adapter shall keep each document's comment threads: `list`
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
+### DOCE-HOST-1.6 - Versions store
+
+The host's `versions` adapter shall list a document's saved versions, newest first, each with its saved state, when it was saved, who saved it and its name, and load a version's content by its revision in the stored format.
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/host/memory-host.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
@@ -66,7 +73,7 @@ Verification: `src/host/capabilities.test.ts`
 
 ### DOCE-HOST-3.1 - Complete standalone host
 
-`createMemoryHost(options)` shall return an `EditorHost` with in-memory identity, permissions, documents, templates, assets and comments. It shall default to a reader named Reader with every capability and no documents.
+`createMemoryHost(options)` shall return an `EditorHost` with in-memory identity, permissions, documents, templates, assets, comments and versions. It shall default to a reader named Reader with every capability and no documents.
 
 Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -90,4 +97,11 @@ Verification: `src/host/memory-host.test.ts`
 `createMemoryComments(identity, options)`, which the in-memory host uses, shall keep threads by document, starting with `options.threads`, attribute comments to the identity's reader at `options.now`, refuse a thread id already used with a `conflict` error, and answer a missing thread with a `not-found` error.
 
 Implementation: `src/host/memory-comments.ts`, `src/host/memory-host.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.5 - In-memory versions
+
+The in-memory host shall keep every state of a document it saves as a version, attributed to the reader at `options.now`, from the state it started with.
+
+Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
