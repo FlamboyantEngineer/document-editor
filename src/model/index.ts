@@ -107,14 +107,15 @@ export {
   splitList,
   splitListItem,
 } from './pagination/container-split.js';
-export type { FragmentRule, FragmentRules, JoinedFragment } from './pagination/fragments.js';
+export type { BlockRun, FragmentRule, FragmentRules } from './pagination/fragments.js';
 export {
   continuesFragment,
   FRAGMENT_RULES,
   isFragment,
-  joinChildren,
+  joinAt,
+  joinBlocks,
   joinFragments,
-  wholeNode,
+  makeWhole,
 } from './pagination/fragments.js';
 export type {
   LayoutBlock,
@@ -135,6 +136,11 @@ export {
   PAGE_SAFETY_MARGIN_PX,
   stackedHeight,
 } from './pagination/page-layout.js';
+export type { ProjectionOptions, SectionPages } from './pagination/page-projection.js';
+export { projectDocument } from './pagination/page-projection.js';
+export type { PageJoinOptions } from './pagination/page-transform.js';
+export { joinDocumentPages, joinSectionPages } from './pagination/page-transform.js';
+export { repaginate, sameStructure } from './pagination/repaginate.js';
 export { isHeaderRow, leadingHeaderRows, splitTableWith } from './pagination/table-split.js';
 export type {
   TextMeasure,

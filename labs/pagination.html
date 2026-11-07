@@ -6,7 +6,7 @@
     <link rel="icon" href="data:," />
     <meta
       name="description"
-      content="A document measured in an editor view and laid out on fixed-height pages."
+      content="A document laid out on fixed-height pages, which follow its edits and the page width."
     />
     <title>Pagination · Labs</title>
     <style>
@@ -19,31 +19,50 @@
           16px/1.5 Georgia,
           serif;
       }
+      :root {
+        --lab-width: 480px;
+      }
       .lab-measure {
         position: absolute;
         left: -10000px;
         top: 0;
       }
       .lab-measure,
-      .lab-page-content {
-        width: 480px;
+      .pm-page-content {
+        width: var(--lab-width);
       }
-      .lab-pages {
+      .lab-pages .pm-section {
         display: flex;
         flex-wrap: wrap;
         gap: 24px;
       }
-      .lab-page {
+      .lab-pages .pm-page {
         box-sizing: content-box;
         padding: 32px;
         background: #fff;
         box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
       }
-      .lab-page-content > :first-child {
+      .lab-pages .pm-page-content {
+        height: 360px;
+      }
+      .ProseMirror {
+        outline: none;
+      }
+      .pm-page-header,
+      .pm-page-footer,
+      .pm-page-footnotes:empty {
+        display: none;
+      }
+      .pm-page-content > :first-child {
         margin-top: 0;
       }
-      .lab-page-content > :last-child {
+      .pm-page-content > :last-child {
         margin-bottom: 0;
+      }
+      button {
+        margin: 0 0 16px;
+        padding: 6px 12px;
+        font: inherit;
       }
       p,
       pre,
@@ -83,7 +102,11 @@
   <body>
     <main id="lab-root">
       <h1>Pagination</h1>
-      <p>The document below is measured in an editor view and laid out on pages 360 pixels tall.</p>
+      <p>
+        The document is measured in a hidden view and laid out on pages 360 pixels tall. Type in it,
+        or change the page width: the pages follow, and the caret stays where it was.
+      </p>
+      <button type="button" class="lab-narrow" aria-pressed="false">Narrow pages</button>
       <div class="lab-measure" aria-hidden="true"></div>
       <div class="lab-pages"></div>
     </main>
