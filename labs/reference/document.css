@@ -370,3 +370,23 @@
   color: #94a3b8;
   white-space: nowrap;
 }
+
+/* Suggestions: suggested insertions underlined, deletions struck, suggested blocks barred. */
+.de-document-editor ins[data-id] {
+  background: rgb(26 127 55 / 10%);
+  color: #116329;
+  text-decoration: underline;
+}
+
+.de-document-editor del[data-id] {
+  color: #a40e26;
+  text-decoration: line-through;
+}
+
+.de-document-editor [data-suggestion-split-kind='insertion'] {
+  box-shadow: -6px 0 0 -3px #1a7f37;
+}
+
+.de-document-editor [data-suggestion-split-kind='deletion'] {
+  box-shadow: -6px 0 0 -3px #cf222e;
+}

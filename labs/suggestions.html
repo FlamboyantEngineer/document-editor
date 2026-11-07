@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <meta
+      name="description"
+      content="Suggestions: changes kept as suggested insertions and deletions, attributed, then accepted or rejected."
+    />
+    <title>Suggestions · Labs</title>
+    <link rel="stylesheet" href="reference/document.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #eef0f3;
+        color: #1d2129;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      .lab-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: 24px;
+        align-items: start;
+      }
+      aside {
+        position: sticky;
+        top: 24px;
+        background: #fff;
+        padding: 12px 16px;
+        border-radius: 8px;
+      }
+      aside ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      aside li {
+        padding: 8px 0;
+        border-top: 1px solid #d0d7de;
+      }
+      aside ins {
+        color: #116329;
+      }
+      aside del {
+        color: #a40e26;
+      }
+      fieldset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        margin: 0 0 16px;
+        border: 0;
+        padding: 0;
+      }
+    </style>
+    <script type="module" src="build/suggestions.js"></script>
+  </head>
+  <body>
+    <main id="lab-root">
+      <h1>Suggestions</h1>
+      <p>
+        While suggesting, what you type is kept as a suggested insertion and what you delete stays
+        in place, struck, both attributed to the writer you pick. Press Enter inside a paragraph and
+        its two halves are suggested in its place. Accept or reject each suggestion from the list.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>

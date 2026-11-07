@@ -10,6 +10,7 @@ import { marks as basicMarks } from 'prosemirror-schema-basic';
 import {
   appendContributorAttrs,
   DATA_AI_SESSION_ATTR,
+  DATA_CONTRIBUTOR_ATTR,
   DATA_ID_ATTR,
   type DomAttributes,
   readContributorAuthorAttr,
@@ -161,7 +162,11 @@ const commentHighlight: MarkSpec = {
 function suggestionMark(tag: 'ins' | 'del'): MarkSpec {
   return {
     excludes: '',
-    attrs: { dataId: { default: null }, commentId: { default: null } },
+    attrs: {
+      dataId: { default: null },
+      dataAuthor: { default: null },
+      commentId: { default: null },
+    },
     parseDOM: [
       {
         tag,
@@ -169,13 +174,18 @@ function suggestionMark(tag: 'ins' | 'del'): MarkSpec {
           const dataId = dom.getAttribute('data-id');
           const commentId = dom.getAttribute('data-comment-id');
           if (!commentId && !dataId) return false;
-          return { dataId: dataId || null, commentId: commentId || null };
+          return {
+            dataId: dataId || null,
+            dataAuthor: dom.getAttribute(DATA_CONTRIBUTOR_ATTR) || null,
+            commentId: commentId || null,
+          };
         },
       },
     ],
     toDOM(mark: Mark) {
       const attrs: DomAttributes = {};
       if (mark.attrs.dataId) attrs['data-id'] = String(mark.attrs.dataId);
+      if (mark.attrs.dataAuthor) attrs[DATA_CONTRIBUTOR_ATTR] = String(mark.attrs.dataAuthor);
       if (mark.attrs.commentId) attrs['data-comment-id'] = String(mark.attrs.commentId);
       return [tag, attrs, 0];
     },

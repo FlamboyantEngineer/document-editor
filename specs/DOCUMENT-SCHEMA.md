@@ -36,7 +36,7 @@ Verification: `src/model/schema/document-schema.test.ts`, `src/model/schema/page
 
 ### DOCE-SCHEMA-2.1 - Identity, authorship and splits
 
-Every node type but text shall carry `dataId` (`data-id`), `dataAuthor` (`data-au`), `dataAiSession` (`data-ai`) and `splitPartIndex` (`data-split-part-index`), read from and written to its element. Paragraphs shall also carry `paragraphLevel`; paragraphs, figures and layout sections the split suggestion attributes (`data-suggestion-split-kind`, `data-suggestion-split-id`); and list items `orphanedListContinuation` (`data-orphaned-list-continuation`). An attribute without a value shall not be written.
+Every node type but text shall carry `dataId` (`data-id`), `dataAuthor` (`data-au`), `dataAiSession` (`data-ai`) and `splitPartIndex` (`data-split-part-index`), read from and written to its element. Paragraphs shall also carry `paragraphLevel`; paragraphs, headings, figures and layout sections the suggestion attributes (`data-suggestion-split-kind`, `data-suggestion-split-id`); and list items `orphanedListContinuation` (`data-orphaned-list-continuation`). An attribute without a value shall not be written.
 
 Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/dom-attributes.ts`
 Verification: `src/model/schema/element-attributes.test.ts`, `src/model/schema/document-schema-node.test.ts`
@@ -101,7 +101,7 @@ Verification: `src/model/schema/inline-atom-nodes.test.ts`
 
 ### DOCE-SCHEMA-3.8 - Marks
 
-Links shall keep whether they open elsewhere and who wrote them; links and inline code shall keep their id and author. The contributor mark (`span[data-au]`) shall record who wrote a span. Strike, underline, superscript and subscript shall read from their tags, and strike and underline from text decoration too. A `del` or `ins` with an id or comment id shall read as a suggested deletion or insertion, and any other `del` as strike; a `mark` with a comment id shall read as a comment highlight, which does not extend as one types. A reference shall keep its type, target, the citation data it recorded and whether it is broken, and write its format key (DOCE-SCHEMA-4.1) for templates to style.
+Links shall keep whether they open elsewhere and who wrote them; links and inline code shall keep their id and author. The contributor mark (`span[data-au]`) shall record who wrote a span. Strike, underline, superscript and subscript shall read from their tags, and strike and underline from text decoration too. A `del` or `ins` with an id or comment id shall read as a suggested deletion or insertion, keeping its id, its author (`data-au`) and its comment thread, and any other `del` as strike; a `mark` with a comment id shall read as a comment highlight, which does not extend as one types. A reference shall keep its type, target, the citation data it recorded and whether it is broken, and write its format key (DOCE-SCHEMA-4.1) for templates to style.
 
 Implementation: `src/model/schema/marks.ts`, `src/model/schema/reference-mark.ts`
 Verification: `src/model/schema/marks.test.ts`
