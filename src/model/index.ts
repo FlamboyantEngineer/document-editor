@@ -1,7 +1,8 @@
 // The document model: the schema and the helpers that read and write stored documents. It reads no
 // DOM when it loads, so a server imports it to read, write and check the documents the editor makes.
 
-export { countWords, readingMinutes } from './document-words.js';
+export * from './contents/document-catalog.js';
+export * from './document-words.js';
 export type {
   DocumentFile,
   StoredContent,
@@ -54,12 +55,7 @@ export {
   normalizeGlossaryInput,
   prefillAbbreviation,
 } from './glossary.js';
-export {
-  needsLayoutSections,
-  unwrapLayoutSections,
-  wrapInLayoutSections,
-  WRAPPING_LAYOUT_PRESET,
-} from './layout/layout-sections.js';
+export * from './layout/layout-sections.js';
 export type { CaptionPlacement } from './numbering/caption-placement.js';
 export {
   buildCaptionPlacementVariables,
@@ -100,6 +96,7 @@ export {
   resolveObjectContextSeparatorCounterStyle,
   ROMAN_COUNTER_STYLE_CSS,
 } from './numbering/numbering-format.js';
+export * from './numbering/numbering-text.js';
 export type { ParagraphLevelStyle } from './numbering/paragraph-numbering.js';
 export {
   advanceParagraphCounters,
@@ -115,6 +112,7 @@ export {
   splitList,
   splitListItem,
 } from './pagination/container-split.js';
+export * from './pagination/contents-split.js';
 export type { BlockRun, FragmentRule, FragmentRules } from './pagination/fragments.js';
 export {
   continuesFragment,
@@ -271,6 +269,7 @@ export {
   PAGE_SIZE_DIMENSIONS,
   resolveFontStack,
 } from './templates/template-css-values.js';
+export * from './templates/template-numbering.js';
 export type {
   CustomProperties,
   FontStacks,
@@ -280,6 +279,7 @@ export type {
 export {
   templatePageMetrics,
   templateProperties,
+  templateScopeStyles,
   textStyleProperties,
 } from './templates/template-properties.js';
 export type { ResolvedFootnoteSettings } from './templates/template-scopes.js';

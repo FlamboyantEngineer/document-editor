@@ -2,6 +2,7 @@
 // and spacing, and the list, table and code block settings that are not numbering.
 
 import type {
+  ContentsSettings,
   ListSettings,
   TableSettings,
   TemplateStyles,
@@ -92,7 +93,28 @@ function tableProperties(properties: CustomProperties, table: TableSettings | nu
   set(properties, '--doc-table-row-even-background', table.rows?.even);
 }
 
-/** The text, list, table and code block properties a scope's styles set; unset values are left out. */
+function contentsProperties(
+  properties: CustomProperties,
+  contents: ContentsSettings | null | undefined,
+  fontStacks: FontStacks | undefined,
+) {
+  if (!contents) return;
+  Object.assign(properties, textProperties('--doc-contents-title', contents.title, fontStacks));
+  Object.assign(properties, textProperties('--doc-contents-entry', contents.entry, fontStacks));
+  if (contents.leader)
+    properties['--doc-contents-leader'] = `"${escapeCssContent(contents.leader)}"`;
+  contents.levels?.forEach((level, index) => {
+    const prefix = `--doc-contents-level-${String(index + 1)}`;
+    set(properties, `${prefix}-indentation`, level.indentation);
+    set(properties, `${prefix}-margin-top`, level.spaceBefore);
+    set(properties, `${prefix}-margin-bottom`, level.spaceAfter);
+  });
+}
+
+/**
+ * The text, list, table, code block and contents properties a scope's styles set; unset values
+ * are left out.
+ */
 export function textStyleProperties(
   styles: TemplateStyles | null | undefined,
   fontStacks?: FontStacks,
@@ -105,5 +127,6 @@ export function textStyleProperties(
   set(properties, '--doc-code-background', styles?.codeBlock?.background);
   listProperties(properties, styles?.list);
   tableProperties(properties, styles?.table);
+  contentsProperties(properties, styles?.contents, fontStacks);
   return properties;
 }
