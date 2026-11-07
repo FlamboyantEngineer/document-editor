@@ -1,6 +1,7 @@
 // The document model: the schema and the helpers that read and write stored documents. It reads no
 // DOM when it loads, so a server imports it to read, write and check the documents the editor makes.
 
+export { countWords, readingMinutes } from './document-words.js';
 export type {
   DocumentFile,
   StoredContent,
@@ -53,6 +54,12 @@ export {
   normalizeGlossaryInput,
   prefillAbbreviation,
 } from './glossary.js';
+export {
+  needsLayoutSections,
+  unwrapLayoutSections,
+  wrapInLayoutSections,
+  WRAPPING_LAYOUT_PRESET,
+} from './layout/layout-sections.js';
 export type { CaptionPlacement } from './numbering/caption-placement.js';
 export {
   buildCaptionPlacementVariables,

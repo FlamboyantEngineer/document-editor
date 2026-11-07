@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BASE_TEMPLATE,
+  resolveTemplateFile,
   type TemplateFile,
   templatePageMetrics,
   templateProperties,
@@ -78,5 +79,23 @@ describe('template properties', () => {
     expect(properties['--doc-paragraph-font-size']).toBe('10px');
     expect(properties['--doc-paragraph-line-height']).toBe('1.5');
     expect(properties['--doc-footnote-numbering-suffix']).toBe('")"');
+  });
+
+  it('DOCE-TEMPLATES-5.7 sets only what a root template sets', () => {
+    const article = resolveTemplateFile(
+      {
+        formatVersion: 1,
+        id: 'article',
+        page: { size: 'A4', margins: { top: '24px', right: '24px', bottom: '24px', left: '24px' } },
+        styles: { heading1: { size: '22px', numbering: { format: '' } } },
+      },
+      { loadTemplate: () => BASE_TEMPLATE, baseTemplateId: null },
+    );
+    const properties = templateProperties(article);
+    expect(properties['--doc-page-margin-left']).toBe('24px');
+    expect(properties['--doc-heading-1-font-size']).toBe('22px');
+    expect(properties['--doc-heading-1-numbering-enabled']).toBe('0');
+    expect(properties['--doc-heading-2-numbering-enabled']).toBe('0');
+    expect(properties['--doc-paragraph-font-family']).toBeUndefined();
   });
 });

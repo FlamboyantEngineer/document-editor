@@ -124,6 +124,13 @@ Setting another template's properties and refreshing the pagination with `remeas
 Implementation: `labs/src/templates.lab.ts`
 Verification: `e2e/templates.spec.ts`
 
+### DOCE-TEMPLATES-5.7 - Root templates
+
+A template resolved without a base template (`baseTemplateId: null`) shall set only what it sets: a blank heading numbering shall number nothing, and pixel margins shall be written as they are.
+
+Implementation: `src/model/templates/template-properties.ts`, `src/model/format/template-format-resolve.ts`
+Verification: `src/model/templates/template-properties.test.ts`
+
 ## DOCE-TEMPLATES-6 - Page regions
 
 ### DOCE-TEMPLATES-6.1 - Header and footer content
