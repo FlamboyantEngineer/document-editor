@@ -1,5 +1,5 @@
-// Lists of contents: a table of contents and lists of figures, tables, code and equations, drawn
-// live from the document's catalog. A plugin keeps the catalog and hands each list block its rows;
+// Lists of contents: a table of contents, lists of figures, tables, code and equations, and any
+// kind of list a host configures, drawn live from the document's catalog. A plugin keeps the catalog and hands each list block its rows;
 // the list's node view draws them, and an entry takes the reader to what it names.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -13,12 +13,11 @@ import {
 import {
   catalogDocument,
   type CatalogEntry,
+  type ContentsKind,
+  DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
   type TemplateFile,
 } from '../model/index.js';
-
-/** The kinds of list a contents block shows. */
-export type ContentsType = 'toc' | 'figures' | 'tables' | 'codeBlocks' | 'equations';
 
 /** A list's title, and what it shows when it lists nothing. */
 export interface ContentsLabels {
@@ -26,8 +25,10 @@ export interface ContentsLabels {
   empty: string;
 }
 
-/** The labels each list shows unless a host gives its own. */
-export const CONTENTS_LABELS: Readonly<Record<ContentsType, ContentsLabels>> = {
+/** The labels each default list shows unless a host gives its own. */
+export const CONTENTS_LABELS: Readonly<
+  Record<keyof typeof DEFAULT_CONTENTS_KINDS, ContentsLabels>
+> = {
   toc: { title: 'Table of Contents', empty: 'No headings found.' },
   figures: { title: 'Table of Figures', empty: 'No figures found.' },
   tables: { title: 'Table of Tables', empty: 'No tables found.' },
@@ -35,23 +36,20 @@ export const CONTENTS_LABELS: Readonly<Record<ContentsType, ContentsLabels>> = {
   equations: { title: 'Table of Equations', empty: 'No equations found.' },
 };
 
-const CATALOG_KINDS = {
-  toc: 'heading',
-  figures: 'figure',
-  tables: 'table',
-  codeBlocks: 'codeBlock',
-  equations: 'equation',
-} as const satisfies Record<ContentsType, keyof DocumentCatalog>;
-
-const isContentsType = (value: unknown): value is ContentsType =>
-  typeof value === 'string' && Object.hasOwn(CATALOG_KINDS, value);
+/** The labels of a kind of list that neither the defaults nor the host label. */
+const UNLABELLED: ContentsLabels = { title: 'Contents', empty: 'Nothing to list.' };
 
 /** How lists of contents are drawn. */
 export interface ContentsOptions {
   /** The document's resolved template, which numbers what the lists show. */
   template: () => TemplateFile;
-  /** Labels in place of the default ones. */
-  labels?: Partial<Record<ContentsType, Partial<ContentsLabels>>> | undefined;
+  /**
+   * Kinds of list to add, or to use in place of a default one of the same key. A list block's
+   * `tocType` names its kind; a block naming none the editor knows lists headings.
+   */
+  kinds?: Readonly<Record<string, ContentsKind>> | undefined;
+  /** Labels in place of the default ones, by kind. */
+  labels?: Readonly<Record<string, Partial<ContentsLabels>>> | undefined;
 }
 
 /** A list of contents' rows, as its block's decoration hands them to its view. */
@@ -69,25 +67,41 @@ export interface ContentsState {
 /** The catalog a contents plugin keeps; marks a transaction that draws the lists again. */
 export const contentsKey = new PluginKey<ContentsState>('contents');
 
-// The entries a list block shows: those of its kind after it, down to its deepest heading level,
-// in the range a split part holds.
-function rowsOf(node: ProseMirrorNode, pos: number, catalog: DocumentCatalog): ContentsRows {
-  const type = isContentsType(node.attrs.tocType) ? node.attrs.tocType : 'toc';
+// The kinds a contents plugin lists, and the one a list block names.
+interface Kinds {
+  readonly all: Readonly<Record<string, ContentsKind>>;
+  readonly of: (node: ProseMirrorNode) => string;
+}
+
+// The entries a list block shows: those of its kind (after it, for a kind that lists only those),
+// down to its deepest level, in the range a split part holds.
+function rowsOf(
+  node: ProseMirrorNode,
+  pos: number,
+  { catalog, kinds }: { catalog: DocumentCatalog; kinds: Kinds },
+): ContentsRows {
+  const key = kinds.of(node);
+  const after = kinds.all[key]?.after === true;
   const deepest = Number(node.attrs.minLevel) || 6;
-  const listed = catalog[CATALOG_KINDS[type]].filter(
-    (entry) => entry.pos > pos && (entry.kind !== 'heading' || entry.level <= deepest),
+  const listed = (catalog[key] ?? []).filter(
+    (entry) => (!after || entry.pos > pos) && entry.level <= deepest,
   );
   const start = Number(node.attrs.entryStart) || 0;
   const end = Number.isInteger(node.attrs.entryEnd) ? Number(node.attrs.entryEnd) : listed.length;
   return { entries: listed.slice(start, end), empty: listed.length === 0 };
 }
 
-function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog): DecorationSet {
+function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog, kinds: Kinds): DecorationSet {
   const decorations: Decoration[] = [];
   doc.descendants((node, pos) => {
     if (node.type.name === 'toc_block') {
       decorations.push(
-        Decoration.node(pos, pos + node.nodeSize, {}, { contents: rowsOf(node, pos, catalog) }),
+        Decoration.node(
+          pos,
+          pos + node.nodeSize,
+          {},
+          { contents: rowsOf(node, pos, { catalog, kinds }) },
+        ),
       );
     }
     return !node.isTextblock;
@@ -95,9 +109,9 @@ function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog): DecorationSet
   return DecorationSet.create(doc, decorations);
 }
 
-function stateOf(doc: ProseMirrorNode, template: TemplateFile): ContentsState {
-  const catalog = catalogDocument(doc, template);
-  return { catalog, decorations: decorate(doc, catalog) };
+function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): ContentsState {
+  const catalog = catalogDocument(doc, template, kinds.all);
+  return { catalog, decorations: decorate(doc, catalog, kinds) };
 }
 
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
@@ -198,16 +212,29 @@ export function contentsCatalog(state: EditorState): DocumentCatalog | null {
  * and draws each `toc_block` with its node view, in every view it runs in. After the template
  * changes, a host dispatches a transaction with `contentsKey` meta to draw them again.
  */
-export function createContents({ template, labels = {} }: ContentsOptions): Plugin<ContentsState> {
+export function createContents({
+  template,
+  kinds: added = {},
+  labels = {},
+}: ContentsOptions): Plugin<ContentsState> {
+  const all: Record<string, ContentsKind> = { ...DEFAULT_CONTENTS_KINDS, ...added };
+  const kinds: Kinds = {
+    all,
+    of: (node) => {
+      const type: unknown = node.attrs.tocType;
+      return typeof type === 'string' && Object.hasOwn(all, type) ? type : 'toc';
+    },
+  };
+  const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
   const drawingFor = (
     node: ProseMirrorNode,
     rows: ContentsRows,
     navigate: (index: number) => void,
   ): Drawing => {
-    const type = isContentsType(node.attrs.tocType) ? node.attrs.tocType : 'toc';
+    const key = kinds.of(node);
     return {
       rows,
-      labels: { ...CONTENTS_LABELS[type], ...labels[type] },
+      labels: { ...(defaults[key] ?? UNLABELLED), ...labels[key] },
       leader: template().styles?.contents?.leader || '.',
       navigate,
     };
@@ -225,7 +252,7 @@ export function createContents({ template, labels = {} }: ContentsOptions): Plug
     const render = (next: ProseMirrorNode, decos: readonly Decoration[]) => {
       current = next;
       rows = rowsIn(decos);
-      dom.dataset.contentsType = String(next.attrs.tocType);
+      dom.dataset.contentsType = kinds.of(next);
       draw(dom, next, drawingFor(next, rows, navigate));
     };
     render(node, decorations);
@@ -243,9 +270,9 @@ export function createContents({ template, labels = {} }: ContentsOptions): Plug
   return new Plugin<ContentsState>({
     key: contentsKey,
     state: {
-      init: (_config, state) => stateOf(state.doc, template()),
+      init: (_config, state) => stateOf(state.doc, template(), kinds),
       apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(contentsKey) ? stateOf(tr.doc, template()) : value,
+        tr.docChanged || tr.getMeta(contentsKey) ? stateOf(tr.doc, template(), kinds) : value,
     },
     props: {
       decorations: (state) => contentsKey.getState(state)?.decorations ?? null,

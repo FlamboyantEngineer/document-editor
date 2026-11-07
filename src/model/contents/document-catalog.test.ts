@@ -59,31 +59,59 @@ const doc = readDocumentFile(
   documentSchema,
 );
 
-const brief = (entries: readonly { number: string; text: string; page: number }[]) =>
+const brief = (entries: readonly { number: string; text: string; page: number }[] = []) =>
   entries.map(({ number, text: value, page }) => `${number}|${value}|${String(page)}`);
 
 describe('document catalog', () => {
   it('DOCE-CONTENTS-1.1 numbers headings as the stylesheet does, by section scope', () => {
     const catalog = catalogDocument(doc, appendix);
-    expect(brief(catalog.heading)).toEqual([
+    expect(brief(catalog.toc)).toEqual([
       '1.|Scope|1',
       '1.1.|Purpose|1',
       '2.|Interfaces|1',
       '|Detail|1',
       'A.|Glossary|2',
     ]);
-    expect(catalog.heading.map((entry) => entry.level)).toEqual([1, 2, 1, 4, 1]);
-    const first = catalog.heading[0];
+    expect(catalog.toc?.map((entry) => entry.level)).toEqual([1, 2, 1, 4, 1]);
+    const first = catalog.toc?.[0];
     expect(doc.nodeAt(first?.pos ?? 0)?.textContent).toBe('Scope');
   });
 
   it('DOCE-CONTENTS-1.2 numbers captioned objects with their heading context and restarts', () => {
     const catalog = catalogDocument(doc, appendix);
-    expect(brief(catalog.table)).toEqual([
+    expect(brief(catalog.tables)).toEqual([
       'Table 1|Before any chapter|1',
       'Table 1.1|Limits|1',
       'Table 2.1|Signals|1',
       'Table A.1|Terms|2',
     ]);
+  });
+
+  it('DOCE-CONTENTS-1.3 lists any node type a configured kind names', () => {
+    const quotes = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              heading(1, 'Scope'),
+              { type: 'blockquote', content: [paragraph('First quote')] },
+              paragraph('Between'),
+              { type: 'blockquote', content: [paragraph('Second quote')] },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    const catalog = catalogDocument(quotes, BASE_TEMPLATE, {
+      quotes: { nodes: ['blockquote'], number: (node) => `Q${node.childCount}` },
+      chapters: { nodes: ['heading'], text: (node) => node.textContent.toUpperCase() },
+    });
+    expect(Object.keys(catalog)).toEqual(['quotes', 'chapters']);
+    expect(brief(catalog.quotes)).toEqual(['Q1|First quote|1', 'Q1|Second quote|1']);
+    expect(catalog.quotes?.map((entry) => entry.level)).toEqual([0, 0]);
+    expect(brief(catalog.chapters)).toEqual(['1.|SCOPE|1']);
   });
 });
