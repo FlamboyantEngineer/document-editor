@@ -15,13 +15,15 @@
   white-space: pre-wrap;
 }
 
+/* Pages stack in one column, each centered, whatever its size or orientation. */
 .de-document-editor .pm-section {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   gap: 24px;
 }
 
-/* Each section starts on its own row of pages. */
+/* Each section's pages follow the section before with the same gap. */
 .de-document-editor .pm-section + .pm-section {
   margin-top: 24px;
 }
