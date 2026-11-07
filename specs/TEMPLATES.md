@@ -123,3 +123,12 @@ Setting another template's properties and refreshing the pagination with `remeas
 
 Implementation: `labs/src/templates.lab.ts`
 Verification: `e2e/templates.spec.ts`
+
+## DOCE-TEMPLATES-6 - Page regions
+
+### DOCE-TEMPLATES-6.1 - Header and footer content
+
+`setPageRegions(tr, template)` shall set every page's header and footer to its section's template region (DOCE-TEMPLATES-2.3 scopes: a section's own region, or the template's when it has none or inherits), read-only. A stored document shall never hold them. Setting regions that a document already holds shall change nothing.
+
+Implementation: `src/model/templates/page-regions.ts`, `src/model/format/document-format-convert.ts`
+Verification: `src/model/templates/page-regions.test.ts`

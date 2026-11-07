@@ -1,0 +1,54 @@
+import { Transform } from 'prosemirror-transform';
+import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../../test/document-markup.js';
+import {
+  BASE_TEMPLATE,
+  readDocumentFile,
+  setPageRegions,
+  type StoredNode,
+  type TemplateFile,
+} from '../index.js';
+
+const paragraph = (...content: StoredNode[]): StoredNode => ({ type: 'paragraph', content });
+const text = (value: string): StoredNode => ({ type: 'text', text: value });
+const variable = (key: string): StoredNode => ({ type: 'variable', attrs: { key } });
+
+const template: TemplateFile = {
+  ...BASE_TEMPLATE,
+  header: { content: [paragraph(text('Interface notes'))] },
+  footer: { content: [paragraph(text('Page '), variable('page.current'))] },
+  sections: [{ name: 'annex', header: { content: [paragraph(text('Annex'))] } }],
+};
+
+const document = () =>
+  readDocumentFile(
+    {
+      formatVersion: 1,
+      sections: [
+        { name: null, content: [paragraph(text('Body'))] },
+        { name: 'annex', content: [paragraph(text('Annex body'))] },
+      ],
+    },
+    documentSchema,
+  );
+
+const regionOf = (doc: ReturnType<typeof document>, section: number, index: number) =>
+  doc.child(section).child(0).child(index);
+const textIn = (doc: ReturnType<typeof document>, section: number, index: number) =>
+  regionOf(doc, section, index).textContent;
+
+describe('page regions', () => {
+  it("DOCE-TEMPLATES-6.1 fills each section's pages with its template header and footer", () => {
+    const tr = setPageRegions(new Transform(document()), template);
+    const header = regionOf(tr.doc, 0, 0);
+    expect(textIn(tr.doc, 0, 0)).toBe('Interface notes');
+    expect(header.attrs.editable).toBe(false);
+    const footer = regionOf(tr.doc, 0, 3);
+    expect(footer.child(0).child(1).type.name).toBe('template_variable');
+    expect(footer.child(0).child(1).attrs.variableKey).toBe('page.current');
+    expect(textIn(tr.doc, 1, 0)).toBe('Annex');
+    expect(textIn(tr.doc, 1, 3)).toBe('Page ');
+    expect(textIn(tr.doc, 0, 1)).toBe('Body');
+    expect(setPageRegions(new Transform(tr.doc), template).steps).toHaveLength(0);
+  });
+});

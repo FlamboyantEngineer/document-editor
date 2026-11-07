@@ -25,6 +25,8 @@ export interface PaginationOptions extends Omit<DocumentLayoutOptions, 'scale' |
   measureIn: HTMLElement;
   /** The node views the editor renders with, so blocks measure as they show. */
   nodeViews?: EditorProps['nodeViews'];
+  /** Plugins that change what the editor renders, such as page variables, for the same reason. */
+  plugins?: readonly Plugin[] | undefined;
   fragmentRules?: FragmentRules | undefined;
   /** How much the editor is scaled on screen, such as by a zoom. */
   scale?: (() => number) | undefined;
@@ -35,7 +37,10 @@ export interface PaginationOptions extends Omit<DocumentLayoutOptions, 'scale' |
 /** An editor's pagination: its plugin, and a way to lay the pages out again. */
 export interface Pagination {
   readonly plugin: Plugin<boolean>;
-  /** Lays the pages out again; `remeasure` forgets every measurement, as after a width change. */
+  /**
+   * Lays the pages out again. `remeasure` forgets every measurement and starts the measuring view's
+   * plugins over, as after a width change or a change to a value a plugin shows.
+   */
   refresh(options?: { remeasure?: boolean }): void;
 }
 
@@ -68,7 +73,9 @@ function follow(measuring: EditorView, whole: ProseMirrorNode): void {
     endB += overlap;
   }
   const tr = state.tr.replace(start, endA, whole.slice(start, endB));
-  const next = tr.doc.eq(whole) ? state.apply(tr) : EditorState.create({ doc: whole });
+  const next = tr.doc.eq(whole)
+    ? state.apply(tr)
+    : EditorState.create({ doc: whole, plugins: state.plugins });
   measuring.updateState(next);
 }
 
@@ -119,6 +126,8 @@ interface Runner {
   editor: EditorView | null;
   measuring: EditorView | null;
   cancel: (() => void) | null;
+  /** Whether the measuring view's plugins start over, as after a value they show changed. */
+  restart: boolean;
 }
 
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
@@ -126,7 +135,7 @@ export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
   const schedule = options.schedule ?? frame;
   const cache = createMeasureCache();
-  const runner: Runner = { editor: null, measuring: null, cancel: null };
+  const runner: Runner = { editor: null, measuring: null, cancel: null, restart: false };
 
   const wholeOf = (doc: ProseMirrorNode): ProseMirrorNode =>
     joinDocumentPages(doc, fragmentRules).doc;
@@ -137,7 +146,11 @@ export function createPagination(options: PaginationOptions): Pagination {
     if (!editor || !measuring) return;
     if (editor.composing) return request();
     const { state } = editor;
-    follow(measuring, wholeOf(state.doc));
+    const whole = wholeOf(state.doc);
+    if (runner.restart) {
+      runner.restart = false;
+      measuring.updateState(EditorState.create({ doc: whole, plugins: measuring.state.plugins }));
+    } else follow(measuring, whole);
     const sections = layoutDocument(measuring, { ...options, scale: options.scale?.(), cache });
     const target = projectDocument(measuring.state.doc, sections, options);
     const tr = state.tr;
@@ -159,7 +172,10 @@ export function createPagination(options: PaginationOptions): Pagination {
     view(editor) {
       runner.editor = editor;
       runner.measuring = new EditorView(options.measureIn, {
-        state: EditorState.create({ doc: wholeOf(editor.state.doc) }),
+        state: EditorState.create({
+          doc: wholeOf(editor.state.doc),
+          plugins: [...(options.plugins ?? [])],
+        }),
         editable: () => false,
         nodeViews: options.nodeViews ?? {},
       });
@@ -172,7 +188,7 @@ export function createPagination(options: PaginationOptions): Pagination {
         destroy() {
           runner.cancel?.();
           runner.measuring?.destroy();
-          Object.assign(runner, { editor: null, measuring: null, cancel: null });
+          Object.assign(runner, { editor: null, measuring: null, cancel: null, restart: false });
         },
       };
     },
@@ -181,7 +197,10 @@ export function createPagination(options: PaginationOptions): Pagination {
   return {
     plugin,
     refresh({ remeasure = false } = {}) {
-      if (remeasure) cache.clear();
+      if (remeasure) {
+        cache.clear();
+        runner.restart = true;
+      }
       request();
     },
   };

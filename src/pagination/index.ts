@@ -7,5 +7,7 @@ export type { MeasureCache, MeasureOptions } from './measure-blocks.js';
 export { createMeasureCache, measureBlock, measureChildBlocks } from './measure-blocks.js';
 export type { FootnoteArea } from './measure-footnotes.js';
 export { footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
+export type { PageVariablesOptions, VariableValue } from './page-variables.js';
+export { createPageVariables, pageVariablesKey, refreshPageVariables } from './page-variables.js';
 export type { Pagination, PaginationOptions } from './pagination.js';
 export { createPagination, isPaginationTransaction, paginationKey } from './pagination.js';
