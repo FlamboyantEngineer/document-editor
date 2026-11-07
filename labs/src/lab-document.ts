@@ -35,7 +35,8 @@ export const list = (type: 'bulletList' | 'orderedList', items: string[]): Store
   })),
 });
 
-function chapter(name: string): StoredNode[] {
+/** A chapter: a heading, text, lists and a table. */
+export function chapter(name: string): StoredNode[] {
   return [
     heading(1, name),
     paragraph(4),

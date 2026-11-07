@@ -8,6 +8,13 @@ export {
   createDocumentEditingExtension,
   documentKeys,
 } from './document-editing.js';
+export type { DocumentSectionsOptions } from './document-sections.js';
+export {
+  createDocumentSections,
+  documentSectionsKey,
+  insertDocumentSection,
+  joinDocumentSectionBackward,
+} from './document-sections.js';
 export {
   changeParagraphLevel,
   clearFormatting,

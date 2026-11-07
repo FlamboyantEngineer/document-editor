@@ -21,6 +21,16 @@
   gap: 24px;
 }
 
+/* Each section starts on its own row of pages. */
+.de-document-editor .pm-section + .pm-section {
+  margin-top: 24px;
+}
+
+/* A section whose template section restarts numbering counts its headings and objects again. */
+.de-document-editor .pm-section[data-numbering='restart'] {
+  counter-reset: h1 h2 h3 h4 h5 h6 figure table codeblock equation;
+}
+
 .de-document-editor .pm-page {
   display: flex;
   flex-direction: column;
