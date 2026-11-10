@@ -7,6 +7,7 @@ import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { captionedAt, setCaption, toggleCaption } from './captions.js';
 import { createDocumentEditing, documentKeys } from './document-editing.js';
 import { distributeColumns, insertTableLines, setCellAlignment } from './table-format.js';
+import { MIN_ROW_HEIGHT, selectCellTo, setRowHeight } from './table-pointer.js';
 
 const cell = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
   type: 'tableCell',
@@ -132,5 +133,40 @@ describe('captions', () => {
     selected = selected.apply(selected.tr.setSelection(NodeSelection.create(figure, at)));
     expect(captionedAt(selected)?.node.type.name).toBe('figure');
     expect(toggleCaption(true)(selected)).toBe(false);
+  });
+});
+
+describe('tables under the pointer', () => {
+  it('DOCE-TABLES-3.5 selects a cell, then grows the selection to another', () => {
+    let state = stateAt(grid(), 'A1');
+    // The position before the cell holding a text.
+    const cellOf = (value: string) => {
+      const $text = state.doc.resolve(positionOf(state.doc, value));
+      return $text.before($text.depth - 1);
+    };
+    state = run(state, selectCellTo(cellOf('A1')));
+    expect(state.selection).toBeInstanceOf(CellSelection);
+    state = run(state, selectCellTo(cellOf('B2')));
+    let count = 0;
+    (state.selection as CellSelection).forEachCell(() => (count += 1));
+    expect(count).toBe(4);
+  });
+
+  it('DOCE-TABLES-3.6 sets a row height, no lower than the least', () => {
+    let state = stateAt(grid(), 'A1');
+    let table = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'table' && table < 0) table = pos;
+    });
+    state = run(state, setRowHeight(table, 1, 48));
+    expect(cells(state).map((attrs) => attrs.rowHeight)).toEqual([null, null, 48, 48]);
+    state = run(state, setRowHeight(table, 0, 4));
+    expect(cells(state).map((attrs) => attrs.rowHeight)).toEqual([
+      MIN_ROW_HEIGHT,
+      MIN_ROW_HEIGHT,
+      48,
+      48,
+    ]);
+    expect(setRowHeight(table, 9, 20)(state)).toBe(false);
   });
 });

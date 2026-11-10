@@ -27,6 +27,7 @@ import {
 } from 'prosemirror-tables';
 import { Mapping } from 'prosemirror-transform';
 import { appendTransaction, captureTransaction, inWholeTable } from './table-parts.js';
+import { createTablePointer } from './table-pointer.js';
 
 /** A table's rows or its columns. */
 export type TableAxis = 'row' | 'column';
@@ -229,6 +230,7 @@ export function createTableEditing(): Plugin[] {
   return [
     columnResizing({ View: null, cellMinWidth: DEFAULT_TABLE_CELL_MIN_WIDTH }),
     tableEditing(),
+    createTablePointer(),
     keymap(tableKeys()),
   ];
 }

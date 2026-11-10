@@ -99,7 +99,7 @@ describe('template properties', () => {
     expect(properties['--doc-paragraph-font-family']).toBeUndefined();
   });
 
-  it('DOCE-TEMPLATES-5.8 writes the change bars, a disabled kind transparent, on their side', () => {
+  it('DOCE-TEMPLATES-5.8 DOCE-TEMPLATES-5.9 writes the change bars, a disabled kind transparent, on their side', () => {
     const properties = templateProperties(BASE_TEMPLATE);
     expect(properties).toMatchObject({
       '--doc-change-bar-insertions-color': '#00dd00',
@@ -121,5 +121,14 @@ describe('template properties', () => {
     expect(templateProperties(BASE_TEMPLATE, { section: { name: 'appendix' } })).not.toHaveProperty(
       '--doc-change-bar-width',
     );
+    // DOCE-TEMPLATES-5.9: a section with change bars of its own sets them over the document's.
+    const annex = templateProperties(BASE_TEMPLATE, {
+      section: { name: 'annex', changeBars: { side: 'right' } },
+    });
+    expect(annex).toMatchObject({
+      '--doc-change-bar-left': 'auto',
+      '--doc-change-bar-right': 'calc(-1 * (10px + 5px))',
+      '--doc-change-bar-insertions-color': '#00dd00',
+    });
   });
 });

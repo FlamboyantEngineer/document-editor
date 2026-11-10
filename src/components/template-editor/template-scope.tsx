@@ -41,7 +41,15 @@ export const SECTION_SETTINGS: readonly TemplateSetting[] = [
 ];
 
 /** The ids of the editor's sections a template section may set. */
-export const SECTION_SCOPED = new Set(['page', 'regions', 'lists', 'tables', 'code', 'footnotes']);
+export const SECTION_SCOPED = new Set([
+  'page',
+  'regions',
+  'lists',
+  'tables',
+  'code',
+  'footnotes',
+  'change-bars',
+]);
 
 /** A template with one of its sections changed, or taken out for null. */
 export function withSection(

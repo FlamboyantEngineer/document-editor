@@ -258,6 +258,8 @@ export interface TemplateSection {
   header?: RegionSettings | null;
   footer?: RegionSettings | null;
   footnotes?: Omit<FootnoteSettings, 'numbering'> | null;
+  /** The section's own change bars, over the document's. */
+  changeBars?: ChangeBarSettings | null;
 }
 
 /** A stored template. */
