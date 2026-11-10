@@ -153,9 +153,11 @@ export function moveSelectedTableLine(axis: TableAxis, direction: -1 | 1): Comma
   };
 }
 
-// Where a new block goes: in place of the empty paragraph holding the caret, or after the
-// top-level block of the page content holding it.
-function newBlockRange(state: EditorState): { from: number; to: number } | null {
+/**
+ * Where a new block goes: in place of the empty paragraph holding the caret, or after the
+ * top-level block of the page content holding it.
+ */
+export function newBlockRange(state: EditorState): { from: number; to: number } | null {
   const { $from } = state.selection;
   const parent = $from.parent;
   if (parent.type.name === 'paragraph' && parent.childCount === 0) {

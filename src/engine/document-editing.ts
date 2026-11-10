@@ -20,7 +20,7 @@ import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
-import type { TemplateFile } from '../model/index.js';
+import { resolveFootnoteSettings, type TemplateFile } from '../model/index.js';
 import {
   changeParagraphLevel,
   clearFormatting,
@@ -32,6 +32,7 @@ import {
   wrapInListAndJoin,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
+import { createFootnotes } from './footnotes.js';
 import { createTableEditing } from './tables.js';
 
 /** What a document's editing depends on. */
@@ -172,6 +173,11 @@ export function documentKeys(
   };
 }
 
+// Whether footnotes are numbered in document order after each change: unless the template numbers
+// them on each page, which the pagination does.
+const numbersInOrder = (template: (() => TemplateFile) | undefined) => () =>
+  !template || resolveFootnoteSettings(template(), null).numbering !== 'page';
+
 /** The plugins that make a document editable, in the order they run. */
 export function createDocumentEditing(
   schema: Schema,
@@ -181,6 +187,7 @@ export function createDocumentEditing(
   return [
     ...(keepHistory ? [history()] : []),
     createElementIds({ author, isRemote }),
+    createFootnotes({ numberInOrder: numbersInOrder(template) }),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
@@ -210,6 +217,11 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'element-ids',
         priority: 480,
         build: () => [createElementIds({ author, isRemote })],
+      },
+      {
+        name: 'footnotes',
+        priority: 490,
+        build: () => [createFootnotes({ numberInOrder: numbersInOrder(template) })],
       },
       {
         name: 'tables',

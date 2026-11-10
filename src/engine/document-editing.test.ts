@@ -236,12 +236,19 @@ describe('document keys', () => {
 describe('the editing extension', () => {
   it('DOCE-EDITING-3.1 installs the history, the element ids, tables and the keymaps in a kit', () => {
     const kit = createDocumentKit({ extensions: [createDocumentEditingExtension()] });
-    expect(kit.pluginOrder).toEqual(['history', 'element-ids', 'tables', 'gap-cursor', 'keymap']);
-    expect(kit.buildPlugins(undefined)).toHaveLength(8);
+    expect(kit.pluginOrder).toEqual([
+      'history',
+      'element-ids',
+      'footnotes',
+      'tables',
+      'gap-cursor',
+      'keymap',
+    ]);
+    expect(kit.buildPlugins(undefined)).toHaveLength(9);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(7);
+    expect(shared.buildPlugins(undefined)).toHaveLength(8);
   });
 
   it('DOCE-EDITING-2.7 selects an object before deleting it', () => {

@@ -1,0 +1,273 @@
+// Inserting and changing the document's objects: code blocks and linked code, inline and display
+// math, figures, lists of contents and special characters. A new block goes in place of the empty
+// paragraph holding the caret, or after the top-level block holding it (`newBlockRange`).
+
+import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
+import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
+import { newBlockRange } from './tables.js';
+
+// Inserts a block where a new block goes, then places the caret as `caret` asks.
+function insertBlock(node: ProseMirrorNode, caret: 'inside' | 'select' = 'inside'): Command {
+  return (state, dispatch) => {
+    const range = newBlockRange(state);
+    if (!range) return false;
+    if (dispatch) {
+      const tr = state.tr.replaceWith(range.from, range.to, node);
+      tr.setSelection(
+        caret === 'select' && NodeSelection.isSelectable(node)
+          ? NodeSelection.create(tr.doc, range.from)
+          : TextSelection.near(tr.doc.resolve(range.from + 1)),
+      );
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+// The text blocks the selection covers, as one range of the page's body, when they are all
+// top-level or in the same parent; null otherwise.
+function selectedBlocks(state: EditorState) {
+  const { $from, $to, empty } = state.selection;
+  if (empty || !$from.parent.isTextblock || !$to.parent.isTextblock) return null;
+  const from = $from.before();
+  const to = $to.after();
+  const shared = $from.node($from.depth - 1) === $to.node($to.depth - 1);
+  return shared ? { from, to } : null;
+}
+
+/**
+ * Inserts a code block: around the selected text, which it takes in, line by line, or empty where
+ * a new block goes, with the caret in it.
+ */
+export function insertCodeBlock(language = 'plaintext'): Command {
+  return (state, dispatch) => {
+    const type = state.schema.nodes.code_block;
+    if (!type) return false;
+    const blocks = selectedBlocks(state);
+    if (!blocks) return insertBlock(type.create({ language }))(state, dispatch);
+    if (dispatch) {
+      const text = state.doc.textBetween(state.selection.from, state.selection.to, '\n', ' ');
+      const node = type.create({ language }, text ? state.schema.text(text) : null);
+      const tr = state.tr.replaceWith(blocks.from, blocks.to, node);
+      tr.setSelection(TextSelection.create(tr.doc, blocks.from + 1 + text.length));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+// The innermost node of a type holding, or selected at, the selection.
+function nodeAtSelection(state: EditorState, types: readonly string[]) {
+  const { selection } = state;
+  if (selection instanceof NodeSelection && types.includes(selection.node.type.name)) {
+    return { node: selection.node, pos: selection.from };
+  }
+  const { $from } = selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth);
+    if (types.includes(node.type.name)) return { node, pos: $from.before(depth) };
+  }
+  return null;
+}
+
+/** Sets the language of the code block or linked code holding, or selected at, the selection. */
+export function setCodeLanguage(language: string): Command {
+  return (state, dispatch) => {
+    const found = nodeAtSelection(state, ['code_block', 'linked_code_block']);
+    if (!found) return false;
+    if (found.node.attrs.language === language) return false;
+    dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, language }));
+    return true;
+  };
+}
+
+/** The code a linked code block shows, from the source a URL names. */
+export interface LinkedCode {
+  readonly url: string;
+  readonly code: string;
+  readonly language?: string | undefined;
+  /** The number of the source's first line it shows. Defaults to 1. */
+  readonly startLine?: number | undefined;
+}
+
+/** Inserts linked code where a new block goes, or changes the linked code selected. */
+export function setLinkedCode(linked: LinkedCode): Command {
+  return (state, dispatch) => {
+    const type = state.schema.nodes.linked_code_block;
+    if (!type) return false;
+    const attrs = {
+      url: linked.url,
+      code: linked.code,
+      language: linked.language ?? 'plaintext',
+      startLine: linked.startLine ?? 1,
+    };
+    const found = nodeAtSelection(state, ['linked_code_block']);
+    if (!found) return insertBlock(type.create(attrs), 'select')(state, dispatch);
+    dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...attrs }));
+    return true;
+  };
+}
+
+/**
+ * The first and last line a code URL's fragment names, such as `#L10-L20` or `#L7`; null without
+ * one.
+ */
+export function parseCodeLines(url: string): { readonly from: number; readonly to: number } | null {
+  const match = /#L(\d+)(?:-L?(\d+))?$/i.exec(url.trim());
+  if (!match) return null;
+  const from = Number(match[1]);
+  const to = match[2] ? Number(match[2]) : from;
+  return from > 0 && to >= from ? { from, to } : null;
+}
+
+const mathType = (state: EditorState, display: boolean): NodeType | undefined =>
+  state.schema.nodes[display ? 'math_display' : 'math_inline'];
+
+/**
+ * Inserts math written as LaTeX: inline at the selection, which it replaces, or as a block where a
+ * new block goes; the math is selected after.
+ */
+export function insertMath(latex: string, { display = false } = {}): Command {
+  return (state, dispatch) => {
+    const type = mathType(state, display);
+    if (!type || !latex.trim()) return false;
+    const node = type.create(null, state.schema.text(latex));
+    if (display) return insertBlock(node, 'select')(state, dispatch);
+    if (dispatch) {
+      const tr = state.tr.replaceSelectionWith(node, false);
+      const pos = tr.mapping.map(state.selection.from, -1);
+      tr.setSelection(NodeSelection.create(tr.doc, pos));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** Sets the LaTeX of the math selected; an empty one deletes it. */
+export function setMathSource(latex: string): Command {
+  return (state, dispatch) => {
+    const found = nodeAtSelection(state, ['math_inline', 'math_display']);
+    if (!found) return false;
+    if (dispatch) {
+      const end = found.pos + found.node.nodeSize;
+      const tr = latex.trim()
+        ? state.tr.replaceWith(found.pos + 1, end - 1, state.schema.text(latex))
+        : state.tr.delete(found.pos, end);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/** Turns the math selected from inline into a block, or from a block into inline math. */
+export const convertMath: Command = (state, dispatch) => {
+  const found = nodeAtSelection(state, ['math_inline', 'math_display']);
+  if (!found) return false;
+  const display = found.node.type.name === 'math_inline';
+  const latex = found.node.textContent;
+  const type = mathType(state, display);
+  const paragraph = state.schema.nodes.paragraph;
+  if (!type || !paragraph || !latex) return false;
+  if (dispatch) {
+    const end = found.pos + found.node.nodeSize;
+    const tr = state.tr.delete(found.pos, end);
+    const node = type.create(null, state.schema.text(latex));
+    if (display) {
+      const after = tr.doc.resolve(found.pos).after(tr.doc.resolve(found.pos).depth);
+      tr.insert(after, node);
+      tr.setSelection(NodeSelection.create(tr.doc, after));
+    } else {
+      tr.replaceWith(found.pos, found.pos, paragraph.create(null, node));
+      tr.setSelection(NodeSelection.create(tr.doc, found.pos + 1));
+    }
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};
+
+/** A figure to insert: an image stored as an asset, or by URL. */
+export interface FigureSource {
+  readonly figureType?: string | undefined;
+  readonly src?: string | undefined;
+  readonly fileAssetId?: string | undefined;
+  readonly snapshotId?: string | undefined;
+  readonly alt?: string | undefined;
+  readonly caption?: string | undefined;
+  /** In CSS pixels; the height keeps the image's proportions when only the width is given. */
+  readonly width?: number | null | undefined;
+  readonly height?: number | null | undefined;
+}
+
+/** Inserts a figure where a new block goes, or changes the figure selected; it is selected after. */
+export function setFigure(source: FigureSource): Command {
+  return (state, dispatch) => {
+    const type = state.schema.nodes.figure;
+    if (!type) return false;
+    const attrs = Object.fromEntries(
+      Object.entries({
+        figureType: source.figureType ?? 'image',
+        src: source.src,
+        fileAssetId: source.fileAssetId,
+        snapshotId: source.snapshotId,
+        alt: source.alt,
+        caption: source.caption,
+        width: source.width,
+        height: source.height,
+      }).filter(([, value]) => value !== undefined),
+    );
+    const found = nodeAtSelection(state, ['figure']);
+    if (!found) {
+      const node = type.createAndFill(attrs) ?? type.create(attrs);
+      return insertBlock(node, 'select')(state, dispatch);
+    }
+    dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...attrs }));
+    return true;
+  };
+}
+
+/** Aligns the object selected: left, centred or right, or across the page's width (`fit`). */
+export function setObjectLayout(layout: 'left' | 'center' | 'right' | 'fit' | null): Command {
+  return (state, dispatch) => {
+    const found = nodeAtSelection(state, ['figure', 'table']);
+    if (!found || !('objectLayout' in found.node.attrs)) return false;
+    dispatch?.(
+      state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, objectLayout: layout }),
+    );
+    return true;
+  };
+}
+
+/** Inserts a list of contents of a kind, such as `toc` or `figures`, where a new block goes. */
+export function insertContents(kind = 'toc', depth?: number): Command {
+  return (state, dispatch) => {
+    const type = state.schema.nodes.toc_block;
+    if (!type) return false;
+    const attrs = { tocType: kind, ...(depth ? { minLevel: depth } : {}) };
+    return insertBlock(type.create(attrs), 'select')(state, dispatch);
+  };
+}
+
+/** Sets the deepest heading level the list of contents selected shows. */
+export function setContentsDepth(depth: number): Command {
+  return (state, dispatch) => {
+    const found = nodeAtSelection(state, ['toc_block']);
+    if (!found || depth < 1 || depth > 6) return false;
+    dispatch?.(
+      state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, minLevel: depth }),
+    );
+    return true;
+  };
+}
+
+/** Types a character, such as a symbol from a picker, in the formatting at the caret. */
+export function insertCharacter(character: string): Command {
+  return (state, dispatch) => {
+    if (!character || !state.selection.$from.parent.inlineContent) return false;
+    if (dispatch) {
+      const marks = state.storedMarks ?? state.selection.$from.marks();
+      const tr = state.tr.replaceSelectionWith(state.schema.text(character, marks), false);
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}

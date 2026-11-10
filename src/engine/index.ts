@@ -70,6 +70,18 @@ export {
   ELEMENT_IDS_REPAIR,
   repairElementIds,
 } from './element-ids.js';
+export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
+export {
+  canInsertFootnote,
+  createFootnotes,
+  deleteFootnote,
+  editFootnote,
+  footnoteAt,
+  goToFootnoteMarker,
+  insertFootnote,
+  listFootnotes,
+  numberFootnotes,
+} from './footnotes.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {
   activeLayoutPreset,
@@ -80,6 +92,21 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { FigureSource, LinkedCode } from './object-commands.js';
+export {
+  convertMath,
+  insertCharacter,
+  insertCodeBlock,
+  insertContents,
+  insertMath,
+  parseCodeLines,
+  setCodeLanguage,
+  setContentsDepth,
+  setFigure,
+  setLinkedCode,
+  setMathSource,
+  setObjectLayout,
+} from './object-commands.js';
 export type { OutlineEntry } from './outline.js';
 export { documentOutline } from './outline.js';
 export type { Peer, PresenceState } from './presence.js';
@@ -156,6 +183,7 @@ export {
   insertTable,
   moveSelectedTableLine,
   moveTableLine,
+  newBlockRange,
   selectTableLine,
   tableKeys,
   tableLineCount,
