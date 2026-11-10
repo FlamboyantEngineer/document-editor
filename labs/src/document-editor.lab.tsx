@@ -38,10 +38,20 @@ const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   baseTemplateId: BASE_TEMPLATE_ID,
 });
 
-// A proofer that knows a few misspellings and one grammar rule, standing in for the host's.
+// A proofer that knows a few misspellings, in English and French, and one grammar rule, and an
+// abbreviation checker beside it, standing in for the host's.
 const PROOFER = createWordListProofer({
   corrections: { teh: ['the', 'ten'], recieve: ['receive'], seperate: ['separate'] },
+  byLanguage: { fr: { operation: ['opération'] } },
+  languages: [
+    { id: 'en', label: 'English' },
+    { id: 'fr', label: 'French' },
+  ],
   grammar: { 'a error': { message: 'Use "an" before a vowel sound.', suggestions: ['an error'] } },
+});
+const ABBREVIATIONS = createWordListProofer({
+  corrections: { tbd: ['to be decided'] },
+  kind: 'style',
 });
 
 function initialState(): EditorState {
@@ -61,7 +71,7 @@ function initialState(): EditorState {
     content: [
       {
         type: 'text',
-        text: 'Right-click a marked word: teh proofer suggests a fix, and a error in grammar is marked too. Writers recieve every suggestion in the menu.',
+        text: 'Right-click a marked word: teh proofer suggests a fix, and a error in grammar is marked too. Writers recieve every suggestion in the menu. Details are TBD, teh team says.',
       },
     ],
   });
@@ -69,7 +79,7 @@ function initialState(): EditorState {
     doc: readDocumentFile(file, schema),
     plugins: [
       createContents({ template: () => TEMPLATE }),
-      createProofing({ proofer: PROOFER, delay: 200 }),
+      createProofing({ proofer: [PROOFER, ABBREVIATIONS], language: 'en', delay: 200 }),
       createEditLock({ isLocked: isLockedParagraph }),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
     ],

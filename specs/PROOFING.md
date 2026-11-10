@@ -1,6 +1,6 @@
 # Proofing
 
-A host's text proofer, such as a spelling and grammar checker, reaches the editor through the `proofer` adapter (DOCE-HOST-1.7). `createProofing({ proofer })` returns the plugin that hands it the document's text and marks the issues it finds; the document editor shows them, offers their corrections in its context menu and counts them in its status bar. Proofing marks take no room, so they never change the pages.
+A host's text proofers, such as a spelling and grammar checker and an abbreviation checker, reach the editor through the `proofer` adapter (DOCE-HOST-1.7). `createProofing({ proofer })` returns the plugin that hands them the document's text and marks the issues it finds; the document editor shows them, offers their corrections in its context menu and counts them in its status bar. Proofing marks take no room, so they never change the pages.
 
 ## DOCE-PROOFING-1 - Checking the text
 
@@ -32,6 +32,20 @@ The plugin shall dispatch its results as transactions holding nothing else, one 
 Implementation: `src/engine/proofing.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/engine/proofing.test.ts`
 
+### DOCE-PROOFING-1.5 - Batches and segments
+
+A check shall take at most `batch` texts (50) and `batchLength` characters (6000), and at least one block; a block longer than `textLength` (2000) is checked in segments ending after a sentence or, failing one, a space (`segmentsOf`), whose issues are placed back at their offsets in the block's text. Each text goes with its language: the block's own, or the document's (`language`).
+
+Implementation: `src/engine/proofing-text.ts`, `src/engine/proofing-view.ts`
+Verification: `src/engine/proofing.test.ts`
+
+### DOCE-PROOFING-1.6 - Several proofers and their status
+
+`proofer` may be several proofers: each checks every batch, and their issues are marked together, each remembering its proofer. A proofer that fails marks nothing, and the state's `status` says whether all proofers answered the latest check (`ready`), some (`degraded`) or none (`unavailable`); its texts count as checked, and `recheckProofing` checks every text again. A change `isRemote` reports, such as a collaborator's, never aborts a running check.
+
+Implementation: `src/engine/proofing.ts`, `src/engine/proofing-view.ts`, `src/engine/proofing-commands.ts`
+Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
+
 ## DOCE-PROOFING-2 - Commands
 
 ### DOCE-PROOFING-2.1 - Correcting
@@ -55,6 +69,34 @@ Verification: `src/engine/proofing.test.ts`
 Implementation: `src/engine/proofing-commands.ts`
 Verification: `src/engine/proofing.test.ts`
 
+### DOCE-PROOFING-2.4 - Replacing all
+
+`replaceAllProofingIssues(issue, replacement)` shall put the replacement in place of every marked issue like it, the same text found by the same rule or of the same kind without one, as one change; `countAlikeIssues` counts them.
+
+Implementation: `src/engine/proofing-commands.ts`
+Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
+
+### DOCE-PROOFING-2.5 - Ignoring once
+
+`ignoreProofingOnce(issue)` shall stop marking that one issue, by its block's text and its offsets there, for as long as the editor is open, leaving the issues like it marked.
+
+Implementation: `src/engine/proofing-commands.ts`, `src/engine/proofing.ts`
+Verification: `src/engine/proofing.test.ts`
+
+### DOCE-PROOFING-2.6 - Turning a rule off
+
+`disableProofingRule(issue)` shall stop marking the issues its rule finds, and tell its proofer (`ignoreRule`) when that keeps the reader's choice.
+
+Implementation: `src/engine/proofing-commands.ts`
+Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
+
+### DOCE-PROOFING-2.7 - The language
+
+`setProofingLanguage(language)` shall check every text again in the language picked, and is refused for the language already used. `proofingLanguages(state)` lists the languages the proofers offer, each once.
+
+Implementation: `src/engine/proofing-commands.ts`
+Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
+
 ## DOCE-PROOFING-3 - In the editor
 
 ### DOCE-PROOFING-3.1 - Status
@@ -66,17 +108,31 @@ Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-3.2 - The context menu
 
-In an editable document, the context menu opened on an issue shall lead with a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`), then Ignore and, for a spelling issue and a proofer with a dictionary, Add to dictionary.
+In an editable document, the context menu opened on an issue shall lead with a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`), then, when other issues are like it, replacing them all with its first suggestion (`replaceAll`); Ignore, for this issue alone; Ignore all, for its word; for a spelling issue and a proofer with a dictionary, Add to dictionary; and, for an issue with a rule, turning the rule off.
 
 Implementation: `src/components/document-editor/context-entries.ts`
 Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-3.3 - A word-list proofer
 
-`createWordListProofer({ corrections, grammar })` shall flag each word listed in `corrections` as a spelling issue whose suggestions are its corrections, capitalized as the word is, and each phrase listed in `grammar` as a grammar issue with its message and suggestions, ignoring case; a word added to its dictionary is no longer flagged. It stands in for a host's proofer in tests and labs.
+`createWordListProofer({ corrections, grammar })` shall flag each word listed in `corrections` (or in `byLanguage` for a text in that language) as an issue of its `kind`, spelling by default, whose suggestions are its corrections, capitalized as the word is, and each phrase listed in `grammar` as a grammar issue with its message and suggestions, found by a rule named by the phrase, ignoring case; a word added to its dictionary, and a rule turned off, are no longer flagged. It offers its `languages`. It stands in for a host's proofer in tests and labs.
 
 Implementation: `src/host/word-list-proofer.ts`
 Verification: `src/engine/proofing.test.ts`
+
+### DOCE-PROOFING-3.4 - Several proofers in the editor
+
+The editor shall mark the issues of every proofer together and offer each issue's entries for its own proofer: its dictionary and its rules.
+
+Implementation: `src/components/document-editor/proofing-entries.ts`
+Verification: `e2e/proofing.spec.ts`
+
+### DOCE-PROOFING-3.5 - Picking the language
+
+While the proofers offer more than one language, the status bar shall show a language picker (`de-document-editor__proofing-language`, named by `proofingLanguage`) that checks the document again in the language picked. The proofing status says when the proofers do not answer (`proofingUnavailable`, `proofingDegraded`) and publishes the status in `data-status`.
+
+Implementation: `src/components/document-editor/document-status-bar.tsx`
+Verification: `e2e/proofing.spec.ts`
 
 ## Hooks
 

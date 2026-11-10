@@ -78,7 +78,13 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
-export type { ProofingIssueAt, ProofingOptions, ProofingState } from './proofing.js';
+export type {
+  ProofingIssueAt,
+  ProofingOptions,
+  ProofingState,
+  ProofingStatus,
+  SourcedIssue,
+} from './proofing.js';
 export {
   createProofing,
   isProofingPending,
@@ -88,13 +94,22 @@ export {
 } from './proofing.js';
 export {
   addProofingWord,
+  countAlikeIssues,
+  disableProofingRule,
   ignoreProofingIssue,
+  ignoreProofingOnce,
   listProofingIssues,
   proofingIssueAt,
+  proofingLanguages,
   proofingState,
+  recheckProofing,
+  replaceAllProofingIssues,
   replaceProofingIssue,
   selectNextProofingIssue,
+  setProofingLanguage,
 } from './proofing-commands.js';
+export type { TextSegment as ProofingSegment } from './proofing-text.js';
+export { segmentsOf } from './proofing-text.js';
 export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
 export {
   acceptAllSuggestions,

@@ -9,18 +9,14 @@ import { findTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
   acceptSuggestion,
-  addProofingWord,
   clearFormatting,
-  ignoreProofingIssue,
   listSuggestions,
   objectBlockAt,
-  proofingIssueAt,
-  proofingState,
   rejectSuggestion,
-  replaceProofingIssue,
 } from '../../engine/index.js';
 import type { ContextTarget } from './context-target.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { proofingEntries } from './proofing-entries.js';
 import { commandEntry, objectEntries, tableCellEntries } from './table-actions.js';
 
 /** What the context menu may offer. */
@@ -115,52 +111,6 @@ function clipboardEntries(view: EditorView, { labels, editable }: ContextEntries
       onAction: clipboardAction(view, () => paste(view, true)),
     },
   ] satisfies MenuEntry[];
-}
-
-/** The most suggestions the menu offers for a proofing issue. */
-const PROOFING_SUGGESTIONS = 5;
-
-// The proofing issue at the caret: its suggestions, under the issue's message, then ignoring its
-// word and adding it to the dictionary.
-function proofingEntries(view: EditorView, { labels, editable }: ContextEntriesOptions) {
-  const { state } = view;
-  const issue = editable ? proofingIssueAt(state, state.selection.head) : null;
-  if (!issue) return [];
-  const suggestions: MenuEntry[] = issue.suggestions
-    .slice(0, PROOFING_SUGGESTIONS)
-    .map((suggestion, index) =>
-      commandEntry(
-        view,
-        { id: `proofing-${String(index)}`, label: suggestion },
-        replaceProofingIssue(issue, suggestion),
-      ),
-    );
-  const entries: MenuEntry[] = [
-    {
-      type: 'section',
-      id: 'proofing',
-      title: issue.message ?? labels.proofingIssue(issue.kind),
-      items:
-        suggestions.length > 0
-          ? suggestions
-          : [{ id: 'proofing-none', label: labels.noSuggestions, isDisabled: true }],
-    },
-    commandEntry(
-      view,
-      { id: 'proofing-ignore', label: labels.ignoreIssue },
-      ignoreProofingIssue(issue),
-    ),
-  ];
-  if (proofingState(state)?.proofer.addWord && issue.kind === 'spelling') {
-    entries.push(
-      commandEntry(
-        view,
-        { id: 'proofing-add', label: labels.addToDictionary },
-        addProofingWord(issue),
-      ),
-    );
-  }
-  return entries;
 }
 
 function suggestionEntries(view: EditorView, { labels, canDecide }: ContextEntriesOptions) {

@@ -3,15 +3,28 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { createWordListProofer, type ProofingIssue } from '../host/index.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
-import { createProofing, proofingKey, proofingUpdate } from './proofing.js';
+import {
+  createProofing,
+  isProofingPending,
+  proofingKey,
+  proofingUpdate,
+  type SourcedIssue,
+} from './proofing.js';
 import {
   addProofingWord,
+  countAlikeIssues,
+  disableProofingRule,
   ignoreProofingIssue,
+  ignoreProofingOnce,
   listProofingIssues,
   proofingIssueAt,
+  recheckProofing,
+  replaceAllProofingIssues,
   replaceProofingIssue,
   selectNextProofingIssue,
+  setProofingLanguage,
 } from './proofing-commands.js';
+import { segmentsOf } from './proofing-text.js';
 
 const text = (value: string, marks?: StoredNode['marks']): StoredNode => ({
   type: 'text',
@@ -49,16 +62,19 @@ async function checked(state: EditorState): Promise<EditorState> {
     if (value.trim()) texts.push(value);
     return false;
   });
-  const proofer = proofingKey.getState(state)?.proofer;
+  const proofer = proofingKey.getState(state)?.proofers[0];
   if (!proofer) throw new Error('The document is proofed');
   const found = await proofer.check(
     texts.map((value) => ({ text: value })),
     { signal: new AbortController().signal },
   );
-  const results = new Map<string, readonly ProofingIssue[]>(
-    texts.map((value, index) => [value, found[index] ?? []]),
+  const results = new Map<string, readonly SourcedIssue[]>(
+    texts.map((value, index) => [
+      value,
+      (found[index] ?? []).map((issue: ProofingIssue) => ({ ...issue, source: 0 })),
+    ]),
   );
-  return state.apply(state.tr.setMeta(proofingKey, { results }));
+  return state.apply(state.tr.setMeta(proofingKey, { results, status: 'ready' }));
 }
 
 function run(state: EditorState, command: Command): EditorState {
@@ -133,7 +149,7 @@ describe('proofing', () => {
     expect(issueTexts(run(state, ignoreProofingIssue(issue)))).toEqual(['spelling:recieve']);
     const added = run(state, addProofingWord(issue));
     expect(issueTexts(added)).toEqual(['spelling:recieve']);
-    const proofer = proofingKey.getState(added)?.proofer;
+    const proofer = proofingKey.getState(added)?.proofers[0];
     const again = await proofer?.check([{ text: 'teh' }], {
       signal: new AbortController().signal,
     });
@@ -157,14 +173,81 @@ describe('proofing', () => {
     const state = stateOf(paragraph(text('Teh report')));
     const stale = (await checked(state)).tr;
     const results = new Map([
-      ['Teh report', [{ from: 0, to: 3, kind: 'spelling' as const, suggestions: ['The'] }]],
+      [
+        'Teh report',
+        [{ from: 0, to: 3, kind: 'spelling' as const, suggestions: ['The'], source: 0 }],
+      ],
     ]);
-    const late = state.tr.setMeta(proofingKey, { results });
+    const late = state.tr.setMeta(proofingKey, { results, status: 'ready' });
     const typed = state.apply(state.tr.insertText('!', state.doc.content.size - 2));
     const update = proofingUpdate(late);
     if (!update) throw new Error('A proofing transaction has an update');
     const next = update(typed);
     expect(next.doc.textBetween(0, next.doc.content.size)).toContain('!');
     expect(proofingUpdate(stale.insertText('x', 4))).toBeNull();
+  });
+
+  it('DOCE-PROOFING-2.4 replaces every issue like one as one change', async () => {
+    const state = await checked(stateOf(paragraph(text('teh one and teh two, recieve'))));
+    const [first] = listProofingIssues(state);
+    if (!first) throw new Error('An issue is marked');
+    expect(countAlikeIssues(state, first)).toBe(2);
+    const next = run(state, replaceAllProofingIssues(first, 'the'));
+    expect(next.doc.textBetween(0, next.doc.content.size)).toBe('the one and the two, recieve');
+  });
+
+  it('DOCE-PROOFING-2.5 ignores one issue alone', async () => {
+    const state = await checked(stateOf(paragraph(text('teh one and teh two'))));
+    const [first] = listProofingIssues(state);
+    if (!first) throw new Error('An issue is marked');
+    const next = run(state, ignoreProofingOnce(first));
+    expect(listProofingIssues(next).map((issue) => issue.from)).toEqual([
+      listProofingIssues(state)[1]?.from,
+    ]);
+  });
+
+  it('DOCE-PROOFING-2.6 turns a rule off, in the proofer too', async () => {
+    const state = await checked(stateOf(paragraph(text('We saw a apple and a apple.'))));
+    const [issue] = listProofingIssues(state);
+    expect(issue?.rule?.id).toBe('a apple');
+    if (!issue) throw new Error('An issue is marked');
+    const next = run(state, disableProofingRule(issue));
+    expect(listProofingIssues(next)).toEqual([]);
+    const proofer = proofingKey.getState(next)?.proofers[0];
+    const again = await proofer?.check([{ text: 'a apple' }], {
+      signal: new AbortController().signal,
+    });
+    expect(again?.[0]).toEqual([]);
+  });
+
+  it('DOCE-PROOFING-2.7 checks the document again in another language', async () => {
+    const state = await checked(stateOf(paragraph(text('teh text'))));
+    expect(isProofingPending(state)).toBe(false);
+    const french = run(state, setProofingLanguage('fr'));
+    expect(proofingKey.getState(french)?.language).toBe('fr');
+    expect(listProofingIssues(french)).toEqual([]);
+    expect(isProofingPending(french)).toBe(true);
+    expect(setProofingLanguage('fr')(french)).toBe(false);
+    const again = run(french, recheckProofing);
+    expect(isProofingPending(again)).toBe(true);
+  });
+
+  it('DOCE-PROOFING-1.5 cuts a long text into segments of whole words', () => {
+    const segments = segmentsOf('One two. Three four five. Six', 12);
+    expect(segments.map((segment) => segment.text)).toEqual([
+      'One two. ',
+      'Three four ',
+      'five. Six',
+    ]);
+    expect(segments.map((segment) => segment.offset)).toEqual([0, 9, 20]);
+    expect(segmentsOf('Short', 12)).toEqual([{ text: 'Short', offset: 0 }]);
+  });
+
+  it('DOCE-PROOFING-1.6 keeps whether the proofers answered', () => {
+    const state = stateOf(paragraph(text('Some text')));
+    const meta = { results: new Map(), status: 'degraded' };
+    const next = state.apply(state.tr.setMeta(proofingKey, meta));
+    expect(proofingKey.getState(next)?.status).toBe('degraded');
+    expect(proofingKey.getState(run(next, recheckProofing))?.status).toBe('ready');
   });
 });
