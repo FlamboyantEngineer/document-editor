@@ -14,11 +14,12 @@ import {
   setBlockType,
   toggleMark,
 } from 'prosemirror-commands';
+import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
-import type { Schema } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import type { Command, Plugin, Transaction } from 'prosemirror-state';
+import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
 import type { TemplateFile } from '../model/index.js';
 import {
   changeParagraphLevel,
@@ -84,6 +85,45 @@ function blockKeys(schema: Schema): Record<string, Command> {
   return keys;
 }
 
+// Whether a block beside a text block is an object Backspace or Delete selects before deleting: an
+// atom, such as an equation or a figure, or a table.
+const isObjectBlock = (node: ProseMirrorNode) =>
+  !node.isTextblock &&
+  !node.isInline &&
+  NodeSelection.isSelectable(node) &&
+  (node.isAtom || node.type.spec.tableRole === 'table');
+
+// At the edge of a text block beside an object, Backspace or Delete selects the object first; a
+// second press deletes it.
+const selectAtom =
+  (side: -1 | 1): Command =>
+  (state, dispatch) => {
+    const { $from, empty } = state.selection;
+    if (!empty || !$from.parent.isTextblock) return false;
+    const offset = side < 0 ? 0 : $from.parent.content.size;
+    if ($from.parentOffset !== offset || $from.depth === 0) return false;
+    const pos = side < 0 ? $from.before() : $from.after();
+    const $edge = state.doc.resolve(pos);
+    const neighbour = side < 0 ? $edge.nodeBefore : $edge.nodeAfter;
+    if (!neighbour || !isObjectBlock(neighbour)) return false;
+    const at = side < 0 ? pos - neighbour.nodeSize : pos;
+    dispatch?.(state.tr.setSelection(NodeSelection.create(state.doc, at)).scrollIntoView());
+    return true;
+  };
+
+// Inside a footnote entry, which is one paragraph of text: Enter and Shift+Enter add nothing, and
+// Backspace at its start and Delete at its end join nothing.
+const inFootnoteEntry: Command = (state) =>
+  state.selection.$from.parent.type.name === 'footnote_entry';
+
+const atFootnoteEdge =
+  (side: -1 | 1): Command =>
+  (state) => {
+    const { $from, empty } = state.selection;
+    if (!empty || $from.parent.type.name !== 'footnote_entry') return false;
+    return side < 0 ? $from.parentOffset === 0 : $from.parentOffset === $from.parent.content.size;
+  };
+
 /** A document's own keys, ahead of ProseMirror's base keymap. */
 export function documentKeys(
   schema: Schema,
@@ -101,7 +141,10 @@ export function documentKeys(
     'Mod-a': selectBody,
     'Mod-\\': clearFormatting,
     'Mod-Alt-Enter': insertPageBreak,
+    'Mod-Space': clearFormatting,
+    'Shift-Enter': inFootnoteEntry,
     Enter: chainCommands(
+      inFootnoteEntry,
       newlineInCode,
       listKey(splitListItem),
       createParagraphNear,
@@ -111,11 +154,19 @@ export function documentKeys(
     ),
     Backspace: chainCommands(
       deleteSelection,
+      atFootnoteEdge(-1),
       deleteEmptyListItem,
+      selectAtom(-1),
       joinAcrossPages(-1),
       joinBackward,
     ),
-    Delete: chainCommands(deleteSelection, joinAcrossPages(1), joinForward),
+    Delete: chainCommands(
+      deleteSelection,
+      atFootnoteEdge(1),
+      selectAtom(1),
+      joinAcrossPages(1),
+      joinForward,
+    ),
     Tab: always(chainCommands(listKey(sinkListItem), changeParagraphLevel(1, template))),
     'Shift-Tab': always(chainCommands(listKey(liftListItem), changeParagraphLevel(-1, template))),
   };
@@ -131,6 +182,7 @@ export function createDocumentEditing(
     ...(keepHistory ? [history()] : []),
     createElementIds({ author, isRemote }),
     ...createTableEditing(),
+    gapCursor(),
     keymap(documentKeys(schema, template)),
     keymap(baseKeymap),
   ];
@@ -163,6 +215,11 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'tables',
         priority: 850,
         build: () => createTableEditing(),
+      },
+      {
+        name: 'gap-cursor',
+        priority: 860,
+        build: () => [gapCursor()],
       },
       {
         name: 'keymap',

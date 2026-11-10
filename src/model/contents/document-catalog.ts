@@ -172,9 +172,16 @@ function list(
   }
 }
 
+/** Blocks whose headings are text set as headings, not the document's structure. */
+const UNSTRUCTURED_PARENTS = new Set(['list_item', 'table_cell', 'table_header']);
+
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
-  content.descendants((node, offset) => {
+  content.descendants((node, offset, parent) => {
     if (isContinuation(node)) return !node.isTextblock;
+    // A heading inside a list or a table is neither numbered nor listed.
+    if (node.type.name === 'heading' && parent && UNSTRUCTURED_PARENTS.has(parent.type.name)) {
+      return false;
+    }
     const numbered =
       node.type.name === 'heading' ? countHeading(node, counting) : countObject(node, counting);
     list([node, start + offset, numbered], counting);

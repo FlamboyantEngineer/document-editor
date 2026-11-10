@@ -2,6 +2,7 @@
 // blocks, page headers and footers left out, and the current one, marked by decorations carrying
 // `data-search-match`; commands move between matches and replace one or all of them.
 
+import { closeHistory } from 'prosemirror-history';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   type Command,
@@ -12,6 +13,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { isPositionLocked } from './edit-lock.js';
 
 /** How a query matches. */
 export interface SearchOptions {
@@ -38,6 +40,10 @@ export interface SearchState {
 
 type SearchMeta =
   { readonly query: string; readonly options: SearchOptions } | { readonly current: number };
+
+// Whether a match sits in content the writer may not change.
+const isLocked = (state: EditorState, match: SearchMatch) =>
+  isPositionLocked(state, match.from) || isPositionLocked(state, match.to - 1);
 
 /** The search plugin's state. */
 export const searchKey = new PluginKey<SearchState>('search');
@@ -177,22 +183,25 @@ export function replaceMatch(replacement: string): Command {
   return (state, dispatch) => {
     const search = searchKey.getState(state);
     const match = search?.matches[search.current];
-    if (!match) return false;
+    if (!match || isLocked(state, match)) return false;
     if (dispatch) {
       const marks = state.doc.resolve(match.from + 1).marks();
       const tr = replacement
         ? state.tr.replaceWith(match.from, match.to, state.schema.text(replacement, marks))
         : state.tr.delete(match.from, match.to);
+      closeHistory(tr);
       dispatch(tr.setSelection(TextSelection.create(tr.doc, match.from + replacement.length)));
     }
     return true;
   };
 }
 
-/** Replaces every match, as one change. */
+/** Replaces every match outside locked content, as one change; locked matches stay found. */
 export function replaceAllMatches(replacement: string): Command {
   return (state, dispatch) => {
-    const matches = searchKey.getState(state)?.matches ?? [];
+    const matches = (searchKey.getState(state)?.matches ?? []).filter(
+      (match) => !isLocked(state, match),
+    );
     if (matches.length === 0) return false;
     if (dispatch) {
       const tr = state.tr;
@@ -202,6 +211,7 @@ export function replaceAllMatches(replacement: string): Command {
           tr.replaceWith(match.from, match.to, state.schema.text(replacement, marks));
         else tr.delete(match.from, match.to);
       }
+      closeHistory(tr);
       dispatch(tr.scrollIntoView());
     }
     return true;

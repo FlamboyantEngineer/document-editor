@@ -19,6 +19,7 @@ export function useHostPanel() {
   const [caret, setCaret] = useState('');
   const [saved, setSaved] = useState(0);
   const [firstLayout, setFirstLayout] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
   const telemetry = useMemo<TelemetryAdapter>(
     () => ({
       measure: (name, duration) => {
@@ -37,9 +38,14 @@ export function useHostPanel() {
       onContentChange: () => setChanges((count) => count + 1),
       onSelectionChange: (selection) => setCaret(selection.$head.parent.type.name),
       keymap: { 'Mod-s': save },
+      onLayoutReady: () => setReady(true),
     };
   }, []);
-  return { notifications, telemetry, report: { focused, changes, caret, saved, firstLayout } };
+  return {
+    notifications,
+    telemetry,
+    report: { focused, changes, caret, saved, firstLayout, ready },
+  };
 }
 
 /** The panel, reading the report and driving the editor through its handle. */
@@ -68,6 +74,7 @@ export function HostPanel({
         {report.focused ? 'Focused' : 'Not focused'} · {report.changes} changes · caret in{' '}
         {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
         {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
+        {report.ready ? ' · ready' : ''}
       </output>
     </fieldset>
   );

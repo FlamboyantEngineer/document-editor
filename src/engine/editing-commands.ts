@@ -308,8 +308,23 @@ function topLevelEnd($pos: ResolvedPos): number | null {
 /** Inserts a page break after the top-level block holding the selection. */
 export const insertPageBreak: Command = (state, dispatch) => {
   const { page_break: pageBreak, paragraph } = state.schema.nodes;
-  const at = topLevelEnd(state.selection.$from);
-  if (!pageBreak || !paragraph || at === null) return false;
+  if (!pageBreak || !paragraph) return false;
+  const { $from, empty } = state.selection;
+  // In a text block on its own on the page, the break goes at the caret, splitting the block.
+  const onPage = $from.depth >= 1 && $from.node($from.depth - 1).type.name === 'page_content';
+  if (empty && onPage && $from.parent.isTextblock) {
+    if (dispatch) {
+      const tr = state.tr;
+      if ($from.parentOffset > 0) tr.split($from.pos);
+      const at = $from.parentOffset > 0 ? tr.mapping.map($from.pos) - 1 : $from.before();
+      tr.insert(at, pageBreak.create());
+      tr.setSelection(TextSelection.near(tr.doc.resolve(at + 2)));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  }
+  const at = topLevelEnd($from);
+  if (at === null) return false;
   if (dispatch) {
     const tr: Transaction = state.tr.insert(at, pageBreak.create());
     const after = at + 1;

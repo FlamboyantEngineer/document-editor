@@ -52,13 +52,12 @@
 }
 
 /*
- * Pages out of view skip their layout and paint, keeping the size the template gives them, so a
- * long document costs the browser only the pages in view. The measuring view is left out: it must
- * lay every block out to measure it.
+ * Each page contains its own layout and paint, so a change on one page lays out and paints only
+ * that page. Not `content-visibility`: it would contain style too, and the heading and object
+ * numbers, which are counters across the document, would restart on every page.
  */
 .de-document-editor__content .pm-page {
-  content-visibility: auto;
-  contain-intrinsic-size: auto var(--doc-page-width) auto var(--doc-page-height);
+  contain: layout paint;
 }
 
 .de-document-editor__measure {
@@ -517,4 +516,80 @@
 .de-document-comments__decisions {
   display: flex;
   gap: 8px;
+}
+
+/* The gap cursor: a blinking line where the caret stands between two objects. */
+.de-document-editor .ProseMirror-gapcursor {
+  position: relative;
+  display: none;
+  pointer-events: none;
+}
+
+.de-document-editor .ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
+.de-document-editor .ProseMirror-gapcursor::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  display: block;
+  width: 20px;
+  border-top: 1px solid currentcolor;
+  animation: de-gapcursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes de-gapcursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* A manual page break: a dashed line across the page, labelled, and highlighted when selected. */
+.de-document-editor .pm-page-content hr.manual-page-break,
+.de-document-editor .pm-page-content [data-page-break] {
+  position: relative;
+  height: 0;
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px dashed #9ca3af;
+  overflow: visible;
+}
+
+.de-document-editor .pm-page-content :is(hr.manual-page-break, [data-page-break])::after {
+  content: var(--de-page-break-label, 'PAGE BREAK');
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  padding: 0 6px;
+  background: #fff;
+  color: #6b7280;
+  font:
+    600 9px/16px system-ui,
+    sans-serif;
+  letter-spacing: 0.08em;
+  transform: translateX(-50%);
+}
+
+.de-document-editor
+  .pm-page-content
+  :is(hr.manual-page-break, [data-page-break]).ProseMirror-selectednode {
+  border-top-color: var(--ref-accent, #0969da);
+  outline: 2px solid color-mix(in srgb, var(--ref-accent, #0969da) 30%, transparent);
+}
+
+/* A heading inside a list or a table is text set as a heading: it is neither counted nor numbered. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  :is(li, td, th)
+  :is(h1, h2, h3, h4, h5, h6) {
+  counter-increment: none;
+  counter-set: none;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  :is(li, td, th)
+  :is(h1, h2, h3, h4, h5, h6)::before {
+  content: none;
 }

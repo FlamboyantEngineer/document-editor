@@ -6,7 +6,7 @@ A list of contents (`toc_block`, stored as `contents`) lists one kind of a docum
 
 ### DOCE-CONTENTS-1.1 - Headings
 
-`catalogDocument(doc, template, kinds)` shall give each kind of list its entries. With the default kinds (`DEFAULT_CONTENTS_KINDS`), the `toc` kind shall list every heading in document order with its level, its text, its position, the page it is on and the number it shows, as its template scope's heading numbering prints it (DOCE-NUMBERING-5.1). A section whose template section restarts numbering shall start its headings' counters again.
+`catalogDocument(doc, template, kinds)` shall give each kind of list its entries. With the default kinds (`DEFAULT_CONTENTS_KINDS`), the `toc` kind shall list every heading in document order with its level, its text, its position, the page it is on and the number it shows, as its template scope's heading numbering prints it (DOCE-NUMBERING-5.1). A section whose template section restarts numbering shall start its headings' counters again. A heading inside a list or a table is text set as a heading: it is neither numbered nor listed, and the reference stylesheet does not count it.
 
 Implementation: `src/model/contents/document-catalog.ts`, `src/model/templates/template-numbering.ts`
 Verification: `src/model/contents/document-catalog.test.ts`

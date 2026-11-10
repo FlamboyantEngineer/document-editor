@@ -4,7 +4,7 @@
 // its id. Page chrome is view content and is left as it is.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
+import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep, type Step } from 'prosemirror-transform';
 
 /** What an element id looks like: eight lower-case hexadecimal digits. */
@@ -42,6 +42,23 @@ const isPlaceholder = (node: ProseMirrorNode, parent: ProseMirrorNode | null) =>
   node.content.size === 0 &&
   !node.attrs.dataId;
 
+// A header row a later part of a split table repeats: one of the header rows it leads with.
+function isRepeatedHeaderRow(node: ProseMirrorNode, parent: ProseMirrorNode | null): boolean {
+  if (!parent || parent.type.spec.tableRole !== 'table' || !isSplitPart(parent)) return false;
+  if (Number(parent.attrs.splitPartIndex) === 0 || node.type.spec.tableRole !== 'row') return false;
+  let leading = true;
+  let found = false;
+  parent.forEach((row) => {
+    if (!leading || found) return;
+    const header =
+      row.childCount > 0 &&
+      row.content.content.every((cell) => cell.type.spec.tableRole === 'header_cell');
+    if (!header) leading = false;
+    else if (row === node) found = true;
+  });
+  return found;
+}
+
 // A step that only changes text or marks inside text blocks, which adds no element.
 function isTextStep(step: Step): boolean {
   if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) return true;
@@ -66,6 +83,8 @@ export function assignElementIds(
   const walk: Walk = { tr, seen: new Map(), author, newId, changed: false };
   tr.doc.descendants((node, pos, parent) => {
     if (node.isText || DRAWN.has(node.type.name)) return false;
+    // The header rows a later part of a split table repeats are copies of the first part's.
+    if (isRepeatedHeaderRow(node, parent)) return false;
     if (!CHROME.has(node.type.name) && !isPlaceholder(node, parent)) identify(walk, node, pos);
     return true;
   });
@@ -132,4 +151,21 @@ export function createElementIds({
       return assignElementIds(tr, { author: author(), newId }) ? tr : null;
     },
   });
+}
+
+/** Marks the change that repairs a document's element ids when it opens. */
+export const ELEMENT_IDS_REPAIR = 'elementIdsRepair';
+
+/**
+ * The change that gives a document opened with missing, invalid or repeated element ids valid ones,
+ * out of the undo history; null when every element already has one. A server can run it on a
+ * stored document too.
+ */
+export function repairElementIds(
+  state: EditorState,
+  options: { readonly newId?: (() => string) | undefined } = {},
+): Transaction | null {
+  const tr = state.tr;
+  if (!assignElementIds(tr, { newId: options.newId })) return null;
+  return tr.setMeta('addToHistory', false).setMeta(ELEMENT_IDS_REPAIR, true);
 }
