@@ -63,3 +63,10 @@ The template editor lab shall show the template editor beside the document edito
 
 Implementation: `labs/src/template-editor.lab.tsx`, `labs/template-editor.html`
 Verification: `e2e/template-editor.spec.ts`
+
+### DOCE-LABS-3.2 - The full editor
+
+The full editor lab shall show the document editor with every feature on, as a host assembles it: the comments margin over the in-memory host's comment store, suggest mode and how suggestions show, proofing with two proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own toolbar items, context menu entries and locked paragraph, collaborators' carets and an agent working through the automation API.
+
+Implementation: `labs/src/full-editor.lab.tsx`, `labs/full-editor.html`
+Verification: `e2e/full-editor.spec.ts`
