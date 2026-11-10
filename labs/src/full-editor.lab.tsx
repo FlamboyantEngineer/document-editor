@@ -19,6 +19,7 @@ import {
   createContents,
   createDocumentEditing,
   createEditLock,
+  createInlineCompletion,
   createPresence,
   createProofing,
   createReferences,
@@ -113,6 +114,15 @@ const HOST = createMemoryHost({
   },
 });
 
+// A provider that completes one sentence, as a language model would.
+const COMPLETER = {
+  complete: ({ before }: { before: string }) =>
+    Promise.resolve({
+      ok: true as const,
+      value: before.endsWith('Recovery takes') ? ' less than one second.' : '',
+    }),
+};
+
 const PROOFERS = [
   createWordListProofer({
     corrections: { teh: ['the'], recieve: ['receive'] },
@@ -168,6 +178,7 @@ function initialState(): EditorState {
     plugins: [
       createContents({ template: () => TEMPLATE }),
       createReferences({ template: () => TEMPLATE }),
+      createInlineCompletion({ provider: COMPLETER, delay: 300 }),
       createProofing({ proofer: PROOFERS, delay: 200 }),
       createEditLock({ isLocked: isLockedParagraph }),
       createPresence(),

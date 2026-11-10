@@ -48,4 +48,23 @@ test.describe('full editor lab', () => {
         .or(page.locator('output[aria-label="Snapshot"]')),
     ).toHaveText(`${String(pages)} pages`);
   });
+
+  test('DOCE-AUTOMATION-3.3 offers the provider completion after a pause, taken with Tab', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Recovery takes');
+    await expect(content(page).locator('.de-inline-completion')).toHaveText(
+      ' less than one second.',
+    );
+    await page.keyboard.press('Tab');
+    await expect(content(page).locator('.de-inline-completion')).toHaveCount(0);
+    await expect(
+      content(page).locator('p', { hasText: 'Recovery takes less than one second.' }),
+    ).toHaveCount(1);
+  });
 });

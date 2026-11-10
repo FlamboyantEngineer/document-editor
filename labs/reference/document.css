@@ -700,3 +700,9 @@
   :is(h1, h2, h3, h4, h5, h6)::before {
   content: none;
 }
+
+/* A completion's offer reads as a suggestion, not as text. */
+.de-inline-completion {
+  color: #94a3b8;
+  pointer-events: none;
+}

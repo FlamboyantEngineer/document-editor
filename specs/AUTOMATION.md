@@ -68,3 +68,32 @@ Verification: `e2e/automation.spec.ts`
 
 Implementation: `src/engine/automation-stream.ts`, `labs/src/agent-panel.tsx`
 Verification: `e2e/automation.spec.ts`
+
+## DOCE-AUTOMATION-3 - Inline completion
+
+### DOCE-AUTOMATION-3.1 - What the provider is asked
+
+`completionRequest(state, context)` shall give the text before the caret, up to `context` characters (2000 by default) across the blocks before it, and the rest of the caret's block; none without a caret in text outside code, or with nothing before it.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.2 - Taking or dismissing an offer
+
+An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, and `dismissCompletion` forgets it, and any change or caret move dismisses it.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.3 - Asking the host's provider
+
+`createInlineCompletion({ provider, delay, isEnabled })` shall ask the host's completion provider (`CompletionAdapter`) once the writer, typing with the caret in text, pauses for `delay` milliseconds (600 by default), dropping an answer that comes after another change, and offer what it answers; Tab takes the offer and Escape dismisses it.
+
+Implementation: `src/engine/inline-completion.ts`, `src/host/adapters.ts`
+Verification: `e2e/full-editor.spec.ts`
+
+## Hooks
+
+| Hook                   | Kind | Values | Description                                    |
+| ---------------------- | ---- | ------ | ---------------------------------------------- |
+| `de-inline-completion` | root |        | The text a completion offers, after the caret. |

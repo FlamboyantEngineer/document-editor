@@ -102,6 +102,19 @@ export {
   listFootnotes,
   numberFootnotes,
 } from './footnotes.js';
+export type {
+  CompletionRequest,
+  InlineCompletion,
+  InlineCompletionOptions,
+} from './inline-completion.js';
+export {
+  acceptCompletion,
+  completionRequest,
+  createInlineCompletion,
+  dismissCompletion,
+  inlineCompletion,
+  offerCompletion,
+} from './inline-completion.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {
   activeLayoutPreset,
