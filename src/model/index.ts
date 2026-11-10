@@ -24,6 +24,10 @@ export {
   readStoredContent,
   writeDocumentFile,
 } from './format/document-format-convert.js';
+export type { DocxOptions } from './format/docx.js';
+export { writeDocx } from './format/docx.js';
+export type { MarkdownOptions } from './format/markdown.js';
+export { writeMarkdown } from './format/markdown.js';
 export type * from './format/template-format.js';
 export { TEMPLATE_FORMAT_VERSION } from './format/template-format.js';
 export type { TemplateResolutionOptions } from './format/template-format-resolve.js';
@@ -44,6 +48,8 @@ export {
   isTemplateLength,
   validateTemplateFile,
 } from './format/template-format-validate.js';
+export type { ZipEntry } from './format/zip.js';
+export { crc32, writeZip } from './format/zip.js';
 export type { AbbreviationReferenceAttrs, GlossaryEntry } from './glossary.js';
 export {
   ABBREVIATION_CACHE_REFRESH_META,
