@@ -13,7 +13,9 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import type { TemplateFile } from '../model/index.js';
 import { isPositionLocked } from './edit-lock.js';
+import { documentOutline } from './outline.js';
 
 /** How a query matches. */
 export interface SearchOptions {
@@ -170,6 +172,59 @@ function selectMatch(step: 1 | -1): Command {
     );
     return true;
   };
+}
+
+/** Selects the match at an index of the matches, making it current. */
+export function selectMatchAt(index: number): Command {
+  return (state, dispatch) => {
+    const match = searchKey.getState(state)?.matches[index];
+    if (!match) return false;
+    dispatch?.(
+      state.tr
+        .setMeta(searchKey, { current: index })
+        .setSelection(TextSelection.create(state.doc, match.from, match.to))
+        .setMeta('addToHistory', false)
+        .scrollIntoView(),
+    );
+    return true;
+  };
+}
+
+/** A match as a results list shows it: the text of its block, where it is, and whether it may change. */
+export interface SearchResult {
+  readonly index: number;
+  /** The text of the block holding it. */
+  readonly source: string;
+  /** Where the match starts and ends in `source`. */
+  readonly start: number;
+  readonly end: number;
+  /** The heading it is under, as `<number> <text>`, or null before the first heading. */
+  readonly heading: string | null;
+  /** Whether the writer may replace it. */
+  readonly replaceable: boolean;
+}
+
+/**
+ * The search's matches as results: each in the text of its block, under the heading it is under,
+ * numbered by the template when it is given.
+ */
+export function searchResults(state: EditorState, template?: TemplateFile): SearchResult[] {
+  const search = searchKey.getState(state);
+  if (!search) return [];
+  const headings = documentOutline(state, template);
+  return search.matches.map((match, index) => {
+    const $from = state.doc.resolve(match.from);
+    const start = $from.start();
+    const under = headings.filter((heading) => heading.pos <= match.from).at(-1);
+    return {
+      index,
+      source: $from.parent.textBetween(0, $from.parent.content.size, ' ', ' '),
+      start: match.from - start,
+      end: Math.min(match.to, $from.end()) - start,
+      heading: under ? [under.number, under.text].filter(Boolean).join(' ') : null,
+      replaceable: !isLocked(state, match),
+    };
+  });
 }
 
 /** Selects the next match, wrapping to the first. */

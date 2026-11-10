@@ -41,6 +41,22 @@ With `find`, Mod-F in the document shall open the base library's `FindBar` below
 Implementation: `src/components/document-editor/document-find-bar.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `labs/reference/editor-chrome.css`
 Verification: `e2e/search.spec.ts`
 
+## DOCE-SEARCH-3 - The search pane
+
+### DOCE-SEARCH-3.1 - Results
+
+`searchResults(state, template)` shall give each match in the text of its block, where it starts and ends there, under the heading it is under (its number, as the template numbers it, and its text), and whether the writer may replace it; `selectMatchAt(index)` makes a match current and selects it.
+
+Implementation: `src/engine/search.ts`
+Verification: `src/engine/search.test.ts`
+
+### DOCE-SEARCH-3.2 - The pane
+
+`DocumentSearchPane`, inside an editor or given its context, shall search the document as the base library's `SearchPane`: the query with matching case and whole words, the results with their heading as label, the current one selected in the document as the reader steps or picks one, and, while the writer can edit, Replace, disabled on a locked match, and Replace all; closing it clears the search.
+
+Implementation: `src/components/document-panels/document-search-pane.tsx`
+Verification: `e2e/document-panels.spec.ts`
+
 ## Hooks
 
 | Hook                | Kind      | Values             | Description                                            |

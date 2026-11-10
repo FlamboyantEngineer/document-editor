@@ -7,7 +7,11 @@
 import { EditorState } from 'prosemirror-state';
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor, type DocumentEditorHandle } from '../../src/components/index.js';
+import {
+  DocumentCommentsPanel,
+  DocumentEditor,
+  type DocumentEditorHandle,
+} from '../../src/components/index.js';
 import { assignElementIds, createDocumentEditing } from '../../src/engine/index.js';
 import { createMemoryHost } from '../../src/host/index.js';
 import {
@@ -113,6 +117,7 @@ function Lab() {
   const [state, setState] = useState(initialState);
   const [reading, setReading] = useState(false);
   const [resolved, setResolved] = useState(false);
+  const [panel, setPanel] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
   const comments = HOST.comments;
   return (
@@ -136,6 +141,15 @@ function Lab() {
             onChange={(event) => setResolved(event.currentTarget.checked)}
           />{' '}
           Resolved threads
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="panel"
+            checked={panel}
+            onChange={(event) => setPanel(event.currentTarget.checked)}
+          />{' '}
+          Comments panel
         </label>
         <button type="button" onClick={() => handle.current?.openThread('c0ffee01')}>
           Open the first thread
@@ -166,7 +180,18 @@ function Lab() {
             document.documentElement.dataset.labCaret = `${String(selection.from)}-${String(selection.to)}`;
           },
         }}
-      />
+      >
+        {panel && comments ? (
+          <aside className="lab-panels">
+            <DocumentCommentsPanel
+              store={comments}
+              documentId="lab"
+              identity={HOST.identity}
+              canComment={!reading}
+            />
+          </aside>
+        ) : null}
+      </DocumentEditor>
     </div>
   );
 }

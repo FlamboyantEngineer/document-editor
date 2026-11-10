@@ -366,3 +366,6 @@ export function DocumentEditor(props: DocumentEditorProps) {
     </DocumentEditorContext>
   );
 }
+
+// What another component reaches the editor by.
+export { type EditorContext, useDocumentEditor } from './editor-context.js';

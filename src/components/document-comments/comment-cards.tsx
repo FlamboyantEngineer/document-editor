@@ -33,6 +33,17 @@ export interface DocumentCommentsLabels {
   failed: string;
   /** Names a comment's reactions. */
   reactions: string;
+  /** Names the comments panel. */
+  commentsPanel: string;
+  /** Names the panel's filter, and its choices. */
+  filter: string;
+  filterOpen: string;
+  filterAll: string;
+  filterMine: string;
+  /** Says the panel lists no thread. */
+  noComments: string;
+  /** Takes the reader to a thread's text. */
+  showInDocument: string;
 }
 
 /** The labels of the comments margin unless the host gives its own. */
@@ -47,6 +58,13 @@ export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   someone: 'Someone',
   failed: 'The comment could not be saved.',
   reactions: 'Reactions',
+  commentsPanel: 'All comments',
+  filter: 'Show',
+  filterOpen: 'Open',
+  filterAll: 'All',
+  filterMine: 'Mine',
+  noComments: 'No comments.',
+  showInDocument: 'Show in document',
 };
 
 export const hooks = createHooks('document-comments', [

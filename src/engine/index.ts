@@ -210,14 +210,16 @@ export {
 } from './references.js';
 export type { RevealOptions } from './reveal.js';
 export { revealElement } from './reveal.js';
-export type { SearchMatch, SearchOptions, SearchState } from './search.js';
+export type { SearchMatch, SearchOptions, SearchResult, SearchState } from './search.js';
 export {
   createSearch,
   replaceAllMatches,
   replaceMatch,
   SEARCH_MATCH_ATTR,
   searchKey,
+  searchResults,
   searchState,
+  selectMatchAt,
   selectNextMatch,
   selectPreviousMatch,
   setSearch,

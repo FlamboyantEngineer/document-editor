@@ -1,7 +1,7 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
 import { documentOutline } from './outline.js';
 
 const heading = (id: string, level: number, value: string): StoredNode => ({
@@ -15,7 +15,7 @@ const paragraph = (value: string): StoredNode => ({
 });
 
 describe('outline', () => {
-  it('DOCE-OUTLINE-1.1 lists the headings with the one the selection is under', () => {
+  it('DOCE-OUTLINE-1.1 DOCE-OUTLINE-1.2 lists the headings with the one the selection is under', () => {
     const doc = readDocumentFile(
       {
         formatVersion: 1,
@@ -39,9 +39,22 @@ describe('outline', () => {
       if (node.isText && node.text === 'Second') second = pos;
     });
     state = state.apply(state.tr.setSelection(TextSelection.create(doc, second)));
+    const entry = (elementId: string, level: number, text: string, active: boolean) => ({
+      elementId,
+      level,
+      text,
+      number: '',
+      pos: expect.any(Number),
+      active,
+    });
     expect(documentOutline(state)).toEqual([
-      { elementId: 'a1a1a1a1', level: 1, text: 'Scope', pos: expect.any(Number), active: false },
-      { elementId: 'b2b2b2b2', level: 2, text: 'Detail', pos: expect.any(Number), active: true },
+      entry('a1a1a1a1', 1, 'Scope', false),
+      entry('b2b2b2b2', 2, 'Detail', true),
+    ]);
+    // DOCE-OUTLINE-1.2: numbered as the template numbers the headings.
+    expect(documentOutline(state, BASE_TEMPLATE).map((each) => each.number)).toEqual([
+      '1.',
+      '1.1.',
     ]);
   });
 });

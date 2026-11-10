@@ -1,13 +1,15 @@
 import { type Command, EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
 import { createEditLock } from './edit-lock.js';
 import {
   createSearch,
   replaceAllMatches,
   replaceMatch,
   searchKey,
+  searchResults,
+  selectMatchAt,
   selectNextMatch,
   selectPreviousMatch,
   setSearch,
@@ -84,5 +86,55 @@ describe('search', () => {
     expect(textOf(state)).toBe('dog here|Fixed cat');
     expect(searchKey.getState(state)?.matches).toHaveLength(1);
     expect(replaceAllMatches('dog')(state)).toBe(false);
+  });
+
+  it('DOCE-SEARCH-3.1 gives each match in the text of its block, under its heading', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              paragraph('A log before any heading.'),
+              { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Power' }] },
+              paragraph('The log keeps each log.'),
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    let state = EditorState.create({ doc, plugins: [createSearch()] });
+    state = run(state, setSearch('log'));
+    expect(searchResults(state, BASE_TEMPLATE)).toEqual([
+      {
+        index: 0,
+        source: 'A log before any heading.',
+        start: 2,
+        end: 5,
+        heading: null,
+        replaceable: true,
+      },
+      {
+        index: 1,
+        source: 'The log keeps each log.',
+        start: 4,
+        end: 7,
+        heading: '1. Power',
+        replaceable: true,
+      },
+      {
+        index: 2,
+        source: 'The log keeps each log.',
+        start: 19,
+        end: 22,
+        heading: '1. Power',
+        replaceable: true,
+      },
+    ]);
+    state = run(state, selectMatchAt(2));
+    expect(searchKey.getState(state)?.current).toBe(2);
+    expect(selectMatchAt(5)(state)).toBe(false);
   });
 });
