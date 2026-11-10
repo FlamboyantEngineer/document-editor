@@ -54,3 +54,12 @@ A stress lab shall report how many text blocks its document holds and how long i
 
 Implementation: `labs/src/stress/stress-lab.tsx`
 Verification: `e2e/stress.spec.ts`
+
+## DOCE-LABS-3 - Editor labs
+
+### DOCE-LABS-3.1 - The template editor beside a document
+
+The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once.
+
+Implementation: `labs/src/template-editor.lab.tsx`, `labs/template-editor.html`
+Verification: `e2e/template-editor.spec.ts`

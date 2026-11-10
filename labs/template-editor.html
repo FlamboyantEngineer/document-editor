@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="The template editor beside a document: each change to a setting restyles the document and lays its pages out again at once."
+    />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="The cases pagination finds hardest: blocks longer than a page, footnotes, breaks and runs of headings."
+    />
+    <title>Template editor · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/template-editor.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" class="lab-fill">
+      <h1>Template editor</h1>
+      <p>
+        The template inherits from the base template; its fields show the inherited values until it
+        sets its own. Change a setting and the document beside it follows.
+      </p>
+      <div id="lab-editor" class="lab-editor"></div>
+    </main>
+  </body>
+</html>
