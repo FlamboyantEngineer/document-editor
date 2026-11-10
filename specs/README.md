@@ -23,6 +23,7 @@ Each file in this directory specifies one component, one family of components, o
 | [PROOFING.md](PROOFING.md)               | Proofing the document's text with the host's proofer, and its issues.       |
 | [AUTOMATION.md](AUTOMATION.md)           | Reading and changing a live document by element id, for agents and scripts. |
 | [COLLABORATION.md](COLLABORATION.md)     | Other people's carets and selections, their avatars, and remote changes.    |
+| [SEARCH.md](SEARCH.md)                   | Finding and replacing text, and the editor's find bar.                      |
 | [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.                |
 | [LABS.md](LABS.md)                       | Starting the labs, and the lab toolbar's stylesheet and theme.              |
 | `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.               |

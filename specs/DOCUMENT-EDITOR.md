@@ -188,6 +188,7 @@ Verification: `e2e/document-editor.spec.ts`
 | `de-document-editor__toolbar-end`       | slot      |                                                        | The host's controls after the toolbar's groups.                                         |
 | `data-group`                            | attribute |                                                        | On a toolbar group: its id.                                                             |
 | `data-item`                             | attribute |                                                        | On a toolbar item: its id.                                                              |
+| `de-document-editor__find`              | slot      |                                                        | The find bar, with `find` (DOCE-SEARCH-2.1).                                            |
 | `de-document-editor__block-style`       | slot      |                                                        | The toolbar's text style field.                                                         |
 | `de-document-editor__style-preview`     | slot      |                                                        | A text style's name in the list, in that style.                                         |
 | `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`                | On a preview: the style it shows.                                                       |

@@ -19,14 +19,11 @@ import {
   type ReactNode,
   type Ref,
   type RefObject,
-  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import { automationActor, proofingUpdate, suggestTransaction } from '../../engine/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
-import { readDomSelection } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import {
   DocumentComments,
@@ -34,16 +31,26 @@ import {
 } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { DocumentContextMenu } from './document-context-menu.js';
+import { DocumentFindBar } from './document-find-bar.js';
 import { DocumentStatusBar } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
-import { createEditorContext, DocumentEditorContext } from './editor-context.js';
+import {
+  createEditorContext,
+  DocumentEditorContext,
+  type EditorContext,
+} from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import {
+  isFindKey,
+  READ_SELECTION_FIRST,
+  useDispatchBody,
+  useEngineView,
+} from './use-editor-engine.js';
+import {
   type DocumentEditorNotifications,
-  isContentChange,
   useHostViewProps,
   useSelectionNotification,
 } from './use-host-events.js';
@@ -100,6 +107,8 @@ export interface DocumentEditorProps
   statusBar?: boolean | undefined;
   /** The host's own items at the end of the status bar. */
   statusItems?: ReactNode;
+  /** Opens a find bar above the document with Mod-F, to find and replace text. Defaults to false. */
+  find?: boolean | undefined;
   /**
    * Whether the document opens the editor's context menu, with the host's providers and
    * arrangement when given as options. Defaults to true.
@@ -118,110 +127,39 @@ const hooks = createHooks('document-editor', [
   'body',
   'content',
   'status-bar',
+  'find',
 ]);
-
-type DispatchBody = NonNullable<RichTextEngineEvents['dispatchTransaction']>;
-
-// The dispatch body. A transaction that only brings proofing results commits on the latest state,
-// which the view may not show yet. While suggesting, each local change is rewritten as a
-// suggestion, and one a suggestion cannot record is dropped; the host's own body, if any, then
-// decides what commits.
-function useDispatchBody(
-  props: DocumentEditorProps,
-  suggesting: boolean,
-  author: string | null,
-): DispatchBody {
-  const { events, onStateChange } = props;
-  const body = events?.dispatchTransaction;
-  return useMemo(
-    () => (tr, view, commit) => {
-      const update = proofingUpdate(tr);
-      if (update) {
-        onStateChange(update);
-        return;
-      }
-      // An automation change is direct or a suggestion as its caller chose.
-      const next =
-        suggesting && !automationActor(tr) ? suggestTransaction(tr, view.state, { author }) : tr;
-      if (!next) return;
-      if (body) body(next, view, commit);
-      else if (next === tr) commit.applyDefault();
-      else commit.applyDefault(next);
-    },
-    [suggesting, author, body, onStateChange],
-  );
-}
-
-// Before a key or typed text acts, the view takes the selection the browser shows (DOCE-EDITOR-1.4).
-function readSelectionFirst(view: EditorView): boolean {
-  readDomSelection(view);
-  return false;
-}
-
-const READ_SELECTION_FIRST = { keydown: readSelectionFirst, beforeinput: readSelectionFirst };
-
-type EngineEvents = NonNullable<DocumentEditorProps['events']>;
-
-// The caller's events, with the engine's view kept for the chrome that acts on it.
-function useEngineView(
-  events: DocumentEditorProps['events'],
-  onContentChange: DocumentEditorProps['onContentChange'],
-) {
-  const [view, setView] = useState<EditorView | null>(null);
-  // The host's latest events, behind handlers that keep their identity: a new events object on
-  // each of the host's renders would otherwise give the view new props, which redraws its
-  // selection over a caret the browser has placed and not reported yet.
-  const latest = useRef({ events, onContentChange });
-  useEffect(() => {
-    latest.current = { events, onContentChange };
-  });
-  const withView = useMemo<EngineEvents>(
-    () => ({
-      onTransaction: (tr, current) => {
-        latest.current.events?.onTransaction?.(tr, current);
-        const notify = latest.current.onContentChange;
-        if (notify && isContentChange(tr)) notify(tr);
-      },
-      onSelectionChange: (selection, current) =>
-        latest.current.events?.onSelectionChange?.(selection, current),
-      onUpdated: (current, previous) => latest.current.events?.onUpdated?.(current, previous),
-      afterCommit: (current) => latest.current.events?.afterCommit?.(current),
-      onMounted: (mounted) => {
-        setView(mounted);
-        latest.current.events?.onMounted?.(mounted);
-      },
-      onUnmounted: () => {
-        setView(null);
-        latest.current.events?.onUnmounted?.();
-      },
-    }),
-    [],
-  );
-  return { view, events: withView };
-}
 
 interface EditorBodyProps {
   props: DocumentEditorProps;
+  /** Opens the find bar, while the editor has one. */
+  onFind: (() => void) | null;
   engine: ReturnType<typeof useEngineView>;
   labels: DocumentEditorLabels;
   startCommentRef: RefObject<(() => void) | null>;
 }
 
 // The document in its engine, with the comments margin, the caller's chrome and the table handles.
-function EditorBody({ props, engine, labels, startCommentRef }: EditorBodyProps) {
+function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
   const host = useHostViewProps(props);
   const viewProps = useMemo(
     () => ({
       editable: () => editable,
-      ...(host.handleKeyDown ? { handleKeyDown: host.handleKeyDown } : {}),
+      handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
+        if (host.handleKeyDown?.(view, event)) return true;
+        if (!onFind || !isFindKey(event)) return false;
+        event.preventDefault();
+        onFind();
+        return true;
+      },
       handleDOMEvents: {
         ...READ_SELECTION_FIRST,
         ...(host.focus ? { focus: host.focus } : {}),
         ...(host.blur ? { blur: host.blur } : {}),
       },
     }),
-    [editable, host],
+    [editable, host, onFind],
   );
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
@@ -284,9 +222,75 @@ function rootData(props: DocumentEditorProps) {
  * its toolbar above the document and its status bar below it, and scrolls the document itself,
  * with overlay scrollbars.
  */
+interface ChromeProps {
+  props: DocumentEditorProps;
+  context: EditorContext;
+  view: EditorView | null;
+  templateStyle: Readonly<Record<string, string>>;
+  startCommentRef: RefObject<(() => void) | null>;
+}
+
+// The toolbar and the find bar above the document.
+function TopChrome({
+  props,
+  context,
+  templateStyle,
+  finding,
+  onFindClose,
+}: ChromeProps & {
+  finding: boolean;
+  onFindClose: () => void;
+}) {
+  return (
+    <>
+      {props.toolbar ? (
+        <DocumentToolbar
+          {...hooks.slot('toolbar')}
+          context={context}
+          options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
+          templateStyle={templateStyle}
+        />
+      ) : null}
+      {props.find && finding ? (
+        <DocumentFindBar {...hooks.slot('find')} context={context} onClose={onFindClose} />
+      ) : null}
+    </>
+  );
+}
+
+// The status bar below the document, and the context menu.
+function BottomChrome({ props, context, view, startCommentRef }: ChromeProps) {
+  const { layout = 'page', editable = true, suggesting = false } = props;
+  return (
+    <>
+      {props.statusBar ? (
+        <DocumentStatusBar
+          {...hooks.slot('status-bar')}
+          view={view}
+          state={context.state}
+          labels={context.labels}
+          layout={layout}
+          mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
+          items={props.statusItems}
+        />
+      ) : null}
+      {props.contextMenu === false ? null : (
+        <DocumentContextMenu
+          view={view}
+          labels={context.labels}
+          editable={editable}
+          canDecide={editable && !suggesting}
+          startCommentRef={startCommentRef}
+          options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
+        />
+      )}
+    </>
+  );
+}
+
 export function DocumentEditor(props: DocumentEditorProps) {
   const { state, onStateChange, template, layout = 'page', editable = true } = props;
-  const { className, suggesting = false, compare = null } = props;
+  const { className, compare = null } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   const engine = useEngineView(props.events, props.onContentChange);
   useEditorHandle(props.handleRef, engine.view);
@@ -295,28 +299,32 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
-  const style = templateStyle as CSSProperties;
   const context = useMemo(
     () => createEditorContext(engine.view, state, { editable, labels }),
     [engine.view, state, editable, labels],
   );
+  const [finding, setFinding] = useState(false);
+  const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
+  const chrome = { props, context, view: engine.view, templateStyle, startCommentRef };
   const body = (
-    <EditorBody props={props} engine={engine} labels={labels} startCommentRef={startCommentRef} />
+    <EditorBody
+      props={props}
+      engine={engine}
+      labels={labels}
+      startCommentRef={startCommentRef}
+      onFind={openFind}
+    />
   );
   return (
     <DocumentEditorContext value={context}>
-      <div {...hooks.root({ className, props, data: rootData(props) })} style={style}>
+      <div
+        {...hooks.root({ className, props, data: rootData(props) })}
+        style={templateStyle as CSSProperties}
+      >
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" />
         ) : null}
-        {props.toolbar ? (
-          <DocumentToolbar
-            {...hooks.slot('toolbar')}
-            context={context}
-            options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
-            templateStyle={templateStyle}
-          />
-        ) : null}
+        <TopChrome {...chrome} finding={finding} onFindClose={() => setFinding(false)} />
         {props.scrollable ? (
           <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
             {body}
@@ -324,27 +332,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
         ) : (
           body
         )}
-        {props.statusBar ? (
-          <DocumentStatusBar
-            {...hooks.slot('status-bar')}
-            view={engine.view}
-            state={state}
-            labels={labels}
-            layout={layout}
-            mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
-            items={props.statusItems}
-          />
-        ) : null}
-        {props.contextMenu === false ? null : (
-          <DocumentContextMenu
-            view={engine.view}
-            labels={labels}
-            editable={editable}
-            canDecide={editable && !suggesting}
-            startCommentRef={startCommentRef}
-            options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
-          />
-        )}
+        <BottomChrome {...chrome} />
       </div>
     </DocumentEditorContext>
   );

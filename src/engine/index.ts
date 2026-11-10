@@ -121,6 +121,18 @@ export {
 } from './proofing-commands.js';
 export type { TextSegment as ProofingSegment } from './proofing-text.js';
 export { segmentsOf } from './proofing-text.js';
+export type { SearchMatch, SearchOptions, SearchState } from './search.js';
+export {
+  createSearch,
+  replaceAllMatches,
+  replaceMatch,
+  SEARCH_MATCH_ATTR,
+  searchKey,
+  searchState,
+  selectNextMatch,
+  selectPreviousMatch,
+  setSearch,
+} from './search.js';
 export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
 export {
   acceptAllSuggestions,

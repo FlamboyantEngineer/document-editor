@@ -328,3 +328,20 @@
 .de-document-editor__presence {
   display: inline-flex;
 }
+
+/* The find bar below the toolbar, and the matches it finds: the current one stronger. */
+.de-document-editor__find {
+  flex: none;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ref-border, #d0d7de);
+  background: var(--ref-raised, #fff);
+}
+
+.de-document-editor [data-search-match] {
+  background: #fff1a8;
+}
+
+.de-document-editor [data-search-match='current'] {
+  background: #ffc94d;
+  outline: 1px solid #b07d00;
+}

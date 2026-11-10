@@ -196,6 +196,7 @@ function Lab() {
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
         statusBar={statusBar}
+        find
         contextMenu={hostItems ? HOST_CONTEXT_MENU : true}
         className="lab-document-editor"
         aria-label="Sample document"
