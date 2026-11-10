@@ -2,7 +2,8 @@
 // with the editing keys and a table of contents, shown on pages or in the web layout and switched
 // between authoring and reading without losing its state, with or without its toolbar, its
 // scrolling frame and its status bar. Right-click anywhere in the document for its context menu, and hover a table
-// for the handles that drag its rows and columns. A word-list proofer marks a few misspellings and
+// for the handles that drag its rows and columns. The lab adds its own toolbar items, as a host
+// does (`host-toolbar.tsx`). A word-list proofer marks a few misspellings and
 // a grammar slip, which the context menu corrects.
 
 import { EditorState } from 'prosemirror-state';
@@ -24,6 +25,7 @@ import {
   resolveTemplateFile,
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
+import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument } from './lab-document.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
@@ -61,7 +63,8 @@ function initialState(): EditorState {
   });
   const tr = state.tr;
   assignElementIds(tr, {});
-  return state.apply(tr);
+  // The ids a document opens with are no edit of the writer's to undo.
+  return state.apply(tr.setMeta('addToHistory', false));
 }
 
 function Lab() {
@@ -71,6 +74,7 @@ function Lab() {
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
   const [statusBar, setStatusBar] = useState(true);
+  const [hostItems, setHostItems] = useState(true);
   return (
     <>
       <fieldset>
@@ -123,6 +127,15 @@ function Lab() {
           />{' '}
           Status bar
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="host-items"
+            checked={hostItems}
+            onChange={(event) => setHostItems(event.currentTarget.checked)}
+          />{' '}
+          Host toolbar items
+        </label>
       </fieldset>
       <DocumentEditor
         state={state}
@@ -130,7 +143,7 @@ function Lab() {
         template={TEMPLATE}
         layout={layout}
         editable={editable}
-        toolbar={toolbar}
+        toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
         statusBar={statusBar}
         className="lab-document-editor"

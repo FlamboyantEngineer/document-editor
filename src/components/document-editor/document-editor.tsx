@@ -32,8 +32,12 @@ import {
 import { DocumentContextMenu } from './document-context-menu.js';
 import { DocumentStatusBar } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
+import { createEditorContext, DocumentEditorContext } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { TableHandles } from './table-handles.js';
+import type { DocumentToolbarOptions } from './toolbar-items.js';
+
+const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
 import {
   type DocumentComparison,
   type DocumentLayout,
@@ -64,8 +68,11 @@ export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
   nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
   /** Notifications of the engine's commits. */
   events?: Omit<RichTextEngineEvents, 'props'> | undefined;
-  /** Shows the editor's toolbar above the document. Defaults to false. */
-  toolbar?: boolean | undefined;
+  /**
+   * Shows the editor's toolbar above the document, with the host's items and controls when given
+   * as options. Defaults to false.
+   */
+  toolbar?: boolean | DocumentToolbarOptions | undefined;
   /**
    * Scrolls the document inside the editor, with overlay scrollbars, the toolbar staying above it;
    * the host gives the editor its height. Defaults to false.
@@ -229,51 +236,55 @@ export function DocumentEditor(props: DocumentEditorProps) {
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const style = templateStyle as CSSProperties;
+  const context = useMemo(
+    () => createEditorContext(engine.view, state, { editable, labels }),
+    [engine.view, state, editable, labels],
+  );
   const body = (
     <EditorBody props={props} engine={engine} labels={labels} startCommentRef={startCommentRef} />
   );
   return (
-    <div {...hooks.root({ className, props, data: rootData(props) })} style={style}>
-      {layout === 'page' ? (
-        <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" />
-      ) : null}
-      {props.toolbar ? (
-        <DocumentToolbar
-          {...hooks.slot('toolbar')}
-          view={engine.view}
-          state={state}
-          labels={labels}
-          editable={editable}
-          templateStyle={templateStyle}
-        />
-      ) : null}
-      {props.scrollable ? (
-        <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
-          {body}
-        </ScrollRegion>
-      ) : (
-        body
-      )}
-      {props.statusBar ? (
-        <DocumentStatusBar
-          {...hooks.slot('status-bar')}
-          view={engine.view}
-          state={state}
-          labels={labels}
-          layout={layout}
-          mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
-          items={props.statusItems}
-        />
-      ) : null}
-      {props.contextMenu === false ? null : (
-        <DocumentContextMenu
-          view={engine.view}
-          labels={labels}
-          editable={editable}
-          canDecide={editable && !suggesting}
-          startCommentRef={startCommentRef}
-        />
-      )}
-    </div>
+    <DocumentEditorContext value={context}>
+      <div {...hooks.root({ className, props, data: rootData(props) })} style={style}>
+        {layout === 'page' ? (
+          <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" />
+        ) : null}
+        {props.toolbar ? (
+          <DocumentToolbar
+            {...hooks.slot('toolbar')}
+            context={context}
+            options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
+            templateStyle={templateStyle}
+          />
+        ) : null}
+        {props.scrollable ? (
+          <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
+            {body}
+          </ScrollRegion>
+        ) : (
+          body
+        )}
+        {props.statusBar ? (
+          <DocumentStatusBar
+            {...hooks.slot('status-bar')}
+            view={engine.view}
+            state={state}
+            labels={labels}
+            layout={layout}
+            mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
+            items={props.statusItems}
+          />
+        ) : null}
+        {props.contextMenu === false ? null : (
+          <DocumentContextMenu
+            view={engine.view}
+            labels={labels}
+            editable={editable}
+            canDecide={editable && !suggesting}
+            startCommentRef={startCommentRef}
+          />
+        )}
+      </div>
+    </DocumentEditorContext>
   );
 }

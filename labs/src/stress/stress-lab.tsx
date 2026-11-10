@@ -50,7 +50,8 @@ function stateOf(file: DocumentFile): EditorState {
   });
   const tr = state.tr;
   assignElementIds(tr, {});
-  return state.apply(tr);
+  // The ids a document opens with are no edit of the writer's to undo.
+  return state.apply(tr.setMeta('addToHistory', false));
 }
 
 // The time the pages took to lay out: from the start, and from the latest edit.

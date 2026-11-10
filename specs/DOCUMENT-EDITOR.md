@@ -101,6 +101,20 @@ Verification: `e2e/document-editor.spec.ts`
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
 Verification: `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-4.3 - The host's toolbar items
+
+`toolbar` given as options shall shape the toolbar. The editor's own controls are items with stable ids in groups (`TOOLBAR_GROUPS`: `history`, `block-style`, `marks`, `lists` and `insert`); each of the host's `items` joins the group it names, after its items, and an item naming no group or an unknown one joins a group of that name at the end. `arrange` then receives the groups and returns them reordered, without some items or regrouped. An item is a `button`, drawn as its icon named by its label or as its label, running its action and, given `isPressed`, a toggle pressed while that holds; a `menu`, a button opening its entries; or a `custom` control the host draws. Each receives the editor context, is disabled unless `isEnabled` holds (by default, while the writer can edit) and shows only while `isVisible` holds; groups are separated, an empty group is left out, and each group carries `data-group` and each item `data-item` with its id. `start` and `end` hold the host's own controls before and after the groups (`de-document-editor__toolbar-start`, `de-document-editor__toolbar-end`).
+
+Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/toolbar-controls.tsx`, `src/components/document-editor/document-toolbar.tsx`, `labs/src/host-toolbar.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-4.4 - The editor context
+
+The editor shall hand its context, the engine's view, the state shown, whether the writer can edit and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
+
+Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -126,6 +140,10 @@ Verification: `src/engine/document-statistics.test.ts`
 | `de-document-editor__toolbar`         | slot      |                                         | The editor's toolbar, with `toolbar`.                                |
 | `de-document-editor__viewport`        | slot      |                                         | The frame that scrolls the document, with `scrollable`.              |
 | `de-document-editor__body`            | slot      |                                         | The document with its table handles.                                 |
+| `de-document-editor__toolbar-start`   | slot      |                                         | The host's controls before the toolbar's groups.                     |
+| `de-document-editor__toolbar-end`     | slot      |                                         | The host's controls after the toolbar's groups.                      |
+| `data-group`                          | attribute |                                         | On a toolbar group: its id.                                          |
+| `data-item`                           | attribute |                                         | On a toolbar item: its id.                                           |
 | `de-document-editor__block-style`     | slot      |                                         | The toolbar's text style field.                                      |
 | `de-document-editor__style-preview`   | slot      |                                         | A text style's name in the list, in that style.                      |
 | `data-block-style`                    | attribute | `paragraph`, `heading-1` to `heading-6` | On a preview: the style it shows.                                    |

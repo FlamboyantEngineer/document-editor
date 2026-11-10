@@ -282,4 +282,31 @@ test.describe('document editor lab', () => {
     await page.getByLabel('Status bar').uncheck();
     await expect(status).toHaveCount(0);
   });
+
+  test('DOCE-EDITOR-4.3 DOCE-EDITOR-4.4 adds the host items, controls and arrangement to the toolbar', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+    await expect(toolbar.locator('[data-group="marks"] [data-item="code"]')).toHaveCount(0);
+    await expect(toolbar.locator('[data-group="marks"] [data-item="bold"]')).toHaveCount(1);
+    const saved = page.locator('.de-document-editor__toolbar-end');
+    await expect(saved).toHaveText('Saved');
+    await selectText(page, 'Normal operation');
+    await toolbar.getByRole('button', { name: 'Case' }).click();
+    await page.getByRole('menuitem', { name: 'UPPERCASE' }).click();
+    await expect(content(page)).toContainText('NORMAL OPERATION');
+    await expect(saved).toHaveText('Edited');
+    const insert = toolbar.locator('[data-group="insert"] [data-item="insert-date"]');
+    await expect(insert).toHaveText('Insert date');
+    await heading(page, 'Timing').click();
+    await page.keyboard.press('End');
+    await insert.click();
+    await expect(heading(page, 'Timing')).toContainText(/Timing\d{4}-\d{2}-\d{2}/);
+    await page.getByLabel('Host toolbar items').uncheck();
+    await expect(toolbar.locator('[data-item="code"]')).toHaveCount(1);
+    await expect(toolbar.locator('[data-item="insert-date"]')).toHaveCount(0);
+    await expect(saved).toHaveCount(0);
+  });
 });

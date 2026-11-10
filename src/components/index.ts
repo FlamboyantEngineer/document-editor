@@ -7,5 +7,17 @@ export type {
   DocumentEditorLabels,
   DocumentEditorProps,
   DocumentLayout,
+  DocumentToolbarOptions,
+  EditorContext,
+  ToolbarButtonItem,
+  ToolbarCustomItem,
+  ToolbarGroup,
+  ToolbarItem,
+  ToolbarMenuItem,
 } from './document-editor/index.js';
-export { DEFAULT_EDITOR_LABELS, DocumentEditor } from './document-editor/index.js';
+export {
+  DEFAULT_EDITOR_LABELS,
+  DocumentEditor,
+  TOOLBAR_GROUPS,
+  useDocumentEditor,
+} from './document-editor/index.js';
