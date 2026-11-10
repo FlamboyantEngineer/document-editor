@@ -23,6 +23,7 @@ import {
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { LayoutToggle, PageJump } from './status-controls.js';
 import { runCommand } from './table-actions.js';
 import type { DocumentLayout } from './use-document-layout.js';
 
@@ -51,6 +52,8 @@ interface DocumentStatusBarProps {
   items?: ReactNode;
   /** The document's zoom and how the reader changes it, when they can. */
   zoom?: { readonly value: number; readonly onChange: (zoom: number) => void } | null;
+  /** Switches the layout, which the bar then offers. */
+  onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
   className?: string | undefined;
 }
 
@@ -147,6 +150,7 @@ export function DocumentStatusBar({
   mode,
   items,
   zoom,
+  onLayoutChange,
   className,
 }: DocumentStatusBarProps) {
   const deferred = useDeferredValue(state);
@@ -155,7 +159,7 @@ export function DocumentStatusBar({
     <StatusBar className={className} aria-label={labels.statusBar}>
       <span {...hooks.slot('status-item', { status: 'position' })}>
         {layout === 'page' ? (
-          <span>{labels.pageStatus(statistics.page, statistics.pages)}</span>
+          <PageJump view={view} labels={labels} page={statistics.page} pages={statistics.pages} />
         ) : null}
         <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
       </span>
@@ -165,6 +169,9 @@ export function DocumentStatusBar({
         <ProofingStatus view={view} state={deferred} labels={labels} />
         <span>{labels[MODE_LABELS[mode]]}</span>
       </span>
+      {onLayoutChange ? (
+        <LayoutToggle layout={layout} labels={labels} onChange={onLayoutChange} />
+      ) : null}
       {zoom ? (
         <ZoomControl
           {...hooks.slot('zoom')}

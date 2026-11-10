@@ -102,6 +102,19 @@ export {
   listFootnotes,
   numberFootnotes,
 } from './footnotes.js';
+export type {
+  CompletionRequest,
+  InlineCompletion,
+  InlineCompletionOptions,
+} from './inline-completion.js';
+export {
+  acceptCompletion,
+  completionRequest,
+  createInlineCompletion,
+  dismissCompletion,
+  inlineCompletion,
+  offerCompletion,
+} from './inline-completion.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {
   activeLayoutPreset,
@@ -112,6 +125,8 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { MathViewsOptions } from './math-views.js';
+export { createMathViews } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
 export {
   convertMath,
@@ -207,6 +222,8 @@ export {
   selectPreviousMatch,
   setSearch,
 } from './search.js';
+export type { SnapshotOptions } from './snapshot.js';
+export { documentSnapshot } from './snapshot.js';
 export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
 export {
   acceptAllSuggestions,

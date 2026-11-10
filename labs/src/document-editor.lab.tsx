@@ -208,6 +208,7 @@ function Lab() {
         onStateChange={setState}
         template={TEMPLATE}
         layout={layout}
+        onLayoutChange={setLayout}
         editable={editable}
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}

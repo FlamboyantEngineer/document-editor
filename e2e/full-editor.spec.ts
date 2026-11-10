@@ -37,4 +37,34 @@ test.describe('full editor lab', () => {
     await page.getByRole('button', { name: 'Rewrite a phrase' }).click();
     await expect(content(page).locator('ins', { hasText: 'operating state' })).toHaveCount(1);
   });
+
+  test('DOCE-EDITOR-6.9 exports a snapshot of the pages for printing', async ({ lab, page }) => {
+    await lab.open('full-editor');
+    const pages = await content(page).locator('.pm-page').count();
+    await page.getByRole('button', { name: 'Export a snapshot' }).click();
+    await expect(
+      page
+        .getByRole('status', { name: 'Snapshot' })
+        .or(page.locator('output[aria-label="Snapshot"]')),
+    ).toHaveText(`${String(pages)} pages`);
+  });
+
+  test('DOCE-AUTOMATION-3.3 offers the provider completion after a pause, taken with Tab', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Recovery takes');
+    await expect(content(page).locator('.de-inline-completion')).toHaveText(
+      ' less than one second.',
+    );
+    await page.keyboard.press('Tab');
+    await expect(content(page).locator('.de-inline-completion')).toHaveCount(0);
+    await expect(
+      content(page).locator('p', { hasText: 'Recovery takes less than one second.' }),
+    ).toHaveCount(1);
+  });
 });

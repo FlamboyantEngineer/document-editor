@@ -4,6 +4,7 @@ export type {
   CommentEntry,
   CommentStoreAdapter,
   CommentThread,
+  CompletionAdapter,
   DocumentSave,
   DocumentStoreAdapter,
   DocumentVersion,

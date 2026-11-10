@@ -450,4 +450,33 @@ test.describe('document editor lab', () => {
       });
     expect(containment).not.toMatch(/style|auto/);
   });
+
+  test('DOCE-EDITOR-5.3 goes to a page from the status bar and switches the layout', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const status = page.getByRole('group', { name: 'Document status' });
+    await status.getByRole('button', { name: /Page 1 of/ }).click();
+    const field = page.getByRole('textbox', { name: 'Go to page' });
+    await field.fill('3');
+    await field.press('Enter');
+    await expect
+      .poll(() =>
+        pages(page)
+          .nth(2)
+          .evaluate((element) => {
+            const viewport =
+              element.closest('.ui-scroll-region__viewport') ?? document.documentElement;
+            return Math.abs(
+              element.getBoundingClientRect().top - viewport.getBoundingClientRect().top,
+            );
+          }),
+      )
+      .toBeLessThan(80);
+    await status.getByRole('button', { name: 'Pages' }).click();
+    await expect(editor(page)).toHaveAttribute('data-layout', 'web');
+    await status.getByRole('button', { name: 'Pages' }).click();
+    await expect(editor(page)).toHaveAttribute('data-layout', 'page');
+  });
 });

@@ -129,6 +129,16 @@ export interface CodeSourceAdapter {
   resolve(url: string, signal?: AbortSignal): Promise<HostResult<ResolvedCode>>;
 }
 
+/** Completes the text a writer is typing, such as through a language model. */
+export interface CompletionAdapter {
+  /** The text that may follow `before`, ahead of `after`; empty for none. */
+  complete(request: {
+    before: string;
+    after: string;
+    signal?: AbortSignal | undefined;
+  }): Promise<HostResult<string>>;
+}
+
 /** A citation of another document, or of a target in it, that a host found. */
 export interface ExternalReference {
   /** The reference type, such as `external-document`. */

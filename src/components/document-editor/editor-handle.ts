@@ -10,11 +10,14 @@ import {
   type AutomationEdit,
   type AutomationOptions,
   type AutomationResult,
+  documentSnapshot,
   type EditAddress,
   listCommentAnchors,
   revealElement,
   type RevealOptions,
+  type SnapshotOptions,
 } from '../../engine/index.js';
+import type { TemplateFile } from '../../model/index.js';
 
 /** What a host can do with a mounted editor. */
 export interface DocumentEditorHandle {
@@ -41,6 +44,11 @@ export interface DocumentEditorHandle {
    * comments and the reader may comment; false otherwise.
    */
   startComment(): boolean;
+  /**
+   * The document as its pages show it now, as a standalone HTML document a host prints or turns
+   * into a PDF (`documentSnapshot`); null before the editor is mounted.
+   */
+  exportSnapshot(options?: Omit<SnapshotOptions, 'template'>): string | null;
   /** Runs a command on the latest state; false when it does not apply. */
   run(command: Command): boolean;
   /** Applies a batch of automation edits (DOCE-AUTOMATION) and dispatches it when it is accepted. */
@@ -91,7 +99,10 @@ function openThread(view: EditorView, threadId: string): boolean {
 export function useEditorHandle(
   ref: Ref<DocumentEditorHandle> | undefined,
   view: EditorView | null,
-  startCommentRef: RefObject<(() => void) | null>,
+  {
+    startCommentRef,
+    template,
+  }: { startCommentRef: RefObject<(() => void) | null>; template: TemplateFile },
 ) {
   useImperativeHandle(
     ref,
@@ -103,6 +114,7 @@ export function useEditorHandle(
         view ? revealElement(view, elementId, options) : false,
       select: (address) => selectIn(view, address),
       openThread: (threadId) => (view ? openThread(view, threadId) : false),
+      exportSnapshot: (options) => (view ? documentSnapshot(view, { ...options, template }) : null),
       startComment: () => {
         const start = startCommentRef.current;
         start?.();
@@ -121,6 +133,6 @@ export function useEditorHandle(
         return result;
       },
     }),
-    [view, startCommentRef],
+    [view, startCommentRef, template],
   );
 }

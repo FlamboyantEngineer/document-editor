@@ -700,3 +700,21 @@
   :is(h1, h2, h3, h4, h5, h6)::before {
   content: none;
 }
+
+/* A completion's offer reads as a suggestion, not as text. */
+.de-inline-completion {
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+/* Display math stands centred on its own line; math that does not typeset shows its source. */
+.de-math[data-display='display'] {
+  display: block;
+  margin: 6px 0;
+  text-align: center;
+}
+
+.de-math[data-state='invalid'] {
+  color: #b91c1c;
+  font-family: monospace;
+}

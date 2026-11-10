@@ -14,6 +14,7 @@ import {
   repaginate,
 } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
+import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { type DocumentLayoutOptions, layoutDocument } from './layout-document.js';
 import { createMeasureCache } from './measure-blocks.js';
 
@@ -197,6 +198,38 @@ function settleEdits(options: PaginationOptions, request: () => void) {
   };
 }
 
+// Measures again, once a frame, when the measuring view's content changes size after it was drawn:
+// math typeset or an image loaded.
+function remeasureOn(container: HTMLElement, remeasure: () => void): () => void {
+  const owner = container.ownerDocument.defaultView;
+  let due = false;
+  const listener = () => {
+    if (due || !owner) return;
+    due = true;
+    owner.requestAnimationFrame(() => {
+      due = false;
+      remeasure();
+    });
+  };
+  const onLoad = (event: Event) => {
+    if ((event.target as Element | null)?.tagName === 'IMG') listener();
+  };
+  container.addEventListener(REMEASURE_EVENT, listener);
+  container.addEventListener('load', onLoad, true);
+  return () => {
+    container.removeEventListener(REMEASURE_EVENT, listener);
+    container.removeEventListener('load', onLoad, true);
+  };
+}
+
+// The hidden view that renders the whole document to measure it, as the editor renders it.
+const measuringView = (options: PaginationOptions, doc: ProseMirrorNode): EditorView =>
+  new EditorView(options.measureIn, {
+    state: EditorState.create({ doc, plugins: [...(options.plugins ?? [])] }),
+    editable: () => false,
+    nodeViews: options.nodeViews ?? {},
+  });
+
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
 export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
@@ -233,6 +266,10 @@ export function createPagination(options: PaginationOptions): Pagination {
   };
 
   const edits = settleEdits(options, request);
+  const remeasure = () => {
+    cache.clear();
+    request();
+  };
 
   const plugin = new Plugin<boolean>({
     key: paginationKey,
@@ -245,15 +282,9 @@ export function createPagination(options: PaginationOptions): Pagination {
       // The cached measurements read the measuring view they were taken in: a new one, as when the
       // host remounts the editor, measures again.
       cache.clear();
-      runner.measuring = new EditorView(options.measureIn, {
-        state: EditorState.create({
-          doc: wholeOf(editor.state.doc),
-          plugins: [...(options.plugins ?? [])],
-        }),
-        editable: () => false,
-        nodeViews: options.nodeViews ?? {},
-      });
+      runner.measuring = measuringView(options, wholeOf(editor.state.doc));
       const unwatch = edits.watch(editor);
+      const unlisten = remeasureOn(options.measureIn, remeasure);
       request();
       return {
         update(view, previous) {
@@ -264,6 +295,7 @@ export function createPagination(options: PaginationOptions): Pagination {
         },
         destroy() {
           unwatch();
+          unlisten();
           runner.cancel?.();
           runner.measuring?.destroy();
           Object.assign(runner, { editor: null, measuring: null, cancel: null, restart: false });

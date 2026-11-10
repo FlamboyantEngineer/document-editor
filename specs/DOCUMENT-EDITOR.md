@@ -173,6 +173,13 @@ Verification: `e2e/document-editor.spec.ts`
 Implementation: `src/engine/document-statistics.ts`
 Verification: `src/engine/document-statistics.test.ts`
 
+### DOCE-EDITOR-5.3 - Going to a page and switching the layout
+
+On pages, the status bar's page status shall open a field that takes the reader to a page by its number (`scrollToPage`) once committed; with `onLayoutChange`, the bar offers a switch between the pages, pressed while shown, and the web layout.
+
+Implementation: `src/components/document-editor/status-controls.tsx`, `src/components/document-editor/document-status-bar.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-6 - Host integration
 
 ### DOCE-EDITOR-6.1 - Notifications
@@ -230,6 +237,13 @@ The document and its measuring view shall turn the browser's spelling check off 
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/document.css`
 Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.9 - Snapshots for printing
+
+The handle's `exportSnapshot({ title, styles, stylesheets })` shall give the document as its pages show it now as a standalone HTML document (`documentSnapshot`), for a host to print or turn into a PDF: the laid-out pages without the editor's editing attributes and widgets, the template's custom properties, a print page of the template's size for each page, and the host's stylesheets, linked or inlined.
+
+Implementation: `src/engine/snapshot.ts`, `src/components/document-editor/editor-handle.ts`
+Verification: `e2e/full-editor.spec.ts`
 
 ## Hooks
 
