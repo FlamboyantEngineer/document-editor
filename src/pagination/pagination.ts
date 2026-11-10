@@ -13,6 +13,7 @@ import {
   projectDocument,
   repaginate,
 } from '../model/index.js';
+import { readDomSelection } from '../utils/dom-selection.js';
 import { type DocumentLayoutOptions, layoutDocument } from './layout-document.js';
 import { createMeasureCache } from './measure-blocks.js';
 
@@ -211,6 +212,7 @@ export function createPagination(options: PaginationOptions): Pagination {
     const { editor, measuring } = runner;
     if (!editor || !measuring) return;
     if (editor.composing) return request();
+    readDomSelection(editor);
     const { state } = editor;
     const whole = wholeOf(state.doc);
     if (runner.restart) {

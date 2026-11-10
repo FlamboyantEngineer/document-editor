@@ -24,7 +24,7 @@ export interface ToolbarButtonItem extends ToolbarItemBase {
   /** Shown in the button's tooltip, such as `Ctrl+B`. */
   readonly shortcut?: string | undefined;
   readonly run: (context: EditorContext) => void;
-  /** Whether the button can be pressed; defaults to while the writer can edit. */
+  /** Whether the button can be pressed; defaults to while the writer can edit there. */
   readonly isEnabled?: ((context: EditorContext) => boolean) | undefined;
   /** Makes the button a toggle, pressed while this holds, such as a format of the selection. */
   readonly isPressed?: ((context: EditorContext) => boolean) | undefined;
@@ -36,7 +36,7 @@ export interface ToolbarMenuItem extends ToolbarItemBase {
   readonly label: string;
   readonly icon?: IconSource;
   readonly entries: (context: EditorContext) => readonly MenuEntry[];
-  /** Whether the menu can open; defaults to while the writer can edit. */
+  /** Whether the menu can open; defaults to while the writer can edit there. */
   readonly isEnabled?: ((context: EditorContext) => boolean) | undefined;
 }
 

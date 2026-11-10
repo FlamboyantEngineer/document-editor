@@ -14,6 +14,7 @@ import {
   assignElementIds,
   createContents,
   createDocumentEditing,
+  createEditLock,
   createProofing,
 } from '../../src/engine/index.js';
 import { createWordListProofer } from '../../src/host/index.js';
@@ -25,8 +26,10 @@ import {
   resolveTemplateFile,
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
+import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument } from './lab-document.js';
+import { pagesLaidOut } from './lab-ready.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -43,7 +46,14 @@ function initialState(): EditorState {
   const schema = createDocumentSchema();
   const file = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power']);
   file.sections[0]?.content.unshift({ type: 'contents', attrs: { kind: 'toc', depth: 2 } });
-  // A closing paragraph for the proofer to mark, after the chapters so it moves none of them.
+  // Closing paragraphs for the proofer to mark and for the lock to freeze, after the chapters so
+  // they move none of them.
+  file.sections[0]?.content.push({
+    type: 'paragraph',
+    content: [
+      { type: 'text', text: 'Locked by its workflow state: this paragraph cannot change.' },
+    ],
+  });
   file.sections[0]?.content.push({
     type: 'paragraph',
     content: [
@@ -58,6 +68,7 @@ function initialState(): EditorState {
     plugins: [
       createContents({ template: () => TEMPLATE }),
       createProofing({ proofer: PROOFER, delay: 200 }),
+      createEditLock({ isLocked: isLockedParagraph }),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
     ],
   });
@@ -134,7 +145,7 @@ function Lab() {
             checked={hostItems}
             onChange={(event) => setHostItems(event.currentTarget.checked)}
           />{' '}
-          Host toolbar items
+          Host items
         </label>
       </fieldset>
       <DocumentEditor
@@ -146,11 +157,12 @@ function Lab() {
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
         statusBar={statusBar}
+        contextMenu={hostItems ? HOST_CONTEXT_MENU : true}
         className="lab-document-editor"
         aria-label="Sample document"
         events={{
           onTransaction: (tr) => {
-            if (isPaginationTransaction(tr)) document.documentElement.dataset.labReady = 'true';
+            if (isPaginationTransaction(tr)) pagesLaidOut();
           },
         }}
       />

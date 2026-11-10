@@ -62,7 +62,7 @@ async function openMenuAt(page: Page, value: string) {
 }
 
 test.describe('document editor lab', () => {
-  test('DOCE-EDITOR-2.1 edits the document on pages that follow the edits', async ({
+  test('DOCE-EDITOR-2.1 DOCE-EDITOR-1.4 edits the document on pages that follow the edits', async ({
     lab,
     page,
   }) => {
@@ -302,11 +302,58 @@ test.describe('document editor lab', () => {
     await expect(insert).toHaveText('Insert date');
     await heading(page, 'Timing').click();
     await page.keyboard.press('End');
+    // A typed key settles the caret in the document before the button reads it.
+    await page.keyboard.type(' ');
+    await expect
+      .poll(() => heading(page, 'Timing').evaluate((element) => element.textContent?.endsWith(' ')))
+      .toBe(true);
     await insert.click();
-    await expect(heading(page, 'Timing')).toContainText(/Timing\d{4}-\d{2}-\d{2}/);
-    await page.getByLabel('Host toolbar items').uncheck();
+    await expect(heading(page, 'Timing')).toContainText(/Timing \d{4}-\d{2}-\d{2}/);
+    await page.getByLabel('Host items').uncheck();
     await expect(toolbar.locator('[data-item="code"]')).toHaveCount(1);
     await expect(toolbar.locator('[data-item="insert-date"]')).toHaveCount(0);
     await expect(saved).toHaveCount(0);
+  });
+
+  test('DOCE-EDITOR-3.6 adds the host entries for what the menu opens on', async ({
+    lab,
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await lab.open('document-editor');
+    await heading(page, 'Timing').click({ button: 'right' });
+    const entries = menu(page).getByRole('menuitem');
+    await expect(entries.first()).toHaveText('Copy link to heading');
+    await entries.first().click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toMatch(/^#[A-Za-z0-9_-]+$/);
+    await openMenuAt(page, 'Start');
+    await expect(item(page, 'Row 2, column 1')).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await openMenuAt(page, 'Normal operation');
+    await expect(item(page, 'Copy link to heading')).toHaveCount(0);
+  });
+
+  test('DOCE-EDITOR-3.7 offers no changes at a locked position and refuses typing there', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await openMenuAt(page, 'workflow state');
+    await expect(item(page, /^Copy/)).toBeVisible();
+    await expect(item(page, /^Paste as plain text/)).toBeDisabled();
+    await expect(item(page, 'Clear formatting')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.keyboard.type('xyz');
+    await expect(content(page)).toContainText('Locked by its workflow state: this paragraph');
+    await expect(content(page)).not.toContainText('xyz');
+    const bold = page
+      .getByRole('toolbar', { name: 'Formatting' })
+      .getByRole('button', { name: 'Bold' });
+    await expect(bold).toBeDisabled();
+    await heading(page, 'Timing').click();
+    await expect(bold).toBeEnabled();
   });
 });

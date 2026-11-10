@@ -27,7 +27,7 @@ Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-PROOFING-1.4 - Committing results
 
-The plugin shall dispatch its results as transactions holding nothing else, one per check. `proofingUpdate(tr)` shall return, for such a transaction, the update that commits it on the latest state, and null for any other; the document editor commits them so, since its view may still show a state the writer has since typed past.
+The plugin shall dispatch its results as transactions holding nothing else, one per check. Results that come back while a pointer button is down on the editor wait for its release, so they never redraw the selection a drag is making. `proofingUpdate(tr)` shall return, for such a transaction, the update that commits it on the latest state, and null for any other; the document editor commits them so, since its view may still show a state the writer has since typed past.
 
 Implementation: `src/engine/proofing.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/engine/proofing.test.ts`

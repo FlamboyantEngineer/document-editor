@@ -21,7 +21,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { selectTableLine, type TableAxis, type TableLine } from '../../engine/index.js';
+import {
+  isPositionLocked,
+  selectTableLine,
+  type TableAxis,
+  type TableLine,
+} from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { tableLineEntries } from './table-actions.js';
@@ -162,7 +167,11 @@ export function TableHandles({ view, state, labels }: TableHandlesProps) {
   const { isOpen } = useMenuControllerState(controller);
   const heldRef = useRef(false);
   const [hovered, setTarget] = useTableTarget({ view, layer, heldRef });
-  const target = useMemo(() => hovered && resolveTarget(state.doc, hovered), [hovered, state.doc]);
+  // A locked table shows no handles: its rows and columns cannot move.
+  const target = useMemo(() => {
+    const found = hovered && resolveTarget(state.doc, hovered);
+    return found && !isPositionLocked(state, found.table + 1) ? found : null;
+  }, [hovered, state]);
   const geometry = useTableGeometry(view, { layer, target, state });
   const onMoved = (line: TableLine) =>
     setTarget((current) => current && { ...current, [line.axis]: line.index });

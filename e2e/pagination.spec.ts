@@ -93,6 +93,10 @@ test.describe('pagination lab', () => {
     await page.keyboard.type(added, { delay: 0 });
     await expect(page.locator('html')).toHaveAttribute('data-lab-caret-text', /^Room 3:/);
     await expect.poll(() => pages(page).count()).toBeGreaterThanOrEqual(before);
+    // The pages are laid out again once the writer pauses.
+    await expect
+      .poll(async () => Math.max(...(await contentHeights(page))))
+      .toBeLessThanOrEqual(PAGE_HEIGHT + 1);
     await expectPagesHoldContent(page);
     const typed = page.locator('.lab-pages').getByText(added.trim().slice(0, 40));
     await expect(typed).toBeVisible();

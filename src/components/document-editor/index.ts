@@ -1,3 +1,11 @@
+export type { ContextMenuGroup } from './context-entries.js';
+export { CONTEXT_MENU_GROUPS } from './context-entries.js';
+export type {
+  ContextMenuPlacement,
+  ContextMenuProvider,
+  DocumentContextMenuOptions,
+} from './context-providers.js';
+export type { ContextKind, ContextTarget } from './context-target.js';
 export type { DocumentEditorProps } from './document-editor.js';
 export { DocumentEditor } from './document-editor.js';
 export type { EditorContext } from './editor-context.js';

@@ -77,3 +77,12 @@ Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`
 Verification: `src/engine/document-editing.test.ts`
+
+## DOCE-EDITING-4 - Locked positions
+
+### DOCE-EDITING-4.1 - The edit lock
+
+`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records, that replaces or inserts at a position `isLocked(doc, pos)` reports locked: the first or last character a step replaces, or the point it inserts at. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
+
+Implementation: `src/engine/edit-lock.ts`
+Verification: `src/engine/edit-lock.test.ts`

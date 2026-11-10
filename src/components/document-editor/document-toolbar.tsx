@@ -33,7 +33,7 @@ interface DocumentToolbarProps {
 }
 
 const isEnabled = (item: ToolbarButtonItem | ToolbarMenuItem, context: EditorContext) =>
-  item.isEnabled ? item.isEnabled(context) : context.editable;
+  item.isEnabled ? item.isEnabled(context) : context.editable && !context.locked;
 
 function ButtonItem({ item, context }: { item: ToolbarButtonItem; context: EditorContext }) {
   const shared = {

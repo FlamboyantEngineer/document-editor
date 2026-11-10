@@ -24,11 +24,13 @@ import {
 } from 'react';
 import { proofingUpdate, suggestTransaction } from '../../engine/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
+import { readDomSelection } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import {
   DocumentComments,
   type DocumentCommentsOptions,
 } from '../document-comments/document-comments.js';
+import type { DocumentContextMenuOptions } from './context-providers.js';
 import { DocumentContextMenu } from './document-context-menu.js';
 import { DocumentStatusBar } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
@@ -38,6 +40,7 @@ import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
 const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
+const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
 import {
   type DocumentComparison,
   type DocumentLayout,
@@ -85,8 +88,11 @@ export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
   statusBar?: boolean | undefined;
   /** The host's own items at the end of the status bar. */
   statusItems?: ReactNode;
-  /** Whether the document opens the editor's context menu. Defaults to true. */
-  contextMenu?: boolean | undefined;
+  /**
+   * Whether the document opens the editor's context menu, with the host's providers and
+   * arrangement when given as options. Defaults to true.
+   */
+  contextMenu?: boolean | DocumentContextMenuOptions | undefined;
   /** The text of the editor's menus and table handles, beside the defaults. */
   labels?: Partial<DocumentEditorLabels> | undefined;
   /** Chrome inside the editor's engine, such as a toolbar reading its state. */
@@ -132,6 +138,14 @@ function useDispatchBody(
   );
 }
 
+// Before a key or typed text acts, the view takes the selection the browser shows (DOCE-EDITOR-1.4).
+function readSelectionFirst(view: EditorView): boolean {
+  readDomSelection(view);
+  return false;
+}
+
+const READ_SELECTION_FIRST = { keydown: readSelectionFirst, beforeinput: readSelectionFirst };
+
 type EngineEvents = NonNullable<DocumentEditorProps['events']>;
 
 // The caller's events, with the engine's view kept for the chrome that acts on it.
@@ -164,7 +178,10 @@ interface EditorBodyProps {
 // The document in its engine, with the comments margin, the caller's chrome and the table handles.
 function EditorBody({ props, engine, labels, startCommentRef }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
-  const viewProps = useMemo(() => ({ editable: () => editable }), [editable]);
+  const viewProps = useMemo(
+    () => ({ editable: () => editable, handleDOMEvents: READ_SELECTION_FIRST }),
+    [editable],
+  );
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
     <RichTextEngineContent
@@ -282,6 +299,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
             editable={editable}
             canDecide={editable && !suggesting}
             startCommentRef={startCommentRef}
+            options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
           />
         )}
       </div>

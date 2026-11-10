@@ -25,6 +25,13 @@ In page layout (the default) the editor shall measure the document in a hidden s
 Implementation: `src/components/document-editor/use-document-layout.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/stress.spec.ts`
 
+### DOCE-EDITOR-1.4 - The caret the writer placed
+
+The browser reports a click's or a key's new caret a moment after it moves. Before a key or typed text acts, and before a layout of the pages or proofing results commit, the view shall take the selection and changes the browser shows, so keys act where the writer put the caret and no committed state draws an older selection back over it.
+
+Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/document-editor.tsx`, `src/pagination/pagination.ts`, `src/engine/proofing.ts`
+Verification: `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-2 - Layouts in the browser
 
 ### DOCE-EDITOR-2.1 - Editing on pages
@@ -83,6 +90,20 @@ Verification: `src/engine/block-commands.test.ts`, `e2e/document-editor.spec.ts`
 In a table cell of an editable document, the menu shall offer a Table submenu: insert a row above or below or a column to the left or right, merge the selected cells, split a merged cell, make the row or column a header, and delete the row, the column or the table, each disabled while it cannot run and run on the whole table when the pages split it (DOCE-TABLES-1.5).
 
 Implementation: `src/components/document-editor/table-actions.ts`, `src/components/document-editor/context-entries.ts`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-3.6 - The host's entries
+
+`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context, and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
+
+Implementation: `src/components/document-editor/context-target.ts`, `src/components/document-editor/context-providers.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/document-context-menu.tsx`, `labs/src/host-context-menu.ts`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-3.7 - Locked positions
+
+At a locked position (DOCE-EDITING-4.1) the editor shall offer nothing that changes the document: the context menu keeps only copying and the host's entries, the editor context reports `locked` and `canRun` refuses every command, so the toolbar's items are disabled, and a locked table shows no handles.
+
+Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-editor/editor-context.ts`, `src/components/document-editor/table-handles.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
 ## DOCE-EDITOR-4 - Toolbar and frame

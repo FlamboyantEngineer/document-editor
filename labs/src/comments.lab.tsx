@@ -17,6 +17,7 @@ import {
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { heading, text } from './lab-document.js';
+import { pagesLaidOut } from './lab-ready.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -139,7 +140,7 @@ function Lab() {
         }
         events={{
           onTransaction: (tr) => {
-            if (isPaginationTransaction(tr)) document.documentElement.dataset.labReady = 'true';
+            if (isPaginationTransaction(tr)) pagesLaidOut();
           },
           // Where the editor's caret is, so a test knows the editor took a click.
           onSelectionChange: (selection) => {

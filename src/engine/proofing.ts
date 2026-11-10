@@ -15,6 +15,7 @@ import {
 } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { ProoferAdapter, ProofingIssue, ProofingKind } from '../host/adapters.js';
+import { readDomSelection } from '../utils/dom-selection.js';
 
 /** How a document is proofed. */
 export interface ProofingOptions {
@@ -189,10 +190,43 @@ function applyMeta(meta: ProofingMeta, value: ProofingState, doc: ProseMirrorNod
   };
 }
 
+// Whether a pointer button is down on the view: results committed during a drag would draw the
+// selection the drag started from back over it, so they wait for the release and for the view to
+// take it.
+function pointerOn(view: EditorView) {
+  const owner = view.dom.ownerDocument.defaultView;
+  let pressed = false;
+  let waiting: (() => void)[] = [];
+  const press = () => {
+    pressed = true;
+  };
+  const release = () => {
+    if (!pressed) return;
+    pressed = false;
+    owner?.setTimeout(() => {
+      const resolved = waiting;
+      waiting = [];
+      for (const resolve of resolved) resolve();
+    }, 0);
+  };
+  view.dom.addEventListener('mousedown', press);
+  owner?.addEventListener('mouseup', release);
+  return {
+    released: () =>
+      pressed ? new Promise<void>((resolve) => waiting.push(resolve)) : Promise.resolve(),
+    destroy() {
+      view.dom.removeEventListener('mousedown', press);
+      owner?.removeEventListener('mouseup', release);
+      for (const resolve of waiting) resolve();
+    },
+  };
+}
+
 // Checks the document's unchecked text a short while after it changes, one check at a time; a
 // check the document outran is aborted, and the next one starts from the new text.
 function proofingView(view: EditorView, options: ProofingOptions): PluginView {
   const owner = view.dom.ownerDocument.defaultView;
+  const pointer = pointerOn(view);
   let timer: number | null = null;
   let running: AbortController | null = null;
 
@@ -215,7 +249,9 @@ function proofingView(view: EditorView, options: ProofingOptions): PluginView {
       texts.map(({ text, language }) => ({ text, language })),
       { signal: controller.signal },
     );
+    await pointer.released();
     if (controller.signal.aborted || view.isDestroyed) return false;
+    readDomSelection(view);
     const results = new Map(texts.map((block, index) => [block.text, found[index] ?? []]));
     view.dispatch(view.state.tr.setMeta(proofingKey, { results }).setMeta('addToHistory', false));
     return true;
@@ -250,6 +286,7 @@ function proofingView(view: EditorView, options: ProofingOptions): PluginView {
     destroy() {
       clear();
       running?.abort();
+      pointer.destroy();
     },
   };
 }

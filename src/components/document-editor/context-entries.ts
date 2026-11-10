@@ -1,7 +1,7 @@
-// The entries of the editor's context menu for the selection: the proofing issue at the caret,
-// deciding the suggestion it is in,
-// the clipboard, commenting and clearing formatting, then the table and object it is in. Groups
-// are separated, and a group with nothing to offer is left out.
+// The editor's own groups of context menu entries for the selection: the proofing issue at the
+// caret, deciding the suggestion it is in, the clipboard, commenting and clearing formatting, then
+// the table and object it is in. Groups are separated, and a group with nothing to offer is left
+// out.
 
 import { ClipboardGlyph, CopyGlyph } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
@@ -19,6 +19,7 @@ import {
   rejectSuggestion,
   replaceProofingIssue,
 } from '../../engine/index.js';
+import type { ContextTarget } from './context-target.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { commandEntry, objectEntries, tableCellEntries } from './table-actions.js';
 
@@ -205,30 +206,61 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
   return entries;
 }
 
-function objectGroups(
-  view: EditorView,
-  { labels, editable }: ContextEntriesOptions,
-): MenuEntry[][] {
+function objectGroups(view: EditorView, { labels, editable }: ContextEntriesOptions) {
   const object = editable ? objectBlockAt(view.state.selection) : null;
-  if (object === null) return [];
+  if (object === null) return { table: [], object: [] };
   const table = findTable(view.state.selection.$from);
   const tableGroup: MenuEntry[] =
     table?.pos === object
       ? [{ id: 'table', label: labels.table, items: tableCellEntries(view, labels, object) }]
       : [];
-  return [tableGroup, objectEntries(view, labels, object)];
+  return { table: tableGroup, object: objectEntries(view, labels, object) };
 }
 
-/** The context menu's entries for the view's selection. */
-export function contextEntries(view: EditorView, options: ContextEntriesOptions): MenuEntry[] {
-  const groups = [
-    proofingEntries(view, options),
-    suggestionEntries(view, options),
-    clipboardEntries(view, options),
-    editingEntries(view, options),
-    ...objectGroups(view, options),
-  ].filter((group) => group.length > 0);
-  return groups.flatMap((group, index) =>
-    index === 0 ? group : [{ type: 'separator', id: `group-${String(index)}` } as const, ...group],
-  );
+/** A run of the context menu's entries between separators. */
+export interface ContextMenuGroup {
+  readonly id: string;
+  readonly entries: readonly MenuEntry[];
+}
+
+/** The ids of the editor's own context menu groups, in order. */
+export const CONTEXT_MENU_GROUPS = [
+  'proofing',
+  'suggestion',
+  'clipboard',
+  'editing',
+  'table',
+  'object',
+] as const;
+
+/**
+ * The editor's own groups for the view's selection, empty ones included; at a locked position
+ * nothing that would change the document is offered.
+ */
+export function contextGroups(
+  view: EditorView,
+  target: ContextTarget,
+  given: ContextEntriesOptions,
+): ContextMenuGroup[] {
+  const options = target.locked ? { ...given, editable: false, canDecide: false } : given;
+  const objects = objectGroups(view, options);
+  return [
+    { id: 'proofing', entries: proofingEntries(view, options) },
+    { id: 'suggestion', entries: suggestionEntries(view, options) },
+    { id: 'clipboard', entries: clipboardEntries(view, options) },
+    { id: 'editing', entries: editingEntries(view, options) },
+    { id: 'table', entries: objects.table },
+    { id: 'object', entries: objects.object },
+  ];
+}
+
+/** The groups' entries, each group after the first set apart, empty groups left out. */
+export function flattenGroups(groups: readonly ContextMenuGroup[]): MenuEntry[] {
+  return groups
+    .filter((group) => group.entries.length > 0)
+    .flatMap((group, index) =>
+      index === 0
+        ? [...group.entries]
+        : [{ type: 'separator', id: `separator-${group.id}` } as const, ...group.entries],
+    );
 }
