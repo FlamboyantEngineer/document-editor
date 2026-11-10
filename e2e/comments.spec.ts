@@ -163,4 +163,24 @@ test.describe('comments lab', () => {
     await expect(page.getByRole('textbox', { name: 'Sample document' })).toBeFocused();
     await expect(card(page, 'Is one second measured')).toHaveAttribute('data-active', 'true');
   });
+
+  test('DOCE-COMMENTS-2.11 lists every thread in the panel, filtered, and goes to one', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments panel').check();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    await expect(panel).toContainText('Is one second measured');
+    await panel.getByRole('radio', { name: 'Mine' }).click();
+    await expect(panel).toContainText('No comments.');
+    await panel.getByRole('radio', { name: 'Open' }).click();
+    const before = await page.evaluate(() => document.documentElement.dataset.labCaret ?? '');
+    await panel.getByRole('button', { name: 'Show in document' }).click();
+    await page.waitForFunction(
+      (previous) => (document.documentElement.dataset.labCaret ?? '') !== previous,
+      before,
+    );
+    await expect(page.getByRole('textbox', { name: 'Sample document' })).toBeFocused();
+  });
 });

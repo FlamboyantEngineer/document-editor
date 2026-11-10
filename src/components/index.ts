@@ -1,7 +1,9 @@
 // The editor's components, built on the base component library.
 
 export type { DocumentCommentsLabels, DocumentCommentsOptions } from './document-comments/index.js';
+export type { CommentsFilter, DocumentCommentsPanelProps } from './document-comments/index.js';
 export { DEFAULT_COMMENTS_LABELS } from './document-comments/index.js';
+export { DocumentCommentsPanel } from './document-comments/index.js';
 export type {
   ContextKind,
   ContextMenuGroup,
@@ -37,6 +39,8 @@ export {
   useDocumentEditor,
   ZOOM_LEVELS,
 } from './document-editor/index.js';
+export type { DocumentOutlineProps, DocumentSearchPaneProps } from './document-panels/index.js';
+export { DocumentOutline, DocumentSearchPane } from './document-panels/index.js';
 export type {
   RegionContentLabels,
   SettingKind,

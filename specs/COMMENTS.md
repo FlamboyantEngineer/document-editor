@@ -118,6 +118,13 @@ Given `decide(suggestion, me)`, a suggestion's card shall offer Accept and Rejec
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
+### DOCE-COMMENTS-2.11 - The comments panel
+
+`DocumentCommentsPanel`, given the comment store, the document's id and the identity adapter, shall list the document's threads in one list (`de-comments-panel`), in the order the document anchors them and the threads it no longer anchors last, filtered to the open ones (the default), all of them or the reader's own (`filter`); each thread is answered, resolved or reopened and, by its author, deleted in place, and one the document anchors offers to show its text, putting the caret in its anchor.
+
+Implementation: `src/components/document-comments/comments-panel.tsx`
+Verification: `e2e/comments.spec.ts`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text
@@ -159,3 +166,5 @@ Verification: `e2e/comments.spec.ts`
 | `de-document-comments__summary`    | slot  |        | What a suggestion changes, and who suggested it.     |
 | `de-document-comments__decisions`  | slot  |        | Accept and Reject.                                   |
 | `data-active`                      | state | `true` | On the active suggestion's card.                     |
+| `de-comments-panel`                | root  |        | The comments panel.                                  |
+| `de-comments-panel__thread`        | slot  |        | A thread of the panel, with `data-anchored`.         |

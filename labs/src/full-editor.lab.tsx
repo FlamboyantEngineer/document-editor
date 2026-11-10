@@ -3,7 +3,8 @@
 // proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own
 // toolbar items, context menu entries and locked paragraph, collaborators' carets, an agent
 // working through the automation API, figures and linked code through the host's assets and code
-// source, and references and abbreviations through its citations and glossary.
+// source, references and abbreviations through its citations and glossary, and the outline and
+// search panels beside the document.
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -13,6 +14,8 @@ import {
   DocumentEditor,
   type DocumentEditorHandle,
   type DocumentMarkup,
+  DocumentOutline,
+  DocumentSearchPane,
 } from '../../src/components/index.js';
 import {
   assignElementIds,
@@ -198,6 +201,7 @@ function Lab() {
   const [markup, setMarkup] = useState<DocumentMarkup>('all');
   const [zoom, setZoom] = useState(100);
   const [collaborators, setCollaborators] = useState(false);
+  const [panels, setPanels] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
   // What the host's feedback last told the reader, such as a failed upload.
@@ -246,6 +250,15 @@ function Lab() {
             onChange={(event) => setCollaborators(event.currentTarget.checked)}
           />{' '}
           Collaborators
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="panels"
+            checked={panels}
+            onChange={(event) => setPanels(event.currentTarget.checked)}
+          />{' '}
+          Outline and search
         </label>
       </fieldset>
       <AgentPanel view={view} />
@@ -302,7 +315,14 @@ function Lab() {
             if (isPaginationTransaction(tr)) pagesLaidOut();
           },
         }}
-      />
+      >
+        {panels ? (
+          <aside className="lab-panels">
+            <DocumentOutline template={TEMPLATE} aria-label="Document outline" />
+            <DocumentSearchPane template={TEMPLATE} onClose={() => setPanels(false)} />
+          </aside>
+        ) : null}
+      </DocumentEditor>
     </>
   );
 }

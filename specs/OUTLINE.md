@@ -10,3 +10,19 @@ The document's outline, for a host's navigation panel: its headings and the one 
 
 Implementation: `src/engine/outline.ts`
 Verification: `src/engine/outline.test.ts`
+
+### DOCE-OUTLINE-1.2 - Numbers
+
+Given the template, `documentOutline(state, template)` shall give each heading its number as the template numbers it (DOCE-CONTENTS-1.1), and an empty number without one.
+
+Implementation: `src/engine/outline.ts`
+Verification: `src/engine/outline.test.ts`
+
+## DOCE-OUTLINE-2 - The outline panel
+
+### DOCE-OUTLINE-2.1 - Navigating by heading
+
+`DocumentOutline`, inside an editor or given its context, shall show the document's headings with element ids as the base library's `Outline`, each with its number and text, the one the selection is under current, collapsing below `collapseBelowLevel`, leaving out the headings `include` refuses; choosing one takes the reader to it without moving the selection (`revealElement`).
+
+Implementation: `src/components/document-panels/document-outline.tsx`
+Verification: `e2e/document-panels.spec.ts`
