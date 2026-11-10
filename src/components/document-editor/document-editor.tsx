@@ -30,6 +30,8 @@ import type {
   AssetAdapter,
   CodeSourceAdapter,
   FeedbackAdapter,
+  GlossaryAdapter,
+  ReferenceSourceAdapter,
   TelemetryAdapter,
 } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
@@ -49,6 +51,7 @@ import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import {
   isFindKey,
+  isReferenceKey,
   READ_SELECTION_FIRST,
   useDispatchBody,
   useEngineView,
@@ -144,6 +147,10 @@ export interface DocumentEditorProps
   assets?: AssetAdapter | undefined;
   /** Resolves the code linked code blocks show; without it the editor offers no linked code. */
   codeSource?: CodeSourceAdapter | undefined;
+  /** Finds citations of other documents, which the reference dialog then offers. */
+  referenceSource?: ReferenceSourceAdapter | undefined;
+  /** The glossary abbreviations cite; without it the editor offers no abbreviations. */
+  glossary?: GlossaryAdapter | undefined;
   /** Tells the reader what failed, such as an upload. */
   feedback?: FeedbackAdapter | undefined;
   /** The symbol picker's characters, in place of the editor's own. */
@@ -170,13 +177,15 @@ interface EditorBodyProps {
   props: DocumentEditorProps;
   /** Opens the find bar, while the editor has one. */
   onFind: (() => void) | null;
+  /** Opens one of the editor's dialogs, while the writer can edit. */
+  onDialog: ((dialog: ObjectDialog) => void) | null;
   engine: ReturnType<typeof useEngineView>;
   labels: DocumentEditorLabels;
   startCommentRef: RefObject<(() => void) | null>;
 }
 
 // The document in its engine, with the comments margin, the caller's chrome and the table handles.
-function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBodyProps) {
+function EditorBody({ props, engine, labels, startCommentRef, onFind, onDialog }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
   const host = useHostViewProps(props);
   const { assets, feedback } = props;
@@ -188,6 +197,11 @@ function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBo
       attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
         if (host.handleKeyDown?.(view, event)) return true;
+        if (onDialog && isReferenceKey(event)) {
+          event.preventDefault();
+          onDialog({ kind: 'reference' });
+          return true;
+        }
         if (!onFind || !isFindKey(event)) return false;
         event.preventDefault();
         onFind();
@@ -199,7 +213,7 @@ function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBo
         ...(host.blur ? { blur: host.blur } : {}),
       },
     }),
-    [editable, host, onFind, assets, feedback, labels],
+    [editable, host, onFind, onDialog, assets, feedback, labels],
   );
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
@@ -304,6 +318,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
       labels={labels}
       startCommentRef={startCommentRef}
       onFind={openFind}
+      onDialog={editable ? setDialog : null}
     />
   );
   return (
@@ -333,6 +348,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
           labels={labels}
           assets={props.assets}
           codeSource={props.codeSource}
+          referenceSource={props.referenceSource}
+          glossary={props.glossary}
+          template={template}
           onClose={() => setDialog(null)}
         />
       </div>

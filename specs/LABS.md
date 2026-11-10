@@ -66,7 +66,7 @@ Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-LABS-3.2 - The full editor
 
-The full editor lab shall show the document editor with every feature on, as a host assembles it: the comments margin over the in-memory host's comment store, suggest mode and how suggestions show, proofing with two proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own toolbar items, context menu entries and locked paragraph, collaborators' carets, an agent working through the automation API, and figures and linked code through the in-memory host's assets and code source.
+The full editor lab shall show the document editor with every feature on, as a host assembles it: the comments margin over the in-memory host's comment store, suggest mode and how suggestions show, proofing with two proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own toolbar items, context menu entries and locked paragraph, collaborators' carets, an agent working through the automation API, figures and linked code through the in-memory host's assets and code source, and references and abbreviations through its citations and glossary.
 
 Implementation: `labs/src/full-editor.lab.tsx`, `labs/full-editor.html`
 Verification: `e2e/full-editor.spec.ts`

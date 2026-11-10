@@ -11,14 +11,17 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 
 /**
  * A dialog of the editor's that inserts or changes an object at the selection: math, inline or as
- * a block, a figure, a link, linked code, or the caption of a table, figure or code block. It changes the object selected, or inserts one.
+ * a block, a figure, a link, linked code, the caption of a table, figure or code block, a reference
+ * or an abbreviation. It changes the object selected, or inserts one.
  */
 export type ObjectDialog =
   | { readonly kind: 'math'; readonly display: boolean }
   | { readonly kind: 'figure' }
   | { readonly kind: 'link' }
   | { readonly kind: 'linked-code' }
-  | { readonly kind: 'caption' };
+  | { readonly kind: 'caption' }
+  | { readonly kind: 'reference' }
+  | { readonly kind: 'abbreviation' };
 
 /** The editor as its chrome and a host's controls see it. */
 export interface EditorContext {

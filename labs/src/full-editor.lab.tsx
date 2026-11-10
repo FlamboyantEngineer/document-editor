@@ -2,8 +2,8 @@
 // over the in-memory host's comment store, suggest mode and how suggestions show, proofing with two
 // proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own
 // toolbar items, context menu entries and locked paragraph, collaborators' carets, an agent
-// working through the automation API, and figures and linked code through the host's assets and
-// code source.
+// working through the automation API, figures and linked code through the host's assets and code
+// source, and references and abbreviations through its citations and glossary.
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -21,6 +21,7 @@ import {
   createEditLock,
   createPresence,
   createProofing,
+  createReferences,
 } from '../../src/engine/index.js';
 import { createMemoryHost, createWordListProofer } from '../../src/host/index.js';
 import {
@@ -54,8 +55,40 @@ const CODE = {
   ].join('\n'),
 };
 
+// The glossary abbreviations cite, and a citation of another document the host finds.
+const GLOSSARY = [
+  {
+    id: 'glossary-gse',
+    abbreviation: 'GSE',
+    expansion: 'Ground support equipment',
+    archivedAt: null,
+    createdBy: 'ada',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  },
+];
+
+const CITATIONS = [
+  {
+    refType: 'external-document',
+    label: 'PWR-100 Power interface specification',
+    baseline: {
+      version: 1 as const,
+      documentId: 'pwr-100',
+      numbering: 'PWR-100',
+      title: 'Power interface specification',
+      revision: null,
+      revisionLabel: '',
+      target: null,
+      defaultLabel: 'PWR-100',
+    },
+  },
+];
+
 const HOST = createMemoryHost({
   code: CODE,
+  glossary: GLOSSARY,
+  citations: CITATIONS,
   person: { id: 'ada', name: 'Ada Lovelace' },
   people: [{ id: 'grace', name: 'Grace Hopper' }],
   comments: {
@@ -134,6 +167,7 @@ function initialState(): EditorState {
     doc: readDocumentFile(file, schema),
     plugins: [
       createContents({ template: () => TEMPLATE }),
+      createReferences({ template: () => TEMPLATE }),
       createProofing({ proofer: PROOFERS, delay: 200 }),
       createEditLock({ isLocked: isLockedParagraph }),
       createPresence(),
@@ -224,6 +258,8 @@ function Lab() {
         telemetry={host.telemetry}
         assets={HOST.assets}
         codeSource={HOST.codeSource}
+        referenceSource={HOST.references}
+        glossary={HOST.glossary}
         feedback={feedback}
         handleRef={handle}
         {...host.notifications}

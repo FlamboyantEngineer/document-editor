@@ -1,5 +1,7 @@
 import type { DocumentFile } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
+import type { GlossaryEntry } from '../model/glossary.js';
+import type { ReferenceBaseline } from '../model/reference-format.js';
 import type { EditorCapabilities } from './capabilities.js';
 
 /** A failure the host reports for a request it could not complete. */
@@ -127,6 +129,32 @@ export interface CodeSourceAdapter {
   resolve(url: string, signal?: AbortSignal): Promise<HostResult<ResolvedCode>>;
 }
 
+/** A citation of another document, or of a target in it, that a host found. */
+export interface ExternalReference {
+  /** The reference type, such as `external-document`. */
+  refType: string;
+  /** What the citation records of the document cited. */
+  baseline: ReferenceBaseline;
+  /** How a picker names it. */
+  label: string;
+}
+
+/** Where references to other documents come from. */
+export interface ReferenceSourceAdapter {
+  /** The citations whose document or target matches the query. */
+  search(query: string, signal?: AbortSignal): Promise<HostResult<ExternalReference[]>>;
+}
+
+/** The glossary abbreviations cite. */
+export interface GlossaryAdapter {
+  /** The entries whose abbreviation or expansion matches the query. */
+  search(query: string, signal?: AbortSignal): Promise<HostResult<GlossaryEntry[]>>;
+  /** Adds an entry, returning it with the id the host gave it. */
+  create(entry: { abbreviation: string; expansion: string }): Promise<HostResult<GlossaryEntry>>;
+  /** The entries with these ids as they are now, to refresh a document's abbreviations. */
+  resolve(ids: readonly string[]): Promise<HostResult<GlossaryEntry[]>>;
+}
+
 /** One comment of a thread: the opening comment or a reply. */
 export interface CommentEntry {
   id: string;
@@ -248,6 +276,8 @@ export interface EditorHost {
   templates?: TemplateSourceAdapter | undefined;
   assets?: AssetAdapter | undefined;
   codeSource?: CodeSourceAdapter | undefined;
+  references?: ReferenceSourceAdapter | undefined;
+  glossary?: GlossaryAdapter | undefined;
   comments?: CommentStoreAdapter | undefined;
   versions?: VersionStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;

@@ -43,8 +43,12 @@ export function TopChrome({
   onFindClose: () => void;
 }) {
   const linkedCode = Boolean(props.codeSource);
+  const glossary = Boolean(props.glossary);
   const symbols = props.symbols ?? DEFAULT_SYMBOLS;
-  const features = useMemo<InsertFeatures>(() => ({ linkedCode, symbols }), [linkedCode, symbols]);
+  const features = useMemo<InsertFeatures>(
+    () => ({ linkedCode, symbols, glossary }),
+    [linkedCode, symbols, glossary],
+  );
   return (
     <>
       {props.toolbar ? (

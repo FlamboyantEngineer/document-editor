@@ -1,5 +1,14 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type { AbbreviationDisplay, AbbreviationEntry } from './abbreviations.js';
+export {
+  abbreviationAt,
+  documentAbbreviations,
+  insertAbbreviation,
+  refreshAbbreviations,
+  setAbbreviationDisplay,
+  unlinkAbbreviation,
+} from './abbreviations.js';
 export type {
   Actor,
   AutomationEdit,
@@ -155,6 +164,28 @@ export {
 } from './proofing-commands.js';
 export type { TextSegment as ProofingSegment } from './proofing-text.js';
 export { segmentsOf } from './proofing-text.js';
+export type {
+  ReferenceAt,
+  ReferencesOptions,
+  ReferenceSource,
+  ReferenceTarget,
+} from './references.js';
+export {
+  canInsertReference,
+  createReferences,
+  insertReference,
+  internalReferenceText,
+  internalTargetId,
+  isReferenceUpdate,
+  listReferences,
+  referenceAt,
+  referenceBaselineOf,
+  referenceTargets,
+  removeReference,
+  updateReferences,
+} from './references.js';
+export type { RevealOptions } from './reveal.js';
+export { revealElement } from './reveal.js';
 export type { SearchMatch, SearchOptions, SearchState } from './search.js';
 export {
   createSearch,

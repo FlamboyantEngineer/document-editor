@@ -1,5 +1,6 @@
 import type { DocumentFile } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
+import type { GlossaryEntry } from '../model/glossary.js';
 import { sliceCodeLines } from '../model/linked-code.js';
 import type {
   AssetAdapter,
@@ -8,8 +9,11 @@ import type {
   DocumentVersion,
   EditorHost,
   EditorPerson,
+  ExternalReference,
+  GlossaryAdapter,
   HostResult,
   IdentityAdapter,
+  ReferenceSourceAdapter,
   SavedState,
   StoredAsset,
   StoredDocument,
@@ -31,6 +35,10 @@ export interface MemoryHostOptions {
   templates?: readonly TemplateFile[] | undefined;
   /** The comment threads the store starts with, and the time comments are posted at. */
   comments?: MemoryCommentsOptions | undefined;
+  /** The glossary's entries at first. */
+  glossary?: readonly GlossaryEntry[] | undefined;
+  /** The citations of other documents the reference source finds. */
+  citations?: readonly ExternalReference[] | undefined;
   /** Source files the code source resolves, by URL without its fragment. */
   code?: Readonly<Record<string, string>> | undefined;
   /** The time a document is saved at, which its version records. Defaults to now. */
@@ -143,6 +151,63 @@ function createMemoryAssets(): AssetAdapter {
   };
 }
 
+const matches = (query: string, ...values: string[]) => {
+  const wanted = query.trim().toLowerCase();
+  return values.some((value) => value.toLowerCase().includes(wanted));
+};
+
+/** Keeps a glossary in memory: entries found by their abbreviation or expansion, added with ids. */
+function createMemoryGlossary(initial: readonly GlossaryEntry[], now: () => Date): GlossaryAdapter {
+  const entries = new Map(initial.map((entry) => [entry.id, { ...entry }]));
+  const copy = (entry: GlossaryEntry): GlossaryEntry => ({ ...entry });
+  return {
+    search: (query) =>
+      Promise.resolve({
+        ok: true,
+        value: [...entries.values()]
+          .filter(
+            (entry) => !entry.archivedAt && matches(query, entry.abbreviation, entry.expansion),
+          )
+          .map(copy),
+      }),
+    create: ({ abbreviation, expansion }) => {
+      const at = now().toISOString();
+      const entry: GlossaryEntry = {
+        id: `glossary-${String(entries.size + 1)}`,
+        abbreviation: abbreviation.trim(),
+        expansion: expansion.trim(),
+        archivedAt: null,
+        createdBy: 'reader',
+        createdAt: at,
+        updatedAt: at,
+      };
+      entries.set(entry.id, entry);
+      return Promise.resolve({ ok: true, value: copy(entry) });
+    },
+    resolve: (ids) =>
+      Promise.resolve({
+        ok: true,
+        value: ids.flatMap((id) => {
+          const entry = entries.get(id);
+          return entry ? [copy(entry)] : [];
+        }),
+      }),
+  };
+}
+
+/** Finds citations of other documents among those it is given. */
+function createMemoryReferences(citations: readonly ExternalReference[]): ReferenceSourceAdapter {
+  return {
+    search: (query) =>
+      Promise.resolve({
+        ok: true,
+        value: citations
+          .filter((citation) => matches(query, citation.label))
+          .map((citation) => structuredClone(citation)),
+      }),
+  };
+}
+
 /** Resolves linked code from source files by URL, the lines its fragment names. */
 function createMemoryCodeSource(files: Readonly<Record<string, string>>): CodeSourceAdapter {
   return {
@@ -183,6 +248,8 @@ export function createMemoryHost(options: MemoryHostOptions = {}): EditorHost {
     templates: createMemoryTemplates(options.templates ?? []),
     assets: createMemoryAssets(),
     codeSource: createMemoryCodeSource(options.code ?? {}),
+    glossary: createMemoryGlossary(options.glossary ?? [], now),
+    references: createMemoryReferences(options.citations ?? []),
     comments: createMemoryComments(identity, options.comments),
   };
 }
