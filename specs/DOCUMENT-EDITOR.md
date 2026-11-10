@@ -101,6 +101,22 @@ Verification: `e2e/document-editor.spec.ts`
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
 Verification: `e2e/document-editor.spec.ts`
 
+## DOCE-EDITOR-5 - Status bar
+
+### DOCE-EDITOR-5.1 - Showing the status
+
+`statusBar` shall show the editor's status bar (`de-document-editor__status-bar`, the base library's `StatusBar` named by the `statusBar` label) below the document and its frame: on pages, the page holding the caret among the pages (`pageStatus`); the document's words, or the selection's among them (`wordStatus`); and whether the writer is editing, suggesting or reading. Each item is a `de-document-editor__status-item` naming what it reports in `data-status`; the host's `statusItems` follow them. The bar counts the state React defers, so typing never waits on it.
+
+Implementation: `src/components/document-editor/document-status-bar.tsx`, `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-5.2 - Counting pages and words
+
+`documentStatistics(state)` shall return the pages the document is laid out on, the page holding the selection's head, the words of its pages' bodies and footnote areas (`countTextWords`), leaving out page headers and footers and the header rows a later part of a split table repeats, and the words of a selection, or null for a caret or a selection holding no words, such as a selected object. Each block's count is kept for as long as the block, so a changed document is counted again only where it changed.
+
+Implementation: `src/engine/document-statistics.ts`
+Verification: `src/engine/document-statistics.test.ts`
+
 ## Hooks
 
 | Hook                                | Kind      | Values                                  | Description                                             |
@@ -113,6 +129,9 @@ Verification: `e2e/document-editor.spec.ts`
 | `de-document-editor__block-style`   | slot      |                                         | The toolbar's text style field.                         |
 | `de-document-editor__style-preview` | slot      |                                         | A text style's name in the list, in that style.         |
 | `data-block-style`                  | attribute | `paragraph`, `heading-1` to `heading-6` | On a preview: the style it shows.                       |
+| `de-document-editor__status-bar`    | slot      |                                         | The editor's status bar, with `statusBar`.              |
+| `de-document-editor__status-item`   | slot      |                                         | An item of the status bar.                              |
+| `data-status`                       | attribute | `position`, `mode`                      | On a status item: what it reports.                      |
 | `de-document-editor__content`       | slot      |                                         | The document.                                           |
 | `data-layout`                       | attribute | `page`, `web`                           | How the document is laid out.                           |
 | `data-mode`                         | state     | `authoring`, `reading`                  | Whether the writer can edit.                            |

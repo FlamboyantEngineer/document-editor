@@ -30,6 +30,7 @@ import {
   type DocumentCommentsOptions,
 } from '../document-comments/document-comments.js';
 import { DocumentContextMenu } from './document-context-menu.js';
+import { DocumentStatusBar } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { TableHandles } from './table-handles.js';
@@ -70,6 +71,13 @@ export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
    * the host gives the editor its height. Defaults to false.
    */
   scrollable?: boolean | undefined;
+  /**
+   * Shows the editor's status bar below the document: the page holding the caret, the words, and
+   * whether the writer is editing, suggesting or reading. Defaults to false.
+   */
+  statusBar?: boolean | undefined;
+  /** The host's own items at the end of the status bar. */
+  statusItems?: ReactNode;
   /** Whether the document opens the editor's context menu. Defaults to true. */
   contextMenu?: boolean | undefined;
   /** The text of the editor's menus and table handles, beside the defaults. */
@@ -78,7 +86,14 @@ export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
   children?: ReactNode;
 }
 
-const hooks = createHooks('document-editor', ['measure', 'toolbar', 'viewport', 'body', 'content']);
+const hooks = createHooks('document-editor', [
+  'measure',
+  'toolbar',
+  'viewport',
+  'body',
+  'content',
+  'status-bar',
+]);
 
 type DispatchBody = NonNullable<RichTextEngineEvents['dispatchTransaction']>;
 
@@ -192,7 +207,8 @@ function rootData(props: DocumentEditorProps) {
 /**
  * Shows and edits a document. In page layout the pages follow every change; the template's values
  * are set on the editor as `--doc-*` properties for the stylesheet. Optionally the editor shows
- * its toolbar above the document and scrolls the document itself, with overlay scrollbars.
+ * its toolbar above the document and its status bar below it, and scrolls the document itself,
+ * with overlay scrollbars.
  */
 export function DocumentEditor(props: DocumentEditorProps) {
   const { state, onStateChange, template, layout = 'page', editable = true } = props;
@@ -229,6 +245,16 @@ export function DocumentEditor(props: DocumentEditorProps) {
       ) : (
         body
       )}
+      {props.statusBar ? (
+        <DocumentStatusBar
+          {...hooks.slot('status-bar')}
+          state={state}
+          labels={labels}
+          layout={layout}
+          mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
+          items={props.statusItems}
+        />
+      ) : null}
       {props.contextMenu === false ? null : (
         <DocumentContextMenu
           view={engine.view}

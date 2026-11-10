@@ -30,6 +30,8 @@ export {
   insertDocumentSection,
   joinDocumentSectionBackward,
 } from './document-sections.js';
+export type { DocumentStatistics } from './document-statistics.js';
+export { documentStatistics } from './document-statistics.js';
 export {
   changeParagraphLevel,
   clearFormatting,

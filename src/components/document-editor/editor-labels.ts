@@ -54,7 +54,17 @@ export interface DocumentEditorLabels {
   readonly rowHandle: (row: number) => string;
   /** Names a column's handle, such as `Column 3`. */
   readonly columnHandle: (column: number) => string;
+  readonly statusBar: string;
+  /** The page holding the caret, such as `Page 2 of 9`. */
+  readonly pageStatus: (page: number, pages: number) => string;
+  /** The document's words, or the selection's among them: `1,204 words`, `12 of 1,204 words`. */
+  readonly wordStatus: (words: number, selected: number | null) => string;
+  readonly editingMode: string;
+  readonly suggestingMode: string;
+  readonly readingMode: string;
 }
+
+const count = new Intl.NumberFormat('en-US');
 
 /** The editor's English text. */
 export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
@@ -106,4 +116,13 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   splitCell: 'Split cell',
   rowHandle: (row) => `Row ${String(row)}`,
   columnHandle: (column) => `Column ${String(column)}`,
+  statusBar: 'Document status',
+  pageStatus: (page, pages) => `Page ${count.format(page)} of ${count.format(pages)}`,
+  wordStatus: (words, selected) => {
+    const total = `${count.format(words)} ${words === 1 ? 'word' : 'words'}`;
+    return selected === null ? total : `${count.format(selected)} of ${total}`;
+  },
+  editingMode: 'Editing',
+  suggestingMode: 'Suggesting',
+  readingMode: 'Reading',
 };

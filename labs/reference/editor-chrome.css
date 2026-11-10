@@ -184,3 +184,20 @@
   text-decoration: var(--doc-heading-6-text-decoration, none);
   color: var(--doc-heading-6-color, inherit);
 }
+
+/* The status bar below the document: the caret's page and the words, then the writer's mode. */
+.de-document-editor__status-bar {
+  flex: none;
+  padding: 2px 12px;
+  border-top: 1px solid var(--ref-border, #d0d7de);
+  background: var(--ref-raised, #fff);
+  color: var(--ref-text-muted, #59636e);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.de-document-editor__status-item {
+  display: inline-flex;
+  gap: 16px;
+  align-items: center;
+}

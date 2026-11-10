@@ -255,4 +255,28 @@ test.describe('document editor lab', () => {
     await expect(editor(page)).not.toHaveAttribute('data-scrollable');
     await expect(page.locator('.de-document-editor__viewport')).toHaveCount(0);
   });
+
+  test('DOCE-EDITOR-5.1 reports the page of the caret, the words and the mode in the status bar', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const status = page.getByRole('group', { name: 'Document status' });
+    const position = status.locator('.de-document-editor__status-item[data-status="position"]');
+    const total = await pages(page).count();
+    await expect(position).toContainText(`Page 1 of ${String(total)}`);
+    const words = Number(
+      /([\d,]+) words/.exec((await position.textContent()) ?? '')?.[1]?.replace(',', ''),
+    );
+    expect(words).toBeGreaterThan(100);
+    await heading(page, 'Power').click();
+    await expect(position).not.toContainText('Page 1 of');
+    await selectText(page, 'Normal operation');
+    await expect(position).toContainText(/2 of [\d,]+ words/);
+    await expect(status.locator('[data-status="mode"]')).toHaveText('Editing');
+    await page.getByLabel('Authoring').uncheck();
+    await expect(status.locator('[data-status="mode"]')).toHaveText('Reading');
+    await page.getByLabel('Status bar').uncheck();
+    await expect(status).toHaveCount(0);
+  });
 });

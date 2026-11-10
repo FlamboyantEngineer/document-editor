@@ -1,7 +1,7 @@
 // Shows the document editor component (`DocumentEditor`): a sample document in the base template,
 // with the editing keys and a table of contents, shown on pages or in the web layout and switched
-// between authoring and reading without losing its state, with or without its toolbar and its
-// scrolling frame. Right-click anywhere in the document for its context menu, and hover a table
+// between authoring and reading without losing its state, with or without its toolbar, its
+// scrolling frame and its status bar. Right-click anywhere in the document for its context menu, and hover a table
 // for the handles that drag its rows and columns.
 
 import { EditorState } from 'prosemirror-state';
@@ -46,6 +46,7 @@ function Lab() {
   const [editable, setEditable] = useState(true);
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
+  const [statusBar, setStatusBar] = useState(true);
   return (
     <>
       <fieldset>
@@ -89,6 +90,15 @@ function Lab() {
           />{' '}
           Scrolling frame
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="status-bar"
+            checked={statusBar}
+            onChange={(event) => setStatusBar(event.currentTarget.checked)}
+          />{' '}
+          Status bar
+        </label>
       </fieldset>
       <DocumentEditor
         state={state}
@@ -98,6 +108,7 @@ function Lab() {
         editable={editable}
         toolbar={toolbar}
         scrollable={scrollable}
+        statusBar={statusBar}
         className="lab-document-editor"
         aria-label="Sample document"
         events={{

@@ -4,13 +4,18 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 
 const REGIONS = new Set(['page_header', 'page_footer']);
 
+/** How many words a text holds: its runs of characters other than spaces. */
+export function countTextWords(text: string): number {
+  return text.match(/\S+/g)?.length ?? 0;
+}
+
 /** The words in a document's text, its footnotes included and its page headers and footers not. */
 export function countWords(doc: ProseMirrorNode): number {
   let words = 0;
   doc.descendants((node) => {
     if (REGIONS.has(node.type.name)) return false;
     if (!node.isTextblock) return true;
-    words += node.textBetween(0, node.content.size, ' ', ' ').match(/\S+/g)?.length ?? 0;
+    words += countTextWords(node.textBetween(0, node.content.size, ' ', ' '));
     return false;
   });
   return words;
