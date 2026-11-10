@@ -29,9 +29,9 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/st
 
 ### DOCE-EDITOR-2.1 - Editing on pages
 
-Edits shall change the document, the pages and the lists of contents together.
+Edits shall change the document, the pages and the lists of contents together. The reference stylesheet lets pages out of view skip their layout and paint (`content-visibility`), each keeping the size its template gives it, so a long document costs the browser only the pages in view.
 
-Implementation: `src/components/document-editor/document-editor.tsx`, `labs/src/document-editor.lab.tsx`
+Implementation: `src/components/document-editor/document-editor.tsx`, `labs/src/document-editor.lab.tsx`, `labs/reference/document.css`
 Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-2.2 - Switching layouts

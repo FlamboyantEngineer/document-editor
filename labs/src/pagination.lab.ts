@@ -159,6 +159,7 @@ function reportPages(tr: Transaction): void {
   const before = joinDocumentPages(tr.before).doc;
   dataset.labJoinsWhole = String(sameContent(joinDocumentPages(tr.doc).doc, before));
   dataset.labPages = String(document.querySelectorAll('.lab-pages .pm-page').length);
+  dataset.labLayouts = String(Number(dataset.labLayouts ?? 0) + 1);
   dataset.labReady = 'true';
 }
 

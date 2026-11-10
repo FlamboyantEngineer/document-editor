@@ -25,12 +25,14 @@ const firstTable = (page: Page) =>
 
 // The point in the document just inside the first occurrence of a text, scrolled into view.
 async function pointAt(page: Page, value: string) {
-  const point = await content(page).evaluate((element, text) => {
+  const point = await content(page).evaluate(async (element, text) => {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const at = node.textContent?.indexOf(text) ?? -1;
       if (at < 0) continue;
       node.parentElement?.scrollIntoView({ block: 'center' });
+      // A page scrolled into view renders on the next frame.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       const range = document.createRange();
       range.setStart(node, at);
       range.setEnd(node, at + text.length);

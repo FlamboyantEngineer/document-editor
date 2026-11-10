@@ -136,4 +136,25 @@ test.describe('pagination lab', () => {
     await page.keyboard.type('Note: ');
     await expect(entry).toContainText('Note: The meter');
   });
+
+  test('DOCE-PAGINATION-7.1 lays the pages out once the writer pauses, not after every key', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('pagination');
+    const html = page.locator('html');
+    await page
+      .locator('.lab-pages')
+      .getByText('Room 3:')
+      .click({ position: { x: 1, y: 8 } });
+    const before = Number(await html.getAttribute('data-lab-layouts'));
+    await page.keyboard.type('Twelve keys.', { delay: 20 });
+    await expect(html).toHaveAttribute('data-lab-caret-text', /^Room 3:/);
+    await expect
+      .poll(async () => Number(await html.getAttribute('data-lab-layouts')))
+      .toBeGreaterThan(before);
+    await page.waitForTimeout(400);
+    expect(Number(await html.getAttribute('data-lab-layouts')) - before).toBeLessThanOrEqual(2);
+    await expectPagesHoldContent(page);
+  });
 });

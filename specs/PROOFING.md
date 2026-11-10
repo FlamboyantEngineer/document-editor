@@ -20,7 +20,7 @@ Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-1.3 - Changed text
 
-A change shall move the marks with their text and drop the marks of the text it changed, which wait for that text's next check.
+A change shall move the marks with their text and drop each mark whose text it changed, which waits for that text's next check; the cost does not grow with the number of steps a change takes, such as a new layout of the pages. Each block's text is read once for as long as the block lasts.
 
 Implementation: `src/engine/proofing.ts`
 Verification: `src/engine/proofing.test.ts`

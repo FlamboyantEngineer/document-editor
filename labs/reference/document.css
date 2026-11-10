@@ -51,6 +51,16 @@
   flex: 1;
 }
 
+/*
+ * Pages out of view skip their layout and paint, keeping the size the template gives them, so a
+ * long document costs the browser only the pages in view. The measuring view is left out: it must
+ * lay every block out to measure it.
+ */
+.de-document-editor__content .pm-page {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--doc-page-width) auto var(--doc-page-height);
+}
+
 .de-document-editor__measure {
   position: absolute;
   top: 0;

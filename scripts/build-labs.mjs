@@ -3,7 +3,8 @@
 // lab chrome every page loads into labs/build/chrome.js, the settings each page applies from its
 // head into labs/build/boot.js, and the Reference stylesheet labs/reference.css into
 // labs/build/reference.css.
-//   node scripts/build-labs.mjs [--dev] [--watch]
+//   node scripts/build-labs.mjs [--dev] [--profile] [--watch]
+// --profile keeps the production build readable, unminified with source maps, for a profiler.
 
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,6 +15,7 @@ import { flag } from './lib/script.mjs';
 const outdir = join(labsDir, 'build');
 const dev = flag('dev');
 const watch = flag('watch');
+const profile = flag('profile');
 const labs = listLabSources();
 
 rmSync(outdir, { recursive: true, force: true });
@@ -33,8 +35,8 @@ const options = {
   platform: 'browser',
   target: ['es2022'],
   jsx: 'automatic',
-  minify: !dev,
-  sourcemap: dev ? 'linked' : false,
+  minify: !dev && !profile,
+  sourcemap: dev || profile ? 'linked' : false,
   chunkNames: 'chunks/[name]-[hash]',
   define: { 'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production') },
   legalComments: 'none',

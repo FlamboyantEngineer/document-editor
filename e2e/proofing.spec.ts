@@ -9,7 +9,8 @@ const menu = (page: Page) => page.getByRole('menu', { name: 'Document actions' }
 
 // Opens the context menu inside a marked word.
 async function openMenuOn(page: Page, text: string) {
-  await issue(page, text).scrollIntoViewIfNeeded();
+  // Pages out of view render once in view, so wait until the word takes the pointer.
+  await issue(page, text).hover();
   const box = await issue(page, text).boundingBox();
   if (!box) throw new Error('The issue is not drawn');
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
