@@ -138,6 +138,13 @@ Verification: `src/model/templates/template-properties.test.ts`
 Implementation: `src/model/templates/template-properties.ts`
 Verification: `src/model/templates/template-properties.test.ts`
 
+### DOCE-TEMPLATES-5.9 - A section's change bars
+
+A template section may set its own change bars (`changeBars`): `templateProperties` for its scope shall write them over the document's, so the section's pages take them, and write none for a section without, which inherits the document's. The template editor edits them in a section's scope.
+
+Implementation: `src/model/templates/template-properties.ts`, `src/model/format/template-format-shape.ts`, `src/components/template-editor/template-scope.tsx`
+Verification: `src/model/templates/template-properties.test.ts`
+
 ## DOCE-TEMPLATES-6 - Page regions
 
 ### DOCE-TEMPLATES-6.1 - Header and footer content

@@ -106,6 +106,20 @@ Mod-Alt-T shall insert a table of three rows and three columns where a new block
 Implementation: `src/engine/document-editing.ts`
 Verification: `src/engine/table-format.test.ts`
 
+### DOCE-TABLES-3.5 - Selecting cells with Ctrl clicks
+
+A Ctrl or Cmd click in a cell of an editable document shall select the cell (`selectCellTo`), or, while cells of the same table are selected, grow the selection from its first cell to the one clicked; a Ctrl click on a reference follows the reference instead (DOCE-REFERENCES-1.3).
+
+Implementation: `src/engine/table-pointer.ts`, `src/engine/tables.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
+
+### DOCE-TABLES-3.6 - Row heights
+
+Dragging a row's bottom border in an editable document shall set the row's height (`setRowHeight`) on each of its cells once the pointer is released, never below `MIN_ROW_HEIGHT` (16 pixels).
+
+Implementation: `src/engine/table-pointer.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
+
 ## Hooks
 
 | Hook                               | Kind      | Values          | Description                                                |

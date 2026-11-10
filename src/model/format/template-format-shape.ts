@@ -143,6 +143,19 @@ const FOOTNOTES = {
   text: { object: TEXT },
 } as const;
 
+// The margin bars that mark changes, for the document or a section.
+const CHANGE_BARS: SettingShape = {
+  object: {
+    insertions: SWITCH,
+    deletions: SWITCH,
+    modifications: SWITCH,
+    formatting: SWITCH,
+    side: { oneOf: ['left', 'right'] },
+    offset: 'length',
+    width: 'length',
+  },
+};
+
 /** The settings of a template section, beside its name. */
 export const SECTION_SHAPE: SettingShape = {
   object: {
@@ -154,6 +167,7 @@ export const SECTION_SHAPE: SettingShape = {
     content: 'content',
     placeholder: 'content',
     restartNumbering: 'boolean',
+    changeBars: CHANGE_BARS,
     page: PAGE_SHAPE,
     styles: STYLES_SHAPE,
     header: REGION,
@@ -174,17 +188,7 @@ export const TEMPLATE_SHAPE: SettingShape = {
     footer: REGION,
     footnotes: { object: { numbering: { oneOf: ['document', 'page'] }, ...FOOTNOTES } },
     references: { object: { formats: { record: 'text' }, links: { record: 'boolean' } } },
-    changeBars: {
-      object: {
-        insertions: SWITCH,
-        deletions: SWITCH,
-        modifications: SWITCH,
-        formatting: SWITCH,
-        side: { oneOf: ['left', 'right'] },
-        offset: 'length',
-        width: 'length',
-      },
-    },
+    changeBars: CHANGE_BARS,
     sections: { list: SECTION_SHAPE },
     extensions: { record: 'any' },
   },

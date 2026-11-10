@@ -171,4 +171,26 @@ test.describe('table handles', () => {
     const width = Number(await first.getAttribute('data-colwidth'));
     expect(Math.abs(width - (box.width - 120))).toBeLessThan(12);
   });
+
+  test('DOCE-TABLES-3.5 DOCE-TABLES-3.6 selects cells with Ctrl clicks and drags a row taller', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await cell(page, 'Condition').scrollIntoViewIfNeeded();
+    await cell(page, 'Condition').click({ modifiers: ['ControlOrMeta'] });
+    await cell(page, '25 ms').click({ modifiers: ['ControlOrMeta'] });
+    await expect(content(page).locator('.selectedCell')).toHaveCount(4);
+    const start = cell(page, 'Start');
+    const box = await start.boundingBox();
+    if (!box) throw new Error('The cell is not drawn');
+    const edge = { x: box.x + box.width / 2, y: box.y + box.height - 2 };
+    await page.mouse.move(edge.x, edge.y);
+    await page.mouse.down();
+    await page.mouse.move(edge.x, edge.y + 40, { steps: 5 });
+    await page.mouse.up();
+    await expect(start).toHaveAttribute('data-row-height', /^\d+$/);
+    const height = Number(await start.getAttribute('data-row-height'));
+    expect(Math.abs(height - (box.height + 40))).toBeLessThan(8);
+  });
 });

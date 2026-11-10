@@ -240,6 +240,7 @@ export { suggestionsKey, suggestTransaction } from './suggestions.js';
 export type { CellTextAlign, CellVerticalAlign } from './table-format.js';
 export { distributeColumns, insertTableLines, setCellAlignment } from './table-format.js';
 export { inWholeTable } from './table-parts.js';
+export { createTablePointer, MIN_ROW_HEIGHT, selectCellTo, setRowHeight } from './table-pointer.js';
 export type { TableAxis, TableLine } from './tables.js';
 export {
   createTableEditing,

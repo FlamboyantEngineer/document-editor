@@ -184,7 +184,12 @@ export function templateProperties(
     ...textStyleProperties(styles, fontStacks),
     ...numberingProperties(styles),
     ...buildCaptionPlacementVariables(styles),
-    ...(section ? {} : changeBarProperties(template.changeBars)),
+    // A section with change bars of its own sets them over the document's; one without inherits.
+    ...changeBarProperties(
+      section
+        ? section.changeBars && { ...template.changeBars, ...section.changeBars }
+        : template.changeBars,
+    ),
   };
   for (const [name, value] of buildCaptionCssVarEntries(styles, fontStacks)) {
     if (value) properties[name] = value;

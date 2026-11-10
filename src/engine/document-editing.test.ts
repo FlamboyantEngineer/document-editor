@@ -246,11 +246,11 @@ describe('the editing extension', () => {
       'gap-cursor',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(11);
+    expect(kit.buildPlugins(undefined)).toHaveLength(12);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(10);
+    expect(shared.buildPlugins(undefined)).toHaveLength(11);
   });
 
   it('DOCE-EDITING-2.7 selects an object before deleting it', () => {
