@@ -173,6 +173,13 @@ Verification: `e2e/document-editor.spec.ts`
 Implementation: `src/engine/document-statistics.ts`
 Verification: `src/engine/document-statistics.test.ts`
 
+### DOCE-EDITOR-5.3 - Going to a page and switching the layout
+
+On pages, the status bar's page status shall open a field that takes the reader to a page by its number (`scrollToPage`) once committed; with `onLayoutChange`, the bar offers a switch between the pages, pressed while shown, and the web layout.
+
+Implementation: `src/components/document-editor/status-controls.tsx`, `src/components/document-editor/document-status-bar.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-6 - Host integration
 
 ### DOCE-EDITOR-6.1 - Notifications

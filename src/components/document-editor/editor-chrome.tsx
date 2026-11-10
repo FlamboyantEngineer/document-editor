@@ -90,6 +90,7 @@ export function BottomChrome({
           zoom={
             props.onZoomChange ? { value: props.zoom ?? 100, onChange: props.onZoomChange } : null
           }
+          onLayoutChange={props.onLayoutChange}
         />
       ) : null}
       {props.contextMenu === false ? null : (

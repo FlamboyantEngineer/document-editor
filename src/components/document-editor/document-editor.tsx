@@ -118,6 +118,8 @@ export interface DocumentEditorProps
   statusBar?: boolean | undefined;
   /** The host's own items at the end of the status bar. */
   statusItems?: ReactNode;
+  /** Switches the layout: the status bar then offers a switch between pages and the web layout. */
+  onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
   /** The document's zoom, in percent. Defaults to 100. */
   zoom?: number | undefined;
   /** Lets the reader zoom: a zoom control in the status bar, and Ctrl+wheel over the document. */
