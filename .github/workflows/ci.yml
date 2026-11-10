@@ -33,5 +33,7 @@ jobs:
           git config --global --add url."$base".insteadOf "ssh://git@github.com/FlamboyantEngineer/"
           git config --global --add url."$base".insteadOf "git@github.com:FlamboyantEngineer/"
       - run: npm ci
+      # The browser tests need Playwright's own Chromium, which the runner image does not carry.
+      - run: npx playwright install --with-deps chromium
       - name: Checks
         run: npm run check

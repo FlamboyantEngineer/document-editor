@@ -20,6 +20,7 @@ Each file in this directory specifies one component, one family of components, o
 | [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.             |
 | [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.             |
 | [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.            |
+| [LABS.md](LABS.md)                       | Starting the labs locally.                                              |
 | `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.           |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.
