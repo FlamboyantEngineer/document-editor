@@ -38,3 +38,19 @@ The stylesheet, theme and theme attribute shall be read from the page's query st
 
 Implementation: `labs/src/chrome/settings.ts`, `labs/src/chrome/mount.tsx`
 Verification: `labs/src/chrome/settings.test.ts`, `e2e/labs.spec.ts`
+
+## DOCE-LABS-2 - Stress labs
+
+### DOCE-LABS-2.1 - Stress documents
+
+The stress labs shall show a generated document, the same on every load, in the document editor with its toolbar, status bar and scrolling frame, proofed by a word-list proofer, filling the window below their controls: `stress-long`, a very long document of varied content (headings at three levels, text with footnotes, nested lists, tables, code, quotes and rules after a table of contents) in sizes up to a few hundred pages; `stress-tables`, many kinds of tables (small, wide, tall across pages, merged cells, sized columns, long cell text, back to back and in runs) in sets; and `stress-pagination`, the cases pagination finds hardest (a paragraph, a code block, a list and a quote longer than a page, a run of headings, many and long footnotes on one page, page breaks in a row, empty paragraphs, a table row taller than a page and many short blocks). Every page holds its content.
+
+Implementation: `labs/src/stress/stress-documents.ts`, `labs/src/stress/stress-lab.tsx`, `labs/src/stress-long.lab.tsx`, `labs/src/stress-tables.lab.tsx`, `labs/src/stress-pagination.lab.tsx`
+Verification: `e2e/stress.spec.ts`
+
+### DOCE-LABS-2.2 - Layout times
+
+A stress lab shall report how many text blocks its document holds and how long its pages took to lay out, from the start and from the latest edit, and build a larger document from its size picker.
+
+Implementation: `labs/src/stress/stress-lab.tsx`
+Verification: `e2e/stress.spec.ts`

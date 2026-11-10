@@ -20,10 +20,10 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/do
 
 ### DOCE-EDITOR-1.3 - Page layout
 
-In page layout (the default) the editor shall measure the document in a hidden slot inside it, with the state's plugins, and keep each section on pages of its template scope's height inside the margins after every change and when the template changes (DOCE-PAGINATION-7).
+In page layout (the default) the editor shall measure the document in a hidden slot inside it, with the state's plugins, and keep each section on pages of its template scope's height inside the margins after every change and when the template changes (DOCE-PAGINATION-7). A new state the host hands in, such as another document, is laid out the same way.
 
 Implementation: `src/components/document-editor/use-document-layout.ts`
-Verification: `src/components/document-editor/document-editor.test.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/stress.spec.ts`
 
 ## DOCE-EDITOR-2 - Layouts in the browser
 

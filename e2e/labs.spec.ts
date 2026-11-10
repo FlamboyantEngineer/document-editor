@@ -47,7 +47,9 @@ test.describe('lab chrome', () => {
     await chrome(page).getByRole('combobox', { name: 'Theme' }).selectOption('dark');
     await expect(root(page)).toHaveAttribute('data-theme', 'dark');
     await expect(page).toHaveURL(/index\.html\?theme=dark$/);
-    const pagination = page.getByRole('main').getByRole('link', { name: 'Pagination' });
+    const pagination = page
+      .getByRole('main')
+      .getByRole('link', { name: 'Pagination', exact: true });
     await expect(pagination).toHaveAttribute('href', 'pagination.html?theme=dark');
 
     await pagination.click();
