@@ -70,25 +70,37 @@ const UNPROOFED_MARKS = new Set(['code', 'deletion']);
 interface ProofedBlock {
   readonly text: string;
   readonly language: string | null;
-  readonly positions: readonly number[];
+  /** The position of the block's content. */
+  readonly start: number;
+  /** Each character's offset in the block's content. */
+  readonly offsets: readonly number[];
 }
 
-function blockText(block: ProseMirrorNode, start: number): ProofedBlock {
+type BlockText = Omit<ProofedBlock, 'start'>;
+
+// Each block's text, kept for as long as the block is, so a long document is read again only where
+// it changed.
+const blockTexts = new WeakMap<ProseMirrorNode, BlockText>();
+
+function blockText(block: ProseMirrorNode): BlockText {
+  const known = blockTexts.get(block);
+  if (known) return known;
   let text = '';
-  const positions: number[] = [];
+  const offsets: number[] = [];
   block.forEach((child, offset) => {
-    const pos = start + offset;
     const skipped = child.marks.some((mark) => UNPROOFED_MARKS.has(mark.type.name));
     if (child.isText && child.text) {
       text += skipped ? ' '.repeat(child.text.length) : child.text;
-      for (let index = 0; index < child.text.length; index += 1) positions.push(pos + index);
+      for (let index = 0; index < child.text.length; index += 1) offsets.push(offset + index);
     } else {
       text += ' ';
-      positions.push(pos);
+      offsets.push(offset);
     }
   });
   const language = typeof block.attrs.lang === 'string' ? block.attrs.lang : null;
-  return { text, language, positions };
+  const read = { text, language, offsets };
+  blockTexts.set(block, read);
+  return read;
 }
 
 // Each prose block of the document, in order: the pages' bodies and footnote areas, without their
@@ -98,8 +110,8 @@ function proofedBlocks(doc: ProseMirrorNode): ProofedBlock[] {
   doc.descendants((node, pos) => {
     if (UNPROOFED_BLOCKS.has(node.type.name)) return false;
     if (!node.isTextblock) return true;
-    const block = blockText(node, pos + 1);
-    if (block.text.trim()) blocks.push(block);
+    const block = blockText(node);
+    if (block.text.trim()) blocks.push({ ...block, start: pos + 1 });
     return false;
   });
   return blocks;
@@ -113,14 +125,14 @@ function issuesOf(
   const issues: ProofingIssueAt[] = [];
   for (const block of proofedBlocks(doc)) {
     for (const issue of results.get(block.text) ?? []) {
-      const first = block.positions[issue.from];
-      const last = block.positions[issue.to - 1];
+      const first = block.offsets[issue.from];
+      const last = block.offsets[issue.to - 1];
       if (first === undefined || last === undefined || issue.to <= issue.from) continue;
       const text = block.text.slice(issue.from, issue.to);
       if (ignored.has(text)) continue;
       issues.push({
-        from: first,
-        to: last + 1,
+        from: block.start + first,
+        to: block.start + last + 1,
         kind: issue.kind,
         message: issue.message,
         suggestions: issue.suggestions,
@@ -242,21 +254,20 @@ function proofingView(view: EditorView, options: ProofingOptions): PluginView {
   };
 }
 
-// The issues' marks moved through a change, without those on text it changed, which wait for the
-// next check.
+// The issues' marks moved through a change, without those whose text it changed, which wait for
+// the next check. Comparing each mark's text keeps this as cheap for a change of many steps, such as
+// a new layout of the pages, as for a key press.
 function mapDecorations(decorations: DecorationSet, tr: Transaction): DecorationSet {
-  let mapped = decorations.map(tr.mapping, tr.doc);
-  const changed: Decoration[] = [];
-  tr.mapping.maps.forEach((map, index) => {
-    const after = tr.mapping.slice(index + 1);
-    // Each range the step changed: its old start and end, then its new start and end.
-    map.forEach((...range: number[]) => {
-      const [, , newStart = 0, newEnd = 0] = range;
-      changed.push(...mapped.find(after.map(newStart, -1), after.map(newEnd, 1)));
-    });
-  });
-  if (changed.length > 0) mapped = mapped.remove(changed);
-  return mapped;
+  if (decorations === DecorationSet.empty) return decorations;
+  const mapped = decorations.map(tr.mapping, tr.doc);
+  const changed = mapped
+    .find()
+    .filter(
+      (decoration) =>
+        tr.doc.textBetween(decoration.from, decoration.to) !==
+        (decoration.spec as { issue: ProofingIssueAt }).issue.text,
+    );
+  return changed.length > 0 ? mapped.remove(changed) : mapped;
 }
 
 const pendingDocs = new WeakMap<

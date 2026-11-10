@@ -32,6 +32,12 @@ export interface PaginationOptions extends Omit<DocumentLayoutOptions, 'scale' |
   scale?: (() => number) | undefined;
   /** Runs a layout soon and returns how to cancel it; by default on the next animation frame. */
   schedule?: ((run: () => void) => () => void) | undefined;
+  /**
+   * Milliseconds without a further edit before the pages are laid out after one, so a writer
+   * typing is not slowed by a layout per key; never more than four times as long after the first
+   * edit. Defaults to 150; 0 lays out after every edit.
+   */
+  settle?: number | undefined;
 }
 
 /** An editor's pagination: its plugin, and a way to lay the pages out again. */
@@ -130,6 +136,66 @@ interface Runner {
   restart: boolean;
 }
 
+// Holds an edit's layout until the writer pauses for `settle` milliseconds, at most four times as
+// long after the first edit, and until no pointer button is down on the editor, so a layout never
+// lands in the middle of a drag; then asks for it.
+function settleEdits(options: PaginationOptions, request: () => void) {
+  const settle = options.settle ?? 150;
+  const owner = options.measureIn.ownerDocument.defaultView;
+  const edits = { first: 0, last: 0, timer: null as number | null, pressed: false };
+  const now = () => owner?.performance.now() ?? 0;
+  const press = () => {
+    edits.pressed = true;
+  };
+  const release = () => {
+    if (!edits.pressed) return;
+    edits.pressed = false;
+    if (edits.timer === null && edits.first > 0) check();
+  };
+  function check() {
+    const at = now();
+    const quiet = at - edits.last >= settle || at - edits.first >= settle * 4;
+    if (!quiet) wait(Math.min(settle - (at - edits.last), settle * 4 - (at - edits.first)));
+    else if (!edits.pressed) {
+      edits.first = 0;
+      request();
+    }
+  }
+  function wait(delay: number) {
+    edits.timer =
+      owner?.setTimeout(() => {
+        edits.timer = null;
+        check();
+      }, delay) ?? null;
+  }
+  const cancel = () => {
+    if (edits.timer !== null) owner?.clearTimeout(edits.timer);
+    Object.assign(edits, { first: 0, timer: null });
+  };
+  return {
+    /** Starts following the pointer on the editor; returns how to stop. */
+    watch(editor: EditorView) {
+      editor.dom.addEventListener('mousedown', press);
+      owner?.addEventListener('mouseup', release);
+      return () => {
+        editor.dom.removeEventListener('mousedown', press);
+        owner?.removeEventListener('mouseup', release);
+        cancel();
+      };
+    },
+    request() {
+      if (settle <= 0 || !owner) {
+        request();
+        return;
+      }
+      edits.last = now();
+      if (edits.first === 0) edits.first = edits.last;
+      if (edits.timer === null) wait(settle);
+    },
+    cancel,
+  };
+}
+
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
 export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
@@ -163,6 +229,8 @@ export function createPagination(options: PaginationOptions): Pagination {
     runner.cancel ??= schedule(layOut);
   };
 
+  const edits = settleEdits(options, request);
+
   const plugin = new Plugin<boolean>({
     key: paginationKey,
     state: {
@@ -179,13 +247,17 @@ export function createPagination(options: PaginationOptions): Pagination {
         editable: () => false,
         nodeViews: options.nodeViews ?? {},
       });
+      const unwatch = edits.watch(editor);
       request();
       return {
-        update(view) {
+        update(view, previous) {
           runner.editor = view;
-          if (paginationKey.getState(view.state)) request();
+          if (!paginationKey.getState(view.state)) return;
+          if (view.state.doc.eq(previous.doc)) request();
+          else edits.request();
         },
         destroy() {
+          unwatch();
           runner.cancel?.();
           runner.measuring?.destroy();
           Object.assign(runner, { editor: null, measuring: null, cancel: null, restart: false });
@@ -201,6 +273,7 @@ export function createPagination(options: PaginationOptions): Pagination {
         cache.clear();
         runner.restart = true;
       }
+      edits.cancel();
       request();
     },
   };
