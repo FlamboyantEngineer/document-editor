@@ -210,6 +210,20 @@ test.describe('document editor lab', () => {
     await expect(bold).toHaveAttribute('aria-pressed', 'true');
     await expect(content(page).locator('strong', { hasText: 'Normal operation' })).toHaveCount(1);
     await expect(content(page)).toBeFocused();
+    // Each text style shows in its own style, but at the list's size.
+    await toolbar.getByRole('button', { name: /Text style/ }).click();
+    const preview = (style: string) =>
+      page.locator(`.de-document-editor__style-preview[data-block-style="${style}"]`);
+    const look = (style: string) =>
+      preview(style).evaluate((element) => {
+        const { fontWeight, fontSize } = getComputedStyle(element);
+        return { fontWeight, fontSize };
+      });
+    const [paragraph, title] = [await look('paragraph'), await look('heading-1')];
+    expect(title.fontWeight).toBe('700');
+    expect(paragraph.fontWeight).toBe('400');
+    expect(title.fontSize).toBe(paragraph.fontSize);
+    await page.keyboard.press('Escape');
     const tables = await content(page).locator('table').count();
     await toolbar.getByRole('button', { name: 'Insert table' }).click();
     await page.getByRole('grid', { name: 'Insert table' }).press('Enter');
@@ -224,6 +238,12 @@ test.describe('document editor lab', () => {
   }) => {
     await lab.open('document-editor');
     await expect(editor(page)).toHaveAttribute('data-scrollable', 'true');
+    // The editor takes the window's height left, so only the editor scrolls.
+    const pageScrolls = () =>
+      page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
+    expect(await pageScrolls()).toBe(false);
+    const bottom = await editor(page).evaluate((element) => element.getBoundingClientRect().bottom);
+    expect(bottom).toBeGreaterThan((page.viewportSize()?.height ?? 0) - 40);
     const viewport = page.locator('.de-document-editor__viewport .ui-scroll-region__viewport');
     const toolbar = page.locator('.de-document-editor__toolbar');
     await viewport.hover();

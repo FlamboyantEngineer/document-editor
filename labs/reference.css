@@ -75,7 +75,42 @@ fieldset {
   color: var(--ref-danger);
 }
 
-/* The document editor lab gives its scrolling editor a height of its own. */
-.lab-document-editor[data-scrollable] {
-  height: 75vh;
+/*
+ * A lab whose editor scrolls its own document fills the window below the lab toolbar: the page
+ * keeps its heading and controls, and the editor takes the rest of the height, so only the editor
+ * scrolls.
+ */
+:root[data-reference-document] body:has(.lab-fill .de-document-editor[data-scrollable]) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 16px;
+}
+
+/* A flex column keeps both margins between the heading and the text; keep the heading's alone. */
+.lab-fill > h1 + p {
+  margin-top: 0;
+}
+
+.lab-fill :is(h1, p, fieldset) {
+  flex: none;
+}
+
+.lab-fill .lab-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lab-fill .de-document-editor[data-scrollable] {
+  flex: 1;
+  min-height: 0;
 }

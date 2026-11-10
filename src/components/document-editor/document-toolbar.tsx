@@ -30,16 +30,22 @@ import type { MarkType, NodeType } from 'prosemirror-model';
 import { liftListItem } from 'prosemirror-schema-list';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useState } from 'react';
+import { type CSSProperties, useMemo, useState } from 'react';
 import { insertPageBreak, insertTable, wrapInListAndJoin } from '../../engine/index.js';
+import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { runCommand } from './table-actions.js';
+
+// The toolbar's slots, in the editor's hooks.
+const hooks = createHooks('document-editor', ['block-style', 'style-preview']);
 
 interface DocumentToolbarProps {
   view: EditorView | null;
   state: EditorState;
   labels: DocumentEditorLabels;
   editable: boolean;
+  /** The template's `--doc-*` properties, which the text style previews read. */
+  templateStyle: Readonly<Record<string, string>>;
   className?: string | undefined;
 }
 
@@ -100,13 +106,25 @@ function blockStyle(state: EditorState): string | null {
 const canRun = ({ view, state, editable }: ControlContext, command: Command) =>
   editable && view !== null && command(state, undefined, view);
 
+// The template properties a text style preview reads: the paragraph's and the headings'.
+function previewProperties(templateStyle: Readonly<Record<string, string>>): CSSProperties {
+  return Object.fromEntries(
+    Object.entries(templateStyle).filter(([name]) => PREVIEW_PROPERTY.test(name)),
+  ) as CSSProperties;
+}
+
+const PREVIEW_PROPERTY = /^--doc-(paragraph|heading-[1-6])-/;
+
 function BlockStyleSelect({
   context,
   labels,
+  templateStyle,
 }: {
   context: ControlContext;
   labels: DocumentEditorLabels;
+  templateStyle: Readonly<Record<string, string>>;
 }) {
+  const preview = useMemo(() => previewProperties(templateStyle), [templateStyle]);
   const { paragraph, heading } = context.state.schema.nodes;
   const styles = [
     ...(paragraph
@@ -126,11 +144,19 @@ function BlockStyleSelect({
   };
   return (
     <SelectField
+      {...hooks.slot('block-style')}
       size="sm"
+      density="compact"
       label={labels.blockType}
       labelLayout="control-only"
       placeholder={labels.blockType}
       options={styles.map(({ id, label }) => ({ id, label }))}
+      renderOption={(option) => (
+        // Each style's name in the style it sets, but for its size.
+        <span {...hooks.slot('style-preview')} data-block-style={option.id} style={preview}>
+          {option.label}
+        </span>
+      )}
       value={blockStyle(context.state)}
       tracksChanges={false}
       onChange={choose}
@@ -241,6 +267,7 @@ export function DocumentToolbar({
   state,
   labels,
   editable,
+  templateStyle,
   className,
 }: DocumentToolbarProps) {
   const context: ControlContext = { view, state, editable };
@@ -265,7 +292,7 @@ export function DocumentToolbar({
         />
       </ToolbarRowGroup>
       <ToolbarRowSeparator />
-      <BlockStyleSelect context={context} labels={labels} />
+      <BlockStyleSelect context={context} labels={labels} templateStyle={templateStyle} />
       <ToolbarRowSeparator />
       <ToolbarRowGroup>
         <MarkButtons context={context} labels={labels} />

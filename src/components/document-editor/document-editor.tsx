@@ -202,7 +202,8 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const startCommentRef = useRef<(() => void) | null>(null);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
-  const style = useMemo(() => templateProperties(template) as CSSProperties, [template]);
+  const templateStyle = useMemo(() => templateProperties(template), [template]);
+  const style = templateStyle as CSSProperties;
   const body = (
     <EditorBody props={props} engine={engine} labels={labels} startCommentRef={startCommentRef} />
   );
@@ -218,6 +219,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
           state={state}
           labels={labels}
           editable={editable}
+          templateStyle={templateStyle}
         />
       ) : null}
       {props.scrollable ? (

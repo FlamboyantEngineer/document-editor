@@ -89,28 +89,31 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.1 - Toolbar
 
-`toolbar` shall show the editor's toolbar (`de-document-editor__toolbar`, a toolbar named by the `toolbar` label) above the document: undo and redo, the text style of the selected blocks (paragraph or heading 1 to 6), bold, italic, underline, strikethrough and code, bulleted and numbered lists, a table of the size picked in a grid (`insertTable`) and a page break. Formats and lists are pressed while they hold for the selection, a pressed list lifts its items out, every control is disabled while its command cannot run or the document is read, and a pointer press keeps focus in the document.
+`toolbar` shall show the editor's toolbar (`de-document-editor__toolbar`, a toolbar named by the `toolbar` label) above the document: undo and redo, the text style of the selected blocks (paragraph or heading 1 to 6), bold, italic, underline, strikethrough and code, bulleted and numbered lists, a table of the size picked in a grid (`insertTable`) and a page break. The text style field (`de-document-editor__block-style`) names each style in the style it sets (`de-document-editor__style-preview`, with `data-block-style`), reading the template's `--doc-paragraph-*` and `--doc-heading-<level>-*` properties, which each preview carries since the list opens outside the editor, but not its size. Formats and lists are pressed while they hold for the selection, a pressed list lifts its items out, every control is disabled while its command cannot run or the document is read, and a pointer press keeps focus in the document.
 
 Implementation: `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.2 - Scrolling frame
 
-`scrollable` shall scroll the document inside the editor (`de-document-editor__viewport`), with the base library's overlay scrollbars, below the toolbar, which stays in view; the root publishes `data-scrollable` and the host gives the editor its height. Without it the document grows with the page.
+`scrollable` shall scroll the document inside the editor (`de-document-editor__viewport`), with the base library's overlay scrollbars, below the toolbar, which stays in view; the root publishes `data-scrollable` and the host gives the editor its height. Without it the document grows with the page. The document editor lab gives a scrolling editor the window's height left below its controls, so the lab page itself does not scroll.
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
 Verification: `e2e/document-editor.spec.ts`
 
 ## Hooks
 
-| Hook                           | Kind      | Values                 | Description                                             |
-| ------------------------------ | --------- | ---------------------- | ------------------------------------------------------- |
-| `de-document-editor`           | root      |                        | The editor, carrying the template's `--doc-*` values.   |
-| `de-document-editor__measure`  | slot      |                        | The hidden slot the pages are measured in.              |
-| `de-document-editor__toolbar`  | slot      |                        | The editor's toolbar, with `toolbar`.                   |
-| `de-document-editor__viewport` | slot      |                        | The frame that scrolls the document, with `scrollable`. |
-| `de-document-editor__body`     | slot      |                        | The document with its table handles.                    |
-| `de-document-editor__content`  | slot      |                        | The document.                                           |
-| `data-layout`                  | attribute | `page`, `web`          | How the document is laid out.                           |
-| `data-mode`                    | state     | `authoring`, `reading` | Whether the writer can edit.                            |
-| `data-scrollable`              | state     | `true`                 | The editor scrolls the document itself.                 |
+| Hook                                | Kind      | Values                                  | Description                                             |
+| ----------------------------------- | --------- | --------------------------------------- | ------------------------------------------------------- |
+| `de-document-editor`                | root      |                                         | The editor, carrying the template's `--doc-*` values.   |
+| `de-document-editor__measure`       | slot      |                                         | The hidden slot the pages are measured in.              |
+| `de-document-editor__toolbar`       | slot      |                                         | The editor's toolbar, with `toolbar`.                   |
+| `de-document-editor__viewport`      | slot      |                                         | The frame that scrolls the document, with `scrollable`. |
+| `de-document-editor__body`          | slot      |                                         | The document with its table handles.                    |
+| `de-document-editor__block-style`   | slot      |                                         | The toolbar's text style field.                         |
+| `de-document-editor__style-preview` | slot      |                                         | A text style's name in the list, in that style.         |
+| `data-block-style`                  | attribute | `paragraph`, `heading-1` to `heading-6` | On a preview: the style it shows.                       |
+| `de-document-editor__content`       | slot      |                                         | The document.                                           |
+| `data-layout`                       | attribute | `page`, `web`                           | How the document is laid out.                           |
+| `data-mode`                         | state     | `authoring`, `reading`                  | Whether the writer can edit.                            |
+| `data-scrollable`                   | state     | `true`                                  | The editor scrolls the document itself.                 |

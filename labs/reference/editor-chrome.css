@@ -106,3 +106,81 @@
 .de-document-editor th {
   position: relative;
 }
+
+/* The text style field sits in the toolbar's row, its trigger as wide as its longest style name. */
+.de-document-editor__block-style {
+  flex: none;
+  width: 9em;
+  min-width: 0;
+}
+
+.de-document-editor__block-style :is(.ui-select-field__select, .ui-select-field__frame) {
+  flex: 1;
+  min-width: 0;
+}
+
+.de-document-editor__block-style .ui-select-field__trigger {
+  flex: 1;
+  justify-content: space-between;
+}
+
+/* Each text style's name in the template's style, but for its size. */
+.de-document-editor__style-preview {
+  font-family: var(--doc-paragraph-font-family, inherit);
+  font-style: var(--doc-paragraph-font-style, normal);
+  font-weight: var(--doc-paragraph-font-weight, 400);
+  text-decoration: var(--doc-paragraph-text-decoration, none);
+  color: var(--doc-paragraph-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style^='heading-'] {
+  font-weight: 700;
+}
+
+.de-document-editor__style-preview[data-block-style='heading-1'] {
+  font-family: var(--doc-heading-1-font-family, inherit);
+  font-style: var(--doc-heading-1-font-style, normal);
+  font-weight: var(--doc-heading-1-font-weight, 700);
+  text-decoration: var(--doc-heading-1-text-decoration, none);
+  color: var(--doc-heading-1-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-2'] {
+  font-family: var(--doc-heading-2-font-family, inherit);
+  font-style: var(--doc-heading-2-font-style, normal);
+  font-weight: var(--doc-heading-2-font-weight, 700);
+  text-decoration: var(--doc-heading-2-text-decoration, none);
+  color: var(--doc-heading-2-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-3'] {
+  font-family: var(--doc-heading-3-font-family, inherit);
+  font-style: var(--doc-heading-3-font-style, normal);
+  font-weight: var(--doc-heading-3-font-weight, 700);
+  text-decoration: var(--doc-heading-3-text-decoration, none);
+  color: var(--doc-heading-3-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-4'] {
+  font-family: var(--doc-heading-4-font-family, inherit);
+  font-style: var(--doc-heading-4-font-style, normal);
+  font-weight: var(--doc-heading-4-font-weight, 700);
+  text-decoration: var(--doc-heading-4-text-decoration, none);
+  color: var(--doc-heading-4-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-5'] {
+  font-family: var(--doc-heading-5-font-family, inherit);
+  font-style: var(--doc-heading-5-font-style, normal);
+  font-weight: var(--doc-heading-5-font-weight, 700);
+  text-decoration: var(--doc-heading-5-text-decoration, none);
+  color: var(--doc-heading-5-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-6'] {
+  font-family: var(--doc-heading-6-font-family, inherit);
+  font-style: var(--doc-heading-6-font-style, normal);
+  font-weight: var(--doc-heading-6-font-weight, 700);
+  text-decoration: var(--doc-heading-6-text-decoration, none);
+  color: var(--doc-heading-6-color, inherit);
+}
