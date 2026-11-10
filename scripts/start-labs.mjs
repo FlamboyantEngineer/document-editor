@@ -12,10 +12,13 @@ import { flag, root } from './lib/script.mjs';
 const dryRun = flag('dry-run');
 
 // What labs/build is made from. npm rewrites node_modules/.package-lock.json on every install.
-// The base library's reference stylesheet comes in with the installed dependencies.
+// The base library's reference stylesheet comes in with the installed dependencies; the lab
+// stylesheets (labs/reference.css and the partials it bundles) are built into labs/build too.
 const BUILD_SOURCES = [
   'src',
   'labs/src',
+  'labs/reference.css',
+  'labs/reference',
   'node_modules/.package-lock.json',
   'package.json',
   'tsconfig.json',

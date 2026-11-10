@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.{ts,tsx}', 'test/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'labs/src/**/*.test.{ts,tsx}', 'test/**/*.test.{ts,tsx}'],
     setupFiles: ['test/setup.ts'],
     // Each file runs in its own VM context: a fresh jsdom window and a fresh module graph, React Aria
     // included, so native observers, queued overlay callbacks and module state cannot reach another

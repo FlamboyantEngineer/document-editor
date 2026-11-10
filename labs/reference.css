@@ -1,0 +1,75 @@
+/*
+ * The labs' Reference stylesheet, bundled into labs/build/reference.css: the base library's
+ * reference stylesheet for its controls and its theme tokens, the document reference stylesheet,
+ * and the lab pages' own layout. Everything around the pages reads the theme's `--ref-*` tokens;
+ * the pages stay paper.
+ */
+
+@import '@flamboyantengineer/ui-components/reference.css';
+@import './reference/document.css';
+
+:root[data-reference-document] {
+  background: var(--ref-surface);
+}
+
+:root[data-reference-document] body {
+  margin: 0;
+  font-size: 1rem;
+}
+
+#lab-root,
+#lab-index {
+  padding: 16px 24px 48px;
+}
+
+#lab-index a {
+  color: var(--ref-accent-ink);
+}
+
+fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin: 0 0 16px;
+  border: 0;
+  padding: 0;
+}
+
+/* A lab's document beside a side panel, which stays in view below the lab toolbar. */
+.lab-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+.lab-layout > aside {
+  position: sticky;
+  top: 64px;
+  padding: 12px 16px;
+  border: 1px solid var(--ref-border);
+  border-radius: 8px;
+  background: var(--ref-raised);
+  color: var(--ref-text);
+}
+
+/* The suggestions lab lists each suggestion with its writer and text. */
+.lab-suggestions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lab-suggestions li {
+  padding: 8px 0;
+  border-top: 1px solid var(--ref-border);
+}
+
+.lab-suggestions ins {
+  color: var(--ref-success);
+}
+
+.lab-suggestions del {
+  color: var(--ref-danger);
+}
