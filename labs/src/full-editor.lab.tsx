@@ -1,12 +1,13 @@
 // The document editor with every feature on, as a host would assemble it: the comments margin
 // over the in-memory host's comment store, suggest mode and how suggestions show, proofing with two
 // proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own
-// toolbar items, context menu entries and locked paragraph, collaborators' carets, and an agent
-// working through the automation API.
+// toolbar items, context menu entries and locked paragraph, collaborators' carets, an agent
+// working through the automation API, and figures and linked code through the host's assets and
+// code source.
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -43,7 +44,18 @@ const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   baseTemplateId: BASE_TEMPLATE_ID,
 });
 
+// The source files the in-memory host's code source resolves linked code from.
+const CODE = {
+  'https://example.com/firmware/clock.ts': [
+    'export function tick(now: number): number {',
+    '  const elapsed = now - started;',
+    '  return elapsed / PERIOD;',
+    '}',
+  ].join('\n'),
+};
+
 const HOST = createMemoryHost({
+  code: CODE,
   person: { id: 'ada', name: 'Ada Lovelace' },
   people: [{ id: 'grace', name: 'Grace Hopper' }],
   comments: {
@@ -79,7 +91,10 @@ const PROOFERS = [
 ];
 
 function initialState(): EditorState {
-  const schema = createDocumentSchema();
+  // Uploaded figures show from the in-memory host's assets.
+  const schema = createDocumentSchema({
+    schema: { assetPreviewUrl: (id: string) => HOST.assets?.resolveUrl(id) ?? '' },
+  });
   const file = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power']);
   const content = file.sections[0]?.content ?? [];
   content.unshift({ type: 'contents', attrs: { kind: 'toc', depth: 2 } });
@@ -140,6 +155,12 @@ function Lab() {
   const [collaborators, setCollaborators] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
+  // What the host's feedback last told the reader, such as a failed upload.
+  const [notice, setNotice] = useState('');
+  const feedback = useMemo(
+    () => ({ notify: ({ text: message }: { text: string }) => setNotice(message) }),
+    [],
+  );
   useEffect(
     () => (view && collaborators ? startCollaborators(view) : undefined),
     [view, collaborators],
@@ -183,6 +204,9 @@ function Lab() {
       </fieldset>
       <AgentPanel view={view} />
       <HostPanel report={host.report} handle={handle} />
+      <p role="status" aria-label="Host feedback">
+        {notice}
+      </p>
       <DocumentEditor
         state={state}
         onStateChange={setState}
@@ -198,6 +222,9 @@ function Lab() {
         zoom={zoom}
         onZoomChange={setZoom}
         telemetry={host.telemetry}
+        assets={HOST.assets}
+        codeSource={HOST.codeSource}
+        feedback={feedback}
         handleRef={handle}
         {...host.notifications}
         comments={

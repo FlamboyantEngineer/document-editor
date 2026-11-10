@@ -1,5 +1,6 @@
 export type {
   AssetAdapter,
+  CodeSourceAdapter,
   CommentEntry,
   CommentStoreAdapter,
   CommentThread,
@@ -20,6 +21,7 @@ export type {
   ProofingKind,
   ProofingLanguage,
   ProofingText,
+  ResolvedCode,
   StoredAsset,
   StoredDocument,
   StoredTemplate,

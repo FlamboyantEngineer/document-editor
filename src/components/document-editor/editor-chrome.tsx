@@ -3,7 +3,7 @@
 
 import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorView } from 'prosemirror-view';
-import { type RefObject, useEffect } from 'react';
+import { type RefObject, useEffect, useMemo } from 'react';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { DocumentContextMenu } from './document-context-menu.js';
@@ -11,7 +11,9 @@ import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentFindBar } from './document-find-bar.js';
 import { DocumentStatusBar, ZOOM_LEVELS } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
-import type { EditorContext } from './editor-context.js';
+import type { EditorContext, ObjectDialog } from './editor-context.js';
+import type { InsertFeatures } from './insert-controls.js';
+import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
 // The chrome's slots, in the editor's hooks.
@@ -40,6 +42,9 @@ export function TopChrome({
   finding: boolean;
   onFindClose: () => void;
 }) {
+  const linkedCode = Boolean(props.codeSource);
+  const symbols = props.symbols ?? DEFAULT_SYMBOLS;
+  const features = useMemo<InsertFeatures>(() => ({ linkedCode, symbols }), [linkedCode, symbols]);
   return (
     <>
       {props.toolbar ? (
@@ -48,6 +53,7 @@ export function TopChrome({
           context={context}
           options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
           templateStyle={templateStyle}
+          features={features}
         />
       ) : null}
       {props.find && finding ? (
@@ -58,7 +64,13 @@ export function TopChrome({
 }
 
 /** The status bar below the document, and the context menu. */
-export function BottomChrome({ props, context, view, startCommentRef }: ChromeProps) {
+export function BottomChrome({
+  props,
+  context,
+  view,
+  startCommentRef,
+  openDialog,
+}: ChromeProps & { openDialog: (dialog: ObjectDialog) => void }) {
   const { layout = 'page', editable = true, suggesting = false } = props;
   return (
     <>
@@ -83,6 +95,9 @@ export function BottomChrome({ props, context, view, startCommentRef }: ChromePr
           editable={editable}
           canDecide={editable && !suggesting}
           startCommentRef={startCommentRef}
+          openDialog={openDialog}
+          linkedCode={Boolean(props.codeSource)}
+          codeLanguages={props.codeLanguages}
           options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
         />
       )}

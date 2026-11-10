@@ -2,6 +2,7 @@
 // or read. The caller holds the editor state, as with every engine of the base library, so
 // commands, toolbars and saving work on the same state the editor shows.
 
+import type { CharacterGridCategory } from '@flamboyantengineer/ui-components/character-grid';
 import type { AriaLabellingProps, BaseProps } from '@flamboyantengineer/ui-components/core';
 import {
   RichTextEngineContent,
@@ -25,7 +26,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { TelemetryAdapter } from '../../host/index.js';
+import type {
+  AssetAdapter,
+  CodeSourceAdapter,
+  FeedbackAdapter,
+  TelemetryAdapter,
+} from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import {
@@ -34,9 +40,11 @@ import {
 } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
-import { createEditorContext, DocumentEditorContext } from './editor-context.js';
+import { createEditorContext, DocumentEditorContext, type ObjectDialog } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
+import { figurePasteHandlers } from './figure-paste.js';
+import { ObjectDialogs } from './object-dialogs.js';
 import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import {
@@ -129,6 +137,19 @@ export interface DocumentEditorProps
    * arrangement when given as options. Defaults to true.
    */
   contextMenu?: boolean | DocumentContextMenuOptions | undefined;
+  /**
+   * Stores the figures the writer uploads, pastes or drops; without it a figure is inserted by
+   * address.
+   */
+  assets?: AssetAdapter | undefined;
+  /** Resolves the code linked code blocks show; without it the editor offers no linked code. */
+  codeSource?: CodeSourceAdapter | undefined;
+  /** Tells the reader what failed, such as an upload. */
+  feedback?: FeedbackAdapter | undefined;
+  /** The symbol picker's characters, in place of the editor's own. */
+  symbols?: readonly CharacterGridCategory[] | undefined;
+  /** The languages a code block's language menu offers, in place of the editor's own. */
+  codeLanguages?: readonly string[] | undefined;
   /** The text of the editor's menus and table handles, beside the defaults. */
   labels?: Partial<DocumentEditorLabels> | undefined;
   /** Chrome inside the editor's engine, such as a toolbar reading its state. */
@@ -158,8 +179,10 @@ interface EditorBodyProps {
 function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
   const host = useHostViewProps(props);
+  const { assets, feedback } = props;
   const viewProps = useMemo(
     () => ({
+      ...(assets ? figurePasteHandlers({ assets, feedback, failure: labels.uploadFailed }) : {}),
       editable: () => editable,
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
@@ -176,7 +199,7 @@ function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBo
         ...(host.blur ? { blur: host.blur } : {}),
       },
     }),
-    [editable, host, onFind],
+    [editable, host, onFind, assets, feedback, labels],
   );
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
@@ -266,8 +289,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
+  const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(
-    () => createEditorContext(engine.view, state, { editable, labels }),
+    () => createEditorContext(engine.view, state, { editable, labels, openDialog: setDialog }),
     [engine.view, state, editable, labels],
   );
   const [finding, setFinding] = useState(false);
@@ -302,7 +326,15 @@ export function DocumentEditor(props: DocumentEditorProps) {
         ) : (
           body
         )}
-        <BottomChrome {...chrome} />
+        <BottomChrome {...chrome} openDialog={setDialog} />
+        <ObjectDialogs
+          dialog={editable ? dialog : null}
+          view={engine.view}
+          labels={labels}
+          assets={props.assets}
+          codeSource={props.codeSource}
+          onClose={() => setDialog(null)}
+        />
       </div>
     </DocumentEditorContext>
   );

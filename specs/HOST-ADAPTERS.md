@@ -53,6 +53,13 @@ The host's `proofer` adapter shall check texts (`check(texts, { signal })`), res
 Implementation: `src/host/adapters.ts`
 Verification: `src/engine/proofing.test.ts`
 
+### DOCE-HOST-1.8 - Assets and linked code
+
+The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from. The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/host/memory-host.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
@@ -111,4 +118,11 @@ Verification: `src/host/memory-host.test.ts`
 The in-memory host shall keep every state of a document it saves as a version, attributed to the reader at `options.now`, from the state it started with.
 
 Implementation: `src/host/memory-host.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.6 - In-memory linked code
+
+The in-memory host's code source shall resolve a URL from the source files of `options.code`, by the URL without its fragment, to the lines its fragment names, and a URL it has no file for to a `not-found` error.
+
+Implementation: `src/host/memory-host.ts`, `src/model/linked-code.ts`
 Verification: `src/host/memory-host.test.ts`

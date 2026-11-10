@@ -29,12 +29,15 @@ import { insertPageBreak, insertTable, wrapInListAndJoin } from '../../engine/in
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { type InsertFeatures, insertItems, linkItem } from './insert-controls.js';
+import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { ToolbarButtonItem, ToolbarGroup, ToolbarItem } from './toolbar-items.js';
 
 // The toolbar's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['block-style', 'style-preview']);
 
-type Labelled = 'bold' | 'italic' | 'underline' | 'strikethrough' | 'code';
+type Labelled =
+  'bold' | 'italic' | 'underline' | 'strikethrough' | 'code' | 'superscript' | 'subscript';
 
 const MARKS = [
   { id: 'bold', name: 'strong', icon: BoldGlyph, shortcut: 'Ctrl+B' },
@@ -42,6 +45,8 @@ const MARKS = [
   { id: 'underline', name: 'underline', icon: UnderlineGlyph, shortcut: 'Ctrl+U' },
   { id: 'strikethrough', name: 'strike', icon: StrikethroughGlyph, shortcut: 'Ctrl+Shift+S' },
   { id: 'code', name: 'code', icon: CodeGlyph, shortcut: 'Ctrl+Alt+I' },
+  { id: 'superscript', name: 'superscript', icon: <span>x²</span>, shortcut: 'Ctrl+.' },
+  { id: 'subscript', name: 'subscript', icon: <span>x₂</span>, shortcut: 'Ctrl+,' },
 ] as const satisfies readonly { id: Labelled; name: string; icon: unknown; shortcut: string }[];
 
 const LISTS = [
@@ -234,7 +239,13 @@ function listItems(schema: Schema, labels: DocumentEditorLabels): ToolbarItem[] 
 export function builtInToolbarGroups(
   schema: Schema,
   labels: DocumentEditorLabels,
-  templateStyle: Readonly<Record<string, string>>,
+  {
+    templateStyle,
+    features = { linkedCode: false, symbols: DEFAULT_SYMBOLS },
+  }: {
+    readonly templateStyle: Readonly<Record<string, string>>;
+    readonly features?: InsertFeatures | undefined;
+  },
 ): ToolbarGroup[] {
   return [
     {
@@ -254,7 +265,7 @@ export function builtInToolbarGroups(
         },
       ],
     },
-    { id: 'marks', items: markItems(schema, labels) },
+    { id: 'marks', items: [...markItems(schema, labels), linkItem(labels)] },
     { id: 'lists', items: listItems(schema, labels) },
     {
       id: 'insert',
@@ -268,6 +279,7 @@ export function builtInToolbarGroups(
           { id: 'page-break', label: labels.pageBreak, shortcut: 'Ctrl+Alt+Enter' },
           insertPageBreak,
         ),
+        ...insertItems(labels, features),
       ],
     },
   ];

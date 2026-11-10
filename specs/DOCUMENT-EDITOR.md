@@ -94,7 +94,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.6 - The host's entries
 
-`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context, and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
+`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `element`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context, and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
 
 Implementation: `src/components/document-editor/context-target.ts`, `src/components/document-editor/context-providers.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/document-context-menu.tsx`, `labs/src/host-context-menu.ts`
 Verification: `e2e/document-editor.spec.ts`
@@ -106,11 +106,18 @@ At a locked position (DOCE-EDITING-4.1) the editor shall offer nothing that chan
 Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-editor/editor-context.ts`, `src/components/document-editor/table-handles.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-3.8 - The element at the selection
+
+In an editable document the menu shall offer, for the element at the selection: on a footnote's marker, to edit its entry, and in its entry, to go to its marker, and either way to delete the footnote (DOCE-FOOTNOTES-1.4); on math, to edit it in the math dialog and to convert it between inline and display (DOCE-OBJECTS-1.3); in a code block, its language from `codeLanguages` (by default `CODE_LANGUAGES`), the current one checked, and for linked code, while the host resolves it, to edit it in the linked code dialog; on a figure, to edit it in the figure dialog, and on a figure or a table, to align it left, centred, right or across the page; on a table of contents, its depth; and in a link, to edit or remove it.
+
+Implementation: `src/components/document-editor/element-entries.ts`, `src/components/document-editor/context-entries.ts`
+Verification: `e2e/objects.spec.ts`
+
 ## DOCE-EDITOR-4 - Toolbar and frame
 
 ### DOCE-EDITOR-4.1 - Toolbar
 
-`toolbar` shall show the editor's toolbar (`de-document-editor__toolbar`, a toolbar named by the `toolbar` label) above the document: undo and redo, the text style of the selected blocks (paragraph or heading 1 to 6), bold, italic, underline, strikethrough and code, bulleted and numbered lists, a table of the size picked in a grid (`insertTable`) and a page break. The text style field (`de-document-editor__block-style`) names each style in the style it sets (`de-document-editor__style-preview`, with `data-block-style`), reading the template's `--doc-paragraph-*` and `--doc-heading-<level>-*` properties, which each preview carries since the list opens outside the editor, but not its size. Formats and lists are pressed while they hold for the selection, a pressed list lifts its items out, every control is disabled while its command cannot run or the document is read, and a pointer press keeps focus in the document.
+`toolbar` shall show the editor's toolbar (`de-document-editor__toolbar`, a toolbar named by the `toolbar` label) above the document: undo and redo, the text style of the selected blocks (paragraph or heading 1 to 6), bold, italic, underline, strikethrough, code, superscript and subscript, a link (DOCE-EDITOR-4.5), bulleted and numbered lists, a table of the size picked in a grid (`insertTable`), a page break, and the objects of DOCE-EDITOR-4.5. The text style field (`de-document-editor__block-style`) names each style in the style it sets (`de-document-editor__style-preview`, with `data-block-style`), reading the template's `--doc-paragraph-*` and `--doc-heading-<level>-*` properties, which each preview carries since the list opens outside the editor, but not its size. Formats and lists are pressed while they hold for the selection, a pressed list lifts its items out, every control is disabled while its command cannot run or the document is read, and a pointer press keeps focus in the document.
 
 Implementation: `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/document-editor.spec.ts`
@@ -124,7 +131,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.3 - The host's toolbar items
 
-`toolbar` given as options shall shape the toolbar. The editor's own controls are items with stable ids in groups (`TOOLBAR_GROUPS`: `history`, `block-style`, `marks`, `lists` and `insert`); each of the host's `items` joins the group it names, after its items, and an item naming no group or an unknown one joins a group of that name at the end. `arrange` then receives the groups and returns them reordered, without some items or regrouped. An item is a `button`, drawn as its icon named by its label or as its label, running its action and, given `isPressed`, a toggle pressed while that holds; a `menu`, a button opening its entries; or a `custom` control the host draws. Each receives the editor context, is disabled unless `isEnabled` holds (by default, while the writer can edit) and shows only while `isVisible` holds; groups are separated, an empty group is left out, and each group carries `data-group` and each item `data-item` with its id. `start` and `end` hold the host's own controls before and after the groups (`de-document-editor__toolbar-start`, `de-document-editor__toolbar-end`).
+`toolbar` given as options shall shape the toolbar. The editor's own controls are items with stable ids in groups (`TOOLBAR_GROUPS`: `history`, `block-style`, `marks`, `lists` and `insert`, with the item ids `TOOLBAR_GROUPS` lists); each of the host's `items` joins the group it names, after its items, and an item naming no group or an unknown one joins a group of that name at the end. `arrange` then receives the groups and returns them reordered, without some items or regrouped. An item is a `button`, drawn as its icon named by its label or as its label, running its action and, given `isPressed`, a toggle pressed while that holds; a `menu`, a button opening its entries; or a `custom` control the host draws. Each receives the editor context, is disabled unless `isEnabled` holds (by default, while the writer can edit) and shows only while `isVisible` holds; groups are separated, an empty group is left out, and each group carries `data-group` and each item `data-item` with its id. `start` and `end` hold the host's own controls before and after the groups (`de-document-editor__toolbar-start`, `de-document-editor__toolbar-end`).
 
 Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/toolbar-controls.tsx`, `src/components/document-editor/document-toolbar.tsx`, `labs/src/host-toolbar.tsx`
 Verification: `e2e/document-editor.spec.ts`
@@ -135,6 +142,20 @@ The editor shall hand its context, the engine's view, the state shown, whether t
 
 Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-4.5 - Inserting objects
+
+The toolbar's `insert` group shall insert, after the table and the page break: a footnote (DOCE-FOOTNOTES-1.1); from a menu, a code block, or linked code while the host gives a `codeSource`; from a menu, inline or display math; a figure; from a menu, a list of contents of each kind (DOCE-CONTENTS); and a special character from a symbol picker (`symbols`, by default `DEFAULT_SYMBOLS`). Math, figures, links and linked code open the editor's dialogs (`data-dialog`), which change the object selected or insert one, and hand focus back to the document: math as LaTeX with its preview, prefilled with the selected text; a figure uploaded through the host's `assets`, stored by its asset and snapshot, or by address, with its alternative text, caption and width; a link's address, with removing it; and linked code, which the host's `codeSource` resolves a moment after the address stops changing, previewed, its failure said. A host or a provider opens a dialog through the editor context (`openDialog`).
+
+Implementation: `src/components/document-editor/insert-controls.tsx`, `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/figure-dialog.tsx`, `src/components/document-editor/linked-code-dialog.tsx`
+Verification: `e2e/objects.spec.ts`
+
+### DOCE-EDITOR-4.6 - Pasting and dropping images
+
+With the host's `assets`, images pasted or dropped into an editable document shall be uploaded and inserted as figures where they were pasted or dropped; an upload that fails inserts nothing and says so through the host's `feedback`.
+
+Implementation: `src/components/document-editor/figure-paste.ts`
+Verification: `e2e/objects.spec.ts`
 
 ## DOCE-EDITOR-5 - Status bar
 
@@ -237,6 +258,7 @@ Verification: `e2e/document-editor.spec.ts`
 | `data-status`                           | attribute | `position`, `mode`; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
 | `de-document-editor__content`           | slot      |                                                        | The document.                                                                           |
 | `de-document-editor__zoom`              | slot      |                                                        | The status bar's zoom control, with `onZoomChange`.                                     |
+| `data-dialog`                           | attribute | `math`, `figure`, `link`, `linked-code`                | On one of the editor's dialogs: what it edits.                                          |
 | `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                   | How suggestions show.                                                                   |
 | `--de-zoom`                             | property  |                                                        | The document's zoom, as a factor.                                                       |
 | `data-layout`                           | attribute | `page`, `web`                                          | How the document is laid out.                                                           |

@@ -99,12 +99,32 @@ export interface StoredAsset {
   url: string;
   name: string;
   mediaType: string;
+  /**
+   * The stored snapshot of the asset a document names with its id, such as a figure's; defaults to
+   * the asset's id.
+   */
+  snapshotId?: string | undefined;
 }
 
 export interface AssetAdapter {
   upload(file: File, signal?: AbortSignal): Promise<HostResult<StoredAsset>>;
   /** URL for an asset id stored in a document. */
   resolveUrl(assetId: string): string;
+}
+
+/** Code a URL names, such as a file of a repository with the lines its fragment names. */
+export interface ResolvedCode {
+  code: string;
+  /** Its language, such as `typescript`, when the host knows it. */
+  language?: string | undefined;
+  /** The number of the source's first line the code holds. Defaults to 1. */
+  startLine?: number | undefined;
+}
+
+/** Where linked code comes from. */
+export interface CodeSourceAdapter {
+  /** The code a URL names, such as `https://example.com/repo/main.ts#L10-L20`. */
+  resolve(url: string, signal?: AbortSignal): Promise<HostResult<ResolvedCode>>;
 }
 
 /** One comment of a thread: the opening comment or a reply. */
@@ -227,6 +247,7 @@ export interface EditorHost {
   documents: DocumentStoreAdapter;
   templates?: TemplateSourceAdapter | undefined;
   assets?: AssetAdapter | undefined;
+  codeSource?: CodeSourceAdapter | undefined;
   comments?: CommentStoreAdapter | undefined;
   versions?: VersionStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;

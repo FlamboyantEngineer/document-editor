@@ -1,7 +1,9 @@
 import type { DocumentFile } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
+import { sliceCodeLines } from '../model/linked-code.js';
 import type {
   AssetAdapter,
+  CodeSourceAdapter,
   DocumentStoreAdapter,
   DocumentVersion,
   EditorHost,
@@ -29,6 +31,8 @@ export interface MemoryHostOptions {
   templates?: readonly TemplateFile[] | undefined;
   /** The comment threads the store starts with, and the time comments are posted at. */
   comments?: MemoryCommentsOptions | undefined;
+  /** Source files the code source resolves, by URL without its fragment. */
+  code?: Readonly<Record<string, string>> | undefined;
   /** The time a document is saved at, which its version records. Defaults to now. */
   now?: (() => Date) | undefined;
 }
@@ -139,6 +143,17 @@ function createMemoryAssets(): AssetAdapter {
   };
 }
 
+/** Resolves linked code from source files by URL, the lines its fragment names. */
+function createMemoryCodeSource(files: Readonly<Record<string, string>>): CodeSourceAdapter {
+  return {
+    resolve: (url) => {
+      const source = files[url.trim().replace(/#.*$/, '')];
+      if (source === undefined) return Promise.resolve(notFound(url));
+      return Promise.resolve({ ok: true, value: sliceCodeLines(source, url) });
+    },
+  };
+}
+
 /**
  * A complete host that keeps everything in memory, for demos, tests and standalone use. Saves check
  * the base revision, so conflict handling can be exercised without a server.
@@ -167,6 +182,7 @@ export function createMemoryHost(options: MemoryHostOptions = {}): EditorHost {
     versions: createMemoryVersions(history),
     templates: createMemoryTemplates(options.templates ?? []),
     assets: createMemoryAssets(),
+    codeSource: createMemoryCodeSource(options.code ?? {}),
     comments: createMemoryComments(identity, options.comments),
   };
 }

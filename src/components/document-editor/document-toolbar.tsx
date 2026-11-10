@@ -12,6 +12,7 @@ import {
 import { Fragment, useMemo } from 'react';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
+import type { InsertFeatures } from './insert-controls.js';
 import { builtInToolbarGroups } from './toolbar-controls.js';
 import {
   arrangeToolbar,
@@ -29,6 +30,8 @@ interface DocumentToolbarProps {
   options: DocumentToolbarOptions;
   /** The template's `--doc-*` properties, which the text style previews read. */
   templateStyle: Readonly<Record<string, string>>;
+  /** What the insert items offer. */
+  features?: InsertFeatures | undefined;
   className?: string | undefined;
 }
 
@@ -76,12 +79,13 @@ function Item({ item, context }: { item: ToolbarItem; context: EditorContext }) 
 }
 
 // The groups the editor's own items and the host's make, as the host arranges them.
-function useGroups({ context, options, templateStyle }: DocumentToolbarProps) {
+function useGroups({ context, options, templateStyle, features }: DocumentToolbarProps) {
   const { schema } = context.state;
   const { labels } = context;
   return useMemo(
-    () => arrangeToolbar(builtInToolbarGroups(schema, labels, templateStyle), options),
-    [schema, labels, templateStyle, options],
+    () =>
+      arrangeToolbar(builtInToolbarGroups(schema, labels, { templateStyle, features }), options),
+    [schema, labels, templateStyle, features, options],
   );
 }
 

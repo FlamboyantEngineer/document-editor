@@ -9,6 +9,16 @@ import { createContext, useContext } from 'react';
 import { isPositionLocked } from '../../engine/index.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 
+/**
+ * A dialog of the editor's that inserts or changes an object at the selection: math, inline or as
+ * a block, a figure, a link or linked code. It changes the object selected, or inserts one.
+ */
+export type ObjectDialog =
+  | { readonly kind: 'math'; readonly display: boolean }
+  | { readonly kind: 'figure' }
+  | { readonly kind: 'link' }
+  | { readonly kind: 'linked-code' };
+
 /** The editor as its chrome and a host's controls see it. */
 export interface EditorContext {
   /** The engine's view, once it is mounted. */
@@ -24,20 +34,28 @@ export interface EditorContext {
   canRun(command: Command): boolean;
   /** Runs a command on the view's latest state, then returns focus to the document. */
   run(command: Command): void;
+  /** Opens one of the editor's dialogs for the selection; nothing while the editor has none. */
+  openDialog(dialog: ObjectDialog): void;
 }
 
 /** The editor context for a view and a state. */
 export function createEditorContext(
   view: EditorView | null,
   state: EditorState,
-  options: { readonly editable: boolean; readonly labels: DocumentEditorLabels },
+  options: {
+    readonly editable: boolean;
+    readonly labels: DocumentEditorLabels;
+    readonly openDialog?: ((dialog: ObjectDialog) => void) | undefined;
+  },
 ): EditorContext {
   const locked = isPositionLocked(state, state.selection.head);
+  const { openDialog = () => undefined, ...rest } = options;
   return {
     view,
     state,
-    ...options,
+    ...rest,
     locked,
+    openDialog,
     canRun: (command) =>
       options.editable && !locked && view !== null && command(state, undefined, view),
     run: (command) => {
