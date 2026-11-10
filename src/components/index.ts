@@ -38,19 +38,26 @@ export {
   ZOOM_LEVELS,
 } from './document-editor/index.js';
 export type {
+  RegionContentLabels,
   SettingKind,
   TemplateEditorLabels,
   TemplateEditorProps,
+  TemplateJsonEditorLabels,
+  TemplateJsonEditorProps,
+  TemplateScopeLabels,
   TemplateSetting,
   TemplateSettingSection,
 } from './template-editor/index.js';
 export {
   DEFAULT_TEMPLATE_EDITOR_LABELS,
   PAGE_SIZES,
+  SECTION_SETTINGS,
   settingAt,
   TEMPLATE_SECTIONS,
   TemplateEditor,
+  TemplateJsonEditor,
   TEXT_STYLE_SETTINGS,
   TEXT_STYLES,
+  withSection,
   withSetting,
 } from './template-editor/index.js';
