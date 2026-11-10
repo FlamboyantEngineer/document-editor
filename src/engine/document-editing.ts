@@ -34,6 +34,7 @@ import {
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
 import { createFootnotes, insertFootnote } from './footnotes.js';
+import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createTableEditing, insertTable } from './tables.js';
 
@@ -194,6 +195,7 @@ export function createDocumentEditing(
     createElementIds({ author, isRemote }),
     createFootnotes({ numberInOrder: numbersInOrder(template) }),
     createCommentDraft(),
+    createMathViews(),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
@@ -233,6 +235,11 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'comment-draft',
         priority: 495,
         build: () => [createCommentDraft()],
+      },
+      {
+        name: 'math-views',
+        priority: 500,
+        build: () => [createMathViews()],
       },
       {
         name: 'tables',

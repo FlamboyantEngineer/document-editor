@@ -125,6 +125,8 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { MathViewsOptions } from './math-views.js';
+export { createMathViews } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
 export {
   convertMath,

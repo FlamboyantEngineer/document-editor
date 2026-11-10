@@ -43,7 +43,7 @@ test.describe('objects', () => {
     await expect(marker).toHaveCount(0);
   });
 
-  test('DOCE-EDITOR-4.5 inserts math from its dialog, and DOCE-EDITOR-3.8 converts it', async ({
+  test('DOCE-EDITOR-4.5 DOCE-OBJECTS-1.7 inserts math from its dialog, typeset, and DOCE-EDITOR-3.8 converts it', async ({
     page,
   }) => {
     await newParagraph(page, 'Power', 'Energy is ');
@@ -53,13 +53,13 @@ test.describe('objects', () => {
     await dialog(page).getByRole('textbox', { name: 'LaTeX' }).fill('E = mc^2');
     await dialog(page).getByRole('button', { name: 'Insert' }).click();
     await expect(dialog(page)).toHaveCount(0);
-    const inline = content(page).locator('[data-inline-type="latex"]', { hasText: 'E = mc^2' });
-    await expect(inline).toHaveCount(1);
+    const inline = content(page).locator('.de-math[data-display="inline"]');
+    await expect(inline).toHaveAttribute('data-state', 'ready');
+    await expect(inline.locator('math msup')).toHaveCount(1);
     await inline.click({ button: 'right' });
     await item(page, 'Convert to display math').click();
-    await expect(
-      content(page).locator('[data-block-type="latex"]', { hasText: 'E = mc^2' }),
-    ).toHaveCount(1);
+    const display = content(page).locator('.de-math[data-display="display"]');
+    await expect(display).toHaveAttribute('data-state', 'ready');
     await expect(inline).toHaveCount(0);
   });
 
