@@ -8,7 +8,7 @@
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -20,6 +20,7 @@ import {
   createContents,
   createDocumentEditing,
   createEditLock,
+  createPresence,
   createProofing,
 } from '../../src/engine/index.js';
 import { createWordListProofer } from '../../src/host/index.js';
@@ -32,6 +33,7 @@ import {
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
+import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
@@ -86,6 +88,7 @@ function initialState(): EditorState {
       createContents({ template: () => TEMPLATE }),
       createProofing({ proofer: [PROOFER, ABBREVIATIONS], language: 'en', delay: 200 }),
       createEditLock({ isLocked: isLockedParagraph }),
+      createPresence(),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
     ],
   });
@@ -106,6 +109,11 @@ function Lab() {
   const [view, setView] = useState<EditorView | null>(null);
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
+  const [collaborators, setCollaborators] = useState(false);
+  useEffect(
+    () => (view && collaborators ? startCollaborators(view) : undefined),
+    [view, collaborators],
+  );
   return (
     <>
       <fieldset>
@@ -166,6 +174,15 @@ function Lab() {
             onChange={(event) => setHostItems(event.currentTarget.checked)}
           />{' '}
           Host items
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="collaborators"
+            checked={collaborators}
+            onChange={(event) => setCollaborators(event.currentTarget.checked)}
+          />{' '}
+          Collaborators
         </label>
       </fieldset>
       <AgentPanel view={view} />

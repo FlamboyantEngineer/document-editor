@@ -78,6 +78,17 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { Peer, PresenceState } from './presence.js';
+export {
+  createPresence,
+  isRemoteTransaction,
+  listPeers,
+  markRemote,
+  PRESENCE_COLOR_SLOTS,
+  presenceKey,
+  REMOTE_META,
+  setPeers,
+} from './presence.js';
 export type {
   ProofingIssueAt,
   ProofingOptions,

@@ -3,6 +3,7 @@
 // or reading, then the host's own items. It counts
 // the state React defers, so typing in a long document never waits on the count.
 
+import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
@@ -12,6 +13,7 @@ import { type ReactNode, useDeferredValue, useMemo } from 'react';
 import {
   documentStatistics,
   isProofingPending,
+  listPeers,
   listProofingIssues,
   proofingLanguages,
   proofingState,
@@ -28,6 +30,7 @@ const hooks = createHooks('document-editor', [
   'status-item',
   'proofing-status',
   'proofing-language',
+  'presence',
 ]);
 
 /** What the status bar reports the writer is doing. */
@@ -107,6 +110,27 @@ function ProofingLanguage({ view, state, labels }: ProofingProps) {
   );
 }
 
+// The other people in the document, as avatars.
+function Presence({ state, labels }: { state: EditorState; labels: DocumentEditorLabels }) {
+  const peers = listPeers(state);
+  if (peers.length === 0) return null;
+  return (
+    <AvatarGroup
+      {...hooks.slot('presence')}
+      size="xs"
+      maxVisible={5}
+      nameTooltip
+      aria-label={labels.presence}
+      people={peers.map((peer) => ({
+        id: peer.id,
+        name: peer.name,
+        colorKey: peer.id,
+        ...(peer.avatar ? { src: peer.avatar } : {}),
+      }))}
+    />
+  );
+}
+
 /** The editor's status bar, reporting on the state shown. */
 export function DocumentStatusBar({
   view,
@@ -128,6 +152,7 @@ export function DocumentStatusBar({
         <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
       </span>
       <span {...hooks.slot('status-item', { status: 'mode' })}>
+        <Presence state={deferred} labels={labels} />
         <ProofingLanguage view={view} state={state} labels={labels} />
         <ProofingStatus view={view} state={deferred} labels={labels} />
         <span>{labels[MODE_LABELS[mode]]}</span>

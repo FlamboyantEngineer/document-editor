@@ -195,6 +195,7 @@ Verification: `e2e/document-editor.spec.ts`
 | `de-document-editor__status-item`       | slot      |                                                        | An item of the status bar.                                                              |
 | `de-document-editor__proofing-status`   | slot      |                                                        | The status bar's proofing status and its button (DOCE-PROOFING-3.1).                    |
 | `de-document-editor__proofing-language` | slot      |                                                        | The status bar's proofing language picker (DOCE-PROOFING-3.5).                          |
+| `de-document-editor__presence`          | slot      |                                                        | The status bar's avatars of the other people (DOCE-COLLAB-1.3).                         |
 | `data-pending`                          | state     | `true`                                                 | On the proofing status: some text waits to be checked.                                  |
 | `data-issues`                           | state     | `true`                                                 | On the proofing status: issues are marked.                                              |
 | `data-status`                           | attribute | `position`, `mode`; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
