@@ -384,3 +384,10 @@
 .de-template-editor {
   min-width: 0;
 }
+
+/* The template's JSON editor fills the panel it is in. */
+.de-template-json-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

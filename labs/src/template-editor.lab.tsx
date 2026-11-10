@@ -5,7 +5,7 @@
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor, TemplateEditor } from '../../src/components/index.js';
+import { DocumentEditor, TemplateEditor, TemplateJsonEditor } from '../../src/components/index.js';
 import { assignElementIds, createContents, createDocumentEditing } from '../../src/engine/index.js';
 import {
   BASE_TEMPLATE,
@@ -55,18 +55,34 @@ function initialState(): EditorState {
 function Lab() {
   const [state, setState] = useState(initialState);
   const [own, setOwn] = useState<TemplateFile>(OWN);
+  const [json, setJson] = useState(false);
   const resolved = useMemo(() => resolve(own), [own]);
   useEffect(() => {
     current.template = resolved;
   }, [resolved]);
   return (
     <div className="lab-split">
-      <TemplateEditor
-        template={own}
-        resolved={resolved}
-        onChange={setOwn}
-        className="lab-template-panel"
-      />
+      <div className="lab-template-panel">
+        <label>
+          <input
+            type="checkbox"
+            name="json"
+            checked={json}
+            onChange={(event) => setJson(event.currentTarget.checked)}
+          />{' '}
+          Edit as JSON
+        </label>
+        {json ? (
+          <TemplateJsonEditor template={own} onChange={setOwn} />
+        ) : (
+          <TemplateEditor
+            template={own}
+            resolved={resolved}
+            onChange={setOwn}
+            parentOptions={[{ id: BASE_TEMPLATE_ID, label: 'Base template' }]}
+          />
+        )}
+      </div>
       <DocumentEditor
         state={state}
         onStateChange={setState}

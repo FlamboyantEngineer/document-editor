@@ -234,6 +234,13 @@ export {
   tableLineCount,
   withTableLine,
 } from './tables.js';
+export type { SectionDrift } from './template-sync.js';
+export {
+  anyLock,
+  lockedTemplateSections,
+  syncTemplateSections,
+  templateSectionDrift,
+} from './template-sync.js';
 export type { TextSegment } from './text-diff.js';
 export { diffText } from './text-diff.js';
 export type { VersionChangeDisplay, VersionChangesOptions } from './version-changes.js';

@@ -78,6 +78,29 @@ On pages, the reference stylesheet shall stack every page in one column, each ce
 Implementation: `labs/reference/document.css`, `labs/src/sections.lab.tsx`
 Verification: `e2e/sections.spec.ts`
 
+## DOCE-SECTIONS-4 - Keeping to the template
+
+### DOCE-SECTIONS-4.1 - Drift
+
+`templateSectionDrift(doc, template)` shall list how a document's sections drifted from its template: each required section it lacks (`missing`), each section of a name the template does not have (`unexpected`), and each section the writer cannot edit whose content is not the template's (`stale`), compared block by block by type and text.
+
+Implementation: `src/engine/template-sync.ts`
+Verification: `src/engine/template-sync.test.ts`
+
+### DOCE-SECTIONS-4.2 - Bringing sections back in line
+
+`syncTemplateSections(template)` shall give each stale section the template's content again, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it, with its starting content; it is refused when nothing drifted.
+
+Implementation: `src/engine/template-sync.ts`, `src/engine/document-sections.ts`
+Verification: `src/engine/template-sync.test.ts`
+
+### DOCE-SECTIONS-4.3 - Sections the writer cannot edit
+
+`lockedTemplateSections(template)` shall lock every position of a section the template, or the section itself, does not let the writer edit, for an edit lock (`createEditLock`); `anyLock(...locks)` holds where any lock given holds, so a host keeps its own locks beside it.
+
+Implementation: `src/engine/template-sync.ts`
+Verification: `src/engine/template-sync.test.ts`
+
 ## Hooks
 
 | Hook             | Kind      | Values    | Description                                             |
