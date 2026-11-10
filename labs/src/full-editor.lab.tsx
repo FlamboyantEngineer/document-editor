@@ -1,0 +1,225 @@
+// The document editor with every feature on, as a host would assemble it: the comments margin
+// over the in-memory host's comment store, suggest mode and how suggestions show, proofing with two
+// proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own
+// toolbar items, context menu entries and locked paragraph, collaborators' carets, and an agent
+// working through the automation API.
+
+import { EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
+import { useEffect, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import {
+  DocumentEditor,
+  type DocumentEditorHandle,
+  type DocumentMarkup,
+} from '../../src/components/index.js';
+import {
+  assignElementIds,
+  createContents,
+  createDocumentEditing,
+  createEditLock,
+  createPresence,
+  createProofing,
+} from '../../src/engine/index.js';
+import { createMemoryHost, createWordListProofer } from '../../src/host/index.js';
+import {
+  BASE_TEMPLATE,
+  BASE_TEMPLATE_ID,
+  createDocumentSchema,
+  readDocumentFile,
+  resolveTemplateFile,
+} from '../../src/model/index.js';
+import { isPaginationTransaction } from '../../src/pagination/index.js';
+import { AgentPanel } from './agent-panel.js';
+import { startCollaborators } from './collaborators.js';
+import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
+import { HostPanel, useHostPanel } from './host-panel.js';
+import { HOST_TOOLBAR } from './host-toolbar.js';
+import { sampleDocument, text } from './lab-document.js';
+import { pagesLaidOut } from './lab-ready.js';
+
+const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
+  loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
+  baseTemplateId: BASE_TEMPLATE_ID,
+});
+
+const HOST = createMemoryHost({
+  person: { id: 'ada', name: 'Ada Lovelace' },
+  people: [{ id: 'grace', name: 'Grace Hopper' }],
+  comments: {
+    threads: {
+      full: [
+        {
+          id: 'c0ffee02',
+          state: 'open',
+          quote: 'Normal operation',
+          suggestion: null,
+          entries: [
+            {
+              id: 'e1',
+              author: 'grace',
+              text: 'Does normal operation include start-up?',
+              createdAt: '2026-01-05T09:30:00Z',
+            },
+          ],
+        },
+      ],
+    },
+  },
+});
+
+const PROOFERS = [
+  createWordListProofer({
+    corrections: { teh: ['the'], recieve: ['receive'] },
+    grammar: {
+      'a error': { message: 'Use "an" before a vowel sound.', suggestions: ['an error'] },
+    },
+  }),
+  createWordListProofer({ corrections: { tbd: ['to be decided'] }, kind: 'style' }),
+];
+
+function initialState(): EditorState {
+  const schema = createDocumentSchema();
+  const file = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power']);
+  const content = file.sections[0]?.content ?? [];
+  content.unshift({ type: 'contents', attrs: { kind: 'toc', depth: 2 } });
+  // The first list's first item carries a comment thread, and a later paragraph a suggestion.
+  const list = content.find((block) => block.type === 'bulletList');
+  const first = list?.content?.[0]?.content?.[0];
+  if (first) {
+    first.content = [
+      {
+        ...text('Normal operation'),
+        marks: [{ type: 'comment', attrs: { thread: 'c0ffee02', state: 'open' } }],
+      },
+    ];
+  }
+  content.push(
+    {
+      type: 'paragraph',
+      content: [
+        text('The log keeps '),
+        {
+          ...text('every'),
+          marks: [{ type: 'deletion', attrs: { id: 'a1b2c3d4', author: 'grace' } }],
+        },
+        {
+          ...text('each'),
+          marks: [{ type: 'insertion', attrs: { id: 'a1b2c3d4', author: 'grace' } }],
+        },
+        text(' report. Details are TBD, teh team says, and a error remains.'),
+      ],
+    },
+    {
+      type: 'paragraph',
+      content: [text('Locked by its workflow state: this paragraph cannot change.')],
+    },
+  );
+  const state = EditorState.create({
+    doc: readDocumentFile(file, schema),
+    plugins: [
+      createContents({ template: () => TEMPLATE }),
+      createProofing({ proofer: PROOFERS, delay: 200 }),
+      createEditLock({ isLocked: isLockedParagraph }),
+      createPresence(),
+      ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'ada' }),
+    ],
+  });
+  const tr = state.tr;
+  assignElementIds(tr, {});
+  // The ids a document opens with are no edit of the writer's to undo.
+  return state.apply(tr.setMeta('addToHistory', false));
+}
+
+function Lab() {
+  const [state, setState] = useState(initialState);
+  const [view, setView] = useState<EditorView | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [markup, setMarkup] = useState<DocumentMarkup>('all');
+  const [zoom, setZoom] = useState(100);
+  const [collaborators, setCollaborators] = useState(false);
+  const handle = useRef<DocumentEditorHandle>(null);
+  const host = useHostPanel();
+  useEffect(
+    () => (view && collaborators ? startCollaborators(view) : undefined),
+    [view, collaborators],
+  );
+  const comments = HOST.comments;
+  return (
+    <>
+      <fieldset>
+        <legend>Mode</legend>
+        <label>
+          <input
+            type="checkbox"
+            name="suggesting"
+            checked={suggesting}
+            onChange={(event) => setSuggesting(event.currentTarget.checked)}
+          />{' '}
+          Suggesting
+        </label>
+        <label>
+          Markup{' '}
+          <select
+            name="markup"
+            value={markup}
+            onChange={(event) => setMarkup(event.currentTarget.value as DocumentMarkup)}
+          >
+            <option value="all">All markup</option>
+            <option value="simple">Simple markup</option>
+            <option value="final">No markup</option>
+            <option value="original">Original</option>
+          </select>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="collaborators"
+            checked={collaborators}
+            onChange={(event) => setCollaborators(event.currentTarget.checked)}
+          />{' '}
+          Collaborators
+        </label>
+      </fieldset>
+      <AgentPanel view={view} />
+      <HostPanel report={host.report} handle={handle} />
+      <DocumentEditor
+        state={state}
+        onStateChange={setState}
+        template={TEMPLATE}
+        suggesting={suggesting}
+        author="ada"
+        markup={markup}
+        toolbar={HOST_TOOLBAR}
+        contextMenu={HOST_CONTEXT_MENU}
+        scrollable
+        statusBar
+        find
+        zoom={zoom}
+        onZoomChange={setZoom}
+        telemetry={host.telemetry}
+        handleRef={handle}
+        {...host.notifications}
+        comments={
+          comments && {
+            store: comments,
+            documentId: 'full',
+            identity: HOST.identity,
+            canComment: true,
+          }
+        }
+        className="lab-document-editor"
+        aria-label="Sample document"
+        events={{
+          onMounted: setView,
+          onTransaction: (tr) => {
+            if (isPaginationTransaction(tr)) pagesLaidOut();
+          },
+        }}
+      />
+    </>
+  );
+}
+
+const container = document.querySelector('#lab-editor');
+if (container) createRoot(container).render(<Lab />);

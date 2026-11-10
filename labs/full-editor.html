@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="The document editor with every feature on: comments, suggestions, proofing, find, zoom, the host's items, collaborators and an agent."
+    />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="The cases pagination finds hardest: blocks longer than a page, footnotes, breaks and runs of headings."
+    />
+    <title>Full editor · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/full-editor.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" class="lab-fill">
+      <h1>Full editor</h1>
+      <p>
+        Everything at once, as a host would assemble it: comment in the margin, suggest and decide,
+        proof, find and replace, zoom, and watch collaborators and an agent work in the same
+        document.
+      </p>
+      <div id="lab-editor" class="lab-editor"></div>
+    </main>
+  </body>
+</html>
