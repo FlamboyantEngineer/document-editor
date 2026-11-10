@@ -32,6 +32,8 @@ export {
 } from './document-sections.js';
 export type { DocumentStatistics } from './document-statistics.js';
 export { documentStatistics } from './document-statistics.js';
+export type { EditLockOptions } from './edit-lock.js';
+export { createEditLock, editLockKey, isPositionLocked } from './edit-lock.js';
 export {
   changeParagraphLevel,
   clearFormatting,

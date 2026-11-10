@@ -26,6 +26,7 @@ import {
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { chapter, text } from './lab-document.js';
+import { pagesLaidOut } from './lab-ready.js';
 
 const SECTIONED: TemplateFile = {
   formatVersion: 1,
@@ -117,7 +118,7 @@ function Lab() {
         aria-label="Sample document"
         events={{
           onTransaction: (tr) => {
-            if (isPaginationTransaction(tr)) document.documentElement.dataset.labReady = 'true';
+            if (isPaginationTransaction(tr)) pagesLaidOut();
           },
         }}
       />

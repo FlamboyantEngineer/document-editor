@@ -11,12 +11,17 @@ import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useRef } from 'react';
-import { contextEntries, type ContextEntriesOptions } from './context-entries.js';
+import type { ContextEntriesOptions } from './context-entries.js';
+import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
+import { resolveContextTarget } from './context-target.js';
+import { createEditorContext } from './editor-context.js';
 
 interface DocumentContextMenuProps extends Omit<ContextEntriesOptions, 'startComment'> {
   view: EditorView | null;
   /** Holds the comments margin's way to start a thread, while the reader may comment. */
   startCommentRef: RefObject<(() => void) | null>;
+  /** The host's providers and arrangement. */
+  options: DocumentContextMenuOptions;
 }
 
 // Whether a document position is inside the selection, a selected cell included.
@@ -29,19 +34,20 @@ function isSelected(view: EditorView, pos: number): boolean {
 }
 
 // Moves the selection to where a secondary click landed, unless it landed inside the selection;
-// returns whether it moved.
-function selectAt(view: EditorView, point: { left: number; top: number }): boolean {
+// returns the position it landed on and whether the selection moved.
+function selectAt(view: EditorView, point: { left: number; top: number }) {
   const hit = view.posAtCoords(point);
-  if (!hit || isSelected(view, hit.pos)) return false;
+  const head = view.state.selection.head;
+  if (!hit || isSelected(view, hit.pos)) return { pos: hit?.pos ?? head, moved: false };
   const { doc } = view.state;
   const node = hit.inside >= 0 ? doc.nodeAt(hit.inside) : null;
   const selection =
     node && node.isAtom && NodeSelection.isSelectable(node)
       ? NodeSelection.create(doc, hit.inside)
       : TextSelection.near(doc.resolve(hit.pos));
-  if (selection.eq(view.state.selection)) return false;
+  if (selection.eq(view.state.selection)) return { pos: hit.pos, moved: false };
   view.dispatch(view.state.tr.setSelection(selection));
-  return true;
+  return { pos: hit.pos, moved: true };
 }
 
 const isMenuKey = (event: KeyboardEvent) =>
@@ -58,27 +64,33 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner) return undefined;
-    const show = (anchor: MenuPoint) => {
-      const { startCommentRef, ...options } = latest.current;
-      const items = contextEntries(view, { ...options, startComment: startCommentRef.current });
-      controller.open(anchor, { items });
+    const show = (anchor: MenuPoint, pos: number) => {
+      const { startCommentRef, options: menu, ...options } = latest.current;
+      const { state } = view;
+      const target = resolveContextTarget(state, pos, options.editable);
+      const context = createEditorContext(view, state, {
+        editable: options.editable && !target.locked,
+        labels: options.labels,
+      });
+      const entries = { ...options, startComment: startCommentRef.current };
+      const items = composeContextMenu(view, target, { context, entries, menu });
+      if (items.length > 0) controller.open(anchor, { items });
     };
     const onContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
       event.preventDefault();
       const anchor = { x: event.clientX, y: event.clientY };
       // A moved selection reaches the view once the editor commits it, a frame later.
-      if (selectAt(view, { left: event.clientX, top: event.clientY })) {
-        owner.requestAnimationFrame(() => show(anchor));
-      } else {
-        show(anchor);
-      }
+      const { pos, moved } = selectAt(view, { left: event.clientX, top: event.clientY });
+      if (moved) owner.requestAnimationFrame(() => show(anchor, pos));
+      else show(anchor, pos);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isMenuKey(event) || event.defaultPrevented) return;
       event.preventDefault();
-      const caret = view.coordsAtPos(view.state.selection.head);
-      show({ x: caret.left, y: caret.bottom });
+      const { head } = view.state.selection;
+      const caret = view.coordsAtPos(head);
+      show({ x: caret.left, y: caret.bottom }, head);
     };
     view.dom.addEventListener('contextmenu', onContextMenu);
     view.dom.addEventListener('keydown', onKeyDown);

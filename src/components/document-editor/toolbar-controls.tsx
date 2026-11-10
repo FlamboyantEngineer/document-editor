@@ -144,7 +144,7 @@ function BlockStyleSelect({
       value={blockStyle(context.state)}
       tracksChanges={false}
       onChange={choose}
-      isDisabled={!context.editable}
+      isDisabled={!context.editable || context.locked}
     />
   );
 }

@@ -6,6 +6,7 @@
 import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { createContext, useContext } from 'react';
+import { isPositionLocked } from '../../engine/index.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 
 /** The editor as its chrome and a host's controls see it. */
@@ -16,8 +17,10 @@ export interface EditorContext {
   readonly state: EditorState;
   /** Whether the writer can edit the document now. */
   readonly editable: boolean;
+  /** Whether the selection's head is at a locked position (`createEditLock`). */
+  readonly locked: boolean;
   readonly labels: DocumentEditorLabels;
-  /** Whether a command can run on the state shown, while the writer can edit. */
+  /** Whether a command can run on the state shown, while the writer can edit there. */
   canRun(command: Command): boolean;
   /** Runs a command on the view's latest state, then returns focus to the document. */
   run(command: Command): void;
@@ -29,11 +32,14 @@ export function createEditorContext(
   state: EditorState,
   options: { readonly editable: boolean; readonly labels: DocumentEditorLabels },
 ): EditorContext {
+  const locked = isPositionLocked(state, state.selection.head);
   return {
     view,
     state,
     ...options,
-    canRun: (command) => options.editable && view !== null && command(state, undefined, view),
+    locked,
+    canRun: (command) =>
+      options.editable && !locked && view !== null && command(state, undefined, view),
     run: (command) => {
       if (!view) return;
       command(view.state, view.dispatch, view);
