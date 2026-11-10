@@ -138,6 +138,16 @@ export interface DocumentEditorLabels {
   readonly symbol: string;
   readonly insertAction: string;
   readonly applyAction: string;
+  readonly editCaption: string;
+  /** Shows or hides the caption of the object at the selection. */
+  readonly showCaption: (shown: boolean) => string;
+  readonly alignCells: string;
+  /** Names a cell alignment, such as `Top left`. */
+  readonly cellAlignment: (
+    vertical: 'top' | 'middle' | 'bottom',
+    across: 'left' | 'center' | 'right',
+  ) => string;
+  readonly distributeColumns: string;
 }
 
 const count = new Intl.NumberFormat('en-US');
@@ -282,4 +292,12 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   symbol: 'Symbol',
   insertAction: 'Insert',
   applyAction: 'Apply',
+  editCaption: 'Edit caption…',
+  showCaption: (shown) => (shown ? 'Show caption' : 'Hide caption'),
+  alignCells: 'Align cells',
+  cellAlignment: (vertical, across) => {
+    const down = { top: 'Top', middle: 'Middle', bottom: 'Bottom' }[vertical];
+    return across === 'center' && vertical === 'middle' ? 'Center' : `${down} ${across}`;
+  },
+  distributeColumns: 'Distribute columns',
 };

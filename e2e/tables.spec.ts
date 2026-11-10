@@ -22,6 +22,11 @@ function parts(page: Page) {
     );
 }
 
+// The rows of the lab's first table, its parts joined, without the header rows repeated on later
+// parts.
+const whole = async (page: Page) =>
+  (await parts(page)).flatMap((part, index) => (index === 0 ? part : part.slice(1)));
+
 // Rests the pointer on a cell, brought into view, so its table shows its handles.
 async function hover(page: Page, text: string) {
   await cell(page, text).scrollIntoViewIfNeeded();
@@ -46,8 +51,9 @@ test.describe('table handles', () => {
     page,
   }) => {
     await lab.open('document-editor');
-    await hover(page, 'Run');
-    await expect(page.getByRole('button', { name: 'Row 3' })).toBeVisible();
+    // The table's first part holds its header and Start, under its caption.
+    await hover(page, 'Start');
+    await expect(page.getByRole('button', { name: 'Row 2' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Column 1' })).toBeVisible();
     const row = page.locator('.de-table-handles__grip[data-axis="row"]');
     await expect(row).toHaveAttribute('style', /--de-table-handles-top: -?\d+px/);
@@ -63,8 +69,8 @@ test.describe('table handles', () => {
   }) => {
     await lab.open('document-editor');
     expect(await parts(page)).toEqual([
-      ['Condition|Limit', 'Start|25 ms', 'Run|50 ms'],
-      ['Condition|Limit', 'Stop|75 ms'],
+      ['Condition|Limit', 'Start|25 ms'],
+      ['Condition|Limit', 'Run|50 ms', 'Stop|75 ms'],
     ]);
     await hover(page, 'Run');
     const start = await cell(page, 'Start').boundingBox();
@@ -79,8 +85,8 @@ test.describe('table handles', () => {
     await expect
       .poll(() => parts(page))
       .toEqual([
-        ['Condition|Limit', 'Run|50 ms', 'Start|25 ms'],
-        ['Condition|Limit', 'Stop|75 ms'],
+        ['Condition|Limit', 'Run|50 ms'],
+        ['Condition|Limit', 'Start|25 ms', 'Stop|75 ms'],
       ]);
 
     await hover(page, 'Run');
@@ -91,8 +97,8 @@ test.describe('table handles', () => {
     await expect
       .poll(() => parts(page))
       .toEqual([
-        ['Limit|Condition', '50 ms|Run', '25 ms|Start'],
-        ['Limit|Condition', '75 ms|Stop'],
+        ['Limit|Condition', '50 ms|Run'],
+        ['Limit|Condition', '25 ms|Start', '75 ms|Stop'],
       ]);
   });
 
@@ -109,8 +115,11 @@ test.describe('table handles', () => {
     await dragGrip(page, 'row', { x: start.x, y: start.y + start.height - 4 });
     await expect(page.locator('.de-table-handles__drop-indicator')).toHaveCount(0);
     await page.mouse.up();
+    // Run is on the next page: Start is measured again once Run is in view.
     await hover(page, 'Run');
-    await dragGrip(page, 'row', { x: start.x, y: start.y + 4 });
+    const above = await cell(page, 'Start').boundingBox();
+    if (!above) throw new Error('The cell is not drawn');
+    await dragGrip(page, 'row', { x: above.x, y: above.y + 4 });
     await expect(page.locator('.de-table-handles__drop-indicator')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await page.mouse.up();
@@ -132,15 +141,15 @@ test.describe('table handles', () => {
     await grip(page, 'row').click();
     await page.getByRole('menu').getByRole('menuitem', { name: 'Row below' }).click();
     await expect
-      .poll(async () => (await parts(page))[0])
-      .toEqual(['Condition|Limit', 'Start|25 ms', '|']);
+      .poll(() => whole(page))
+      .toEqual(['Condition|Limit', 'Start|25 ms', '|', 'Run|50 ms', 'Stop|75 ms']);
     await expect(page.getByRole('textbox', { name: 'Sample document' })).toBeFocused();
     await hover(page, 'Start');
     await grip(page, 'row').click();
     await page.getByRole('menu').getByRole('menuitem', { name: 'Delete row' }).click();
     await expect
-      .poll(async () => (await parts(page))[0])
-      .toEqual(['Condition|Limit', '|', 'Run|50 ms']);
+      .poll(() => whole(page))
+      .toEqual(['Condition|Limit', '|', 'Run|50 ms', 'Stop|75 ms']);
   });
 
   test('DOCE-TABLES-2.4 resizes a column by dragging the border between its cells', async ({

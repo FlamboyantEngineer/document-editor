@@ -62,6 +62,8 @@ function columnRect(
 
 /** Measures the table before `pos`, relative to `origin`; null when it is not drawn. */
 export function measureTable(view: EditorView, pos: number, origin: Rect): TableGeometry | null {
+  // A resize the observer reports after the editor is gone measures nothing.
+  if (view.isDestroyed) return null;
   const node = view.state.doc.nodeAt(pos);
   const dom = view.nodeDOM(pos);
   if (node?.type.spec.tableRole !== 'table' || !isElement(dom)) return null;

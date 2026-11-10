@@ -34,7 +34,7 @@ import {
 import { createElementIds } from './element-ids.js';
 import { createFootnotes, insertFootnote } from './footnotes.js';
 import { insertCodeBlock } from './object-commands.js';
-import { createTableEditing } from './tables.js';
+import { createTableEditing, insertTable } from './tables.js';
 
 /** What a document's editing depends on. */
 export interface DocumentEditingOptions {
@@ -146,6 +146,7 @@ export function documentKeys(
     'Mod-Space': clearFormatting,
     'Mod-Alt-c': insertCodeBlock(),
     'Mod-Alt-f': insertFootnote(),
+    'Mod-Alt-t': insertTable({ rows: 3, columns: 3 }),
     'Shift-Enter': inFootnoteEntry,
     Enter: chainCommands(
       inFootnoteEntry,

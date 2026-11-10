@@ -210,7 +210,8 @@ export function createPagination(options: PaginationOptions): Pagination {
   const layOut = (): void => {
     runner.cancel = null;
     const { editor, measuring } = runner;
-    if (!editor || !measuring) return;
+    // A layout due as the editor goes, such as when the host remounts it, has nothing to lay out.
+    if (!editor || !measuring || editor.isDestroyed || measuring.isDestroyed) return;
     if (editor.composing) return request();
     readDomSelection(editor);
     const { state } = editor;
@@ -241,6 +242,9 @@ export function createPagination(options: PaginationOptions): Pagination {
     },
     view(editor) {
       runner.editor = editor;
+      // The cached measurements read the measuring view they were taken in: a new one, as when the
+      // host remounts the editor, measures again.
+      cache.clear();
       runner.measuring = new EditorView(options.measureIn, {
         state: EditorState.create({
           doc: wholeOf(editor.state.doc),

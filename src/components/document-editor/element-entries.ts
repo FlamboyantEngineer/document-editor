@@ -9,6 +9,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
+  captionedAt,
   convertMath,
   deleteFootnote,
   editFootnote,
@@ -19,6 +20,7 @@ import {
   setContentsDepth,
   setLink,
   setObjectLayout,
+  toggleCaption,
 } from '../../engine/index.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -208,6 +210,21 @@ function linkEntries(view: EditorView, options: ElementEntriesOptions): MenuEntr
   ];
 }
 
+function captionEntries(view: EditorView, options: ElementEntriesOptions): MenuEntry[] {
+  const captioned = captionedAt(view.state);
+  if (!captioned) return [];
+  const { labels } = options;
+  const shown = captioned.node.attrs.captionEnabled !== false;
+  return [
+    ...dialogEntry(options, { id: 'edit-caption', label: labels.editCaption }, { kind: 'caption' }),
+    commandEntry(
+      view,
+      { id: 'toggle-caption', label: labels.showCaption(!shown) },
+      toggleCaption(),
+    ),
+  ];
+}
+
 /** The entries for the element at the view's selection, while the writer can edit there. */
 export function elementEntries(view: EditorView, options: ElementEntriesOptions): MenuEntry[] {
   return [
@@ -216,6 +233,7 @@ export function elementEntries(view: EditorView, options: ElementEntriesOptions)
     ...codeEntries(view, options),
     ...figureEntries(view, options),
     ...contentsEntries(view, options),
+    ...captionEntries(view, options),
     ...linkEntries(view, options),
   ];
 }

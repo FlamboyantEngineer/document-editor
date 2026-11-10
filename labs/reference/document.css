@@ -243,6 +243,113 @@
   white-space: pre-wrap;
 }
 
+/* A cell's content sits where the cell aligns it, across and down. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  [data-text-align='center'] {
+  text-align: center;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  [data-text-align='right'] {
+  text-align: right;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  [data-vertical-align='top'] {
+  vertical-align: top;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  [data-vertical-align='bottom'] {
+  vertical-align: bottom;
+}
+
+/*
+ * Captions. Each captioned object counts its kind, but for a later part of one the pages split,
+ * and its caption line reads "<label> <number> - <text>": the label and number from the template's
+ * counter content, then a later part's continued suffix. Figures and code place their caption
+ * above or below as the template says.
+ */
+.de-document-editor__content
+  .pm-page-content
+  table:not([data-split-part-index], [data-caption-enabled='false']),
+.de-document-editor__content
+  .pm-page-content
+  table[data-split-part-index='0']:not([data-caption-enabled='false']) {
+  counter-increment: table;
+}
+
+.de-document-editor__content .pm-page-content figure {
+  counter-increment: figure;
+}
+
+.de-document-editor__content .pm-page-content pre:not([data-code-block-continued='true']) {
+  counter-increment: codeblock;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content table > caption {
+  caption-side: var(--doc-table-caption-side, top);
+  text-align: var(--doc-table-caption-text-align, left);
+  padding: 2px 0;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content figure,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre {
+  display: flex;
+  flex-direction: column;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content figure {
+  margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line {
+  order: var(--doc-figure-caption-order, 1);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .doc-code-caption-line {
+  order: var(--doc-code-caption-order, -1);
+  font-family: var(--doc-paragraph-font-family, inherit);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
+  content: var(--doc-table-counter-content, 'Table ' counter(table)) ' - ';
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before {
+  content: var(--doc-figure-counter-content, 'Figure ' counter(figure)) ' - ';
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .doc-code-caption-line::before {
+  content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  [data-caption-enabled='false']
+  > .doc-caption-line,
+:where(.de-document-editor, .de-document-editor__measure)
+  [data-caption-enabled='false']
+  > pre
+  > .doc-caption-line {
+  display: none;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  table[data-split-part-index]:not([data-split-part-index='0'])
+  .doc-caption-continued::after {
+  content: var(--doc-table-caption-continued, '');
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  pre[data-code-block-continued='true']
+  .doc-caption-continued::after {
+  content: var(--doc-code-caption-continued, '');
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes {
   border-top: var(--doc-footnote-separator-border, 1px solid);
   padding-top: var(--doc-footnote-spacing-to-content, 6px);

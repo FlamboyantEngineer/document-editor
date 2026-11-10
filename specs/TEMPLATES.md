@@ -59,7 +59,7 @@ Verification: `src/model/templates/template-scopes.test.ts`
 
 ### DOCE-TEMPLATES-3.3 - Caption properties
 
-`buildCaptionCssVarEntries(styles, fontStacks)` shall set the caption label and text font family, size, weight and style of tables, figures and code blocks (`--doc-<kind>-caption-<label|text>-font-*`, kind `table`, `figure` or `code`) and the table caption alignment (`--doc-table-caption-text-align`). An unset value shall be null, so a section inherits the document's and a caption falls back from label to text to paragraph.
+`buildCaptionCssVarEntries(styles, fontStacks)` shall set the caption label and text font family, size, weight and style of tables, figures and code blocks (`--doc-<kind>-caption-<label|text>-font-*`, kind `table`, `figure` or `code`) the table caption alignment (`--doc-table-caption-text-align`), and the text after the caption of a later part of a split object (`--doc-<kind>-caption-continued`, as CSS content, without a leading dash). An unset value shall be null, so a section inherits the document's and a caption falls back from label to text to paragraph.
 
 Implementation: `src/model/templates/template-scopes.ts`
 Verification: `src/model/templates/template-scopes.test.ts`

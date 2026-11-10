@@ -6,7 +6,14 @@ import { MathPreview } from '@flamboyantengineer/ui-components/math-preview';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { EditorView } from 'prosemirror-view';
 import { useState } from 'react';
-import { insertMath, linkAt, setLink, setMathSource } from '../../engine/index.js';
+import {
+  captionedAt,
+  insertMath,
+  linkAt,
+  setCaption,
+  setLink,
+  setMathSource,
+} from '../../engine/index.js';
 import type { AssetAdapter, CodeSourceAdapter } from '../../host/index.js';
 import { applying, type DialogProps, EditorModal, selectedNode, titleOf } from './dialog-parts.js';
 import type { ObjectDialog } from './editor-context.js';
@@ -110,6 +117,36 @@ function LinkDialog({ view, labels, onClose }: DialogProps) {
   );
 }
 
+function CaptionDialog({ view, labels, onClose }: DialogProps) {
+  const [initial] = useState(() => String(captionedAt(view.state)?.node.attrs.caption ?? ''));
+  const [caption, setCaptionText] = useState(initial);
+  return (
+    <EditorModal
+      view={view}
+      onClose={onClose}
+      data-dialog="caption"
+      title={titleOf(labels.editCaption)}
+      primaryAction={applying(view, { label: labels.applyAction, command: setCaption(caption) })}
+    >
+      {({ runPrimaryAction }) => (
+        <TextField
+          label={labels.caption}
+          autoFocus
+          tracksChanges={false}
+          value={caption}
+          onChange={setCaptionText}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            runPrimaryAction();
+          }}
+        />
+      )}
+    </EditorModal>
+  );
+}
+
+/** The editor's dialog that is open, for the view's selection. */
 export function ObjectDialogs({
   dialog,
   view,
@@ -127,6 +164,8 @@ export function ObjectDialogs({
       return <FigureDialog {...shared} assets={assets} />;
     case 'link':
       return <LinkDialog {...shared} />;
+    case 'caption':
+      return <CaptionDialog {...shared} />;
     case 'linked-code':
       return codeSource ? <LinkedCodeDialog {...shared} codeSource={codeSource} /> : null;
   }

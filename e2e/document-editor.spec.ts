@@ -10,16 +10,20 @@ const menu = (page: Page) => page.getByRole('menu', { name: 'Document actions' }
 const item = (page: Page, name: string | RegExp) =>
   page.getByRole('menu').last().getByRole('menuitem', { name });
 
-// The rows of the lab's first table, as their cells' text.
+// The rows of the lab's first table, as their cells' text: its two parts on the pages joined,
+// without the header row repeated on the second.
 const firstTable = (page: Page) =>
   content(page)
     .locator('table')
-    .first()
-    .evaluate((table) =>
-      Array.from((table as HTMLTableElement).rows).map((row) =>
-        Array.from(row.cells)
-          .map((each) => each.textContent)
-          .join('|'),
+    .evaluateAll((tables) =>
+      tables.slice(0, 2).flatMap((table, index) =>
+        Array.from((table as HTMLTableElement).rows)
+          .slice(index === 0 ? 0 : 1)
+          .map((row) =>
+            Array.from(row.cells)
+              .map((each) => each.textContent)
+              .join('|'),
+          ),
       ),
     );
 
@@ -191,13 +195,17 @@ test.describe('document editor lab', () => {
     await item(page, 'Table').hover();
     await item(page, 'Insert').hover();
     await item(page, 'Row below').click();
-    await expect.poll(() => firstTable(page)).toEqual(['Condition|Limit', 'Start|25 ms', '|']);
+    await expect
+      .poll(() => firstTable(page))
+      .toEqual(['Condition|Limit', 'Start|25 ms', '|', 'Run|50 ms', 'Stop|75 ms']);
     await openMenuAt(page, 'Start');
     await item(page, 'Table').hover();
     await expect(item(page, 'Merge cells')).toBeDisabled();
     await item(page, 'Delete').hover();
     await item(page, 'Delete row').click();
-    await expect.poll(() => firstTable(page)).toEqual(['Condition|Limit', '|', 'Run|50 ms']);
+    await expect
+      .poll(() => firstTable(page))
+      .toEqual(['Condition|Limit', '|', 'Run|50 ms', 'Stop|75 ms']);
   });
 
   test('DOCE-EDITOR-4.1 formats, styles and inserts from the toolbar', async ({ lab, page }) => {
@@ -234,7 +242,7 @@ test.describe('document editor lab', () => {
     await expect(bold).toBeDisabled();
   });
 
-  test('DOCE-EDITOR-4.2 scrolls the document in its frame below the toolbar', async ({
+  test('DOCE-EDITOR-4.2 DOCE-PAGINATION-7.1 scrolls the document in its frame below the toolbar, and lays it out again once remounted', async ({
     lab,
     page,
   }) => {

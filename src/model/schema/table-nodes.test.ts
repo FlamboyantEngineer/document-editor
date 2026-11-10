@@ -34,7 +34,14 @@ describe('table nodes', () => {
       backgroundColor: '#eee',
     });
     const columns = '<colgroup><col><col style="width: 120px;"></colgroup>';
-    expect(roundTrip(html)).toBe(html.replace('<tbody>', `${columns}<tbody>`));
+    const caption =
+      '<caption class="doc-caption-line doc-table-caption-line" data-caption-kind="table" contenteditable="false">' +
+      '<span class="doc-caption-text" data-doc-caption-text="true">Prices</span>' +
+      '<span class="doc-caption-continued" data-doc-caption-continued="true"></span></caption>';
+    expect(roundTrip(html)).toBe(html.replace('<tbody>', `${caption}${columns}<tbody>`));
+    // A hidden caption writes no caption line.
+    const hidden = html.replace('<table ', '<table data-caption-enabled="false" ');
+    expect(roundTrip(hidden)).not.toContain('<caption');
   });
 
   it('DOCE-SCHEMA-3.5 sizes an unaligned table once every column has a width', () => {
@@ -44,7 +51,8 @@ describe('table nodes', () => {
       cell.create({ colwidth: width ? [width] : null }, paragraph.create());
     const render = (...cells: ReturnType<typeof sized>[]) =>
       table.spec.toDOM?.(table.create(null, [row.create(null, cells)])) as readonly unknown[];
-    const [, attrs, columns] = render(sized(100), sized(300));
+    const [, attrs, caption, columns] = render(sized(100), sized(300));
+    expect((caption as readonly unknown[])[0]).toBe('caption');
     expect(attrs).toMatchObject({
       style: 'width:calc(400px + var(--doc-table-border-width, 1px));max-width:100%',
     });
@@ -53,7 +61,7 @@ describe('table nodes', () => {
       ['col', { style: 'width:100px' }],
       ['col', { style: 'width:300px' }],
     ]);
-    const [, partly, partColumns] = render(sized(100), sized(null));
+    const [, partly, , partColumns] = render(sized(100), sized(null));
     expect(partly).not.toHaveProperty('style');
     expect(partColumns).toEqual(['colgroup', ['col', { style: 'width:100px' }], ['col']]);
   });

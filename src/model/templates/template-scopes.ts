@@ -12,6 +12,7 @@ import type {
 } from '../format/template-format.js';
 import { mergeTemplateSettings, resolveSectionRegion } from '../format/template-format-resolve.js';
 import { escapeCssContent } from '../numbering/document-numbering.js';
+import { normalizeCaptionContinuedSuffix } from '../schema/caption-text.js';
 import { lengthToCssPx, resolveFontStack } from './template-css-values.js';
 
 const HEADING_STYLES = [
@@ -110,7 +111,7 @@ function fontEntries(
 
 /**
  * The caption label and text typography a scope sets for tables, figures and code blocks, and the
- * table caption alignment. An unset value is null, so a section inherits the document's and the
+ * table caption alignment, and the text after a continued caption. An unset value is null, so a section inherits the document's and the
  * caption falls back from label to text to paragraph.
  */
 export function buildCaptionCssVarEntries(
@@ -121,8 +122,19 @@ export function buildCaptionCssVarEntries(
     const caption = styles?.[kind]?.caption;
     const alignment: CssVarEntry[] =
       kind === 'table' ? [['--doc-table-caption-text-align', caption?.alignment ?? null]] : [];
+    const suffix = caption?.continuedSuffix;
+    // The text after the caption of a later part of a split object, as CSS content.
+    const continued: CssVarEntry[] = [
+      [
+        `--doc-${cssKind}-caption-continued`,
+        typeof suffix === 'string'
+          ? `"${escapeCssContent(normalizeCaptionContinuedSuffix(suffix))}"`
+          : null,
+      ],
+    ];
     return [
       ...alignment,
+      ...continued,
       ...fontEntries(`--doc-${cssKind}-caption-label-font`, caption?.label, fontStacks),
       ...fontEntries(`--doc-${cssKind}-caption-text-font`, caption?.text, fontStacks),
     ];
