@@ -274,7 +274,7 @@ export default tseslint.config(
   },
   {
     // Tests query what a reader perceives and act as a reader does (docs/TESTING-GUIDELINES.md).
-    files: ['src/**/*.test.{ts,tsx}', 'test/**/*.{ts,tsx}'],
+    files: ['src/**/*.test.{ts,tsx}', 'labs/src/**/*.test.{ts,tsx}', 'test/**/*.{ts,tsx}'],
     ...testingLibrary.configs['flat/react'],
     rules: {
       ...testingLibrary.configs['flat/react'].rules,
@@ -320,7 +320,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/**/*.test.{ts,tsx}', 'test/**/*.{ts,tsx}'],
+    files: ['src/**/*.test.{ts,tsx}', 'labs/src/**/*.test.{ts,tsx}', 'test/**/*.{ts,tsx}'],
     ...jestDom.configs['flat/recommended'],
     rules: {
       ...jestDom.configs['flat/recommended'].rules,

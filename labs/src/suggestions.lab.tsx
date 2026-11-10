@@ -136,7 +136,7 @@ function Lab() {
           }}
         />
       </div>
-      <aside aria-label="Suggestions">
+      <aside className="lab-suggestions" aria-label="Suggestions">
         <h2>Suggestions</h2>
         <p>
           <button type="button" onClick={() => run(acceptAllSuggestions)}>

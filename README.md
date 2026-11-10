@@ -28,7 +28,7 @@ npm run check   # every gate: lint, format, types, references, specs, build and 
 
 ### Labs
 
-Labs are static demo pages in `labs/`, one per area of the editor, bundled from `labs/src/<name>.lab.ts(x)`.
+Labs are static demo pages in `labs/`, one per area of the editor, bundled from `labs/src/<name>.lab.ts(x)`. A toolbar at the top of each page picks the stylesheet (the bundled Reference stylesheet `labs/reference.css`, none, or a URL) and the theme it writes on the root element; the choice carries from page to page.
 
 ```sh
 npm run labs         # install and build what is out of date, then serve labs/ at http://127.0.0.1:4183/

@@ -1,14 +1,16 @@
 import { expect, type Page, test as base } from '@playwright/test';
 
 export interface LabFixture {
-  /** Opens `labs/<name>.html` and waits until it has rendered. */
+  /** Opens `labs/<name>.html` and waits until it has rendered and its stylesheet has loaded. */
   open(name: string): Promise<void>;
   /** Page and console errors collected so far; the fixture fails the test if any remain. */
   errors: string[];
 }
 
 export async function waitForLab(page: Page): Promise<void> {
-  await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true');
+  const root = page.locator('html');
+  await expect(root).toHaveAttribute('data-lab-ready', 'true');
+  await expect(root).toHaveAttribute('data-lab-stylesheet-state', /^(none|loaded)$/);
 }
 
 export const test = base.extend<{ lab: LabFixture }>({

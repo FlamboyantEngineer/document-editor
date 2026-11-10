@@ -41,7 +41,9 @@
   height: var(--doc-page-height);
   padding: var(--doc-page-margin-top) var(--doc-page-margin-right) var(--doc-page-margin-bottom)
     var(--doc-page-margin-left);
+  /* Pages are paper in every theme: dark text on white, whatever the page around them. */
   background: #fff;
+  color: #111827;
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
@@ -56,51 +58,55 @@
   width: calc(var(--doc-page-width) - var(--doc-page-margin-left) - var(--doc-page-margin-right));
 }
 
-.pm-page-header:empty,
-.pm-page-footer:empty,
-.pm-page-footnotes:empty {
+/*
+ * Page regions and blocks in the editor's pages and its measure, which a lab may place beside
+ * the editor; the scope adds no specificity, and keeps these rules off other paged views.
+ */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header:empty,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer:empty,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes:empty {
   display: none;
 }
 
-.pm-page-header,
-.pm-page-footer {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer {
   display: flow-root;
 }
 
-.pm-page-header > :first-child,
-.pm-page-footer > :first-child {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :first-child,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :first-child {
   margin-top: 0;
 }
 
-.pm-page-header > :last-child,
-.pm-page-footer > :last-child {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :last-child,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :last-child {
   margin-bottom: 0;
 }
 
-.pm-page-header {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header {
   margin-bottom: var(--doc-page-header-content-gap, 0);
 }
 
-.pm-page-footer {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer {
   margin-top: var(--doc-page-footer-content-gap, 0);
 }
 
-.pm-page-header,
-.pm-page-footer {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer {
   color: #475569;
 }
 
-.pm-page-content > :first-child {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :first-child {
   margin-top: 0;
 }
 
-.pm-page-content > :last-child {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :last-child {
   margin-bottom: 0;
 }
 
-.pm-page-content p,
-.pm-page-header p,
-.pm-page-footer p {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content p,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header p,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer p {
   margin: var(--doc-paragraph-margin-top, 0) 0 var(--doc-paragraph-margin-bottom, 0);
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
@@ -108,28 +114,28 @@
   text-align: var(--doc-paragraph-text-align, left);
 }
 
-.pm-page-content h1 {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1 {
   counter-increment: h1;
   counter-set: h2 0 h3 0 h4 0 h5 0 h6 0 var(--doc-h1-counter-set-extra,);
 }
 
-.pm-page-content h2 {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2 {
   counter-increment: h2;
   counter-set: h3 0 h4 0 h5 0 h6 0 var(--doc-h2-counter-set-extra,);
 }
 
-.pm-page-content h3 {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3 {
   counter-increment: h3;
   counter-set: h4 0 h5 0 h6 0 var(--doc-h3-counter-set-extra,);
 }
 
-.pm-page-content h1,
-.pm-page-content h2,
-.pm-page-content h3 {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3 {
   line-height: 1.2;
 }
 
-.pm-page-content h1 {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1 {
   margin: var(--doc-heading-1-margin-top) 0 var(--doc-heading-1-margin-bottom);
   color: var(--doc-heading-1-color);
   font-family: var(--doc-heading-1-font-family, inherit);
@@ -137,7 +143,7 @@
   font-weight: var(--doc-heading-1-font-weight, 700);
 }
 
-.pm-page-content h2 {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2 {
   margin: var(--doc-heading-2-margin-top) 0 var(--doc-heading-2-margin-bottom);
   color: var(--doc-heading-2-color);
   font-family: var(--doc-heading-2-font-family, inherit);
@@ -145,7 +151,7 @@
   font-weight: var(--doc-heading-2-font-weight, 700);
 }
 
-.pm-page-content h3 {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3 {
   margin: var(--doc-heading-3-margin-top) 0 var(--doc-heading-3-margin-bottom);
   color: var(--doc-heading-3-color);
   font-family: var(--doc-heading-3-font-family, inherit);
@@ -153,72 +159,72 @@
   font-weight: var(--doc-heading-3-font-weight, 700);
 }
 
-.pm-page-content h1::before {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1::before {
   content: var(--doc-heading-1-counter-content);
 }
 
-.pm-page-content h2::before {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2::before {
   content: var(--doc-heading-2-counter-content);
 }
 
-.pm-page-content h3::before {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3::before {
   content: var(--doc-heading-3-counter-content);
 }
 
-.pm-page-content ul,
-.pm-page-content ol {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ul,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol {
   font-family: var(--doc-paragraph-font-family, serif);
   font-size: var(--doc-paragraph-font-size, 12px);
   margin: var(--doc-list-margin-top, 0) 0 var(--doc-list-margin-bottom, 0);
   padding-left: var(--doc-list-indentation, 24pt);
 }
 
-.pm-page-content ul {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ul {
   list-style-type: var(--doc-ul-list-style-type, disc);
 }
 
-.pm-page-content ol {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol {
   counter-reset: ordered-list;
   list-style-type: var(--doc-ol-list-style-type, decimal);
 }
 
-.pm-page-content ol > li {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol > li {
   counter-increment: ordered-list;
 }
 
-.pm-page-content ol > li::marker {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol > li::marker {
   content: var(--doc-ol-counter-content, counter(ordered-list) '. ');
 }
 
-.pm-page-content li > p {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li > p {
   margin: 0;
 }
 
-.pm-page-content table {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content table {
   width: 100%;
   margin: 0 0 var(--doc-paragraph-margin-bottom, 0);
   border-collapse: collapse;
 }
 
-.pm-page-content td,
-.pm-page-content th {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content td,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content th {
   padding: var(--doc-table-cell-padding, 4px);
   border: var(--doc-table-border-width, 1px) solid var(--doc-table-border-color, #334155);
   text-align: left;
 }
 
-.pm-page-content th {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content th {
   background: var(--doc-table-header-background);
   color: var(--doc-table-header-color);
   font-weight: var(--doc-table-header-font-weight, 700);
 }
 
-.pm-page-content td > p,
-.pm-page-content th > p {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content td > p,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content th > p {
   margin: 0;
 }
 
-.pm-page-content pre {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content pre {
   margin: var(--doc-code-margin-top, 0) 0 var(--doc-code-margin-bottom, 0);
   padding: 8px;
   background: var(--doc-code-background);
@@ -228,7 +234,7 @@
   white-space: pre-wrap;
 }
 
-.pm-page-footnotes {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes {
   border-top: var(--doc-footnote-separator-border, 1px solid);
   padding-top: var(--doc-footnote-spacing-to-content, 6px);
   font-family: var(--doc-footnote-text-font-family, inherit);
@@ -240,6 +246,11 @@
  * Web layout: the surface (`data-layout="web"`) shows each section as one page that fills its
  * container and grows with its content, inset only by the template's margins.
  */
+.de-document-editor[data-layout='web'] {
+  background: #fff;
+  color: #111827;
+}
+
 .de-document-editor[data-layout='web'] .pm-section {
   display: block;
 }
@@ -445,7 +456,10 @@
   display: block;
 }
 
-/* The comments margin sits beside the pages; the layer draws the anchors' highlights itself. */
+/*
+ * The comments margin sits beside the pages, on the page around them, so its cards follow the
+ * theme's tokens; the layer draws the anchors' highlights itself.
+ */
 .de-document-comments {
   align-items: start;
 }
@@ -465,12 +479,17 @@
   gap: 8px;
   padding: 12px;
   border-radius: 8px;
-  background: #fff;
+  background: var(--ref-raised, #fff);
+  color: var(--ref-text, inherit);
   box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
 
+:root[data-theme='dark'] :is(.de-document-comments__draft, .de-document-comments__suggestion) {
+  box-shadow: 0 0 0 1px var(--ref-border, #3d444d);
+}
+
 .de-document-comments__suggestion[data-active] {
-  box-shadow: 0 0 0 2px #0969da;
+  box-shadow: 0 0 0 2px var(--ref-accent, #0969da);
 }
 
 .de-document-comments__summary {
@@ -478,11 +497,11 @@
 }
 
 .de-document-comments__summary ins {
-  color: #116329;
+  color: var(--ref-success, #116329);
 }
 
 .de-document-comments__summary del {
-  color: #a40e26;
+  color: var(--ref-danger, #a40e26);
 }
 
 .de-document-comments__decisions {
