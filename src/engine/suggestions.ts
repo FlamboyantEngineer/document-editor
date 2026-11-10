@@ -4,6 +4,7 @@
 // beside its two halves as suggested insertions. Each change belongs to a suggestion, named by an
 // id its marks and blocks share, which a reader accepts or rejects whole.
 
+import { isHistoryTransaction } from 'prosemirror-history';
 import type { Fragment, Mark, MarkType, Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { type EditorState, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import { Mapping, ReplaceAroundStep, ReplaceStep, type Step } from 'prosemirror-transform';
@@ -284,6 +285,8 @@ export function suggestTransaction(
   const { insertion, deletion } = state.schema.marks;
   if (!insertion || !deletion || !tr.docChanged) return tr;
   if (tr.getMeta(suggestionsKey) || tr.getMeta('addToHistory') === false) return tr;
+  // Undo and redo replay changes that were already suggestions, so they stay as they are.
+  if (isHistoryTransaction(tr)) return tr;
   const out = state.tr.setMeta(suggestionsKey, 'suggest');
   const caret = rewriteSteps({ tr: out, insertion, deletion, author, newId }, tr, state.selection);
   if (caret === null) return null;

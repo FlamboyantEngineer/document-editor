@@ -100,6 +100,15 @@ describe('lab start', () => {
     ]);
   });
 
+  it('DOCE-LABS-1.1 rebuilds after a lab stylesheet changes', () => {
+    expect(dryRun(checkout({ ...upToDate, 'labs/reference.css': 400 }))).toEqual([
+      'npm run build:labs: labs/reference.css changed since the last build',
+    ]);
+    expect(dryRun(checkout({ ...upToDate, 'labs/reference/document.css': 400 }))).toEqual([
+      'npm run build:labs: labs/reference changed since the last build',
+    ]);
+  });
+
   it('DOCE-LABS-1.1 rebuilds after the labs build script changes', () => {
     expect(dryRun(checkout({ ...upToDate, 'scripts/build-labs.mjs': 400 }))).toEqual([
       'npm run build:labs: scripts/build-labs.mjs changed since the last build',

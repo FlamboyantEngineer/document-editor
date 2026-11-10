@@ -80,7 +80,7 @@ Verification: `src/model/schema/code-nodes.test.ts`
 
 ### DOCE-SCHEMA-3.5 - Tables
 
-A table shall read its header, body and footer rows, or rows placed directly in it, as one body. It shall keep its border class, alignment, caption, whether the caption shows, and its caption's id; an aligned table shall write the column widths of its first row as a column group. A cell shall keep its span, column widths, alignment, row height and colours, with colours stripped of characters that would end a style. A new cell, row or column shall start with an empty paragraph.
+A table shall read its header, body and footer rows, or rows placed directly in it, as one body. It shall keep its border class, alignment, caption, whether the caption shows, and its caption's id; every table shall write a column group of its first row's columns: an aligned table sizes each column, and an unaligned one sizes the columns that have a width and takes their total width once every column has one. A cell shall keep its span, column widths, alignment, row height and colours, with colours stripped of characters that would end a style. A new cell, row or column shall start with an empty paragraph.
 
 Implementation: `src/model/schema/table-nodes.ts`, `src/model/schema/object-layout.ts`
 Verification: `src/model/schema/table-nodes.test.ts`

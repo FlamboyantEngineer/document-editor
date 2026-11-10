@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findNode, parseMarkup, roundTrip } from '../../../test/document-markup.js';
+import { documentSchema, findNode, parseMarkup, roundTrip } from '../../../test/document-markup.js';
 
 const cell = (tag: 'td' | 'th', text: string, extra = '') =>
   `<${tag} colspan="1" rowspan="1" data-text-align="left" data-vertical-align="middle" style="text-align: left; vertical-align: middle;"${extra}><p>${text}</p></${tag}>`;
@@ -33,7 +33,29 @@ describe('table nodes', () => {
       textColor: '#333',
       backgroundColor: '#eee',
     });
-    expect(roundTrip(html)).toBe(html);
+    const columns = '<colgroup><col><col style="width: 120px;"></colgroup>';
+    expect(roundTrip(html)).toBe(html.replace('<tbody>', `${columns}<tbody>`));
+  });
+
+  it('DOCE-SCHEMA-3.5 sizes an unaligned table once every column has a width', () => {
+    const { table, table_row: row, table_cell: cell, paragraph } = documentSchema.nodes;
+    if (!table || !row || !cell || !paragraph) throw new Error('The schema has tables');
+    const sized = (width: number | null) =>
+      cell.create({ colwidth: width ? [width] : null }, paragraph.create());
+    const render = (...cells: ReturnType<typeof sized>[]) =>
+      table.spec.toDOM?.(table.create(null, [row.create(null, cells)])) as readonly unknown[];
+    const [, attrs, columns] = render(sized(100), sized(300));
+    expect(attrs).toMatchObject({
+      style: 'width:calc(400px + var(--doc-table-border-width, 1px));max-width:100%',
+    });
+    expect(columns).toEqual([
+      'colgroup',
+      ['col', { style: 'width:100px' }],
+      ['col', { style: 'width:300px' }],
+    ]);
+    const [, partly, partColumns] = render(sized(100), sized(null));
+    expect(partly).not.toHaveProperty('style');
+    expect(partColumns).toEqual(['colgroup', ['col', { style: 'width:100px' }], ['col']]);
   });
 
   it('DOCE-SCHEMA-3.5 sizes an aligned table from its first row', () => {

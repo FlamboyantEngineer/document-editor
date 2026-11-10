@@ -14,7 +14,13 @@ import {
   TABLE_CAPTION_TEXT_ATTR,
 } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
-import { objectLayoutCss, parseObjectLayout, tableObjectColumnWidths } from './object-layout.js';
+import {
+  firstRowColumnWidths,
+  objectLayoutCss,
+  parseObjectLayout,
+  tableColumnTotalCss,
+  tableObjectColumnWidths,
+} from './object-layout.js';
 
 type OutputSpec = ReturnType<NonNullable<NodeSpec['toDOM']>>;
 type CellName = 'table_cell' | 'table_header';
@@ -70,34 +76,40 @@ function readTableAttrs(dom: HTMLElement) {
   };
 }
 
-/** The column group that sizes an aligned table's columns. */
-function columnGroup(widths: number[], fitted: boolean) {
-  const total = widths.reduce((sum, width) => sum + width, 0);
-  const columns = widths.map((width) => [
-    'col',
-    { style: `width:${fitted ? `${String((100 * width) / total)}%` : `${String(width)}px`}` },
-  ]);
+/**
+ * The column group that sizes a table's columns: an aligned table's columns always, an unaligned
+ * table's columns that have a width. Every table has one, as column resizing expects.
+ */
+function columnGroup(widths: readonly number[], fitted: boolean) {
+  const total = widths.reduce((sum, width) => sum + (width || 0), 0);
+  const columns = widths.map((width) => {
+    if (!width) return ['col'];
+    return [
+      'col',
+      { style: `width:${fitted ? `${String((100 * width) / total)}%` : `${String(width)}px`}` },
+    ];
+  });
   return ['colgroup', ...columns];
 }
 
 function renderTable(node: ProseMirrorNode) {
   const attrs: DomAttributes = {};
   const layout = parseObjectLayout(node.attrs.objectLayout);
-  const widths = layout ? tableObjectColumnWidths(node) : [];
+  const widths = layout ? tableObjectColumnWidths(node) : firstRowColumnWidths(node);
   if (layout) {
     const total = widths.reduce((sum, width) => sum + width, 0);
     attrs['data-object-layout'] = layout;
     const width = layout === 'fit-page-width' ? '100%' : `${String(total)}px`;
     attrs.style = `${objectLayoutCss(layout)};width:${width};max-width:100%`;
+  } else if (widths.length && widths.every((width) => width > 0)) {
+    // An unaligned table renders at its column total once every column has a width.
+    attrs.style = `width:${tableColumnTotalCss(widths, node)};max-width:100%`;
   }
   if (node.attrs.captionEnabled === false) attrs['data-caption-enabled'] = 'false';
   attrs[TABLE_CAPTION_TEXT_ATTR] = normalizeCaptionText(node.attrs.caption || '');
   const borderClass = String(node.attrs.tableBorderClass || '');
   if (TABLE_BORDER_CLASSES.has(borderClass)) attrs.class = borderClass;
-  const body = ['tbody', 0];
-  return layout
-    ? ['table', attrs, columnGroup(widths, layout === 'fit-page-width'), body]
-    : ['table', attrs, body];
+  return ['table', attrs, columnGroup(widths, layout === 'fit-page-width'), ['tbody', 0]];
 }
 
 const table: NodeSpec = {

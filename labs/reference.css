@@ -1,0 +1,116 @@
+/*
+ * The labs' Reference stylesheet, bundled into labs/build/reference.css: the base library's
+ * reference stylesheet for its controls and its theme tokens, the document reference stylesheet,
+ * the editor's own chrome, and the lab pages' own layout. Everything around the pages reads the theme's `--ref-*` tokens;
+ * the pages stay paper.
+ */
+
+@import '@flamboyantengineer/ui-components/reference.css';
+@import './reference/document.css';
+@import './reference/editor-chrome.css';
+
+:root[data-reference-document] {
+  background: var(--ref-surface);
+}
+
+:root[data-reference-document] body {
+  margin: 0;
+  font-size: 1rem;
+}
+
+#lab-root,
+#lab-index {
+  padding: 16px 24px 48px;
+}
+
+#lab-index a {
+  color: var(--ref-accent-ink);
+}
+
+fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  margin: 0 0 16px;
+  border: 0;
+  padding: 0;
+}
+
+/* A lab's document beside a side panel, which stays in view below the lab toolbar. */
+.lab-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+.lab-layout > aside {
+  position: sticky;
+  top: 64px;
+  padding: 12px 16px;
+  border: 1px solid var(--ref-border);
+  border-radius: 8px;
+  background: var(--ref-raised);
+  color: var(--ref-text);
+}
+
+/* The suggestions lab lists each suggestion with its writer and text. */
+.lab-suggestions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lab-suggestions li {
+  padding: 8px 0;
+  border-top: 1px solid var(--ref-border);
+}
+
+.lab-suggestions ins {
+  color: var(--ref-success);
+}
+
+.lab-suggestions del {
+  color: var(--ref-danger);
+}
+
+/*
+ * A lab whose editor scrolls its own document fills the window below the lab toolbar: the page
+ * keeps its heading and controls, and the editor takes the rest of the height, so only the editor
+ * scrolls.
+ */
+:root[data-reference-document] body:has(.lab-fill .de-document-editor[data-scrollable]) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 16px;
+}
+
+/* A flex column keeps both margins between the heading and the text; keep the heading's alone. */
+.lab-fill > h1 + p {
+  margin-top: 0;
+}
+
+.lab-fill :is(h1, p, fieldset) {
+  flex: none;
+}
+
+.lab-fill .lab-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lab-fill .de-document-editor[data-scrollable] {
+  flex: 1;
+  min-height: 0;
+}

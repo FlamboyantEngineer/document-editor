@@ -1,36 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-reference-document>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
     <meta
       name="description"
       content="A paged document edited with the keyboard: text and block formatting, lists, page breaks and joins across pages."
     />
     <title>Editing · Labs</title>
-    <link rel="stylesheet" href="reference/document.css" />
-    <style>
-      body {
-        margin: 0;
-        padding: 24px;
-        background: #eef0f3;
-        color: #1d2129;
-        font:
-          16px/1.5 system-ui,
-          sans-serif;
-      }
-      fieldset {
-        display: flex;
-        gap: 16px;
-        margin: 0 0 16px;
-        border: 0;
-        padding: 0;
-      }
-    </style>
+    <script type="module" src="build/chrome.js"></script>
     <script type="module" src="build/editing.js"></script>
   </head>
   <body>
+    <header id="lab-chrome"></header>
     <main id="lab-root">
       <h1>Editing</h1>
       <p>

@@ -1,0 +1,85 @@
+# Proofing
+
+A host's text proofer, such as a spelling and grammar checker, reaches the editor through the `proofer` adapter (DOCE-HOST-1.7). `createProofing({ proofer })` returns the plugin that hands it the document's text and marks the issues it finds; the document editor shows them, offers their corrections in its context menu and counts them in its status bar. Proofing marks take no room, so they never change the pages.
+
+## DOCE-PROOFING-1 - Checking the text
+
+### DOCE-PROOFING-1.1 - What is checked
+
+The plugin shall check the text of each textblock of the document, its pages' bodies and footnote areas, as one text per block: each object in a block, and text in code or deleted by a suggestion, reads as spaces, so offsets in the text stay those of the block's characters. Page headers and footers, code blocks and display math are left out, and so is a block holding only spaces.
+
+Implementation: `src/engine/proofing.ts`
+Verification: `src/engine/proofing.test.ts`
+
+### DOCE-PROOFING-1.2 - Results and marks
+
+A short while after the document changes, and as long after it starts (`delay`, 500 milliseconds by default), the plugin shall hand the proofer the texts it has not checked yet, at most `batch` (50) at a time and one check at a time, with a signal that aborts once the document changes again. It shall keep each text's issues by its text, so a block the pages move or split back, or a text typed back, is not checked again, and drop those of texts the document no longer holds. Each issue is marked by an inline decoration carrying `data-proofing-issue` with its kind (`spelling`, `grammar` or `style`). `listProofingIssues(state)` lists the marked issues in document order and `proofingIssueAt(state, pos)` the one at a position; `isProofingPending(state)` is true while some text waits to be checked. A check that fails marks nothing in its texts, which count as checked. The editor's hidden measuring view does not proof.
+
+Implementation: `src/engine/proofing.ts`, `src/engine/proofing-commands.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
+
+### DOCE-PROOFING-1.3 - Changed text
+
+A change shall move the marks with their text and drop the marks of the text it changed, which wait for that text's next check.
+
+Implementation: `src/engine/proofing.ts`
+Verification: `src/engine/proofing.test.ts`
+
+### DOCE-PROOFING-1.4 - Committing results
+
+The plugin shall dispatch its results as transactions holding nothing else, one per check. `proofingUpdate(tr)` shall return, for such a transaction, the update that commits it on the latest state, and null for any other; the document editor commits them so, since its view may still show a state the writer has since typed past.
+
+Implementation: `src/engine/proofing.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/engine/proofing.test.ts`
+
+## DOCE-PROOFING-2 - Commands
+
+### DOCE-PROOFING-2.1 - Correcting
+
+`replaceProofingIssue(issue, replacement)` shall put the replacement in place of the issue's text, keeping its marks, and leave the caret after it; it is refused once the issue's text is no longer there.
+
+Implementation: `src/engine/proofing-commands.ts`
+Verification: `src/engine/proofing.test.ts`
+
+### DOCE-PROOFING-2.2 - Ignoring and the dictionary
+
+`ignoreProofingIssue(issue)` shall stop marking the issue's text anywhere in the document for as long as the editor is open, out of the history. `addProofingWord(issue)` shall, for a spelling issue and a proofer that keeps a dictionary (`addWord`), add the word to it and ignore it.
+
+Implementation: `src/engine/proofing-commands.ts`
+Verification: `src/engine/proofing.test.ts`
+
+### DOCE-PROOFING-2.3 - The next issue
+
+`selectNextProofingIssue` shall select the first issue starting at or after the selection's end, or the first issue when none does, and is refused while no issue is marked.
+
+Implementation: `src/engine/proofing-commands.ts`
+Verification: `src/engine/proofing.test.ts`
+
+## DOCE-PROOFING-3 - In the editor
+
+### DOCE-PROOFING-3.1 - Status
+
+While the document is proofed, the status bar (DOCE-EDITOR-5.1) shall show the proofing status (`de-document-editor__proofing-status`, the `proofingStatus` label): checking, no issues, or how many; pressing it selects the next issue and keeps focus in the document. It publishes `data-pending` while text waits to be checked and `data-issues` while issues are marked.
+
+Implementation: `src/components/document-editor/document-status-bar.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/proofing.spec.ts`
+
+### DOCE-PROOFING-3.2 - The context menu
+
+In an editable document, the context menu opened on an issue shall lead with a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`), then Ignore and, for a spelling issue and a proofer with a dictionary, Add to dictionary.
+
+Implementation: `src/components/document-editor/context-entries.ts`
+Verification: `e2e/proofing.spec.ts`
+
+### DOCE-PROOFING-3.3 - A word-list proofer
+
+`createWordListProofer({ corrections, grammar })` shall flag each word listed in `corrections` as a spelling issue whose suggestions are its corrections, capitalized as the word is, and each phrase listed in `grammar` as a grammar issue with its message and suggestions, ignoring case; a word added to its dictionary is no longer flagged. It stands in for a host's proofer in tests and labs.
+
+Implementation: `src/host/word-list-proofer.ts`
+Verification: `src/engine/proofing.test.ts`
+
+## Hooks
+
+| Hook                  | Kind      | Values                         | Description                                |
+| --------------------- | --------- | ------------------------------ | ------------------------------------------ |
+| `data-proofing-issue` | attribute | `spelling`, `grammar`, `style` | On the text of an issue: what it is about. |

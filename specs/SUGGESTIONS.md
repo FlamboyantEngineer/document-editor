@@ -34,7 +34,7 @@ Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-1.5 - What suggest mode leaves alone
 
-A change that does not edit content, a change a suggestion built or decided, and a change outside the history, such as the pagination's, shall be returned as it is. A change a suggestion cannot record, such as splitting a list item or a block laid out across pages, shall give null, and the editor shall drop it.
+A change that does not edit content, a change a suggestion built or decided, a change outside the history, such as the pagination's, and an undo or redo, which replays changes that were already suggestions, shall be returned as it is. A change a suggestion cannot record, such as splitting a list item or a block laid out across pages, shall give null, and the editor shall drop it.
 
 Implementation: `src/engine/suggestions.ts`
 Verification: `src/engine/suggestions.test.ts`

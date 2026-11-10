@@ -11,6 +11,7 @@ import {
   createDocumentSections,
   createVersionChanges,
   documentSectionsKey,
+  proofingKey,
   refreshVersionChanges,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
@@ -49,9 +50,13 @@ function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
   return height - margins.top - margins.bottom;
 }
 
-// The plugins the measuring view runs: the editor's, with the layout's own plugins once.
+// The plugins the measuring view runs: the editor's, with the layout's own plugins once. Proofing
+// is left out: its marks take no room, and the hidden view would check the text again.
 function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
-  return [...plugins.filter((plugin) => !own.includes(plugin)), ...own];
+  const measured = plugins.filter(
+    (plugin) => !own.includes(plugin) && plugin.spec.key !== proofingKey,
+  );
+  return [...measured, ...own];
 }
 
 // A state with its sections shown in the template again, out of the history.
@@ -70,6 +75,24 @@ function joinPages(state: EditorState): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// A new state the host hands in, such as another document, takes the layout's plugins again.
+function useLayoutPlugins(
+  options: DocumentLayoutOptions,
+  [own, pagination]: readonly [RefObject<readonly Plugin[]>, RefObject<Plugin | null>],
+) {
+  const { plugins } = options.state;
+  const { onStateChange } = options;
+  useEffect(() => {
+    const layoutPlugins = [...own.current, ...(pagination.current ? [pagination.current] : [])];
+    if (layoutPlugins.every((plugin) => plugins.includes(plugin))) return;
+    onStateChange((state) => {
+      const absent = layoutPlugins.filter((plugin) => !state.plugins.includes(plugin));
+      if (absent.length === 0) return state;
+      return restyleSections(state.reconfigure({ plugins: [...state.plugins, ...absent] }));
+    });
+  }, [plugins, onStateChange, own, pagination]);
+}
+
 /**
  * Shows each section in its template section's scope, paginates the document in page layout,
  * measuring it in the element `measureIn` holds, and joins its pages in the web layout. A new
@@ -86,6 +109,7 @@ export function useDocumentLayout(
   });
   const refresh = useRef<(() => void) | null>(null);
   const ownPlugins = useRef<readonly Plugin[]>([]);
+  const paginationPlugin = useRef<Plugin | null>(null);
 
   useEffect(() => {
     const own = [
@@ -122,10 +146,12 @@ export function useDocumentLayout(
     refresh.current = () => {
       pagination.refresh({ remeasure: true });
     };
+    paginationPlugin.current = pagination.plugin;
     const { onStateChange } = latest.current;
     onStateChange((state) => state.reconfigure({ plugins: [...state.plugins, pagination.plugin] }));
     return () => {
       refresh.current = null;
+      paginationPlugin.current = null;
       onStateChange((state) =>
         state.reconfigure({
           plugins: state.plugins.filter((plugin) => plugin !== pagination.plugin),
@@ -133,6 +159,8 @@ export function useDocumentLayout(
       );
     };
   }, [layout, measureIn]);
+
+  useLayoutPlugins(options, [ownPlugins, paginationPlugin]);
 
   useEffect(() => {
     latest.current.onStateChange(restyleSections);

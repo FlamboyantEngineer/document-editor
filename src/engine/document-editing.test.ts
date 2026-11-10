@@ -225,13 +225,13 @@ describe('document keys', () => {
 });
 
 describe('the editing extension', () => {
-  it('DOCE-EDITING-3.1 installs the history, the element ids and the keymaps in a kit', () => {
+  it('DOCE-EDITING-3.1 installs the history, the element ids, tables and the keymaps in a kit', () => {
     const kit = createDocumentKit({ extensions: [createDocumentEditingExtension()] });
-    expect(kit.pluginOrder).toEqual(['history', 'element-ids', 'keymap']);
-    expect(kit.buildPlugins(undefined)).toHaveLength(4);
+    expect(kit.pluginOrder).toEqual(['history', 'element-ids', 'tables', 'keymap']);
+    expect(kit.buildPlugins(undefined)).toHaveLength(7);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(3);
+    expect(shared.buildPlugins(undefined)).toHaveLength(6);
   });
 });

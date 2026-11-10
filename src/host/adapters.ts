@@ -166,6 +166,43 @@ export interface TelemetryAdapter {
   measure(name: string, durationMs: number, attributes?: Readonly<Record<string, string>>): void;
 }
 
+/** What a proofing issue is about. */
+export type ProofingKind = 'spelling' | 'grammar' | 'style';
+
+/** An issue a proofer found in a text, by the offsets of its characters there. */
+export interface ProofingIssue {
+  /** The offset of the issue's first character in the text checked. */
+  readonly from: number;
+  /** The offset just past its last character. */
+  readonly to: number;
+  readonly kind: ProofingKind;
+  /** The issue in words, for the reader. */
+  readonly message?: string | undefined;
+  /** Text to put in place of the issue's, best first. */
+  readonly suggestions: readonly string[];
+}
+
+/** A text to check: a block's text, with each object in it, and code, as spaces. */
+export interface ProofingText {
+  readonly text: string;
+  /** The block's language, when the document sets one. */
+  readonly language?: string | null | undefined;
+}
+
+/**
+ * The host's text proofer, such as a spelling and grammar checker. `check` resolves to each text's
+ * issues, in the order of the texts; a check that fails, or that the editor aborts because the
+ * document changed, marks nothing.
+ */
+export interface ProoferAdapter {
+  check(
+    texts: readonly ProofingText[],
+    options: { readonly signal: AbortSignal },
+  ): Promise<readonly (readonly ProofingIssue[])[]>;
+  /** Adds a word to the reader's dictionary, when the proofer keeps one. */
+  addWord?: ((word: string) => Promise<void> | void) | undefined;
+}
+
 /**
  * Everything the editor needs from its host. Identity, permissions and the document store are
  * required; the rest are optional and leave their features off when absent.
@@ -180,4 +217,5 @@ export interface EditorHost {
   versions?: VersionStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;
   telemetry?: TelemetryAdapter | undefined;
+  proofer?: ProoferAdapter | undefined;
 }

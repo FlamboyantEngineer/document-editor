@@ -73,7 +73,7 @@ Verification: `src/engine/layout-sections.test.ts`
 
 ### DOCE-LAYOUT-3.1 - Words and minutes
 
-`countWords(doc)` shall count the words of a document's text, its footnotes included and its page headers and footers not. `readingMinutes(words, wordsPerMinute)` shall give the whole minutes they take to read at 200 words a minute unless told otherwise, rounded up and at least one.
+`countTextWords(text)` shall count a text's words, its runs of characters other than spaces. `countWords(doc)` shall count the words of a document's text, its footnotes included and its page headers and footers not. `readingMinutes(words, wordsPerMinute)` shall give the whole minutes they take to read at 200 words a minute unless told otherwise, rounded up and at least one.
 
 Implementation: `src/model/document-words.ts`
 Verification: `src/model/layout/layout-sections.test.ts`

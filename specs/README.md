@@ -19,8 +19,10 @@ Each file in this directory specifies one component, one family of components, o
 | [VERSIONS.md](VERSIONS.md)               | Comparing versions and showing their changes, with change bars.         |
 | [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.             |
 | [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.             |
+| [TABLES.md](TABLES.md)                   | Table editing, moving rows and columns, and the table handles.          |
+| [PROOFING.md](PROOFING.md)               | Proofing the document's text with the host's proofer, and its issues.   |
 | [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.            |
-| [LABS.md](LABS.md)                       | Starting the labs locally.                                              |
+| [LABS.md](LABS.md)                       | Starting the labs, and the lab toolbar's stylesheet and theme.          |
 | `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.           |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.

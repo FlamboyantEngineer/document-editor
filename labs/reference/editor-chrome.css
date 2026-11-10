@@ -1,0 +1,226 @@
+/*
+ * The document editor's own chrome: its toolbar, the frame that scrolls the document, and the table
+ * handles over the document. The handles' layer covers the editor's body and places each grip and
+ * the drop indicator by its measured box (`--de-table-handles-*`), relative to the layer.
+ */
+.de-document-editor__body {
+  position: relative;
+}
+
+.de-document-editor__toolbar {
+  flex: none;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ref-border, #d0d7de);
+  background: var(--ref-raised, #fff);
+}
+
+/* A scrollable editor fills the height the host gives it: the toolbar, then the scrolling pages. */
+.de-document-editor[data-scrollable] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--ref-border, #d0d7de);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.de-document-editor__viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.de-document-editor[data-scrollable] .de-document-editor__body {
+  padding-block: 16px;
+}
+
+.de-table-handles {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.de-table-handles[data-dragging] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.de-table-handles__grip {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.de-table-handles__grip[data-axis='row'] {
+  top: var(--de-table-handles-top);
+  left: calc(var(--de-table-handles-left) - 24px);
+  width: 22px;
+  height: var(--de-table-handles-height);
+}
+
+.de-table-handles__grip[data-axis='column'] {
+  top: calc(var(--de-table-handles-top) - 24px);
+  left: var(--de-table-handles-left);
+  width: var(--de-table-handles-width);
+  height: 22px;
+}
+
+/* The grip's bars run along the line it moves: across a row, down a column. */
+.de-table-handles__grip[data-axis='row'] svg {
+  transform: rotate(90deg);
+}
+
+.de-table-handles__drop-indicator {
+  position: absolute;
+  top: var(--de-table-handles-top);
+  left: var(--de-table-handles-left);
+  width: var(--de-table-handles-width);
+  height: var(--de-table-handles-height);
+  outline: 2px solid var(--ref-accent, #0969da);
+  pointer-events: none;
+}
+
+/* Cells of a cell selection, and the column border a resize drags. */
+.de-document-editor .selectedCell {
+  background: color-mix(in srgb, var(--ref-accent, #0969da) 14%, transparent);
+}
+
+.de-document-editor .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 4px;
+  background: var(--ref-accent, #0969da);
+  pointer-events: none;
+}
+
+.de-document-editor .resize-cursor {
+  cursor: col-resize;
+}
+
+.de-document-editor td,
+.de-document-editor th {
+  position: relative;
+}
+
+/* The text style field sits in the toolbar's row, its trigger as wide as its longest style name. */
+.de-document-editor__block-style {
+  flex: none;
+  width: 9em;
+  min-width: 0;
+}
+
+.de-document-editor__block-style :is(.ui-select-field__select, .ui-select-field__frame) {
+  flex: 1;
+  min-width: 0;
+}
+
+.de-document-editor__block-style .ui-select-field__trigger {
+  flex: 1;
+  justify-content: space-between;
+}
+
+/* Each text style's name in the template's style, but for its size. */
+.de-document-editor__style-preview {
+  font-family: var(--doc-paragraph-font-family, inherit);
+  font-style: var(--doc-paragraph-font-style, normal);
+  font-weight: var(--doc-paragraph-font-weight, 400);
+  text-decoration: var(--doc-paragraph-text-decoration, none);
+  color: var(--doc-paragraph-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style^='heading-'] {
+  font-weight: 700;
+}
+
+.de-document-editor__style-preview[data-block-style='heading-1'] {
+  font-family: var(--doc-heading-1-font-family, inherit);
+  font-style: var(--doc-heading-1-font-style, normal);
+  font-weight: var(--doc-heading-1-font-weight, 700);
+  text-decoration: var(--doc-heading-1-text-decoration, none);
+  color: var(--doc-heading-1-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-2'] {
+  font-family: var(--doc-heading-2-font-family, inherit);
+  font-style: var(--doc-heading-2-font-style, normal);
+  font-weight: var(--doc-heading-2-font-weight, 700);
+  text-decoration: var(--doc-heading-2-text-decoration, none);
+  color: var(--doc-heading-2-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-3'] {
+  font-family: var(--doc-heading-3-font-family, inherit);
+  font-style: var(--doc-heading-3-font-style, normal);
+  font-weight: var(--doc-heading-3-font-weight, 700);
+  text-decoration: var(--doc-heading-3-text-decoration, none);
+  color: var(--doc-heading-3-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-4'] {
+  font-family: var(--doc-heading-4-font-family, inherit);
+  font-style: var(--doc-heading-4-font-style, normal);
+  font-weight: var(--doc-heading-4-font-weight, 700);
+  text-decoration: var(--doc-heading-4-text-decoration, none);
+  color: var(--doc-heading-4-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-5'] {
+  font-family: var(--doc-heading-5-font-family, inherit);
+  font-style: var(--doc-heading-5-font-style, normal);
+  font-weight: var(--doc-heading-5-font-weight, 700);
+  text-decoration: var(--doc-heading-5-text-decoration, none);
+  color: var(--doc-heading-5-color, inherit);
+}
+
+.de-document-editor__style-preview[data-block-style='heading-6'] {
+  font-family: var(--doc-heading-6-font-family, inherit);
+  font-style: var(--doc-heading-6-font-style, normal);
+  font-weight: var(--doc-heading-6-font-weight, 700);
+  text-decoration: var(--doc-heading-6-text-decoration, none);
+  color: var(--doc-heading-6-color, inherit);
+}
+
+/* The status bar below the document: the caret's page and the words, then the writer's mode. */
+.de-document-editor__status-bar {
+  flex: none;
+  padding: 2px 12px;
+  border-top: 1px solid var(--ref-border, #d0d7de);
+  background: var(--ref-raised, #fff);
+  color: var(--ref-text-muted, #59636e);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.de-document-editor__status-item {
+  display: inline-flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Proofing issues: a wavy underline, red for spelling, blue for grammar, green for style. */
+.de-document-editor [data-proofing-issue] {
+  text-decoration: underline wavy #d1242f;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+.de-document-editor [data-proofing-issue='grammar'] {
+  text-decoration-color: #0969da;
+}
+
+.de-document-editor [data-proofing-issue='style'] {
+  text-decoration-color: #1a7f37;
+}
+
+/* The proofing status in the status bar: a quiet button that selects the next issue. */
+.de-document-editor__proofing-status {
+  min-height: 0;
+  padding-block: 0;
+  font-size: inherit;
+  line-height: inherit;
+}

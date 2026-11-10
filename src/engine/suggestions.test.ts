@@ -1,4 +1,5 @@
 import { deleteSelection, splitBlock } from 'prosemirror-commands';
+import { history, undo } from 'prosemirror-history';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
@@ -181,6 +182,16 @@ describe('suggest mode', () => {
     const pos = positionOf(list, 'One') + 1;
     const split = inList.tr.split(pos, 2);
     expect(suggestTransaction(split, inList)).toBeNull();
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 undoes a suggestion rather than suggesting its undoing', () => {
+    const doc = read(paragraph('Alpha'));
+    const end = positionOf(doc, 'Alpha') + 5;
+    const start = select(EditorState.create({ doc, plugins: [history()] }), end);
+    const typed = suggest(start, typing('!'));
+    expect(typed && markup(typed.doc)).toEqual(['Alpha[+!]']);
+    const undone = typed && suggest(typed, undo);
+    expect(undone && markup(undone.doc)).toEqual(['Alpha']);
   });
 });
 
