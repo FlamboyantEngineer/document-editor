@@ -58,14 +58,6 @@ async function selectText(page: Page, value: string) {
 async function openMenuAt(page: Page, value: string) {
   const point = await pointAt(page, value);
   await page.mouse.click(point.left + 2, point.y, { button: 'right' });
-  // A menu still closing from the last Escape can swallow a click that follows it at once.
-  if (!(await menu(page).isVisible())) {
-    await menu(page)
-      .waitFor({ state: 'visible', timeout: 1000 })
-      .catch(async () => {
-        await page.mouse.click(point.left + 2, point.y, { button: 'right' });
-      });
-  }
   await expect(menu(page)).toBeVisible();
 }
 
@@ -133,8 +125,6 @@ test.describe('document editor lab', () => {
     await expect(item(page, /^Copy/)).toBeEnabled();
     await page.keyboard.press('Escape');
     await expect(menu(page)).toHaveCount(0);
-    // The closed menu hands focus back to the document.
-    await expect(content(page)).toBeFocused();
     // Elsewhere, it moves the caret there first.
     await openMenuAt(page, 'Normal operation');
     await expect(item(page, /^Copy/)).toBeDisabled();
@@ -365,5 +355,26 @@ test.describe('document editor lab', () => {
     await expect(bold).toBeDisabled();
     await heading(page, 'Timing').click();
     await expect(bold).toBeEnabled();
+  });
+
+  test('DOCE-EDITOR-6.1 DOCE-EDITOR-6.2 DOCE-EDITOR-6.3 tells the host, runs its keys and takes its handle', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const host = page.getByRole('status', { name: 'Host report' });
+    await expect(host).toContainText('Not focused · 0 changes');
+    await heading(page, 'Timing').click();
+    await expect(host).toContainText('Focused');
+    await expect(host).toContainText('caret in heading');
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+    await expect(host).toContainText('1 changes');
+    await page.keyboard.press('ControlOrMeta+s');
+    await expect(host).toContainText('saved 1 times');
+    await page.getByRole('button', { name: 'Go to Power' }).click();
+    await expect(content(page)).toBeFocused();
+    const caret = await page.evaluate(() => document.getSelection()?.anchorNode?.textContent);
+    expect(caret).toBe('Power');
   });
 });

@@ -8,9 +8,13 @@
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor, type DocumentLayout } from '../../src/components/index.js';
+import {
+  DocumentEditor,
+  type DocumentEditorHandle,
+  type DocumentLayout,
+} from '../../src/components/index.js';
 import {
   assignElementIds,
   createContents,
@@ -29,6 +33,7 @@ import {
 import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
+import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument } from './lab-document.js';
 import { pagesLaidOut } from './lab-ready.js';
@@ -99,6 +104,8 @@ function Lab() {
   const [statusBar, setStatusBar] = useState(true);
   const [hostItems, setHostItems] = useState(true);
   const [view, setView] = useState<EditorView | null>(null);
+  const handle = useRef<DocumentEditorHandle>(null);
+  const host = useHostPanel();
   return (
     <>
       <fieldset>
@@ -162,6 +169,7 @@ function Lab() {
         </label>
       </fieldset>
       <AgentPanel view={view} />
+      <HostPanel report={host.report} handle={handle} />
       <DocumentEditor
         state={state}
         onStateChange={setState}
@@ -174,6 +182,8 @@ function Lab() {
         contextMenu={hostItems ? HOST_CONTEXT_MENU : true}
         className="lab-document-editor"
         aria-label="Sample document"
+        handleRef={handle}
+        {...host.notifications}
         events={{
           onMounted: setView,
           onTransaction: (tr) => {

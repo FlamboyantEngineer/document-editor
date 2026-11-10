@@ -152,6 +152,29 @@ Verification: `e2e/document-editor.spec.ts`
 Implementation: `src/engine/document-statistics.ts`
 Verification: `src/engine/document-statistics.test.ts`
 
+## DOCE-EDITOR-6 - Host integration
+
+### DOCE-EDITOR-6.1 - Notifications
+
+The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`).
+
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.2 - The host's keys
+
+`keymap` shall bind the host's own keys, which run before the editor's.
+
+Implementation: `src/components/document-editor/use-host-events.ts`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.3 - The handle
+
+`handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, and applying a batch of automation edits (DOCE-AUTOMATION). Each returns false, or null, when it cannot act.
+
+Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                 | Description                                                                             |

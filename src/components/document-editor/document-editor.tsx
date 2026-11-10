@@ -17,7 +17,9 @@ import {
   type ComponentType,
   type CSSProperties,
   type ReactNode,
+  type Ref,
   type RefObject,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -35,9 +37,16 @@ import { DocumentContextMenu } from './document-context-menu.js';
 import { DocumentStatusBar } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
 import { createEditorContext, DocumentEditorContext } from './editor-context.js';
+import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
+import {
+  type DocumentEditorNotifications,
+  isContentChange,
+  useHostViewProps,
+  useSelectionNotification,
+} from './use-host-events.js';
 
 const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
 const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
@@ -48,7 +57,10 @@ import {
 } from './use-document-layout.js';
 
 /** What a document editor shows and how. */
-export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
+export interface DocumentEditorProps
+  extends BaseProps, AriaLabellingProps, DocumentEditorNotifications {
+  /** Receives the editor's handle, for a host that drives it from outside. */
+  handleRef?: Ref<DocumentEditorHandle> | undefined;
   /** The state shown, with the plugins the document runs (`createDocumentEditing` and others). */
   state: EditorState;
   /** Commits a state, or an update of the current one: pass a React state setter. */
@@ -151,21 +163,39 @@ const READ_SELECTION_FIRST = { keydown: readSelectionFirst, beforeinput: readSel
 type EngineEvents = NonNullable<DocumentEditorProps['events']>;
 
 // The caller's events, with the engine's view kept for the chrome that acts on it.
-function useEngineView(events: DocumentEditorProps['events']) {
+function useEngineView(
+  events: DocumentEditorProps['events'],
+  onContentChange: DocumentEditorProps['onContentChange'],
+) {
   const [view, setView] = useState<EditorView | null>(null);
+  // The host's latest events, behind handlers that keep their identity: a new events object on
+  // each of the host's renders would otherwise give the view new props, which redraws its
+  // selection over a caret the browser has placed and not reported yet.
+  const latest = useRef({ events, onContentChange });
+  useEffect(() => {
+    latest.current = { events, onContentChange };
+  });
   const withView = useMemo<EngineEvents>(
     () => ({
-      ...events,
+      onTransaction: (tr, current) => {
+        latest.current.events?.onTransaction?.(tr, current);
+        const notify = latest.current.onContentChange;
+        if (notify && isContentChange(tr)) notify(tr);
+      },
+      onSelectionChange: (selection, current) =>
+        latest.current.events?.onSelectionChange?.(selection, current),
+      onUpdated: (current, previous) => latest.current.events?.onUpdated?.(current, previous),
+      afterCommit: (current) => latest.current.events?.afterCommit?.(current),
       onMounted: (mounted) => {
         setView(mounted);
-        events?.onMounted?.(mounted);
+        latest.current.events?.onMounted?.(mounted);
       },
       onUnmounted: () => {
         setView(null);
-        events?.onUnmounted?.();
+        latest.current.events?.onUnmounted?.();
       },
     }),
-    [events],
+    [],
   );
   return { view, events: withView };
 }
@@ -180,9 +210,18 @@ interface EditorBodyProps {
 // The document in its engine, with the comments margin, the caller's chrome and the table handles.
 function EditorBody({ props, engine, labels, startCommentRef }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
+  const host = useHostViewProps(props);
   const viewProps = useMemo(
-    () => ({ editable: () => editable, handleDOMEvents: READ_SELECTION_FIRST }),
-    [editable],
+    () => ({
+      editable: () => editable,
+      ...(host.handleKeyDown ? { handleKeyDown: host.handleKeyDown } : {}),
+      handleDOMEvents: {
+        ...READ_SELECTION_FIRST,
+        ...(host.focus ? { focus: host.focus } : {}),
+        ...(host.blur ? { blur: host.blur } : {}),
+      },
+    }),
+    [editable, host],
   );
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
@@ -249,7 +288,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const { state, onStateChange, template, layout = 'page', editable = true } = props;
   const { className, suggesting = false, compare = null } = props;
   const measureIn = useRef<HTMLDivElement>(null);
-  const engine = useEngineView(props.events);
+  const engine = useEngineView(props.events, props.onContentChange);
+  useEditorHandle(props.handleRef, engine.view);
+  useSelectionNotification(state, props.onSelectionChange);
   const startCommentRef = useRef<(() => void) | null>(null);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });

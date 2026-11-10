@@ -10,7 +10,9 @@ export type {
   ContextTarget,
   DocumentComparison,
   DocumentContextMenuOptions,
+  DocumentEditorHandle,
   DocumentEditorLabels,
+  DocumentEditorNotifications,
   DocumentEditorProps,
   DocumentLayout,
   DocumentToolbarOptions,
@@ -25,6 +27,7 @@ export {
   CONTEXT_MENU_GROUPS,
   DEFAULT_EDITOR_LABELS,
   DocumentEditor,
+  isContentChange,
   TOOLBAR_GROUPS,
   useDocumentEditor,
 } from './document-editor/index.js';
