@@ -114,3 +114,23 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
   flex: 1;
   min-height: 0;
 }
+
+/* The template editor lab: the settings beside the document, each scrolling on its own. */
+.lab-split {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.lab-template-panel {
+  overflow: auto;
+  border: 1px solid var(--ref-border);
+  border-radius: 8px;
+  background: var(--ref-raised);
+}
+
+.lab-fill .lab-split .de-document-editor[data-scrollable] {
+  height: auto;
+}

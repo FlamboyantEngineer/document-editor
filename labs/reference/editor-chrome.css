@@ -379,3 +379,8 @@
 .de-document-editor[data-markup='simple'] .pm-page-content > :has(ins[data-id], del[data-id]) {
   box-shadow: -10px 0 0 -8px var(--ref-accent, #0969da);
 }
+
+/* The template editor's settings panel, which its host gives a width. */
+.de-template-editor {
+  min-width: 0;
+}

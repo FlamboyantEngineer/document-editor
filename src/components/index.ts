@@ -34,3 +34,20 @@ export {
   useDocumentEditor,
   ZOOM_LEVELS,
 } from './document-editor/index.js';
+export type {
+  SettingKind,
+  TemplateEditorLabels,
+  TemplateEditorProps,
+  TemplateSetting,
+  TemplateSettingSection,
+} from './template-editor/index.js';
+export {
+  DEFAULT_TEMPLATE_EDITOR_LABELS,
+  PAGE_SIZES,
+  settingAt,
+  TEMPLATE_SECTIONS,
+  TemplateEditor,
+  TEXT_STYLE_SETTINGS,
+  TEXT_STYLES,
+  withSetting,
+} from './template-editor/index.js';
