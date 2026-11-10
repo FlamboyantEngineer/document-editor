@@ -305,7 +305,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   }, [engine.view, layout, ready]);
   useElementIdRepair(props.repairIds ? engine.view : null, state);
   const startCommentRef = useRef<(() => void) | null>(null);
-  useEditorHandle(props.handleRef, engine.view, startCommentRef);
+  useEditorHandle(props.handleRef, engine.view, { startCommentRef, template });
   useSelectionNotification(state, props.onSelectionChange);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });

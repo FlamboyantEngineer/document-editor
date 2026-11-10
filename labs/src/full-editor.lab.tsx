@@ -191,6 +191,7 @@ function Lab() {
   const host = useHostPanel();
   // What the host's feedback last told the reader, such as a failed upload.
   const [notice, setNotice] = useState('');
+  const [snapshot, setSnapshot] = useState('');
   const feedback = useMemo(
     () => ({ notify: ({ text: message }: { text: string }) => setNotice(message) }),
     [],
@@ -238,6 +239,17 @@ function Lab() {
       </fieldset>
       <AgentPanel view={view} />
       <HostPanel report={host.report} handle={handle} />
+      <button
+        type="button"
+        onClick={() => {
+          const snapshot = handle.current?.exportSnapshot({ title: 'Sample document' }) ?? '';
+          const pages = (snapshot.match(/class="pm-page[ "]/g) ?? []).length;
+          setSnapshot(`${String(pages)} pages`);
+        }}
+      >
+        Export a snapshot
+      </button>
+      <output aria-label="Snapshot">{snapshot}</output>
       <p role="status" aria-label="Host feedback">
         {notice}
       </p>

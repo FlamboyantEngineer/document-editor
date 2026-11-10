@@ -207,6 +207,8 @@ export {
   selectPreviousMatch,
   setSearch,
 } from './search.js';
+export type { SnapshotOptions } from './snapshot.js';
+export { documentSnapshot } from './snapshot.js';
 export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
 export {
   acceptAllSuggestions,

@@ -37,4 +37,15 @@ test.describe('full editor lab', () => {
     await page.getByRole('button', { name: 'Rewrite a phrase' }).click();
     await expect(content(page).locator('ins', { hasText: 'operating state' })).toHaveCount(1);
   });
+
+  test('DOCE-EDITOR-6.9 exports a snapshot of the pages for printing', async ({ lab, page }) => {
+    await lab.open('full-editor');
+    const pages = await content(page).locator('.pm-page').count();
+    await page.getByRole('button', { name: 'Export a snapshot' }).click();
+    await expect(
+      page
+        .getByRole('status', { name: 'Snapshot' })
+        .or(page.locator('output[aria-label="Snapshot"]')),
+    ).toHaveText(`${String(pages)} pages`);
+  });
 });
