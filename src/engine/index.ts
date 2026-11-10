@@ -32,6 +32,15 @@ export {
 } from './block-commands.js';
 export type { CaptionedObject } from './captions.js';
 export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
+export type { CommentDraft } from './comment-draft.js';
+export {
+  canStartComment,
+  clearCommentDraft,
+  commentDraft,
+  commitCommentDraft,
+  createCommentDraft,
+  startCommentDraft,
+} from './comment-draft.js';
 export type { CommentAnchor, CommentState } from './comments.js';
 export {
   addCommentAnchor,

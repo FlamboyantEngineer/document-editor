@@ -21,6 +21,7 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
 import { resolveFootnoteSettings, type TemplateFile } from '../model/index.js';
+import { createCommentDraft } from './comment-draft.js';
 import {
   changeParagraphLevel,
   clearFormatting,
@@ -192,6 +193,7 @@ export function createDocumentEditing(
     ...(keepHistory ? [history()] : []),
     createElementIds({ author, isRemote }),
     createFootnotes({ numberInOrder: numbersInOrder(template) }),
+    createCommentDraft(),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
@@ -226,6 +228,11 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'footnotes',
         priority: 490,
         build: () => [createFootnotes({ numberInOrder: numbersInOrder(template) })],
+      },
+      {
+        name: 'comment-draft',
+        priority: 495,
+        build: () => [createCommentDraft()],
       },
       {
         name: 'tables',

@@ -67,6 +67,13 @@ The host's `references` adapter shall find citations of other documents, or of t
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
+### DOCE-HOST-1.10 - Changing comments and following them
+
+A comment store may let the reader change the text of their own comment (`edit`), recording when, delete their own reply (`removeEntry`), and add or take back a reaction to a comment (`react`), each returning the thread as it is after; and tell a subscriber a document's threads whenever they change, by anyone, until it unsubscribes (`subscribe`).
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/host/memory-host.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
@@ -139,4 +146,11 @@ Verification: `src/host/memory-host.test.ts`
 The in-memory host's glossary shall start with `options.glossary`, find unarchived entries whose abbreviation or expansion holds the query, ignoring case, add entries with new ids, trimmed, created at `options.now`, and resolve the ids it holds; its reference source shall find the citations of `options.citations` whose label holds the query.
 
 Implementation: `src/host/memory-host.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.8 - In-memory comment changes
+
+The in-memory comment store shall edit and delete only the reader's own comments, refusing another's with a `denied` error, keep each comment's reactions by emoji as the people who reacted, and tell each subscriber of a document its threads after every change.
+
+Implementation: `src/host/memory-comments.ts`
 Verification: `src/host/memory-host.test.ts`

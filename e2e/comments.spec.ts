@@ -94,4 +94,73 @@ test.describe('comments lab', () => {
     await expect(margin(page).getByRole('textbox')).toHaveCount(0);
     await expect(margin(page).getByRole('button', { name: /Accept|Resolve/ })).toHaveCount(0);
   });
+
+  test('DOCE-COMMENTS-2.6 starts a thread on the caret paragraph with Mod-Alt-M, drawn until stored', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await content(page).getByText('Reports go to the operator console').click();
+    await page.keyboard.press('ControlOrMeta+Alt+m');
+    const draft = content(page).locator('mark[data-comment-draft]');
+    await expect(draft).toHaveText('Reports go to the operator console and to the log.');
+    await page.keyboard.type('Which log?');
+    await margin(page).getByRole('button', { name: 'Comment' }).click();
+    await expect(draft).toHaveCount(0);
+    await expect(
+      content(page).locator('mark[data-comment-id]', { hasText: 'and to the log.' }),
+    ).toHaveCount(1);
+    await expect(card(page, 'Which log?')).toContainText('Ada Lovelace');
+  });
+
+  test('DOCE-COMMENTS-2.7 edits the reader own comment and reacts to another', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    const first = card(page, 'Is one second measured');
+    await first.getByRole('button', { name: /👍/ }).click();
+    await expect(first.getByRole('button', { name: /👍/ })).toHaveAttribute('aria-pressed', 'true');
+    await selectText(page, 'operator console');
+    await margin(page).getByRole('button', { name: 'Comment' }).click();
+    await page.keyboard.type('Which console?');
+    await margin(page).getByRole('button', { name: 'Comment' }).click();
+    // The card by the text it quotes, which the edit leaves.
+    const thread = card(page, 'operator console');
+    await expect(thread).toContainText('Which console?');
+    await thread
+      .getByRole('button', { name: /actions|More/i })
+      .first()
+      .click();
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+    await thread.getByRole('textbox', { name: 'Edit comment' }).fill('Which consoles?');
+    await thread.getByRole('button', { name: 'Save' }).click();
+    await expect(thread).toContainText('Which consoles?');
+  });
+
+  test('DOCE-COMMENTS-2.8 shows resolved threads and reopens one', async ({ lab, page }) => {
+    await lab.open('comments');
+    await card(page, 'Is one second measured').getByRole('button', { name: 'Resolve' }).click();
+    await expect(card(page, 'Is one second measured')).toHaveCount(0);
+    await page.getByLabel('Resolved threads').check();
+    const thread = card(page, 'Is one second measured');
+    await thread.getByRole('button', { name: 'Reopen' }).click();
+    await page.getByLabel('Resolved threads').uncheck();
+    await expect(card(page, 'Is one second measured')).toHaveCount(1);
+    await expect(
+      content(page).locator('mark[data-comment-state="open"]', { hasText: 'one second' }),
+    ).toHaveCount(1);
+  });
+
+  test('DOCE-COMMENTS-2.9 opens a thread from the handle', async ({ lab, page }) => {
+    await lab.open('comments');
+    const before = await page.evaluate(() => document.documentElement.dataset.labCaret ?? '');
+    await page.getByRole('button', { name: 'Open the first thread' }).click();
+    await page.waitForFunction(
+      (previous) => (document.documentElement.dataset.labCaret ?? '') !== previous,
+      before,
+    );
+    await expect(page.getByRole('textbox', { name: 'Sample document' })).toBeFocused();
+    await expect(card(page, 'Is one second measured')).toHaveAttribute('data-active', 'true');
+  });
 });

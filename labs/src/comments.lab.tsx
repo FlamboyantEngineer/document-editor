@@ -1,11 +1,13 @@
 // Shows the comments margin (the document editor's `comments`): threads kept by the in-memory
 // host's comment store, anchored to the text they quote, and suggestions with Accept, Reject and a
-// thread of their own. Reading, the margin shows the threads without composers or decisions.
+// thread of their own. Reading, the margin shows the threads without composers or decisions. The
+// reader edits and deletes their own comments, reacts to any, shows resolved threads to reopen
+// them, and opens a thread through the editor's handle.
 
 import { EditorState } from 'prosemirror-state';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor } from '../../src/components/index.js';
+import { DocumentEditor, type DocumentEditorHandle } from '../../src/components/index.js';
 import { assignElementIds, createDocumentEditing } from '../../src/engine/index.js';
 import { createMemoryHost } from '../../src/host/index.js';
 import {
@@ -41,6 +43,7 @@ const HOST = createMemoryHost({
               author: 'grace',
               text: 'Is one second measured from the fault or from its detection?',
               createdAt: '2026-01-05T09:30:00Z',
+              reactions: { '👍': ['grace'] },
             },
           ],
         },
@@ -109,6 +112,8 @@ function initialState(): EditorState {
 function Lab() {
   const [state, setState] = useState(initialState);
   const [reading, setReading] = useState(false);
+  const [resolved, setResolved] = useState(false);
+  const handle = useRef<DocumentEditorHandle>(null);
   const comments = HOST.comments;
   return (
     <div>
@@ -123,12 +128,25 @@ function Lab() {
           />{' '}
           Reading only
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="resolved"
+            checked={resolved}
+            onChange={(event) => setResolved(event.currentTarget.checked)}
+          />{' '}
+          Resolved threads
+        </label>
+        <button type="button" onClick={() => handle.current?.openThread('c0ffee01')}>
+          Open the first thread
+        </button>
       </fieldset>
       <DocumentEditor
         state={state}
         onStateChange={setState}
         template={TEMPLATE}
         editable={!reading}
+        handleRef={handle}
         aria-label="Sample document"
         comments={
           comments && {
@@ -136,6 +154,7 @@ function Lab() {
             documentId: 'lab',
             identity: HOST.identity,
             canComment: !reading,
+            showResolved: resolved,
           }
         }
         events={{

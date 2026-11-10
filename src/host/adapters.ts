@@ -163,6 +163,10 @@ export interface CommentEntry {
   text: string;
   /** When it was posted: an ISO 8601 date and time. */
   createdAt: string;
+  /** When its text was last changed, if it was. */
+  editedAt?: string | undefined;
+  /** The people who reacted to it, by the emoji they reacted with. */
+  reactions?: Record<string, string[]> | undefined;
 }
 
 /** A comment thread on a document, anchored to its text or to a suggestion. */
@@ -200,6 +204,26 @@ export interface CommentStoreAdapter {
     state: CommentThread['state'],
   ): Promise<HostResult<CommentThread>>;
   remove(documentId: string, threadId: string): Promise<HostResult<null>>;
+  /** Changes the text of the reader's own comment. */
+  edit?(
+    documentId: string,
+    change: { threadId: string; entryId: string; text: string },
+  ): Promise<HostResult<CommentThread>>;
+  /** Deletes the reader's own reply. */
+  removeEntry?(
+    documentId: string,
+    entry: { threadId: string; entryId: string },
+  ): Promise<HostResult<CommentThread>>;
+  /** Adds or takes back the reader's reaction to a comment. */
+  react?(
+    documentId: string,
+    reaction: { threadId: string; entryId: string; emoji: string; reacted: boolean },
+  ): Promise<HostResult<CommentThread>>;
+  /**
+   * Calls `onThreads` with a document's threads whenever they change, by the reader or anyone
+   * else, until the returned function is called.
+   */
+  subscribe?(documentId: string, onThreads: (threads: CommentThread[]) => void): () => void;
 }
 
 export type FeedbackTone = 'info' | 'success' | 'warning' | 'error';

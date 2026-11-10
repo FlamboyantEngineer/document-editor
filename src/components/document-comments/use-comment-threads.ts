@@ -11,6 +11,12 @@ import type {
   NewCommentThread,
 } from '../../host/index.js';
 
+/** A comment of a thread, by the thread's id and its own. */
+interface EntryChange {
+  readonly threadId: string;
+  readonly entryId: string;
+}
+
 /** The threads of a document and the changes the reader can make to them. */
 export interface CommentThreads {
   /** The threads by id, once the store has listed them. */
@@ -23,6 +29,14 @@ export interface CommentThreads {
   reply(threadId: string, text: string): Promise<CommentThread>;
   setState(threadId: string, state: CommentThread['state']): Promise<CommentThread>;
   remove(threadId: string): Promise<void>;
+  /** Changes the reader's own comment, while the store can. */
+  edit: ((change: EntryChange & { text: string }) => Promise<CommentThread>) | null;
+  /** Deletes the reader's own reply, while the store can. */
+  removeEntry: ((entry: EntryChange) => Promise<CommentThread>) | null;
+  /** Adds or takes back the reader's reaction to a comment, while the store can. */
+  react:
+    | ((reaction: EntryChange & { emoji: string; reacted: boolean }) => Promise<CommentThread>)
+    | null;
 }
 
 /** Where a document's threads are kept, and who the reader is. */
@@ -85,10 +99,20 @@ export function useCommentThreads({
       setError(result.ok ? null : (result.error.message ?? failed));
       setThreads(new Map(result.ok ? result.value.map((thread) => [thread.id, thread]) : []));
     });
-    return () => controller.abort();
+    // A store that tells of changes keeps the threads current, whoever changes them.
+    const stop = store.subscribe?.(documentId, (threads) => {
+      if (!controller.signal.aborted) {
+        setThreads(new Map(threads.map((thread) => [thread.id, thread])));
+      }
+    });
+    return () => {
+      controller.abort();
+      stop?.();
+    };
   }, [store, documentId, failed]);
   const keep = useCallback(
-    (result: HostResult<CommentThread>) => {
+    (result: HostResult<CommentThread> | undefined) => {
+      if (!result) throw new Error(failed);
       const thread = valueOf(result, failed);
       setThreads((current) => new Map(current).set(thread.id, thread));
       return thread;
@@ -104,6 +128,15 @@ export function useCommentThreads({
       create: async (thread) => keep(await store.create(documentId, thread)),
       reply: async (threadId, text) => keep(await store.reply(documentId, threadId, text)),
       setState: async (threadId, state) => keep(await store.setState(documentId, threadId, state)),
+      edit: store.edit
+        ? async (change) => keep(await store.edit?.call(store, documentId, change))
+        : null,
+      removeEntry: store.removeEntry
+        ? async (entry) => keep(await store.removeEntry?.call(store, documentId, entry))
+        : null,
+      react: store.react
+        ? async (reaction) => keep(await store.react?.call(store, documentId, reaction))
+        : null,
       remove: async (threadId) => {
         valueOf(await store.remove(documentId, threadId), failed);
         setThreads((current) => {

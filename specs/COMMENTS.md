@@ -39,18 +39,25 @@ Verification: `src/engine/comments.test.ts`
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
 
+### DOCE-COMMENTS-1.6 - A thread being started
+
+`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`) that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
+
+Implementation: `src/engine/comment-draft.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/comments.test.ts`
+
 ## DOCE-COMMENTS-2 - The comments margin
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
 
-Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each comment's author resolved by the identity adapter. Resolved threads shall not be shown; their anchors stay in the document.
+Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each comment's author resolved by the identity adapter. Resolved threads shall not be shown, unless `showResolved` asks; their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.2 - Starting a thread
 
-While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall anchor a new thread to the selection and show the composer of its opening comment; submitting shall store the thread with the text it quotes, and cancelling shall remove the anchor.
+While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes, then anchor it in the document, and cancelling shall forget the draft, leaving the document as it was.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
@@ -74,6 +81,41 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 With `canComment` false the cards shall show their comments without composers, Resolve or Comment, and without Accept and Reject unless the reader may decide.
 
 Implementation: `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/comment-items.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`
+
+### DOCE-COMMENTS-2.6 - Commenting from the keyboard
+
+Mod-Alt-M, the context menu's Comment and the handle's `startComment()` shall start a thread on the selected text, or, without a selection, on the text block holding the caret, while the editor shows comments and the reader may comment.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-2.7 - Editing, deleting and reacting
+
+While the store can, a comment's menu shall let its author edit it, marked edited after, and delete it, a reply alone or, from the opening comment, the thread; and each comment shall show its reactions, which a reader who may comment toggles (`ReactionBar`).
+
+Implementation: `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/use-comment-threads.ts`
+Verification: `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-2.8 - Reopening a thread
+
+With `showResolved`, resolved threads shall show their cards too, and Reopen shall reopen the thread in the store and its anchor in the document.
+
+Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`
+Verification: `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-2.9 - Opening a thread
+
+The handle's `openThread(threadId)` shall put the caret in the thread's anchor and scroll it into view, which makes its card the active one; it is refused for a thread the document does not anchor.
+
+Implementation: `src/components/document-editor/editor-handle.ts`
+Verification: `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-2.10 - Who decides a suggestion
+
+Given `decide(suggestion, me)`, a suggestion's card shall offer Accept and Reject only as it allows, to a reader who may decide at all; both by default.
+
+Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ## DOCE-COMMENTS-3 - Comments in the browser

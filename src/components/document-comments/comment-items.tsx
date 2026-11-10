@@ -4,6 +4,9 @@ import type { Command, EditorState } from 'prosemirror-state';
 import type { ReactNode } from 'react';
 import {
   acceptSuggestion,
+  clearCommentDraft,
+  commentDraft,
+  commitCommentDraft,
   createElementId,
   linkSuggestionThread,
   listCommentAnchors,
@@ -48,23 +51,32 @@ export type CommentItem = Placed &
 /** What decides which items the margin shows. */
 export interface CommentItemsOptions {
   readonly threads: ReadonlyMap<string, CommentThread>;
-  /** Threads the reader is starting, anchored but not yet stored. */
-  readonly pending: ReadonlySet<string>;
   readonly canComment: boolean;
+  /** Whether resolved threads show too, to read or reopen. Defaults to false. */
+  readonly showResolved?: boolean | undefined;
 }
 
-function threadItems(state: EditorState, { threads, pending }: CommentItemsOptions) {
+function threadItems(state: EditorState, { threads, showResolved }: CommentItemsOptions) {
   const items: CommentItem[] = [];
   for (const anchor of listCommentAnchors(state.doc)) {
-    if (anchor.state !== 'open') continue;
+    const thread = threads.get(anchor.thread);
+    if (!thread || (thread.state !== 'open' && !showResolved)) continue;
     const key = `comment:${anchor.thread}`;
     const target: AnchorTarget = { kind: 'comment', id: anchor.thread };
-    const place = { key, target, from: anchor.from, to: anchor.to };
-    const thread = threads.get(anchor.thread);
-    if (thread?.state === 'open') items.push({ ...place, kind: 'thread', thread });
-    else if (!thread && pending.has(anchor.thread)) {
-      items.push({ ...place, kind: 'pending', id: anchor.thread, quote: anchor.text });
-    }
+    items.push({ key, target, from: anchor.from, to: anchor.to, kind: 'thread', thread });
+  }
+  // The thread the reader is starting, drawn but not yet stored.
+  const draft = commentDraft(state);
+  if (draft && !threads.has(draft.id)) {
+    items.push({
+      key: `comment:${draft.id}`,
+      target: { kind: 'comment', id: draft.id },
+      from: draft.from,
+      to: draft.to,
+      kind: 'pending',
+      id: draft.id,
+      quote: state.doc.textBetween(draft.from, draft.to, ' ', ' '),
+    });
   }
   return items;
 }
@@ -97,13 +109,12 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
 export interface CardActions {
   readonly context: CardContext;
   readonly isActive: boolean;
-  readonly canDecide: boolean;
+  /** Whether the reader may accept a suggestion, and reject it. */
+  readonly canDecide: (suggestion: Suggestion) => { accept: boolean; reject: boolean };
   /** Runs a command on the document. */
   readonly run: (command: Command) => void;
   /** Starts a thread on the selected text. */
   readonly startThread: () => void;
-  /** Forgets a thread being started, once it is stored or cancelled. */
-  readonly settle: (id: string) => void;
 }
 
 function renderSuggestion(
@@ -130,7 +141,7 @@ function renderSuggestion(
       thread={thread}
       isActive={actions.isActive}
       context={context}
-      canDecide={actions.canDecide}
+      canDecide={actions.canDecide(suggestion)}
       onDecide={decide}
       onReply={reply}
     />
@@ -139,7 +150,7 @@ function renderSuggestion(
 
 /** The card of one item. */
 export function renderCommentCard(item: CommentItem, actions: CardActions): ReactNode {
-  const { context, run, settle } = actions;
+  const { context, run } = actions;
   switch (item.kind) {
     case 'draft':
       return <DraftCard context={context} onComment={actions.startThread} />;
@@ -150,12 +161,9 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           context={context}
           onSubmit={async (text) => {
             await context.comments.create({ id: item.id, quote: item.quote, text });
-            settle(item.id);
+            run(commitCommentDraft(item.id));
           }}
-          onCancel={() => {
-            run(removeCommentAnchor(item.id));
-            settle(item.id);
-          }}
+          onCancel={() => run(clearCommentDraft)}
         />
       );
     case 'thread':
@@ -164,9 +172,10 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           thread={item.thread}
           isActive={actions.isActive}
           context={context}
-          onResolve={async () => {
-            await context.comments.setState(item.thread.id, 'resolved');
-            run(setCommentState(item.thread.id, 'resolved'));
+          onResolve={async (resolved) => {
+            const state = resolved ? 'resolved' : 'open';
+            await context.comments.setState(item.thread.id, state);
+            run(setCommentState(item.thread.id, state));
           }}
           onRemove={async () => {
             await context.comments.remove(item.thread.id);

@@ -73,6 +73,10 @@ const isModKey = (event: KeyboardEvent, letter: string) =>
 // Mod-F opens the find bar.
 export const isFindKey = (event: KeyboardEvent) => isModKey(event, 'f');
 
+// Mod-Alt-M starts a comment.
+export const isCommentKey = (event: KeyboardEvent) =>
+  event.code === 'KeyM' && (event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey;
+
 // Mod-K opens the reference dialog.
 export const isReferenceKey = (event: KeyboardEvent) => isModKey(event, 'k');
 

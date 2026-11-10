@@ -3,7 +3,7 @@
 
 import { type Command, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type Ref, useImperativeHandle } from 'react';
+import { type Ref, type RefObject, useImperativeHandle } from 'react';
 import { type FoundElement, textRange } from '../../engine/automation-address.js';
 import {
   applyEdits,
@@ -11,6 +11,7 @@ import {
   type AutomationOptions,
   type AutomationResult,
   type EditAddress,
+  listCommentAnchors,
   revealElement,
   type RevealOptions,
 } from '../../engine/index.js';
@@ -30,6 +31,16 @@ export interface DocumentEditorHandle {
   revealElement(elementId: string, options?: RevealOptions): boolean;
   /** Selects a range of an element's text, or the whole element; false when it cannot. */
   select(address: EditAddress): boolean;
+  /**
+   * Opens a comment thread: puts the caret in its anchor, which makes its card the active one, and
+   * scrolls it into view; false when the document does not anchor it.
+   */
+  openThread(threadId: string): boolean;
+  /**
+   * Starts a comment thread on the selected text, or the caret's block, while the editor shows
+   * comments and the reader may comment; false otherwise.
+   */
+  startComment(): boolean;
   /** Runs a command on the latest state; false when it does not apply. */
   run(command: Command): boolean;
   /** Applies a batch of automation edits (DOCE-AUTOMATION) and dispatches it when it is accepted. */
@@ -66,10 +77,21 @@ function selectIn(view: EditorView | null, address: EditAddress): boolean {
   return true;
 }
 
+// Puts the caret in a thread's anchor and scrolls it into view.
+function openThread(view: EditorView, threadId: string): boolean {
+  const anchor = listCommentAnchors(view.state.doc).find((each) => each.thread === threadId);
+  if (!anchor) return false;
+  const selection = TextSelection.create(view.state.doc, anchor.from);
+  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+  view.focus();
+  return true;
+}
+
 /** Gives the host a handle on the editor through its `handleRef`. */
 export function useEditorHandle(
   ref: Ref<DocumentEditorHandle> | undefined,
   view: EditorView | null,
+  startCommentRef: RefObject<(() => void) | null>,
 ) {
   useImperativeHandle(
     ref,
@@ -80,6 +102,12 @@ export function useEditorHandle(
       revealElement: (elementId, options) =>
         view ? revealElement(view, elementId, options) : false,
       select: (address) => selectIn(view, address),
+      openThread: (threadId) => (view ? openThread(view, threadId) : false),
+      startComment: () => {
+        const start = startCommentRef.current;
+        start?.();
+        return Boolean(start);
+      },
       run(command) {
         if (!view) return false;
         const ran = command(view.state, view.dispatch, view);
@@ -93,6 +121,6 @@ export function useEditorHandle(
         return result;
       },
     }),
-    [view],
+    [view, startCommentRef],
   );
 }
