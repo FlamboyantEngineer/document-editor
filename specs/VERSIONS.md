@@ -39,6 +39,13 @@ A changed block's text shall be compared word by word (`diffText`), spaces and p
 Implementation: `src/engine/text-diff.ts`, `src/engine/common-subsequence.ts`
 Verification: `src/engine/version-compare.test.ts`
 
+### DOCE-VERSIONS-1.6 - Suggestions accepted
+
+Asked to (`compareVersions(older, newer, { suggestions: 'accepted' })`, or a comparison's `suggestions` in the editor), the versions shall be compared with every suggestion accepted: the text a suggestion deletes left out, the text and blocks it inserts compared.
+
+Implementation: `src/engine/version-compare.ts`, `src/engine/version-changes.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/engine/version-compare.test.ts`
+
 ## DOCE-VERSIONS-2 - Showing changes
 
 ### DOCE-VERSIONS-2.1 - Decorations

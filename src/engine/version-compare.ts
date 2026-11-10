@@ -1,11 +1,15 @@
 // Comparing two versions of a document block by block. Blocks are matched by their element id, so
 // a block keeps its identity through edits and moves; the parts of a block split across pages are
-// one block. Comments and suggestions are left out: a block's text is its text with every
-// suggestion rejected, and the blocks a suggestion inserts are not compared.
+// one block. Comments are left out, and so are suggestions: a block's text is its text with every
+// suggestion rejected, and the blocks a suggestion inserts are not compared, or, when asked, with
+// every suggestion accepted.
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { commonSubsequence } from './common-subsequence.js';
 import { diffText, type TextSegment } from './text-diff.js';
+
+/** How the versions' suggestions count: as if every one were rejected, or accepted. */
+export type CompareSuggestions = 'rejected' | 'accepted';
 
 /** How a block changed between two versions. */
 export type VersionChangeKind = 'insertion' | 'deletion' | 'modification' | 'formatting' | 'move';
@@ -72,17 +76,20 @@ function marksFormat(marks: readonly Mark[]): string {
     .join(',');
 }
 
-const isSuggestedInsertion = (node: ProseMirrorNode) =>
-  node.marks.some((mark) => mark.type.name === 'insertion');
+// Whether a suggestion leaves the text out: an insertion rejected, or a deletion accepted.
+const isLeftOut = (node: ProseMirrorNode, suggestions: CompareSuggestions) =>
+  node.marks.some(
+    (mark) => mark.type.name === (suggestions === 'rejected' ? 'insertion' : 'deletion'),
+  );
 
 // A text block's or leaf block's text and formatting, from a position. The formatting is the
 // block's attributes and its runs of text by their marks, review marks left out.
-function readBlock(node: ProseMirrorNode, pos: number) {
+function readBlock(node: ProseMirrorNode, pos: number, suggestions: CompareSuggestions) {
   const positions: number[] = [];
   const runs: { format: string; length: number }[] = [];
   let text = '';
   node.forEach((child, offset) => {
-    if (isSuggestedInsertion(child)) return;
+    if (isLeftOut(child, suggestions)) return;
     const value = child.isText ? (child.text ?? '') : child.isLeaf ? '\uFFFC' : child.textContent;
     const format = marksFormat(child.marks) + (child.isText ? '' : attrsFormat(child));
     const last = runs.at(-1);
@@ -96,16 +103,22 @@ function readBlock(node: ProseMirrorNode, pos: number) {
   return { text, positions, format };
 }
 
-/** A version's blocks in reading order: text blocks and leaf blocks, split parts joined. */
-export function collectVersionBlocks(doc: ProseMirrorNode): VersionBlock[] {
+/**
+ * A version's blocks in reading order: text blocks and leaf blocks, split parts joined, with their
+ * suggestions rejected unless they are to count as accepted.
+ */
+export function collectVersionBlocks(
+  doc: ProseMirrorNode,
+  suggestions: CompareSuggestions = 'rejected',
+): VersionBlock[] {
   const blocks: VersionBlock[] = [];
   const seen = new Map<string, number>();
   doc.descendants((node, pos) => {
     if (PAGE_CHROME.has(node.type.name)) return false;
     if (!node.isBlock || !(node.isTextblock || node.isAtom)) return true;
-    if (node.attrs.suggestionSplitKind === 'insertion') return false;
+    if (suggestions === 'rejected' && node.attrs.suggestionSplitKind === 'insertion') return false;
     const id = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : null;
-    const read = readBlock(node, pos);
+    const read = readBlock(node, pos, suggestions);
     const last = blocks.at(-1);
     if (id && last?.id === id && node.attrs.splitPartIndex !== null) {
       last.parts.push({ from: pos, to: pos + node.nodeSize });
@@ -191,11 +204,16 @@ const lastPart = (block: VersionBlock) => block.parts.at(-1) ?? { from: 0, to: 0
 
 /**
  * The changes from an older version of a document to a newer one, in the newer one's order:
- * blocks inserted, deleted, moved, with changed text or with changed formatting only.
+ * blocks inserted, deleted, moved, with changed text or with changed formatting only. Both
+ * versions' suggestions count as rejected, or as accepted when asked.
  */
-export function compareVersions(older: ProseMirrorNode, newer: ProseMirrorNode): VersionChange[] {
-  const before = collectVersionBlocks(older);
-  const after = collectVersionBlocks(newer);
+export function compareVersions(
+  older: ProseMirrorNode,
+  newer: ProseMirrorNode,
+  { suggestions = 'rejected' }: { readonly suggestions?: CompareSuggestions | undefined } = {},
+): VersionChange[] {
+  const before = collectVersionBlocks(older, suggestions);
+  const after = collectVersionBlocks(newer, suggestions);
   const olderByKey = new Map(before.map((block) => [block.key, block]));
   const newerByKey = new Map(after.map((block) => [block.key, block]));
   const kept = keptInOrder(

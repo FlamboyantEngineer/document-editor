@@ -204,5 +204,10 @@ export {
   versionChanges,
   versionChangesKey,
 } from './version-changes.js';
-export type { VersionBlock, VersionChange, VersionChangeKind } from './version-compare.js';
+export type {
+  CompareSuggestions,
+  VersionBlock,
+  VersionChange,
+  VersionChangeKind,
+} from './version-compare.js';
 export { collectVersionBlocks, compareVersions } from './version-compare.js';

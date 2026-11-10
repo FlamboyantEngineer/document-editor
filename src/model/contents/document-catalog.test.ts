@@ -145,4 +145,23 @@ describe('document catalog', () => {
     expect(catalog.quotes?.map((entry) => entry.level)).toEqual([0, 0]);
     expect(brief(catalog.chapters)).toEqual(['1.|SCOPE|1']);
   });
+
+  it('DOCE-CONTENTS-1.4 orders the entries of a kind and lists each text once if it asks', () => {
+    const terms = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [paragraph('Volt'), paragraph('Ampere'), paragraph('Volt'), paragraph('Ohm')],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    const catalog = catalogDocument(terms, BASE_TEMPLATE, {
+      terms: { nodes: ['paragraph'], unique: true, sort: (a, b) => a.text.localeCompare(b.text) },
+    });
+    expect(catalog.terms?.map((entry) => entry.text)).toEqual(['Ampere', 'Ohm', 'Volt']);
+  });
 });

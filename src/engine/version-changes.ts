@@ -5,7 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { compareVersions, type VersionChange } from './version-compare.js';
+import { type CompareSuggestions, compareVersions, type VersionChange } from './version-compare.js';
 
 /** How changes show: change bars only, or bars with the changed text marked in place. */
 export type VersionChangeDisplay = 'bars' | 'markup';
@@ -16,6 +16,8 @@ export interface VersionChangesOptions {
   previous: () => ProseMirrorNode | null;
   /** How changes show. Defaults to markup. */
   display?: (() => VersionChangeDisplay) | undefined;
+  /** How the versions' suggestions count. Defaults to rejected. */
+  suggestions?: (() => CompareSuggestions) | undefined;
 }
 
 interface VersionChangesState {
@@ -134,7 +136,7 @@ function compute(options: VersionChangesOptions, doc: ProseMirrorNode): VersionC
   const previous = options.previous();
   const display = options.display?.() ?? 'markup';
   if (!previous) return { previous, display, changes: [], decorations: DecorationSet.empty };
-  const changes = compareVersions(previous, doc);
+  const changes = compareVersions(previous, doc, { suggestions: options.suggestions?.() });
   return {
     previous,
     display,

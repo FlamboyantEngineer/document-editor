@@ -95,6 +95,29 @@ describe('comparing versions', () => {
     expect(summary([paragraph('a0000001', 'Alpha')], [marked])).toEqual([]);
   });
 
+  it('DOCE-VERSIONS-1.6 compares with the suggestions accepted when asked', () => {
+    const suggested: StoredNode = {
+      type: 'paragraph',
+      attrs: { id: 'a0000001' },
+      content: [
+        {
+          type: 'text',
+          text: 'every',
+          marks: [{ type: 'deletion', attrs: { id: 's1', author: 'w' } }],
+        },
+        {
+          type: 'text',
+          text: 'each',
+          marks: [{ type: 'insertion', attrs: { id: 's1', author: 'w' } }],
+        },
+      ],
+    };
+    const older = read(paragraph('a0000001', 'every'));
+    expect(compareVersions(older, read(suggested))).toEqual([]);
+    const [accepted] = compareVersions(older, read(suggested), { suggestions: 'accepted' });
+    expect(accepted).toMatchObject({ kind: 'modification', text: 'each', previousText: 'every' });
+  });
+
   it('DOCE-VERSIONS-1.5 compares a changed block word by word', () => {
     expect(diffText('The log keeps every report.', 'The log keeps each report!')).toEqual([
       { kind: 'kept', text: 'The log keeps ' },

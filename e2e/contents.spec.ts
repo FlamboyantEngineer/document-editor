@@ -103,6 +103,19 @@ test.describe('contents lab', () => {
     await expect(list.locator('.de-contents__title')).toHaveText('Table of Quotations');
     const entries = list.locator('.de-contents__entry');
     await expect(entries).toHaveCount(3);
-    await expect(entries.first()).toContainText('“Q”Quoted in chapter 1.');
+    await expect(entries.last()).toContainText('“Q”Quoted in chapter 1.');
+  });
+
+  test('DOCE-CONTENTS-1.4 orders the entries of a kind and leaves out their pages and leaders', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('contents');
+    const entries = page.locator(
+      '.lab-pages .de-contents[data-contents-type="quotes"] .de-contents__entry',
+    );
+    await expect(entries.first()).toContainText('Quoted in chapter 9.');
+    await expect(entries.locator('.de-contents__page')).toHaveCount(0);
+    await expect(entries.locator('.de-contents__leader')).toHaveCount(0);
   });
 });
