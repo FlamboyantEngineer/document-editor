@@ -236,3 +236,13 @@
 .de-document-editor__toolbar-end {
   margin-inline-start: auto;
 }
+
+/* The proofing language picker in the status bar, as wide as its longest language. */
+.de-document-editor__proofing-language {
+  width: 8em;
+  min-width: 0;
+}
+
+.de-document-editor__proofing-status[data-status='unavailable'] {
+  color: var(--ref-danger, #d1242f);
+}

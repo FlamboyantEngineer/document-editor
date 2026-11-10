@@ -58,6 +58,14 @@ async function selectText(page: Page, value: string) {
 async function openMenuAt(page: Page, value: string) {
   const point = await pointAt(page, value);
   await page.mouse.click(point.left + 2, point.y, { button: 'right' });
+  // A menu still closing from the last Escape can swallow a click that follows it at once.
+  if (!(await menu(page).isVisible())) {
+    await menu(page)
+      .waitFor({ state: 'visible', timeout: 1000 })
+      .catch(async () => {
+        await page.mouse.click(point.left + 2, point.y, { button: 'right' });
+      });
+  }
   await expect(menu(page)).toBeVisible();
 }
 
@@ -125,6 +133,8 @@ test.describe('document editor lab', () => {
     await expect(item(page, /^Copy/)).toBeEnabled();
     await page.keyboard.press('Escape');
     await expect(menu(page)).toHaveCount(0);
+    // The closed menu hands focus back to the document.
+    await expect(content(page)).toBeFocused();
     // Elsewhere, it moves the caret there first.
     await openMenuAt(page, 'Normal operation');
     await expect(item(page, /^Copy/)).toBeDisabled();

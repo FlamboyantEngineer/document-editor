@@ -4,6 +4,7 @@
 
 import {
   ContextMenu,
+  type MenuController,
   type MenuPoint,
   useMenuController,
 } from '@flamboyantengineer/ui-components/context-menu';
@@ -11,6 +12,7 @@ import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useRef } from 'react';
+import { isFocusLost } from '../../utils/composed-focus.js';
 import type { ContextEntriesOptions } from './context-entries.js';
 import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
 import { resolveContextTarget } from './context-target.js';
@@ -52,6 +54,24 @@ function selectAt(view: EditorView, point: { left: number; top: number }) {
 
 const isMenuKey = (event: KeyboardEvent) =>
   event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey);
+
+// Once the menu closes, the document takes focus back when nothing else has it, as when the menu
+// closes before the focus it took could be handed back.
+function useFocusAfterClose(view: EditorView | null, controller: MenuController) {
+  useEffect(() => {
+    const owner = view?.dom.ownerDocument.defaultView;
+    if (!view || !owner) return undefined;
+    let open = controller.isOpen();
+    return controller.subscribe(() => {
+      const wasOpen = open;
+      open = controller.isOpen();
+      if (!wasOpen || open) return;
+      owner.setTimeout(() => {
+        if (!controller.isOpen() && isFocusLost(owner.document)) view.focus();
+      }, 250);
+    });
+  }, [view, controller]);
+}
 
 /** Opens the editor's context menu on the document of `view`. */
 export function DocumentContextMenu(props: DocumentContextMenuProps) {
@@ -99,5 +119,6 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       view.dom.removeEventListener('keydown', onKeyDown);
     };
   }, [view, controller]);
+  useFocusAfterClose(view, controller);
   return <ContextMenu controller={controller} aria-label={props.labels.contextMenu} isNonModal />;
 }

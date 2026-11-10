@@ -67,8 +67,19 @@ export interface DocumentEditorLabels {
   /** Heads a proofing issue's suggestions when the proofer gives no message. */
   readonly proofingIssue: (kind: ProofingKind) => string;
   readonly noSuggestions: string;
+  /** Replaces every issue like the one at the caret with a suggestion. */
+  readonly replaceAll: (suggestion: string) => string;
+  /** Ignores the issue at the caret alone. */
   readonly ignoreIssue: string;
+  /** Ignores the issue's word everywhere. */
+  readonly ignoreAll: string;
   readonly addToDictionary: string;
+  readonly disableRule: string;
+  /** Names the status bar's language picker. */
+  readonly proofingLanguage: string;
+  /** The status when the proofers do not answer: all of them, or some. */
+  readonly proofingUnavailable: string;
+  readonly proofingDegraded: string;
   /** The proofing status: checking, or how many issues are marked. */
   readonly proofingStatus: (issues: number, pending: boolean) => string;
   /** Names the status bar's button that selects the next proofing issue. */
@@ -140,8 +151,14 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   readingMode: 'Reading',
   proofingIssue: (kind) => PROOFING_KINDS[kind],
   noSuggestions: 'No suggestions',
+  replaceAll: (suggestion) => `Replace all with “${suggestion}”`,
   ignoreIssue: 'Ignore',
+  ignoreAll: 'Ignore all',
   addToDictionary: 'Add to dictionary',
+  disableRule: 'Turn off this rule',
+  proofingLanguage: 'Proofing language',
+  proofingUnavailable: 'Proofing unavailable',
+  proofingDegraded: 'Proofing partly unavailable',
   proofingStatus: (issues, pending) => {
     if (pending && issues === 0) return 'Checking…';
     if (issues === 0) return 'No issues';

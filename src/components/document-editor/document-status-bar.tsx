@@ -5,6 +5,7 @@
 
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
+import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, useDeferredValue, useMemo } from 'react';
@@ -12,8 +13,10 @@ import {
   documentStatistics,
   isProofingPending,
   listProofingIssues,
+  proofingLanguages,
   proofingState,
   selectNextProofingIssue,
+  setProofingLanguage,
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -21,7 +24,11 @@ import { runCommand } from './table-actions.js';
 import type { DocumentLayout } from './use-document-layout.js';
 
 // The status bar's slots, in the editor's hooks.
-const hooks = createHooks('document-editor', ['status-item', 'proofing-status']);
+const hooks = createHooks('document-editor', [
+  'status-item',
+  'proofing-status',
+  'proofing-language',
+]);
 
 /** What the status bar reports the writer is doing. */
 export type DocumentEditorMode = 'editing' | 'suggesting' | 'reading';
@@ -43,22 +50,21 @@ const MODE_LABELS = {
   reading: 'readingMode',
 } as const;
 
-// The proofing status, when the document is proofed: a button selecting the next issue.
-function ProofingStatus({
-  view,
-  state,
-  labels,
-}: {
-  view: EditorView | null;
-  state: EditorState;
-  labels: DocumentEditorLabels;
-}) {
-  if (!proofingState(state)) return null;
+// The proofing status, when the document is proofed: a button selecting the next issue, or saying
+// the proofers do not answer.
+function ProofingStatus({ view, state, labels }: ProofingProps) {
+  const proofing = proofingState(state);
+  if (!proofing) return null;
   const issues = listProofingIssues(state).length;
   const pending = isProofingPending(state);
+  const { status } = proofing;
+  const text =
+    status === 'unavailable'
+      ? labels.proofingUnavailable
+      : `${status === 'degraded' ? `${labels.proofingDegraded} · ` : ''}${labels.proofingStatus(issues, pending)}`;
   return (
     <Button
-      {...hooks.slot('proofing-status', { pending, issues: issues > 0 })}
+      {...hooks.slot('proofing-status', { pending, issues: issues > 0, status })}
       variant="ghost"
       size="sm"
       tooltip={labels.nextIssue}
@@ -68,8 +74,36 @@ function ProofingStatus({
         if (view) runCommand(view, selectNextProofingIssue);
       }}
     >
-      {labels.proofingStatus(issues, pending)}
+      {text}
     </Button>
+  );
+}
+
+interface ProofingProps {
+  view: EditorView | null;
+  state: EditorState;
+  labels: DocumentEditorLabels;
+}
+
+// The language the document is proofed in, when the proofers offer a choice.
+function ProofingLanguage({ view, state, labels }: ProofingProps) {
+  const languages = proofingLanguages(state);
+  const proofing = proofingState(state);
+  if (!proofing || languages.length < 2) return null;
+  return (
+    <SelectField
+      {...hooks.slot('proofing-language')}
+      size="sm"
+      density="compact"
+      label={labels.proofingLanguage}
+      labelLayout="control-only"
+      options={languages}
+      value={proofing.language}
+      tracksChanges={false}
+      onChange={(key) => {
+        if (view && typeof key === 'string') runCommand(view, setProofingLanguage(key));
+      }}
+    />
   );
 }
 
@@ -94,6 +128,7 @@ export function DocumentStatusBar({
         <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
       </span>
       <span {...hooks.slot('status-item', { status: 'mode' })}>
+        <ProofingLanguage view={view} state={state} labels={labels} />
         <ProofingStatus view={view} state={deferred} labels={labels} />
         <span>{labels[MODE_LABELS[mode]]}</span>
       </span>

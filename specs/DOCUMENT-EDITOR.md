@@ -60,7 +60,7 @@ Verification: `e2e/document-editor.spec.ts`
 ### DOCE-EDITOR-3.1 - Opening the menu
 
 A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it. `contextMenu={false}` leaves the browser's menu.
-
+Once the menu closes, the document takes focus back when nothing else has it.
 Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
@@ -154,27 +154,28 @@ Verification: `src/engine/document-statistics.test.ts`
 
 ## Hooks
 
-| Hook                                  | Kind      | Values                                  | Description                                                          |
-| ------------------------------------- | --------- | --------------------------------------- | -------------------------------------------------------------------- |
-| `de-document-editor`                  | root      |                                         | The editor, carrying the template's `--doc-*` values.                |
-| `de-document-editor__measure`         | slot      |                                         | The hidden slot the pages are measured in.                           |
-| `de-document-editor__toolbar`         | slot      |                                         | The editor's toolbar, with `toolbar`.                                |
-| `de-document-editor__viewport`        | slot      |                                         | The frame that scrolls the document, with `scrollable`.              |
-| `de-document-editor__body`            | slot      |                                         | The document with its table handles.                                 |
-| `de-document-editor__toolbar-start`   | slot      |                                         | The host's controls before the toolbar's groups.                     |
-| `de-document-editor__toolbar-end`     | slot      |                                         | The host's controls after the toolbar's groups.                      |
-| `data-group`                          | attribute |                                         | On a toolbar group: its id.                                          |
-| `data-item`                           | attribute |                                         | On a toolbar item: its id.                                           |
-| `de-document-editor__block-style`     | slot      |                                         | The toolbar's text style field.                                      |
-| `de-document-editor__style-preview`   | slot      |                                         | A text style's name in the list, in that style.                      |
-| `data-block-style`                    | attribute | `paragraph`, `heading-1` to `heading-6` | On a preview: the style it shows.                                    |
-| `de-document-editor__status-bar`      | slot      |                                         | The editor's status bar, with `statusBar`.                           |
-| `de-document-editor__status-item`     | slot      |                                         | An item of the status bar.                                           |
-| `de-document-editor__proofing-status` | slot      |                                         | The status bar's proofing status and its button (DOCE-PROOFING-3.1). |
-| `data-pending`                        | state     | `true`                                  | On the proofing status: some text waits to be checked.               |
-| `data-issues`                         | state     | `true`                                  | On the proofing status: issues are marked.                           |
-| `data-status`                         | attribute | `position`, `mode`                      | On a status item: what it reports.                                   |
-| `de-document-editor__content`         | slot      |                                         | The document.                                                        |
-| `data-layout`                         | attribute | `page`, `web`                           | How the document is laid out.                                        |
-| `data-mode`                           | state     | `authoring`, `reading`                  | Whether the writer can edit.                                         |
-| `data-scrollable`                     | state     | `true`                                  | The editor scrolls the document itself.                              |
+| Hook                                    | Kind      | Values                                                 | Description                                                                             |
+| --------------------------------------- | --------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `de-document-editor`                    | root      |                                                        | The editor, carrying the template's `--doc-*` values.                                   |
+| `de-document-editor__measure`           | slot      |                                                        | The hidden slot the pages are measured in.                                              |
+| `de-document-editor__toolbar`           | slot      |                                                        | The editor's toolbar, with `toolbar`.                                                   |
+| `de-document-editor__viewport`          | slot      |                                                        | The frame that scrolls the document, with `scrollable`.                                 |
+| `de-document-editor__body`              | slot      |                                                        | The document with its table handles.                                                    |
+| `de-document-editor__toolbar-start`     | slot      |                                                        | The host's controls before the toolbar's groups.                                        |
+| `de-document-editor__toolbar-end`       | slot      |                                                        | The host's controls after the toolbar's groups.                                         |
+| `data-group`                            | attribute |                                                        | On a toolbar group: its id.                                                             |
+| `data-item`                             | attribute |                                                        | On a toolbar item: its id.                                                              |
+| `de-document-editor__block-style`       | slot      |                                                        | The toolbar's text style field.                                                         |
+| `de-document-editor__style-preview`     | slot      |                                                        | A text style's name in the list, in that style.                                         |
+| `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`                | On a preview: the style it shows.                                                       |
+| `de-document-editor__status-bar`        | slot      |                                                        | The editor's status bar, with `statusBar`.                                              |
+| `de-document-editor__status-item`       | slot      |                                                        | An item of the status bar.                                                              |
+| `de-document-editor__proofing-status`   | slot      |                                                        | The status bar's proofing status and its button (DOCE-PROOFING-3.1).                    |
+| `de-document-editor__proofing-language` | slot      |                                                        | The status bar's proofing language picker (DOCE-PROOFING-3.5).                          |
+| `data-pending`                          | state     | `true`                                                 | On the proofing status: some text waits to be checked.                                  |
+| `data-issues`                           | state     | `true`                                                 | On the proofing status: issues are marked.                                              |
+| `data-status`                           | attribute | `position`, `mode`; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
+| `de-document-editor__content`           | slot      |                                                        | The document.                                                                           |
+| `data-layout`                           | attribute | `page`, `web`                                          | How the document is laid out.                                                           |
+| `data-mode`                             | state     | `authoring`, `reading`                                 | Whether the writer can edit.                                                            |
+| `data-scrollable`                       | state     | `true`                                                 | The editor scrolls the document itself.                                                 |

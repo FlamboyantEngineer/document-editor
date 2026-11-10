@@ -18,6 +18,7 @@ export type {
   ProoferAdapter,
   ProofingIssue,
   ProofingKind,
+  ProofingLanguage,
   ProofingText,
   StoredAsset,
   StoredDocument,

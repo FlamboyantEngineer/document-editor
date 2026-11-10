@@ -48,7 +48,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.7 - Proofer
 
-The host's `proofer` adapter shall check texts (`check(texts, { signal })`), resolving to each text's issues in order: the offsets of the issue's characters in its text, its kind (`spelling`, `grammar` or `style`), an optional message and its suggestions, best first. It may keep the reader's dictionary (`addWord`). The editor proofs through it (DOCE-PROOFING) and keeps no dictionary of its own.
+The host's `proofer` adapter shall check texts (`check(texts, { signal })`), resolving to each text's issues in order: the offsets of the issue's characters in its text, its kind (`spelling`, `grammar` or `style`), an optional message, its suggestions, best first, and optionally the rule that found it and a finer category. Each text comes with its language. It may keep the reader's dictionary (`addWord`) and the rules they turned off (`ignoreRule`), and list the languages it checks (`languages`). The editor proofs through it (DOCE-PROOFING) and keeps no dictionary of its own.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/engine/proofing.test.ts`
