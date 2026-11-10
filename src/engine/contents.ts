@@ -115,12 +115,13 @@ function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): Co
 }
 
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
-function measureKey(node: ProseMirrorNode, { rows, labels, leader }: Drawing): string {
+function measureKey(node: ProseMirrorNode, { rows, labels, leader, showPage }: Drawing): string {
   const text = [
     String(node.attrs.showTitle),
     labels.title,
     labels.empty,
-    leader,
+    String(leader),
+    String(showPage),
     String(rows.empty),
     ...rows.entries.map(
       (entry) => `${String(entry.level)}|${entry.number}|${entry.text}|${String(entry.page)}`,
@@ -151,7 +152,10 @@ function span(className: string, text: string): HTMLSpanElement {
 interface Drawing {
   readonly rows: ContentsRows;
   readonly labels: ContentsLabels;
-  readonly leader: string;
+  /** The leader's character, or null for a kind without leaders. */
+  readonly leader: string | null;
+  /** Whether the entries show their page numbers. */
+  readonly showPage: boolean;
   /** Takes the reader to the entry at an index of the rows the list shows now. */
   readonly navigate: (index: number) => void;
 }
@@ -164,9 +168,12 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
   row.tabIndex = -1;
   if (entry.number) row.append(span('de-contents__number', entry.number));
   row.append(span('de-contents__text', entry.text));
-  const leader = span('de-contents__leader', drawing.leader.repeat(200));
-  leader.setAttribute('aria-hidden', 'true');
-  row.append(leader, span('de-contents__page', String(entry.page)));
+  if (drawing.leader !== null && drawing.showPage) {
+    const leader = span('de-contents__leader', drawing.leader.repeat(200));
+    leader.setAttribute('aria-hidden', 'true');
+    row.append(leader);
+  }
+  if (drawing.showPage) row.append(span('de-contents__page', String(entry.page)));
   row.addEventListener('click', () => drawing.navigate(index));
   return row;
 }
@@ -232,10 +239,12 @@ export function createContents({
     navigate: (index: number) => void,
   ): Drawing => {
     const key = kinds.of(node);
+    const kind = kinds.all[key];
     return {
       rows,
       labels: { ...(defaults[key] ?? UNLABELLED), ...labels[key] },
-      leader: template().styles?.contents?.leader || '.',
+      leader: kind?.leader === false ? null : template().styles?.contents?.leader || '.',
+      showPage: kind?.showPage !== false,
       navigate,
     };
   };

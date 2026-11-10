@@ -38,6 +38,14 @@ export interface ContentsKind {
   readonly number?: ((node: ProseMirrorNode) => string) | undefined;
   /** Whether a list shows only the entries after it, as a table of contents does. */
   readonly after?: boolean | undefined;
+  /** Orders the entries, such as by their text for a glossary; document order by default. */
+  readonly sort?: ((a: CatalogEntry, b: CatalogEntry) => number) | undefined;
+  /** Lists only the first entry of each text, such as one per term. Defaults to false. */
+  readonly unique?: boolean | undefined;
+  /** Whether an entry shows its page number. Defaults to true. */
+  readonly showPage?: boolean | undefined;
+  /** Whether an entry draws a leader to its page number. Defaults to true. */
+  readonly leader?: boolean | undefined;
 }
 
 /** The kinds of list a document has unless a host gives others, keyed by a list's `tocType`. */
@@ -223,5 +231,24 @@ export function catalogDocument(
       });
     });
   });
-  return counting.catalog;
+  return arrangeEntries(counting.catalog, kinds);
+}
+
+// Each kind's entries, its first one of each text alone if it asks, in the order it asks.
+function arrangeEntries(
+  catalog: DocumentCatalog,
+  kinds: Readonly<Record<string, ContentsKind>>,
+): DocumentCatalog {
+  return Object.fromEntries(
+    Object.entries(catalog).map(([key, entries]) => {
+      const kind = kinds[key];
+      let arranged = [...entries];
+      if (kind?.unique) {
+        const seen = new Set<string>();
+        arranged = arranged.filter((entry) => !seen.has(entry.text) && seen.add(entry.text));
+      }
+      if (kind?.sort) arranged.sort(kind.sort);
+      return [key, arranged];
+    }),
+  );
 }

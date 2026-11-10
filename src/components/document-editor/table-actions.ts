@@ -28,9 +28,12 @@ import {
 import type { EditorView } from 'prosemirror-view';
 import {
   deleteObject,
+  distributeColumns,
   insertParagraphBesideObject,
+  insertTableLines,
   inWholeTable,
   moveTableLine,
+  setCellAlignment,
   type TableLine,
   withTableLine,
 } from '../../engine/index.js';
@@ -137,6 +140,25 @@ export function tableLineEntries(
   return line.axis === 'row' ? rowEntries(item, labels, line) : columnEntries(item, labels, line);
 }
 
+const VERTICAL = ['top', 'middle', 'bottom'] as const;
+const ACROSS = ['left', 'center', 'right'] as const;
+
+// The nine ways to align the selected cells' content.
+function alignmentEntries(view: EditorView, labels: DocumentEditorLabels): MenuEntry[] {
+  return VERTICAL.flatMap((verticalAlign) =>
+    ACROSS.map((textAlign) =>
+      commandEntry(
+        view,
+        {
+          id: `align-${verticalAlign}-${textAlign}`,
+          label: labels.cellAlignment(verticalAlign, textAlign),
+        },
+        setCellAlignment({ textAlign, verticalAlign }),
+      ),
+    ),
+  );
+}
+
 /**
  * The table entries of the context menu in a cell of the table at `table`: insert, merge, split,
  * header and delete, each on the whole table when the pages split it.
@@ -155,14 +177,19 @@ export function tableCellEntries(
       label: labels.insert,
       icon: PlusGlyph,
       items: [
-        item(addRowBefore, { id: 'row-above', label: labels.rowAbove }),
-        item(addRowAfter, { id: 'row-below', label: labels.rowBelow }),
-        item(addColumnBefore, { id: 'column-left', label: labels.columnLeft }),
-        item(addColumnAfter, { id: 'column-right', label: labels.columnRight }),
+        item(insertTableLines('row', 'before'), { id: 'row-above', label: labels.rowAbove }),
+        item(insertTableLines('row', 'after'), { id: 'row-below', label: labels.rowBelow }),
+        item(insertTableLines('column', 'before'), { id: 'column-left', label: labels.columnLeft }),
+        item(insertTableLines('column', 'after'), {
+          id: 'column-right',
+          label: labels.columnRight,
+        }),
       ],
     },
     item(mergeCells, { id: 'merge-cells', label: labels.mergeCells }),
     item(splitCell, { id: 'split-cell', label: labels.splitCell }),
+    { id: 'align-cells', label: labels.alignCells, items: alignmentEntries(view, labels) },
+    item(distributeColumns, { id: 'distribute-columns', label: labels.distributeColumns }),
     {
       id: 'table-header',
       label: labels.header,

@@ -25,6 +25,13 @@ A kind (`ContentsKind`) shall name the node types it lists, and may choose which
 Implementation: `src/model/contents/document-catalog.ts`
 Verification: `src/model/contents/document-catalog.test.ts`
 
+### DOCE-CONTENTS-1.4 - Ordering and showing a kind's entries
+
+A kind may order its entries (`sort`), such as by their text, in place of document order, and list only the first entry of each text (`unique`); a list of the kind shall leave out its entries' page numbers (`showPage: false`) or their leaders (`leader: false`).
+
+Implementation: `src/model/contents/document-catalog.ts`, `src/engine/contents.ts`
+Verification: `src/model/contents/document-catalog.test.ts`, `e2e/contents.spec.ts`
+
 ## DOCE-CONTENTS-2 - Lists of contents
 
 ### DOCE-CONTENTS-2.1 - Listing entries

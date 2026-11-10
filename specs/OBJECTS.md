@@ -45,3 +45,19 @@ Verification: `src/engine/object-commands.test.ts`
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`
+
+## DOCE-OBJECTS-2 - Captions
+
+### DOCE-OBJECTS-2.1 - A caption's text
+
+`captionedAt(state)` shall find the table, figure or code block selected or holding the selection; `setCaption(text)` sets its caption text, with its spaces collapsed, and shows its caption, and `toggleCaption(shown)` shows or hides it, toggling it by default, on the whole table when the pages split one. The context menu offers editing the caption in a dialog and showing or hiding it (DOCE-EDITOR-3.8).
+
+Implementation: `src/engine/captions.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/captions.spec.ts`
+
+### DOCE-OBJECTS-2.2 - The caption line
+
+A caption line shall read the object's label and number, from the template's numbering of its kind (`--doc-<kind>-counter-content`), then its text, `Table 1.1 - Limits`; the reference stylesheet counts each kind, a later part of a split object and a table with its caption hidden excepted, places captions as the template says, and ends a later part's caption with the template's continued suffix (`--doc-<kind>-caption-continued`).
+
+Implementation: `src/model/schema/table-nodes.ts`, `labs/reference/document.css`
+Verification: `e2e/captions.spec.ts`

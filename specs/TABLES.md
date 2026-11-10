@@ -76,6 +76,36 @@ Dragging the border between two cells shall resize the column before it, no narr
 Implementation: `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
 Verification: `e2e/tables.spec.ts`
 
+## DOCE-TABLES-3 - Formatting tables
+
+### DOCE-TABLES-3.1 - Aligning cells
+
+`setCellAlignment({ textAlign, verticalAlign })` shall align the content of the selected cells, or of the cell holding the caret, across (left, centre or right), down (top, middle or bottom), or both, keeping what it is not given. The context menu in a cell offers the nine alignments (`Align cells`).
+
+Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/captions.spec.ts`
+
+### DOCE-TABLES-3.2 - Equal columns
+
+`distributeColumns` shall give the columns of the table at the selection equal widths that keep the table's width, on the whole table when the pages split it; it is refused while a column has no width or the widths are already equal. The context menu in a cell offers it.
+
+Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
+Verification: `src/engine/table-format.test.ts`
+
+### DOCE-TABLES-3.3 - Inserting as many as selected
+
+`insertTableLines(axis, side)` shall insert rows above or below the selection, or columns before or after it, as many as the selected cells span, one at the caret; the context menu's insert entries use it.
+
+Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
+Verification: `src/engine/table-format.test.ts`
+
+### DOCE-TABLES-3.4 - Inserting a table from the keyboard
+
+Mod-Alt-T shall insert a table of three rows and three columns where a new block goes (DOCE-TABLES-1.6).
+
+Implementation: `src/engine/document-editing.ts`
+Verification: `src/engine/table-format.test.ts`
+
 ## Hooks
 
 | Hook                               | Kind      | Values          | Description                                                |

@@ -8,6 +8,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { type RefObject, useEffect, useRef } from 'react';
 import {
+  type CompareSuggestions,
   createDocumentSections,
   createSearch,
   createVersionChanges,
@@ -45,6 +46,8 @@ export interface DocumentComparison {
   readonly previous: ProseMirrorNode;
   /** Defaults to markup. */
   readonly display?: VersionChangeDisplay | undefined;
+  /** Whether the document's suggestions count as rejected (the default) or as accepted. */
+  readonly suggestions?: CompareSuggestions | undefined;
 }
 
 // The height inside the page margins of a section's template scope.
@@ -129,6 +132,7 @@ export function useDocumentLayout(
       createVersionChanges({
         previous: () => latest.current.compare?.previous ?? null,
         display: () => latest.current.compare?.display ?? 'markup',
+        suggestions: () => latest.current.compare?.suggestions ?? 'rejected',
       }),
     ];
     ownPlugins.current = own;
@@ -181,9 +185,9 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [template]);
 
-  const { previous, display } = options.compare ?? {};
+  const { previous, display, suggestions } = options.compare ?? {};
   useEffect(() => {
     latest.current.onStateChange(recompare);
     refresh.current?.();
-  }, [previous, display]);
+  }, [previous, display, suggestions]);
 }

@@ -109,7 +109,33 @@ function renderTable(node: ProseMirrorNode) {
   attrs[TABLE_CAPTION_TEXT_ATTR] = normalizeCaptionText(node.attrs.caption || '');
   const borderClass = String(node.attrs.tableBorderClass || '');
   if (TABLE_BORDER_CLASSES.has(borderClass)) attrs.class = borderClass;
-  return ['table', attrs, columnGroup(widths, layout === 'fit-page-width'), ['tbody', 0]];
+  const caption = node.attrs.captionEnabled === false ? [] : [captionLine(node.attrs.caption)];
+  return [
+    'table',
+    attrs,
+    ...caption,
+    columnGroup(widths, layout === 'fit-page-width'),
+    ['tbody', 0],
+  ];
+}
+
+// The caption line: its label and number, which the stylesheet sets from the template, its text,
+// and on a later part of a split table, the template's continued suffix.
+function captionLine(caption: unknown) {
+  return [
+    'caption',
+    {
+      class: 'doc-caption-line doc-table-caption-line',
+      'data-caption-kind': 'table',
+      contenteditable: 'false',
+    },
+    [
+      'span',
+      { class: 'doc-caption-text', 'data-doc-caption-text': 'true' },
+      normalizeCaptionText(caption || ''),
+    ],
+    ['span', { class: 'doc-caption-continued', 'data-doc-caption-continued': 'true' }, ''],
+  ];
 }
 
 const table: NodeSpec = {

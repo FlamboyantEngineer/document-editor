@@ -63,9 +63,13 @@ const quotation = (value: string): StoredNode => ({
 });
 
 // A list of quotations: a kind of list the defaults do not have, numbered by the lab.
+// The quotations, latest chapter first, without page numbers or leaders.
 const QUOTES: ContentsKind = {
   nodes: ['blockquote'],
   number: (node) => `“${node.textContent.slice(0, 1)}”`,
+  sort: (a, b) => b.text.localeCompare(a.text),
+  showPage: false,
+  leader: false,
 };
 
 function sample() {

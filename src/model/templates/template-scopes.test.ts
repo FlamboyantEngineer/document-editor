@@ -118,7 +118,13 @@ describe('template footnotes and captions', () => {
     const entries = Object.fromEntries(
       buildCaptionCssVarEntries(
         {
-          table: { caption: { alignment: 'center', label: { font: 'Brand', weight: 700 } } },
+          table: {
+            caption: {
+              alignment: 'center',
+              label: { font: 'Brand', weight: 700 },
+              continuedSuffix: '- (continued)',
+            },
+          },
           figure: { caption: { text: { size: '9pt', italic: true } } },
         },
         { Brand: '"Brand", sans-serif' },
@@ -132,6 +138,8 @@ describe('template footnotes and captions', () => {
       '--doc-figure-caption-text-font-size': '9pt',
       '--doc-figure-caption-text-font-style': 'italic',
       '--doc-code-caption-label-font-family': null,
+      '--doc-table-caption-continued': '" (continued)"',
+      '--doc-figure-caption-continued': null,
     });
   });
 });

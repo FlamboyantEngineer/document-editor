@@ -21,6 +21,8 @@ export {
   OBJECT_BLOCK_TYPES,
   objectBlockAt,
 } from './block-commands.js';
+export type { CaptionedObject } from './captions.js';
+export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
 export type { CommentAnchor, CommentState } from './comments.js';
 export {
   addCommentAnchor,
@@ -176,6 +178,8 @@ export {
 } from './suggestion-decisions.js';
 export type { SuggestOptions } from './suggestions.js';
 export { suggestionsKey, suggestTransaction } from './suggestions.js';
+export type { CellTextAlign, CellVerticalAlign } from './table-format.js';
+export { distributeColumns, insertTableLines, setCellAlignment } from './table-format.js';
 export { inWholeTable } from './table-parts.js';
 export type { TableAxis, TableLine } from './tables.js';
 export {
@@ -200,5 +204,10 @@ export {
   versionChanges,
   versionChangesKey,
 } from './version-changes.js';
-export type { VersionBlock, VersionChange, VersionChangeKind } from './version-compare.js';
+export type {
+  CompareSuggestions,
+  VersionBlock,
+  VersionChange,
+  VersionChangeKind,
+} from './version-compare.js';
 export { collectVersionBlocks, compareVersions } from './version-compare.js';
