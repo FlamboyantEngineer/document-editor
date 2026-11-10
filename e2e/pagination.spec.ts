@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.js';
 
 const PAGE_HEIGHT = 360;
+const NARROW_WIDTH = 300;
 
 const pages = (page: Page) => page.locator('.lab-pages .pm-page');
 
@@ -65,6 +66,17 @@ test.describe('pagination lab', () => {
     expect(await pages(page).count()).toBeGreaterThan(before);
     await expect(html).toHaveAttribute('data-lab-caret-text', /^Room 9:/);
     await expectPagesHoldContent(page);
+    // Every page takes the new width, its footnotes too.
+    const widths = await page
+      .locator('.lab-pages .pm-page')
+      .evaluateAll((all) =>
+        all.flatMap((each) =>
+          [...each.querySelectorAll(':scope > .pm-page-content, :scope > .pm-page-footnotes')]
+            .filter((region) => region.childElementCount > 0)
+            .map((region) => Math.round(region.getBoundingClientRect().width)),
+        ),
+      );
+    expect(new Set(widths)).toEqual(new Set([NARROW_WIDTH]));
   });
 
   test('DOCE-PAGINATION-6.6 DOCE-PAGINATION-7.1 lays the pages out again as the writer types and undoes', async ({

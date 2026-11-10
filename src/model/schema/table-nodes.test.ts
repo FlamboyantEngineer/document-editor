@@ -43,7 +43,7 @@ describe('table nodes', () => {
     const sized = (width: number | null) =>
       cell.create({ colwidth: width ? [width] : null }, paragraph.create());
     const render = (...cells: ReturnType<typeof sized>[]) =>
-      table.spec.toDOM?.(table.create(null, [row.create(null, cells)])) as unknown[];
+      table.spec.toDOM?.(table.create(null, [row.create(null, cells)])) as readonly unknown[];
     const [, attrs, columns] = render(sized(100), sized(300));
     expect(attrs).toMatchObject({
       style: 'width:calc(400px + var(--doc-table-border-width, 1px));max-width:100%',
