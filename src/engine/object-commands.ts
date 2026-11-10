@@ -6,6 +6,8 @@ import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { newBlockRange } from './tables.js';
 
+export { parseCodeLines } from '../model/index.js';
+
 // Inserts a block where a new block goes, then places the caret as `caret` asks.
 function insertBlock(node: ProseMirrorNode, caret: 'inside' | 'select' = 'inside'): Command {
   return (state, dispatch) => {
@@ -106,18 +108,6 @@ export function setLinkedCode(linked: LinkedCode): Command {
     dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...attrs }));
     return true;
   };
-}
-
-/**
- * The first and last line a code URL's fragment names, such as `#L10-L20` or `#L7`; null without
- * one.
- */
-export function parseCodeLines(url: string): { readonly from: number; readonly to: number } | null {
-  const match = /#L(\d+)(?:-L?(\d+))?$/i.exec(url.trim());
-  if (!match) return null;
-  const from = Number(match[1]);
-  const to = match[2] ? Number(match[2]) : from;
-  return from > 0 && to >= from ? { from, to } : null;
 }
 
 const mathType = (state: EditorState, display: boolean): NodeType | undefined =>

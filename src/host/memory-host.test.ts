@@ -176,4 +176,19 @@ describe('createMemoryHost', () => {
     const config = readFileSync(join(process.cwd(), 'eslint.config.js'), 'utf8');
     expect(config).toContain("'localStorage', 'sessionStorage'");
   });
+
+  it('DOCE-HOST-1.8 DOCE-HOST-3.6 resolves linked code to the lines a URL names', async () => {
+    const source = ['one', 'two', 'three', 'four'].join('\n');
+    const host = createMemoryHost({ code: { 'https://example.com/a.ts': source } });
+    await expect(host.codeSource?.resolve('https://example.com/a.ts#L2-L3')).resolves.toEqual({
+      ok: true,
+      value: { code: 'two\nthree', startLine: 2 },
+    });
+    await expect(host.codeSource?.resolve('https://example.com/a.ts')).resolves.toMatchObject({
+      ok: true,
+      value: { startLine: 1 },
+    });
+    const missing = await host.codeSource?.resolve('https://example.com/b.ts');
+    expect(missing?.ok).toBe(false);
+  });
 });

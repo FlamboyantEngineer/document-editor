@@ -56,6 +56,7 @@ export {
   prefillAbbreviation,
 } from './glossary.js';
 export * from './layout/layout-sections.js';
+export { parseCodeLines, sliceCodeLines } from './linked-code.js';
 export type { CaptionPlacement } from './numbering/caption-placement.js';
 export {
   buildCaptionPlacementVariables,
