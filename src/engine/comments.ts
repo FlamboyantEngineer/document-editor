@@ -55,6 +55,21 @@ export function selectedText(state: EditorState): string {
 }
 
 /**
+ * Anchors a comment thread to a range of a transaction's document; returns whether it could, which
+ * needs text in the range and comment anchors in the schema.
+ */
+export function anchorCommentRange(
+  tr: Transaction,
+  { from, to }: { readonly from: number; readonly to: number },
+  thread: string,
+): boolean {
+  const type = anchorType(tr.doc.type.schema);
+  if (!type || from >= to || !tr.doc.textBetween(from, to).trim()) return false;
+  tr.addMark(from, to, type.create({ commentId: thread, commentState: 'open' }));
+  return true;
+}
+
+/**
  * Anchors a comment thread to the selected text. Refused without a selection or text in it, or
  * when the schema has no comment anchors.
  */

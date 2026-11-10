@@ -43,6 +43,13 @@ export function createEditLock(options: EditLockOptions): Plugin<EditLockOptions
   });
 }
 
+/** Whether a document a state's lock applies to is locked at a position; false without a lock. */
+export function isLockedIn(state: EditorState, doc: ProseMirrorNode, pos: number): boolean {
+  const lock = editLockKey.getState(state);
+  if (!lock) return false;
+  return lock.isLocked(doc, Math.max(0, Math.min(pos, doc.content.size)));
+}
+
 /** Whether the writer may not change the document at a position; false without a lock. */
 export function isPositionLocked(state: EditorState, pos: number): boolean {
   const lock = editLockKey.getState(state);

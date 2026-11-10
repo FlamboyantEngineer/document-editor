@@ -7,6 +7,7 @@
 // a grammar slip, which the context menu corrects.
 
 import { EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DocumentEditor, type DocumentLayout } from '../../src/components/index.js';
@@ -26,6 +27,7 @@ import {
   resolveTemplateFile,
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
+import { AgentPanel } from './agent-panel.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument } from './lab-document.js';
@@ -86,6 +88,7 @@ function Lab() {
   const [scrollable, setScrollable] = useState(true);
   const [statusBar, setStatusBar] = useState(true);
   const [hostItems, setHostItems] = useState(true);
+  const [view, setView] = useState<EditorView | null>(null);
   return (
     <>
       <fieldset>
@@ -148,6 +151,7 @@ function Lab() {
           Host items
         </label>
       </fieldset>
+      <AgentPanel view={view} />
       <DocumentEditor
         state={state}
         onStateChange={setState}
@@ -161,6 +165,7 @@ function Lab() {
         className="lab-document-editor"
         aria-label="Sample document"
         events={{
+          onMounted: setView,
           onTransaction: (tr) => {
             if (isPaginationTransaction(tr)) pagesLaidOut();
           },

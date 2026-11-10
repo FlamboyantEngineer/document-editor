@@ -1,5 +1,20 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type {
+  Actor,
+  AutomationEdit,
+  AutomationError,
+  AutomationErrorKind,
+  AutomationOptions,
+  AutomationResult,
+  CreatedThread,
+} from './automation.js';
+export { applyEdits, automationActor, automationKey } from './automation.js';
+export type { EditAddress } from './automation-address.js';
+export type { DescribedBlock } from './automation-read.js';
+export { describeBlocks } from './automation-read.js';
+export type { StreamOptions, TextStream } from './automation-stream.js';
+export { streamText } from './automation-stream.js';
 export {
   deleteObject,
   insertParagraphBesideObject,
@@ -9,6 +24,7 @@ export {
 export type { CommentAnchor, CommentState } from './comments.js';
 export {
   addCommentAnchor,
+  anchorCommentRange,
   linkSuggestionThread,
   listCommentAnchors,
   removeCommentAnchor,
@@ -33,7 +49,7 @@ export {
 export type { DocumentStatistics } from './document-statistics.js';
 export { documentStatistics } from './document-statistics.js';
 export type { EditLockOptions } from './edit-lock.js';
-export { createEditLock, editLockKey, isPositionLocked } from './edit-lock.js';
+export { createEditLock, editLockKey, isLockedIn, isPositionLocked } from './edit-lock.js';
 export {
   changeParagraphLevel,
   clearFormatting,
