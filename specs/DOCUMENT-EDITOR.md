@@ -175,6 +175,27 @@ Verification: `e2e/document-editor.spec.ts`
 Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-6.4 - Zoom
+
+`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over `ZOOM_LEVELS`, and Ctrl+wheel over the editor steps to the next level up or down. The pages measure unscaled, so the zoom never changes them.
+
+Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.5 - Showing suggestions
+
+`markup` shall choose how suggestions show, published as `data-markup`: `all` their markup (the default), `simple` the document as if they were accepted with a bar beside each changed block, `final` as if accepted, and `original` as if rejected. It changes only what shows; the suggestions stay to decide.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.6 - Telemetry
+
+With the host's `telemetry` adapter (DOCE-HOST-1.1), the editor shall measure how long its pages took to lay out when the document opened (`document-editor.first-layout`) and after each run of edits (`document-editor.layout`), in milliseconds (`EDITOR_MEASURES`).
+
+Implementation: `src/components/document-editor/use-editor-telemetry.ts`
+Verification: `e2e/document-editor.spec.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                 | Description                                                                             |
@@ -201,6 +222,9 @@ Verification: `e2e/document-editor.spec.ts`
 | `data-issues`                           | state     | `true`                                                 | On the proofing status: issues are marked.                                              |
 | `data-status`                           | attribute | `position`, `mode`; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
 | `de-document-editor__content`           | slot      |                                                        | The document.                                                                           |
+| `de-document-editor__zoom`              | slot      |                                                        | The status bar's zoom control, with `onZoomChange`.                                     |
+| `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                   | How suggestions show.                                                                   |
+| `--de-zoom`                             | property  |                                                        | The document's zoom, as a factor.                                                       |
 | `data-layout`                           | attribute | `page`, `web`                                          | How the document is laid out.                                                           |
 | `data-mode`                             | state     | `authoring`, `reading`                                 | Whether the writer can edit.                                                            |
 | `data-scrollable`                       | state     | `true`                                                 | The editor scrolls the document itself.                                                 |

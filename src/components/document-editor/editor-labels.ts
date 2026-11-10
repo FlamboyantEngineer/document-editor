@@ -85,6 +85,7 @@ export interface DocumentEditorLabels {
   readonly find: string;
   readonly matchCase: string;
   readonly wholeWord: string;
+  readonly zoom: string;
   /** The proofing status: checking, or how many issues are marked. */
   readonly proofingStatus: (issues: number, pending: boolean) => string;
   /** Names the status bar's button that selects the next proofing issue. */
@@ -168,6 +169,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   find: 'Find in document',
   matchCase: 'Match case',
   wholeWord: 'Whole words',
+  zoom: 'Zoom',
   proofingStatus: (issues, pending) => {
     if (pending && issues === 0) return 'Checking…';
     if (issues === 0) return 'No issues';

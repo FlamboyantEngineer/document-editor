@@ -74,19 +74,21 @@ export const isFindKey = (event: KeyboardEvent) =>
 export function useEngineView(
   events: EnginePlumbingProps['events'],
   onContentChange: EnginePlumbingProps['onContentChange'],
+  tap?: (tr: Parameters<NonNullable<RichTextEngineEvents['onTransaction']>>[0]) => void,
 ) {
   const [view, setView] = useState<EditorView | null>(null);
   // The host's latest events, behind handlers that keep their identity: a new events object on
   // each of the host's renders would otherwise give the view new props, which redraws its
   // selection over a caret the browser has placed and not reported yet.
-  const latest = useRef({ events, onContentChange });
+  const latest = useRef({ events, onContentChange, tap });
   useEffect(() => {
-    latest.current = { events, onContentChange };
+    latest.current = { events, onContentChange, tap };
   });
   const withView = useMemo<EngineEvents>(
     () => ({
       onTransaction: (tr, current) => {
         latest.current.events?.onTransaction?.(tr, current);
+        latest.current.tap?.(tr);
         const notify = latest.current.onContentChange;
         if (notify && isContentChange(tr)) notify(tr);
       },

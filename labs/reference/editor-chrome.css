@@ -345,3 +345,37 @@
   background: #ffc94d;
   outline: 1px solid #b07d00;
 }
+
+/* The document zoomed: its pages, not the chrome around them. */
+.de-document-editor__content {
+  zoom: var(--de-zoom, 1);
+}
+
+.de-document-editor__zoom {
+  display: inline-flex;
+}
+
+/*
+ * How suggestions show (`data-markup`): as if accepted, with a bar beside each changed block in
+ * the simple markup, or as if rejected.
+ */
+.de-document-editor:is([data-markup='simple'], [data-markup='final']) ins[data-id] {
+  background: none;
+  color: inherit;
+  text-decoration: none;
+}
+
+.de-document-editor:is([data-markup='simple'], [data-markup='final']) del[data-id],
+.de-document-editor[data-markup='original'] ins[data-id] {
+  display: none;
+}
+
+.de-document-editor[data-markup='original'] del[data-id] {
+  background: none;
+  color: inherit;
+  text-decoration: none;
+}
+
+.de-document-editor[data-markup='simple'] .pm-page-content > :has(ins[data-id], del[data-id]) {
+  box-shadow: -10px 0 0 -8px var(--ref-accent, #0969da);
+}

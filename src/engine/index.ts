@@ -78,6 +78,8 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { OutlineEntry } from './outline.js';
+export { documentOutline } from './outline.js';
 export type { Peer, PresenceState } from './presence.js';
 export {
   createPresence,

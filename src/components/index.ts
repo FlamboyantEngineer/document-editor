@@ -15,6 +15,7 @@ export type {
   DocumentEditorNotifications,
   DocumentEditorProps,
   DocumentLayout,
+  DocumentMarkup,
   DocumentToolbarOptions,
   EditorContext,
   ToolbarButtonItem,
@@ -27,7 +28,9 @@ export {
   CONTEXT_MENU_GROUPS,
   DEFAULT_EDITOR_LABELS,
   DocumentEditor,
+  EDITOR_MEASURES,
   isContentChange,
   TOOLBAR_GROUPS,
   useDocumentEditor,
+  ZOOM_LEVELS,
 } from './document-editor/index.js';

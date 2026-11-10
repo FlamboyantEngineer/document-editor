@@ -4,11 +4,13 @@
 
 import type { Command } from 'prosemirror-state';
 import { type RefObject, useMemo, useState } from 'react';
-import type {
-  DocumentEditorHandle,
-  DocumentEditorNotifications,
+import {
+  type DocumentEditorHandle,
+  type DocumentEditorNotifications,
+  EDITOR_MEASURES,
 } from '../../src/components/index.js';
 import { describeBlocks } from '../../src/engine/index.js';
+import type { TelemetryAdapter } from '../../src/host/index.js';
 
 /** The lab's notifications and keys, and what they report. */
 export function useHostPanel() {
@@ -16,6 +18,15 @@ export function useHostPanel() {
   const [changes, setChanges] = useState(0);
   const [caret, setCaret] = useState('');
   const [saved, setSaved] = useState(0);
+  const [firstLayout, setFirstLayout] = useState<number | null>(null);
+  const telemetry = useMemo<TelemetryAdapter>(
+    () => ({
+      measure: (name, duration) => {
+        if (name === EDITOR_MEASURES.firstLayout) setFirstLayout(Math.round(duration));
+      },
+    }),
+    [],
+  );
   const notifications = useMemo<DocumentEditorNotifications>(() => {
     const save: Command = () => {
       setSaved((count) => count + 1);
@@ -28,7 +39,7 @@ export function useHostPanel() {
       keymap: { 'Mod-s': save },
     };
   }, []);
-  return { notifications, report: { focused, changes, caret, saved } };
+  return { notifications, telemetry, report: { focused, changes, caret, saved, firstLayout } };
 }
 
 /** The panel, reading the report and driving the editor through its handle. */
@@ -55,7 +66,8 @@ export function HostPanel({
       </button>
       <output aria-label="Host report">
         {report.focused ? 'Focused' : 'Not focused'} · {report.changes} changes · caret in{' '}
-        {report.caret || 'nothing'} · saved {report.saved} times
+        {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
+        {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
       </output>
     </fieldset>
   );

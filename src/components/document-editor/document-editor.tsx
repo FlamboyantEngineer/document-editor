@@ -23,6 +23,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { TelemetryAdapter } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import {
@@ -30,15 +31,8 @@ import {
   type DocumentCommentsOptions,
 } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
-import { DocumentContextMenu } from './document-context-menu.js';
-import { DocumentFindBar } from './document-find-bar.js';
-import { DocumentStatusBar } from './document-status-bar.js';
-import { DocumentToolbar } from './document-toolbar.js';
-import {
-  createEditorContext,
-  DocumentEditorContext,
-  type EditorContext,
-} from './editor-context.js';
+import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
+import { createEditorContext, DocumentEditorContext } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { TableHandles } from './table-handles.js';
@@ -49,14 +43,15 @@ import {
   useDispatchBody,
   useEngineView,
 } from './use-editor-engine.js';
+import { useEditorTelemetry } from './use-editor-telemetry.js';
 import {
   type DocumentEditorNotifications,
   useHostViewProps,
   useSelectionNotification,
 } from './use-host-events.js';
 
-const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
-const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
+/** How suggestions show in the document. */
+export type DocumentMarkup = 'all' | 'simple' | 'final' | 'original';
 import {
   type DocumentComparison,
   type DocumentLayout,
@@ -107,6 +102,17 @@ export interface DocumentEditorProps
   statusBar?: boolean | undefined;
   /** The host's own items at the end of the status bar. */
   statusItems?: ReactNode;
+  /** The document's zoom, in percent. Defaults to 100. */
+  zoom?: number | undefined;
+  /** Lets the reader zoom: a zoom control in the status bar, and Ctrl+wheel over the document. */
+  onZoomChange?: ((zoom: number) => void) | undefined;
+  /**
+   * How suggestions show: all their markup (the default), `simple` (the document as if accepted,
+   * with a bar beside each changed block), `final` (as if accepted) or `original` (as if rejected).
+   */
+  markup?: DocumentMarkup | undefined;
+  /** The host's telemetry, which the editor reports its layout times to. */
+  telemetry?: TelemetryAdapter | undefined;
   /** Opens a find bar above the document with Mod-F, to find and replace text. Defaults to false. */
   find?: boolean | undefined;
   /**
@@ -208,6 +214,7 @@ function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBo
 function rootData(props: DocumentEditorProps) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
   return {
+    markup: props.markup ?? 'all',
     layout,
     mode: editable ? 'authoring' : 'reading',
     suggesting: editable && suggesting,
@@ -222,77 +229,14 @@ function rootData(props: DocumentEditorProps) {
  * its toolbar above the document and its status bar below it, and scrolls the document itself,
  * with overlay scrollbars.
  */
-interface ChromeProps {
-  props: DocumentEditorProps;
-  context: EditorContext;
-  view: EditorView | null;
-  templateStyle: Readonly<Record<string, string>>;
-  startCommentRef: RefObject<(() => void) | null>;
-}
-
-// The toolbar and the find bar above the document.
-function TopChrome({
-  props,
-  context,
-  templateStyle,
-  finding,
-  onFindClose,
-}: ChromeProps & {
-  finding: boolean;
-  onFindClose: () => void;
-}) {
-  return (
-    <>
-      {props.toolbar ? (
-        <DocumentToolbar
-          {...hooks.slot('toolbar')}
-          context={context}
-          options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
-          templateStyle={templateStyle}
-        />
-      ) : null}
-      {props.find && finding ? (
-        <DocumentFindBar {...hooks.slot('find')} context={context} onClose={onFindClose} />
-      ) : null}
-    </>
-  );
-}
-
-// The status bar below the document, and the context menu.
-function BottomChrome({ props, context, view, startCommentRef }: ChromeProps) {
-  const { layout = 'page', editable = true, suggesting = false } = props;
-  return (
-    <>
-      {props.statusBar ? (
-        <DocumentStatusBar
-          {...hooks.slot('status-bar')}
-          view={view}
-          state={context.state}
-          labels={context.labels}
-          layout={layout}
-          mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
-          items={props.statusItems}
-        />
-      ) : null}
-      {props.contextMenu === false ? null : (
-        <DocumentContextMenu
-          view={view}
-          labels={context.labels}
-          editable={editable}
-          canDecide={editable && !suggesting}
-          startCommentRef={startCommentRef}
-          options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
-        />
-      )}
-    </>
-  );
-}
-
 export function DocumentEditor(props: DocumentEditorProps) {
   const { state, onStateChange, template, layout = 'page', editable = true } = props;
   const { className, compare = null } = props;
   const measureIn = useRef<HTMLDivElement>(null);
-  const engine = useEngineView(props.events, props.onContentChange);
+  const root = useRef<HTMLDivElement>(null);
+  useWheelZoom(root, props);
+  const tap = useEditorTelemetry(props.telemetry);
+  const engine = useEngineView(props.events, props.onContentChange, tap);
   useEditorHandle(props.handleRef, engine.view);
   useSelectionNotification(state, props.onSelectionChange);
   const startCommentRef = useRef<(() => void) | null>(null);
@@ -318,8 +262,11 @@ export function DocumentEditor(props: DocumentEditorProps) {
   return (
     <DocumentEditorContext value={context}>
       <div
+        ref={root}
         {...hooks.root({ className, props, data: rootData(props) })}
-        style={templateStyle as CSSProperties}
+        style={
+          { ...templateStyle, '--de-zoom': String((props.zoom ?? 100) / 100) } as CSSProperties
+        }
       >
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" />

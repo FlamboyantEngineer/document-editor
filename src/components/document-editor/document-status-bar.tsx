@@ -7,6 +7,7 @@ import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
+import { ZoomControl } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, useDeferredValue, useMemo } from 'react';
@@ -31,7 +32,11 @@ const hooks = createHooks('document-editor', [
   'proofing-status',
   'proofing-language',
   'presence',
+  'zoom',
 ]);
+
+/** The zoom levels the reader steps through, in percent. */
+export const ZOOM_LEVELS = [50, 75, 90, 100, 110, 125, 150, 200] as const;
 
 /** What the status bar reports the writer is doing. */
 export type DocumentEditorMode = 'editing' | 'suggesting' | 'reading';
@@ -44,6 +49,8 @@ interface DocumentStatusBarProps {
   mode: DocumentEditorMode;
   /** The host's own items, after the editor's. */
   items?: ReactNode;
+  /** The document's zoom and how the reader changes it, when they can. */
+  zoom?: { readonly value: number; readonly onChange: (zoom: number) => void } | null;
   className?: string | undefined;
 }
 
@@ -139,6 +146,7 @@ export function DocumentStatusBar({
   layout,
   mode,
   items,
+  zoom,
   className,
 }: DocumentStatusBarProps) {
   const deferred = useDeferredValue(state);
@@ -157,6 +165,16 @@ export function DocumentStatusBar({
         <ProofingStatus view={view} state={deferred} labels={labels} />
         <span>{labels[MODE_LABELS[mode]]}</span>
       </span>
+      {zoom ? (
+        <ZoomControl
+          {...hooks.slot('zoom')}
+          aria-label={labels.zoom}
+          levels={ZOOM_LEVELS}
+          value={zoom.value}
+          resetValue={100}
+          onChange={zoom.onChange}
+        />
+      ) : null}
       {items}
     </StatusBar>
   );

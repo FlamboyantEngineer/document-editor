@@ -377,4 +377,48 @@ test.describe('document editor lab', () => {
     const caret = await page.evaluate(() => document.getSelection()?.anchorNode?.textContent);
     expect(caret).toBe('Power');
   });
+
+  test('DOCE-EDITOR-6.4 zooms the pages from the status bar and with Ctrl+wheel', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const zoomOf = () =>
+      content(page).evaluate((element) => getComputedStyle(element).getPropertyValue('zoom'));
+    expect(await zoomOf()).toBe('1');
+    const zoom = page.getByRole('group', { name: 'Zoom' });
+    await zoom.getByRole('button', { name: /Zoom in/i }).click();
+    await expect.poll(zoomOf).toBe('1.1');
+    await content(page).hover();
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, 100);
+    await page.keyboard.up('Control');
+    await expect.poll(zoomOf).toBe('1');
+  });
+
+  test('DOCE-EDITOR-6.5 shows suggestions with all markup, simple, none or as before', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByRole('button', { name: 'Rewrite a phrase' }).click();
+    const inserted = content(page).locator('ins', { hasText: 'operating state' });
+    const deleted = content(page).locator('del', { hasText: 'condition' }).first();
+    await expect(inserted).toBeVisible();
+    await expect(deleted).toBeVisible();
+    await page.getByLabel('Markup').selectOption('final');
+    await expect(editor(page)).toHaveAttribute('data-markup', 'final');
+    await expect(deleted).toBeHidden();
+    await expect(inserted).toBeVisible();
+    await page.getByLabel('Markup').selectOption('original');
+    await expect(inserted).toBeHidden();
+    await expect(deleted).toBeVisible();
+  });
+
+  test('DOCE-EDITOR-6.6 reports its first layout to the host telemetry', async ({ lab, page }) => {
+    await lab.open('document-editor');
+    await expect(page.getByRole('status', { name: 'Host report' })).toContainText(
+      /first layout \d+ ms/,
+    );
+  });
 });

@@ -14,6 +14,7 @@ import {
   DocumentEditor,
   type DocumentEditorHandle,
   type DocumentLayout,
+  type DocumentMarkup,
 } from '../../src/components/index.js';
 import {
   assignElementIds,
@@ -110,6 +111,8 @@ function Lab() {
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
   const [collaborators, setCollaborators] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [markup, setMarkup] = useState<DocumentMarkup>('all');
   useEffect(
     () => (view && collaborators ? startCollaborators(view) : undefined),
     [view, collaborators],
@@ -184,6 +187,19 @@ function Lab() {
           />{' '}
           Collaborators
         </label>
+        <label>
+          Markup{' '}
+          <select
+            name="markup"
+            value={markup}
+            onChange={(event) => setMarkup(event.currentTarget.value as DocumentMarkup)}
+          >
+            <option value="all">All markup</option>
+            <option value="simple">Simple markup</option>
+            <option value="final">No markup</option>
+            <option value="original">Original</option>
+          </select>
+        </label>
       </fieldset>
       <AgentPanel view={view} />
       <HostPanel report={host.report} handle={handle} />
@@ -197,6 +213,10 @@ function Lab() {
         scrollable={scrollable}
         statusBar={statusBar}
         find
+        zoom={zoom}
+        onZoomChange={setZoom}
+        markup={markup}
+        telemetry={host.telemetry}
         contextMenu={hostItems ? HOST_CONTEXT_MENU : true}
         className="lab-document-editor"
         aria-label="Sample document"
