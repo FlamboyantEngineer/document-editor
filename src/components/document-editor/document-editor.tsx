@@ -22,7 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { proofingUpdate, suggestTransaction } from '../../engine/index.js';
+import { automationActor, proofingUpdate, suggestTransaction } from '../../engine/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -128,7 +128,9 @@ function useDispatchBody(
         onStateChange(update);
         return;
       }
-      const next = suggesting ? suggestTransaction(tr, view.state, { author }) : tr;
+      // An automation change is direct or a suggestion as its caller chose.
+      const next =
+        suggesting && !automationActor(tr) ? suggestTransaction(tr, view.state, { author }) : tr;
       if (!next) return;
       if (body) body(next, view, commit);
       else if (next === tr) commit.applyDefault();

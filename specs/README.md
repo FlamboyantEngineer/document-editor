@@ -4,26 +4,27 @@ Each file in this directory specifies one component, one family of components, o
 
 ## Ownership
 
-| Document                                 | Owns                                                                    |
-| ---------------------------------------- | ----------------------------------------------------------------------- |
-| [HOST-ADAPTERS.md](HOST-ADAPTERS.md)     | The adapters a host passes in, capabilities and the in-memory host.     |
-| [DOCUMENT-SCHEMA.md](DOCUMENT-SCHEMA.md) | The document's node and mark types, their stored markup and references. |
-| [FORMAT.md](FORMAT.md)                   | The stored document and template formats and template inheritance.      |
-| [NUMBERING.md](NUMBERING.md)             | Numbering formats, counter styles and caption placement.                |
-| [TEMPLATES.md](TEMPLATES.md)             | Template CSS values, inheritance, footnotes, captions and sections.     |
-| [PAGINATION.md](PAGINATION.md)           | Laying sections out on pages, and joining split blocks back.            |
-| [LAYOUT.md](LAYOUT.md)                   | The web layout, layout sections and their commands, and reading time.   |
-| [SECTIONS.md](SECTIONS.md)               | A document's sections in their template scopes, and their commands.     |
-| [SUGGESTIONS.md](SUGGESTIONS.md)         | Suggest mode, suggested insertions and deletions, and deciding them.    |
-| [COMMENTS.md](COMMENTS.md)               | Comment anchors, the comments margin and suggestion threads.            |
-| [VERSIONS.md](VERSIONS.md)               | Comparing versions and showing their changes, with change bars.         |
-| [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.             |
-| [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.             |
-| [TABLES.md](TABLES.md)                   | Table editing, moving rows and columns, and the table handles.          |
-| [PROOFING.md](PROOFING.md)               | Proofing the document's text with the host's proofer, and its issues.   |
-| [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.            |
-| [LABS.md](LABS.md)                       | Starting the labs, and the lab toolbar's stylesheet and theme.          |
-| `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.           |
+| Document                                 | Owns                                                                        |
+| ---------------------------------------- | --------------------------------------------------------------------------- |
+| [HOST-ADAPTERS.md](HOST-ADAPTERS.md)     | The adapters a host passes in, capabilities and the in-memory host.         |
+| [DOCUMENT-SCHEMA.md](DOCUMENT-SCHEMA.md) | The document's node and mark types, their stored markup and references.     |
+| [FORMAT.md](FORMAT.md)                   | The stored document and template formats and template inheritance.          |
+| [NUMBERING.md](NUMBERING.md)             | Numbering formats, counter styles and caption placement.                    |
+| [TEMPLATES.md](TEMPLATES.md)             | Template CSS values, inheritance, footnotes, captions and sections.         |
+| [PAGINATION.md](PAGINATION.md)           | Laying sections out on pages, and joining split blocks back.                |
+| [LAYOUT.md](LAYOUT.md)                   | The web layout, layout sections and their commands, and reading time.       |
+| [SECTIONS.md](SECTIONS.md)               | A document's sections in their template scopes, and their commands.         |
+| [SUGGESTIONS.md](SUGGESTIONS.md)         | Suggest mode, suggested insertions and deletions, and deciding them.        |
+| [COMMENTS.md](COMMENTS.md)               | Comment anchors, the comments margin and suggestion threads.                |
+| [VERSIONS.md](VERSIONS.md)               | Comparing versions and showing their changes, with change bars.             |
+| [CONTENTS.md](CONTENTS.md)               | The catalog of headings and objects, and lists of contents.                 |
+| [EDITING.md](EDITING.md)                 | Element ids, the document's keys and the editing extension.                 |
+| [TABLES.md](TABLES.md)                   | Table editing, moving rows and columns, and the table handles.              |
+| [PROOFING.md](PROOFING.md)               | Proofing the document's text with the host's proofer, and its issues.       |
+| [AUTOMATION.md](AUTOMATION.md)           | Reading and changing a live document by element id, for agents and scripts. |
+| [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.                |
+| [LABS.md](LABS.md)                       | Starting the labs, and the lab toolbar's stylesheet and theme.              |
+| `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.               |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.
 
