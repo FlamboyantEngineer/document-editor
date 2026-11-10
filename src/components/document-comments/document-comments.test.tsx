@@ -9,6 +9,7 @@ import { createDocumentEditing, listCommentAnchors, listSuggestions } from '../.
 import { type CommentThread, createMemoryHost, type EditorHost } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
+import type { DocumentCommentsOptions } from './document-comments.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
 
@@ -79,6 +80,7 @@ function Harness(props: {
   select?: string;
   canComment?: boolean;
   editable?: boolean;
+  decide?: DocumentCommentsOptions['decide'];
 }) {
   const [state, setState] = useState(() => initial(props.select));
   useEffect(() => {
@@ -95,7 +97,13 @@ function Harness(props: {
       aria-label="Report"
       comments={
         comments
-          ? { store: comments, documentId: 'doc', identity, canComment: props.canComment }
+          ? {
+              store: comments,
+              documentId: 'doc',
+              identity,
+              canComment: props.canComment,
+              decide: props.decide,
+            }
           : undefined
       }
     />
@@ -189,6 +197,20 @@ describe('DocumentComments', () => {
     await user.click(within(card).getByRole('button', { name: 'Accept' }));
     expect(seen.state && listSuggestions(seen.state.doc)).toEqual([]);
     expect(seen.state?.doc.textContent).toBe('Alpha blue gamma delta epsilon');
+  });
+
+  it('DOCE-COMMENTS-2.10 offers only the decisions the host allows on a suggestion', async () => {
+    render(
+      <Harness
+        host={host()}
+        decide={(suggestion, me) => ({ accept: suggestion.author !== me, reject: true })}
+      />,
+    );
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('epsilon')).closest('[role="listitem"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show.');
+    expect(within(card).queryByRole('button', { name: 'Accept' })).not.toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Reject' })).toBeInTheDocument();
   });
 
   it('DOCE-COMMENTS-2.5 shows threads read-only to a reader who may not comment or decide', async () => {

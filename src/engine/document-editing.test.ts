@@ -240,15 +240,16 @@ describe('the editing extension', () => {
       'history',
       'element-ids',
       'footnotes',
+      'comment-draft',
       'tables',
       'gap-cursor',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(9);
+    expect(kit.buildPlugins(undefined)).toHaveLength(10);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(8);
+    expect(shared.buildPlugins(undefined)).toHaveLength(9);
   });
 
   it('DOCE-EDITING-2.7 selects an object before deleting it', () => {

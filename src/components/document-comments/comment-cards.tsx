@@ -7,8 +7,9 @@ import {
   CommentThread,
   CommentThreadReply,
 } from '@flamboyantengineer/ui-components/comment-thread';
+import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
 import type { Suggestion } from '../../engine/index.js';
-import type { CommentThread as StoredThread } from '../../host/index.js';
+import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { CommentThreads } from './use-comment-threads.js';
 
@@ -30,6 +31,8 @@ export interface DocumentCommentsLabels {
   someone: string;
   /** Reports a change the comment store refused without saying why. */
   failed: string;
+  /** Names a comment's reactions. */
+  reactions: string;
 }
 
 /** The labels of the comments margin unless the host gives its own. */
@@ -43,6 +46,7 @@ export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   split: 'Split the paragraph',
   someone: 'Someone',
   failed: 'The comment could not be saved.',
+  reactions: 'Reactions',
 };
 
 export const hooks = createHooks('document-comments', [
@@ -62,6 +66,62 @@ export interface CardContext {
   readonly labels: DocumentCommentsLabels;
 }
 
+// A comment's reactions, which the reader toggles while the store keeps reactions.
+function Reactions({
+  thread,
+  entry,
+  context,
+}: {
+  thread: StoredThread;
+  entry: CommentEntry;
+  context: CardContext;
+}) {
+  const { comments, me, labels } = context;
+  const { react } = comments;
+  const reactions = Object.entries(entry.reactions ?? {}).map(([emoji, ids]) => ({
+    emoji,
+    isReacted: ids.includes(me),
+    people: ids.map((id) => comments.people.get(id)?.name ?? labels.someone),
+  }));
+  if (!react && reactions.length === 0) return null;
+  return (
+    <ReactionBar
+      aria-label={labels.reactions}
+      reactions={reactions}
+      onToggle={
+        react && context.canComment
+          ? (emoji, reacted) =>
+              void react({ threadId: thread.id, entryId: entry.id, emoji, reacted }).catch(
+                () => undefined,
+              )
+          : undefined
+      }
+    />
+  );
+}
+
+// What the reader may do with a comment of a thread: edit their own, and delete their own reply,
+// or their own thread from its opening comment.
+function entryActions(
+  thread: StoredThread,
+  { entry, index }: { entry: CommentEntry; index: number },
+  { context, onRemove }: { context: CardContext; onRemove?: (() => Promise<void>) | undefined },
+) {
+  const { comments, me, canComment } = context;
+  const own = canComment && entry.author === me;
+  const { edit, removeEntry } = comments;
+  const removeReply = removeEntry
+    ? () => removeEntry({ threadId: thread.id, entryId: entry.id })
+    : undefined;
+  return {
+    onEdit:
+      own && edit
+        ? (text: string) => edit({ threadId: thread.id, entryId: entry.id, text })
+        : undefined,
+    onDelete: own ? (index === 0 ? onRemove : removeReply) : undefined,
+  };
+}
+
 function Entries({
   thread,
   context,
@@ -78,7 +138,9 @@ function Entries({
       author={people.get(entry.author) ?? { name: context.labels.someone }}
       time={entry.createdAt}
       text={entry.text}
-      onDelete={index === 0 && entry.author === context.me ? onRemove : undefined}
+      isEdited={Boolean(entry.editedAt)}
+      reactions={<Reactions thread={thread} entry={entry} context={context} />}
+      {...entryActions(thread, { entry, index }, { context, onRemove })}
     />
   ));
 }
@@ -94,7 +156,8 @@ export function ThreadCard({
   thread: StoredThread;
   isActive: boolean;
   context: CardContext;
-  onResolve: () => Promise<void>;
+  /** Resolves the thread, or reopens it. */
+  onResolve: (resolved: boolean) => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
   const { canComment, comments } = context;
@@ -102,7 +165,7 @@ export function ThreadCard({
     <CommentThread
       quote={thread.quote}
       isResolved={thread.state === 'resolved'}
-      onResolvedChange={canComment ? () => void onResolve() : undefined}
+      onResolvedChange={canComment ? (resolved) => void onResolve(resolved) : undefined}
       onReply={canComment ? (text) => comments.reply(thread.id, text) : undefined}
       isReadOnly={!canComment}
       isSelected={isActive}
@@ -183,7 +246,8 @@ export function SuggestionCard({
   thread: StoredThread | null;
   isActive: boolean;
   context: CardContext;
-  canDecide: boolean;
+  /** Whether the reader may accept the suggestion, and reject it. */
+  canDecide: { readonly accept: boolean; readonly reject: boolean };
   onDecide: (accept: boolean) => void;
   onReply: (text: string) => Promise<unknown>;
 }) {
@@ -191,14 +255,18 @@ export function SuggestionCard({
   return (
     <div {...hooks.slot('suggestion', { active: isActive })}>
       <Summary suggestion={suggestion} context={context} />
-      {canDecide ? (
+      {canDecide.accept || canDecide.reject ? (
         <div {...hooks.slot('decisions')}>
-          <Button size="sm" variant="primary" onPress={() => onDecide(true)}>
-            {labels.accept}
-          </Button>
-          <Button size="sm" onPress={() => onDecide(false)}>
-            {labels.reject}
-          </Button>
+          {canDecide.accept ? (
+            <Button size="sm" variant="primary" onPress={() => onDecide(true)}>
+              {labels.accept}
+            </Button>
+          ) : null}
+          {canDecide.reject ? (
+            <Button size="sm" onPress={() => onDecide(false)}>
+              {labels.reject}
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {thread || (canComment && isActive) ? (

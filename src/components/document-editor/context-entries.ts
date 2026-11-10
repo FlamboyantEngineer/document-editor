@@ -10,6 +10,7 @@ import { findTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
   acceptSuggestion,
+  canStartComment,
   clearFormatting,
   listSuggestions,
   objectBlockAt,
@@ -149,7 +150,8 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
     entries.push({
       id: 'comment',
       label: labels.addComment,
-      isDisabled: view.state.selection.empty,
+      shortcut: 'Ctrl+Alt+M',
+      isDisabled: !canStartComment(view.state),
       onAction: startComment,
     });
   }

@@ -20,7 +20,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { addCommentAnchor, createElementId } from '../../engine/index.js';
+import {
+  canStartComment,
+  createElementId,
+  startCommentDraft,
+  type Suggestion,
+} from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
 import { type AnchorTarget, isSameMeasurement, measureAnchors } from './anchor-rects.js';
 import {
@@ -44,6 +49,14 @@ export interface DocumentCommentsOptions {
   canComment?: boolean | undefined;
   /** The text the margin shows, beside the defaults. */
   labels?: Partial<DocumentCommentsLabels> | undefined;
+  /** Shows resolved threads too, to read or reopen. Defaults to false. */
+  showResolved?: boolean | undefined;
+  /**
+   * Whether the reader may accept a suggestion, and reject it, while they may decide at all; both
+   * by default.
+   */
+  decide?:
+    ((suggestion: Suggestion, me: string) => { accept: boolean; reject: boolean }) | undefined;
 }
 
 interface DocumentCommentsProps extends DocumentCommentsOptions {
@@ -128,13 +141,13 @@ export function DocumentComments(props: DocumentCommentsProps) {
   const { state, onStateChange, canDecide, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
   const comments = useCommentThreads({ ...props, failed: labels.failed });
-  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const run = useRunCommand(onStateChange);
+  const { showResolved, decide } = props;
   const items = useMemo(
-    () => listCommentItems(state, { threads: comments.threads, pending, canComment }),
-    [state, comments.threads, pending, canComment],
+    () => listCommentItems(state, { threads: comments.threads, canComment, showResolved }),
+    [state, comments.threads, canComment, showResolved],
   );
   const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
   const rects = useAnchorRects(layer, targets);
@@ -156,14 +169,17 @@ export function DocumentComments(props: DocumentCommentsProps) {
     labels,
   };
   const byKey = new Map(items.map((item) => [item.key, item]));
-  const settle = (id: string) =>
-    setPending((current) => new Set([...current].filter((each) => each !== id)));
+  // A thread starts as a draft on the selection, or the caret's block, until the store keeps it.
   const startThread = () => {
+    if (!canStartComment(state)) return;
     const id = createElementId();
-    setPending((current) => new Set(current).add(id));
-    run(addCommentAnchor(id));
+    run(startCommentDraft(id));
     setActive(`comment:${id}`);
   };
+  const decisions = (suggestion: Suggestion) =>
+    canDecide
+      ? (decide?.(suggestion, context.me) ?? { accept: true, reject: true })
+      : { accept: false, reject: false };
   const { startRef } = props;
   useEffect(() => {
     if (!startRef) return undefined;
@@ -190,10 +206,9 @@ export function DocumentComments(props: DocumentCommentsProps) {
             ? renderCommentCard(item, {
                 context,
                 isActive,
-                canDecide,
+                canDecide: decisions,
                 run,
                 startThread,
-                settle,
               })
             : null;
         }}

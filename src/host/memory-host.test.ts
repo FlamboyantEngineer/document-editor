@@ -230,4 +230,38 @@ describe('createMemoryHost', () => {
       'Power interface specification',
     ]);
   });
+
+  it('DOCE-HOST-1.10 DOCE-HOST-3.8 edits, deletes and reacts to comments, telling subscribers', async () => {
+    const { comments } = createMemoryHost({
+      person: { id: 'p1', name: 'Ada' },
+      comments: { now: () => new Date('2026-01-02T03:04:05Z') },
+    });
+    if (!comments?.edit || !comments.removeEntry || !comments.react || !comments.subscribe) {
+      throw new Error('The host should change comments and tell subscribers.');
+    }
+    const seen: number[] = [];
+    const stop = comments.subscribe('doc', (threads) => seen.push(threads.length));
+    await comments.create('doc', { id: 't1', quote: 'blue', text: 'Why?' });
+    await comments.reply('doc', 't1', 'Because.');
+    const edited = await comments.edit('doc', {
+      threadId: 't1',
+      entryId: 'comment-2',
+      text: 'So.',
+    });
+    expect(edited).toMatchObject({
+      value: { entries: [{}, { text: 'So.', editedAt: '2026-01-02T03:04:05.000Z' }] },
+    });
+    const reacted = await comments.react('doc', {
+      threadId: 't1',
+      entryId: 'comment-1',
+      emoji: '👍',
+      reacted: true,
+    });
+    expect(reacted).toMatchObject({ value: { entries: [{ reactions: { '👍': ['p1'] } }, {}] } });
+    const removed = await comments.removeEntry('doc', { threadId: 't1', entryId: 'comment-2' });
+    expect(removed.ok && removed.value.entries).toHaveLength(1);
+    stop();
+    await comments.reply('doc', 't1', 'Unseen.');
+    expect(seen).toEqual([1, 1, 1, 1, 1]);
+  });
 });

@@ -4,6 +4,14 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
 import {
+  canStartComment,
+  clearCommentDraft,
+  commentDraft,
+  commitCommentDraft,
+  createCommentDraft,
+  startCommentDraft,
+} from './comment-draft.js';
+import {
   addCommentAnchor,
   linkSuggestionThread,
   listCommentAnchors,
@@ -126,5 +134,33 @@ describe('comment anchors', () => {
       expect.objectContaining({ id: 's1', thread: 't1' }),
     ]);
     expect(suggested && run(suggested, linkSuggestionThread('none', 't1'))).toBeNull();
+  });
+
+  it('DOCE-COMMENTS-1.6 starts a draft on the selection or the caret block, then anchors it', () => {
+    const plugins = [createCommentDraft()];
+    let state = EditorState.create({ doc: read(paragraph('Alpha blue')), plugins });
+    state = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, positionOf(state.doc, 'blue'))),
+    );
+    expect(canStartComment(state)).toBe(true);
+    state = run(state, startCommentDraft('t1')) ?? state;
+    expect(commentDraft(state)).toMatchObject({ id: 't1' });
+    expect(
+      state.doc.textBetween(commentDraft(state)?.from ?? 0, commentDraft(state)?.to ?? 0),
+    ).toBe('Alpha blue');
+    // The draft is drawn, not stored, and follows the text.
+    expect(listCommentAnchors(state.doc)).toEqual([]);
+    state = state.apply(state.tr.insertText(' green', positionOf(state.doc, ' blue')));
+    expect(
+      state.doc.textBetween(commentDraft(state)?.from ?? 0, commentDraft(state)?.to ?? 0),
+    ).toBe('Alpha green blue');
+    state = run(state, commitCommentDraft('t1')) ?? state;
+    expect(commentDraft(state)).toBeNull();
+    expect(listCommentAnchors(state.doc).map((anchor) => anchor.text)).toEqual([
+      'Alpha green blue',
+    ]);
+    state = run(state, startCommentDraft('t2')) ?? state;
+    state = run(state, clearCommentDraft) ?? state;
+    expect(commentDraft(state)).toBeNull();
   });
 });

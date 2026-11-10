@@ -50,6 +50,7 @@ import { ObjectDialogs } from './object-dialogs.js';
 import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import {
+  isCommentKey,
   isFindKey,
   isReferenceKey,
   READ_SELECTION_FIRST,
@@ -197,6 +198,12 @@ function EditorBody({ props, engine, labels, startCommentRef, onFind, onDialog }
       attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
         if (host.handleKeyDown?.(view, event)) return true;
+        const startComment = startCommentRef.current;
+        if (startComment && isCommentKey(event)) {
+          event.preventDefault();
+          startComment();
+          return true;
+        }
         if (onDialog && isReferenceKey(event)) {
           event.preventDefault();
           onDialog({ kind: 'reference' });
@@ -213,7 +220,7 @@ function EditorBody({ props, engine, labels, startCommentRef, onFind, onDialog }
         ...(host.blur ? { blur: host.blur } : {}),
       },
     }),
-    [editable, host, onFind, onDialog, assets, feedback, labels],
+    [editable, host, onFind, onDialog, assets, feedback, labels, startCommentRef],
   );
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
@@ -297,9 +304,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
     if (engine.view && layout === 'web') ready.signal();
   }, [engine.view, layout, ready]);
   useElementIdRepair(props.repairIds ? engine.view : null, state);
-  useEditorHandle(props.handleRef, engine.view);
-  useSelectionNotification(state, props.onSelectionChange);
   const startCommentRef = useRef<(() => void) | null>(null);
+  useEditorHandle(props.handleRef, engine.view, startCommentRef);
+  useSelectionNotification(state, props.onSelectionChange);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
