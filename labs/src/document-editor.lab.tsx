@@ -8,14 +8,20 @@
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor, type DocumentLayout } from '../../src/components/index.js';
+import {
+  DocumentEditor,
+  type DocumentEditorHandle,
+  type DocumentLayout,
+  type DocumentMarkup,
+} from '../../src/components/index.js';
 import {
   assignElementIds,
   createContents,
   createDocumentEditing,
   createEditLock,
+  createPresence,
   createProofing,
 } from '../../src/engine/index.js';
 import { createWordListProofer } from '../../src/host/index.js';
@@ -28,7 +34,9 @@ import {
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
+import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
+import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument } from './lab-document.js';
 import { pagesLaidOut } from './lab-ready.js';
@@ -81,6 +89,7 @@ function initialState(): EditorState {
       createContents({ template: () => TEMPLATE }),
       createProofing({ proofer: [PROOFER, ABBREVIATIONS], language: 'en', delay: 200 }),
       createEditLock({ isLocked: isLockedParagraph }),
+      createPresence(),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
     ],
   });
@@ -99,6 +108,15 @@ function Lab() {
   const [statusBar, setStatusBar] = useState(true);
   const [hostItems, setHostItems] = useState(true);
   const [view, setView] = useState<EditorView | null>(null);
+  const handle = useRef<DocumentEditorHandle>(null);
+  const host = useHostPanel();
+  const [collaborators, setCollaborators] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [markup, setMarkup] = useState<DocumentMarkup>('all');
+  useEffect(
+    () => (view && collaborators ? startCollaborators(view) : undefined),
+    [view, collaborators],
+  );
   return (
     <>
       <fieldset>
@@ -160,8 +178,31 @@ function Lab() {
           />{' '}
           Host items
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="collaborators"
+            checked={collaborators}
+            onChange={(event) => setCollaborators(event.currentTarget.checked)}
+          />{' '}
+          Collaborators
+        </label>
+        <label>
+          Markup{' '}
+          <select
+            name="markup"
+            value={markup}
+            onChange={(event) => setMarkup(event.currentTarget.value as DocumentMarkup)}
+          >
+            <option value="all">All markup</option>
+            <option value="simple">Simple markup</option>
+            <option value="final">No markup</option>
+            <option value="original">Original</option>
+          </select>
+        </label>
       </fieldset>
       <AgentPanel view={view} />
+      <HostPanel report={host.report} handle={handle} />
       <DocumentEditor
         state={state}
         onStateChange={setState}
@@ -171,9 +212,16 @@ function Lab() {
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
         statusBar={statusBar}
+        find
+        zoom={zoom}
+        onZoomChange={setZoom}
+        markup={markup}
+        telemetry={host.telemetry}
         contextMenu={hostItems ? HOST_CONTEXT_MENU : true}
         className="lab-document-editor"
         aria-label="Sample document"
+        handleRef={handle}
+        {...host.notifications}
         events={{
           onMounted: setView,
           onTransaction: (tr) => {

@@ -246,3 +246,136 @@
 .de-document-editor__proofing-status[data-status='unavailable'] {
   color: var(--ref-danger, #d1242f);
 }
+
+/*
+ * The other people in the document: a caret in their colour with their name above it, and the text
+ * they select tinted. A peer without a colour of its own takes one of eight slots.
+ */
+.de-presence-caret,
+.de-presence-selection {
+  --de-presence-fallback: #0969da;
+}
+
+.de-presence-caret[data-presence-slot='1'],
+.de-presence-selection[data-presence-slot='1'] {
+  --de-presence-fallback: #bf3989;
+}
+
+.de-presence-caret[data-presence-slot='2'],
+.de-presence-selection[data-presence-slot='2'] {
+  --de-presence-fallback: #1a7f37;
+}
+
+.de-presence-caret[data-presence-slot='3'],
+.de-presence-selection[data-presence-slot='3'] {
+  --de-presence-fallback: #9a6700;
+}
+
+.de-presence-caret[data-presence-slot='4'],
+.de-presence-selection[data-presence-slot='4'] {
+  --de-presence-fallback: #8250df;
+}
+
+.de-presence-caret[data-presence-slot='5'],
+.de-presence-selection[data-presence-slot='5'] {
+  --de-presence-fallback: #cf222e;
+}
+
+.de-presence-caret[data-presence-slot='6'],
+.de-presence-selection[data-presence-slot='6'] {
+  --de-presence-fallback: #1b7c83;
+}
+
+.de-presence-caret[data-presence-slot='7'],
+.de-presence-selection[data-presence-slot='7'] {
+  --de-presence-fallback: #bc4c00;
+}
+
+.de-presence-caret {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 1.2em;
+  margin-inline: -1px;
+  border-inline-start: 2px solid var(--de-presence-color, var(--de-presence-fallback));
+  vertical-align: text-bottom;
+  pointer-events: none;
+}
+
+.de-presence-caret__label {
+  position: absolute;
+  bottom: 100%;
+  left: -2px;
+  padding: 0 4px;
+  border-radius: 3px 3px 3px 0;
+  background: var(--de-presence-color, var(--de-presence-fallback));
+  color: #fff;
+  font:
+    600 10px/16px system-ui,
+    sans-serif;
+  white-space: nowrap;
+}
+
+.de-presence-selection {
+  background: color-mix(
+    in srgb,
+    var(--de-presence-color, var(--de-presence-fallback)) 22%,
+    transparent
+  );
+}
+
+/* The other people's avatars in the status bar. */
+.de-document-editor__presence {
+  display: inline-flex;
+}
+
+/* The find bar below the toolbar, and the matches it finds: the current one stronger. */
+.de-document-editor__find {
+  flex: none;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ref-border, #d0d7de);
+  background: var(--ref-raised, #fff);
+}
+
+.de-document-editor [data-search-match] {
+  background: #fff1a8;
+}
+
+.de-document-editor [data-search-match='current'] {
+  background: #ffc94d;
+  outline: 1px solid #b07d00;
+}
+
+/* The document zoomed: its pages, not the chrome around them. */
+.de-document-editor__content {
+  zoom: var(--de-zoom, 1);
+}
+
+.de-document-editor__zoom {
+  display: inline-flex;
+}
+
+/*
+ * How suggestions show (`data-markup`): as if accepted, with a bar beside each changed block in
+ * the simple markup, or as if rejected.
+ */
+.de-document-editor:is([data-markup='simple'], [data-markup='final']) ins[data-id] {
+  background: none;
+  color: inherit;
+  text-decoration: none;
+}
+
+.de-document-editor:is([data-markup='simple'], [data-markup='final']) del[data-id],
+.de-document-editor[data-markup='original'] ins[data-id] {
+  display: none;
+}
+
+.de-document-editor[data-markup='original'] del[data-id] {
+  background: none;
+  color: inherit;
+  text-decoration: none;
+}
+
+.de-document-editor[data-markup='simple'] .pm-page-content > :has(ins[data-id], del[data-id]) {
+  box-shadow: -10px 0 0 -8px var(--ref-accent, #0969da);
+}

@@ -9,6 +9,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { ProoferAdapter, ProofingIssue, ProofingKind } from '../host/adapters.js';
+import { isRemoteTransaction } from './presence.js';
 import { proofedBlocks } from './proofing-text.js';
 import { proofingView } from './proofing-view.js';
 
@@ -28,7 +29,7 @@ export interface ProofingOptions {
   readonly textLength?: number | undefined;
   /**
    * Whether a change came from elsewhere, such as a collaborator: it never aborts a running check,
-   * so a busy room does not keep the writer's text unchecked.
+   * so a busy room does not keep the writer's text unchecked. Defaults to `isRemoteTransaction`.
    */
   readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
 }
@@ -275,7 +276,7 @@ export function createProofing(options: ProofingOptions): Plugin<ProofingState> 
         return {
           ...value,
           decorations: mapDecorations(value.decorations, tr),
-          remoteChange: options.isRemote?.(tr) ?? false,
+          remoteChange: (options.isRemote ?? isRemoteTransaction)(tr),
         };
       },
     },

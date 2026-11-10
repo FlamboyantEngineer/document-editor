@@ -3,15 +3,18 @@
 // or reading, then the host's own items. It counts
 // the state React defers, so typing in a long document never waits on the count.
 
+import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
+import { ZoomControl } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, useDeferredValue, useMemo } from 'react';
 import {
   documentStatistics,
   isProofingPending,
+  listPeers,
   listProofingIssues,
   proofingLanguages,
   proofingState,
@@ -28,7 +31,12 @@ const hooks = createHooks('document-editor', [
   'status-item',
   'proofing-status',
   'proofing-language',
+  'presence',
+  'zoom',
 ]);
+
+/** The zoom levels the reader steps through, in percent. */
+export const ZOOM_LEVELS = [50, 75, 90, 100, 110, 125, 150, 200] as const;
 
 /** What the status bar reports the writer is doing. */
 export type DocumentEditorMode = 'editing' | 'suggesting' | 'reading';
@@ -41,6 +49,8 @@ interface DocumentStatusBarProps {
   mode: DocumentEditorMode;
   /** The host's own items, after the editor's. */
   items?: ReactNode;
+  /** The document's zoom and how the reader changes it, when they can. */
+  zoom?: { readonly value: number; readonly onChange: (zoom: number) => void } | null;
   className?: string | undefined;
 }
 
@@ -107,6 +117,27 @@ function ProofingLanguage({ view, state, labels }: ProofingProps) {
   );
 }
 
+// The other people in the document, as avatars.
+function Presence({ state, labels }: { state: EditorState; labels: DocumentEditorLabels }) {
+  const peers = listPeers(state);
+  if (peers.length === 0) return null;
+  return (
+    <AvatarGroup
+      {...hooks.slot('presence')}
+      size="xs"
+      maxVisible={5}
+      nameTooltip
+      aria-label={labels.presence}
+      people={peers.map((peer) => ({
+        id: peer.id,
+        name: peer.name,
+        colorKey: peer.id,
+        ...(peer.avatar ? { src: peer.avatar } : {}),
+      }))}
+    />
+  );
+}
+
 /** The editor's status bar, reporting on the state shown. */
 export function DocumentStatusBar({
   view,
@@ -115,6 +146,7 @@ export function DocumentStatusBar({
   layout,
   mode,
   items,
+  zoom,
   className,
 }: DocumentStatusBarProps) {
   const deferred = useDeferredValue(state);
@@ -128,10 +160,21 @@ export function DocumentStatusBar({
         <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
       </span>
       <span {...hooks.slot('status-item', { status: 'mode' })}>
+        <Presence state={deferred} labels={labels} />
         <ProofingLanguage view={view} state={state} labels={labels} />
         <ProofingStatus view={view} state={deferred} labels={labels} />
         <span>{labels[MODE_LABELS[mode]]}</span>
       </span>
+      {zoom ? (
+        <ZoomControl
+          {...hooks.slot('zoom')}
+          aria-label={labels.zoom}
+          levels={ZOOM_LEVELS}
+          value={zoom.value}
+          resetValue={100}
+          onChange={zoom.onChange}
+        />
+      ) : null}
       {items}
     </StatusBar>
   );

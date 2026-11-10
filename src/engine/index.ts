@@ -78,6 +78,19 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { OutlineEntry } from './outline.js';
+export { documentOutline } from './outline.js';
+export type { Peer, PresenceState } from './presence.js';
+export {
+  createPresence,
+  isRemoteTransaction,
+  listPeers,
+  markRemote,
+  PRESENCE_COLOR_SLOTS,
+  presenceKey,
+  REMOTE_META,
+  setPeers,
+} from './presence.js';
 export type {
   ProofingIssueAt,
   ProofingOptions,
@@ -110,6 +123,18 @@ export {
 } from './proofing-commands.js';
 export type { TextSegment as ProofingSegment } from './proofing-text.js';
 export { segmentsOf } from './proofing-text.js';
+export type { SearchMatch, SearchOptions, SearchState } from './search.js';
+export {
+  createSearch,
+  replaceAllMatches,
+  replaceMatch,
+  SEARCH_MATCH_ATTR,
+  searchKey,
+  searchState,
+  selectNextMatch,
+  selectPreviousMatch,
+  setSearch,
+} from './search.js';
 export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
 export {
   acceptAllSuggestions,

@@ -5,14 +5,16 @@
 
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorState, Plugin } from 'prosemirror-state';
+import type { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { type RefObject, useEffect, useRef } from 'react';
 import {
   createDocumentSections,
+  createSearch,
   createVersionChanges,
   documentSectionsKey,
   proofingKey,
   refreshVersionChanges,
+  searchKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
 import {
@@ -51,12 +53,15 @@ function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
 }
 
 // The plugins the measuring view runs: the editor's, with the layout's own plugins once. Proofing
-// is left out: its marks take no room, and the hidden view would check the text again.
+// and search are left out: their marks take no room, and the hidden view would do their work again.
+const UNMEASURED = new Set<PluginKey>([proofingKey, searchKey]);
+
 function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
-  const measured = plugins.filter(
-    (plugin) => !own.includes(plugin) && plugin.spec.key !== proofingKey,
-  );
-  return [...measured, ...own];
+  const measured = (plugin: Plugin) => !UNMEASURED.has(plugin.spec.key as PluginKey);
+  return [
+    ...plugins.filter((plugin) => !own.includes(plugin) && measured(plugin)),
+    ...own.filter(measured),
+  ];
 }
 
 // A state with its sections shown in the template again, out of the history.
@@ -113,6 +118,7 @@ export function useDocumentLayout(
 
   useEffect(() => {
     const own = [
+      createSearch(),
       createDocumentSections({ template: () => latest.current.template }),
       createVersionChanges({
         previous: () => latest.current.compare?.previous ?? null,

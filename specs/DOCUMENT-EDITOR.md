@@ -152,6 +152,50 @@ Verification: `e2e/document-editor.spec.ts`
 Implementation: `src/engine/document-statistics.ts`
 Verification: `src/engine/document-statistics.test.ts`
 
+## DOCE-EDITOR-6 - Host integration
+
+### DOCE-EDITOR-6.1 - Notifications
+
+The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`).
+
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.2 - The host's keys
+
+`keymap` shall bind the host's own keys, which run before the editor's.
+
+Implementation: `src/components/document-editor/use-host-events.ts`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.3 - The handle
+
+`handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, and applying a batch of automation edits (DOCE-AUTOMATION). Each returns false, or null, when it cannot act.
+
+Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.4 - Zoom
+
+`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over `ZOOM_LEVELS`, and Ctrl+wheel over the editor steps to the next level up or down. The pages measure unscaled, so the zoom never changes them.
+
+Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.5 - Showing suggestions
+
+`markup` shall choose how suggestions show, published as `data-markup`: `all` their markup (the default), `simple` the document as if they were accepted with a bar beside each changed block, `final` as if accepted, and `original` as if rejected. It changes only what shows; the suggestions stay to decide.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.6 - Telemetry
+
+With the host's `telemetry` adapter (DOCE-HOST-1.1), the editor shall measure how long its pages took to lay out when the document opened (`document-editor.first-layout`) and after each run of edits (`document-editor.layout`), in milliseconds (`EDITOR_MEASURES`).
+
+Implementation: `src/components/document-editor/use-editor-telemetry.ts`
+Verification: `e2e/document-editor.spec.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                 | Description                                                                             |
@@ -165,6 +209,7 @@ Verification: `src/engine/document-statistics.test.ts`
 | `de-document-editor__toolbar-end`       | slot      |                                                        | The host's controls after the toolbar's groups.                                         |
 | `data-group`                            | attribute |                                                        | On a toolbar group: its id.                                                             |
 | `data-item`                             | attribute |                                                        | On a toolbar item: its id.                                                              |
+| `de-document-editor__find`              | slot      |                                                        | The find bar, with `find` (DOCE-SEARCH-2.1).                                            |
 | `de-document-editor__block-style`       | slot      |                                                        | The toolbar's text style field.                                                         |
 | `de-document-editor__style-preview`     | slot      |                                                        | A text style's name in the list, in that style.                                         |
 | `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`                | On a preview: the style it shows.                                                       |
@@ -172,10 +217,14 @@ Verification: `src/engine/document-statistics.test.ts`
 | `de-document-editor__status-item`       | slot      |                                                        | An item of the status bar.                                                              |
 | `de-document-editor__proofing-status`   | slot      |                                                        | The status bar's proofing status and its button (DOCE-PROOFING-3.1).                    |
 | `de-document-editor__proofing-language` | slot      |                                                        | The status bar's proofing language picker (DOCE-PROOFING-3.5).                          |
+| `de-document-editor__presence`          | slot      |                                                        | The status bar's avatars of the other people (DOCE-COLLAB-1.3).                         |
 | `data-pending`                          | state     | `true`                                                 | On the proofing status: some text waits to be checked.                                  |
 | `data-issues`                           | state     | `true`                                                 | On the proofing status: issues are marked.                                              |
 | `data-status`                           | attribute | `position`, `mode`; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
 | `de-document-editor__content`           | slot      |                                                        | The document.                                                                           |
+| `de-document-editor__zoom`              | slot      |                                                        | The status bar's zoom control, with `onZoomChange`.                                     |
+| `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                   | How suggestions show.                                                                   |
+| `--de-zoom`                             | property  |                                                        | The document's zoom, as a factor.                                                       |
 | `data-layout`                           | attribute | `page`, `web`                                          | How the document is laid out.                                                           |
 | `data-mode`                             | state     | `authoring`, `reading`                                 | Whether the writer can edit.                                                            |
 | `data-scrollable`                       | state     | `true`                                                 | The editor scrolls the document itself.                                                 |

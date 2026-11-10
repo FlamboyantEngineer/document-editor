@@ -80,6 +80,12 @@ export interface DocumentEditorLabels {
   /** The status when the proofers do not answer: all of them, or some. */
   readonly proofingUnavailable: string;
   readonly proofingDegraded: string;
+  /** Names the avatars of the other people in the document. */
+  readonly presence: string;
+  readonly find: string;
+  readonly matchCase: string;
+  readonly wholeWord: string;
+  readonly zoom: string;
   /** The proofing status: checking, or how many issues are marked. */
   readonly proofingStatus: (issues: number, pending: boolean) => string;
   /** Names the status bar's button that selects the next proofing issue. */
@@ -159,6 +165,11 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   proofingLanguage: 'Proofing language',
   proofingUnavailable: 'Proofing unavailable',
   proofingDegraded: 'Proofing partly unavailable',
+  presence: 'People in this document',
+  find: 'Find in document',
+  matchCase: 'Match case',
+  wholeWord: 'Whole words',
+  zoom: 'Zoom',
   proofingStatus: (issues, pending) => {
     if (pending && issues === 0) return 'Checking…';
     if (issues === 0) return 'No issues';

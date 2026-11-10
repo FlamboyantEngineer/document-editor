@@ -17,30 +17,41 @@ import {
   type ComponentType,
   type CSSProperties,
   type ReactNode,
+  type Ref,
   type RefObject,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import { automationActor, proofingUpdate, suggestTransaction } from '../../engine/index.js';
+import type { TelemetryAdapter } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
-import { readDomSelection } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import {
   DocumentComments,
   type DocumentCommentsOptions,
 } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
-import { DocumentContextMenu } from './document-context-menu.js';
-import { DocumentStatusBar } from './document-status-bar.js';
-import { DocumentToolbar } from './document-toolbar.js';
+import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
 import { createEditorContext, DocumentEditorContext } from './editor-context.js';
+import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
+import {
+  isFindKey,
+  READ_SELECTION_FIRST,
+  useDispatchBody,
+  useEngineView,
+} from './use-editor-engine.js';
+import { useEditorTelemetry } from './use-editor-telemetry.js';
+import {
+  type DocumentEditorNotifications,
+  useHostViewProps,
+  useSelectionNotification,
+} from './use-host-events.js';
 
-const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
-const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
+/** How suggestions show in the document. */
+export type DocumentMarkup = 'all' | 'simple' | 'final' | 'original';
 import {
   type DocumentComparison,
   type DocumentLayout,
@@ -48,7 +59,10 @@ import {
 } from './use-document-layout.js';
 
 /** What a document editor shows and how. */
-export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
+export interface DocumentEditorProps
+  extends BaseProps, AriaLabellingProps, DocumentEditorNotifications {
+  /** Receives the editor's handle, for a host that drives it from outside. */
+  handleRef?: Ref<DocumentEditorHandle> | undefined;
   /** The state shown, with the plugins the document runs (`createDocumentEditing` and others). */
   state: EditorState;
   /** Commits a state, or an update of the current one: pass a React state setter. */
@@ -88,6 +102,19 @@ export interface DocumentEditorProps extends BaseProps, AriaLabellingProps {
   statusBar?: boolean | undefined;
   /** The host's own items at the end of the status bar. */
   statusItems?: ReactNode;
+  /** The document's zoom, in percent. Defaults to 100. */
+  zoom?: number | undefined;
+  /** Lets the reader zoom: a zoom control in the status bar, and Ctrl+wheel over the document. */
+  onZoomChange?: ((zoom: number) => void) | undefined;
+  /**
+   * How suggestions show: all their markup (the default), `simple` (the document as if accepted,
+   * with a bar beside each changed block), `final` (as if accepted) or `original` (as if rejected).
+   */
+  markup?: DocumentMarkup | undefined;
+  /** The host's telemetry, which the editor reports its layout times to. */
+  telemetry?: TelemetryAdapter | undefined;
+  /** Opens a find bar above the document with Mod-F, to find and replace text. Defaults to false. */
+  find?: boolean | undefined;
   /**
    * Whether the document opens the editor's context menu, with the host's providers and
    * arrangement when given as options. Defaults to true.
@@ -106,83 +133,39 @@ const hooks = createHooks('document-editor', [
   'body',
   'content',
   'status-bar',
+  'find',
 ]);
-
-type DispatchBody = NonNullable<RichTextEngineEvents['dispatchTransaction']>;
-
-// The dispatch body. A transaction that only brings proofing results commits on the latest state,
-// which the view may not show yet. While suggesting, each local change is rewritten as a
-// suggestion, and one a suggestion cannot record is dropped; the host's own body, if any, then
-// decides what commits.
-function useDispatchBody(
-  props: DocumentEditorProps,
-  suggesting: boolean,
-  author: string | null,
-): DispatchBody {
-  const { events, onStateChange } = props;
-  const body = events?.dispatchTransaction;
-  return useMemo(
-    () => (tr, view, commit) => {
-      const update = proofingUpdate(tr);
-      if (update) {
-        onStateChange(update);
-        return;
-      }
-      // An automation change is direct or a suggestion as its caller chose.
-      const next =
-        suggesting && !automationActor(tr) ? suggestTransaction(tr, view.state, { author }) : tr;
-      if (!next) return;
-      if (body) body(next, view, commit);
-      else if (next === tr) commit.applyDefault();
-      else commit.applyDefault(next);
-    },
-    [suggesting, author, body, onStateChange],
-  );
-}
-
-// Before a key or typed text acts, the view takes the selection the browser shows (DOCE-EDITOR-1.4).
-function readSelectionFirst(view: EditorView): boolean {
-  readDomSelection(view);
-  return false;
-}
-
-const READ_SELECTION_FIRST = { keydown: readSelectionFirst, beforeinput: readSelectionFirst };
-
-type EngineEvents = NonNullable<DocumentEditorProps['events']>;
-
-// The caller's events, with the engine's view kept for the chrome that acts on it.
-function useEngineView(events: DocumentEditorProps['events']) {
-  const [view, setView] = useState<EditorView | null>(null);
-  const withView = useMemo<EngineEvents>(
-    () => ({
-      ...events,
-      onMounted: (mounted) => {
-        setView(mounted);
-        events?.onMounted?.(mounted);
-      },
-      onUnmounted: () => {
-        setView(null);
-        events?.onUnmounted?.();
-      },
-    }),
-    [events],
-  );
-  return { view, events: withView };
-}
 
 interface EditorBodyProps {
   props: DocumentEditorProps;
+  /** Opens the find bar, while the editor has one. */
+  onFind: (() => void) | null;
   engine: ReturnType<typeof useEngineView>;
   labels: DocumentEditorLabels;
   startCommentRef: RefObject<(() => void) | null>;
 }
 
 // The document in its engine, with the comments margin, the caller's chrome and the table handles.
-function EditorBody({ props, engine, labels, startCommentRef }: EditorBodyProps) {
+function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
+  const host = useHostViewProps(props);
   const viewProps = useMemo(
-    () => ({ editable: () => editable, handleDOMEvents: READ_SELECTION_FIRST }),
-    [editable],
+    () => ({
+      editable: () => editable,
+      handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
+        if (host.handleKeyDown?.(view, event)) return true;
+        if (!onFind || !isFindKey(event)) return false;
+        event.preventDefault();
+        onFind();
+        return true;
+      },
+      handleDOMEvents: {
+        ...READ_SELECTION_FIRST,
+        ...(host.focus ? { focus: host.focus } : {}),
+        ...(host.blur ? { blur: host.blur } : {}),
+      },
+    }),
+    [editable, host, onFind],
   );
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
@@ -231,6 +214,7 @@ function EditorBody({ props, engine, labels, startCommentRef }: EditorBodyProps)
 function rootData(props: DocumentEditorProps) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
   return {
+    markup: props.markup ?? 'all',
     layout,
     mode: editable ? 'authoring' : 'reading',
     suggesting: editable && suggesting,
@@ -247,35 +231,47 @@ function rootData(props: DocumentEditorProps) {
  */
 export function DocumentEditor(props: DocumentEditorProps) {
   const { state, onStateChange, template, layout = 'page', editable = true } = props;
-  const { className, suggesting = false, compare = null } = props;
+  const { className, compare = null } = props;
   const measureIn = useRef<HTMLDivElement>(null);
-  const engine = useEngineView(props.events);
+  const root = useRef<HTMLDivElement>(null);
+  useWheelZoom(root, props);
+  const tap = useEditorTelemetry(props.telemetry);
+  const engine = useEngineView(props.events, props.onContentChange, tap);
+  useEditorHandle(props.handleRef, engine.view);
+  useSelectionNotification(state, props.onSelectionChange);
   const startCommentRef = useRef<(() => void) | null>(null);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
-  const style = templateStyle as CSSProperties;
   const context = useMemo(
     () => createEditorContext(engine.view, state, { editable, labels }),
     [engine.view, state, editable, labels],
   );
+  const [finding, setFinding] = useState(false);
+  const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
+  const chrome = { props, context, view: engine.view, templateStyle, startCommentRef };
   const body = (
-    <EditorBody props={props} engine={engine} labels={labels} startCommentRef={startCommentRef} />
+    <EditorBody
+      props={props}
+      engine={engine}
+      labels={labels}
+      startCommentRef={startCommentRef}
+      onFind={openFind}
+    />
   );
   return (
     <DocumentEditorContext value={context}>
-      <div {...hooks.root({ className, props, data: rootData(props) })} style={style}>
+      <div
+        ref={root}
+        {...hooks.root({ className, props, data: rootData(props) })}
+        style={
+          { ...templateStyle, '--de-zoom': String((props.zoom ?? 100) / 100) } as CSSProperties
+        }
+      >
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" />
         ) : null}
-        {props.toolbar ? (
-          <DocumentToolbar
-            {...hooks.slot('toolbar')}
-            context={context}
-            options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
-            templateStyle={templateStyle}
-          />
-        ) : null}
+        <TopChrome {...chrome} finding={finding} onFindClose={() => setFinding(false)} />
         {props.scrollable ? (
           <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
             {body}
@@ -283,27 +279,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
         ) : (
           body
         )}
-        {props.statusBar ? (
-          <DocumentStatusBar
-            {...hooks.slot('status-bar')}
-            view={engine.view}
-            state={state}
-            labels={labels}
-            layout={layout}
-            mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
-            items={props.statusItems}
-          />
-        ) : null}
-        {props.contextMenu === false ? null : (
-          <DocumentContextMenu
-            view={engine.view}
-            labels={labels}
-            editable={editable}
-            canDecide={editable && !suggesting}
-            startCommentRef={startCommentRef}
-            options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
-          />
-        )}
+        <BottomChrome {...chrome} />
       </div>
     </DocumentEditorContext>
   );
