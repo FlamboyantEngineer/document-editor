@@ -61,6 +61,7 @@
     "check:specs": "node scripts/check-specs.mjs",
     "build:labs": "node scripts/build-labs.mjs",
     "serve:labs": "node scripts/serve-labs.mjs",
+    "labs": "node scripts/start-labs.mjs",
     "test:labs": "playwright test",
     "check": "node scripts/check.mjs"
   },
