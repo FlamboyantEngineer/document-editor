@@ -271,3 +271,71 @@ export function insertCharacter(character: string): Command {
     return true;
   };
 }
+
+// The range of the link at the caret: the text around it that carries the same link mark.
+function linkRangeAt(state: EditorState): { from: number; to: number; href: string } | null {
+  const type = state.schema.marks.link;
+  const { $from } = state.selection;
+  if (!type) return null;
+  const mark = type.isInSet($from.marks()) ?? type.isInSet($from.nodeAfter?.marks ?? []);
+  if (!mark) return null;
+  // The runs of text carrying the mark, the one holding the caret kept.
+  let run: { from: number; to: number } | null = null;
+  let hit: { from: number; to: number } | null = null;
+  let pos = $from.start();
+  $from.parent.forEach((child) => {
+    const end = pos + child.nodeSize;
+    if (!mark.isInSet(child.marks)) run = null;
+    else if (run) run.to = end;
+    else run = { from: pos, to: end };
+    if (run && !hit && run.from <= $from.pos && $from.pos <= end) hit = run;
+    pos = end;
+  });
+  return hit
+    ? { ...(hit as { from: number; to: number }), href: String(mark.attrs.href ?? '') }
+    : null;
+}
+
+/** The address of the link at the selection, or null. */
+export function linkAt(state: EditorState): string | null {
+  const type = state.schema.marks.link;
+  if (!type) return null;
+  const { from, to, empty } = state.selection;
+  if (empty) return linkRangeAt(state)?.href ?? null;
+  let href: string | null = null;
+  state.doc.nodesBetween(from, to, (node) => {
+    const mark = node.isText ? type.isInSet(node.marks) : undefined;
+    if (mark && href === null) href = String(mark.attrs.href ?? '');
+  });
+  return href;
+}
+
+/**
+ * Links the selected text to an address, or the link at the caret; at a caret outside a link it
+ * types the address, linked. An empty address removes the link.
+ */
+export function setLink(href: string): Command {
+  return (state, dispatch) => {
+    const type = state.schema.marks.link;
+    if (!type || !state.selection.$from.parent.inlineContent) return false;
+    const address = href.trim();
+    const { empty } = state.selection;
+    const range = empty
+      ? linkRangeAt(state)
+      : { from: state.selection.from, to: state.selection.to, href: '' };
+    if (!address && !range) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      if (!range) {
+        const at = state.selection.from;
+        tr.insertText(address, at);
+        tr.addMark(at, at + address.length, type.create({ href: address }));
+      } else {
+        tr.removeMark(range.from, range.to, type);
+        if (address) tr.addMark(range.from, range.to, type.create({ href: address }));
+      }
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}

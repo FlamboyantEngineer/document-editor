@@ -6,7 +6,7 @@ Inserting footnotes, keeping their entries with their markers, numbering them, a
 
 ### DOCE-FOOTNOTES-1.1 - Inserting a footnote
 
-`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, both numbered in document order, with the caret in the entry.
+`insertFootnote()` shall insert a footnote at the caret: its marker in the text, in place of the selection, and an empty entry in the footnote area of the page, both numbered in document order, with the caret in the entry. Mod-Alt-F inserts one.
 
 Implementation: `src/engine/footnotes.ts`
 Verification: `src/engine/footnotes.test.ts`

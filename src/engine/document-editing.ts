@@ -32,7 +32,8 @@ import {
   wrapInListAndJoin,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
-import { createFootnotes } from './footnotes.js';
+import { createFootnotes, insertFootnote } from './footnotes.js';
+import { insertCodeBlock } from './object-commands.js';
 import { createTableEditing } from './tables.js';
 
 /** What a document's editing depends on. */
@@ -143,6 +144,8 @@ export function documentKeys(
     'Mod-\\': clearFormatting,
     'Mod-Alt-Enter': insertPageBreak,
     'Mod-Space': clearFormatting,
+    'Mod-Alt-c': insertCodeBlock(),
+    'Mod-Alt-f': insertFootnote(),
     'Shift-Enter': inFootnoteEntry,
     Enter: chainCommands(
       inFootnoteEntry,

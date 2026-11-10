@@ -2,16 +2,19 @@ import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemi
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { documentKeys } from './document-editing.js';
 import {
   convertMath,
   insertCharacter,
   insertCodeBlock,
   insertContents,
   insertMath,
+  linkAt,
   parseCodeLines,
   setCodeLanguage,
   setContentsDepth,
   setFigure,
+  setLink,
   setLinkedCode,
   setMathSource,
   setObjectLayout,
@@ -74,7 +77,9 @@ describe('object commands', () => {
     expect(outline(state)).toEqual(['code_block:let a = 1;\nlet b = 2;', 'paragraph:After']);
     state = run(state, setCodeLanguage('javascript'));
     expect(state.doc.child(0).child(0).child(1).child(0).attrs.language).toBe('javascript');
-    state = run(select(stateOf(paragraph('Text')), 'Text'), insertCodeBlock());
+    const insertKey = documentKeys(documentSchema)['Mod-Alt-c'];
+    if (!insertKey) throw new Error('No key inserts a code block');
+    state = run(select(stateOf(paragraph('Text')), 'Text'), insertKey);
     expect(outline(state)).toEqual(['paragraph:Text', 'code_block:']);
   });
 
@@ -127,5 +132,21 @@ describe('object commands', () => {
     expect((state.selection as NodeSelection).node.attrs.minLevel).toBe(2);
     state = run(select(stateOf(paragraph('ab')), 'b'), insertCharacter('Ω'));
     expect(state.doc.textBetween(0, state.doc.content.size)).toBe('aΩb');
+  });
+
+  it('DOCE-OBJECTS-1.6 links the selection, changes the link at the caret and removes it', () => {
+    let state = run(
+      select(stateOf(paragraph('See the spec here.')), 'spec', 4),
+      setLink('https://a.example'),
+    );
+    state = select(state, 'pec');
+    expect(linkAt(state)).toBe('https://a.example');
+    state = run(state, setLink('https://b.example'));
+    expect(linkAt(select(state, 'sp'))).toBe('https://b.example');
+    state = run(select(state, 'pe'), setLink(''));
+    expect(linkAt(select(state, 'pe'))).toBeNull();
+    state = run(select(state, 'here'), setLink('https://c.example'));
+    expect(state.doc.textBetween(0, state.doc.content.size)).toContain('https://c.examplehere');
+    expect(setLink('')(select(state, 'See'))).toBe(false);
   });
 });

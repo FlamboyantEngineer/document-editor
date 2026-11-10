@@ -2,6 +2,7 @@ import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { documentKeys } from './document-editing.js';
 import {
   canInsertFootnote,
   createFootnotes,
@@ -63,6 +64,8 @@ describe('footnotes', () => {
     expect(state.selection.$from.parent.type.name).toBe('footnote_entry');
     expect(state.selection.$from.parent.attrs.footnoteId).toBe('n0');
     expect(numbers(state)).toEqual(['marker:1', 'marker:2', 'entry:2', 'entry:1']);
+    const key = documentKeys(documentSchema)['Mod-Alt-f'];
+    expect(key?.(at(state, 'Before'))).toBe(true);
   });
 
   it('DOCE-FOOTNOTES-1.2 is refused outside a paragraph of the body', () => {

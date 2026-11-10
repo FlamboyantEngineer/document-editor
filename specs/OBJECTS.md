@@ -6,7 +6,7 @@ Inserting and changing the document's objects: code blocks and linked code, inli
 
 ### DOCE-OBJECTS-1.1 - Code blocks
 
-`insertCodeBlock(language)` shall turn the selected text blocks into one code block holding their text, line by line, or insert an empty code block where a new block goes, with the caret in it. `setCodeLanguage(language)` sets the language of the code block or linked code holding, or selected at, the selection.
+`insertCodeBlock(language)` shall turn the selected text blocks into one code block holding their text, line by line, or insert an empty code block where a new block goes, with the caret in it; Mod-Alt-C inserts one. `setCodeLanguage(language)` sets the language of the code block or linked code holding, or selected at, the selection.
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`
@@ -35,6 +35,13 @@ Verification: `src/engine/object-commands.test.ts`
 ### DOCE-OBJECTS-1.5 - Lists of contents and characters
 
 `insertContents(kind, depth)` shall insert a list of contents of a kind (DOCE-CONTENTS) where a new block goes, selected, and `setContentsDepth(depth)` set the deepest heading level the list selected shows. `insertCharacter(character)` types a character, such as a symbol from a picker, in the formatting at the caret.
+
+Implementation: `src/engine/object-commands.ts`
+Verification: `src/engine/object-commands.test.ts`
+
+### DOCE-OBJECTS-1.6 - Links
+
+`setLink(href)` shall link the selected text to an address, or change the address of the link at the caret, the whole link; at a caret outside a link it types the address, linked. An empty address removes the link. `linkAt(state)` gives the address of the link at the selection.
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`
