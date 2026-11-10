@@ -11,6 +11,8 @@ import {
   type AutomationOptions,
   type AutomationResult,
   type EditAddress,
+  revealElement,
+  type RevealOptions,
 } from '../../engine/index.js';
 
 /** What a host can do with a mounted editor. */
@@ -21,6 +23,11 @@ export interface DocumentEditorHandle {
   focus(): void;
   /** Puts the caret at an element's start and scrolls it into view; false when it is not there. */
   scrollToElement(elementId: string): boolean;
+  /**
+   * Takes the reader to an element: scrolls it to the top of the view, smoothly, without moving
+   * the selection unless asked (`revealElement`); false when it is not there.
+   */
+  revealElement(elementId: string, options?: RevealOptions): boolean;
   /** Selects a range of an element's text, or the whole element; false when it cannot. */
   select(address: EditAddress): boolean;
   /** Runs a command on the latest state; false when it does not apply. */
@@ -70,6 +77,8 @@ export function useEditorHandle(
       view: () => view,
       focus: () => view?.focus(),
       scrollToElement: (elementId) => selectIn(view, { elementId, from: 0, to: 0 }),
+      revealElement: (elementId, options) =>
+        view ? revealElement(view, elementId, options) : false,
       select: (address) => selectIn(view, address),
       run(command) {
         if (!view) return false;

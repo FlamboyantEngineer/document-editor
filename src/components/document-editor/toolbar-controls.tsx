@@ -241,7 +241,7 @@ export function builtInToolbarGroups(
   labels: DocumentEditorLabels,
   {
     templateStyle,
-    features = { linkedCode: false, symbols: DEFAULT_SYMBOLS },
+    features = { linkedCode: false, symbols: DEFAULT_SYMBOLS, glossary: false },
   }: {
     readonly templateStyle: Readonly<Record<string, string>>;
     readonly features?: InsertFeatures | undefined;

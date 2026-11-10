@@ -14,12 +14,20 @@ import {
   setLink,
   setMathSource,
 } from '../../engine/index.js';
-import type { AssetAdapter, CodeSourceAdapter } from '../../host/index.js';
+import type {
+  AssetAdapter,
+  CodeSourceAdapter,
+  GlossaryAdapter,
+  ReferenceSourceAdapter,
+} from '../../host/index.js';
+import type { TemplateFile } from '../../model/index.js';
+import { AbbreviationDialog } from './abbreviation-dialog.js';
 import { applying, type DialogProps, EditorModal, selectedNode, titleOf } from './dialog-parts.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { FigureDialog } from './figure-dialog.js';
 import { LinkedCodeDialog } from './linked-code-dialog.js';
+import { ReferenceDialog } from './reference-dialog.js';
 
 /** What the editor's dialogs need beside the view. */
 export interface ObjectDialogsProps {
@@ -31,6 +39,12 @@ export interface ObjectDialogsProps {
   readonly assets?: AssetAdapter | undefined;
   /** Resolves linked code; without it there is no linked code dialog. */
   readonly codeSource?: CodeSourceAdapter | undefined;
+  /** Finds citations of other documents for the reference dialog. */
+  readonly referenceSource?: ReferenceSourceAdapter | undefined;
+  /** The glossary the abbreviation dialog finds and adds entries in. */
+  readonly glossary?: GlossaryAdapter | undefined;
+  /** The template references are formatted by. */
+  readonly template: TemplateFile;
   readonly onClose: () => void;
 }
 
@@ -154,6 +168,7 @@ export function ObjectDialogs({
   assets,
   codeSource,
   onClose,
+  ...hosted
 }: ObjectDialogsProps) {
   if (!dialog || !view) return null;
   const shared = { view, labels, onClose };
@@ -164,6 +179,12 @@ export function ObjectDialogs({
       return <FigureDialog {...shared} assets={assets} />;
     case 'link':
       return <LinkDialog {...shared} />;
+    case 'reference':
+      return (
+        <ReferenceDialog {...shared} template={hosted.template} source={hosted.referenceSource} />
+      );
+    case 'abbreviation':
+      return hosted.glossary ? <AbbreviationDialog {...shared} glossary={hosted.glossary} /> : null;
     case 'caption':
       return <CaptionDialog {...shared} />;
     case 'linked-code':

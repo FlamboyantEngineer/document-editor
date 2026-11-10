@@ -79,6 +79,8 @@ export const TOOLBAR_GROUPS = {
     'math',
     'figure',
     'contents',
+    'reference',
+    'abbreviation',
     'symbol',
   ],
 } as const;

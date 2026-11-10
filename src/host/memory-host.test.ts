@@ -191,4 +191,43 @@ describe('createMemoryHost', () => {
     const missing = await host.codeSource?.resolve('https://example.com/b.ts');
     expect(missing?.ok).toBe(false);
   });
+
+  it('DOCE-HOST-1.9 DOCE-HOST-3.7 searches, adds and resolves glossary entries and citations', async () => {
+    const host = createMemoryHost({
+      now: () => new Date('2026-02-01T00:00:00Z'),
+      citations: [
+        {
+          refType: 'external-document',
+          label: 'Power interface specification',
+          baseline: {
+            version: 1,
+            documentId: 'doc-1',
+            numbering: 'SPEC-1',
+            title: 'Power interface specification',
+            revision: null,
+            revisionLabel: '',
+            target: null,
+            defaultLabel: 'SPEC-1',
+          },
+        },
+      ],
+    });
+    const created = await host.glossary?.create({
+      abbreviation: ' GSE ',
+      expansion: 'Ground support equipment',
+    });
+    expect(created).toMatchObject({
+      ok: true,
+      value: { abbreviation: 'GSE', createdAt: '2026-02-01T00:00:00.000Z' },
+    });
+    const id = created?.ok ? created.value.id : '';
+    const found = await host.glossary?.search('ground');
+    expect(found?.ok && found.value.map((entry) => entry.id)).toEqual([id]);
+    const resolved = await host.glossary?.resolve([id, 'missing']);
+    expect(resolved?.ok && resolved.value).toHaveLength(1);
+    const citations = await host.references?.search('power');
+    expect(citations?.ok && citations.value.map((citation) => citation.label)).toEqual([
+      'Power interface specification',
+    ]);
+  });
 });

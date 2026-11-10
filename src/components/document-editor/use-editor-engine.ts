@@ -63,12 +63,18 @@ export const READ_SELECTION_FIRST = {
 
 type EngineEvents = NonNullable<EnginePlumbingProps['events']>;
 
-// Mod-F: Ctrl+F, or Cmd+F on a Mac.
-export const isFindKey = (event: KeyboardEvent) =>
-  event.key.toLowerCase() === 'f' &&
+// Mod and a letter alone: Ctrl, or Cmd on a Mac.
+const isModKey = (event: KeyboardEvent, letter: string) =>
+  event.key.toLowerCase() === letter &&
   (event.ctrlKey || event.metaKey) &&
   !event.altKey &&
   !event.shiftKey;
+
+// Mod-F opens the find bar.
+export const isFindKey = (event: KeyboardEvent) => isModKey(event, 'f');
+
+// Mod-K opens the reference dialog.
+export const isReferenceKey = (event: KeyboardEvent) => isModKey(event, 'k');
 
 // The caller's events, with the engine's view kept for the chrome that acts on it.
 export function useEngineView(

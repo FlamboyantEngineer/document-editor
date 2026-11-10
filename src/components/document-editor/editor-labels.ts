@@ -148,6 +148,21 @@ export interface DocumentEditorLabels {
     across: 'left' | 'center' | 'right',
   ) => string;
   readonly distributeColumns: string;
+  readonly reference: string;
+  readonly editReference: string;
+  readonly removeReference: string;
+  readonly goToTarget: string;
+  readonly referenceTarget: string;
+  readonly otherDocument: string;
+  readonly abbreviation: string;
+  readonly abbreviationText: string;
+  readonly expansion: string;
+  readonly glossaryEntry: string;
+  readonly addToGlossary: string;
+  readonly glossaryFailed: string;
+  /** Shows the abbreviation selected in full or short. */
+  readonly abbreviationForm: (full: boolean) => string;
+  readonly unlinkAbbreviation: string;
 }
 
 const count = new Intl.NumberFormat('en-US');
@@ -300,4 +315,18 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
     return across === 'center' && vertical === 'middle' ? 'Center' : `${down} ${across}`;
   },
   distributeColumns: 'Distribute columns',
+  reference: 'Reference…',
+  editReference: 'Edit reference…',
+  removeReference: 'Remove reference',
+  goToTarget: 'Go to target',
+  referenceTarget: 'In this document',
+  otherDocument: 'In another document',
+  abbreviation: 'Abbreviation…',
+  abbreviationText: 'Abbreviation',
+  expansion: 'Expansion',
+  glossaryEntry: 'Glossary entry',
+  addToGlossary: 'Add to glossary',
+  glossaryFailed: 'The entry could not be added.',
+  abbreviationForm: (full) => (full ? 'Show in full' : 'Show short'),
+  unlinkAbbreviation: 'Turn into text',
 };

@@ -9,18 +9,25 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
+  abbreviationAt,
   captionedAt,
   convertMath,
   deleteFootnote,
   editFootnote,
   footnoteAt,
   goToFootnoteMarker,
+  internalTargetId,
   linkAt,
+  referenceAt,
+  removeReference,
+  revealElement,
+  setAbbreviationDisplay,
   setCodeLanguage,
   setContentsDepth,
   setLink,
   setObjectLayout,
   toggleCaption,
+  unlinkAbbreviation,
 } from '../../engine/index.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -225,6 +232,48 @@ function captionEntries(view: EditorView, options: ElementEntriesOptions): MenuE
   ];
 }
 
+function referenceEntries(view: EditorView, options: ElementEntriesOptions): MenuEntry[] {
+  const reference = referenceAt(view.state);
+  if (!reference) return [];
+  const { labels } = options;
+  const target = internalTargetId(reference.mark);
+  return [
+    ...dialogEntry(
+      options,
+      { id: 'edit-reference', label: labels.editReference },
+      { kind: 'reference' },
+    ),
+    commandEntry(view, { id: 'remove-reference', label: labels.removeReference }, removeReference),
+    ...(target
+      ? [
+          {
+            id: 'go-to-target',
+            label: labels.goToTarget,
+            onAction: () => revealElement(view, target),
+          },
+        ]
+      : []),
+  ];
+}
+
+function abbreviationEntries(view: EditorView, { labels }: ElementEntriesOptions): MenuEntry[] {
+  const abbreviation = abbreviationAt(view.state);
+  if (!abbreviation) return [];
+  const short = abbreviation.node.attrs.display === 'short';
+  return [
+    commandEntry(
+      view,
+      { id: 'abbreviation-form', label: labels.abbreviationForm(short) },
+      setAbbreviationDisplay(),
+    ),
+    commandEntry(
+      view,
+      { id: 'unlink-abbreviation', label: labels.unlinkAbbreviation },
+      unlinkAbbreviation,
+    ),
+  ];
+}
+
 /** The entries for the element at the view's selection, while the writer can edit there. */
 export function elementEntries(view: EditorView, options: ElementEntriesOptions): MenuEntry[] {
   return [
@@ -235,5 +284,7 @@ export function elementEntries(view: EditorView, options: ElementEntriesOptions)
     ...contentsEntries(view, options),
     ...captionEntries(view, options),
     ...linkEntries(view, options),
+    ...referenceEntries(view, options),
+    ...abbreviationEntries(view, options),
   ];
 }

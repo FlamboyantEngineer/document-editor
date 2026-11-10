@@ -19,6 +19,7 @@ import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popov
 import type { Command } from 'prosemirror-state';
 import { useState } from 'react';
 import {
+  canInsertReference,
   insertCharacter,
   insertCodeBlock,
   insertContents,
@@ -40,6 +41,8 @@ export interface InsertFeatures {
   readonly linkedCode: boolean;
   /** The symbol picker's characters. */
   readonly symbols: readonly CharacterGridCategory[];
+  /** Whether the host has a glossary, which the abbreviation button then offers. */
+  readonly glossary: boolean;
 }
 
 // Whether a command can run, while the writer can edit there.
@@ -178,6 +181,31 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
       icon: ListTaskGlyph,
       entries: contentsEntries,
     },
+    {
+      kind: 'button',
+      id: 'reference',
+      label: labels.reference,
+      icon: <span>§</span>,
+      shortcut: 'Ctrl+K',
+      run: (context) => context.openDialog({ kind: 'reference' }),
+      isEnabled: (context) =>
+        context.editable && !context.locked && canInsertReference(context.state),
+    },
+    ...(features.glossary
+      ? [
+          {
+            kind: 'button' as const,
+            id: 'abbreviation',
+            label: labels.abbreviation,
+            icon: <span>Ab</span>,
+            run: (context: EditorContext) => context.openDialog({ kind: 'abbreviation' }),
+            isEnabled: (context: EditorContext) =>
+              context.editable &&
+              !context.locked &&
+              context.state.selection.$from.parent.inlineContent,
+          },
+        ]
+      : []),
     {
       kind: 'custom',
       id: 'symbol',

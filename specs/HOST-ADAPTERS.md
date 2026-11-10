@@ -60,6 +60,13 @@ The host's `assets` adapter shall store an uploaded file, such as a figure's ima
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
+### DOCE-HOST-1.9 - Citations and the glossary
+
+The host's `references` adapter shall find citations of other documents, or of targets in them, by a query, each with its reference type, what it records of the document cited and its label. The host's `glossary` adapter shall find entries by their abbreviation or expansion, add an entry and return it with its id, and resolve entries by id as they are now.
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/host/memory-host.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
@@ -125,4 +132,11 @@ Verification: `src/host/memory-host.test.ts`
 The in-memory host's code source shall resolve a URL from the source files of `options.code`, by the URL without its fragment, to the lines its fragment names, and a URL it has no file for to a `not-found` error.
 
 Implementation: `src/host/memory-host.ts`, `src/model/linked-code.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.7 - In-memory glossary and citations
+
+The in-memory host's glossary shall start with `options.glossary`, find unarchived entries whose abbreviation or expansion holds the query, ignoring case, add entries with new ids, trimmed, created at `options.now`, and resolve the ids it holds; its reference source shall find the citations of `options.citations` whose label holds the query.
+
+Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
