@@ -1,5 +1,5 @@
-// The keys of a document and the plugins that make it editable: the undo history, element ids
-// and the keymap, as one extension a document kit installs.
+// The keys of a document and the plugins that make it editable: the undo history, element ids,
+// table editing and the keymap, as one extension a document kit installs.
 
 import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
 import {
@@ -31,6 +31,7 @@ import {
   wrapInListAndJoin,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
+import { createTableEditing } from './tables.js';
 
 /** What a document's editing depends on. */
 export interface DocumentEditingOptions {
@@ -129,6 +130,7 @@ export function createDocumentEditing(
   return [
     ...(keepHistory ? [history()] : []),
     createElementIds({ author, isRemote }),
+    ...createTableEditing(),
     keymap(documentKeys(schema, template)),
     keymap(baseKeymap),
   ];
@@ -136,7 +138,8 @@ export function createDocumentEditing(
 
 /**
  * The editing plugins as a kit extension: the history first, the element ids among the
- * interaction plugins and the keymaps last, so other extensions' keys come before them.
+ * interaction plugins, then table editing and the keymaps last, so other extensions' keys come
+ * before them.
  */
 export function createDocumentEditingExtension<C = unknown>(
   options: DocumentEditingOptions = {},
@@ -155,6 +158,11 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'element-ids',
         priority: 480,
         build: () => [createElementIds({ author, isRemote })],
+      },
+      {
+        name: 'tables',
+        priority: 850,
+        build: () => createTableEditing(),
       },
       {
         name: 'keymap',

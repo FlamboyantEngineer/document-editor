@@ -11,7 +11,15 @@ import {
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Command, EditorState } from 'prosemirror-state';
-import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { addCommentAnchor, createElementId } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
 import { type AnchorTarget, isSameMeasurement, measureAnchors } from './anchor-rects.js';
@@ -43,6 +51,8 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   onStateChange: (update: RichTextStateUpdate) => void;
   /** Whether the reader may accept and reject suggestions. */
   canDecide: boolean;
+  /** Receives the way to start a thread on the selected text while the reader may comment. */
+  startRef?: RefObject<(() => void) | null> | undefined;
   /** The document's content. */
   children: ReactNode;
 }
@@ -154,6 +164,14 @@ export function DocumentComments(props: DocumentCommentsProps) {
     run(addCommentAnchor(id));
     setActive(`comment:${id}`);
   };
+  const { startRef } = props;
+  useEffect(() => {
+    if (!startRef) return undefined;
+    startRef.current = canComment ? startThread : null;
+    return () => {
+      startRef.current = null;
+    };
+  });
   return (
     <AnnotationLayer
       ref={setLayer}

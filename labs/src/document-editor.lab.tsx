@@ -1,6 +1,8 @@
 // Shows the document editor component (`DocumentEditor`): a sample document in the base template,
 // with the editing keys and a table of contents, shown on pages or in the web layout and switched
-// between authoring and reading without losing its state.
+// between authoring and reading without losing its state, with or without its toolbar and its
+// scrolling frame. Right-click anywhere in the document for its context menu, and hover a table
+// for the handles that drag its rows and columns.
 
 import { EditorState } from 'prosemirror-state';
 import { useState } from 'react';
@@ -42,6 +44,8 @@ function Lab() {
   const [state, setState] = useState(initialState);
   const [layout, setLayout] = useState<DocumentLayout>('page');
   const [editable, setEditable] = useState(true);
+  const [toolbar, setToolbar] = useState(true);
+  const [scrollable, setScrollable] = useState(true);
   return (
     <>
       <fieldset>
@@ -67,6 +71,24 @@ function Lab() {
           />{' '}
           Authoring
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="toolbar"
+            checked={toolbar}
+            onChange={(event) => setToolbar(event.currentTarget.checked)}
+          />{' '}
+          Toolbar
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="scrollable"
+            checked={scrollable}
+            onChange={(event) => setScrollable(event.currentTarget.checked)}
+          />{' '}
+          Scrolling frame
+        </label>
       </fieldset>
       <DocumentEditor
         state={state}
@@ -74,6 +96,9 @@ function Lab() {
         template={TEMPLATE}
         layout={layout}
         editable={editable}
+        toolbar={toolbar}
+        scrollable={scrollable}
+        className="lab-document-editor"
         aria-label="Sample document"
         events={{
           onTransaction: (tr) => {

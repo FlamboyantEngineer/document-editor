@@ -1,5 +1,11 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export {
+  deleteObject,
+  insertParagraphBesideObject,
+  OBJECT_BLOCK_TYPES,
+  objectBlockAt,
+} from './block-commands.js';
 export type { CommentAnchor, CommentState } from './comments.js';
 export {
   addCommentAnchor,
@@ -63,6 +69,19 @@ export {
 } from './suggestion-decisions.js';
 export type { SuggestOptions } from './suggestions.js';
 export { suggestionsKey, suggestTransaction } from './suggestions.js';
+export { inWholeTable } from './table-parts.js';
+export type { TableAxis, TableLine } from './tables.js';
+export {
+  createTableEditing,
+  DEFAULT_TABLE_CELL_MIN_WIDTH,
+  insertTable,
+  moveSelectedTableLine,
+  moveTableLine,
+  selectTableLine,
+  tableKeys,
+  tableLineCount,
+  withTableLine,
+} from './tables.js';
 export type { TextSegment } from './text-diff.js';
 export { diffText } from './text-diff.js';
 export type { VersionChangeDisplay, VersionChangesOptions } from './version-changes.js';

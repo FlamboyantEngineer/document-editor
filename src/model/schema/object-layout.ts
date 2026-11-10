@@ -32,8 +32,8 @@ export function objectLayoutCss(value: unknown): string {
     : `margin-left:${style.marginLeft};margin-right:${style.marginRight}`;
 }
 
-// Per-column widths of the first row as stored (NaN or 0 when a column has none).
-function firstRowColumnWidths(node: ProseMirrorNode): number[] {
+/** Per-column widths of the first row as stored (NaN or 0 when a column has none). */
+export function firstRowColumnWidths(node: ProseMirrorNode): number[] {
   const widths: number[] = [];
   node.firstChild?.forEach((cell) => {
     for (let index = 0; index < (Number(cell.attrs.colspan) || 1); index += 1) {
@@ -47,8 +47,8 @@ export function tableObjectColumnWidths(node: ProseMirrorNode): number[] {
   return firstRowColumnWidths(node).map((width) => width || 100);
 }
 
-// Collapsed borders add one outer border to the sum of fixed column widths.
-function tableColumnTotalCss(widths: number[], node: ProseMirrorNode): string {
+/** Collapsed borders add one outer border to the sum of fixed column widths. */
+export function tableColumnTotalCss(widths: number[], node: ProseMirrorNode): string {
   const border =
     node.attrs.tableBorderClass === TABLE_BORDER_NONE_CLASS
       ? '0px'

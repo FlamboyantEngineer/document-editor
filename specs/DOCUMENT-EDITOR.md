@@ -1,6 +1,6 @@
 # Document editor
 
-`DocumentEditor` shows a document in its template and lets the writer edit it. The caller holds the editor state (`state`, `onStateChange`), as with every engine of the base library, and builds it with the plugins the document runs, such as `createDocumentEditing` and `createContents`; the editor adds and removes the pagination and the sections plugin (DOCE-SECTIONS) itself.
+`DocumentEditor` shows a document in its template and lets the writer edit it, with a context menu everywhere in the document, handles on its tables (DOCE-TABLES) and, optionally, its toolbar and a frame that scrolls the document. The caller holds the editor state (`state`, `onStateChange`), as with every engine of the base library, and builds it with the plugins the document runs, such as `createDocumentEditing` and `createContents`; the editor adds and removes the pagination and the sections plugin (DOCE-SECTIONS) itself.
 
 ## DOCE-EDITOR-1 - The editor
 
@@ -48,12 +48,69 @@ While reading, the document shall take no typing; authoring again shall make it 
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/src/document-editor.lab.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
+## DOCE-EDITOR-3 - Context menu
+
+### DOCE-EDITOR-3.1 - Opening the menu
+
+A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it. `contextMenu={false}` leaves the browser's menu.
+
+Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-3.2 - Clipboard and formatting
+
+The menu shall offer Cut and Copy, which write the selection to the clipboard as the editor copies it (Cut then deletes it), Paste and Paste as plain text, which paste the clipboard at the selection, and Clear formatting (`clearFormatting`). Cut, Paste and Clear formatting need an editable document, Cut and Copy a selection, and the clipboard entries a clipboard; a clipboard the browser refuses changes nothing.
+
+Implementation: `src/components/document-editor/context-entries.ts`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-3.3 - Suggestions and comments
+
+On a suggestion, while the editor may decide suggestions (editable and not suggesting), the menu shall first offer to accept or reject it. With comments, while the reader may comment, it shall offer Comment, which starts a thread on the selected text as the comments margin does, disabled without a selection.
+
+Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-3.4 - Objects
+
+In an editable document, with the selection in an object (a table, figure, code block, display equation, list of contents, signature or rule), the menu shall offer to add an empty paragraph before or after it (`insertParagraphBesideObject`), around the whole table when the pages split one, and, for an object other than a table, to delete it (`deleteObject`); deleting a page's only block leaves an empty paragraph.
+
+Implementation: `src/engine/block-commands.ts`, `src/components/document-editor/table-actions.ts`
+Verification: `src/engine/block-commands.test.ts`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-3.5 - Tables
+
+In a table cell of an editable document, the menu shall offer a Table submenu: insert a row above or below or a column to the left or right, merge the selected cells, split a merged cell, make the row or column a header, and delete the row, the column or the table, each disabled while it cannot run and run on the whole table when the pages split it (DOCE-TABLES-1.5).
+
+Implementation: `src/components/document-editor/table-actions.ts`, `src/components/document-editor/context-entries.ts`
+Verification: `e2e/document-editor.spec.ts`
+
+## DOCE-EDITOR-4 - Toolbar and frame
+
+### DOCE-EDITOR-4.1 - Toolbar
+
+`toolbar` shall show the editor's toolbar (`de-document-editor__toolbar`, a toolbar named by the `toolbar` label) above the document: undo and redo, the text style of the selected blocks (paragraph or heading 1 to 6), bold, italic, underline, strikethrough and code, bulleted and numbered lists, a table of the size picked in a grid (`insertTable`) and a page break. Formats and lists are pressed while they hold for the selection, a pressed list lifts its items out, every control is disabled while its command cannot run or the document is read, and a pointer press keeps focus in the document.
+
+Implementation: `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/document-editor.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-4.2 - Scrolling frame
+
+`scrollable` shall scroll the document inside the editor (`de-document-editor__viewport`), with the base library's overlay scrollbars, below the toolbar, which stays in view; the root publishes `data-scrollable` and the host gives the editor its height. Without it the document grows with the page.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/document-editor.spec.ts`
+
 ## Hooks
 
-| Hook                          | Kind      | Values                 | Description                                           |
-| ----------------------------- | --------- | ---------------------- | ----------------------------------------------------- |
-| `de-document-editor`          | root      |                        | The editor, carrying the template's `--doc-*` values. |
-| `de-document-editor__measure` | slot      |                        | The hidden slot the pages are measured in.            |
-| `de-document-editor__content` | slot      |                        | The document.                                         |
-| `data-layout`                 | attribute | `page`, `web`          | How the document is laid out.                         |
-| `data-mode`                   | state     | `authoring`, `reading` | Whether the writer can edit.                          |
+| Hook                           | Kind      | Values                 | Description                                             |
+| ------------------------------ | --------- | ---------------------- | ------------------------------------------------------- |
+| `de-document-editor`           | root      |                        | The editor, carrying the template's `--doc-*` values.   |
+| `de-document-editor__measure`  | slot      |                        | The hidden slot the pages are measured in.              |
+| `de-document-editor__toolbar`  | slot      |                        | The editor's toolbar, with `toolbar`.                   |
+| `de-document-editor__viewport` | slot      |                        | The frame that scrolls the document, with `scrollable`. |
+| `de-document-editor__body`     | slot      |                        | The document with its table handles.                    |
+| `de-document-editor__content`  | slot      |                        | The document.                                           |
+| `data-layout`                  | attribute | `page`, `web`          | How the document is laid out.                           |
+| `data-mode`                    | state     | `authoring`, `reading` | Whether the writer can edit.                            |
+| `data-scrollable`              | state     | `true`                 | The editor scrolls the document itself.                 |

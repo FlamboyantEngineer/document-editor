@@ -1,12 +1,13 @@
 /*
  * The labs' Reference stylesheet, bundled into labs/build/reference.css: the base library's
  * reference stylesheet for its controls and its theme tokens, the document reference stylesheet,
- * and the lab pages' own layout. Everything around the pages reads the theme's `--ref-*` tokens;
+ * the editor's own chrome, and the lab pages' own layout. Everything around the pages reads the theme's `--ref-*` tokens;
  * the pages stay paper.
  */
 
 @import '@flamboyantengineer/ui-components/reference.css';
 @import './reference/document.css';
+@import './reference/editor-chrome.css';
 
 :root[data-reference-document] {
   background: var(--ref-surface);
@@ -72,4 +73,9 @@ fieldset {
 
 .lab-suggestions del {
   color: var(--ref-danger);
+}
+
+/* The document editor lab gives its scrolling editor a height of its own. */
+.lab-document-editor[data-scrollable] {
+  height: 75vh;
 }

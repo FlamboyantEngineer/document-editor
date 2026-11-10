@@ -1,6 +1,6 @@
 # Editing
 
-A document is edited through the plugins `createDocumentEditing(schema, options)` returns, or the kit extension `createDocumentEditingExtension(options)` contributes: the undo history, element ids and the document's keys, ahead of ProseMirror's base keymap. Other extensions' keys come before them.
+A document is edited through the plugins `createDocumentEditing(schema, options)` returns, or the kit extension `createDocumentEditingExtension(options)` contributes: the undo history, element ids, table editing (DOCE-TABLES) and the document's keys, ahead of ProseMirror's base keymap. Other extensions' keys come before them.
 
 ## DOCE-EDITING-1 - Element ids
 
@@ -73,7 +73,7 @@ Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), table editing (850) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
 
-Implementation: `src/engine/document-editing.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`
 Verification: `src/engine/document-editing.test.ts`
