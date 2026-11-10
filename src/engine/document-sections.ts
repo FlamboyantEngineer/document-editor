@@ -90,8 +90,8 @@ interface SectionAt {
   readonly index: number;
 }
 
-// The transaction with every section's pages joined, so each section is one page.
-function joinedTransaction(state: EditorState): Transaction {
+/** A transaction with every section's pages joined, so each section is one page. */
+export function joinedTransaction(state: EditorState): Transaction {
   const tr = state.tr;
   for (const step of joinDocumentPages(state.doc).steps) tr.step(step);
   return tr;
@@ -110,8 +110,12 @@ function contentStart(section: ProseMirrorNode, pos: number): number {
   return pos + 3 + (section.firstChild?.firstChild?.nodeSize ?? 0);
 }
 
-// A section holding one page with content, its other regions empty; pagination fills them.
-function sectionOf(like: ProseMirrorNode, attrs: object, content: Fragment): ProseMirrorNode {
+/** A section holding one page with content, its other regions empty; pagination fills them. */
+export function sectionOf(
+  like: ProseMirrorNode,
+  attrs: object,
+  content: Fragment,
+): ProseMirrorNode {
   const page = like.firstChild;
   const regions: ProseMirrorNode[] = [];
   page?.forEach((region) =>
