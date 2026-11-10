@@ -1,7 +1,7 @@
 import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { parseCodeLines, readDocumentFile, type StoredNode } from '../model/index.js';
 import { documentKeys } from './document-editing.js';
 import {
   convertMath,
@@ -10,7 +10,6 @@ import {
   insertContents,
   insertMath,
   linkAt,
-  parseCodeLines,
   setCodeLanguage,
   setContentsDepth,
   setFigure,

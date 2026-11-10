@@ -6,8 +6,6 @@ import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { newBlockRange } from './tables.js';
 
-export { parseCodeLines } from '../model/index.js';
-
 // Inserts a block where a new block goes, then places the caret as `caret` asks.
 function insertBlock(node: ProseMirrorNode, caret: 'inside' | 'select' = 'inside'): Command {
   return (state, dispatch) => {

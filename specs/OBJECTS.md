@@ -15,7 +15,7 @@ Verification: `src/engine/object-commands.test.ts`
 
 `setLinkedCode({ url, code, language, startLine })` shall insert linked code where a new block goes, selected, or change the linked code selected. `parseCodeLines(url)` reads the lines a URL's fragment names, such as `#L10-L20` or `#L7`.
 
-Implementation: `src/engine/object-commands.ts`
+Implementation: `src/engine/object-commands.ts`, `src/model/linked-code.ts`
 Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.3 - Math

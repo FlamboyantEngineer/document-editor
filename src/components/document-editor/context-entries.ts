@@ -1,6 +1,7 @@
 // The editor's own groups of context menu entries for the selection: the proofing issue at the
-// caret, deciding the suggestion it is in, the clipboard, commenting and clearing formatting, then
-// the table and object it is in. Groups are separated, and a group with nothing to offer is left
+// caret, deciding the suggestion it is in, the clipboard, commenting and clearing formatting, the
+// element it is at (a footnote, math, code, a figure, a list of contents or a link), then the
+// table and object it is in. Groups are separated, and a group with nothing to offer is left
 // out.
 
 import { ClipboardGlyph, CopyGlyph } from '@flamboyantengineer/ui-components/core';
@@ -15,7 +16,9 @@ import {
   rejectSuggestion,
 } from '../../engine/index.js';
 import type { ContextTarget } from './context-target.js';
+import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { CODE_LANGUAGES, elementEntries } from './element-entries.js';
 import { proofingEntries } from './proofing-entries.js';
 import { commandEntry, objectEntries, tableCellEntries } from './table-actions.js';
 
@@ -27,6 +30,12 @@ export interface ContextEntriesOptions {
   readonly canDecide: boolean;
   /** Starts a comment thread on the selected text, when the reader may comment. */
   readonly startComment: (() => void) | null;
+  /** Opens one of the editor's dialogs for the selection, while the editor has them. */
+  readonly openDialog?: ((dialog: ObjectDialog) => void) | null | undefined;
+  /** Whether the host resolves linked code. Defaults to false. */
+  readonly linkedCode?: boolean | undefined;
+  /** The languages a code block's language menu offers. */
+  readonly codeLanguages?: readonly string[] | undefined;
 }
 
 const clipboardOf = (view: EditorView) =>
@@ -179,6 +188,7 @@ export const CONTEXT_MENU_GROUPS = [
   'suggestion',
   'clipboard',
   'editing',
+  'element',
   'table',
   'object',
 ] as const;
@@ -199,6 +209,17 @@ export function contextGroups(
     { id: 'suggestion', entries: suggestionEntries(view, options) },
     { id: 'clipboard', entries: clipboardEntries(view, options) },
     { id: 'editing', entries: editingEntries(view, options) },
+    {
+      id: 'element',
+      entries: options.editable
+        ? elementEntries(view, {
+            labels: options.labels,
+            openDialog: options.openDialog ?? null,
+            linkedCode: options.linkedCode ?? false,
+            codeLanguages: options.codeLanguages ?? CODE_LANGUAGES,
+          })
+        : [],
+    },
     { id: 'table', entries: objects.table },
     { id: 'object', entries: objects.object },
   ];

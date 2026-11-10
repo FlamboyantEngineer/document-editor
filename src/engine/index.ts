@@ -100,7 +100,6 @@ export {
   insertContents,
   insertMath,
   linkAt,
-  parseCodeLines,
   setCodeLanguage,
   setContentsDepth,
   setFigure,

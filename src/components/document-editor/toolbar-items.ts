@@ -60,9 +60,27 @@ export interface ToolbarGroup {
 export const TOOLBAR_GROUPS = {
   history: ['undo', 'redo'],
   'block-style': ['block-style'],
-  marks: ['bold', 'italic', 'underline', 'strikethrough', 'code'],
+  marks: [
+    'bold',
+    'italic',
+    'underline',
+    'strikethrough',
+    'code',
+    'superscript',
+    'subscript',
+    'link',
+  ],
   lists: ['bullet-list', 'numbered-list'],
-  insert: ['insert-table', 'page-break'],
+  insert: [
+    'insert-table',
+    'page-break',
+    'footnote',
+    'code-block',
+    'math',
+    'figure',
+    'contents',
+    'symbol',
+  ],
 } as const;
 
 /** How the host shapes the editor's toolbar. */

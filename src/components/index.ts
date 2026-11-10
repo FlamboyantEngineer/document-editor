@@ -18,6 +18,7 @@ export type {
   DocumentMarkup,
   DocumentToolbarOptions,
   EditorContext,
+  ObjectDialog,
   ToolbarButtonItem,
   ToolbarCustomItem,
   ToolbarGroup,
@@ -25,8 +26,10 @@ export type {
   ToolbarMenuItem,
 } from './document-editor/index.js';
 export {
+  CODE_LANGUAGES,
   CONTEXT_MENU_GROUPS,
   DEFAULT_EDITOR_LABELS,
+  DEFAULT_SYMBOLS,
   DocumentEditor,
   EDITOR_MEASURES,
   isContentChange,
