@@ -101,7 +101,8 @@ function initialState(): EditorState {
   });
   const tr = state.tr;
   assignElementIds(tr, {});
-  return state.apply(tr);
+  // The ids a document opens with are no edit of the writer's to undo.
+  return state.apply(tr.setMeta('addToHistory', false));
 }
 
 function Lab() {

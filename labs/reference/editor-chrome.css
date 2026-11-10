@@ -224,3 +224,15 @@
   font-size: inherit;
   line-height: inherit;
 }
+
+/* The host's controls at the toolbar's ends: the end ones pushed to the far side. */
+.de-document-editor__toolbar-start,
+.de-document-editor__toolbar-end {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.de-document-editor__toolbar-end {
+  margin-inline-start: auto;
+}
