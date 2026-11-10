@@ -2,6 +2,7 @@ import { type Command, EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { createEditLock } from './edit-lock.js';
 import {
   createSearch,
   replaceAllMatches,
@@ -65,5 +66,23 @@ describe('search', () => {
     state = run(state, replaceAllMatches('cow'));
     expect(textOf(state)).toBe('dog and cow|cow');
     expect(searchKey.getState(state)?.matches).toEqual([]);
+  });
+
+  it('DOCE-SEARCH-1.4 leaves matches in locked content found and unchanged', () => {
+    const doc = stateOf('cat here', 'Fixed cat').doc;
+    let state = EditorState.create({
+      doc,
+      plugins: [
+        createSearch(),
+        createEditLock({
+          isLocked: (node, pos) => node.resolve(pos).parent.textContent.startsWith('Fixed'),
+        }),
+      ],
+    });
+    state = run(state, setSearch('cat'));
+    state = run(state, replaceAllMatches('dog'));
+    expect(textOf(state)).toBe('dog here|Fixed cat');
+    expect(searchKey.getState(state)?.matches).toHaveLength(1);
+    expect(replaceAllMatches('dog')(state)).toBe(false);
   });
 });

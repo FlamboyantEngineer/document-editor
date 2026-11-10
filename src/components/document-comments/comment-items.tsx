@@ -85,8 +85,9 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
     });
   }
   const { from, to } = state.selection;
-  const covered = items.some((item) => item.from <= from && to <= item.to);
-  if (options.canComment && !covered && selectedText(state).trim()) {
+  // Comments may overlap: only the selection a thread was just anchored to offers none again.
+  const anchored = items.some((item) => item.from === from && item.to === to);
+  if (options.canComment && !anchored && selectedText(state).trim()) {
     items.push({ key: 'draft', target: { kind: 'selection' }, from, to, kind: 'draft' });
   }
   return items.sort((a, b) => a.from - b.from);

@@ -213,6 +213,7 @@ function Lab() {
         scrollable={scrollable}
         statusBar={statusBar}
         find
+        repairIds
         zoom={zoom}
         onZoomChange={setZoom}
         markup={markup}

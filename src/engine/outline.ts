@@ -18,8 +18,12 @@ export interface OutlineEntry {
 export function documentOutline(state: EditorState): OutlineEntry[] {
   const found: Omit<OutlineEntry, 'active'>[] = [];
   const seen = new Set<string>();
-  state.doc.descendants((node, pos) => {
+  state.doc.descendants((node, pos, parent) => {
     if (node.type.name === 'page_header' || node.type.name === 'page_footer') return false;
+    // A heading inside a list or a table is not part of the outline.
+    if (parent && ['list_item', 'table_cell', 'table_header'].includes(parent.type.name)) {
+      return false;
+    }
     if (node.type.name !== 'heading') return !node.isTextblock;
     const id = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : null;
     if (id && seen.has(id)) return false;

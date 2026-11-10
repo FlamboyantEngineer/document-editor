@@ -13,7 +13,12 @@ import {
   createDocumentEditingExtension,
   documentKeys,
 } from './document-editing.js';
-import { assignElementIds, createElementIds, ELEMENT_ID_PATTERN } from './element-ids.js';
+import {
+  assignElementIds,
+  createElementIds,
+  ELEMENT_ID_PATTERN,
+  repairElementIds,
+} from './element-ids.js';
 
 const text = (value: string): StoredNode[] => (value ? [{ type: 'text', text: value }] : []);
 const paragraph = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
@@ -215,23 +220,100 @@ describe('document keys', () => {
     expect(body(plain).child(0).attrs.paragraphLevel).toBe(1);
   });
 
-  it('DOCE-EDITING-2.6 selects the body, and inserts a page break below the block', () => {
+  it('DOCE-EDITING-2.6 selects the body, and inserts a page break at the caret', () => {
     let state = run(stateAt(read(paragraph('Alpha'), paragraph('Omega')), 'Alpha'), key('Mod-a'));
     expect(state.doc.textBetween(state.selection.from, state.selection.to)).toBe('AlphaOmega');
+    state = run(stateAt(read(paragraph('Alpha')), 'pha'), key('Mod-Alt-Enter'));
+    expect(outline(state)).toEqual(['paragraph:Al', 'page_break:', 'paragraph:pha']);
+    expect(state.selection.$from.parent.textBetween(0, 3)).toBe('pha');
     state = run(stateAt(read(paragraph('Alpha')), 'Alpha'), key('Mod-Alt-Enter'));
-    expect(outline(state)).toEqual(['paragraph:Alpha', 'page_break:', 'paragraph:']);
-    expect(state.selection.$from.parent.type.name).toBe('paragraph');
+    expect(outline(state)).toEqual(['page_break:', 'paragraph:Alpha']);
+    state = run(stateAt(read(bullets('One')), 'One'), key('Mod-Alt-Enter'));
+    expect(outline(state)).toEqual(['bullet_list:One', 'page_break:', 'paragraph:']);
   });
 });
 
 describe('the editing extension', () => {
   it('DOCE-EDITING-3.1 installs the history, the element ids, tables and the keymaps in a kit', () => {
     const kit = createDocumentKit({ extensions: [createDocumentEditingExtension()] });
-    expect(kit.pluginOrder).toEqual(['history', 'element-ids', 'tables', 'keymap']);
-    expect(kit.buildPlugins(undefined)).toHaveLength(7);
+    expect(kit.pluginOrder).toEqual(['history', 'element-ids', 'tables', 'gap-cursor', 'keymap']);
+    expect(kit.buildPlugins(undefined)).toHaveLength(8);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(6);
+    expect(shared.buildPlugins(undefined)).toHaveLength(7);
+  });
+
+  it('DOCE-EDITING-2.7 selects an object before deleting it', () => {
+    const keys = documentKeys(documentSchema);
+    const table: StoredNode = {
+      type: 'table',
+      content: [
+        { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph('Cell')] }] },
+      ],
+    };
+    let state = stateAt(read(table, paragraph('After')), 'After');
+    state = run(state, keys.Backspace as Command);
+    // The table is selected whole, as cells, and still there; the next press deletes it.
+    expect(state.selection.empty).toBe(false);
+    expect(state.doc.textBetween(state.selection.from, state.selection.to)).toBe('Cell');
+    state = run(state, keys.Backspace as Command);
+    expect(state.doc.textBetween(0, state.doc.content.size)).toBe('After');
+  });
+
+  it('DOCE-EDITING-2.8 keeps a footnote entry one paragraph under Enter, Backspace and Delete', () => {
+    const cited: StoredNode = {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Body' },
+        { type: 'footnote', attrs: { id: 'n1' }, content: [{ type: 'text', text: 'Note text' }] },
+      ],
+    };
+    const keys = documentKeys(documentSchema);
+    const state = stateAt(read(cited), 'Note text');
+    const entry = state.selection.$from.parent;
+    expect(entry.type.name).toBe('footnote_entry');
+    for (const key of ['Enter', 'Shift-Enter', 'Backspace'] as const) {
+      const next = run(state, keys[key] as Command);
+      expect(next.doc.eq(state.doc)).toBe(true);
+    }
+  });
+
+  it('DOCE-EDITING-1.4 repairs the element ids a document opens with, out of the history', () => {
+    const state = EditorState.create({ doc: read(paragraph('One'), paragraph('Two')) });
+    const tr = repairElementIds(state);
+    expect(tr?.getMeta('addToHistory')).toBe(false);
+    const repaired = state.apply(tr as Transaction);
+    const ids: unknown[] = [];
+    repaired.doc.descendants((node) => {
+      if (node.type.name === 'paragraph') ids.push(node.attrs.dataId);
+    });
+    expect(ids.every((id) => typeof id === 'string' && ELEMENT_ID_PATTERN.test(id))).toBe(true);
+    expect(repairElementIds(repaired)).toBeNull();
+  });
+
+  it('DOCE-EDITING-1.4 keeps the ids of the header rows a split table repeats', () => {
+    const header: StoredNode = {
+      type: 'tableRow',
+      content: [{ type: 'tableHeader', content: [paragraph('Name')] }],
+    };
+    const body: StoredNode = {
+      type: 'tableRow',
+      content: [{ type: 'tableCell', content: [paragraph('First')] }],
+    };
+    let state = EditorState.create({ doc: read({ type: 'table', content: [header, body] }) });
+    state = state.apply(repairElementIds(state) as Transaction);
+    let after = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'table') after = pos + node.nodeSize;
+      return after < 0;
+    });
+    const table = state.doc.resolve(after).nodeBefore;
+    if (!table) throw new Error('The document has a table');
+    // The later part repeats the header row only.
+    const part = table.type.create({ ...table.attrs, splitPartIndex: 1 }, [table.child(0)]);
+    const first = table.type.create({ ...table.attrs, splitPartIndex: 0 }, table.content);
+    const split = state.apply(state.tr.replaceWith(after - table.nodeSize, after, [first, part]));
+    expect(repairElementIds(split)).toBeNull();
   });
 });

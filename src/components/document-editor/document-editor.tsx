@@ -11,7 +11,7 @@ import {
   type RichTextStateUpdate,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
-import type { EditorState } from 'prosemirror-state';
+import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
   type ComponentType,
@@ -19,6 +19,8 @@ import {
   type ReactNode,
   type Ref,
   type RefObject,
+  useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -46,7 +48,9 @@ import {
 import { useEditorTelemetry } from './use-editor-telemetry.js';
 import {
   type DocumentEditorNotifications,
+  useElementIdRepair,
   useHostViewProps,
+  useLayoutReady,
   useSelectionNotification,
 } from './use-host-events.js';
 
@@ -113,6 +117,11 @@ export interface DocumentEditorProps
   markup?: DocumentMarkup | undefined;
   /** The host's telemetry, which the editor reports its layout times to. */
   telemetry?: TelemetryAdapter | undefined;
+  /**
+   * Repairs the element ids of each document the editor is given (`repairElementIds`), telling the
+   * host through `onContentChange`. Defaults to false.
+   */
+  repairIds?: boolean | undefined;
   /** Opens a find bar above the document with Mod-F, to find and replace text. Defaults to false. */
   find?: boolean | undefined;
   /**
@@ -152,6 +161,8 @@ function EditorBody({ props, engine, labels, startCommentRef, onFind }: EditorBo
   const viewProps = useMemo(
     () => ({
       editable: () => editable,
+      // The host's proofer checks the text; the browser's own spelling check stays off.
+      attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
         if (host.handleKeyDown?.(view, event)) return true;
         if (!onFind || !isFindKey(event)) return false;
@@ -235,8 +246,20 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
-  const tap = useEditorTelemetry(props.telemetry);
+  const measure = useEditorTelemetry(props.telemetry);
+  const ready = useLayoutReady(props.onLayoutReady);
+  const tap = useCallback(
+    (tr: Transaction) => {
+      measure(tr);
+      ready.tap(tr);
+    },
+    [measure, ready],
+  );
   const engine = useEngineView(props.events, props.onContentChange, tap);
+  useEffect(() => {
+    if (engine.view && layout === 'web') ready.signal();
+  }, [engine.view, layout, ready]);
+  useElementIdRepair(props.repairIds ? engine.view : null, state);
   useEditorHandle(props.handleRef, engine.view);
   useSelectionNotification(state, props.onSelectionChange);
   const startCommentRef = useRef<(() => void) | null>(null);
@@ -269,7 +292,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
         }
       >
         {layout === 'page' ? (
-          <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" />
+          <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
         <TopChrome {...chrome} finding={finding} onFindClose={() => setFinding(false)} />
         {props.scrollable ? (

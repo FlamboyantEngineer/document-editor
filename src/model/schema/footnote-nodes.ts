@@ -48,6 +48,8 @@ function footnoteEntry(options: ResolvedSchemaOptions): NodeSpec {
   return {
     content: 'inline*',
     defining: true,
+    // An entry is its footnote's whole text: nothing joins into it or out of it.
+    isolating: true,
     attrs: footnoteAttrs,
     parseDOM: [
       {

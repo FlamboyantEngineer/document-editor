@@ -25,6 +25,13 @@ Changes from elsewhere (`isRemote`), changes that stay out of the history, such 
 Implementation: `src/engine/element-ids.ts`
 Verification: `src/engine/document-editing.test.ts`
 
+### DOCE-EDITING-1.4 - Repairing on opening
+
+`repairElementIds(state)` shall give a document with missing, invalid or repeated element ids valid ones (DOCE-EDITING-1.1) in one change kept out of the undo history and marked `ELEMENT_IDS_REPAIR`, and give null when every element has one. The header rows a later part of a split table repeats keep the first part's ids, in every assignment of ids. With `repairIds`, the document editor runs it on the document it opens with, and on each new document it is given, and tells the host through `onContentChange`.
+
+Implementation: `src/engine/element-ids.ts`, `src/components/document-editor/use-host-events.ts`
+Verification: `src/engine/document-editing.test.ts`
+
 ## DOCE-EDITING-2 - Keys
 
 ### DOCE-EDITING-2.1 - Formatting and block types
@@ -64,16 +71,30 @@ Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-2.6 - Select All and page breaks
 
-`Mod-a` shall select the body of every page, from its first text block to its last, without the page chrome; a document without pages selects everything. `Mod-Alt-Enter` shall insert a page break after the top-level block holding the selection, with the caret in the text block after it, which it adds when there is none. `Mod-z` shall undo, and `Mod-y` and `Mod-Shift-z` redo.
+`Mod-a` shall select the body of every page, from its first text block to its last, without the page chrome; a document without pages selects everything. `Mod-Alt-Enter` shall insert a page break at the caret in a text block on its own on the page, splitting it there, or before it with the caret at its start; elsewhere, such as in a list or a table, after the top-level block holding the selection, with the caret in the text block after it, which it adds when there is none. `Mod-z` shall undo, and `Mod-y` and `Mod-Shift-z` redo.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
 Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
+
+### DOCE-EDITING-2.7 - Objects beside text
+
+At the start of a text block after an object, a table or an atom such as an equation or a figure, Backspace shall select the object instead of joining into it, and Delete at the end of a text block before one likewise; the next press deletes it. A gap cursor stands between objects where no text block is. Mod-Space clears formatting.
+
+Implementation: `src/engine/document-editing.ts`
+Verification: `src/engine/document-editing.test.ts`
+
+### DOCE-EDITING-2.8 - Footnote entries
+
+A footnote entry shall stay one paragraph of text: Enter and Shift+Enter add nothing in it, Backspace at its start and Delete at its end join nothing, and nothing joins into it from outside (`isolating`).
+
+Implementation: `src/engine/document-editing.ts`, `src/model/schema/footnote-nodes.ts`
+Verification: `src/engine/document-editing.test.ts`
 
 ## DOCE-EDITING-3 - Installing editing
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), table editing (850) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`
 Verification: `src/engine/document-editing.test.ts`

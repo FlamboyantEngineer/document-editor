@@ -6,7 +6,7 @@ import { keydownHandler } from 'prosemirror-keymap';
 import type { Command, EditorState, Selection, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef } from 'react';
-import { proofingKey } from '../../engine/index.js';
+import { proofingKey, repairElementIds } from '../../engine/index.js';
 import { isPaginationTransaction } from '../../pagination/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
 
@@ -21,6 +21,8 @@ export interface DocumentEditorNotifications {
    * proofing marks, such as to save it.
    */
   readonly onContentChange?: ((tr: Transaction) => void) | undefined;
+  /** The pages are laid out for the first time, or the web layout shows: the editor is ready. */
+  readonly onLayoutReady?: (() => void) | undefined;
   /** The host's own keys, such as `Mod-s`, which run before the editor's. */
   readonly keymap?: Readonly<Record<string, Command>> | undefined;
 }
@@ -82,4 +84,39 @@ export function useHostViewProps(host: DocumentEditorNotifications) {
       blur: onFocusChange ? () => (onFocusChange(false), false) : undefined,
     };
   }, [onFocusChange, keymap]);
+}
+
+/** Repairs the element ids of the document a view opens with, once per document it is given. */
+export function useElementIdRepair(view: EditorView | null, state: EditorState) {
+  const { plugins } = state;
+  useEffect(() => {
+    if (!view) return;
+    const tr = repairElementIds(view.state);
+    if (tr) view.dispatch(tr);
+  }, [view, plugins]);
+}
+
+/**
+ * Calls the host once when the editor is first laid out: on the first layout of its pages, which
+ * the returned tap sees, or when the editor signals that it shows the web layout.
+ */
+export function useLayoutReady(onLayoutReady: (() => void) | undefined) {
+  const ready = useRef(false);
+  const latest = useRef(onLayoutReady);
+  useEffect(() => {
+    latest.current = onLayoutReady;
+  });
+  return useMemo(() => {
+    const signal = () => {
+      if (ready.current) return;
+      ready.current = true;
+      latest.current?.();
+    };
+    return {
+      signal,
+      tap: (tr: Transaction) => {
+        if (isPaginationTransaction(tr)) signal();
+      },
+    };
+  }, []);
 }

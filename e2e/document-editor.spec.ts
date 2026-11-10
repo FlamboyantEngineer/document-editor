@@ -421,4 +421,21 @@ test.describe('document editor lab', () => {
       /first layout \d+ ms/,
     );
   });
+
+  test('DOCE-EDITOR-6.7 DOCE-EDITOR-6.8 tells the host it is ready and leaves checks to the host', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await expect(page.getByRole('status', { name: 'Host report' })).toContainText('ready');
+    await expect(content(page)).toHaveAttribute('spellcheck', 'false');
+    const containment = await page
+      .locator('.de-document-editor__content .pm-page')
+      .first()
+      .evaluate((element) => {
+        const style = getComputedStyle(element);
+        return `${style.contain}|${style.contentVisibility}`;
+      });
+    expect(containment).not.toMatch(/style|auto/);
+  });
 });

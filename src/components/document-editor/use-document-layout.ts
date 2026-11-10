@@ -18,8 +18,10 @@ import {
   type VersionChangeDisplay,
 } from '../../engine/index.js';
 import {
+  createLayoutRules,
   findTemplateSection,
   joinDocumentPages,
+  resolveFootnoteSettings,
   type TemplateFile,
   templatePageMetrics,
 } from '../../model/index.js';
@@ -108,6 +110,10 @@ export function useDocumentLayout(
   options: DocumentLayoutOptions,
 ): void {
   const { layout, template } = options;
+  // The template's settings that change how the pages are laid out: the pagination starts over
+  // when they do.
+  const repeatTableHeader = template.styles?.table?.repeatHeader ?? true;
+  const footnoteNumbering = resolveFootnoteSettings(template, null).numbering ?? 'document';
   const latest = useRef(options);
   useEffect(() => {
     latest.current = options;
@@ -148,6 +154,8 @@ export function useDocumentLayout(
       measureIn: element,
       pageHeight: (section) => bodyHeight(latest.current.template, section),
       plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
+      rules: createLayoutRules({ repeatTableHeader }),
+      footnoteNumbering,
     });
     refresh.current = () => {
       pagination.refresh({ remeasure: true });
@@ -164,7 +172,7 @@ export function useDocumentLayout(
         }),
       );
     };
-  }, [layout, measureIn]);
+  }, [layout, measureIn, repeatTableHeader, footnoteNumbering]);
 
   useLayoutPlugins(options, [ownPlugins, paginationPlugin]);
 

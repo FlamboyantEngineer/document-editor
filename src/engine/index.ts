@@ -67,6 +67,8 @@ export {
   createElementId,
   createElementIds,
   ELEMENT_ID_PATTERN,
+  ELEMENT_IDS_REPAIR,
+  repairElementIds,
 } from './element-ids.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {

@@ -36,7 +36,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-2.1 - Editing on pages
 
-Edits shall change the document, the pages and the lists of contents together. The reference stylesheet lets pages out of view skip their layout and paint (`content-visibility`), each keeping the size its template gives it, so a long document costs the browser only the pages in view.
+Edits shall change the document, the pages and the lists of contents together. The reference stylesheet contains each page's layout and paint, so a change on one page lays out and paints only that page, while the heading and object numbers still count across the document.
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/src/document-editor.lab.tsx`, `labs/reference/document.css`
 Verification: `e2e/document-editor.spec.ts`
@@ -194,6 +194,20 @@ Verification: `e2e/document-editor.spec.ts`
 With the host's `telemetry` adapter (DOCE-HOST-1.1), the editor shall measure how long its pages took to lay out when the document opened (`document-editor.first-layout`) and after each run of edits (`document-editor.layout`), in milliseconds (`EDITOR_MEASURES`).
 
 Implementation: `src/components/document-editor/use-editor-telemetry.ts`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.7 - Ready
+
+`onLayoutReady` shall be called once, when the editor first lays its pages out, or as soon as it shows the web layout.
+
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
+Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.8 - The browser's own checks
+
+The document and its measuring view shall turn the browser's spelling check off (`spellcheck="false"`): the host's proofer checks the text (DOCE-PROOFING). Each page contains its layout and paint, never its style, so the heading and object numbers, CSS counters, count across pages.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/document.css`
 Verification: `e2e/document-editor.spec.ts`
 
 ## Hooks

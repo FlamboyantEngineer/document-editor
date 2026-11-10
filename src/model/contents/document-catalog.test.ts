@@ -77,6 +77,37 @@ describe('document catalog', () => {
     expect(doc.nodeAt(first?.pos ?? 0)?.textContent).toBe('Scope');
   });
 
+  it('DOCE-CONTENTS-1.1 leaves out headings inside a list or a table', () => {
+    const nested = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              heading(1, 'Scope'),
+              {
+                type: 'table',
+                content: [
+                  {
+                    type: 'tableRow',
+                    content: [{ type: 'tableCell', content: [heading(2, 'In a cell')] }],
+                  },
+                ],
+              },
+              heading(1, 'Interfaces'),
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    expect(brief(catalogDocument(nested, BASE_TEMPLATE).toc)).toEqual([
+      '1.|Scope|1',
+      '2.|Interfaces|1',
+    ]);
+  });
+
   it('DOCE-CONTENTS-1.2 numbers captioned objects with their heading context and restarts', () => {
     const catalog = catalogDocument(doc, appendix);
     expect(brief(catalog.tables)).toEqual([

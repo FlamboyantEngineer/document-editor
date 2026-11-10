@@ -50,7 +50,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.2 - Starting a thread
 
-While text is selected, the margin shall offer Comment beside it. Pressing it shall anchor a new thread to the selection and show the composer of its opening comment; submitting shall store the thread with the text it quotes, and cancelling shall remove the anchor.
+While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall anchor a new thread to the selection and show the composer of its opening comment; submitting shall store the thread with the text it quotes, and cancelling shall remove the anchor.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
