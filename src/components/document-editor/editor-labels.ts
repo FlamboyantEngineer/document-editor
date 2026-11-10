@@ -1,6 +1,8 @@
 // The text the document editor's own chrome shows: its toolbar, its context menu, the table handles
 // and their menus. A host passes its own wording through the editor's `labels`.
 
+import type { ProofingKind } from '../../host/index.js';
+
 /** The text of the editor's toolbar, menus and handles. */
 export interface DocumentEditorLabels {
   readonly toolbar: string;
@@ -62,9 +64,20 @@ export interface DocumentEditorLabels {
   readonly editingMode: string;
   readonly suggestingMode: string;
   readonly readingMode: string;
+  /** Heads a proofing issue's suggestions when the proofer gives no message. */
+  readonly proofingIssue: (kind: ProofingKind) => string;
+  readonly noSuggestions: string;
+  readonly ignoreIssue: string;
+  readonly addToDictionary: string;
+  /** The proofing status: checking, or how many issues are marked. */
+  readonly proofingStatus: (issues: number, pending: boolean) => string;
+  /** Names the status bar's button that selects the next proofing issue. */
+  readonly nextIssue: string;
 }
 
 const count = new Intl.NumberFormat('en-US');
+
+const PROOFING_KINDS = { spelling: 'Spelling', grammar: 'Grammar', style: 'Style' } as const;
 
 /** The editor's English text. */
 export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
@@ -125,4 +138,14 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   editingMode: 'Editing',
   suggestingMode: 'Suggesting',
   readingMode: 'Reading',
+  proofingIssue: (kind) => PROOFING_KINDS[kind],
+  noSuggestions: 'No suggestions',
+  ignoreIssue: 'Ignore',
+  addToDictionary: 'Add to dictionary',
+  proofingStatus: (issues, pending) => {
+    if (pending && issues === 0) return 'Checking…';
+    if (issues === 0) return 'No issues';
+    return `${count.format(issues)} ${issues === 1 ? 'issue' : 'issues'}`;
+  },
+  nextIssue: 'Go to the next issue',
 };

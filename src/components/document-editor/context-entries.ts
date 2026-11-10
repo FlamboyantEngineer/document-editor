@@ -1,4 +1,5 @@
-// The entries of the editor's context menu for the selection: deciding the suggestion it is in,
+// The entries of the editor's context menu for the selection: the proofing issue at the caret,
+// deciding the suggestion it is in,
 // the clipboard, commenting and clearing formatting, then the table and object it is in. Groups
 // are separated, and a group with nothing to offer is left out.
 
@@ -8,10 +9,15 @@ import { findTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
   acceptSuggestion,
+  addProofingWord,
   clearFormatting,
+  ignoreProofingIssue,
   listSuggestions,
   objectBlockAt,
+  proofingIssueAt,
+  proofingState,
   rejectSuggestion,
+  replaceProofingIssue,
 } from '../../engine/index.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { commandEntry, objectEntries, tableCellEntries } from './table-actions.js';
@@ -110,6 +116,52 @@ function clipboardEntries(view: EditorView, { labels, editable }: ContextEntries
   ] satisfies MenuEntry[];
 }
 
+/** The most suggestions the menu offers for a proofing issue. */
+const PROOFING_SUGGESTIONS = 5;
+
+// The proofing issue at the caret: its suggestions, under the issue's message, then ignoring its
+// word and adding it to the dictionary.
+function proofingEntries(view: EditorView, { labels, editable }: ContextEntriesOptions) {
+  const { state } = view;
+  const issue = editable ? proofingIssueAt(state, state.selection.head) : null;
+  if (!issue) return [];
+  const suggestions: MenuEntry[] = issue.suggestions
+    .slice(0, PROOFING_SUGGESTIONS)
+    .map((suggestion, index) =>
+      commandEntry(
+        view,
+        { id: `proofing-${String(index)}`, label: suggestion },
+        replaceProofingIssue(issue, suggestion),
+      ),
+    );
+  const entries: MenuEntry[] = [
+    {
+      type: 'section',
+      id: 'proofing',
+      title: issue.message ?? labels.proofingIssue(issue.kind),
+      items:
+        suggestions.length > 0
+          ? suggestions
+          : [{ id: 'proofing-none', label: labels.noSuggestions, isDisabled: true }],
+    },
+    commandEntry(
+      view,
+      { id: 'proofing-ignore', label: labels.ignoreIssue },
+      ignoreProofingIssue(issue),
+    ),
+  ];
+  if (proofingState(state)?.proofer.addWord && issue.kind === 'spelling') {
+    entries.push(
+      commandEntry(
+        view,
+        { id: 'proofing-add', label: labels.addToDictionary },
+        addProofingWord(issue),
+      ),
+    );
+  }
+  return entries;
+}
+
 function suggestionEntries(view: EditorView, { labels, canDecide }: ContextEntriesOptions) {
   const { head } = view.state.selection;
   const suggestion = canDecide
@@ -170,6 +222,7 @@ function objectGroups(
 /** The context menu's entries for the view's selection. */
 export function contextEntries(view: EditorView, options: ContextEntriesOptions): MenuEntry[] {
   const groups = [
+    proofingEntries(view, options),
     suggestionEntries(view, options),
     clipboardEntries(view, options),
     editingEntries(view, options),

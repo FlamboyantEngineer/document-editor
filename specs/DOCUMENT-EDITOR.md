@@ -119,20 +119,23 @@ Verification: `src/engine/document-statistics.test.ts`
 
 ## Hooks
 
-| Hook                                | Kind      | Values                                  | Description                                             |
-| ----------------------------------- | --------- | --------------------------------------- | ------------------------------------------------------- |
-| `de-document-editor`                | root      |                                         | The editor, carrying the template's `--doc-*` values.   |
-| `de-document-editor__measure`       | slot      |                                         | The hidden slot the pages are measured in.              |
-| `de-document-editor__toolbar`       | slot      |                                         | The editor's toolbar, with `toolbar`.                   |
-| `de-document-editor__viewport`      | slot      |                                         | The frame that scrolls the document, with `scrollable`. |
-| `de-document-editor__body`          | slot      |                                         | The document with its table handles.                    |
-| `de-document-editor__block-style`   | slot      |                                         | The toolbar's text style field.                         |
-| `de-document-editor__style-preview` | slot      |                                         | A text style's name in the list, in that style.         |
-| `data-block-style`                  | attribute | `paragraph`, `heading-1` to `heading-6` | On a preview: the style it shows.                       |
-| `de-document-editor__status-bar`    | slot      |                                         | The editor's status bar, with `statusBar`.              |
-| `de-document-editor__status-item`   | slot      |                                         | An item of the status bar.                              |
-| `data-status`                       | attribute | `position`, `mode`                      | On a status item: what it reports.                      |
-| `de-document-editor__content`       | slot      |                                         | The document.                                           |
-| `data-layout`                       | attribute | `page`, `web`                           | How the document is laid out.                           |
-| `data-mode`                         | state     | `authoring`, `reading`                  | Whether the writer can edit.                            |
-| `data-scrollable`                   | state     | `true`                                  | The editor scrolls the document itself.                 |
+| Hook                                  | Kind      | Values                                  | Description                                                          |
+| ------------------------------------- | --------- | --------------------------------------- | -------------------------------------------------------------------- |
+| `de-document-editor`                  | root      |                                         | The editor, carrying the template's `--doc-*` values.                |
+| `de-document-editor__measure`         | slot      |                                         | The hidden slot the pages are measured in.                           |
+| `de-document-editor__toolbar`         | slot      |                                         | The editor's toolbar, with `toolbar`.                                |
+| `de-document-editor__viewport`        | slot      |                                         | The frame that scrolls the document, with `scrollable`.              |
+| `de-document-editor__body`            | slot      |                                         | The document with its table handles.                                 |
+| `de-document-editor__block-style`     | slot      |                                         | The toolbar's text style field.                                      |
+| `de-document-editor__style-preview`   | slot      |                                         | A text style's name in the list, in that style.                      |
+| `data-block-style`                    | attribute | `paragraph`, `heading-1` to `heading-6` | On a preview: the style it shows.                                    |
+| `de-document-editor__status-bar`      | slot      |                                         | The editor's status bar, with `statusBar`.                           |
+| `de-document-editor__status-item`     | slot      |                                         | An item of the status bar.                                           |
+| `de-document-editor__proofing-status` | slot      |                                         | The status bar's proofing status and its button (DOCE-PROOFING-3.1). |
+| `data-pending`                        | state     | `true`                                  | On the proofing status: some text waits to be checked.               |
+| `data-issues`                         | state     | `true`                                  | On the proofing status: issues are marked.                           |
+| `data-status`                         | attribute | `position`, `mode`                      | On a status item: what it reports.                                   |
+| `de-document-editor__content`         | slot      |                                         | The document.                                                        |
+| `data-layout`                         | attribute | `page`, `web`                           | How the document is laid out.                                        |
+| `data-mode`                           | state     | `authoring`, `reading`                  | Whether the writer can edit.                                         |
+| `data-scrollable`                     | state     | `true`                                  | The editor scrolls the document itself.                              |

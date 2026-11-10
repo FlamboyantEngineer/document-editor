@@ -22,7 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { suggestTransaction } from '../../engine/index.js';
+import { proofingUpdate, suggestTransaction } from '../../engine/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import {
@@ -97,23 +97,32 @@ const hooks = createHooks('document-editor', [
 
 type DispatchBody = NonNullable<RichTextEngineEvents['dispatchTransaction']>;
 
-// The dispatch body: while suggesting, each local change is rewritten as a suggestion, and one a
-// suggestion cannot record is dropped; the host's own body, if any, then decides what commits.
-function useSuggesting(
+// The dispatch body. A transaction that only brings proofing results commits on the latest state,
+// which the view may not show yet. While suggesting, each local change is rewritten as a
+// suggestion, and one a suggestion cannot record is dropped; the host's own body, if any, then
+// decides what commits.
+function useDispatchBody(
+  props: DocumentEditorProps,
   suggesting: boolean,
   author: string | null,
-  events: DocumentEditorProps['events'],
-): DispatchBody | undefined {
+): DispatchBody {
+  const { events, onStateChange } = props;
   const body = events?.dispatchTransaction;
-  return useMemo(() => {
-    if (!suggesting) return body;
-    return (tr, view, commit) => {
-      const next = suggestTransaction(tr, view.state, { author });
+  return useMemo(
+    () => (tr, view, commit) => {
+      const update = proofingUpdate(tr);
+      if (update) {
+        onStateChange(update);
+        return;
+      }
+      const next = suggesting ? suggestTransaction(tr, view.state, { author }) : tr;
       if (!next) return;
       if (body) body(next, view, commit);
+      else if (next === tr) commit.applyDefault();
       else commit.applyDefault(next);
-    };
-  }, [suggesting, author, body]);
+    },
+    [suggesting, author, body, onStateChange],
+  );
 }
 
 type EngineEvents = NonNullable<DocumentEditorProps['events']>;
@@ -149,7 +158,7 @@ interface EditorBodyProps {
 function EditorBody({ props, engine, labels, startCommentRef }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
   const viewProps = useMemo(() => ({ editable: () => editable }), [editable]);
-  const dispatchTransaction = useSuggesting(editable && suggesting, author, props.events);
+  const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
   const content = (
     <RichTextEngineContent
       {...hooks.slot('content')}
@@ -248,6 +257,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
       {props.statusBar ? (
         <DocumentStatusBar
           {...hooks.slot('status-bar')}
+          view={engine.view}
           state={state}
           labels={labels}
           layout={layout}

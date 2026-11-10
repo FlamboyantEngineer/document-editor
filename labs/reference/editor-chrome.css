@@ -201,3 +201,26 @@
   gap: 16px;
   align-items: center;
 }
+
+/* Proofing issues: a wavy underline, red for spelling, blue for grammar, green for style. */
+.de-document-editor [data-proofing-issue] {
+  text-decoration: underline wavy #d1242f;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
+.de-document-editor [data-proofing-issue='grammar'] {
+  text-decoration-color: #0969da;
+}
+
+.de-document-editor [data-proofing-issue='style'] {
+  text-decoration-color: #1a7f37;
+}
+
+/* The proofing status in the status bar: a quiet button that selects the next issue. */
+.de-document-editor__proofing-status {
+  min-height: 0;
+  padding-block: 0;
+  font-size: inherit;
+  line-height: inherit;
+}

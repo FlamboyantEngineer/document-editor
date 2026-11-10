@@ -60,6 +60,23 @@ export {
   removeLayoutSection,
   setLayoutPreset,
 } from './layout-sections.js';
+export type { ProofingIssueAt, ProofingOptions, ProofingState } from './proofing.js';
+export {
+  createProofing,
+  isProofingPending,
+  PROOFING_ISSUE_ATTR,
+  proofingKey,
+  proofingUpdate,
+} from './proofing.js';
+export {
+  addProofingWord,
+  ignoreProofingIssue,
+  listProofingIssues,
+  proofingIssueAt,
+  proofingState,
+  replaceProofingIssue,
+  selectNextProofingIssue,
+} from './proofing-commands.js';
 export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
 export {
   acceptAllSuggestions,

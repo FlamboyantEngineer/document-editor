@@ -273,9 +273,10 @@ test.describe('document editor lab', () => {
     await expect(position).not.toContainText('Page 1 of');
     await selectText(page, 'Normal operation');
     await expect(position).toContainText(/2 of [\d,]+ words/);
-    await expect(status.locator('[data-status="mode"]')).toHaveText('Editing');
+    const mode = status.locator('[data-status="mode"] > span');
+    await expect(mode).toHaveText('Editing');
     await page.getByLabel('Authoring').uncheck();
-    await expect(status.locator('[data-status="mode"]')).toHaveText('Reading');
+    await expect(mode).toHaveText('Reading');
     await page.getByLabel('Status bar').uncheck();
     await expect(status).toHaveCount(0);
   });

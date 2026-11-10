@@ -6,7 +6,7 @@ The editor reaches everything outside itself through adapters the host passes in
 
 ### DOCE-HOST-1.1 - One host object
 
-The editor shall receive its host as one `EditorHost` object. `identity`, `permissions` and `documents` shall be required; `templates`, `assets`, `comments`, `versions`, `feedback` and `telemetry` shall be optional, and a feature whose adapter is absent shall stay off rather than fail.
+The editor shall receive its host as one `EditorHost` object. `identity`, `permissions` and `documents` shall be required; `templates`, `assets`, `comments`, `versions`, `feedback`, `telemetry` and `proofer` shall be optional, and a feature whose adapter is absent shall stay off rather than fail.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -45,6 +45,13 @@ The host's `versions` adapter shall list a document's saved versions, newest fir
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-1.7 - Proofer
+
+The host's `proofer` adapter shall check texts (`check(texts, { signal })`), resolving to each text's issues in order: the offsets of the issue's characters in its text, its kind (`spelling`, `grammar` or `style`), an optional message and its suggestions, best first. It may keep the reader's dictionary (`addWord`). The editor proofs through it (DOCE-PROOFING) and keeps no dictionary of its own.
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/engine/proofing.test.ts`
 
 ## DOCE-HOST-2 - Capabilities
 

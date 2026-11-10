@@ -11,6 +11,7 @@ import {
   createDocumentSections,
   createVersionChanges,
   documentSectionsKey,
+  proofingKey,
   refreshVersionChanges,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
@@ -49,9 +50,13 @@ function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
   return height - margins.top - margins.bottom;
 }
 
-// The plugins the measuring view runs: the editor's, with the layout's own plugins once.
+// The plugins the measuring view runs: the editor's, with the layout's own plugins once. Proofing
+// is left out: its marks take no room, and the hidden view would check the text again.
 function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
-  return [...plugins.filter((plugin) => !own.includes(plugin)), ...own];
+  const measured = plugins.filter(
+    (plugin) => !own.includes(plugin) && plugin.spec.key !== proofingKey,
+  );
+  return [...measured, ...own];
 }
 
 // A state with its sections shown in the template again, out of the history.

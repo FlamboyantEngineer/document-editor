@@ -15,6 +15,10 @@ export type {
   IdentityAdapter,
   NewCommentThread,
   PermissionsAdapter,
+  ProoferAdapter,
+  ProofingIssue,
+  ProofingKind,
+  ProofingText,
   StoredAsset,
   StoredDocument,
   StoredTemplate,
@@ -38,3 +42,5 @@ export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHostOptions } from './memory-host.js';
 export { createMemoryHost } from './memory-host.js';
+export type { WordListProoferOptions } from './word-list-proofer.js';
+export { createWordListProofer } from './word-list-proofer.js';

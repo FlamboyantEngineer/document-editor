@@ -2,13 +2,20 @@
 // with the editing keys and a table of contents, shown on pages or in the web layout and switched
 // between authoring and reading without losing its state, with or without its toolbar, its
 // scrolling frame and its status bar. Right-click anywhere in the document for its context menu, and hover a table
-// for the handles that drag its rows and columns.
+// for the handles that drag its rows and columns. A word-list proofer marks a few misspellings and
+// a grammar slip, which the context menu corrects.
 
 import { EditorState } from 'prosemirror-state';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DocumentEditor, type DocumentLayout } from '../../src/components/index.js';
-import { assignElementIds, createContents, createDocumentEditing } from '../../src/engine/index.js';
+import {
+  assignElementIds,
+  createContents,
+  createDocumentEditing,
+  createProofing,
+} from '../../src/engine/index.js';
+import { createWordListProofer } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -24,14 +31,31 @@ const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   baseTemplateId: BASE_TEMPLATE_ID,
 });
 
+// A proofer that knows a few misspellings and one grammar rule, standing in for the host's.
+const PROOFER = createWordListProofer({
+  corrections: { teh: ['the', 'ten'], recieve: ['receive'], seperate: ['separate'] },
+  grammar: { 'a error': { message: 'Use "an" before a vowel sound.', suggestions: ['an error'] } },
+});
+
 function initialState(): EditorState {
   const schema = createDocumentSchema();
   const file = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power']);
   file.sections[0]?.content.unshift({ type: 'contents', attrs: { kind: 'toc', depth: 2 } });
+  // A closing paragraph for the proofer to mark, after the chapters so it moves none of them.
+  file.sections[0]?.content.push({
+    type: 'paragraph',
+    content: [
+      {
+        type: 'text',
+        text: 'Right-click a marked word: teh proofer suggests a fix, and a error in grammar is marked too. Writers recieve every suggestion in the menu.',
+      },
+    ],
+  });
   const state = EditorState.create({
     doc: readDocumentFile(file, schema),
     plugins: [
       createContents({ template: () => TEMPLATE }),
+      createProofing({ proofer: PROOFER, delay: 200 }),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
     ],
   });
