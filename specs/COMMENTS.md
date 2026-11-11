@@ -71,7 +71,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.4 - Suggestion cards
 
-A suggestion's card (the base library's `Card`) shall show its writer, what it does (Add, Delete, Replace or splitting the paragraph) and the text it deletes and adds (`InlineTextDiff`). A reader who may edit, and is not suggesting, shall get Accept and Reject, which decide the suggestion and resolve its thread. The active card shall offer to start the suggestion's thread, which is stored with the suggestion's id and named on its marks.
+A suggestion's card (the base library's `Card`) shall show its writer, named by the host's identity whether or not they wrote a comment, and as someone, never by an id, until then, what it does (Add, Delete, Replace or splitting the paragraph) and the text it deletes and adds (`InlineTextDiff`). A reader who may edit, and is not suggesting, shall get Accept and Reject, which decide the suggestion and resolve its thread. The active card shall offer to start the suggestion's thread, which is stored with the suggestion's id and named on its marks.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
