@@ -20,10 +20,17 @@ Verification: `src/engine/presence.test.ts`
 
 ### DOCE-COLLAB-1.3 - Avatars
 
-While the document has peers, the status bar shall show them as avatars (`de-document-editor__presence`, the base library's `AvatarGroup` named by the `presence` label), with their pictures when the host gives them.
+While the document has peers, the status bar shall show them as avatars (`de-document-editor__presence`, the base library's `AvatarGroup` named by the `presence` label), with their pictures when the host gives them, sorted by name, each in their caret's colour slot; choosing one scrolls to their caret (`scrollToPeer`).
 
 Implementation: `src/components/document-editor/document-status-bar.tsx`
 Verification: `e2e/collaboration.spec.ts`
+
+### DOCE-COLLAB-1.4 - Colour slots and stacked carets
+
+Each peer shall take the colour slot their id gives, or the next one no other peer has, peers taken in order of their ids so every view gives the same slots (`placePeers`), while there are no more peers than slots. Carets at the same position shall carry their place among them (`data-presence-stack`, from 1 for the second) so their labels do not cover each other, and a peer without a selection is listed without a caret.
+
+Implementation: `src/engine/presence.ts`, `labs/reference/editor-chrome.css`
+Verification: `src/engine/presence.test.ts`
 
 ## DOCE-COLLAB-2 - Remote changes
 

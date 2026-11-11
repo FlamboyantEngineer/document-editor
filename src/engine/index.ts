@@ -155,15 +155,17 @@ export type { LineNumbers, ObjectViewsOptions } from './object-views.js';
 export { createObjectViews, lineNumbers } from './object-views.js';
 export type { OutlineEntry } from './outline.js';
 export { documentOutline } from './outline.js';
-export type { Peer, PresenceState } from './presence.js';
+export type { Peer, PlacedPeer, PresenceState } from './presence.js';
 export {
   createPresence,
   isRemoteTransaction,
   listPeers,
   markRemote,
+  placePeers,
   PRESENCE_COLOR_SLOTS,
   presenceKey,
   REMOTE_META,
+  scrollToPeer,
   setPeers,
 } from './presence.js';
 export type {
@@ -259,6 +261,7 @@ export type { CellTextAlign, CellVerticalAlign } from './table-format.js';
 export { distributeColumns, insertTableLines, setCellAlignment } from './table-format.js';
 export { inWholeTable } from './table-parts.js';
 export { createTablePointer, MIN_ROW_HEIGHT, selectCellTo, setRowHeight } from './table-pointer.js';
+export { createTableWidth, fitColumns, type TableWidthOptions } from './table-width.js';
 export type { TableAxis, TableLine } from './tables.js';
 export {
   createTableEditing,

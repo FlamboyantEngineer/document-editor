@@ -7,6 +7,7 @@ import {
   isRemoteTransaction,
   listPeers,
   markRemote,
+  placePeers,
   presenceKey,
   setPeers,
 } from './presence.js';
@@ -65,5 +66,27 @@ describe('presence', () => {
     expect(isRemoteTransaction(tr)).toBe(true);
     expect(tr.getMeta('addToHistory')).toBe(false);
     expect(isRemoteTransaction(state.tr)).toBe(false);
+  });
+
+  it('DOCE-COLLAB-1.4 gives each peer a slot no other has, stacks carets and draws none without a head', () => {
+    const peers = placePeers(
+      Array.from({ length: 8 }, (_, index) => ({
+        id: `p${String(index)}`,
+        name: `P${String(index)}`,
+      })),
+    );
+    expect(new Set(peers.map((peer) => peer.slot)).size).toBe(8);
+    let state = stateOf('Alpha');
+    const at = start(state) + 1;
+    state = state.apply(
+      setPeers(state, [
+        { id: 'a', name: 'Ada', anchor: at, head: at },
+        { id: 'b', name: 'Grace', anchor: at, head: at },
+        { id: 'c', name: 'Hedy' },
+      ]),
+    );
+    const carets = presenceKey.getState(state)?.decorations.find() ?? [];
+    expect(carets).toHaveLength(2);
+    expect(listPeers(state).map((peer) => peer.name)).toEqual(['Ada', 'Grace', 'Hedy']);
   });
 });

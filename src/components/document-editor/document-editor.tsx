@@ -49,6 +49,7 @@ import { figurePasteHandlers } from './figure-paste.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
+import { useReviewNotifications } from './use-change-notifications.js';
 import {
   isCommentKey,
   isFindKey,
@@ -63,7 +64,6 @@ import {
   useElementIdRepair,
   useHostViewProps,
   useLayoutReady,
-  useSelectionNotification,
 } from './use-host-events.js';
 
 /** How suggestions show in the document. */
@@ -308,7 +308,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   useElementIdRepair(props.repairIds ? engine.view : null, state);
   const startCommentRef = useRef<(() => void) | null>(null);
   useEditorHandle(props.handleRef, engine.view, { startCommentRef, template });
-  useSelectionNotification(state, props.onSelectionChange);
+  useReviewNotifications(engine.view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
   const templateStyle = useMemo(() => templateProperties(template), [template]);

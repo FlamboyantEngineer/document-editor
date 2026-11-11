@@ -120,6 +120,13 @@ Dragging a row's bottom border in an editable document shall set the row's heigh
 Implementation: `src/engine/table-pointer.ts`
 Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
 
+### DOCE-TABLES-3.7 - Within the page
+
+After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history.
+
+Implementation: `src/engine/table-width.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/table-format.test.ts`
+
 ## Hooks
 
 | Hook                               | Kind      | Values          | Description                                                |

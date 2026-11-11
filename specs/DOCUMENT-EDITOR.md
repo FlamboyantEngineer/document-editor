@@ -252,6 +252,20 @@ The handle's `exportSnapshot({ title, styles, stylesheets })` shall give the doc
 Implementation: `src/engine/snapshot.ts`, `src/components/document-editor/editor-handle.ts`
 Verification: `e2e/full-editor.spec.ts`
 
+### DOCE-EDITOR-6.10 - Suggestions
+
+`onSuggestionsChange` shall receive the document's suggestions (`listSuggestions`) whenever they change: one is added, decided, edited or linked to a thread.
+
+Implementation: `src/components/document-editor/use-change-notifications.ts`
+Verification: `e2e/full-editor.spec.ts`
+
+### DOCE-EDITOR-6.11 - Change bars
+
+While the document is compared with an older version, `onChangeBarsChange` shall receive the change bars it draws whenever they change, once drawn: each changed block's kind of change, its page from 0, and its top and height from the page's top in unscaled CSS pixels (`ChangeBar`); none while nothing is compared.
+
+Implementation: `src/components/document-editor/use-change-notifications.ts`
+Verification: `e2e/versions.spec.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                 | Description                                                                             |

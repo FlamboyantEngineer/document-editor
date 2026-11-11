@@ -70,4 +70,18 @@ test.describe('versions lab', () => {
       ' Always.',
     );
   });
+
+  test('DOCE-EDITOR-6.11 tells the host the change bars, measured on their pages', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('versions');
+    await expect(
+      page
+        .getByRole('status', { name: 'Bars reported' })
+        .or(page.locator('output[aria-label="Bars reported"]')),
+    ).toHaveText('0 bars');
+    await compareWith(page, 'Version 1');
+    await expect(page.locator('output[aria-label="Bars reported"]')).toHaveText(/^[1-9]\d* bars$/);
+  });
 });

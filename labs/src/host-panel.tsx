@@ -20,6 +20,7 @@ export function useHostPanel() {
   const [saved, setSaved] = useState(0);
   const [firstLayout, setFirstLayout] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
+  const [suggestions, setSuggestions] = useState(0);
   const telemetry = useMemo<TelemetryAdapter>(
     () => ({
       measure: (name, duration) => {
@@ -39,12 +40,13 @@ export function useHostPanel() {
       onSelectionChange: (selection) => setCaret(selection.$head.parent.type.name),
       keymap: { 'Mod-s': save },
       onLayoutReady: () => setReady(true),
+      onSuggestionsChange: (list) => setSuggestions(list.length),
     };
   }, []);
   return {
     notifications,
     telemetry,
-    report: { focused, changes, caret, saved, firstLayout, ready },
+    report: { focused, changes, caret, saved, firstLayout, ready, suggestions },
   };
 }
 
@@ -74,7 +76,7 @@ export function HostPanel({
         {report.focused ? 'Focused' : 'Not focused'} · {report.changes} changes · caret in{' '}
         {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
         {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
-        {report.ready ? ' · ready' : ''}
+        {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions
       </output>
     </fieldset>
   );

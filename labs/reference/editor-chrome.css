@@ -252,6 +252,15 @@
  * they select tinted. A peer without a colour of its own takes one of eight slots.
  */
 .de-presence-caret,
+/* Carets at the same place raise their labels one above another. */
+.de-presence-caret[data-presence-stack='1'] .de-presence-caret__label {
+  bottom: calc(100% + 16px);
+}
+
+.de-presence-caret[data-presence-stack='2'] .de-presence-caret__label {
+  bottom: calc(100% + 32px);
+}
+
 .de-presence-selection {
   --de-presence-fallback: #0969da;
 }

@@ -12,7 +12,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor } from '../../src/components/index.js';
+import { type ChangeBar, DocumentEditor } from '../../src/components/index.js';
 import {
   createDocumentEditing,
   type VersionChangeDisplay,
@@ -111,6 +111,7 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
   const [selected, setSelected] = useState<Key | null>(null);
   const [previous, setPrevious] = useState<ProseMirrorNode | null>(null);
   const [display, setDisplay] = useState<VersionChangeDisplay>('markup');
+  const [bars, setBars] = useState<readonly ChangeBar[]>([]);
   useEffect(() => {
     if (selected === null) return;
     let current = true;
@@ -142,12 +143,14 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
           <output aria-label="Changes">
             {previous ? `${String(changes.length)} changes` : 'Pick a version to compare with'}
           </output>
+          <output aria-label="Bars reported">{`${String(bars.length)} bars`}</output>
         </fieldset>
         <DocumentEditor
           state={state}
           onStateChange={setState}
           template={TEMPLATE}
           compare={previous ? { previous, display } : null}
+          onChangeBarsChange={setBars}
           aria-label="Sample document"
           events={{
             onTransaction: (tr) => {

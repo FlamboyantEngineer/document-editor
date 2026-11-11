@@ -92,4 +92,15 @@ test.describe('full editor lab', () => {
     await expect(list.locator('li')).toHaveCount(2);
     await expect(content(page)).not.toContainText('mso');
   });
+
+  test('DOCE-EDITOR-6.10 tells the host the suggestions as they change', async ({ lab, page }) => {
+    await lab.open('full-editor');
+    const report = page.locator('output[aria-label="Host report"]');
+    await expect(report).toContainText('1 suggestions');
+    await page.getByLabel('Suggesting').check();
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' plan');
+    await expect(report).toContainText('2 suggestions');
+  });
 });
