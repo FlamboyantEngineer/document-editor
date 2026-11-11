@@ -483,11 +483,6 @@
   min-width: 0;
 }
 
-/* A setting's field takes the row's place for its control, its tooltip naming what it inherits. */
-.de-template-editor__field {
-  display: contents;
-}
-
 /* A margin holds a few digits, so its four sides fit across a narrow settings panel. */
 .de-template-editor .ui-four-side-property-strip__side .ui-number-field__input {
   width: 6ch;

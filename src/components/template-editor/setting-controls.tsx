@@ -55,6 +55,9 @@ const NOT_NUMBERING = /[^1aAiI.\-):/]/g;
 /** A numbering format with what it may not hold left out. */
 export const cleanNumbering = (text: string) => text.replace(NOT_NUMBERING, '');
 
+/** Whether a value is unset, so the field inherits. */
+export const isUnset = (value: unknown) => value === undefined || value === null || value === '';
+
 const shown = (value: unknown) =>
   value === undefined || value === null ? '' : typeof value === 'string' ? value : String(value);
 
@@ -64,7 +67,11 @@ interface ControlProps extends SettingRowProps {
     readonly labelLayout: 'control-only';
     readonly tracksChanges: false;
     readonly isDisabled: boolean | undefined;
+    readonly size: 'sm';
     readonly density: 'compact';
+    /** Names the inherited value and where it comes from, while the field inherits one. */
+    readonly help: string | undefined;
+    readonly showHelpButton: false;
   };
   readonly placeholder: string | undefined;
 }
@@ -147,6 +154,7 @@ function NumberControl({ setting, value, onChange, common, placeholder }: Contro
       {...common}
       value={typeof value === 'number' ? value : null}
       placeholder={placeholder}
+      hideStepper
       minValue={range.min}
       maxValue={range.max}
       step={range.step}
@@ -238,15 +246,24 @@ const CONTROLS = {
 
 /** A setting's field. */
 export function SettingControl(props: SettingRowProps): ReactNode {
+  const { inherited, value, setting } = props;
+  const placeholder = isUnset(inherited) ? undefined : shown(inherited);
+  const inheritedText =
+    setting.kind.type === 'points' ? `${String(toPoints(inherited) ?? '')}pt` : shown(inherited);
   const common = {
-    label: props.setting.label,
+    label: setting.label,
     labelLayout: 'control-only' as const,
     tracksChanges: false as const,
     isDisabled: props.isDisabled,
+    size: 'sm' as const,
     density: 'compact' as const,
+    // While the field inherits, what it inherits and from where describe it, in its Help.
+    help:
+      isUnset(value) && !isUnset(inherited)
+        ? props.inheritedLabel(inheritedText, props.inheritedFrom)
+        : undefined,
+    showHelpButton: false as const,
   };
-  const { inherited } = props;
-  const placeholder = inherited === undefined || inherited === null ? undefined : shown(inherited);
   const Control = CONTROLS[props.setting.kind.type];
   return <Control {...props} common={common} placeholder={placeholder} />;
 }
