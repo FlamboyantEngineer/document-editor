@@ -10,6 +10,14 @@ const style = (page: Page, selector: string, property: string) =>
     .first()
     .evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
 
+// The landscape segment of the orientation choice.
+const landscape = (page: Page) =>
+  panel(page)
+    .first()
+    .getByRole('radio', { name: 'Landscape' })
+    .or(panel(page).first().getByRole('button', { name: 'Landscape', exact: true }))
+    .first();
+
 test.describe('template editor lab', () => {
   test('DOCE-TEMPLATE-EDITOR-1.1 DOCE-TEMPLATE-EDITOR-1.2 DOCE-LABS-3.1 restyles the document as settings change', async ({
     lab,
@@ -17,11 +25,14 @@ test.describe('template editor lab', () => {
   }) => {
     await lab.open('template-editor');
     const settings = panel(page).first();
+    // DOCE-TEMPLATE-EDITOR-1.7: a size in points.
     const size = settings.getByRole('textbox', { name: 'Size' }).first();
-    await expect(size).toHaveAttribute('placeholder', /px|pt/);
-    await size.fill('16px');
+    await expect(size).toHaveAttribute('placeholder', /^\d/);
+    await size.fill('12');
+    await size.press('Enter');
     await expect.poll(() => style(page, 'p', 'font-size')).toBe('16px');
     await size.fill('');
+    await size.press('Enter');
     await expect.poll(() => style(page, 'p', 'font-size')).not.toBe('16px');
 
     await settings.getByRole('button', { name: /Style$/ }).click();
@@ -31,8 +42,7 @@ test.describe('template editor lab', () => {
     await colour.press('Enter');
     await expect.poll(() => style(page, 'h1', 'color')).toBe('rgb(204, 0, 0)');
 
-    await settings.getByRole('button', { name: /Orientation$/ }).click();
-    await page.getByRole('option', { name: 'Landscape' }).click();
+    await landscape(page).click();
     await expect
       .poll(() =>
         content(page)
@@ -56,8 +66,7 @@ test.describe('template editor lab', () => {
     await expect(settings).toHaveAttribute('data-scope', 'section');
     const name = settings.getByRole('textbox', { name: 'Label' });
     await name.fill('Appendix');
-    await settings.getByRole('button', { name: /Orientation$/ }).click();
-    await page.getByRole('option', { name: 'Landscape' }).click();
+    await landscape(page).click();
     // DOCE-TEMPLATE-EDITOR-1.5: the JSON holds the section.
     await page.getByLabel('Edit as JSON').check();
     const json = page.getByRole('textbox', { name: 'Template JSON' });
@@ -124,5 +133,54 @@ test.describe('template editor lab', () => {
     await toolbar.getByRole('button', { name: /Text style/ }).click();
     await page.getByRole('option', { name: 'Paragraph' }).click();
     await expect(paragraph).not.toHaveAttribute('data-custom-style');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-1.7 offers fields for sizes, fonts, numbering and page sizes', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    const settings = panel(page).first();
+    // A page size with its dimensions.
+    await expect(settings.getByRole('button', { name: /Page size$/ })).toContainText(
+      'A4 (210 × 297 mm)',
+    );
+    // The inherited value names where it comes from.
+    await expect(settings.locator('.de-template-editor__field[title]').first()).toHaveAttribute(
+      'title',
+      /^Inherited from Base template: /,
+    );
+    // A font typed or picked.
+    const font = settings.getByRole('combobox', { name: 'Font' }).first();
+    await font.fill('Georgia');
+    await expect.poll(() => style(page, 'p', 'font-family')).toContain('Georgia');
+    await font.press('Tab');
+    // A numbering format keeps only what numbers.
+    await settings.getByRole('button', { name: /Style$/ }).click();
+    await page.getByRole('option', { name: 'Heading 1' }).click();
+    const numbering = settings.getByRole('textbox', { name: 'Numbering format' }).first();
+    await numbering.fill('Ab.1x');
+    await expect(numbering).toHaveValue('A.1');
+    await expect(settings.getByText('1, a, A, i or I for each level').first()).toBeVisible();
+    // A heading has no line height of its own.
+    await expect(settings.getByRole('textbox', { name: 'Line height' })).toHaveCount(0);
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-1.8 DOCE-TEMPLATES-8.2 previews every style and section of the template', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    await panel(page).first().getByRole('button', { name: 'Add a section' }).click();
+    await page.getByRole('button', { name: 'Preview the template' }).click();
+    await expect(content(page).locator('h1').first()).toHaveText('Lab template');
+    for (const level of [1, 2, 3, 4, 5, 6]) {
+      await expect(
+        content(page).locator(`h${String(level)}`, { hasText: `Heading ${String(level)}` }),
+      ).toHaveCount(1);
+    }
+    await expect(content(page).locator('table')).toHaveCount(1);
+    await expect(content(page).locator('pre')).toHaveCount(1);
+    await expect(content(page).locator('[data-section-name]')).not.toHaveCount(0);
   });
 });

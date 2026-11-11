@@ -37,6 +37,10 @@ export interface TemplateEditorLabels extends TemplateScopeLabels, RegionContent
   readonly textStyles: string;
   readonly style: string;
   readonly numbering: string;
+  readonly numberPrefix: string;
+  readonly numberSuffix: string;
+  /** Where a section's inherited values come from. */
+  readonly documentSettings: string;
   readonly customStyle: string;
   readonly addCustomStyle: string;
   readonly deleteCustomStyle: string;
@@ -53,10 +57,14 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   textStyles: 'Text styles',
   style: 'Style',
   numbering: 'Numbering format',
+  numberPrefix: 'Before the number',
+  numberSuffix: 'After the number',
+  documentSettings: 'the document settings',
   customStyle: 'Custom styles',
   addCustomStyle: 'Add a style',
   deleteCustomStyle: 'Delete the style',
-  inherited: (value) => `Inherited: ${value}`,
+  inherited: (value, source) =>
+    source ? `Inherited from ${source}: ${value}` : `Inherited: ${value}`,
   scope: 'Settings of',
   documentScope: 'The document',
   addSection: 'Add a section',
@@ -79,6 +87,8 @@ export interface TemplateEditorProps {
    * itself is left out by the host, so a parent never makes a cycle.
    */
   readonly parentOptions?: readonly { readonly id: string; readonly label: string }[] | undefined;
+  /** The fonts the font fields suggest; others may be typed. */
+  readonly fonts?: readonly string[] | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly className?: string | undefined;
@@ -120,13 +130,19 @@ function Identity({ props, labels }: { props: TemplateEditorProps; labels: Templ
 }
 
 // The target of the rows: the template, or its section at an index over the resolved document.
-function targetOf(props: TemplateEditorProps, scope: number | null): Target {
+function targetOf(
+  props: TemplateEditorProps,
+  scope: number | null,
+  labels: TemplateEditorLabels,
+): Target {
   const { template, resolved, onChange } = props;
   const section = scope === null ? undefined : template.sections?.[scope];
   if (scope === null || !section) {
+    const parent = props.parentOptions?.find((option) => option.id === template.parent);
     return {
       own: template,
       inherited: resolved,
+      source: parent?.label ?? labels.noParent,
       set: (path, value) => onChange(withSetting(template, path, value)),
     };
   }
@@ -134,6 +150,7 @@ function targetOf(props: TemplateEditorProps, scope: number | null): Target {
   return {
     own,
     inherited: resolved ?? template,
+    source: labels.documentSettings,
     set: (path, value) =>
       onChange(
         withSection(template, scope, withSetting(own, path, value) as unknown as TemplateSection),
@@ -163,7 +180,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
   const labels = { ...DEFAULT_TEMPLATE_EDITOR_LABELS, ...props.labels };
   const [picked, setScope] = useState<number | null>(null);
   const scope = picked !== null && props.template.sections?.[picked] ? picked : null;
-  const context: Rows = { props, labels, target: targetOf(props, scope) };
+  const context: Rows = { props, labels, target: targetOf(props, scope, labels) };
   const { template, onChange, isDisabled } = props;
   const sections = TEMPLATE_SECTIONS.filter(
     (section) => scope === null || SECTION_SCOPED.has(section.id),

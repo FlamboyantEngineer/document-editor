@@ -11,6 +11,7 @@ import type { TemplateFile } from '../../model/index.js';
 import { SettingRow } from './setting-row.js';
 import type { TemplateEditorLabels, TemplateEditorProps } from './template-editor.js';
 import {
+  numberingSetting,
   settingAt,
   type TemplateSetting,
   TEXT_STYLE_SETTINGS,
@@ -21,6 +22,8 @@ import {
 export interface Target {
   readonly own: TemplateFile;
   readonly inherited: TemplateFile | undefined;
+  /** Where the inherited values come from: the parent template, or the document's settings. */
+  readonly source: string;
   readonly set: (path: readonly string[], value: unknown) => void;
 }
 
@@ -45,6 +48,8 @@ export function rows(
         inherited={target.inherited ? settingAt(target.inherited, path) : undefined}
         onChange={(value) => target.set(path, value)}
         inheritedLabel={labels.inherited}
+        inheritedFrom={target.source}
+        fonts={props.fonts ?? DEFAULT_FONTS}
         isDisabled={props.isDisabled}
       />
     );
@@ -112,6 +117,28 @@ function CustomStyleActions({
   );
 }
 
+// A heading's numbering: its format, and the text before and after its number.
+const numberingSettings = (labels: TemplateEditorLabels): TemplateSetting[] => [
+  numberingSetting('numbering.format', labels.numbering),
+  { id: 'numbering.prefix', path: ['numbering', 'prefix'], label: labels.numberPrefix, kind: TEXT },
+  { id: 'numbering.suffix', path: ['numbering', 'suffix'], label: labels.numberSuffix, kind: TEXT },
+];
+
+const TEXT = { type: 'text' } as const;
+
+/** The fonts a font field suggests unless the editor is given its own. */
+export const DEFAULT_FONTS: readonly string[] = [
+  'Arial',
+  'Calibri',
+  'Cambria',
+  'Courier New',
+  'Georgia',
+  'Helvetica',
+  'Segoe UI',
+  'Times New Roman',
+  'Verdana',
+];
+
 // The text styles: a picker, then the picked style's settings.
 export function TextStyles(context: Rows) {
   const [style, setStyle] = useState<string>('paragraph');
@@ -124,12 +151,11 @@ export function TextStyles(context: Rows) {
   const scope = style.startsWith('custom.')
     ? ['styles', 'custom', style.slice('custom.'.length)]
     : ['styles', style];
-  const numbering: TemplateSetting = {
-    id: 'numbering',
-    path: ['numbering', 'format'],
-    label: labels.numbering,
-    kind: { type: 'text' },
-  };
+  const heading = style.startsWith('heading');
+  // Line height is the paragraph's and the custom styles'; a heading has its numbering too.
+  const settings = TEXT_STYLE_SETTINGS.filter(
+    (setting) => setting.id !== 'lineHeight' || !(heading || style === 'title'),
+  );
   return (
     <PropertySection id="text-styles" title={labels.textStyles} defaultExpanded>
       <PropertyRow label={labels.style}>
@@ -146,11 +172,7 @@ export function TextStyles(context: Rows) {
         />
       </PropertyRow>
       <CustomStyleActions context={context} style={style} onPick={setStyle} />
-      {rows(
-        context,
-        scope,
-        style.startsWith('heading') ? [...TEXT_STYLE_SETTINGS, numbering] : TEXT_STYLE_SETTINGS,
-      )}
+      {rows(context, scope, heading ? [...settings, ...numberingSettings(labels)] : settings)}
     </PropertySection>
   );
 }

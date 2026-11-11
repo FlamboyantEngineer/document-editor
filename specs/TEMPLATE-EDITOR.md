@@ -6,7 +6,7 @@ The template editor edits a template's own settings beside the document it style
 
 ### DOCE-TEMPLATE-EDITOR-1.1 - Settings and inheritance
 
-`TemplateEditor` shall show a template's settings in a `PropertyFilter` (`de-template-editor`, named by `panel`), by section (`TEMPLATE_SECTIONS`), each setting a property row with the base library's field for its kind: text, a length (kept once it reads as one, such as `12pt` or `20mm`), a number, a colour, a yes-or-no that may be unset, or a choice. A field holds the template's own value and, while it has none, shows the value `resolved` gives it from its parents (`inherited`); clearing it inherits again (`withSetting` leaves the setting out, and the objects it leaves empty). The text styles are edited one at a time, picked from paragraph, title, headings 1 to 6 and code block, a heading with its numbering format.
+`TemplateEditor` shall show a template's settings in a `PropertyFilter` (`de-template-editor`, named by `panel`), by section (`TEMPLATE_SECTIONS`), each setting a property row with the base library's field for its kind: text, a length (kept once it reads as one, such as `12pt` or `20mm`), a number, a colour, a yes-or-no that may be unset, a choice from a list, or one of a few as segments (DOCE-TEMPLATE-EDITOR-1.7), a row marked overridden while the template sets its value. A field holds the template's own value and, while it has none, shows the value `resolved` gives it from its parents (`inherited`); clearing it inherits again (`withSetting` leaves the setting out, and the objects it leaves empty). The text styles are edited one at a time, picked from paragraph, title, headings 1 to 6 and code block, a heading with its numbering format.
 
 Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/setting-row.tsx`, `src/components/template-editor/template-settings.ts`
 Verification: `e2e/template-editor.spec.ts`
@@ -46,10 +46,25 @@ The text style picker shall list the custom styles the scope has or inherits aft
 Implementation: `src/components/template-editor/template-rows.tsx`
 Verification: `e2e/template-editor.spec.ts`
 
+### DOCE-TEMPLATE-EDITOR-1.7 - Fields for sizes, fonts, numbering and pages
+
+A text size shall be a number in points, written as one (`12pt`) and showing a size in another unit in points; a font shall be picked from `fonts` (a default list without it) or typed; a numbering format shall keep only a level's character (`1`, `a`, `A`, `i`, `I`) and the separators `.`, `-`, `)`, `:` and `/`, with what each character numbers with under it, and a heading's text before and after its number; a page size shall show its dimensions, such as `A4 (210 × 297 mm)`; orientation, a change bar's side and a caption's placement shall be segments; a bulleted list's bullet shall be picked from those it may show; change bars shall show or hide each kind, with its colour, the formatting changes' too, and their offset. While a field inherits, its field (`de-template-editor__field`) shall name the value and where it comes from: the parent template, or the document settings for a section. Title and headings shall have no line height row.
+
+Implementation: `src/components/template-editor/setting-controls.tsx`, `src/components/template-editor/setting-row.tsx`, `src/components/template-editor/template-settings.ts`, `src/components/template-editor/template-rows.tsx`
+Verification: `e2e/template-editor.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-1.8 - Previewing the template
+
+The template editor lab shall show, on asking, the template's preview document (DOCE-TEMPLATES-8.2) styled by the template as it is edited.
+
+Implementation: `labs/src/template-editor.lab.tsx`
+Verification: `e2e/template-editor.spec.ts`
+
 ## Hooks
 
-| Hook                      | Kind      | Values                | Description                                      |
-| ------------------------- | --------- | --------------------- | ------------------------------------------------ |
-| `de-template-editor`      | root      |                       | The template editor's settings panel.            |
-| `de-template-json-editor` | root      |                       | The template's JSON editor.                      |
-| `data-scope`              | attribute | `document`, `section` | On the template editor: whose settings it shows. |
+| Hook                        | Kind      | Values                | Description                                      |
+| --------------------------- | --------- | --------------------- | ------------------------------------------------ |
+| `de-template-editor`        | root      |                       | The template editor's settings panel.            |
+| `de-template-json-editor`   | root      |                       | The template's JSON editor.                      |
+| `de-template-editor__field` | slot      |                       | A setting's field, naming what it inherits.      |
+| `data-scope`                | attribute | `document`, `section` | On the template editor: whose settings it shows. |
