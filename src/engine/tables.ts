@@ -26,6 +26,7 @@ import {
   TableMap,
 } from 'prosemirror-tables';
 import { Mapping } from 'prosemirror-transform';
+import { isInPageRegion, topLevelBlockEnd } from './block-place.js';
 import { appendTransaction, captureTransaction, inWholeTable } from './table-parts.js';
 import { createTablePointer } from './table-pointer.js';
 
@@ -156,21 +157,17 @@ export function moveSelectedTableLine(axis: TableAxis, direction: -1 | 1): Comma
 
 /**
  * Where a new block goes: in place of the empty paragraph holding the caret, or after the
- * top-level block of the page content holding it.
+ * top-level block of the body holding it; null in a page header, footer or footnote area.
  */
 export function newBlockRange(state: EditorState): { from: number; to: number } | null {
   const { $from } = state.selection;
+  if (isInPageRegion($from)) return null;
   const parent = $from.parent;
   if (parent.type.name === 'paragraph' && parent.childCount === 0) {
     return { from: $from.before(), to: $from.after() };
   }
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    if ($from.node(depth - 1).type.name === 'page_content' || depth === 1) {
-      const end = $from.after(depth);
-      return { from: end, to: end };
-    }
-  }
-  return null;
+  const end = topLevelBlockEnd($from);
+  return end === null ? null : { from: end, to: end };
 }
 
 /**
