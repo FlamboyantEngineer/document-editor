@@ -4,6 +4,7 @@
 import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useMemo } from 'react';
+import { customStyleNames } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { DocumentContextMenu } from './document-context-menu.js';
@@ -45,9 +46,10 @@ export function TopChrome({
   const linkedCode = Boolean(props.codeSource);
   const glossary = Boolean(props.glossary);
   const symbols = props.symbols ?? DEFAULT_SYMBOLS;
+  const custom = customStyleNames(props.template).join('\n');
   const features = useMemo<InsertFeatures>(
-    () => ({ linkedCode, symbols, glossary }),
-    [linkedCode, symbols, glossary],
+    () => ({ linkedCode, symbols, glossary, customStyles: custom ? custom.split('\n') : [] }),
+    [linkedCode, symbols, glossary, custom],
   );
   return (
     <>

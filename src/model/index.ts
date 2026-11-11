@@ -285,6 +285,7 @@ export type {
   TemplatePropertiesOptions,
 } from './templates/template-properties.js';
 export {
+  customStyleProperties,
   templatePageMetrics,
   templateProperties,
   templateScopeStyles,

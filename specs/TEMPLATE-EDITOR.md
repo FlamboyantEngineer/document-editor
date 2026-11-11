@@ -39,6 +39,13 @@ Verification: `e2e/template-editor.spec.ts`
 Implementation: `src/components/template-editor/template-json-editor.tsx`
 Verification: `e2e/template-editor.spec.ts`
 
+### DOCE-TEMPLATE-EDITOR-1.6 - Custom styles
+
+The text style picker shall list the custom styles the scope has or inherits after the built-in styles, add a custom style with a new name, starting at 11pt, and delete the custom style picked.
+
+Implementation: `src/components/template-editor/template-rows.tsx`
+Verification: `e2e/template-editor.spec.ts`
+
 ## Hooks
 
 | Hook                      | Kind      | Values                | Description                                      |

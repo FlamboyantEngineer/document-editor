@@ -115,6 +115,17 @@ function contentsProperties(
  * The text, list, table, code block and contents properties a scope's styles set; unset values
  * are left out.
  */
+/**
+ * A custom style's properties (`--doc-custom-*`), which a block in the style carries: its font,
+ * size, weight, slant, colour, line height, alignment and spacing, as the template sets them.
+ */
+export function customStyleProperties(
+  text: TextSettings | null | undefined,
+  fontStacks?: FontStacks,
+): CustomProperties {
+  return textProperties('--doc-custom', text, fontStacks);
+}
+
 export function textStyleProperties(
   styles: TemplateStyles | null | undefined,
   fontStacks?: FontStacks,

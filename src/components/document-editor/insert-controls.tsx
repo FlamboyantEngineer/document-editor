@@ -43,6 +43,8 @@ export interface InsertFeatures {
   readonly symbols: readonly CharacterGridCategory[];
   /** Whether the host has a glossary, which the abbreviation button then offers. */
   readonly glossary: boolean;
+  /** The template's custom styles, which the text style field offers after the others. */
+  readonly customStyles?: readonly string[] | undefined;
 }
 
 // Whether a command can run, while the writer can edit there.

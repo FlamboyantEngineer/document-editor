@@ -53,6 +53,14 @@ export {
 } from './comments.js';
 export type { ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
 export { CONTENTS_LABELS, contentsCatalog, contentsKey, createContents } from './contents.js';
+export type { CustomStylesOptions } from './custom-styles.js';
+export {
+  createCustomStyles,
+  customStyleAt,
+  customStyleNames,
+  customStylesKey,
+  setCustomStyle,
+} from './custom-styles.js';
 export type { DocumentEditingOptions } from './document-editing.js';
 export {
   createDocumentEditing,
