@@ -1,0 +1,585 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "table",
+          "attrs": {
+            "border": "table-border-none",
+            "layout": "center",
+            "caption": "Cells holding blocks",
+            "id": "e6689070"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "7ced3575"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "75ed2a70"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "78ed2f29"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Kind"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "7bed33e2"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "76ed2c03"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Content"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "7a612aa7"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "7aed324f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "79ed30bc"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "List"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "776125ee"
+                  },
+                  "content": [
+                    {
+                      "type": "bulletList",
+                      "attrs": {
+                        "id": "78612781"
+                      },
+                      "content": [
+                        {
+                          "type": "listItem",
+                          "attrs": {
+                            "id": "80ed3bc1"
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "attrs": {
+                                "id": "7fed3a2e"
+                              },
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "One"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "listItem",
+                          "attrs": {
+                            "id": "756122c8"
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "attrs": {
+                                "id": "7661245b"
+                              },
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Two"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "6d611630"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "7c612dcd"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "79612914"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Code"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "6e6117c3"
+                  },
+                  "content": [
+                    {
+                      "type": "codeBlock",
+                      "attrs": {
+                        "language": "shell",
+                        "id": "7b612c3a"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "ls -la"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ea598c32"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "e5598453"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "e45982c0"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Paragraphs"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "e9598a9f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "e65985e6"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "A bicycle chain needs a drop of oil on every link, then a wipe."
+                        }
+                      ]
+                    },
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "e7598779"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Brake pads wear faster in wet weather and on long descents."
+                        }
+                      ]
+                    },
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "e859890c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Bold end",
+                          "marks": [
+                            {
+                              "type": "bold"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "e9689529"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ec598f58"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "eb598dc5"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Nested table"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "e8689396"
+                  },
+                  "content": [
+                    {
+                      "type": "table",
+                      "attrs": {
+                        "captionEnabled": false,
+                        "id": "715c9f4e"
+                      },
+                      "content": [
+                        {
+                          "type": "tableRow",
+                          "attrs": {
+                            "id": "675c8f90"
+                          },
+                          "content": [
+                            {
+                              "type": "tableCell",
+                              "attrs": {
+                                "id": "6a5c9449"
+                              },
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "attrs": {
+                                    "id": "ed5990eb"
+                                  },
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "a"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "tableCell",
+                              "attrs": {
+                                "id": "685c9123"
+                              },
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "attrs": {
+                                    "id": "695c92b6"
+                                  },
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "tableRow",
+                          "attrs": {
+                            "id": "725ca0e1"
+                          },
+                          "content": [
+                            {
+                              "type": "tableCell",
+                              "attrs": {
+                                "id": "6d5c9902"
+                              },
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "attrs": {
+                                    "id": "6e5c9a95"
+                                  },
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "c"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "tableCell",
+                              "attrs": {
+                                "id": "6b5c95dc"
+                              },
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "attrs": {
+                                    "id": "6c5c976f"
+                                  },
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "d"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "layout": "fit-page-width",
+            "caption": "Fitted table",
+            "id": "ef6add32"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "eb68984f"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ec6899e2"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "e7689203"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Left"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ea6896bc"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ed689b75"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Right"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "f06adec5"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "f168a1c1"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "f068a02e"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ed6ada0c"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ee6adb9f"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "y"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "layout": "right",
+            "caption": "Right aligned",
+            "id": "f56ae6a4"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "f66ae837"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "e96ad3c0"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ea6ad553"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "eb6ad6e6"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ec6ad879"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

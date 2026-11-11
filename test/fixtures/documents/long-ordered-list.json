@@ -1,0 +1,1643 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "338fc2df"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Daily checks"
+            }
+          ]
+        },
+        {
+          "type": "orderedList",
+          "attrs": {
+            "id": "f2ac43fb"
+          },
+          "content": [
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "358fc605"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "348fc472"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 1: Brake pads wear faster in wet weather and on long descents."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "2f8fbc93"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "2e8fbb00"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 2: The reading room opens at nine and closes at six on weekdays."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "318fbfb9"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "308fbe26"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 3: Maps larger than the tables are kept flat in the plan chest."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "3b8fcf77"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "3a8fcde4"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 4: The north bed holds the early beans and two rows of lettuce."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "194fdcaa"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "1a4fde3d"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 5: Water reaches each plot through a drip line laid under the mulch."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "174fd984"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "184fdb17"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 6: Volunteers record rainfall every morning before the gate opens."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "154fd65e"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "164fd7f1"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 7: The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "134fd338"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "144fd4cb"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 8: Compost is turned once a week and covered when frost is forecast."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "114fd012"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "124fd1a5"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 9: A rain barrel at each corner collects water from the shelter roof."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "0151f579"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0051f3e6"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 10: Seedlings start in the cold frame and move out after the last frost."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "ff51f253"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "fe51f0c0"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 11: Paths between the beds are wide enough for a wheelbarrow to pass."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "0551fbc5"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0451fa32"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 12: The bench by the pond is a good place to sort seed packets."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "0351f89f"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0251f70c"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 13: Each season ends with a shared meal and a swap of saved seeds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "09520211"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0852007e"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 14: The lighthouse lamp turns once every twelve seconds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "855503dc"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8655056f"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 15: Keepers logged the wind direction at the top of every hour."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "87550702"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "88550895"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 16: A brass barometer hangs beside the stairs to the lantern room."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8154fd90"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8254ff23"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 17: Fog signals sounded in groups of two when visibility dropped."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "835500b6"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "84550249"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 18: The station records temperature, pressure and humidity each minute."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8d551074"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8e551207"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 19: Readings older than a year move to the archive drive."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "7d43ae23"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "7c43ac90"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 20: A bicycle chain needs a drop of oil on every link, then a wipe."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "7f43b149"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "7e43afb6"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 21: Brake pads wear faster in wet weather and on long descents."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8143b46f"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8043b2dc"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 22: The reading room opens at nine and closes at six on weekdays."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8343b795"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8243b602"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 23: Maps larger than the tables are kept flat in the plan chest."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8543babb"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8443b928"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 24: The north bed holds the early beans and two rows of lettuce."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8145f306"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8245f499"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 25: Water reaches each plot through a drip line laid under the mulch."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "7f45efe0"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8045f173"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 26: Volunteers record rainfall every morning before the gate opens."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8545f952"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8645fae5"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 27: The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8345f62c"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8445f7bf"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 28: Compost is turned once a week and covered when frost is forecast."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8945ff9e"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8a460131"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 29: A rain barrel at each corner collects water from the shelter roof."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "89483e35"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "88483ca2"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 30: Seedlings start in the cold frame and move out after the last frost."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "87483b0f"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8648397c"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 31: Paths between the beds are wide enough for a wheelbarrow to pass."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "854837e9"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "84483656"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 32: The bench by the pond is a good place to sort seed packets."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "834834c3"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "82483330"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 33: Each season ends with a shared meal and a swap of saved seeds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "91484acd"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "9048493a"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 34: The lighthouse lamp turns once every twelve seconds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8d4a8318"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "8e4a84ab"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 35: Keepers logged the wind direction at the top of every hour."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "8f4a863e"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "904a87d1"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 36: A brass barometer hangs beside the stairs to the lantern room."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "914a8964"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "924a8af7"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 37: Fog signals sounded in groups of two when visibility dropped."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "934a8c8a"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "944a8e1d"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 38: The station records temperature, pressure and humidity each minute."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "854a7680"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "864a7813"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 39: Readings older than a year move to the archive drive."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "0561064f"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "046104bc"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 40: A bicycle chain needs a drop of oil on every link, then a wipe."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "07610975"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "066107e2"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 41: Brake pads wear faster in wet weather and on long descents."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "01610003"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0060fe70"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 42: The reading room opens at nine and closes at six on weekdays."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "03610329"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "02610196"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 43: Maps larger than the tables are kept flat in the plan chest."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "0d6112e7"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0c611154"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 44: The north bed holds the early beans and two rows of lettuce."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "09634b32"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0a634cc5"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 45: Water reaches each plot through a drip line laid under the mulch."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "0763480c"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0863499f"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 46: Volunteers record rainfall every morning before the gate opens."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "056344e6"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "06634679"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 47: The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "036341c0"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "04634353"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 48: Compost is turned once a week and covered when frost is forecast."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "116357ca"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "1263595d"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 49: A rain barrel at each corner collects water from the shelter roof."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "77ba8ce4"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "78ba8e77"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 50: Seedlings start in the cold frame and move out after the last frost."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "79ba900a"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "7aba919d"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 51: Paths between the beds are wide enough for a wheelbarrow to pass."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "73ba8698"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "74ba882b"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 52: The bench by the pond is a good place to sort seed packets."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "75ba89be"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "76ba8b51"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 53: Each season ends with a shared meal and a swap of saved seeds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "6fba804c"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "70ba81df"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 54: The lighthouse lamp turns once every twelve seconds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "73b84801"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "72b8466e"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 55: Keepers logged the wind direction at the top of every hour."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "71b844db"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "70b84348"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 56: A brass barometer hangs beside the stairs to the lantern room."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "77b84e4d"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "76b84cba"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 57: Fog signals sounded in groups of two when visibility dropped."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "75b84b27"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "74b84994"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 58: The station records temperature, pressure and humidity each minute."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "6bb83b69"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "6ab839d6"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 59: Readings older than a year move to the archive drive."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "6bb5fcd2"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "6cb5fe65"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 60: A bicycle chain needs a drop of oil on every link, then a wipe."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "69b5f9ac"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "6ab5fb3f"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 61: Brake pads wear faster in wet weather and on long descents."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "67b5f686"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "68b5f819"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 62: The reading room opens at nine and closes at six on weekdays."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "65b5f360"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "66b5f4f3"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 63: Maps larger than the tables are kept flat in the plan chest."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "73b6096a"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "74b60afd"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 64: The north bed holds the early beans and two rows of lettuce."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "67b3b7ef"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "66b3b65c"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 65: Water reaches each plot through a drip line laid under the mulch."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "69b3bb15"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "68b3b982"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 66: Volunteers record rainfall every morning before the gate opens."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "63b3b1a3"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "62b3b010"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 67: The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "65b3b4c9"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "64b3b336"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 68: Compost is turned once a week and covered when frost is forecast."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "6fb3c487"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "6eb3c2f4"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 69: A rain barrel at each corner collects water from the shelter roof."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "dfb0a340"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "e0b0a4d3"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 70: Seedlings start in the cold frame and move out after the last frost."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "e1b0a666"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "e2b0a7f9"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 71: Paths between the beds are wide enough for a wheelbarrow to pass."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "e3b0a98c"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "e4b0ab1f"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 72: The bench by the pond is a good place to sort seed packets."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "e5b0acb2"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "e6b0ae45"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 73: Each season ends with a shared meal and a swap of saved seeds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "e7b0afd8"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "e8b0b16b"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 74: The lighthouse lamp turns once every twelve seconds."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "fbae90bd"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "faae8f2a"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 75: Keepers logged the wind direction at the top of every hour."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "f9ae8d97"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "f8ae8c04"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 76: A brass barometer hangs beside the stairs to the lantern room."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "f7ae8a71"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "f6ae88de"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 77: Fog signals sounded in groups of two when visibility dropped."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "f5ae874b"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "f4ae85b8"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 78: The station records temperature, pressure and humidity each minute."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "f3ae8425"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "f2ae8292"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 79: Readings older than a year move to the archive drive."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "f3ac458e"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "f4ac4721"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Check 80: A bicycle chain needs a drop of oil on every link, then a wipe."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "f1ac4268"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Brake pads wear faster in wet weather and on long descents. The reading room opens at nine and closes at six on weekdays."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "formatVersion": 1,
+  "template": "regression-mixed-geometry",
+  "sections": [
+    {
+      "name": "cover",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "f9fcef06"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Cover"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "f8fced73"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Body"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "f7fcebe0"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A brass barometer hangs beside the stairs to the lantern room. Fog signals sounded in groups of two when visibility dropped. The station records temperature, pressure and humidity each minute."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "appendix",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "fefcf6e5"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "First appendix"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "fdfcf552"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Readings older than a year move to the archive drive. A bicycle chain needs a drop of oil on every link, then a wipe. Brake pads wear faster in wet weather and on long descents."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "appendix",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "fcfcf3bf"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Second appendix"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "fbfcf22c"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The reading room opens at nine and closes at six on weekdays. Maps larger than the tables are kept flat in the plan chest. The north bed holds the early beans and two rows of lettuce."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "appendix",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "02fcfd31"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Third appendix"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "01fcfb9e"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Water reaches each plot through a drip line laid under the mulch. Volunteers record rainfall every morning before the gate opens. The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

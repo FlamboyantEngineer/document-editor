@@ -1,0 +1,98 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "efb1327a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Equations"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "eeb130e7"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Inline "
+            },
+            {
+              "type": "math",
+              "attrs": {
+                "source": "E = mc^2"
+              }
+            },
+            {
+              "type": "text",
+              "text": " and "
+            },
+            {
+              "type": "math",
+              "attrs": {
+                "source": "\\frac{a}{b}"
+              }
+            },
+            {
+              "type": "text",
+              "text": " in text."
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "edb12f54",
+            "source": "\\int_0^1 x^2 \\, dx = \\frac{1}{3}"
+          }
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ecb12dc1",
+            "source": "\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}"
+          }
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ebb12c2e",
+            "source": ""
+          }
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "eab12a9b"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Empty inline "
+            },
+            {
+              "type": "math",
+              "attrs": {
+                "source": ""
+              }
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

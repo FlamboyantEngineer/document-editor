@@ -1,0 +1,87 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "501f1f17"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Figures"
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plot plan",
+            "caption": "Plot plan of the north beds",
+            "id": "511f20aa"
+          }
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "kind": "diagram",
+            "layout": "center",
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Water flow",
+            "caption": "Water flow",
+            "width": 320,
+            "height": 180,
+            "id": "521f223d"
+          }
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "layout": "left",
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Shed",
+            "captionEnabled": false,
+            "id": "4b1f1738"
+          }
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "layout": "right",
+            "assetId": "asset-0001",
+            "assetRevision": "rev-3",
+            "alt": "Stored asset",
+            "id": "4c1f18cb"
+          }
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "layout": "fit-page-width",
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Wide map",
+            "caption": "Map across the page width",
+            "id": "4d1f1a5e"
+          }
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "4e1f1bf1"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Paths between the beds are wide enough for a wheelbarrow to pass. The bench by the pond is a good place to sort seed packets."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

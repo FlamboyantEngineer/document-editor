@@ -1,0 +1,84 @@
+{
+  "formatVersion": 1,
+  "id": "regression-numbering",
+  "name": "Roman and alphabetic numbering",
+  "parent": "regression-base",
+  "sections": [
+    {
+      "name": "front_matter",
+      "label": "Front matter",
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "i."
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "i.a"
+          }
+        }
+      },
+      "footer": {
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "type": "variable",
+                "attrs": {
+                  "key": "page.current"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true,
+      "restartNumbering": true,
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "I."
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "I.1"
+          }
+        },
+        "heading3": {
+          "numbering": {
+            "format": "I.1.a"
+          }
+        }
+      }
+    },
+    {
+      "name": "annex",
+      "label": "Annex",
+      "restartNumbering": true,
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "A-"
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "A-1"
+          }
+        },
+        "paragraph": {
+          "numbering": {
+            "format": "a)"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "templateBlock",
+          "attrs": {
+            "source": "<p>{{document.title}}</p>",
+            "keys": "document.title",
+            "id": "0d226389"
+          }
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "0a225ed0"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Title: "
+            },
+            {
+              "type": "variable",
+              "attrs": {
+                "key": "document.title"
+              }
+            },
+            {
+              "type": "text",
+              "text": ", owner: "
+            },
+            {
+              "type": "variable",
+              "attrs": {
+                "key": "document.owner"
+              }
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "templateBlock",
+          "attrs": {
+            "id": "0b226063"
+          }
+        }
+      ]
+    }
+  ]
+}

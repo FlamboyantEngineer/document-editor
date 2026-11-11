@@ -1,0 +1,214 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "c7265b09"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Target heading"
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Target",
+            "caption": "Target figure",
+            "id": "c4265650"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Target table",
+            "id": "c8265c9c"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "cb266155"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca265fc2"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "c52657e3"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "caption": "Target code",
+            "id": "c9265e2f"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "x = 1"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ce26660e",
+            "source": "a^2 + b^2 = c^2"
+          }
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "cf2667a1"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "See "
+            },
+            {
+              "type": "text",
+              "text": "the heading",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "target": "c7265b09"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": ", "
+            },
+            {
+              "type": "text",
+              "text": "the figure",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "internal-figure",
+                    "target": "c4265650"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": ", "
+            },
+            {
+              "type": "text",
+              "text": "the table",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "internal-table",
+                    "target": "c8265c9c"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": ", "
+            },
+            {
+              "type": "text",
+              "text": "the code",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "internal-codeblock",
+                    "target": "c9265e2f"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " and "
+            },
+            {
+              "type": "text",
+              "text": "the equation",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "internal-equation",
+                    "target": "ce26660e"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "ba619abb"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A broken one: "
+            },
+            {
+              "type": "text",
+              "text": "missing",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "target": "deadbeef",
+                    "broken": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

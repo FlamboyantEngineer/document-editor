@@ -1,0 +1,112 @@
+{
+  "formatVersion": 1,
+  "template": "regression-locked",
+  "sections": [
+    {
+      "name": "notice",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "style": "note"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "This notice is part of the template and cannot be edited."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "summary",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "58e267cb"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Readings older than a year move to the archive drive. A bicycle chain needs a drop of oil on every link, then a wipe."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "59e2695e"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Body"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "5ae26af1"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Brake pads wear faster in wet weather and on long descents. The reading room opens at nine and closes at six on weekdays. Maps larger than the tables are kept flat in the plan chest."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "5be26c84"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The north bed holds the early beans and two rows of lettuce. Water reaches each plot through a drip line laid under the mulch. Volunteers record rainfall every morning before the gate opens."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "notes",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "5ce26e17"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "An optional section the author inserted."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sign_off",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Signed for the team."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

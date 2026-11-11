@@ -1,0 +1,89 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "076ff929",
+            "author": "person-01"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Authors"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "046ff470",
+            "author": "person-01"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The lighthouse lamp turns once every twelve seconds. Keepers logged the wind direction at the top of every hour."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "056ff603",
+            "author": "person-02",
+            "aiSession": "session-01"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Drafted with an assistant.",
+              "marks": [
+                {
+                  "type": "contributor",
+                  "attrs": {
+                    "author": "person-02",
+                    "aiSession": "session-01"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "bulletList",
+          "attrs": {
+            "id": "086ffabc"
+          },
+          "content": [
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "0b6fff75"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "0a6ffde2",
+                    "author": "person-03"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Item by a third person"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

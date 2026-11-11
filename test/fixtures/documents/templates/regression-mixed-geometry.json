@@ -1,0 +1,77 @@
+{
+  "formatVersion": 1,
+  "id": "regression-mixed-geometry",
+  "name": "Mixed page geometry",
+  "parent": "regression-base",
+  "sections": [
+    {
+      "name": "cover",
+      "label": "Cover",
+      "required": true,
+      "page": {
+        "size": "A5",
+        "orientation": "portrait",
+        "margins": {
+          "top": "15mm",
+          "right": "15mm",
+          "bottom": "15mm",
+          "left": "15mm"
+        }
+      },
+      "header": {
+        "content": [
+          {
+            "type": "paragraph"
+          }
+        ]
+      },
+      "footer": {
+        "content": [
+          {
+            "type": "paragraph"
+          }
+        ]
+      }
+    },
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true,
+      "page": {
+        "size": "US Legal",
+        "orientation": "portrait",
+        "margins": {
+          "top": "1in",
+          "right": "1in",
+          "bottom": "1in",
+          "left": "1.25in"
+        }
+      }
+    },
+    {
+      "name": "appendix",
+      "label": "Appendix",
+      "page": {
+        "size": "A4",
+        "orientation": "landscape"
+      },
+      "restartNumbering": true,
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "A.",
+            "prefix": "Appendix "
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "A.1"
+          }
+        }
+      },
+      "footer": {
+        "inherit": true
+      }
+    }
+  ]
+}

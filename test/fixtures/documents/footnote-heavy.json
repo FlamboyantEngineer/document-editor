@@ -1,0 +1,1663 @@
+{
+  "formatVersion": 1,
+  "template": "regression-footnotes",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "51516396"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Footnotes"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "5a5171c1"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The station records temperature, pressure and humidity each minute. Readings older than a year move to the archive drive."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-50516203",
+                "elementId": "4f516070"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A bicycle chain needs a drop of oil on every link, then a wipe. Brake pads wear faster in wet weather and on long descents. The reading room opens at nine and closes at six on weekdays. Maps larger than the tables are kept flat in the plan chest."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The north bed holds the early beans and two rows of lettuce."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-56516b75",
+                "elementId": "555169e2"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-5451684f",
+                "elementId": "535166bc"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "a81fdcbf"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Water reaches each plot through a drip line laid under the mulch. Volunteers record rainfall every morning before the gate opens."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-5951702e",
+                "elementId": "a91fde52"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Compost is turned once a week and covered when frost is forecast."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-aa1fdfe5",
+                "elementId": "a71fdb2c"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "b11feaea"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A rain barrel at each corner collects water from the shelter roof. Seedlings start in the cold frame and move out after the last frost."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a51fd806",
+                "elementId": "a61fd999"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Paths between the beds are wide enough for a wheelbarrow to pass."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The bench by the pond is a good place to sort seed packets."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a31fd4e0",
+                "elementId": "a41fd673"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "a61d9b02"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Each season ends with a shared meal and a swap of saved seeds. The lighthouse lamp turns once every twelve seconds."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b21fec7d",
+                "elementId": "a31d9649"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Keepers logged the wind direction at the top of every hour."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " A brass barometer hangs beside the stairs to the lantern room."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a21d94b6",
+                "elementId": "a11d9323"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a01d9190",
+                "elementId": "a71d9c95"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "1d1a84c0"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Fog signals sounded in groups of two when visibility dropped. The station records temperature, pressure and humidity each minute."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a51d996f",
+                "elementId": "a41d97dc"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Readings older than a year move to the archive drive. A bicycle chain needs a drop of oil on every link, then a wipe. Brake pads wear faster in wet weather and on long descents. The reading room opens at nine and closes at six on weekdays."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Maps larger than the tables are kept flat in the plan chest."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-ab1da2e1",
+                "elementId": "aa1da14e"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "221a8c9f"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The north bed holds the early beans and two rows of lettuce. Water reaches each plot through a drip line laid under the mulch."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-1e1a8653",
+                "elementId": "1f1a87e6"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Volunteers record rainfall every morning before the gate opens."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-201a8979",
+                "elementId": "211a8b0c"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "292be0c5"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Compost is turned once a week and covered when frost is forecast. A rain barrel at each corner collects water from the shelter roof."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-231a8e32",
+                "elementId": "241a8fc5"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Seedlings start in the cold frame and move out after the last frost."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Paths between the beds are wide enough for a wheelbarrow to pass."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-251a9158",
+                "elementId": "261a92eb"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-272bdd9f",
+                "elementId": "262bdc0c"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "242bd8e6"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The bench by the pond is a good place to sort seed packets. Each season ends with a shared meal and a swap of saved seeds."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-282bdf32",
+                "elementId": "232bd753"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The lighthouse lamp turns once every twelve seconds."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Keepers logged the wind direction at the top of every hour."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-222bd5c0",
+                "elementId": "252bda79"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "1f299270"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A brass barometer hangs beside the stairs to the lantern room. Fog signals sounded in groups of two when visibility dropped."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-2f2bea37",
+                "elementId": "2e2be8a4"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The station records temperature, pressure and humidity each minute. Readings older than a year move to the archive drive. A bicycle chain needs a drop of oil on every link, then a wipe. Brake pads wear faster in wet weather and on long descents."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The reading room opens at nine and closes at six on weekdays."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-21299596",
+                "elementId": "22299729"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "2a29a3c1"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Maps larger than the tables are kept flat in the plan chest. The north bed holds the early beans and two rows of lettuce."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-20299403",
+                "elementId": "25299be2"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Water reaches each plot through a drip line laid under the mulch."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Volunteers record rainfall every morning before the gate opens."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-26299d75",
+                "elementId": "232998bc"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-24299a4f",
+                "elementId": "2929a22e"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "372779a1"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The tool shed keeps spades, forks and a wheelbarrow with a spare tyre. Compost is turned once a week and covered when frost is forecast."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3b277fed",
+                "elementId": "3a277e5a"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A rain barrel at each corner collects water from the shelter roof."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Seedlings start in the cold frame and move out after the last frost."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-39277cc7",
+                "elementId": "38277b34"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "322771c2"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Paths between the beds are wide enough for a wheelbarrow to pass. The bench by the pond is a good place to sort seed packets."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3627780e",
+                "elementId": "3527767b"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Each season ends with a shared meal and a swap of saved seeds."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The lighthouse lamp turns once every twelve seconds."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-342774e8",
+                "elementId": "33277355"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "b3246b3e"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Keepers logged the wind direction at the top of every hour. A brass barometer hangs beside the stairs to the lantern room."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b5246e64",
+                "elementId": "b6246ff7"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Fog signals sounded in groups of two when visibility dropped. The station records temperature, pressure and humidity each minute. Readings older than a year move to the archive drive. A bicycle chain needs a drop of oil on every link, then a wipe."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Brake pads wear faster in wet weather and on long descents."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b724718a",
+                "elementId": "b824731d"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b1246818",
+                "elementId": "b22469ab"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "1e365cd0"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The reading room opens at nine and closes at six on weekdays. Maps larger than the tables are kept flat in the plan chest."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b4246cd1",
+                "elementId": "ad2461cc"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The north bed holds the early beans and two rows of lettuce."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Water reaches each plot through a drip line laid under the mulch."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-ae24635f",
+                "elementId": "1f365e63"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "253667d5"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Volunteers record rainfall every morning before the gate opens. The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-21366189",
+                "elementId": "20365ff6"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Compost is turned once a week and covered when frost is forecast."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " A rain barrel at each corner collects water from the shelter roof."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-233664af",
+                "elementId": "2236631c"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "b8337da7"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Seedlings start in the cold frame and move out after the last frost. Paths between the beds are wide enough for a wheelbarrow to pass."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-24366642",
+                "elementId": "27366afb"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The bench by the pond is a good place to sort seed packets."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Each season ends with a shared meal and a swap of saved seeds."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-26366968",
+                "elementId": "b9337f3a"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-ba3380cd",
+                "elementId": "b7337c14"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "b13372a2"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The lighthouse lamp turns once every twelve seconds. Keepers logged the wind direction at the top of every hour."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b53378ee",
+                "elementId": "b6337a81"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A brass barometer hangs beside the stairs to the lantern room. Fog signals sounded in groups of two when visibility dropped. The station records temperature, pressure and humidity each minute. Readings older than a year move to the archive drive."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " A bicycle chain needs a drop of oil on every link, then a wipe."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b33375c8",
+                "elementId": "b433775b"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "9e2b12b3"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Brake pads wear faster in wet weather and on long descents. The reading room opens at nine and closes at six on weekdays."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-b2337435",
+                "elementId": "9f2b1446"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Maps larger than the tables are kept flat in the plan chest."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The north bed holds the early beans and two rows of lettuce."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a02b15d9",
+                "elementId": "9d2b1120"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "a52d5c4f"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Water reaches each plot through a drip line laid under the mulch. Volunteers record rainfall every morning before the gate opens."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a32b1a92",
+                "elementId": "a42b1c25"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Compost is turned once a week and covered when frost is forecast."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a12b176c",
+                "elementId": "a22b18ff"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a72b20de",
+                "elementId": "a82b2271"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "a02d5470"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A rain barrel at each corner collects water from the shelter roof. Seedlings start in the cold frame and move out after the last frost."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a42d5abc",
+                "elementId": "a72d5f75"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Paths between the beds are wide enough for a wheelbarrow to pass."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The bench by the pond is a good place to sort seed packets."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a62d5de2",
+                "elementId": "a12d5603"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "3325ed14"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Each season ends with a shared meal and a swap of saved seeds. The lighthouse lamp turns once every twelve seconds."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a32d5929",
+                "elementId": "a22d5796"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Keepers logged the wind direction at the top of every hour. A brass barometer hangs beside the stairs to the lantern room. Fog signals sounded in groups of two when visibility dropped. The station records temperature, pressure and humidity each minute."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Readings older than a year move to the archive drive."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-ad2d68e7",
+                "elementId": "ac2d6754"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "3225eb81"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A bicycle chain needs a drop of oil on every link, then a wipe. Brake pads wear faster in wet weather and on long descents."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3425eea7",
+                "elementId": "3525f03a"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The reading room opens at nine and closes at six on weekdays."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Maps larger than the tables are kept flat in the plan chest."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3625f1cd",
+                "elementId": "2f25e6c8"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3025e85b",
+                "elementId": "3125e9ee"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "372831f7"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The north bed holds the early beans and two rows of lettuce. Water reaches each plot through a drip line laid under the mulch."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-2b25e07c",
+                "elementId": "2c25e20f"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Volunteers record rainfall every morning before the gate opens."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The tool shed keeps spades, forks and a wheelbarrow with a spare tyre."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3928351d",
+                "elementId": "3828338a"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "32282a18"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Compost is turned once a week and covered when frost is forecast. A rain barrel at each corner collects water from the shelter roof."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-36283064",
+                "elementId": "35282ed1"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Seedlings start in the cold frame and move out after the last frost."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Paths between the beds are wide enough for a wheelbarrow to pass."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-34282d3e",
+                "elementId": "33282bab"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "232156b6"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The bench by the pond is a good place to sort seed packets. Each season ends with a shared meal and a swap of saved seeds."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-31282885",
+                "elementId": "302826f2"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "The lighthouse lamp turns once every twelve seconds. Keepers logged the wind direction at the top of every hour. A brass barometer hangs beside the stairs to the lantern room. Fog signals sounded in groups of two when visibility dropped."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The station records temperature, pressure and humidity each minute."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-27215d02",
+                "elementId": "28215e95"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-252159dc",
+                "elementId": "26215b6f"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "30216b2d"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Readings older than a year move to the archive drive. A bicycle chain needs a drop of oil on every link, then a wipe."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-24215849",
+                "elementId": "21215390"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Brake pads wear faster in wet weather and on long descents."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " The reading room opens at nine and closes at six on weekdays."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-22215523",
+                "elementId": "2f21699a"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "3123ab57"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Maps larger than the tables are kept flat in the plan chest. The north bed holds the early beans and two rows of lettuce."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-2d23a50b",
+                "elementId": "2c23a378"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Water reaches each plot through a drip line laid under the mulch."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Volunteers record rainfall every morning before the gate opens."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-2f23a831",
+                "elementId": "2e23a69e"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "9c1c0503"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The tool shed keeps spades, forks and a wheelbarrow with a spare tyre. Compost is turned once a week and covered when frost is forecast."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3023a9c4",
+                "elementId": "3323ae7d"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A rain barrel at each corner collects water from the shelter roof."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Seedlings start in the cold frame and move out after the last frost."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-3223acea",
+                "elementId": "25239873"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-242396e0",
+                "elementId": "9b1c0370"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Formatted",
+                  "marks": [
+                    {
+                      "type": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": " note with a "
+                },
+                {
+                  "type": "text",
+                  "text": "link",
+                  "marks": [
+                    {
+                      "type": "link",
+                      "attrs": {
+                        "href": "https://example.com/"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "a11c0ce2"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Paths between the beds are wide enough for a wheelbarrow to pass. The bench by the pond is a good place to sort seed packets."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-9d1c0696",
+                "elementId": "9e1c0829"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Each season ends with a shared meal and a swap of saved seeds. The lighthouse lamp turns once every twelve seconds. Keepers logged the wind direction at the top of every hour. A brass barometer hangs beside the stairs to the lantern room."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Fog signals sounded in groups of two when visibility dropped."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-9f1c09bc",
+                "elementId": "a01c0b4f"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "a01e49e6"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The station records temperature, pressure and humidity each minute. Readings older than a year move to the archive drive."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a21c0e75",
+                "elementId": "a31c1008"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A bicycle chain needs a drop of oil on every link, then a wipe."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " Brake pads wear faster in wet weather and on long descents."
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-a41c119b",
+                "elementId": "a11e4b79"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Short note."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

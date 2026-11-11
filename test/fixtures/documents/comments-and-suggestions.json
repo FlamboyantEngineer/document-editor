@@ -1,0 +1,176 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "d84df03e"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Comments"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "d74deeab"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A "
+            },
+            {
+              "type": "text",
+              "text": "commented phrase",
+              "marks": [
+                {
+                  "type": "comment",
+                  "attrs": {
+                    "thread": "thread-01"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " and a "
+            },
+            {
+              "type": "text",
+              "text": "resolved one",
+              "marks": [
+                {
+                  "type": "comment",
+                  "attrs": {
+                    "thread": "thread-02",
+                    "state": "resolved"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "d64ded18"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Text with "
+            },
+            {
+              "type": "text",
+              "text": "an insertion",
+              "marks": [
+                {
+                  "type": "insertion",
+                  "attrs": {
+                    "thread": "thread-03"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " and "
+            },
+            {
+              "type": "text",
+              "text": "a deletion",
+              "marks": [
+                {
+                  "type": "deletion",
+                  "attrs": {
+                    "thread": "thread-04"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "dd4df81d"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Overlapping",
+              "marks": [
+                {
+                  "type": "comment",
+                  "attrs": {
+                    "thread": "thread-05"
+                  }
+                },
+                {
+                  "type": "insertion",
+                  "attrs": {
+                    "thread": "thread-06"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " comment",
+              "marks": [
+                {
+                  "type": "comment",
+                  "attrs": {
+                    "thread": "thread-05"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "dc4df68a",
+            "suggestionKind": "insert",
+            "suggestionId": "thread-07"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "A paragraph split by a suggestion.",
+              "marks": [
+                {
+                  "type": "insertion",
+                  "attrs": {
+                    "thread": "thread-07"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

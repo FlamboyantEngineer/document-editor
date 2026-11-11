@@ -1,0 +1,71 @@
+{
+  "formatVersion": 1,
+  "id": "regression-locked",
+  "name": "Locked and optional sections",
+  "parent": "regression-base",
+  "sections": [
+    {
+      "name": "notice",
+      "label": "Notice",
+      "required": true,
+      "editable": false,
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "style": "note"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "This notice is part of the template and cannot be edited."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "summary",
+      "label": "Summary",
+      "required": true,
+      "placeholder": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Write a short summary."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true
+    },
+    {
+      "name": "notes",
+      "label": "Notes",
+      "insertable": true
+    },
+    {
+      "name": "sign_off",
+      "label": "Sign-off",
+      "required": true,
+      "editable": false,
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Signed for the team."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

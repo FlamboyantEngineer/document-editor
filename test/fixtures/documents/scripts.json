@@ -1,0 +1,119 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "d88410e6"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Script blocks"
+            }
+          ]
+        },
+        {
+          "type": "script",
+          "attrs": {
+            "source": "return [{ type: \"paragraph\", text: \"Generated\" }];",
+            "id": "d6840dc0"
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "id": "d7840f53"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Generated"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "script",
+          "attrs": {
+            "source": "return rows();",
+            "refresh": "open",
+            "renderedAt": "2026-01-15T10:00:00.000Z",
+            "id": "ade680e2"
+          },
+          "content": [
+            {
+              "type": "table",
+              "attrs": {
+                "captionEnabled": false,
+                "id": "e0841d7e"
+              },
+              "content": [
+                {
+                  "type": "tableRow",
+                  "attrs": {
+                    "id": "e1841f11"
+                  },
+                  "content": [
+                    {
+                      "type": "tableCell",
+                      "attrs": {
+                        "id": "dc841732"
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "attrs": {
+                            "id": "dd8418c5"
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "tableCell",
+                      "attrs": {
+                        "id": "da84140c"
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "attrs": {
+                            "id": "db84159f"
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "2"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "script",
+          "attrs": {
+            "source": "return [];",
+            "id": "aee68275"
+          }
+        }
+      ]
+    }
+  ]
+}

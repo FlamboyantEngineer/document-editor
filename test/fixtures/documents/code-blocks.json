@@ -1,0 +1,84 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "e3753a74"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Code"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "id": "e6753f2d"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "plain text block"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "typescript",
+            "caption": "Reading a sensor",
+            "id": "e5753d9a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "const value = await sensor.read();\nconsole.log(value);"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "captionEnabled": false,
+            "id": "e07535bb"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "for day in range(7):\n    print(day)"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "json",
+            "caption": "A long listing",
+            "id": "df753428"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)\nline 6: reading = sensor.read(5)\nline 7: reading = sensor.read(6)\nline 8: reading = sensor.read(7)\nline 9: reading = sensor.read(8)\nline 10: reading = sensor.read(9)\nline 11: reading = sensor.read(10)\nline 12: reading = sensor.read(11)\nline 13: reading = sensor.read(12)\nline 14: reading = sensor.read(13)\nline 15: reading = sensor.read(14)\nline 16: reading = sensor.read(15)\nline 17: reading = sensor.read(16)\nline 18: reading = sensor.read(17)\nline 19: reading = sensor.read(18)\nline 20: reading = sensor.read(19)\nline 21: reading = sensor.read(20)\nline 22: reading = sensor.read(21)\nline 23: reading = sensor.read(22)\nline 24: reading = sensor.read(23)\nline 25: reading = sensor.read(24)\nline 26: reading = sensor.read(25)\nline 27: reading = sensor.read(26)\nline 28: reading = sensor.read(27)\nline 29: reading = sensor.read(28)\nline 30: reading = sensor.read(29)\nline 31: reading = sensor.read(30)\nline 32: reading = sensor.read(31)\nline 33: reading = sensor.read(32)\nline 34: reading = sensor.read(33)\nline 35: reading = sensor.read(34)\nline 36: reading = sensor.read(35)\nline 37: reading = sensor.read(36)\nline 38: reading = sensor.read(37)\nline 39: reading = sensor.read(38)\nline 40: reading = sensor.read(39)\nline 41: reading = sensor.read(40)\nline 42: reading = sensor.read(41)\nline 43: reading = sensor.read(42)\nline 44: reading = sensor.read(43)\nline 45: reading = sensor.read(44)\nline 46: reading = sensor.read(45)\nline 47: reading = sensor.read(46)\nline 48: reading = sensor.read(47)\nline 49: reading = sensor.read(48)\nline 50: reading = sensor.read(49)\nline 51: reading = sensor.read(50)\nline 52: reading = sensor.read(51)\nline 53: reading = sensor.read(52)\nline 54: reading = sensor.read(53)\nline 55: reading = sensor.read(54)\nline 56: reading = sensor.read(55)\nline 57: reading = sensor.read(56)\nline 58: reading = sensor.read(57)\nline 59: reading = sensor.read(58)\nline 60: reading = sensor.read(59)\nline 61: reading = sensor.read(60)\nline 62: reading = sensor.read(61)\nline 63: reading = sensor.read(62)\nline 64: reading = sensor.read(63)\nline 65: reading = sensor.read(64)\nline 66: reading = sensor.read(65)\nline 67: reading = sensor.read(66)\nline 68: reading = sensor.read(67)\nline 69: reading = sensor.read(68)\nline 70: reading = sensor.read(69)\nline 71: reading = sensor.read(70)\nline 72: reading = sensor.read(71)\nline 73: reading = sensor.read(72)\nline 74: reading = sensor.read(73)\nline 75: reading = sensor.read(74)\nline 76: reading = sensor.read(75)\nline 77: reading = sensor.read(76)\nline 78: reading = sensor.read(77)\nline 79: reading = sensor.read(78)\nline 80: reading = sensor.read(79)\nline 81: reading = sensor.read(80)\nline 82: reading = sensor.read(81)\nline 83: reading = sensor.read(82)\nline 84: reading = sensor.read(83)\nline 85: reading = sensor.read(84)\nline 86: reading = sensor.read(85)\nline 87: reading = sensor.read(86)\nline 88: reading = sensor.read(87)\nline 89: reading = sensor.read(88)\nline 90: reading = sensor.read(89)\nline 91: reading = sensor.read(90)\nline 92: reading = sensor.read(91)\nline 93: reading = sensor.read(92)\nline 94: reading = sensor.read(93)\nline 95: reading = sensor.read(94)\nline 96: reading = sensor.read(95)\nline 97: reading = sensor.read(96)\nline 98: reading = sensor.read(97)\nline 99: reading = sensor.read(98)\nline 100: reading = sensor.read(99)\nline 101: reading = sensor.read(100)\nline 102: reading = sensor.read(101)\nline 103: reading = sensor.read(102)\nline 104: reading = sensor.read(103)\nline 105: reading = sensor.read(104)\nline 106: reading = sensor.read(105)\nline 107: reading = sensor.read(106)\nline 108: reading = sensor.read(107)\nline 109: reading = sensor.read(108)\nline 110: reading = sensor.read(109)\nline 111: reading = sensor.read(110)\nline 112: reading = sensor.read(111)\nline 113: reading = sensor.read(112)\nline 114: reading = sensor.read(113)\nline 115: reading = sensor.read(114)\nline 116: reading = sensor.read(115)\nline 117: reading = sensor.read(116)\nline 118: reading = sensor.read(117)\nline 119: reading = sensor.read(118)\nline 120: reading = sensor.read(119)\nline 121: reading = sensor.read(120)\nline 122: reading = sensor.read(121)\nline 123: reading = sensor.read(122)\nline 124: reading = sensor.read(123)\nline 125: reading = sensor.read(124)\nline 126: reading = sensor.read(125)\nline 127: reading = sensor.read(126)\nline 128: reading = sensor.read(127)\nline 129: reading = sensor.read(128)\nline 130: reading = sensor.read(129)\nline 131: reading = sensor.read(130)\nline 132: reading = sensor.read(131)\nline 133: reading = sensor.read(132)\nline 134: reading = sensor.read(133)\nline 135: reading = sensor.read(134)\nline 136: reading = sensor.read(135)\nline 137: reading = sensor.read(136)\nline 138: reading = sensor.read(137)\nline 139: reading = sensor.read(138)\nline 140: reading = sensor.read(139)\nline 141: reading = sensor.read(140)\nline 142: reading = sensor.read(141)\nline 143: reading = sensor.read(142)\nline 144: reading = sensor.read(143)\nline 145: reading = sensor.read(144)\nline 146: reading = sensor.read(145)\nline 147: reading = sensor.read(146)\nline 148: reading = sensor.read(147)\nline 149: reading = sensor.read(148)\nline 150: reading = sensor.read(149)"
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "shell",
+            "id": "e27538e1"
+          }
+        }
+      ]
+    }
+  ]
+}

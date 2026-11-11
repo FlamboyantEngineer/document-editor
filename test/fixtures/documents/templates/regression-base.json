@@ -1,0 +1,170 @@
+{
+  "formatVersion": 1,
+  "id": "regression-base",
+  "name": "Regression base",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": "25mm",
+      "right": "20mm",
+      "bottom": "25mm",
+      "left": "20mm"
+    }
+  },
+  "styles": {
+    "paragraph": {
+      "font": "Serif",
+      "size": "11pt",
+      "lineHeight": 1.4,
+      "spaceAfter": "6pt",
+      "numbering": {
+        "format": "1.",
+        "levels": [
+          {
+            "format": "a)",
+            "textIndent": "12pt"
+          },
+          {
+            "format": "i.",
+            "textIndent": "24pt"
+          }
+        ]
+      }
+    },
+    "title": {
+      "size": "24pt",
+      "weight": 700,
+      "alignment": "center"
+    },
+    "heading1": {
+      "size": "18pt",
+      "weight": 700,
+      "numbering": {
+        "format": "1."
+      }
+    },
+    "heading2": {
+      "size": "14pt",
+      "weight": 700,
+      "numbering": {
+        "format": "1.1"
+      }
+    },
+    "heading3": {
+      "size": "12pt",
+      "weight": 600,
+      "numbering": {
+        "format": "1.1.1"
+      }
+    },
+    "table": {
+      "numbering": {
+        "format": "1"
+      },
+      "caption": {
+        "placement": "above"
+      },
+      "repeatHeader": true,
+      "header": {
+        "background": "#e5e7eb",
+        "weight": 600
+      }
+    },
+    "figure": {
+      "numbering": {
+        "format": "1"
+      },
+      "caption": {
+        "placement": "below"
+      }
+    },
+    "codeBlock": {
+      "numbering": {
+        "format": "1"
+      },
+      "background": "#f3f4f6"
+    },
+    "equation": {
+      "numbering": {
+        "format": "1"
+      },
+      "wrapper": "()"
+    },
+    "custom": {
+      "lead": {
+        "size": "13pt",
+        "italic": true
+      },
+      "note": {
+        "size": "9pt",
+        "color": "#4b5563"
+      }
+    }
+  },
+  "header": {
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "variable",
+            "attrs": {
+              "key": "document.title"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Page "
+          },
+          {
+            "type": "variable",
+            "attrs": {
+              "key": "page.current"
+            }
+          },
+          {
+            "type": "text",
+            "text": " of "
+          },
+          {
+            "type": "variable",
+            "attrs": {
+              "key": "page.total"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "footnotes": {
+    "numbering": "document",
+    "separator": {
+      "enabled": true,
+      "thickness": "0.5pt",
+      "color": "#9ca3af"
+    }
+  },
+  "references": {
+    "formats": {
+      "internal-figure": "Figure {{ref.numbering}}",
+      "internal-table": "Table {{ref.numbering}}"
+    }
+  },
+  "sections": [
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true
+    }
+  ]
+}

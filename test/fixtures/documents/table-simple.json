@@ -1,0 +1,633 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "69f5a869"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Tables"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Weekly rainfall",
+            "id": "a6c1c7f7"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "70f5b36e"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "67f5a543"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "66f5a3b0"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "6df5aeb5"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "6cf5ad22"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Rain (mm)"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "6bf5ab8f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "6af5a9fc"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Notes"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "29b808d4"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "26b8041b"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "71f5b501"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day 1"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "28b80741"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "25b80288"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "0"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "2ab80a67"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "27b805ae"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "A brass barometer hangs beside the stairs to the lantern room."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "96b065a6"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "2bb80bfa"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "2cb80d8d"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day 2"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "1db7f5f0"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "1eb7f783"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "3"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "95b06413"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "94b06280"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Fog signals sounded in groups of two when visibility dropped."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "9db070ab"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "98b068cc"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "97b06739"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day 3"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "9ab06bf2"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "99b06a5f"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "6"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "9cb06f18"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "9bb06d85"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "The station records temperature, pressure and humidity each minute."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "1cb3772f"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "19b37276"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "1ab37409"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day 4"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "17b36f50"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "18b370e3"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "9"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "1db378c2"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "1eb37a55"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Readings older than a year move to the archive drive."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "97bf71c3"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "22b380a1"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "1bb3759c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day 5"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "98bf7356"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "21b37f0e"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "96bf7030"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "99bf74e9"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "A bicycle chain needs a drop of oil on every link, then a wipe."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "9ec1bb5f"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "9dbf7b35"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "9cbf79a2"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day 6"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "9bbf780f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "9abf767c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "4"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "a1bf8181"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "a0bf7fee"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Brake pads wear faster in wet weather and on long descents."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "9bc1b6a6"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "a0c1be85"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "9dc1b9cc"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Day 7"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "9ac1b513"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "9fc1bcf2"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "7"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "9cc1b839"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "99c1b380"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "The reading room opens at nine and closes at six on weekdays."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "captionEnabled": false,
+            "id": "28ba45d8"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "2fba50dd"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "2cba4c24"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "a5c1c664"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "No header row"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "2eba4f4a"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "2dba4db7"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Two columns"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
