@@ -6,8 +6,19 @@
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor, TemplateEditor, TemplateJsonEditor } from '../../src/components/index.js';
-import { assignElementIds, createContents, createDocumentEditing } from '../../src/engine/index.js';
+import {
+  DocumentEditor,
+  type DocumentLayout,
+  TemplateEditor,
+  TemplateJsonEditor,
+} from '../../src/components/index.js';
+import {
+  assignElementIds,
+  createContents,
+  createDocumentEditing,
+  createProofing,
+} from '../../src/engine/index.js';
+import { createWordListProofer } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -35,6 +46,12 @@ const resolve = (template: TemplateFile) =>
     baseTemplateId: BASE_TEMPLATE_ID,
   });
 
+// The document is proofed, so the status bar has its proofing menu.
+const PROOFER = createWordListProofer({
+  corrections: { teh: ['the'] },
+  languages: [{ id: 'en-US', label: 'English (United States)' }],
+});
+
 // The template the plugins read, which the lab keeps up with the editor's.
 const current = { template: resolve(OWN) };
 
@@ -49,6 +66,7 @@ function initialState(file?: DocumentFile): EditorState {
     doc: readDocumentFile(file, schema),
     plugins: [
       createContents({ template }),
+      createProofing({ proofer: PROOFER, delay: 200, language: 'en-US' }),
       ...createDocumentEditing(schema, { template, author: () => 'lab' }),
     ],
   });
@@ -61,6 +79,8 @@ function Lab() {
   const [state, setState] = useState(() => initialState());
   const [own, setOwn] = useState<TemplateFile>(OWN);
   const [json, setJson] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [layout, setLayout] = useState<DocumentLayout>('page');
   const resolved = useMemo(() => resolve(own), [own]);
   useEffect(() => {
     current.template = resolved;
@@ -98,6 +118,10 @@ function Lab() {
         state={state}
         onStateChange={setState}
         template={resolved}
+        layout={layout}
+        onLayoutChange={setLayout}
+        zoom={zoom}
+        onZoomChange={setZoom}
         toolbar
         scrollable
         statusBar

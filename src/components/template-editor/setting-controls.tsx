@@ -8,7 +8,7 @@ import { NumberField } from '@flamboyantengineer/ui-components/number-field';
 import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-choice';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import type { TemplateSetting } from './template-settings.js';
 
 /** What a row shows and changes. */
@@ -179,16 +179,33 @@ function FontControl({ value, onChange, fonts = [], common, placeholder }: Contr
 }
 
 function TextControl({ setting, value, onChange, common, placeholder }: ControlProps) {
-  const { type } = setting.kind;
+  const numbering = setting.kind.type === 'numbering';
   return (
     <TextField
       {...common}
       value={shown(value)}
       placeholder={placeholder}
+      // A numbering format keeps what it may hold; text is kept as typed, spaces too.
+      onChange={(text) => onChange(numbering ? cleanNumbering(text) : text)}
+    />
+  );
+}
+
+// A length, such as `12pt` or `20mm`: what is typed shows as it is, and is kept once it reads as
+// a length, or cleared.
+function LengthControl({ value, onChange, common, placeholder }: ControlProps) {
+  const external = shown(value);
+  const [draft, setDraft] = useState({ text: external, from: external });
+  return (
+    <TextField
+      {...common}
+      value={draft.from === external ? draft.text : external}
+      placeholder={placeholder}
       onChange={(text) => {
-        // A numbering format keeps what it may hold; a length is kept once it reads as one.
-        if (type === 'numbering') onChange(cleanNumbering(text));
-        else if (type !== 'length' || !text || LENGTH.test(text.trim())) onChange(text.trim());
+        const length = text.trim();
+        const valid = !length || LENGTH.test(length);
+        setDraft({ text, from: valid ? length : external });
+        if (valid) onChange(length || null);
       }}
     />
   );
@@ -203,7 +220,7 @@ const CONTROLS = {
   points: PointsControl,
   font: FontControl,
   text: TextControl,
-  length: TextControl,
+  length: LengthControl,
   numbering: TextControl,
 } as const;
 
