@@ -178,10 +178,10 @@ test.describe('template editor lab', () => {
       'A4 (210 × 297 mm)',
     );
     // The inherited value names where it comes from.
-    await expect(settings.locator('.de-template-editor__field[title]').first()).toHaveAttribute(
-      'title',
-      /^Inherited from Base template: /,
-    );
+    await expect(settings.getByRole('textbox', { name: 'Top margin' })).toBeVisible();
+    await expect(
+      settings.getByText(/^Inherited from Base template: /, { exact: false }).first(),
+    ).toBeAttached();
     // A font typed or picked.
     const paragraph = await card(page, 'Paragraph');
     const font = paragraph.getByRole('combobox', { name: 'Font' });

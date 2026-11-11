@@ -69,19 +69,13 @@ function Field({
   return <SettingControl {...props} />;
 }
 
-/** The font and its size, in points. */
+/** The font and its size in points, on one row. */
 export function FontRow({ scope }: { scope: StyleScope }) {
   const { labels } = scope.context;
   return (
-    <PropertyRow label={labels.font} unit="pt">
-      <PropertyStrip>
-        <PropertyStripCell letter="Aa" label={labels.font}>
-          <Field scope={scope} name="font" label={labels.font} kind={{ type: 'font' }} />
-        </PropertyStripCell>
-        <PropertyStripCell letter="pt" label={labels.size}>
-          <Field scope={scope} name="size" label={labels.size} kind={{ type: 'points' }} />
-        </PropertyStripCell>
-      </PropertyStrip>
+    <PropertyRow label={labels.font} keywords={[labels.size]} unit="pt">
+      <Field scope={scope} name="font" label={labels.font} kind={{ type: 'font' }} />
+      <Field scope={scope} name="size" label={labels.size} kind={{ type: 'points' }} />
     </PropertyRow>
   );
 }
