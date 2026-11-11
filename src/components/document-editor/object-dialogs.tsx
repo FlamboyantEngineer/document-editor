@@ -185,7 +185,12 @@ export function ObjectDialogs({
       return <LinkDialog {...shared} />;
     case 'reference':
       return (
-        <ReferenceDialog {...shared} template={hosted.template} source={hosted.referenceSource} />
+        <ReferenceDialog
+          {...shared}
+          template={hosted.template}
+          source={hosted.referenceSource}
+          reference={dialog.reference}
+        />
       );
     case 'abbreviation':
       return hosted.glossary ? <AbbreviationDialog {...shared} glossary={hosted.glossary} /> : null;

@@ -50,6 +50,8 @@ export interface InsertFeatures {
   readonly customStyles?: readonly string[] | undefined;
   /** The template, whose sections a writer may add the section menu offers. */
   readonly template?: TemplateFile | undefined;
+  /** Whether the host finds references to other documents, which the reference menu offers. */
+  readonly references?: boolean | undefined;
   /** Whether the host runs scripts, which the script button then inserts. */
   readonly scripts?: boolean | undefined;
 }
@@ -249,14 +251,29 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
       entries: contentsEntries,
     },
     {
-      kind: 'button',
+      kind: 'menu',
       id: 'reference',
       label: labels.reference,
       icon: <span>§</span>,
-      shortcut: 'Ctrl+K',
-      run: (context) => context.openDialog({ kind: 'reference' }),
       isEnabled: (context) =>
         context.editable && !context.locked && canInsertReference(context.state),
+      entries: (context) => [
+        {
+          id: 'internal-reference',
+          label: labels.internalReference,
+          shortcut: 'Ctrl+K',
+          onAction: () => context.openDialog({ kind: 'reference', reference: 'internal' }),
+        },
+        ...(features.references
+          ? [
+              {
+                id: 'external-reference',
+                label: labels.externalReference,
+                onAction: () => context.openDialog({ kind: 'reference', reference: 'external' }),
+              },
+            ]
+          : []),
+      ],
     },
     ...hostItems(labels, features),
     sectionItem(labels, features),

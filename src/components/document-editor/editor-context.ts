@@ -20,7 +20,7 @@ export type ObjectDialog =
   | { readonly kind: 'link' }
   | { readonly kind: 'linked-code' }
   | { readonly kind: 'caption' }
-  | { readonly kind: 'reference' }
+  | { readonly kind: 'reference'; readonly reference?: 'internal' | 'external' | undefined }
   | { readonly kind: 'abbreviation' }
   | { readonly kind: 'script' };
 

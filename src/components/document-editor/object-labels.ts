@@ -77,6 +77,13 @@ export interface ObjectLabels {
   readonly removeReference: string;
   readonly goToTarget: string;
   readonly referenceTarget: string;
+  readonly internalReference: string;
+  readonly externalReference: string;
+  /** Names the kind of target a reference in this document points to. */
+  readonly referenceKind: string;
+  readonly referenceKinds: Readonly<
+    Record<'heading' | 'figure' | 'table' | 'codeblock' | 'equation', string>
+  >;
   readonly otherDocument: string;
   readonly abbreviation: string;
   readonly abbreviationText: string;
@@ -171,12 +178,22 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
     return across === 'center' && vertical === 'middle' ? 'Center' : `${down} ${across}`;
   },
   distributeColumns: 'Distribute columns',
-  reference: 'Reference…',
+  reference: 'Reference',
   editReference: 'Edit reference…',
   removeReference: 'Remove reference',
   goToTarget: 'Go to target',
-  referenceTarget: 'In this document',
-  otherDocument: 'In another document',
+  referenceTarget: 'Target',
+  internalReference: 'Reference in this document…',
+  externalReference: 'Reference to another document…',
+  referenceKind: 'Target type',
+  referenceKinds: {
+    heading: 'Heading',
+    figure: 'Figure',
+    table: 'Table',
+    codeblock: 'Code block',
+    equation: 'Equation',
+  },
+  otherDocument: 'Document',
   abbreviation: 'Abbreviation…',
   abbreviationText: 'Abbreviation',
   expansion: 'Expansion',
