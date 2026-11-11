@@ -61,4 +61,41 @@ describe('page variables', () => {
     expect(header?.textContent).toBe('Timing notes');
     view.destroy();
   });
+
+  it('DOCE-PAGINATION-8.3 shows variables in the text, by the page they are on, and the date', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  text('Page '),
+                  variable('page.current'),
+                  text(' of '),
+                  variable('page.total'),
+                  text(', '),
+                  variable('date.current'),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({
+        doc,
+        plugins: [createPageVariables({ now: () => new Date(2026, 1, 3), locale: 'en-US' })],
+      }),
+    });
+    expect(view.dom.querySelector('.pm-page-content p')?.textContent).toBe(
+      'Page 1 of 1, February 3, 2026',
+    );
+    view.destroy();
+  });
 });

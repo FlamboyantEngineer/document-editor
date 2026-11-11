@@ -413,3 +413,36 @@
   flex-direction: column;
   align-items: flex-start;
 }
+
+/* Who wrote what, while the editor shows authorship: each writer's text tinted in their slot. */
+.de-document-editor[data-authorship='true'] [data-author-slot='0'] {
+  background: color-mix(in srgb, #0969da 14%, transparent);
+}
+
+.de-document-editor[data-authorship='true'] [data-author-slot='1'] {
+  background: color-mix(in srgb, #bf3989 14%, transparent);
+}
+
+.de-document-editor[data-authorship='true'] [data-author-slot='2'] {
+  background: color-mix(in srgb, #1a7f37 14%, transparent);
+}
+
+.de-document-editor[data-authorship='true'] [data-author-slot='3'] {
+  background: color-mix(in srgb, #9a6700 14%, transparent);
+}
+
+.de-document-editor[data-authorship='true'] [data-author-slot='4'] {
+  background: color-mix(in srgb, #8250df 14%, transparent);
+}
+
+.de-document-editor[data-authorship='true'] [data-author-slot='5'] {
+  background: color-mix(in srgb, #cf222e 14%, transparent);
+}
+
+.de-document-editor[data-authorship='true'] [data-author-slot='6'] {
+  background: color-mix(in srgb, #1b7c83 14%, transparent);
+}
+
+.de-document-editor[data-authorship='true'] [data-author-slot='7'] {
+  background: color-mix(in srgb, #953800 14%, transparent);
+}

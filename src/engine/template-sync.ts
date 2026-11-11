@@ -8,7 +8,7 @@ import type { Command } from 'prosemirror-state';
 import {
   findTemplateSection,
   joinDocumentPages,
-  readStoredContent,
+  readTemplateContent,
   type TemplateFile,
 } from '../model/index.js';
 import { joinedTransaction, sectionOf } from './document-sections.js';
@@ -65,7 +65,7 @@ export function templateSectionDrift(doc: ProseMirrorNode, template: TemplateFil
       continue;
     }
     if (section.editable !== false || !section.content?.length) continue;
-    const expected = readStoredContent(section.content, doc.type.schema);
+    const expected = readTemplateContent(section.content, doc.type.schema);
     if (fingerprint(expected) !== fingerprint(blocksOf(content))) {
       drift.push({ kind: 'stale', name });
     }
@@ -75,7 +75,7 @@ export function templateSectionDrift(doc: ProseMirrorNode, template: TemplateFil
 
 // The template content a section starts with, or an empty paragraph.
 function templateContent(doc: ProseMirrorNode, content: unknown): Fragment {
-  const blocks = readStoredContent(content ?? [], doc.type.schema);
+  const blocks = readTemplateContent(content ?? [], doc.type.schema);
   const paragraph = doc.type.schema.nodes.paragraph?.createAndFill();
   return Fragment.from(blocks.length ? blocks : paragraph ? [paragraph] : []);
 }

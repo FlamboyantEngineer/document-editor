@@ -219,6 +219,7 @@ function Lab() {
   const [zoom, setZoom] = useState(100);
   const [collaborators, setCollaborators] = useState(false);
   const [panels, setPanels] = useState(false);
+  const [authorship, setAuthorship] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
   // What the host's feedback last told the reader, such as a failed upload.
@@ -277,6 +278,15 @@ function Lab() {
           />{' '}
           Outline and search
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="authorship"
+            checked={authorship}
+            onChange={(event) => setAuthorship(event.currentTarget.checked)}
+          />{' '}
+          Authorship
+        </label>
       </fieldset>
       <AgentPanel view={view} />
       <HostPanel report={host.report} handle={handle} />
@@ -305,6 +315,7 @@ function Lab() {
         contextMenu={HOST_CONTEXT_MENU}
         scrollable
         statusBar
+        authorship={authorship}
         find
         zoom={zoom}
         onZoomChange={setZoom}

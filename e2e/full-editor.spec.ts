@@ -103,4 +103,19 @@ test.describe('full editor lab', () => {
     await page.keyboard.type(' plan');
     await expect(report).toContainText('2 suggestions');
   });
+
+  test('DOCE-COLLAB-3.2 shows who wrote what while asked', async ({ lab, page }) => {
+    await lab.open('full-editor');
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Written by Ada');
+    const written = content(page).locator('p', { hasText: 'Written by Ada' });
+    await expect(written.locator('[data-author-slot]')).toHaveCount(0);
+    await page.getByLabel('Authorship').check();
+    await expect(page.locator('.de-document-editor')).toHaveAttribute('data-authorship', 'true');
+    await expect(written.locator('[data-author="ada"]')).toHaveCount(1);
+    await page.getByLabel('Authorship').uncheck();
+    await expect(written.locator('[data-author-slot]')).toHaveCount(0);
+  });
 });

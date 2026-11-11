@@ -19,6 +19,7 @@ import {
   findTemplateSection,
   joinDocumentPages,
   readStoredContent,
+  readTemplateContent,
   sectionRestartsNumbering,
   setPageRegions,
   type TemplateFile,
@@ -160,7 +161,7 @@ export function sectionOf(
 // The content a new section starts with: its template section's, or an empty paragraph.
 function startingContent(state: EditorState, section: TemplateSection | null): Fragment {
   if (section?.content?.length)
-    return Fragment.from(readStoredContent(section.content, state.schema));
+    return Fragment.from(readTemplateContent(section.content, state.schema));
   const paragraph = state.schema.nodes.paragraph?.createAndFill();
   return paragraph ? Fragment.from(paragraph) : Fragment.empty;
 }
