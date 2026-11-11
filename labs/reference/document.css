@@ -825,3 +825,10 @@
   color: var(--doc-custom-color, var(--doc-heading-6-color));
   font-style: var(--doc-custom-font-style, normal);
 }
+
+/* An empty section's placeholder, read as a hint. */
+.de-section-placeholder {
+  color: #94a3b8;
+  font-style: italic;
+  pointer-events: none;
+}

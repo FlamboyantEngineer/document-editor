@@ -18,6 +18,13 @@ After a change, the plugin shall set each page's header and footer to its sectio
 Implementation: `src/engine/document-sections.ts`
 Verification: `src/engine/document-sections.test.ts`
 
+### DOCE-SECTIONS-1.3 - Placeholders
+
+While a section is empty, one page holding one empty text block, the plugin shall draw its template section's placeholder (`placeholder`) in that block (`de-section-placeholder`), which the writer's first character replaces.
+
+Implementation: `src/engine/document-sections.ts`
+Verification: `src/engine/document-sections.test.ts`, `e2e/sections.spec.ts`
+
 ## DOCE-SECTIONS-2 - Section commands
 
 ### DOCE-SECTIONS-2.1 - Starting a section
@@ -103,6 +110,7 @@ Verification: `src/engine/template-sync.test.ts`
 
 ## Hooks
 
-| Hook             | Kind      | Values    | Description                                             |
-| ---------------- | --------- | --------- | ------------------------------------------------------- |
-| `data-numbering` | attribute | `restart` | On a section whose template section restarts numbering. |
+| Hook                     | Kind      | Values    | Description                                             |
+| ------------------------ | --------- | --------- | ------------------------------------------------------- |
+| `data-numbering`         | attribute | `restart` | On a section whose template section restarts numbering. |
+| `de-section-placeholder` | root      |           | The placeholder an empty section shows.                 |

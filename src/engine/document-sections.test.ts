@@ -99,6 +99,24 @@ describe('section scopes', () => {
     expect(width(attrs[1]?.style)).toBeGreaterThan(height(attrs[1]?.style));
   });
 
+  it('DOCE-SECTIONS-1.3 shows an empty section its placeholder', () => {
+    const template: TemplateFile = {
+      ...TEMPLATE,
+      sections: [{ name: 'summary', placeholder: [paragraph('Summarise the results.')] }],
+    };
+    const state = (content: StoredNode[]) =>
+      EditorState.create({
+        doc: read({ name: 'summary', content }),
+        plugins: [createDocumentSections({ template: () => template })],
+      });
+    const widgets = (current: EditorState) =>
+      (documentSectionsKey.getState(current)?.find() ?? []).filter((decoration) =>
+        String((decoration.spec as { key?: string }).key ?? '').startsWith('placeholder'),
+      );
+    expect(widgets(state([{ type: 'paragraph' }]))).toHaveLength(1);
+    expect(widgets(state([paragraph('Written')]))).toHaveLength(0);
+  });
+
   it('DOCE-SECTIONS-1.2 keeps each page header its section’s, outside the history', () => {
     const doc = read(
       { name: null, content: [paragraph('Body')] },

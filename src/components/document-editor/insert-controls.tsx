@@ -23,6 +23,7 @@ import {
   insertCharacter,
   insertCodeBlock,
   insertContents,
+  insertDocumentSection,
   insertFootnote,
   insertMath,
   linkAt,
@@ -30,7 +31,7 @@ import {
   setLink,
   setLinkedCode,
 } from '../../engine/index.js';
-import { DEFAULT_CONTENTS_KINDS } from '../../model/index.js';
+import { DEFAULT_CONTENTS_KINDS, type TemplateFile } from '../../model/index.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import type { ToolbarButtonItem, ToolbarItem } from './toolbar-items.js';
@@ -45,6 +46,8 @@ export interface InsertFeatures {
   readonly glossary: boolean;
   /** The template's custom styles, which the text style field offers after the others. */
   readonly customStyles?: readonly string[] | undefined;
+  /** The template, whose sections a writer may add the section menu offers. */
+  readonly template?: TemplateFile | undefined;
 }
 
 // Whether a command can run, while the writer can edit there.
@@ -142,6 +145,30 @@ const contentsEntries = (context: EditorContext): MenuEntry[] =>
     entry(context, { id: kind, label: context.labels.contentsKind(kind) }, insertContents(kind)),
   );
 
+// The template sections a writer may add, each started after the caret's block.
+function sectionEntries(context: EditorContext, template: TemplateFile): MenuEntry[] {
+  return (template.sections ?? [])
+    .filter((section) => section.insertable === true)
+    .map((section) =>
+      entry(
+        context,
+        { id: `section-${section.name}`, label: section.label || section.name },
+        insertDocumentSection(template, section.name),
+      ),
+    );
+}
+
+// The section menu, shown while the template has sections a writer may add.
+const sectionItem = (labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem => ({
+  kind: 'menu',
+  id: 'section',
+  label: labels.section,
+  icon: <span>§§</span>,
+  entries: (context) => (features.template ? sectionEntries(context, features.template) : []),
+  isVisible: () =>
+    Boolean(features.template?.sections?.some((section) => section.insertable === true)),
+});
+
 /** The insert group's items after the table and the page break. */
 export function insertItems(labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem[] {
   return [
@@ -208,6 +235,7 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
           },
         ]
       : []),
+    sectionItem(labels, features),
     {
       kind: 'custom',
       id: 'symbol',

@@ -94,4 +94,24 @@ test.describe('sections lab', () => {
       if (next) expect(next.y - box.bottom).toBeCloseTo(24, 0);
     }
   });
+
+  test('DOCE-SECTIONS-1.3 DOCE-EDITOR-4.7 adds a section from the toolbar, showing its placeholder until written', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('sections');
+    const content = page.locator('.de-document-editor__content');
+    // The last block of the main section, so the new section starts empty.
+    await content.locator('.pm-section').first().locator('.pm-page-content > *').last().click();
+    await page
+      .getByRole('toolbar', { name: 'Formatting' })
+      .getByRole('button', { name: 'Section' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Summary' }).click();
+    const placeholder = content.locator('.de-section-placeholder');
+    await expect(placeholder).toHaveText('Summarise the findings.');
+    await page.keyboard.type('Results hold.');
+    await expect(placeholder).toHaveCount(0);
+    await expect(content).toContainText('Results hold.');
+  });
 });
