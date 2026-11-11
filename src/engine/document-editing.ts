@@ -11,7 +11,6 @@ import {
   joinForward,
   liftEmptyBlock,
   newlineInCode,
-  setBlockType,
   toggleMark,
 } from 'prosemirror-commands';
 import { gapCursor } from 'prosemirror-gapcursor';
@@ -26,6 +25,7 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../model/index.js';
+import { setTextblockType } from './block-type.js';
 import { createCommentDraft } from './comment-draft.js';
 import { createCustomStyles } from './custom-styles.js';
 import {
@@ -91,9 +91,9 @@ function blockKeys(schema: Schema): Record<string, Command> {
   const { heading, paragraph, bullet_list: bullets, ordered_list: ordered } = schema.nodes;
   if (heading) {
     for (let level = 1; level <= 6; level += 1)
-      keys[`Mod-Shift-${String(level)}`] = setBlockType(heading, { level });
+      keys[`Mod-Shift-${String(level)}`] = setTextblockType(heading, { level });
   }
-  if (paragraph) keys['Mod-Shift-0'] = setBlockType(paragraph);
+  if (paragraph) keys['Mod-Shift-0'] = setTextblockType(paragraph);
   if (bullets) keys['Mod-Shift-8'] = wrapInListAndJoin(bullets);
   if (ordered) keys['Mod-Shift-7'] = wrapInListAndJoin(ordered);
   return keys;

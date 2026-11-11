@@ -4,9 +4,14 @@
 // host adds entries to any menu, or a menu of its own, and arranges them.
 
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
-import { selectAll, setBlockType } from 'prosemirror-commands';
+import { selectAll } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
-import { insertTable, runScripts, selectNextProofingIssue } from '../../engine/index.js';
+import {
+  insertTable,
+  runScripts,
+  selectNextProofingIssue,
+  setTextblockType,
+} from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
 import type { EditorContext } from './editor-context.js';
 import type { ToolbarGroup, ToolbarItem } from './toolbar-items.js';
@@ -140,7 +145,7 @@ function formatMenu(context: EditorContext, features: MenubarFeatures): Document
             id: 'paragraph',
             label: labels.paragraph,
             shortcut: 'Ctrl+Shift+0',
-            onAction: () => context.run(setBlockType(paragraph)),
+            onAction: () => context.run(setTextblockType(paragraph)),
           },
         ]
       : []),
@@ -149,7 +154,7 @@ function formatMenu(context: EditorContext, features: MenubarFeatures): Document
           id: `heading-${String(level)}`,
           label: labels.heading(level),
           shortcut: `Ctrl+Shift+${String(level)}`,
-          onAction: () => context.run(setBlockType(heading, { level })),
+          onAction: () => context.run(setTextblockType(heading, { level })),
         }))
       : []),
   ];
