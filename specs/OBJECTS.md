@@ -48,7 +48,7 @@ Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.7 - Typeset math
 
-`createMathViews({ render })`, which the editing plugins install, shall draw each inline and display math node (`de-math`, with `data-display`) as its typeset MathML, through the base library's KaTeX renderer by default, in every view, the pages' measuring view too: the LaTeX source shows while it typesets (`data-state="pending"`), the MathML once it has (`ready`), kept to MathML's own elements and attributes, and the source, with the renderer's reason, when it does not typeset (`invalid`). A math node or an image whose size changes once drawn has the pages measured again (`de-remeasure`).
+`createMathViews({ render })`, which the editing plugins install, shall draw each inline and display math node (`de-math`, with `data-display`) as its typeset MathML, through the base library's KaTeX renderer by default, in every view, the pages' measuring view too: the LaTeX source shows while it typesets (`data-state="pending"`), the MathML once it has (`ready`), built by the base library's `renderMathElement`, which keeps only MathML's own elements and attributes, and the source, with the renderer's reason, when it does not typeset (`invalid`). A math node or an image whose size changes once drawn has the pages measured again (`de-remeasure`).
 
 Implementation: `src/engine/math-views.ts`, `src/pagination/pagination.ts`, `src/utils/remeasure.ts`
 Verification: `e2e/objects.spec.ts`

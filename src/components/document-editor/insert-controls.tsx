@@ -77,6 +77,15 @@ const entry = (
   onAction: () => context.run(command),
 });
 
+// The font of the text at the caret, which the symbols show in.
+function fontAtCaret({ view }: EditorContext): string | undefined {
+  if (!view) return undefined;
+  const { node } = view.domAtPos(view.state.selection.from);
+  const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
+  const window = element?.ownerDocument.defaultView;
+  return element && window ? window.getComputedStyle(element).fontFamily || undefined : undefined;
+}
+
 function SymbolButton({
   context,
   symbols,
@@ -100,6 +109,7 @@ function SymbolButton({
         <CharacterGrid
           aria-label={labels.symbol}
           categories={symbols}
+          fontFamily={isOpen ? fontAtCaret(context) : undefined}
           autoFocus
           onSelect={({ char }) => {
             setOpen(false);

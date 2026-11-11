@@ -18,6 +18,7 @@ import type { CommentThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
 import { type CardContext, DEFAULT_COMMENTS_LABELS, ThreadCard } from './comment-cards.js';
+import { useCommentMentions } from './comment-mentions.js';
 import type { DocumentCommentsOptions } from './document-comments.js';
 import { useCommentThreads } from './use-comment-threads.js';
 
@@ -66,7 +67,15 @@ export function DocumentCommentsPanel(props: DocumentCommentsPanelProps) {
   const canComment = props.canComment ?? true;
   const anchors = useMemo(() => (context ? listCommentAnchors(context.state.doc) : []), [context]);
   const shown = listed(comments.threads, anchors, { filter, me });
-  const card: CardContext = { comments, me, canComment, labels, documentId: props.documentId };
+  const mentions = useCommentMentions(props.identity);
+  const card: CardContext = {
+    comments,
+    me,
+    canComment,
+    labels,
+    documentId: props.documentId,
+    mentions,
+  };
   const view = context?.view ?? null;
   const goTo = (anchor: CommentAnchor) => {
     if (!view) return;
