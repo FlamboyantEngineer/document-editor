@@ -3,8 +3,9 @@
 // proofers, find and replace, zoom, the toolbar, status bar and scrolling frame, the host's own
 // toolbar items, context menu entries and locked paragraph, collaborators' carets, an agent
 // working through the automation API, figures and linked code through the host's assets and code
-// source, references and abbreviations through its citations and glossary, and the outline and
-// search panels beside the document.
+// source, references and abbreviations through its citations and glossary, and side panels beside
+// the document: the outline and search at its start, the properties and the host's own panes at its
+// end.
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -14,8 +15,6 @@ import {
   DocumentEditor,
   type DocumentEditorHandle,
   type DocumentMarkup,
-  DocumentOutline,
-  DocumentSearchPane,
 } from '../../src/components/index.js';
 import {
   assignElementIds,
@@ -42,6 +41,7 @@ import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
+import { labPanels } from './host-panes.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { chapter, heading, sampleDocument, text } from './lab-document.js';
 import { pagesLaidOut } from './lab-ready.js';
@@ -304,7 +304,7 @@ function Lab() {
   const [markup, setMarkup] = useState<DocumentMarkup>('all');
   const [zoom, setZoom] = useState(100);
   const [collaborators, setCollaborators] = useState(false);
-  const [panels, setPanels] = useState(false);
+  const [panels, setPanels] = useState(true);
   const [authorship, setAuthorship] = useState(false);
   const [markers, setMarkers] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
@@ -365,7 +365,7 @@ function Lab() {
               checked={panels}
               onChange={(event) => setPanels(event.currentTarget.checked)}
             />{' '}
-            Outline and search
+            Side panels
           </label>
           <label>
             <input
@@ -437,6 +437,9 @@ function Lab() {
             presentation: markers ? 'markers' : 'cards',
           }
         }
+        panels={
+          panels ? labPanels({ template: TEMPLATE, comments, identity: HOST.identity }) : undefined
+        }
         className="lab-document-editor"
         aria-label="Sample document"
         events={{
@@ -445,14 +448,7 @@ function Lab() {
             if (isPaginationTransaction(tr)) pagesLaidOut();
           },
         }}
-      >
-        {panels ? (
-          <aside className="lab-panels">
-            <DocumentOutline template={TEMPLATE} aria-label="Document outline" />
-            <DocumentSearchPane template={TEMPLATE} onClose={() => setPanels(false)} />
-          </aside>
-        ) : null}
-      </DocumentEditor>
+      ></DocumentEditor>
     </>
   );
 }

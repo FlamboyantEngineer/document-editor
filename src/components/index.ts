@@ -43,8 +43,22 @@ export {
   useDocumentEditor,
   ZOOM_LEVELS,
 } from './document-editor/index.js';
-export type { DocumentOutlineProps, DocumentSearchPaneProps } from './document-panels/index.js';
-export { DocumentOutline, DocumentSearchPane } from './document-panels/index.js';
+export type {
+  BuiltInPane,
+  DocumentOutlineProps,
+  DocumentPane,
+  DocumentPanelsLabels,
+  DocumentPropertiesProps,
+  DocumentSearchPaneProps,
+  DocumentSidePanelProps,
+} from './document-panels/index.js';
+export {
+  DEFAULT_PANELS_LABELS,
+  DocumentOutline,
+  DocumentProperties,
+  DocumentSearchPane,
+  DocumentSidePanel,
+} from './document-panels/index.js';
 export type {
   SettingKind,
   TemplateEditorLabels,
