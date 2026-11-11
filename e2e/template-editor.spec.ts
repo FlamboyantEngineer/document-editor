@@ -215,6 +215,11 @@ test.describe('template editor lab', () => {
     await expect(heading.getByRole('textbox', { name: 'Line height' })).toHaveCount(0);
     // The margins, one row of four sides, in millimetres on an A4 page.
     const top = settings.getByRole('textbox', { name: 'Top margin' });
+    // The four sides fit across the settings panel.
+    const margins = settings.locator('.ui-four-side-property-strip');
+    expect(await margins.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true,
+    );
     await expect(top).toHaveAttribute('placeholder', '25.4');
     await top.fill('40');
     await top.press('Enter');
