@@ -2,7 +2,7 @@
 // lays each section out on pages; the stored one holds the content alone. A footnote is stored where
 // it is cited, with its text, and the editor keeps its text in the page's footnote area.
 
-import type { Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import type { Fragment, Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { FRAGMENT_RULES, type FragmentRules, joinFragments } from '../pagination/fragments.js';
 import {
   DOCUMENT_FORMAT_VERSION,
@@ -119,6 +119,14 @@ function writeNode(node: ProseMirrorNode, context: WriteContext): StoredNode {
   if (name === 'template_variable' || node.isLeaf) return stored;
   const content = writeChildren(node, context);
   if (content.length) stored.content = content;
+  return stored;
+}
+
+/** The stored form of content outside a document, such as a page region's, footnotes left out. */
+export function writeStoredContent(content: Fragment): StoredContent {
+  const context: WriteContext = { footnotes: new Map() };
+  const stored: StoredContent = [];
+  content.forEach((node) => stored.push(writeNode(node, context)));
   return stored;
 }
 

@@ -6,7 +6,12 @@ import { keydownHandler } from 'prosemirror-keymap';
 import type { Command, EditorState, Selection, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef } from 'react';
-import { proofingKey, repairElementIds, type Suggestion } from '../../engine/index.js';
+import {
+  proofingKey,
+  type RegionChange,
+  repairElementIds,
+  type Suggestion,
+} from '../../engine/index.js';
 import { isPaginationTransaction } from '../../pagination/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
 import type { ChangeBar } from './use-change-notifications.js';
@@ -28,6 +33,11 @@ export interface DocumentEditorNotifications {
   readonly onSuggestionsChange?: ((suggestions: readonly Suggestion[]) => void) | undefined;
   /** The change bars a comparison draws changed, measured on their pages (`ChangeBar`). */
   readonly onChangeBarsChange?: ((bars: readonly ChangeBar[]) => void) | undefined;
+  /**
+   * Makes the pages' headers and footers editable in place, as a template editor does: each edit
+   * shows on every page of its section and is handed here to write into the template.
+   */
+  readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /** The host's own keys, such as `Mod-s`, which run before the editor's. */
   readonly keymap?: Readonly<Record<string, Command>> | undefined;
 }

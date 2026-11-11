@@ -43,7 +43,6 @@ export {
 export type { DocumentOutlineProps, DocumentSearchPaneProps } from './document-panels/index.js';
 export { DocumentOutline, DocumentSearchPane } from './document-panels/index.js';
 export type {
-  RegionContentLabels,
   SettingKind,
   TemplateEditorLabels,
   TemplateEditorProps,
@@ -63,6 +62,7 @@ export {
   TemplateJsonEditor,
   TEXT_STYLE_SETTINGS,
   TEXT_STYLES,
+  withRegionChange,
   withSection,
   withSetting,
 } from './template-editor/index.js';

@@ -12,11 +12,13 @@ import {
   createAuthorship,
   createChangeLines,
   createDocumentSections,
+  createRegionEditing,
   createSearch,
   createVersionChanges,
   documentSectionsKey,
   proofingKey,
   refreshVersionChanges,
+  type RegionChange,
   searchKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
@@ -32,6 +34,43 @@ import { createPageDebug, createPagination, pageDebugKey } from '../../paginatio
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
 export type DocumentLayout = 'page' | 'web';
+
+// The plugins the layout adds to the editor's own, reading the options as they are now.
+function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
+  return [
+    createPageDebug({ shown: () => latest.current.debug === true }),
+    createSearch(),
+    createAuthorship(),
+    createRegionEditing({
+      enabled: () => Boolean(latest.current.onRegionChange),
+      template: () => latest.current.template,
+      onChange: (change) => latest.current.onRegionChange?.(change),
+    }),
+    createDocumentSections({ template: () => latest.current.template }),
+    createChangeLines(),
+    createVersionChanges({
+      previous: () => latest.current.compare?.previous ?? null,
+      display: () => latest.current.compare?.display ?? 'markup',
+      suggestions: () => latest.current.compare?.suggestions ?? 'rejected',
+    }),
+  ];
+}
+
+// Editing the regions in place, or no longer, sets them again: editable or read-only.
+function useRegionsEditable(
+  editable: boolean,
+  onStateChange: (update: RichTextStateUpdate) => void,
+) {
+  const latest = useRef(onStateChange);
+  useEffect(() => {
+    latest.current = onStateChange;
+  });
+  useEffect(() => {
+    latest.current((state) =>
+      state.apply(state.tr.setMeta(documentSectionsKey, true).setMeta('addToHistory', false)),
+    );
+  }, [editable]);
+}
 
 // Showing or hiding the layout for debugging draws the pages again.
 function useLayoutDebug(
@@ -57,6 +96,8 @@ export interface DocumentLayoutOptions {
   readonly compare: DocumentComparison | null;
   /** Shows the pages' layout for debugging (DOCE-PAGINATION-7.4). */
   readonly debug?: boolean | undefined;
+  /** Edits the pages' headers and footers in place, handing each edit here. */
+  readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
 }
 
 /** An older version to show a document's changes from, as change bars or marked in place. */
@@ -144,18 +185,7 @@ export function useDocumentLayout(
   const paginationPlugin = useRef<Plugin | null>(null);
 
   useEffect(() => {
-    const own = [
-      createPageDebug({ shown: () => latest.current.debug === true }),
-      createSearch(),
-      createAuthorship(),
-      createDocumentSections({ template: () => latest.current.template }),
-      createChangeLines(),
-      createVersionChanges({
-        previous: () => latest.current.compare?.previous ?? null,
-        display: () => latest.current.compare?.display ?? 'markup',
-        suggestions: () => latest.current.compare?.suggestions ?? 'rejected',
-      }),
-    ];
+    const own = layoutOwnPlugins(latest);
     ownPlugins.current = own;
     const { onStateChange } = latest.current;
     onStateChange((state) =>
@@ -212,4 +242,5 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [previous, display, suggestions]);
   useLayoutDebug(options.debug, options.onStateChange);
+  useRegionsEditable(Boolean(options.onRegionChange), options.onStateChange);
 }

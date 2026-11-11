@@ -6,6 +6,7 @@ const panel = (page: Page) =>
 const content = (page: Page) => page.locator('.de-document-editor__content');
 const style = (page: Page, selector: string, property: string) =>
   content(page)
+    .locator('.pm-page-content')
     .locator(selector)
     .first()
     .evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
@@ -87,15 +88,20 @@ test.describe('template editor lab', () => {
     await expect(json).toContainText('"orientation": "landscape"');
   });
 
-  test('DOCE-TEMPLATE-EDITOR-1.4 edits the header content as a document', async ({ lab, page }) => {
+  test('DOCE-TEMPLATE-EDITOR-1.4 DOCE-SECTIONS-5.1 edits the header in place on the pages', async ({
+    lab,
+    page,
+  }) => {
     await lab.open('template-editor');
-    const settings = panel(page).first();
-    await settings.getByRole('button', { name: 'Header content' }).click();
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('textbox', { name: 'Header content' }).click();
-    await page.keyboard.type('Programme review');
-    await dialog.getByRole('button', { name: 'Apply' }).click();
-    await expect(content(page).locator('.pm-page-header').first()).toContainText(
+    const headers = content(page).locator('.pm-page-header');
+    await expect(headers.first()).not.toHaveAttribute('contenteditable', 'false');
+    await headers.first().locator('p').last().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' Programme review');
+    // Every page of the section shows it, and the template holds it.
+    await expect(headers.nth(1)).toContainText('Programme review');
+    await page.getByLabel('Edit as JSON').check();
+    await expect(page.getByRole('textbox', { name: 'Template JSON' })).toContainText(
       'Programme review',
     );
   });
@@ -132,7 +138,7 @@ test.describe('template editor lab', () => {
     await lab.open('template-editor');
     const settings = panel(page).first();
     await settings.getByRole('button', { name: 'Add a style' }).click();
-    const paragraph = content(page).locator('p').nth(2);
+    const paragraph = content(page).locator('.pm-page-content p').nth(2);
     await paragraph.click();
     const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
     await toolbar.getByRole('button', { name: /Text style/ }).click();

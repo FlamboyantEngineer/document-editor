@@ -102,6 +102,19 @@ export {
   removeReference,
   updateReferences,
 } from './references.js';
+export type {
+  PageRegion,
+  RegionChange,
+  RegionEditingOptions,
+  RegionEdits,
+} from './region-editing.js';
+export {
+  createRegionEditing,
+  editsRegions,
+  regionEditingKey,
+  regionEdits,
+  regionKey,
+} from './region-editing.js';
 export type { RevealOptions } from './reveal.js';
 export { revealElement } from './reveal.js';
 export type { ScriptBlockAt } from './scripts.js';

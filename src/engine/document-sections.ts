@@ -26,6 +26,7 @@ import {
   templateProperties,
   type TemplateSection,
 } from '../model/index.js';
+import { editsRegions, regionEdits } from './region-editing.js';
 
 /** How a document's sections are shown. */
 export interface DocumentSectionsOptions {
@@ -106,7 +107,10 @@ export function createDocumentSections({ template }: DocumentSectionsOptions): P
     },
     appendTransaction(transactions, _before, after) {
       if (!transactions.some((tr) => tr.docChanged || tr.getMeta(documentSectionsKey))) return null;
-      const tr = setPageRegions(after.tr, template());
+      const tr = setPageRegions(after.tr, template(), {
+        editable: editsRegions(after),
+        edits: regionEdits(after),
+      });
       return tr.docChanged ? tr.setMeta('addToHistory', false) : null;
     },
     props: { decorations: (state) => documentSectionsKey.getState(state) ?? null },

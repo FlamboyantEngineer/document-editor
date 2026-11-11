@@ -11,10 +11,10 @@ import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { Fragment, useState } from 'react';
-import type { StoredContent, TemplateFile, TemplateSection } from '../../model/index.js';
+import type { RegionChange } from '../../engine/index.js';
+import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { MarginsRow } from './margins-row.js';
-import { type RegionContentLabels, RegionContentRow } from './region-content-editor.js';
 import { CustomStyleSection, TextStyleSection } from './style-sections.js';
 import { type Rows, rows, type Target } from './template-rows.js';
 import {
@@ -24,12 +24,12 @@ import {
   type TemplateScopeLabels,
   withSection,
 } from './template-scope.js';
-import { settingAt, TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
+import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
 
 const hooks = createHooks('template-editor');
 
 /** The template editor's own text. */
-export interface TemplateEditorLabels extends TemplateScopeLabels, RegionContentLabels {
+export interface TemplateEditorLabels extends TemplateScopeLabels {
   readonly panel: string;
   readonly filter: string;
   readonly identity: string;
@@ -115,8 +115,6 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   addSection: 'Add a section',
   deleteSection: 'Delete the section',
   section: 'Section',
-  regionContent: (region) => (region === 'header' ? 'Header content' : 'Footer content'),
-  apply: 'Apply',
 };
 
 /** What the template editor edits. */
@@ -203,21 +201,22 @@ function targetOf(
   };
 }
 
-// The header's and footer's content, edited as a document.
-function RegionRows({ context }: { context: Rows }) {
-  const { props, labels, target } = context;
-  const template = props.resolved ?? props.template;
-  return (['header', 'footer'] as const).map((region) => (
-    <RegionContentRow
-      key={region}
-      region={region}
-      content={settingAt(target.own, [region, 'content']) as StoredContent | undefined}
-      template={template}
-      labels={labels}
-      onChange={(content) => target.set([region, 'content'], content)}
-      isDisabled={props.isDisabled}
-    />
-  ));
+/**
+ * A template with a region edited on the pages written into it: into the section's own region
+ * while the section has its own content for it, and into the document's otherwise.
+ */
+export function withRegionChange(template: TemplateFile, change: RegionChange): TemplateFile {
+  const index = template.sections?.findIndex((section) => section.name === change.section) ?? -1;
+  const section = index >= 0 ? template.sections?.[index] : undefined;
+  if (section && section[change.region]?.content) {
+    const own = withSetting(
+      section as unknown as TemplateFile,
+      [change.region, 'content'],
+      change.content,
+    );
+    return withSection(template, index, own as unknown as TemplateSection);
+  }
+  return withSetting(template, [change.region, 'content'], change.content);
 }
 
 /** Edits a template's settings, handing each change to the host. */
@@ -265,7 +264,6 @@ export function TemplateEditor(props: TemplateEditorProps) {
           <PropertySection id={section.id} title={section.title}>
             {rows(context, section.scope, section.settings)}
             {section.id === 'page' ? <MarginsRow context={context} /> : null}
-            {section.id === 'regions' ? <RegionRows context={context} /> : null}
           </PropertySection>
           {section.id === 'page' ? (
             <>

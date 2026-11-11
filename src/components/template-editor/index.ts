@@ -1,6 +1,9 @@
-export type { RegionContentLabels } from './region-content-editor.js';
 export type { TemplateEditorLabels, TemplateEditorProps } from './template-editor.js';
-export { DEFAULT_TEMPLATE_EDITOR_LABELS, TemplateEditor } from './template-editor.js';
+export {
+  DEFAULT_TEMPLATE_EDITOR_LABELS,
+  TemplateEditor,
+  withRegionChange,
+} from './template-editor.js';
 export type { TemplateJsonEditorLabels, TemplateJsonEditorProps } from './template-json-editor.js';
 export { TemplateJsonEditor } from './template-json-editor.js';
 export type { TemplateScopeLabels } from './template-scope.js';
