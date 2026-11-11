@@ -4,6 +4,119 @@
  * and code with them. Hosts write their own; labs use this one.
  */
 
+/*
+ * The counter styles the numbering uses (`DOCUMENT_COUNTER_STYLE_CSS`): roman numerals without the
+ * browser's limit, and the context levels of an object's number, left out while no heading has
+ * opened them.
+ */
+@counter-style de-upper-roman {
+  system: additive;
+  range: 1 infinite;
+  additive-symbols:
+    1000 'M',
+    900 'CM',
+    500 'D',
+    400 'CD',
+    100 'C',
+    90 'XC',
+    50 'L',
+    40 'XL',
+    10 'X',
+    9 'IX',
+    5 'V',
+    4 'IV',
+    1 'I';
+}
+@counter-style de-lower-roman {
+  system: additive;
+  range: 1 infinite;
+  additive-symbols:
+    1000 'm',
+    900 'cm',
+    500 'd',
+    400 'cd',
+    100 'c',
+    90 'xc',
+    50 'l',
+    40 'xl',
+    10 'x',
+    9 'ix',
+    5 'v',
+    4 'iv',
+    1 'i';
+}
+@counter-style de-context-none {
+  system: cyclic;
+  symbols: '';
+}
+@counter-style de-context-decimal {
+  system: extends decimal;
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-lower-alpha {
+  system: extends lower-alpha;
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-upper-alpha {
+  system: extends upper-alpha;
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-lower-roman {
+  system: extends de-lower-roman;
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-upper-roman {
+  system: extends de-upper-roman;
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-separator-dot {
+  system: cyclic;
+  symbols: '.';
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-separator-hyphen {
+  system: cyclic;
+  symbols: '-';
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-separator-colon {
+  system: cyclic;
+  symbols: ':';
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-separator-underscore {
+  system: cyclic;
+  symbols: '_';
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-separator-slash {
+  system: cyclic;
+  symbols: '/';
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-separator-space {
+  system: cyclic;
+  symbols: ' ';
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+@counter-style de-context-separator-parenthesis {
+  system: cyclic;
+  symbols: ')';
+  range: 1 infinite;
+  fallback: de-context-none;
+}
+
 .de-document-editor .ProseMirror,
 .de-document-editor__measure .ProseMirror {
   outline: none;
@@ -387,6 +500,11 @@
   .pm-page-content
   table[data-split-part-index='0']:not([data-caption-enabled='false']) {
   counter-increment: table;
+}
+
+/* A table inside a cell or a list item is part of what holds it: it is not counted. */
+.de-document-editor__content .pm-page-content :is(td, th, li) table {
+  counter-increment: none;
 }
 
 .de-document-editor__content .pm-page-content figure {
