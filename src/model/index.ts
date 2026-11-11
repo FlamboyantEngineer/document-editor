@@ -26,6 +26,7 @@ export {
 } from './format/document-format-convert.js';
 export type { DocxOptions } from './format/docx.js';
 export { writeDocx } from './format/docx.js';
+export { cleanWordHtml, isWordHtml, readHtml, writeHtml } from './format/html.js';
 export type { MarkdownOptions } from './format/markdown.js';
 export { writeMarkdown } from './format/markdown.js';
 export type * from './format/template-format.js';

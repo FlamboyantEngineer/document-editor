@@ -38,6 +38,7 @@ import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
 import { createTableEditing, insertTable } from './tables.js';
+import { createWordPaste } from './word-paste.js';
 
 /** What a document's editing depends on. */
 export interface DocumentEditingOptions {
@@ -198,6 +199,7 @@ export function createDocumentEditing(
     createCommentDraft(),
     createMathViews(),
     createObjectViews(),
+    createWordPaste(),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
@@ -247,6 +249,11 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'object-views',
         priority: 505,
         build: () => [createObjectViews()],
+      },
+      {
+        name: 'word-paste',
+        priority: 510,
+        build: () => [createWordPaste()],
       },
       {
         name: 'tables',
