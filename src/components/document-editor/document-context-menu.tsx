@@ -36,20 +36,19 @@ function isSelected(view: EditorView, pos: number): boolean {
 }
 
 // Moves the selection to where a secondary click landed, unless it landed inside the selection;
-// returns the position it landed on and whether the selection moved.
+// returns the position it landed on.
 function selectAt(view: EditorView, point: { left: number; top: number }) {
   const hit = view.posAtCoords(point);
   const head = view.state.selection.head;
-  if (!hit || isSelected(view, hit.pos)) return { pos: hit?.pos ?? head, moved: false };
+  if (!hit || isSelected(view, hit.pos)) return { pos: hit?.pos ?? head };
   const { doc } = view.state;
   const node = hit.inside >= 0 ? doc.nodeAt(hit.inside) : null;
   const selection =
     node && node.isAtom && NodeSelection.isSelectable(node)
       ? NodeSelection.create(doc, hit.inside)
       : TextSelection.near(doc.resolve(hit.pos));
-  if (selection.eq(view.state.selection)) return { pos: hit.pos, moved: false };
-  view.dispatch(view.state.tr.setSelection(selection));
-  return { pos: hit.pos, moved: true };
+  if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection));
+  return { pos: hit.pos };
 }
 
 const isMenuKey = (event: KeyboardEvent) =>
@@ -100,10 +99,13 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       if (event.defaultPrevented) return;
       event.preventDefault();
       const anchor = { x: event.clientX, y: event.clientY };
-      // A moved selection reaches the view once the editor commits it, a frame later.
-      const { pos, moved } = selectAt(view, { left: event.clientX, top: event.clientY });
-      if (moved) owner.requestAnimationFrame(() => show(anchor, pos));
-      else show(anchor, pos);
+      const { pos } = selectAt(view, { left: event.clientX, top: event.clientY });
+      // A moved selection reaches the view once the editor commits it, a frame later. Where the
+      // menu opens on the press, it opens once the button is released, or the release would land
+      // outside the menu just opened and close it.
+      const open = () => owner.requestAnimationFrame(() => show(anchor, pos));
+      if (event.buttons === 0) open();
+      else owner.addEventListener('mouseup', open, { once: true, capture: true });
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isMenuKey(event) || event.defaultPrevented) return;
