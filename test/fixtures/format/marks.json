@@ -1,0 +1,130 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "bold text", "marks": [{ "type": "bold" }] },
+            { "type": "text", "text": "italic text", "marks": [{ "type": "italic" }] },
+            { "type": "text", "text": "underline text", "marks": [{ "type": "underline" }] },
+            { "type": "text", "text": "strike text", "marks": [{ "type": "strike" }] },
+            { "type": "text", "text": "superscript text", "marks": [{ "type": "superscript" }] },
+            { "type": "text", "text": "subscript text", "marks": [{ "type": "subscript" }] },
+            {
+              "type": "text",
+              "text": "code text",
+              "marks": [
+                {
+                  "type": "code",
+                  "attrs": {
+                    "id": "sample-dataId",
+                    "author": "sample-dataAuthor",
+                    "aiSession": "sample-dataAiSession"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "link text",
+              "marks": [
+                {
+                  "type": "link",
+                  "attrs": {
+                    "href": "sample-href",
+                    "title": "sample-title",
+                    "target": "sample-target",
+                    "id": "sample-dataId",
+                    "author": "sample-dataAuthor",
+                    "aiSession": "sample-dataAiSession"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "contributor text",
+              "marks": [
+                {
+                  "type": "contributor",
+                  "attrs": { "author": "sample-dataAuthor", "aiSession": "sample-dataAiSession" }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "comment text",
+              "marks": [
+                {
+                  "type": "comment",
+                  "attrs": {
+                    "id": "sample-dataId",
+                    "thread": "sample-commentId",
+                    "state": "sample-commentState"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "insertion text",
+              "marks": [
+                {
+                  "type": "insertion",
+                  "attrs": {
+                    "id": "sample-dataId",
+                    "author": "sample-dataAuthor",
+                    "thread": "sample-commentId"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "deletion text",
+              "marks": [
+                {
+                  "type": "deletion",
+                  "attrs": {
+                    "id": "sample-dataId",
+                    "author": "sample-dataAuthor",
+                    "thread": "sample-commentId"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "reference text",
+              "marks": [
+                {
+                  "type": "reference",
+                  "attrs": {
+                    "referenceType": "sample-refType",
+                    "target": "sample-targetId",
+                    "subTarget": "sample-subTarget",
+                    "includeRevision": true,
+                    "broken": true,
+                    "baseline": "sample-referenceBaseline",
+                    "targetRevision": "sample-libraryRevisionId",
+                    "targetLabel": "sample-libraryLabel",
+                    "publisher": "sample-docPublisher",
+                    "number": "sample-docNumber",
+                    "revision": "sample-docRevision",
+                    "title": "sample-docTitle",
+                    "authors": "sample-docAuthors",
+                    "pages": "sample-docPages"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

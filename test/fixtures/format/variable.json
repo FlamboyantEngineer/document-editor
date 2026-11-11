@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "Before " },
+            {
+              "type": "variable",
+              "attrs": {
+                "key": "sample-variableKey",
+                "id": "variable-1",
+                "author": "author-1",
+                "aiSession": "session-1"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

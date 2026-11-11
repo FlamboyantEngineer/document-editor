@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "templateBlock",
+          "attrs": {
+            "source": "sample-templateHtml",
+            "keys": "sample-trackedKeys",
+            "id": "templateBlock-1",
+            "author": "author-1",
+            "aiSession": "session-1"
+          }
+        }
+      ]
+    }
+  ]
+}

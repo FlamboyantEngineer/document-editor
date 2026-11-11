@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "script",
+          "attrs": {
+            "source": "sample-script",
+            "refresh": "sample-refreshPolicy",
+            "renderedAt": "sample-renderedAt",
+            "id": "script-1",
+            "author": "author-1",
+            "aiSession": "session-1"
+          }
+        }
+      ]
+    }
+  ]
+}
