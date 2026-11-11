@@ -34,9 +34,9 @@ Verification: `src/model/numbering/numbering-format.test.ts`
 
 ### DOCE-NUMBERING-1.5 - Counter style rules
 
-`DOCUMENT_COUNTER_STYLE_CSS` shall define every counter style the numbering content uses: the roman styles, without the browser's 3999 limit (`ROMAN_COUNTER_STYLE_CSS`), and the context styles that print a heading counter above 0 and nothing at 0 (`de-context-<style>`), with one separator style per separator they can leave out (`de-context-separator-<name>`, for `.`, `-`, `:`, `_`, `/`, space and `)`) (`OBJECT_CONTEXT_COUNTER_STYLE_CSS`).
+`DOCUMENT_COUNTER_STYLE_CSS` shall define every counter style the numbering content uses: the roman styles, without the browser's 3999 limit (`ROMAN_COUNTER_STYLE_CSS`), and the context styles that print a heading counter above 0 and nothing at 0 (`de-context-<style>`), with one separator style per separator they can leave out (`de-context-separator-<name>`, for `.`, `-`, `:`, `_`, `/`, space and `)`) (`OBJECT_CONTEXT_COUNTER_STYLE_CSS`). The reference stylesheet shall define each of them, so a caption reads `Table 1.1`, never the context levels' fallbacks run together.
 
-Implementation: `src/model/numbering/numbering-format.ts`
+Implementation: `src/model/numbering/numbering-format.ts`, `labs/reference/document.css`
 Verification: `src/model/numbering/numbering-format.test.ts`
 
 ### DOCE-NUMBERING-1.6 - Section formats

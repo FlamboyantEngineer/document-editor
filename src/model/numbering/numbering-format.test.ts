@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   canOmitObjectContextLevel,
@@ -77,6 +79,15 @@ describe('numbering formats', () => {
     expect(DOCUMENT_COUNTER_STYLE_CSS).toBe(
       `${ROMAN_COUNTER_STYLE_CSS}\n${OBJECT_CONTEXT_COUNTER_STYLE_CSS}`,
     );
+  });
+
+  it('DOCE-NUMBERING-1.5 has the reference stylesheet define every counter style the numbering uses', () => {
+    const reference = readFileSync(join(process.cwd(), 'labs/reference/document.css'), 'utf8');
+    const names = [...DOCUMENT_COUNTER_STYLE_CSS.matchAll(/@counter-style ([\w-]+)/g)].map(
+      (match) => match[1] ?? '',
+    );
+    expect(names.length).toBeGreaterThan(10);
+    for (const name of names) expect(reference).toContain(`@counter-style ${name} {`);
   });
 });
 
