@@ -54,6 +54,7 @@ export function MarginsRow({ context }: { context: Rows }) {
           <NumberField
             label={labels.marginSides[side]}
             labelLayout="control-only"
+            size="sm"
             density="compact"
             tracksChanges={false}
             hideStepper

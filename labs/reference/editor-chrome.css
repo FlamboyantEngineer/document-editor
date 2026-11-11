@@ -488,6 +488,12 @@
   display: contents;
 }
 
+/* A margin holds a few digits, so its four sides fit across a narrow settings panel. */
+.de-template-editor .ui-four-side-property-strip__side .ui-number-field__input {
+  width: 6ch;
+  padding-inline: 6px;
+}
+
 /* The template's JSON editor fills the panel it is in. */
 .de-template-json-editor {
   display: flex;
