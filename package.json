@@ -84,7 +84,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#d855bd5446df8150dff4600edcb9d86cfd822d69",
+    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#7d662b4f12c8ecefd4059e2426197f7e1935bc40",
     "@handlewithcare/react-prosemirror": "^3.2.11",
     "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",

@@ -52,13 +52,22 @@ function entryOf(item: ToolbarItem, context: EditorContext): MenuEntry[] {
   if (item.kind === 'custom') return [];
   const enabled = item.isEnabled ? item.isEnabled(context) : context.editable && !context.locked;
   if (item.kind === 'menu') {
-    return [{ id: item.id, label: item.label, isDisabled: !enabled, items: item.entries(context) }];
+    return [
+      {
+        id: item.id,
+        label: item.label,
+        isDisabled: !enabled,
+        ...(item.icon ? { icon: item.icon } : {}),
+        items: item.entries(context),
+      },
+    ];
   }
   return [
     {
       id: item.id,
       label: item.label,
       isDisabled: !enabled,
+      ...(item.icon ? { icon: item.icon } : {}),
       ...(item.shortcut ? { shortcut: item.shortcut } : {}),
       onAction: () => item.run(context),
     },

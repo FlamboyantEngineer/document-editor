@@ -3,7 +3,15 @@
 // Each field holds the style's own value and shows the one it inherits while it has none.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
-import { BoldGlyph, ItalicGlyph, UnderlineGlyph } from '@flamboyantengineer/ui-components/core';
+import {
+  BoldGlyph,
+  ItalicGlyph,
+  TextAlignCenterGlyph,
+  TextAlignJustifyGlyph,
+  TextAlignLeftGlyph,
+  TextAlignRightGlyph,
+  UnderlineGlyph,
+} from '@flamboyantengineer/ui-components/core';
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import {
   PropertyIconGroup,
@@ -113,6 +121,13 @@ function FaceToggle({
   );
 }
 
+const ALIGNMENT_GLYPHS = {
+  left: TextAlignLeftGlyph,
+  center: TextAlignCenterGlyph,
+  right: TextAlignRightGlyph,
+  justify: TextAlignJustifyGlyph,
+} as const;
+
 const asFlag = (value: unknown) => (typeof value === 'boolean' ? value : null);
 const asBold = (value: unknown) => (typeof value === 'number' ? value >= 600 : null);
 
@@ -125,7 +140,11 @@ export function FaceRow({ scope, justify }: { scope: StyleScope; justify: boolea
   const ids: readonly ('left' | 'center' | 'right' | 'justify')[] = justify
     ? ['left', 'center', 'right', 'justify']
     : ['left', 'center', 'right'];
-  const aligns = ids.map((id) => ({ value: id, label: labels.alignments[id] }));
+  const aligns = ids.map((id) => ({
+    value: id,
+    label: labels.alignments[id],
+    icon: ALIGNMENT_GLYPHS[id],
+  }));
   return (
     <PropertyRow label={labels.face}>
       <PropertyIconGroup variant="separate" aria-label={labels.face}>
@@ -157,6 +176,8 @@ export function FaceRow({ scope, justify }: { scope: StyleScope; justify: boolea
       <SegmentedChoice
         aria-label={labels.alignment}
         size="sm"
+        sizing="content"
+        iconOnly
         isDisabled={scope.context.props.isDisabled}
         options={aligns}
         value={own ?? inherited}

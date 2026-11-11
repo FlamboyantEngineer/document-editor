@@ -3,7 +3,13 @@
 // code; editing and aligning a figure, and aligning a table; a list of contents' depth; and editing
 // or removing a link.
 
-import { DeleteGlyph } from '@flamboyantengineer/ui-components/core';
+import {
+  DeleteGlyph,
+  FitWidthGlyph,
+  TextAlignCenterGlyph,
+  TextAlignLeftGlyph,
+  TextAlignRightGlyph,
+} from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, NodeSelection } from 'prosemirror-state';
@@ -155,6 +161,12 @@ function codeEntries(view: EditorView, options: ElementEntriesOptions): MenuEntr
 }
 
 const LAYOUTS = ['left', 'center', 'right', 'fit'] as const;
+const LAYOUT_GLYPHS = {
+  left: TextAlignLeftGlyph,
+  center: TextAlignCenterGlyph,
+  right: TextAlignRightGlyph,
+  fit: FitWidthGlyph,
+} as const;
 
 function alignEntry(view: EditorView, labels: DocumentEditorLabels, object: ProseMirrorNode) {
   const names = {
@@ -169,7 +181,7 @@ function alignEntry(view: EditorView, labels: DocumentEditorLabels, object: Pros
     items: LAYOUTS.map((layout) => ({
       ...commandEntry(
         view,
-        { id: `align-${layout}`, label: names[layout] },
+        { id: `align-${layout}`, label: names[layout], icon: LAYOUT_GLYPHS[layout] },
         setObjectLayout(layout),
       ),
       isSelected: object.attrs.objectLayout === layout,

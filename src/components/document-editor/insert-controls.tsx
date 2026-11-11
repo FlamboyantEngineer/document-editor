@@ -8,11 +8,17 @@ import {
   type CharacterGridCategory,
 } from '@flamboyantengineer/ui-components/character-grid';
 import {
+  AbbreviationGlyph,
   CodeBlockGlyph,
+  CrossReferenceGlyph,
+  FootnoteGlyph,
   FormulaGlyph,
   ImageGlyph,
+  LayoutAddBelowGlyph,
   LinkGlyph,
-  ListTaskGlyph,
+  SpecialCharacterGlyph,
+  TableOfContentsGlyph,
+  TerminalGlyph,
 } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
@@ -87,7 +93,7 @@ function SymbolButton({
         label={labels.symbol}
         tooltip={labels.symbol}
         size="sm"
-        icon={<span>Ω</span>}
+        icon={SpecialCharacterGlyph}
         isDisabled={!can(context, insertCharacter('Ω'))}
       />
       <Popover placement="bottom start" aria-label={labels.symbol}>
@@ -169,7 +175,7 @@ const sectionItem = (labels: DocumentEditorLabels, features: InsertFeatures): To
   kind: 'menu',
   id: 'section',
   label: labels.section,
-  icon: <span>§§</span>,
+  icon: LayoutAddBelowGlyph,
   entries: (context) => (features.template ? sectionEntries(context, features.template) : []),
   isVisible: () =>
     Boolean(features.template?.sections?.some((section) => section.insertable === true)),
@@ -184,7 +190,7 @@ function hostItems(labels: DocumentEditorLabels, features: InsertFeatures): Tool
             kind: 'button' as const,
             id: 'abbreviation',
             label: labels.abbreviation,
-            icon: <span>Ab</span>,
+            icon: AbbreviationGlyph,
             run: (context: EditorContext) => context.openDialog({ kind: 'abbreviation' }),
             isEnabled: (context: EditorContext) =>
               context.editable &&
@@ -199,7 +205,7 @@ function hostItems(labels: DocumentEditorLabels, features: InsertFeatures): Tool
             kind: 'button' as const,
             id: 'script',
             label: labels.script,
-            icon: <span>{'{ }'}</span>,
+            icon: TerminalGlyph,
             run: (context: EditorContext) => context.openDialog({ kind: 'script' }),
             isEnabled: (context: EditorContext) =>
               can(context, insertScriptBlock('')) && !scriptBlockAt(context.state),
@@ -216,7 +222,7 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
       kind: 'button',
       id: 'footnote',
       label: labels.footnote,
-      icon: <span>¹</span>,
+      icon: FootnoteGlyph,
       shortcut: 'Ctrl+Alt+F',
       run: (context) => context.run(insertFootnote()),
       isEnabled: (context) => can(context, insertFootnote()),
@@ -247,14 +253,14 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
       kind: 'menu',
       id: 'contents',
       label: labels.contents,
-      icon: ListTaskGlyph,
+      icon: TableOfContentsGlyph,
       entries: contentsEntries,
     },
     {
       kind: 'menu',
       id: 'reference',
       label: labels.reference,
-      icon: <span>§</span>,
+      icon: CrossReferenceGlyph,
       isEnabled: (context) =>
         context.editable && !context.locked && canInsertReference(context.state),
       entries: (context) => [

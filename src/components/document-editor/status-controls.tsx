@@ -2,7 +2,7 @@
 // and the layout switch between pages and the web layout.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
-import { FileTextGlyph, GlobeGlyph } from '@flamboyantengineer/ui-components/core';
+import { BookOpenGlyph, GlobeGlyph } from '@flamboyantengineer/ui-components/core';
 import { NumberField } from '@flamboyantengineer/ui-components/number-field';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import type { EditorView } from 'prosemirror-view';
@@ -76,7 +76,7 @@ export function LayoutToggle({
       <Button
         size="sm"
         variant="ghost"
-        icon={FileTextGlyph}
+        icon={BookOpenGlyph}
         label={labels.pageLayout}
         tooltip={labels.pageLayout}
         isSelected={layout === 'page'}

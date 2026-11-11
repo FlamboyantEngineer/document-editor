@@ -3,13 +3,26 @@
 // is disabled when the command would not apply.
 
 import {
+  AlignBottomCenterGlyph,
+  AlignBottomLeftGlyph,
+  AlignBottomRightGlyph,
+  AlignMiddleCenterGlyph,
+  AlignMiddleLeftGlyph,
+  AlignMiddleRightGlyph,
+  AlignTopCenterGlyph,
+  AlignTopLeftGlyph,
+  AlignTopRightGlyph,
   ArrowDownGlyph,
   ArrowLeftGlyph,
   ArrowRightGlyph,
   ArrowUpGlyph,
+  CellAlignmentGlyph,
   DeleteGlyph,
+  MergeCellsGlyph,
   PlusGlyph,
+  UnmergeCellsGlyph,
 } from '@flamboyantengineer/ui-components/core';
+import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import type { MenuEntry, MenuItemEntry } from '@flamboyantengineer/ui-components/menu';
 import type { Command } from 'prosemirror-state';
 import {
@@ -143,6 +156,24 @@ export function tableLineEntries(
 const VERTICAL = ['top', 'middle', 'bottom'] as const;
 const ACROSS = ['left', 'center', 'right'] as const;
 
+// The glyph of each of the nine alignments, by its vertical and then its horizontal alignment.
+const ALIGNMENT_GLYPHS: Record<
+  (typeof VERTICAL)[number],
+  Record<(typeof ACROSS)[number], IconSource>
+> = {
+  top: { left: AlignTopLeftGlyph, center: AlignTopCenterGlyph, right: AlignTopRightGlyph },
+  middle: {
+    left: AlignMiddleLeftGlyph,
+    center: AlignMiddleCenterGlyph,
+    right: AlignMiddleRightGlyph,
+  },
+  bottom: {
+    left: AlignBottomLeftGlyph,
+    center: AlignBottomCenterGlyph,
+    right: AlignBottomRightGlyph,
+  },
+};
+
 // The nine ways to align the selected cells' content.
 function alignmentEntries(view: EditorView, labels: DocumentEditorLabels): MenuEntry[] {
   return VERTICAL.flatMap((verticalAlign) =>
@@ -152,6 +183,7 @@ function alignmentEntries(view: EditorView, labels: DocumentEditorLabels): MenuE
         {
           id: `align-${verticalAlign}-${textAlign}`,
           label: labels.cellAlignment(verticalAlign, textAlign),
+          icon: ALIGNMENT_GLYPHS[verticalAlign][textAlign],
         },
         setCellAlignment({ textAlign, verticalAlign }),
       ),
@@ -186,9 +218,14 @@ export function tableCellEntries(
         }),
       ],
     },
-    item(mergeCells, { id: 'merge-cells', label: labels.mergeCells }),
-    item(splitCell, { id: 'split-cell', label: labels.splitCell }),
-    { id: 'align-cells', label: labels.alignCells, items: alignmentEntries(view, labels) },
+    item(mergeCells, { id: 'merge-cells', label: labels.mergeCells, icon: MergeCellsGlyph }),
+    item(splitCell, { id: 'split-cell', label: labels.splitCell, icon: UnmergeCellsGlyph }),
+    {
+      id: 'align-cells',
+      label: labels.alignCells,
+      icon: CellAlignmentGlyph,
+      items: alignmentEntries(view, labels),
+    },
     item(distributeColumns, { id: 'distribute-columns', label: labels.distributeColumns }),
     {
       id: 'table-header',

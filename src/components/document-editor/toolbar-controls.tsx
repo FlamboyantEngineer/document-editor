@@ -10,8 +10,11 @@ import {
   type Key,
   ListBulletGlyph,
   ListNumberedGlyph,
+  PageBreakGlyph,
   RedoGlyph,
   StrikethroughGlyph,
+  SubscriptGlyph,
+  SuperscriptGlyph,
   TableGlyph,
   UnderlineGlyph,
   UndoGlyph,
@@ -51,8 +54,8 @@ const MARKS = [
   { id: 'underline', name: 'underline', icon: UnderlineGlyph, shortcut: 'Ctrl+U' },
   { id: 'strikethrough', name: 'strike', icon: StrikethroughGlyph, shortcut: 'Ctrl+Shift+S' },
   { id: 'code', name: 'code', icon: CodeGlyph, shortcut: 'Ctrl+Alt+I' },
-  { id: 'superscript', name: 'superscript', icon: <span>x²</span>, shortcut: 'Ctrl+.' },
-  { id: 'subscript', name: 'subscript', icon: <span>x₂</span>, shortcut: 'Ctrl+,' },
+  { id: 'superscript', name: 'superscript', icon: SuperscriptGlyph, shortcut: 'Ctrl+.' },
+  { id: 'subscript', name: 'subscript', icon: SubscriptGlyph, shortcut: 'Ctrl+,' },
 ] as const satisfies readonly { id: Labelled; name: string; icon: unknown; shortcut: string }[];
 
 const LISTS = [
@@ -299,11 +302,10 @@ export function builtInToolbarGroups(
           render: (context) => <TableButton context={context} />,
         },
         commandItem(
-          // Until the base library draws a page break glyph.
           {
             id: 'page-break',
             label: labels.pageBreak,
-            icon: <span aria-hidden="true">⤓</span>,
+            icon: PageBreakGlyph,
             shortcut: 'Ctrl+Alt+Enter',
           },
           insertPageBreak,
