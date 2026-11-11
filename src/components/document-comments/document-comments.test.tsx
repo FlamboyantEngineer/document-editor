@@ -119,7 +119,7 @@ describe('DocumentComments', () => {
     expect(await within(margin).findByText('Is blue right?')).toBeInTheDocument();
     // Authors' names come from the identity adapter once the threads are listed.
     expect(
-      await within(margin).findByText('Ada Lovelace', { selector: 'strong' }),
+      await within(margin).findByRole('heading', { name: 'Ada Lovelace' }),
     ).toBeInTheDocument();
     expect(within(margin).getByText('epsilon')).toBeInTheDocument();
     expect(within(margin).queryByText('Old')).not.toBeInTheDocument();

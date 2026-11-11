@@ -50,7 +50,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
 
-Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each comment's author resolved by the identity adapter. Resolved threads shall not be shown, unless `showResolved` asks; their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
+Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each comment's author resolved by the identity adapter. Each card (`de-document-comments__card`) sits beside the page its text is on, a gap from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureCardOffsets`), so cards follow each page's edge whatever its size and orientation. With `presentation: 'markers'`, the margin shows a marker for each thread and suggestion instead, which opens its card (the base library's icons presentation). Resolved threads shall not be shown, unless `showResolved` asks; their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
@@ -71,7 +71,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.4 - Suggestion cards
 
-A suggestion's card shall show its writer and the text it deletes and adds. A reader who may edit, and is not suggesting, shall get Accept and Reject, which decide the suggestion and resolve its thread. The active card shall offer to start the suggestion's thread, which is stored with the suggestion's id and named on its marks.
+A suggestion's card (the base library's `Card`) shall show its writer, what it does (Add, Delete, Replace or splitting the paragraph) and the text it deletes and adds (`InlineTextDiff`). A reader who may edit, and is not suggesting, shall get Accept and Reject, which decide the suggestion and resolve its thread. The active card shall offer to start the suggestion's thread, which is stored with the suggestion's id and named on its marks.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
@@ -169,16 +169,20 @@ While reading without the right to comment, the margin shall show the threads wi
 Implementation: `src/components/document-comments/comment-cards.tsx`, `labs/src/comments.lab.tsx`
 Verification: `e2e/comments.spec.ts`
 
+### DOCE-COMMENTS-3.5 - Beside each page
+
+In the full editor lab, whose appendix is on landscape pages between portrait ones, each thread's card shall sit beside the page its text is on, the same gap from that page's edge, portrait or landscape; with comment markers, each thread is a marker that opens its card.
+
+Implementation: `src/components/document-comments/anchor-rects.ts`, `src/components/document-comments/document-comments.tsx`, `labs/reference/document.css`, `labs/src/full-editor.lab.tsx`
+Verification: `e2e/full-editor.spec.ts`
+
 ## Hooks
 
-| Hook                               | Kind  | Values | Description                                          |
-| ---------------------------------- | ----- | ------ | ---------------------------------------------------- |
-| `de-document-comments`             | root  |        | The annotation layer around the document and margin. |
-| `de-document-comments__margin`     | slot  |        | The margin of cards.                                 |
-| `de-document-comments__draft`      | slot  |        | The offer to comment on the selection.               |
-| `de-document-comments__suggestion` | slot  |        | A suggestion's card.                                 |
-| `de-document-comments__summary`    | slot  |        | What a suggestion changes, and who suggested it.     |
-| `de-document-comments__decisions`  | slot  |        | Accept and Reject.                                   |
-| `data-active`                      | state | `true` | On the active suggestion's card.                     |
-| `de-comments-panel`                | root  |        | The comments panel.                                  |
-| `de-comments-panel__thread`        | slot  |        | A thread of the panel, with `data-anchored`.         |
+| Hook                           | Kind     | Values | Description                                                |
+| ------------------------------ | -------- | ------ | ---------------------------------------------------------- |
+| `de-document-comments`         | root     |        | The annotation layer around the document and margin.       |
+| `de-document-comments__margin` | slot     |        | The margin of cards.                                       |
+| `de-document-comments__card`   | slot     |        | A card, beside its anchor's page.                          |
+| `--de-comment-offset`          | property |        | On a card: how far it moves across to sit beside its page. |
+| `de-comments-panel`            | root     |        | The comments panel.                                        |
+| `de-comments-panel__thread`    | slot     |        | A thread of the panel, with `data-anchored`.               |

@@ -12,6 +12,7 @@ import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Command, EditorState } from 'prosemirror-state';
 import {
+  type CSSProperties,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -27,7 +28,13 @@ import {
   type Suggestion,
 } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
-import { type AnchorTarget, isSameMeasurement, measureAnchors } from './anchor-rects.js';
+import {
+  type AnchorTarget,
+  isSameMeasurement,
+  isSameOffsets,
+  measureAnchors,
+  measureCardOffsets,
+} from './anchor-rects.js';
 import {
   type CardContext,
   DEFAULT_COMMENTS_LABELS,
@@ -53,6 +60,11 @@ export interface DocumentCommentsOptions {
   /** Shows resolved threads too, to read or reopen. Defaults to false. */
   showResolved?: boolean | undefined;
   /**
+   * Shows a card for each thread and suggestion (`cards`, the default), or a marker for each that
+   * opens its card (`markers`), which leaves the document more room.
+   */
+  presentation?: 'cards' | 'markers' | undefined;
+  /**
    * Whether the reader may accept a suggestion, and reject it, while they may decide at all; both
    * by default.
    */
@@ -71,13 +83,22 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   children: ReactNode;
 }
 
-// The anchors' rectangles, measured after each change of the document or of the cards, and
-// again when the layer resizes.
+interface Measured {
+  /** Each anchor's rectangles. */
+  readonly rects: ReadonlyMap<string, readonly AnnotationRect[]>;
+  /** How far each card moves to sit beside its anchor's page. */
+  readonly offsets: ReadonlyMap<string, number>;
+}
+
+const NOTHING_MEASURED: Measured = { rects: new Map(), offsets: new Map() };
+
+// The anchors' rectangles and the cards' offsets, measured after each change of the document or
+// of the cards, and again when the layer resizes.
 function useAnchorRects(
   layer: HTMLElement | null,
   targets: ReadonlyMap<string, AnchorTarget>,
-): ReadonlyMap<string, readonly AnnotationRect[]> {
-  const [rects, setRects] = useState<ReadonlyMap<string, readonly AnnotationRect[]>>(new Map());
+): Measured {
+  const [measured, setMeasured] = useState<Measured>(NOTHING_MEASURED);
   const latest = useRef(targets);
   useLayoutEffect(() => {
     latest.current = targets;
@@ -89,8 +110,14 @@ function useAnchorRects(
     const measure = () => {
       view.cancelAnimationFrame(frame);
       frame = view.requestAnimationFrame(() => {
-        const next = measureAnchors(layer, latest.current);
-        setRects((current) => (isSameMeasurement(current, next) ? current : next));
+        const rects = measureAnchors(layer, latest.current);
+        const margin = layer.querySelector(`:scope > .${MARGIN_CLASS}`);
+        const offsets = measureCardOffsets(layer, margin, latest.current);
+        setMeasured((current) =>
+          isSameMeasurement(current.rects, rects) && isSameOffsets(current.offsets, offsets)
+            ? current
+            : { rects, offsets },
+        );
       });
     };
     measure();
@@ -106,7 +133,41 @@ function useAnchorRects(
       content.disconnect();
     };
   }, [layer, targets]);
-  return rects;
+  return measured;
+}
+
+const MARGIN_CLASS = 'de-document-comments__margin';
+
+// What every card reads, with mentions of the people the host's identity finds.
+function useCardContext(
+  props: DocumentCommentsProps,
+  shared: Pick<CardContext, 'comments' | 'canComment' | 'labels'>,
+): CardContext {
+  const mentions = useCommentMentions(props.identity);
+  return {
+    ...shared,
+    mentions,
+    documentId: props.documentId,
+    me: props.identity.currentPerson().id,
+  };
+}
+
+// A card beside its anchor's page, whatever the page's size and orientation.
+function PlacedCard({
+  offset = 0,
+  children,
+}: {
+  offset?: number | undefined;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      {...hooks.slot('card')}
+      style={{ '--de-comment-offset': `${String(offset)}px` } as CSSProperties}
+    >
+      {children}
+    </div>
+  );
 }
 
 // Runs a command on the latest state the caller holds.
@@ -151,7 +212,7 @@ export function DocumentComments(props: DocumentCommentsProps) {
     [state, comments.threads, canComment, showResolved],
   );
   const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
-  const rects = useAnchorRects(layer, targets);
+  const { rects, offsets } = useAnchorRects(layer, targets);
   const annotations = useMemo<Annotation[]>(
     () => items.map((item) => ({ id: item.key, rects: rects.get(item.key) ?? [] })),
     [items, rects],
@@ -163,15 +224,7 @@ export function DocumentComments(props: DocumentCommentsProps) {
     setLastCaret(caret);
     if (caret !== null) setActive(caret);
   }
-  const mentions = useCommentMentions(props.identity);
-  const context: CardContext = {
-    mentions,
-    documentId: props.documentId,
-    comments,
-    me: props.identity.currentPerson().id,
-    canComment,
-    labels,
-  };
+  const context = useCardContext(props, { comments, canComment, labels });
   const byKey = new Map(items.map((item) => [item.key, item]));
   // A thread starts as a draft on the selection, or the caret's block, until the store keeps it.
   const startThread = () => {
@@ -204,17 +257,20 @@ export function DocumentComments(props: DocumentCommentsProps) {
       <AnnotationMargin
         {...hooks.slot('margin')}
         aria-label={labels.comments}
+        presentation={props.presentation === 'markers' ? 'icons' : 'cards'}
         renderCard={(annotation, { isActive }) => {
           const item = byKey.get(String(annotation.id));
-          return item
-            ? renderCommentCard(item, {
+          return item ? (
+            <PlacedCard offset={offsets.get(item.key)}>
+              {renderCommentCard(item, {
                 context,
                 isActive,
                 canDecide: decisions,
                 run,
                 startThread,
-              })
-            : null;
+              })}
+            </PlacedCard>
+          ) : null;
         }}
       />
     </AnnotationLayer>

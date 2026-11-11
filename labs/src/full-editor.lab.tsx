@@ -34,6 +34,7 @@ import {
   createDocumentSchema,
   readDocumentFile,
   resolveTemplateFile,
+  type TemplateFile,
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
@@ -42,13 +43,48 @@ import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
-import { sampleDocument, text } from './lab-document.js';
+import { chapter, heading, sampleDocument, text } from './lab-document.js';
 import { pagesLaidOut } from './lab-ready.js';
 import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
 
-const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
+// The base template with a landscape appendix, so pages of two orientations hold comments.
+const LAB_TEMPLATE: TemplateFile = {
+  formatVersion: 1,
+  id: 'full-editor',
+  parent: BASE_TEMPLATE_ID,
+  sections: [
+    {
+      name: 'appendix',
+      label: 'Appendix',
+      insertable: true,
+      restartNumbering: true,
+      page: { size: 'A4', orientation: 'landscape' },
+      styles: {
+        heading1: { numbering: { format: 'A.' } },
+        heading2: { numbering: { format: 'A.1.' } },
+      },
+    },
+  ],
+};
+
+const TEMPLATE = resolveTemplateFile(LAB_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
   baseTemplateId: BASE_TEMPLATE_ID,
+});
+
+// A thread on one run of text, by its id.
+const commented = (value: string, thread: string) => ({
+  ...text(value),
+  marks: [{ type: 'comment', attrs: { thread, state: 'open' } }],
+});
+
+// A thread of one comment, as the host's store keeps it.
+const storedThread = (id: string, quote: string, author: string, comment: string) => ({
+  id,
+  state: 'open' as const,
+  quote,
+  suggestion: null,
+  entries: [{ id: `${id}-1`, author, text: comment, createdAt: '2026-01-05T09:30:00Z' }],
 });
 
 // The source files the in-memory host's code source resolves linked code from.
@@ -103,20 +139,24 @@ const HOST = createMemoryHost({
   comments: {
     threads: {
       full: [
-        {
-          id: 'c0ffee02',
-          state: 'open',
-          quote: 'Normal operation',
-          suggestion: null,
-          entries: [
-            {
-              id: 'e1',
-              author: 'grace',
-              text: 'Does normal operation include start-up?',
-              createdAt: '2026-01-05T09:30:00Z',
-            },
-          ],
-        },
+        storedThread(
+          'c0ffee02',
+          'Normal operation',
+          'grace',
+          'Does normal operation include start-up?',
+        ),
+        storedThread(
+          'c0ffee03',
+          'landscape pages',
+          'grace',
+          'This card sits beside the landscape page, at its own edge.',
+        ),
+        storedThread(
+          'c0ffee04',
+          'portrait pages again',
+          'ada',
+          'And this one beside the portrait page that follows.',
+        ),
       ],
     },
   },
@@ -207,6 +247,38 @@ function initialState(): EditorState {
       ],
     },
   );
+  // A landscape appendix, then the body again on portrait pages, each with a thread.
+  file.sections.push(
+    {
+      name: 'appendix',
+      content: [
+        heading(1, 'Interface limits'),
+        {
+          type: 'paragraph',
+          content: [
+            text('The appendix is laid out on '),
+            commented('landscape pages', 'c0ffee03'),
+            text(', wider than the body, so its comments follow a page edge further out.'),
+          ],
+        },
+        ...chapter('Limits').slice(1),
+      ],
+    },
+    {
+      name: null,
+      content: [
+        heading(1, 'Revision history'),
+        {
+          type: 'paragraph',
+          content: [
+            text('After the appendix the document returns to '),
+            commented('portrait pages again', 'c0ffee04'),
+            text('.'),
+          ],
+        },
+      ],
+    },
+  );
   const state = EditorState.create({
     doc: readDocumentFile(file, schema),
     plugins: [
@@ -234,6 +306,7 @@ function Lab() {
   const [collaborators, setCollaborators] = useState(false);
   const [panels, setPanels] = useState(false);
   const [authorship, setAuthorship] = useState(false);
+  const [markers, setMarkers] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
   // What the host's feedback last told the reader, such as a failed upload.
@@ -303,6 +376,15 @@ function Lab() {
             />{' '}
             Authorship
           </label>
+          <label>
+            <input
+              type="checkbox"
+              name="markers"
+              checked={markers}
+              onChange={(event) => setMarkers(event.currentTarget.checked)}
+            />{' '}
+            Comment markers
+          </label>
         </fieldset>
         <AgentPanel view={view} />
         <HostPanel report={host.report} handle={handle} />
@@ -352,6 +434,7 @@ function Lab() {
             documentId: 'full',
             identity: HOST.identity,
             canComment: true,
+            presentation: markers ? 'markers' : 'cards',
           }
         }
         className="lab-document-editor"

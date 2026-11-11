@@ -2,6 +2,8 @@
 // discussion and decision, and the offer to comment on the selection.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
+import { ButtonGroup } from '@flamboyantengineer/ui-components/button-group';
+import { Card } from '@flamboyantengineer/ui-components/card';
 import {
   CommentComposer,
   type CommentMentions,
@@ -10,6 +12,11 @@ import {
   CommentThread,
   CommentThreadReply,
 } from '@flamboyantengineer/ui-components/comment-thread';
+import { ChatBubblePlusGlyph } from '@flamboyantengineer/ui-components/core';
+import {
+  InlineTextDiff,
+  type InlineTextDiffSegment,
+} from '@flamboyantengineer/ui-components/inline-text-diff';
 import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
 import type { Suggestion } from '../../engine/index.js';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
@@ -20,13 +27,7 @@ import type { CommentThreads } from './use-comment-threads.js';
 
 export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments-labels.js';
 
-export const hooks = createHooks('document-comments', [
-  'margin',
-  'draft',
-  'suggestion',
-  'summary',
-  'decisions',
-]);
+export const hooks = createHooks('document-comments', ['margin', 'card']);
 
 /** What every card reads: the threads, the reader and the labels. */
 export interface CardContext {
@@ -220,30 +221,29 @@ export function PendingCard({
   );
 }
 
-function Summary({ suggestion, context }: { suggestion: Suggestion; context: CardContext }) {
+// What a suggestion changes, as the removed and the added text.
+function changeOf(suggestion: Suggestion): InlineTextDiffSegment[] {
+  return [
+    ...(suggestion.deleted ? [{ kind: 'removed' as const, text: suggestion.deleted }] : []),
+    ...(suggestion.inserted ? [{ kind: 'added' as const, text: suggestion.inserted }] : []),
+  ];
+}
+
+// Who suggested the change, and what it does.
+function summaryOf(suggestion: Suggestion, context: CardContext) {
   const { labels, comments } = context;
   const author = suggestion.author
     ? (comments.people.get(suggestion.author)?.name ?? suggestion.author)
     : labels.someone;
   const split = suggestion.inserted !== '' && suggestion.inserted === suggestion.deleted;
-  return (
-    <p {...hooks.slot('summary')}>
-      <strong>{author}</strong>
-      {split ? ` ${labels.split}` : null}
-      {!split && suggestion.deleted ? (
-        <span>
-          {` ${labels.remove} `}
-          <del>{suggestion.deleted}</del>
-        </span>
-      ) : null}
-      {!split && suggestion.inserted ? (
-        <span>
-          {` ${labels.insert} `}
-          <ins>{suggestion.inserted}</ins>
-        </span>
-      ) : null}
-    </p>
-  );
+  const action = split
+    ? labels.split
+    : suggestion.deleted && suggestion.inserted
+      ? labels.replace
+      : suggestion.deleted
+        ? labels.remove
+        : labels.insert;
+  return { author, split, action };
 }
 
 /**
@@ -269,23 +269,31 @@ export function SuggestionCard({
   onReply: (text: string) => Promise<unknown>;
 }) {
   const { canComment, labels } = context;
+  const { author, split, action } = summaryOf(suggestion, context);
   return (
-    <div {...hooks.slot('suggestion', { active: isActive })}>
-      <Summary suggestion={suggestion} context={context} />
-      {canDecide.accept || canDecide.reject ? (
-        <div {...hooks.slot('decisions')}>
-          {canDecide.accept ? (
-            <Button size="sm" variant="primary" onPress={() => onDecide(true)}>
-              {labels.accept}
-            </Button>
-          ) : null}
-          {canDecide.reject ? (
-            <Button size="sm" onPress={() => onDecide(false)}>
-              {labels.reject}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+    <Card
+      density="compact"
+      isSelected={isActive}
+      title={author}
+      description={action}
+      footer={
+        canDecide.accept || canDecide.reject ? (
+          <ButtonGroup aria-label={labels.decide}>
+            {canDecide.accept ? (
+              <Button size="sm" variant="primary" onPress={() => onDecide(true)}>
+                {labels.accept}
+              </Button>
+            ) : null}
+            {canDecide.reject ? (
+              <Button size="sm" onPress={() => onDecide(false)}>
+                {labels.reject}
+              </Button>
+            ) : null}
+          </ButtonGroup>
+        ) : null
+      }
+    >
+      {split ? null : <InlineTextDiff segments={changeOf(suggestion)} />}
       {thread || (canComment && isActive) ? (
         <CommentThread
           mentions={context.mentions}
@@ -305,17 +313,15 @@ export function SuggestionCard({
           {thread ? <Entries thread={thread} context={context} /> : null}
         </CommentThread>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
 /** Offers to start a thread on the selected text. */
 export function DraftCard({ context, onComment }: { context: CardContext; onComment: () => void }) {
   return (
-    <div {...hooks.slot('draft')}>
-      <Button size="sm" onPress={onComment}>
-        {context.labels.comment}
-      </Button>
-    </div>
+    <Button size="sm" startIcon={ChatBubblePlusGlyph} onPress={onComment}>
+      {context.labels.comment}
+    </Button>
   );
 }
