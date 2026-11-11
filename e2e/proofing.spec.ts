@@ -80,8 +80,12 @@ test.describe('proofing', () => {
   }) => {
     await lab.open('document-editor');
     await expect(issues(page, 'recieve')).toHaveCount(1);
-    await page.getByRole('button', { name: /Proofing language/ }).click();
-    await page.getByRole('option', { name: 'French' }).click();
+    await page.locator('.de-document-editor__proofing-language').click();
+    await page
+      .getByRole('menuitemradio', { name: 'French' })
+      .or(page.getByRole('menuitem', { name: 'French' }))
+      .first()
+      .click();
     await expect(issues(page, 'recieve')).toHaveCount(0);
     await expect(issue(page, 'operation')).toBeAttached();
   });

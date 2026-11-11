@@ -5,8 +5,9 @@
 
 import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
 import { Button } from '@flamboyantengineer/ui-components/button';
+import { GlobeGlyph } from '@flamboyantengineer/ui-components/core';
+import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
-import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { ZoomControl } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -31,6 +32,8 @@ import type { DocumentLayout } from './use-document-layout.js';
 
 // The status bar's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', [
+  'status-start',
+  'status-end',
   'status-item',
   'proofing-status',
   'proofing-language',
@@ -100,24 +103,32 @@ interface ProofingProps {
   labels: DocumentEditorLabels;
 }
 
-// The language the document is proofed in, when the proofers offer a choice.
+// The proofing menu, while the document is proofed: the language it is proofed in, picked among
+// those the proofers offer.
 function ProofingLanguage({ view, state, labels }: ProofingProps) {
   const languages = proofingLanguages(state);
   const proofing = proofingState(state);
-  if (!proofing || languages.length < 2) return null;
+  if (!proofing) return null;
+  const current = languages.find((language) => language.id === proofing.language);
   return (
-    <SelectField
+    <DropdownMenu
       {...hooks.slot('proofing-language')}
       size="sm"
-      density="compact"
-      label={labels.proofingLanguage}
-      labelLayout="control-only"
-      options={languages}
-      value={proofing.language}
-      tracksChanges={false}
-      onChange={(key) => {
-        if (view && typeof key === 'string') runCommand(view, setProofingLanguage(key));
-      }}
+      variant="ghost"
+      icon={GlobeGlyph}
+      label={current?.label ?? proofing.language ?? labels.proofingLanguage}
+      aria-label={labels.proofingLanguage}
+      placement="top start"
+      selectionMode="single"
+      selectedKeys={proofing.language ? [proofing.language] : []}
+      isDisabled={languages.length === 0}
+      items={languages.map((language) => ({
+        id: language.id,
+        label: language.label,
+        onAction: () => {
+          if (view) runCommand(view, setProofingLanguage(language.id));
+        },
+      }))}
     />
   );
 }
@@ -170,32 +181,38 @@ export function DocumentStatusBar({
   const statistics = useMemo(() => documentStatistics(deferred), [deferred]);
   return (
     <StatusBar className={className} aria-label={labels.statusBar}>
-      <span {...hooks.slot('status-item', { status: 'position' })}>
-        {layout === 'page' ? (
-          <PageJump view={view} labels={labels} page={statistics.page} pages={statistics.pages} />
+      <span {...hooks.slot('status-start')}>
+        <span {...hooks.slot('status-item', { status: 'position' })}>
+          {layout === 'page' ? (
+            <PageJump view={view} labels={labels} page={statistics.page} pages={statistics.pages} />
+          ) : null}
+          <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
+        </span>
+        <span {...hooks.slot('status-item', { status: 'proofing' })}>
+          <ProofingLanguage view={view} state={state} labels={labels} />
+          <ProofingStatus view={view} state={deferred} labels={labels} />
+        </span>
+        <span {...hooks.slot('status-item', { status: 'mode' })}>
+          <Presence view={view} state={deferred} labels={labels} />
+          <span>{labels[MODE_LABELS[mode]]}</span>
+        </span>
+        {items}
+      </span>
+      <span {...hooks.slot('status-end')}>
+        {onLayoutChange ? (
+          <LayoutToggle layout={layout} labels={labels} onChange={onLayoutChange} />
         ) : null}
-        <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
+        {zoom ? (
+          <ZoomControl
+            {...hooks.slot('zoom')}
+            aria-label={labels.zoom}
+            levels={ZOOM_LEVELS}
+            value={zoom.value}
+            resetValue={100}
+            onChange={zoom.onChange}
+          />
+        ) : null}
       </span>
-      <span {...hooks.slot('status-item', { status: 'mode' })}>
-        <Presence view={view} state={deferred} labels={labels} />
-        <ProofingLanguage view={view} state={state} labels={labels} />
-        <ProofingStatus view={view} state={deferred} labels={labels} />
-        <span>{labels[MODE_LABELS[mode]]}</span>
-      </span>
-      {onLayoutChange ? (
-        <LayoutToggle layout={layout} labels={labels} onChange={onLayoutChange} />
-      ) : null}
-      {zoom ? (
-        <ZoomControl
-          {...hooks.slot('zoom')}
-          aria-label={labels.zoom}
-          levels={ZOOM_LEVELS}
-          value={zoom.value}
-          resetValue={100}
-          onChange={zoom.onChange}
-        />
-      ) : null}
-      {items}
     </StatusBar>
   );
 }

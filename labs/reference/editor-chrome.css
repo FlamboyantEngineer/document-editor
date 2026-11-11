@@ -24,9 +24,15 @@
   overflow: hidden;
 }
 
+/* The document scrolls without the shades that mark more content above or below. */
 .de-document-editor__viewport {
   flex: 1 1 auto;
   min-height: 0;
+  --ref-scroll-region-shade: transparent;
+}
+
+.de-document-editor__viewport::before {
+  content: none;
 }
 
 .de-document-editor[data-scrollable] .de-document-editor__body {
@@ -124,6 +130,63 @@
   justify-content: space-between;
 }
 
+/* The style picked, in the closed field, in its own look but for its size. */
+.de-document-editor__block-style[data-block-style='paragraph'] .ui-select-field__trigger {
+  font-family: var(--doc-paragraph-font-family, inherit);
+  font-style: var(--doc-paragraph-font-style, normal);
+  font-weight: var(--doc-paragraph-font-weight, 400);
+  text-decoration: var(--doc-paragraph-text-decoration, none);
+  color: var(--doc-paragraph-color, inherit);
+}
+
+.de-document-editor__block-style[data-block-style='heading-1'] .ui-select-field__trigger {
+  font-family: var(--doc-heading-1-font-family, inherit);
+  font-style: var(--doc-heading-1-font-style, normal);
+  font-weight: var(--doc-heading-1-font-weight, 700);
+  text-decoration: var(--doc-heading-1-text-decoration, none);
+  color: var(--doc-heading-1-color, inherit);
+}
+
+.de-document-editor__block-style[data-block-style='heading-2'] .ui-select-field__trigger {
+  font-family: var(--doc-heading-2-font-family, inherit);
+  font-style: var(--doc-heading-2-font-style, normal);
+  font-weight: var(--doc-heading-2-font-weight, 700);
+  text-decoration: var(--doc-heading-2-text-decoration, none);
+  color: var(--doc-heading-2-color, inherit);
+}
+
+.de-document-editor__block-style[data-block-style='heading-3'] .ui-select-field__trigger {
+  font-family: var(--doc-heading-3-font-family, inherit);
+  font-style: var(--doc-heading-3-font-style, normal);
+  font-weight: var(--doc-heading-3-font-weight, 700);
+  text-decoration: var(--doc-heading-3-text-decoration, none);
+  color: var(--doc-heading-3-color, inherit);
+}
+
+.de-document-editor__block-style[data-block-style='heading-4'] .ui-select-field__trigger {
+  font-family: var(--doc-heading-4-font-family, inherit);
+  font-style: var(--doc-heading-4-font-style, normal);
+  font-weight: var(--doc-heading-4-font-weight, 700);
+  text-decoration: var(--doc-heading-4-text-decoration, none);
+  color: var(--doc-heading-4-color, inherit);
+}
+
+.de-document-editor__block-style[data-block-style='heading-5'] .ui-select-field__trigger {
+  font-family: var(--doc-heading-5-font-family, inherit);
+  font-style: var(--doc-heading-5-font-style, normal);
+  font-weight: var(--doc-heading-5-font-weight, 700);
+  text-decoration: var(--doc-heading-5-text-decoration, none);
+  color: var(--doc-heading-5-color, inherit);
+}
+
+.de-document-editor__block-style[data-block-style='heading-6'] .ui-select-field__trigger {
+  font-family: var(--doc-heading-6-font-family, inherit);
+  font-style: var(--doc-heading-6-font-style, normal);
+  font-weight: var(--doc-heading-6-font-weight, 700);
+  text-decoration: var(--doc-heading-6-text-decoration, none);
+  color: var(--doc-heading-6-color, inherit);
+}
+
 /* Each text style's name in the template's style, but for its size. */
 .de-document-editor__style-preview {
   font-family: var(--doc-paragraph-font-family, inherit);
@@ -202,6 +265,23 @@
   align-items: center;
 }
 
+/* The status bar's start and end, each a row: the end ones pushed to the far side. */
+.de-document-editor__status-start,
+.de-document-editor__status-end,
+.de-document-editor__layout-toggle {
+  display: inline-flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.de-document-editor__status-end {
+  margin-inline-start: auto;
+}
+
+.de-document-editor__layout-toggle {
+  gap: 2px;
+}
+
 /* Proofing issues: a wavy underline, red for spelling, blue for grammar, green for style. */
 .de-document-editor [data-proofing-issue] {
   text-decoration: underline wavy #d1242f;
@@ -237,10 +317,11 @@
   margin-inline-start: auto;
 }
 
-/* The proofing language picker in the status bar, as wide as its longest language. */
+/* The proofing menu in the status bar: a quiet button naming the language. */
 .de-document-editor__proofing-language {
-  width: 8em;
-  min-width: 0;
+  min-height: 0;
+  padding-block: 0;
+  font-size: inherit;
 }
 
 .de-document-editor__proofing-status[data-status='unavailable'] {

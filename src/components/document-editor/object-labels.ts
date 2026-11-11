@@ -89,6 +89,9 @@ export interface ObjectLabels {
   readonly unlinkAbbreviation: string;
   readonly goToPage: string;
   readonly pageLayout: string;
+  readonly webLayout: string;
+  /** Names the layout buttons together. */
+  readonly layout: string;
 }
 
 const CONTENTS_KINDS: Readonly<Record<string, string>> = {
@@ -183,5 +186,7 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   abbreviationForm: (full) => (full ? 'Show in full' : 'Show short'),
   unlinkAbbreviation: 'Turn into text',
   goToPage: 'Go to page',
-  pageLayout: 'Pages',
+  pageLayout: 'Page view',
+  webLayout: 'Web view',
+  layout: 'Layout',
 };

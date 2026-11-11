@@ -141,13 +141,16 @@ function BlockStyleSelect({
       command: setCustomStyle(name),
     })),
   ];
+  const custom = customStyleAt(context.state);
+  const value = custom ? `custom:${custom}` : blockStyle(context.state);
   const choose = (key: Key | null) => {
     const style = styles.find((each) => each.id === key);
     if (style) context.run(style.command);
   };
   return (
     <SelectField
-      {...hooks.slot('block-style')}
+      // The style picked shows in its own look while the field is closed, too.
+      {...hooks.slot('block-style', { 'block-style': custom ? 'custom' : value })}
       size="sm"
       density="compact"
       label={labels.blockType}
@@ -160,11 +163,7 @@ function BlockStyleSelect({
           {option.label}
         </span>
       )}
-      value={
-        customStyleAt(context.state)
-          ? `custom:${customStyleAt(context.state) ?? ''}`
-          : blockStyle(context.state)
-      }
+      value={value}
       tracksChanges={false}
       onChange={choose}
       isDisabled={!context.editable || context.locked}
@@ -300,7 +299,13 @@ export function builtInToolbarGroups(
           render: (context) => <TableButton context={context} />,
         },
         commandItem(
-          { id: 'page-break', label: labels.pageBreak, shortcut: 'Ctrl+Alt+Enter' },
+          // Until the base library draws a page break glyph.
+          {
+            id: 'page-break',
+            label: labels.pageBreak,
+            icon: <span aria-hidden="true">⤓</span>,
+            shortcut: 'Ctrl+Alt+Enter',
+          },
           insertPageBreak,
         ),
         ...insertItems(labels, features),

@@ -129,7 +129,7 @@ Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-3.5 - Picking the language
 
-While the proofers offer more than one language, the status bar shall show a language picker (`de-document-editor__proofing-language`, named by `proofingLanguage`) that checks the document again in the language picked. The proofing status says when the proofers do not answer (`proofingUnavailable`, `proofingDegraded`) and publishes the status in `data-status`.
+While the document is proofed, the status bar shall show the proofing menu (`de-document-editor__proofing-language`, named by `proofingLanguage`): a button showing the language the document is proofed in, opening a menu of the languages the proofers offer, the one in use checked, that checks the document again in the language picked. The proofing status says when the proofers do not answer (`proofingUnavailable`, `proofingDegraded`) and publishes the status in `data-status`.
 
 Implementation: `src/components/document-editor/document-status-bar.tsx`
 Verification: `e2e/proofing.spec.ts`

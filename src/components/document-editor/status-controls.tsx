@@ -2,12 +2,16 @@
 // and the layout switch between pages and the web layout.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
+import { FileTextGlyph, GlobeGlyph } from '@flamboyantengineer/ui-components/core';
 import { NumberField } from '@flamboyantengineer/ui-components/number-field';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import type { EditorView } from 'prosemirror-view';
 import { useState } from 'react';
+import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import type { DocumentLayout } from './use-document-layout.js';
+
+const hooks = createHooks('document-editor', ['layout-toggle']);
 
 /** Scrolls a page of the view into view, by its number from 1; false when there is none. */
 export function scrollToPage(view: EditorView, page: number): boolean {
@@ -57,7 +61,7 @@ export function PageJump({
   );
 }
 
-/** Switches between the pages and the web layout, pressed while on pages. */
+/** Switches between the pages and the web layout: one button for each, the one shown pressed. */
 export function LayoutToggle({
   layout,
   labels,
@@ -68,13 +72,25 @@ export function LayoutToggle({
   onChange: (layout: DocumentLayout) => void;
 }) {
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      isSelected={layout === 'page'}
-      onChange={(pressed) => onChange(pressed ? 'page' : 'web')}
-    >
-      {labels.pageLayout}
-    </Button>
+    <span role="group" aria-label={labels.layout} {...hooks.slot('layout-toggle')}>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={FileTextGlyph}
+        label={labels.pageLayout}
+        tooltip={labels.pageLayout}
+        isSelected={layout === 'page'}
+        onPress={() => onChange('page')}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={GlobeGlyph}
+        label={labels.webLayout}
+        tooltip={labels.webLayout}
+        isSelected={layout === 'web'}
+        onPress={() => onChange('web')}
+      />
+    </span>
   );
 }

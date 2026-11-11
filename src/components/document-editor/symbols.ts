@@ -1,6 +1,8 @@
-// The special characters the symbol picker offers by default, by category.
+// The special characters the symbol picker offers by default: the common ones by name, by
+// category, then every symbol of the blocks a document writes with.
 
 import type { CharacterGridCategory } from '@flamboyantengineer/ui-components/character-grid';
+import { symbolBlocks } from './symbol-blocks.js';
 
 const category = (
   id: string,
@@ -12,8 +14,8 @@ const category = (
   characters: characters.map(([char, name]) => ({ char, name })),
 });
 
-/** The symbol picker's default characters: typography, mathematics, Greek, arrows and units. */
-export const DEFAULT_SYMBOLS: readonly CharacterGridCategory[] = [
+/** The common characters, by name: typography, mathematics, Greek, arrows and units. */
+export const COMMON_SYMBOLS: readonly CharacterGridCategory[] = [
   category('typography', 'Typography', [
     ['—', 'Em dash'],
     ['–', 'En dash'],
@@ -101,4 +103,16 @@ export const DEFAULT_SYMBOLS: readonly CharacterGridCategory[] = [
     ['¥', 'Yen sign'],
     ['¢', 'Cent sign'],
   ]),
+];
+
+const NAMES = new Map(
+  COMMON_SYMBOLS.flatMap((group) =>
+    group.characters.map(({ char, name }) => [char, name] as const),
+  ),
+);
+
+/** The symbol picker's default characters: the common ones, then every block's. */
+export const DEFAULT_SYMBOLS: readonly CharacterGridCategory[] = [
+  ...COMMON_SYMBOLS,
+  ...symbolBlocks(NAMES),
 ];

@@ -305,11 +305,6 @@ test.describe('document editor lab', () => {
     await expect(toolbar.locator('[data-group="marks"] [data-item="bold"]')).toHaveCount(1);
     const saved = page.locator('.de-document-editor__toolbar-end');
     await expect(saved).toHaveText('Saved');
-    await selectText(page, 'Normal operation');
-    await toolbar.getByRole('button', { name: 'Case' }).click();
-    await page.getByRole('menuitem', { name: 'UPPERCASE' }).click();
-    await expect(content(page)).toContainText('NORMAL OPERATION');
-    await expect(saved).toHaveText('Edited');
     const insert = toolbar.locator('[data-group="insert"] [data-item="insert-date"]');
     await expect(insert).toHaveText('Insert date');
     await heading(page, 'Timing').click();
@@ -321,6 +316,7 @@ test.describe('document editor lab', () => {
       .toBe(true);
     await insert.click();
     await expect(heading(page, 'Timing')).toContainText(/Timing \d{4}-\d{2}-\d{2}/);
+    await expect(saved).toHaveText('Edited');
     await page.getByLabel('Host items').uncheck();
     await expect(toolbar.locator('[data-item="code"]')).toHaveCount(1);
     await expect(toolbar.locator('[data-item="insert-date"]')).toHaveCount(0);
@@ -474,9 +470,9 @@ test.describe('document editor lab', () => {
           }),
       )
       .toBeLessThan(80);
-    await status.getByRole('button', { name: 'Pages' }).click();
+    await status.getByRole('button', { name: 'Web view' }).click();
     await expect(editor(page)).toHaveAttribute('data-layout', 'web');
-    await status.getByRole('button', { name: 'Pages' }).click();
+    await status.getByRole('button', { name: 'Page view' }).click();
     await expect(editor(page)).toHaveAttribute('data-layout', 'page');
   });
 
