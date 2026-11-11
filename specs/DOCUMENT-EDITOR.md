@@ -59,10 +59,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.1 - Opening the menu
 
-A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it. `contextMenu={false}` leaves the browser's menu.
+A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. The menu shall stay open once the button is released, on an object as on text. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it. `contextMenu={false}` leaves the browser's menu.
 Once the menu closes, the document takes focus back when nothing else has it.
-Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`
+Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-3.2 - Clipboard and formatting
 
