@@ -2,7 +2,10 @@
 // discussion and decision, and the offer to comment on the selection.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
-import { CommentComposer } from '@flamboyantengineer/ui-components/comment-composer';
+import {
+  CommentComposer,
+  type CommentMentions,
+} from '@flamboyantengineer/ui-components/comment-composer';
 import {
   CommentThread,
   CommentThreadReply,
@@ -11,6 +14,7 @@ import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
 import type { Suggestion } from '../../engine/index.js';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
 import type { CommentThreads } from './use-comment-threads.js';
 
@@ -33,6 +37,8 @@ export interface CardContext {
   readonly labels: DocumentCommentsLabels;
   /** The document the threads belong to, which keys the composers' drafts. */
   readonly documentId: string;
+  /** Mentions of the people the host's identity finds. */
+  readonly mentions?: CommentMentions | undefined;
 }
 
 /**
@@ -53,6 +59,7 @@ function DraftComposer({
   const { labels } = context;
   return (
     <CommentComposer
+      mentions={context.mentions}
       persistKey={`de-comments:${context.documentId}:${draftKey}`}
       label={first ? labels.addComment : labels.reply}
       submitLabel={first ? labels.comment : labels.reply}
@@ -158,6 +165,7 @@ export function ThreadCard({
   const { canComment, comments } = context;
   return (
     <CommentThread
+      mentions={context.mentions}
       quote={thread.quote}
       isResolved={thread.state === 'resolved'}
       onResolvedChange={canComment ? (resolved) => void onResolve(resolved) : undefined}
@@ -191,12 +199,16 @@ export function PendingCard({
   onSubmit: (text: string) => Promise<unknown>;
   onCancel: () => void;
 }) {
+  const composer = useFocusOnMount();
   return (
     <CommentThread
+      mentions={context.mentions}
       quote={quote}
       isSelected
       composer={
         <CommentComposer
+          ref={composer}
+          mentions={context.mentions}
           autoFocus
           persistKey={`de-comments:${context.documentId}:new`}
           submitLabel={context.labels.comment}
@@ -276,6 +288,7 @@ export function SuggestionCard({
       ) : null}
       {thread || (canComment && isActive) ? (
         <CommentThread
+          mentions={context.mentions}
           composer={
             canComment ? (
               <DraftComposer

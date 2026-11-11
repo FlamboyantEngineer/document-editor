@@ -132,6 +132,13 @@ The composers of a thread's next comment, of a suggestion's discussion and of a 
 Implementation: `src/components/document-comments/comment-cards.tsx`
 Verification: `e2e/comments.spec.ts`
 
+### DOCE-COMMENTS-2.13 - Mentions
+
+Every composer of the margin and the comments panel shall take mentions: `@` lists the people the host's identity finds (`findPeople`), a person picked goes into the comment as one token (`@[Name](id)`), and a comment's mentions show as the people's chips (`useCommentMentions`, from the base library's `createCommentMentions`). A thread being started has its text box focused once it is drawn.
+
+Implementation: `src/components/document-comments/comment-mentions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`
+Verification: `e2e/comments.spec.ts`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

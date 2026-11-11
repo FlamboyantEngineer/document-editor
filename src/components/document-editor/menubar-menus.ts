@@ -139,6 +139,7 @@ function formatMenu(context: EditorContext, features: MenubarFeatures): Document
           {
             id: 'paragraph',
             label: labels.paragraph,
+            shortcut: 'Ctrl+Shift+0',
             onAction: () => context.run(setBlockType(paragraph)),
           },
         ]
@@ -147,6 +148,7 @@ function formatMenu(context: EditorContext, features: MenubarFeatures): Document
       ? [1, 2, 3, 4, 5, 6].map((level) => ({
           id: `heading-${String(level)}`,
           label: labels.heading(level),
+          shortcut: `Ctrl+Shift+${String(level)}`,
           onAction: () => context.run(setBlockType(heading, { level })),
         }))
       : []),

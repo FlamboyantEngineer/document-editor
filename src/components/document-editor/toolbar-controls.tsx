@@ -129,18 +129,27 @@ function BlockStyleSelect({
   // A built-in style sets the block's attributes afresh, taking it out of any custom style.
   const styles = [
     ...(paragraph
-      ? [{ id: 'paragraph', label: labels.paragraph, command: setBlockType(paragraph) }]
+      ? [
+          {
+            id: 'paragraph',
+            label: labels.paragraph,
+            shortcut: 'Ctrl+Shift+0',
+            command: setBlockType(paragraph),
+          },
+        ]
       : []),
     ...(heading
       ? HEADING_LEVELS.map((level) => ({
           id: `heading-${String(level)}`,
           label: labels.heading(level),
+          shortcut: `Ctrl+Shift+${String(level)}`,
           command: setBlockType(heading, { level }),
         }))
       : []),
     ...customStyles.map((name) => ({
       id: `custom:${name}`,
       label: name,
+      shortcut: undefined,
       command: setCustomStyle(name),
     })),
   ];
@@ -159,7 +168,7 @@ function BlockStyleSelect({
       label={labels.blockType}
       labelLayout="control-only"
       placeholder={labels.blockType}
-      options={styles.map(({ id, label }) => ({ id, label }))}
+      options={styles.map(({ id, label, shortcut }) => ({ id, label, shortcut }))}
       renderOption={(option) => (
         // Each style's name in the style it sets, but for its size.
         <span {...hooks.slot('style-preview')} data-block-style={option.id} style={preview}>

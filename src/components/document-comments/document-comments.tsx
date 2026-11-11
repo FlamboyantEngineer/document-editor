@@ -35,6 +35,7 @@ import {
   hooks,
 } from './comment-cards.js';
 import { type CommentItem, listCommentItems, renderCommentCard } from './comment-items.js';
+import { useCommentMentions } from './comment-mentions.js';
 import { useCommentThreads } from './use-comment-threads.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
@@ -162,7 +163,9 @@ export function DocumentComments(props: DocumentCommentsProps) {
     setLastCaret(caret);
     if (caret !== null) setActive(caret);
   }
+  const mentions = useCommentMentions(props.identity);
   const context: CardContext = {
+    mentions,
     documentId: props.documentId,
     comments,
     me: props.identity.currentPerson().id,

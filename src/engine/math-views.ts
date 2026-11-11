@@ -3,106 +3,15 @@
 // LaTeX source shows until the math is typeset, and stays, marked invalid, when it does not
 // typeset. A view whose math changes size asks the pages to measure again (`de-remeasure`).
 
-import { type MathRenderer, renderKatexMath } from '@flamboyantengineer/ui-components/math-preview';
+import {
+  type MathRenderer,
+  renderKatexMath,
+  renderMathElement,
+} from '@flamboyantengineer/ui-components/math-preview';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
-
-// The MathML elements and attributes typeset math may hold; anything else is dropped.
-const MATHML_ELEMENTS = new Set([
-  'math',
-  'semantics',
-  'annotation',
-  'mrow',
-  'mi',
-  'mn',
-  'mo',
-  'ms',
-  'mtext',
-  'mspace',
-  'mfrac',
-  'msqrt',
-  'mroot',
-  'msub',
-  'msup',
-  'msubsup',
-  'munder',
-  'mover',
-  'munderover',
-  'mtable',
-  'mtr',
-  'mtd',
-  'mpadded',
-  'mphantom',
-  'menclose',
-  'mstyle',
-  'merror',
-  'mmultiscripts',
-  'mprescripts',
-  'none',
-]);
-const MATHML_ATTRIBUTES = new Set([
-  'display',
-  'mathvariant',
-  'stretchy',
-  'fence',
-  'separator',
-  'lspace',
-  'rspace',
-  'accent',
-  'accentunder',
-  'linethickness',
-  'columnalign',
-  'rowalign',
-  'columnspacing',
-  'rowspacing',
-  'columnlines',
-  'rowlines',
-  'frame',
-  'scriptlevel',
-  'displaystyle',
-  'width',
-  'height',
-  'depth',
-  'voffset',
-  'minsize',
-  'maxsize',
-  'movablelimits',
-  'notation',
-  'encoding',
-  'symmetric',
-  'largeop',
-  'form',
-  'mathsize',
-]);
-
-const MATHML = 'http://www.w3.org/1998/Math/MathML';
-
-// A copy of the typeset markup in the view's document, keeping only MathML's allowed parts.
-function sanitized(owner: Document, markup: string): Node | null {
-  const parser = owner.defaultView?.DOMParser;
-  if (!parser) return null;
-  const parsed = new parser().parseFromString(markup, 'text/html');
-  const copy = (node: Node): Node | null => {
-    if (node.nodeType === 3) return owner.createTextNode(node.textContent ?? '');
-    if (node.nodeType !== 1) return null;
-    const element = node as Element;
-    const name = element.localName;
-    if (!MATHML_ELEMENTS.has(name)) return null;
-    const out = owner.createElementNS(MATHML, name);
-    for (const attribute of element.attributes) {
-      if (MATHML_ATTRIBUTES.has(attribute.name)) out.setAttribute(attribute.name, attribute.value);
-    }
-    for (const child of element.childNodes) {
-      const kept = copy(child);
-      if (kept) out.appendChild(kept);
-    }
-    return out;
-  };
-  const math = parsed.body.querySelector('math');
-  return math ? copy(math) : null;
-}
 
 // Draws one math node, typesetting its source and drawing it again when the source changes.
 function mathView(node: ProseMirrorNode, view: EditorView, render: MathRenderer): NodeView {
@@ -122,19 +31,19 @@ function mathView(node: ProseMirrorNode, view: EditorView, render: MathRenderer)
     dom.textContent = latex;
     dom.dataset.state = 'pending';
     dom.removeAttribute('title');
-    void Promise.resolve(render(latex, { displayMode: display }))
-      .then((result) => {
-        if (source !== latex) return;
-        const math = result.ok ? sanitized(dom.ownerDocument, result.mathml) : null;
-        if (math) dom.replaceChildren(math);
-        else if (!result.ok) dom.title = result.message;
-        dom.dataset.state = math ? 'ready' : 'invalid';
-        const Event = dom.ownerDocument.defaultView?.CustomEvent;
-        if (Event) dom.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
-      })
-      .catch(() => {
-        if (source === latex) dom.dataset.state = 'invalid';
-      });
+    // The base library typesets and keeps only MathML's allowed parts; it never throws.
+    void renderMathElement(latex, {
+      displayMode: display,
+      renderer: render,
+      ownerDocument: dom.ownerDocument,
+    }).then((result) => {
+      if (source !== latex) return;
+      if (result.ok) dom.replaceChildren(result.element);
+      else dom.title = result.message;
+      dom.dataset.state = result.ok ? 'ready' : 'invalid';
+      const Event = dom.ownerDocument.defaultView?.CustomEvent;
+      if (Event) dom.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
+    });
   };
   draw(node);
   return {

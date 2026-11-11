@@ -57,6 +57,7 @@ test.describe('comments lab', () => {
     await lab.open('comments');
     await selectText(page, 'operator console');
     await margin(page).getByRole('button', { name: 'Comment' }).click();
+    await expect(margin(page).getByRole('textbox', { name: 'Add a comment' })).toBeFocused();
     await page.keyboard.type('Which console?');
     await margin(page).getByRole('button', { name: 'Comment' }).click();
     const thread = card(page, 'Which console?');
@@ -104,6 +105,7 @@ test.describe('comments lab', () => {
     await page.keyboard.press('ControlOrMeta+Alt+m');
     const draft = content(page).locator('mark[data-comment-draft]');
     await expect(draft).toHaveText('Reports go to the operator console and to the log.');
+    await expect(margin(page).getByRole('textbox', { name: 'Add a comment' })).toBeFocused();
     await page.keyboard.type('Which log?');
     await margin(page).getByRole('button', { name: 'Comment' }).click();
     await expect(draft).toHaveCount(0);
@@ -123,6 +125,7 @@ test.describe('comments lab', () => {
     await expect(first.getByRole('button', { name: /👍/ })).toHaveAttribute('aria-pressed', 'true');
     await selectText(page, 'operator console');
     await margin(page).getByRole('button', { name: 'Comment' }).click();
+    await expect(margin(page).getByRole('textbox', { name: 'Add a comment' })).toBeFocused();
     await page.keyboard.type('Which console?');
     await margin(page).getByRole('button', { name: 'Comment' }).click();
     // The card by the text it quotes, which the edit leaves.
@@ -194,6 +197,21 @@ test.describe('comments lab', () => {
     await page.getByLabel('Reading only').check();
     await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveCount(0);
     await page.getByLabel('Reading only').uncheck();
-    await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveValue('From the detection.');
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveText('From the detection.');
+  });
+
+  test('DOCE-COMMENTS-2.13 mentions a person the host finds, shown as their chip', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    const thread = card(page, 'Is one second measured');
+    await thread.getByRole('textbox', { name: 'Reply' }).click();
+    await page.keyboard.type('Over to @Gra');
+    await page.getByRole('option', { name: /Grace Hopper/ }).click();
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    await expect(thread.getByRole('article').last()).toContainText('Over to');
+    await expect(thread.getByRole('article').last()).toContainText('Grace Hopper');
+    await expect(thread.getByRole('article').last()).not.toContainText('@[');
   });
 });
