@@ -10,11 +10,13 @@ import { PropertyFilter } from '@flamboyantengineer/ui-components/property-filte
 import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { StoredContent, TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { MarginsRow } from './margins-row.js';
 import { type RegionContentLabels, RegionContentRow } from './region-content-editor.js';
-import { type Rows, rows, type Target, TextStyles } from './template-rows.js';
+import { CustomStyleSection, TextStyleSection } from './style-sections.js';
+import { type Rows, rows, type Target } from './template-rows.js';
 import {
   ScopePicker,
   SECTION_SCOPED,
@@ -35,8 +37,28 @@ export interface TemplateEditorLabels extends TemplateScopeLabels, RegionContent
   readonly parent: string;
   readonly noParent: string;
   readonly textStyles: string;
-  readonly style: string;
   readonly numbering: string;
+  readonly font: string;
+  readonly size: string;
+  /** Names the weight, slant and underline toggles and the alignment together. */
+  readonly face: string;
+  readonly bold: string;
+  readonly italic: string;
+  readonly underline: string;
+  readonly alignment: string;
+  readonly alignments: Readonly<Record<'left' | 'center' | 'right' | 'justify', string>>;
+  readonly colour: string;
+  readonly spacing: string;
+  readonly spaceBefore: string;
+  readonly spaceAfter: string;
+  readonly lineHeight: string;
+  readonly styleName: string;
+  readonly overrideCustomStyle: string;
+  /** Marks a custom style the template inherits. */
+  readonly inheritedStyle: string;
+  readonly noCustomStyles: string;
+  readonly margins: string;
+  readonly marginSides: Readonly<Record<'top' | 'right' | 'bottom' | 'left', string>>;
   readonly numberPrefix: string;
   readonly numberSuffix: string;
   /** Where a section's inherited values come from. */
@@ -55,8 +77,31 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   parent: 'Parent template',
   noParent: 'Base template',
   textStyles: 'Text styles',
-  style: 'Style',
-  numbering: 'Numbering format',
+  numbering: 'Numbering',
+  font: 'Font',
+  size: 'Size',
+  face: 'Weight & align',
+  bold: 'Bold',
+  italic: 'Italic',
+  underline: 'Underline',
+  alignment: 'Alignment',
+  alignments: { left: 'Left', center: 'Centre', right: 'Right', justify: 'Justify' },
+  colour: 'Colour',
+  spacing: 'Spacing',
+  spaceBefore: 'Space before',
+  spaceAfter: 'Space after',
+  lineHeight: 'Line height',
+  styleName: 'Name',
+  overrideCustomStyle: 'Override the inherited style',
+  inheritedStyle: 'inherited',
+  noCustomStyles: 'No custom styles yet.',
+  margins: 'Margins',
+  marginSides: {
+    top: 'Top margin',
+    right: 'Right margin',
+    bottom: 'Bottom margin',
+    left: 'Left margin',
+  },
   numberPrefix: 'Before the number',
   numberSuffix: 'After the number',
   documentSettings: 'the document settings',
@@ -215,12 +260,20 @@ export function TemplateEditor(props: TemplateEditorProps) {
           isDisabled={isDisabled}
         />
       )}
-      <TextStyles {...context} />
       {sections.map((section) => (
-        <PropertySection key={section.id} id={section.id} title={section.title}>
-          {rows(context, section.scope, section.settings)}
-          {section.id === 'regions' ? <RegionRows context={context} /> : null}
-        </PropertySection>
+        <Fragment key={section.id}>
+          <PropertySection id={section.id} title={section.title}>
+            {rows(context, section.scope, section.settings)}
+            {section.id === 'page' ? <MarginsRow context={context} /> : null}
+            {section.id === 'regions' ? <RegionRows context={context} /> : null}
+          </PropertySection>
+          {section.id === 'page' ? (
+            <>
+              <TextStyleSection context={context} />
+              <CustomStyleSection context={context} />
+            </>
+          ) : null}
+        </Fragment>
       ))}
     </PropertyFilter>
   );

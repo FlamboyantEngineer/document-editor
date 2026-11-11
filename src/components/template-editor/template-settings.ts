@@ -120,20 +120,32 @@ export const TEXT_STYLE_SETTINGS: readonly TemplateSetting[] = [
     'Alignment',
     select(['left', 'Left'], ['center', 'Centre'], ['right', 'Right'], ['justify', 'Justify']),
   ),
-  setting('spaceBefore', 'Space before', length),
-  setting('spaceAfter', 'Space after', length),
+  setting('spaceBefore', 'Space before', points),
+  setting('spaceAfter', 'Space after', points),
 ];
 
-/** The text styles the style picker offers, by their key in a template's styles. */
+/** The text styles, each a card, by their key in a template's styles, in reading order. */
 export const TEXT_STYLES = [
-  { id: 'paragraph', label: 'Paragraph' },
   { id: 'title', label: 'Title' },
   ...[1, 2, 3, 4, 5, 6].map((level) => ({
     id: `heading${String(level)}`,
     label: `Heading ${String(level)}`,
   })),
-  { id: 'codeBlock', label: 'Code block' },
+  { id: 'paragraph', label: 'Paragraph' },
 ] as const;
+
+/** The fonts a font field suggests unless the editor is given its own. */
+export const DEFAULT_FONTS: readonly string[] = [
+  'Arial',
+  'Calibri',
+  'Cambria',
+  'Courier New',
+  'Georgia',
+  'Helvetica',
+  'Segoe UI',
+  'Times New Roman',
+  'Verdana',
+];
 
 /** The editor's sections, in order, below the text styles. */
 export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
@@ -152,10 +164,6 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
         'Orientation',
         choice(['portrait', 'Portrait'], ['landscape', 'Landscape']),
       ),
-      setting('margins.top', 'Top margin', length),
-      setting('margins.right', 'Right margin', length),
-      setting('margins.bottom', 'Bottom margin', length),
-      setting('margins.left', 'Left margin', length),
     ],
   },
   {
@@ -202,8 +210,12 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Code blocks',
     scope: ['styles', 'codeBlock'],
     settings: [
+      setting('font', 'Font', { type: 'font' }),
+      setting('size', 'Size', points),
       setting('background', 'Background', color),
       setting('caption.placement', 'Caption', choice(['above', 'Above'], ['below', 'Below'])),
+      setting('spaceBefore', 'Space before', points),
+      setting('spaceAfter', 'Space after', points),
     ],
   },
   {

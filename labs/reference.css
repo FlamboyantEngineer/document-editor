@@ -119,7 +119,7 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
 .lab-split {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
   gap: 16px;
   min-height: 0;
 }
