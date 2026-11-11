@@ -12,11 +12,15 @@ export const labSourceDir = join(labsDir, 'src');
 export const LABS_HOST = '127.0.0.1';
 export const LABS_PORT = Number(process.env.LABS_PORT ?? 4183);
 
-/** The labs with a source, by name: `labs/src/<name>.lab.ts` or `.lab.tsx`. */
+/** The labs with a source, by name: `labs/src/<name>.lab.ts` or `.lab.tsx`, and spikes' labs in
+ * `labs/src/spikes/`. */
 export function listLabSources() {
-  return readdirSync(labSourceDir)
-    .filter((file) => /\.lab\.tsx?$/.test(file))
-    .map((file) => ({ name: file.replace(/\.lab\.tsx?$/, ''), file: join(labSourceDir, file) }))
+  return [labSourceDir, join(labSourceDir, 'spikes')]
+    .flatMap((dir) =>
+      readdirSync(dir)
+        .filter((file) => /\.lab\.tsx?$/.test(file))
+        .map((file) => ({ name: file.replace(/\.lab\.tsx?$/, ''), file: join(dir, file) })),
+    )
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
