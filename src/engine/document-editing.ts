@@ -22,6 +22,7 @@ import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-li
 import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
 import { resolveFootnoteSettings, type TemplateFile } from '../model/index.js';
 import { createCommentDraft } from './comment-draft.js';
+import { createCustomStyles } from './custom-styles.js';
 import {
   changeParagraphLevel,
   clearFormatting,
@@ -200,6 +201,7 @@ export function createDocumentEditing(
     createMathViews(),
     createObjectViews(),
     createWordPaste(),
+    ...(template ? [createCustomStyles({ template })] : []),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
@@ -254,6 +256,12 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'word-paste',
         priority: 510,
         build: () => [createWordPaste()],
+      },
+      {
+        name: 'custom-styles',
+        priority: 515,
+        when: () => Boolean(template),
+        build: () => (template ? [createCustomStyles({ template })] : []),
       },
       {
         name: 'tables',

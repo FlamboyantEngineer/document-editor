@@ -153,3 +153,12 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 Implementation: `src/model/templates/page-regions.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/templates/page-regions.test.ts`
+
+## DOCE-TEMPLATES-7 - Custom styles
+
+### DOCE-TEMPLATES-7.1 - Applying a custom style
+
+A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall apply to paragraphs and headings by name (`setCustomStyle`, `customStyleAt`), kept as the block's style; `createCustomStyles({ template })`, which the editing plugins install when given the template, gives each block in a style the style's values from its section's template or the document's (`customStyleProperties`, `--doc-custom-*`, with `data-custom-style`), in every view, again when the template changes. A built-in text style takes a block out of its custom style. The toolbar's text style field offers the custom styles after the built-in ones.
+
+Implementation: `src/engine/custom-styles.ts`, `src/model/templates/template-text-properties.ts`, `src/components/document-editor/toolbar-controls.tsx`
+Verification: `src/engine/custom-styles.test.ts`, `e2e/template-editor.spec.ts`

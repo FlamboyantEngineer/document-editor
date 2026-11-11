@@ -772,3 +772,56 @@
 [data-reference-status='update'] {
   text-decoration: underline dotted #b45309;
 }
+
+/*
+ * A paragraph in a custom style takes the style's values, its own where the style sets none.
+ * The style's values are the --doc-custom-* properties the block carries.
+ */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content p[data-custom-style] {
+  margin: var(--doc-custom-margin-top, var(--doc-paragraph-margin-top, 0)) 0
+    var(--doc-custom-margin-bottom, var(--doc-paragraph-margin-bottom, 0));
+  font-family: var(--doc-custom-font-family, var(--doc-paragraph-font-family, serif));
+  font-size: var(--doc-custom-font-size, var(--doc-paragraph-font-size, 12px));
+  font-weight: var(--doc-custom-font-weight, normal);
+  font-style: var(--doc-custom-font-style, normal);
+  text-decoration: var(--doc-custom-text-decoration, none);
+  color: var(--doc-custom-color, var(--doc-paragraph-color, inherit));
+  line-height: var(--doc-custom-line-height, var(--doc-paragraph-line-height, 1.5));
+  text-align: var(--doc-custom-text-align, var(--doc-paragraph-text-align, left));
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h1[data-custom-style] {
+  font-size: var(--doc-custom-font-size, var(--doc-heading-1-font-size));
+  color: var(--doc-custom-color, var(--doc-heading-1-color));
+  font-style: var(--doc-custom-font-style, normal);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h2[data-custom-style] {
+  font-size: var(--doc-custom-font-size, var(--doc-heading-2-font-size));
+  color: var(--doc-custom-color, var(--doc-heading-2-color));
+  font-style: var(--doc-custom-font-style, normal);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h3[data-custom-style] {
+  font-size: var(--doc-custom-font-size, var(--doc-heading-3-font-size));
+  color: var(--doc-custom-color, var(--doc-heading-3-color));
+  font-style: var(--doc-custom-font-style, normal);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h4[data-custom-style] {
+  font-size: var(--doc-custom-font-size, var(--doc-heading-4-font-size));
+  color: var(--doc-custom-color, var(--doc-heading-4-color));
+  font-style: var(--doc-custom-font-style, normal);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h5[data-custom-style] {
+  font-size: var(--doc-custom-font-size, var(--doc-heading-5-font-size));
+  color: var(--doc-custom-color, var(--doc-heading-5-color));
+  font-style: var(--doc-custom-font-style, normal);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content h6[data-custom-style] {
+  font-size: var(--doc-custom-font-size, var(--doc-heading-6-font-size));
+  color: var(--doc-custom-color, var(--doc-heading-6-color));
+  font-style: var(--doc-custom-font-style, normal);
+}

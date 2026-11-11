@@ -102,4 +102,27 @@ test.describe('template editor lab', () => {
     await json.fill('{ "formatVersion": 1, "id": "lab-template", ');
     await expect(page.getByText('The text is not valid JSON.')).toBeVisible();
   });
+
+  test('DOCE-TEMPLATE-EDITOR-1.6 DOCE-TEMPLATES-7.1 adds a custom style and applies it to a paragraph', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    const settings = panel(page).first();
+    await settings.getByRole('button', { name: 'Add a style' }).click();
+    const paragraph = content(page).locator('p').nth(2);
+    await paragraph.click();
+    const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+    await toolbar.getByRole('button', { name: /Text style/ }).click();
+    await page.getByRole('option', { name: 'style_1' }).click();
+    await expect(paragraph).toHaveAttribute('data-custom-style', 'style_1');
+    await expect
+      .poll(() =>
+        paragraph.evaluate((element) => Math.round(parseFloat(getComputedStyle(element).fontSize))),
+      )
+      .toBe(15);
+    await toolbar.getByRole('button', { name: /Text style/ }).click();
+    await page.getByRole('option', { name: 'Paragraph' }).click();
+    await expect(paragraph).not.toHaveAttribute('data-custom-style');
+  });
 });

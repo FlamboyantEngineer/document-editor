@@ -38,7 +38,7 @@ import {
 } from './template-text-properties.js';
 
 export type { CustomProperties, FontStacks } from './template-text-properties.js';
-export { textStyleProperties } from './template-text-properties.js';
+export { customStyleProperties, textStyleProperties } from './template-text-properties.js';
 
 /** Which scope of a resolved template to read, and the host's fonts. */
 export interface TemplatePropertiesOptions {

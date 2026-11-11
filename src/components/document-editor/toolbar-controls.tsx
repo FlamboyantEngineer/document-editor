@@ -25,7 +25,13 @@ import type { MarkType, NodeType, Schema } from 'prosemirror-model';
 import { liftListItem } from 'prosemirror-schema-list';
 import type { Command, EditorState } from 'prosemirror-state';
 import { type CSSProperties, useMemo, useState } from 'react';
-import { insertPageBreak, insertTable, wrapInListAndJoin } from '../../engine/index.js';
+import {
+  customStyleAt,
+  insertPageBreak,
+  insertTable,
+  setCustomStyle,
+  wrapInListAndJoin,
+} from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -108,13 +114,16 @@ const PREVIEW_PROPERTY = /^--doc-(paragraph|heading-[1-6])-/;
 function BlockStyleSelect({
   context,
   templateStyle,
+  customStyles,
 }: {
   context: EditorContext;
   templateStyle: Readonly<Record<string, string>>;
+  customStyles: readonly string[];
 }) {
   const { labels } = context;
   const preview = useMemo(() => previewProperties(templateStyle), [templateStyle]);
   const { paragraph, heading } = context.state.schema.nodes;
+  // A built-in style sets the block's attributes afresh, taking it out of any custom style.
   const styles = [
     ...(paragraph
       ? [{ id: 'paragraph', label: labels.paragraph, command: setBlockType(paragraph) }]
@@ -126,6 +135,11 @@ function BlockStyleSelect({
           command: setBlockType(heading, { level }),
         }))
       : []),
+    ...customStyles.map((name) => ({
+      id: `custom:${name}`,
+      label: name,
+      command: setCustomStyle(name),
+    })),
   ];
   const choose = (key: Key | null) => {
     const style = styles.find((each) => each.id === key);
@@ -146,7 +160,11 @@ function BlockStyleSelect({
           {option.label}
         </span>
       )}
-      value={blockStyle(context.state)}
+      value={
+        customStyleAt(context.state)
+          ? `custom:${customStyleAt(context.state) ?? ''}`
+          : blockStyle(context.state)
+      }
       tracksChanges={false}
       onChange={choose}
       isDisabled={!context.editable || context.locked}
@@ -261,7 +279,13 @@ export function builtInToolbarGroups(
         {
           kind: 'custom',
           id: 'block-style',
-          render: (context) => <BlockStyleSelect context={context} templateStyle={templateStyle} />,
+          render: (context) => (
+            <BlockStyleSelect
+              context={context}
+              templateStyle={templateStyle}
+              customStyles={features.customStyles ?? []}
+            />
+          ),
         },
       ],
     },

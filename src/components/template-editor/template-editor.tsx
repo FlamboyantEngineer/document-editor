@@ -14,7 +14,7 @@ import { useState } from 'react';
 import type { StoredContent, TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { type RegionContentLabels, RegionContentRow } from './region-content-editor.js';
-import { SettingRow } from './setting-row.js';
+import { type Rows, rows, type Target, TextStyles } from './template-rows.js';
 import {
   ScopePicker,
   SECTION_SCOPED,
@@ -22,14 +22,7 @@ import {
   type TemplateScopeLabels,
   withSection,
 } from './template-scope.js';
-import {
-  settingAt,
-  TEMPLATE_SECTIONS,
-  type TemplateSetting,
-  TEXT_STYLE_SETTINGS,
-  TEXT_STYLES,
-  withSetting,
-} from './template-settings.js';
+import { settingAt, TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
 
 const hooks = createHooks('template-editor');
 
@@ -44,6 +37,9 @@ export interface TemplateEditorLabels extends TemplateScopeLabels, RegionContent
   readonly textStyles: string;
   readonly style: string;
   readonly numbering: string;
+  readonly customStyle: string;
+  readonly addCustomStyle: string;
+  readonly deleteCustomStyle: string;
 }
 
 /** The template editor's English text. */
@@ -57,6 +53,9 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   textStyles: 'Text styles',
   style: 'Style',
   numbering: 'Numbering format',
+  customStyle: 'Custom styles',
+  addCustomStyle: 'Add a style',
+  deleteCustomStyle: 'Delete the style',
   inherited: (value) => `Inherited: ${value}`,
   scope: 'Settings of',
   documentScope: 'The document',
@@ -83,75 +82,6 @@ export interface TemplateEditorProps {
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly className?: string | undefined;
-}
-
-// What the rows read and change: the document's settings, or a section's over them.
-interface Target {
-  readonly own: TemplateFile;
-  readonly inherited: TemplateFile | undefined;
-  readonly set: (path: readonly string[], value: unknown) => void;
-}
-
-interface Rows {
-  readonly props: TemplateEditorProps;
-  readonly labels: TemplateEditorLabels;
-  readonly target: Target;
-}
-
-function rows(
-  { props, labels, target }: Rows,
-  scope: readonly string[],
-  settings: readonly TemplateSetting[],
-) {
-  return settings.map((setting) => {
-    const path = [...scope, ...setting.path];
-    return (
-      <SettingRow
-        key={setting.id}
-        setting={setting}
-        value={settingAt(target.own, path)}
-        inherited={target.inherited ? settingAt(target.inherited, path) : undefined}
-        onChange={(value) => target.set(path, value)}
-        inheritedLabel={labels.inherited}
-        isDisabled={props.isDisabled}
-      />
-    );
-  });
-}
-
-// The text styles: a picker, then the picked style's settings.
-function TextStyles(context: Rows) {
-  const [style, setStyle] = useState<string>('paragraph');
-  const { labels } = context;
-  const scope = ['styles', style];
-  const numbering: TemplateSetting = {
-    id: 'numbering',
-    path: ['numbering', 'format'],
-    label: labels.numbering,
-    kind: { type: 'text' },
-  };
-  return (
-    <PropertySection id="text-styles" title={labels.textStyles} defaultExpanded>
-      <PropertyRow label={labels.style}>
-        <SelectField
-          label={labels.style}
-          labelLayout="control-only"
-          density="compact"
-          tracksChanges={false}
-          options={TEXT_STYLES}
-          value={style}
-          onChange={(key: Key | null) => {
-            if (typeof key === 'string') setStyle(key);
-          }}
-        />
-      </PropertyRow>
-      {rows(
-        context,
-        scope,
-        style.startsWith('heading') ? [...TEXT_STYLE_SETTINGS, numbering] : TEXT_STYLE_SETTINGS,
-      )}
-    </PropertySection>
-  );
 }
 
 // The name and the parent of the template.
