@@ -143,6 +143,8 @@ export {
   setMathSource,
   setObjectLayout,
 } from './object-commands.js';
+export type { LineNumbers, ObjectViewsOptions } from './object-views.js';
+export { createObjectViews, lineNumbers } from './object-views.js';
 export type { OutlineEntry } from './outline.js';
 export { documentOutline } from './outline.js';
 export type { Peer, PresenceState } from './presence.js';
@@ -188,6 +190,14 @@ export {
 } from './proofing-commands.js';
 export type { TextSegment as ProofingSegment } from './proofing-text.js';
 export { segmentsOf } from './proofing-text.js';
+export type { CitationKey, ReferenceStatus, ReferenceStatusOptions } from './reference-status.js';
+export {
+  citationKey,
+  createReferenceStatus,
+  referenceStatusAt,
+  resolveCitations,
+  updateReference,
+} from './reference-status.js';
 export type {
   ReferenceAt,
   ReferencesOptions,

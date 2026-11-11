@@ -69,10 +69,30 @@ A caption line shall read the object's label and number, from the template's num
 Implementation: `src/model/schema/table-nodes.ts`, `labs/reference/document.css`
 Verification: `e2e/captions.spec.ts`
 
+## DOCE-OBJECTS-3 - Object views
+
+### DOCE-OBJECTS-3.1 - Line numbers
+
+`createObjectViews({ lineNumbers })`, which the editing plugins install, shall draw a gutter of line numbers (`de-code-gutter`) before the code of linked code (the default), all code (`all`) or none (`none`), numbered from the code's first line (`startLine`, or a continued block's `codeLineStart`) and kept in step with its text, in every view; `lineNumbers(code, first)` gives them.
+
+Implementation: `src/engine/object-views.ts`
+Verification: `e2e/objects.spec.ts`
+
+### DOCE-OBJECTS-3.2 - Signatures
+
+The object views shall draw a signature (`de-signature`, with `data-signed`) as its strokes, from its stored vector, and the signer's name (`de-signature__name`), and an unsigned one as the name alone.
+
+Implementation: `src/engine/object-views.ts`
+Verification: `e2e/objects.spec.ts`
+
 ## Hooks
 
-| Hook           | Kind      | Values                        | Description                         |
-| -------------- | --------- | ----------------------------- | ----------------------------------- |
-| `de-math`      | root      |                               | A math node, typeset.               |
-| `data-display` | attribute | `inline`, `display`           | On math: inline or a block.         |
-| `data-state`   | state     | `pending`, `ready`, `invalid` | On math: whether it is typeset yet. |
+| Hook                 | Kind      | Values                        | Description                               |
+| -------------------- | --------- | ----------------------------- | ----------------------------------------- |
+| `de-math`            | root      |                               | A math node, typeset.                     |
+| `data-display`       | attribute | `inline`, `display`           | On math: inline or a block.               |
+| `data-state`         | state     | `pending`, `ready`, `invalid` | On math: whether it is typeset yet.       |
+| `de-code-gutter`     | root      |                               | The line numbers beside code.             |
+| `de-signature`       | root      |                               | A signature.                              |
+| `de-signature__name` | slot      |                               | The signer's name.                        |
+| `data-signed`        | state     | `true`, `false`               | On a signature: whether it holds strokes. |

@@ -6,6 +6,7 @@
 export interface ObjectLabels {
   /** Names the outline panel. */
   readonly outline: string;
+  readonly updateReference: string;
   readonly superscript: string;
   readonly subscript: string;
   readonly link: string;
@@ -100,6 +101,7 @@ const CODE_STATUS = {
 /** The object controls' English text. */
 export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   outline: 'Outline',
+  updateReference: 'Update reference',
   superscript: 'Superscript',
   subscript: 'Subscript',
   link: 'Link',

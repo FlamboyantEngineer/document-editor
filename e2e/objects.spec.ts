@@ -167,6 +167,31 @@ test.describe('objects', () => {
     await item(page, 'List of figures').click();
     await expect(content(page).locator('[data-contents-type="figures"]')).toHaveCount(1);
   });
+
+  test('DOCE-OBJECTS-3.1 numbers the lines of linked code from its first line', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await toolbar(page).getByRole('button', { name: 'Code' }).click();
+    await item(page, 'Linked code…').click();
+    await dialog(page)
+      .getByRole('textbox', { name: 'Code address' })
+      .fill('https://example.com/firmware/clock.ts#L2-L3');
+    await expect(dialog(page)).toContainText('return elapsed / PERIOD;');
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    await expect(content(page).locator('[data-linked-code-block] .de-code-gutter')).toHaveText(
+      ['2', '3'].join('\n'),
+    );
+  });
+
+  test('DOCE-OBJECTS-3.2 draws a signature from its strokes with the signer name', async ({
+    page,
+  }) => {
+    const signature = content(page).locator('.de-signature');
+    await expect(signature).toHaveAttribute('data-signed', 'true');
+    await expect(signature.locator('svg path')).toHaveCount(1);
+    await expect(signature.locator('.de-signature__name')).toHaveText('Ada Lovelace');
+  });
 });
 
 // A 1 by 1 pixel PNG.

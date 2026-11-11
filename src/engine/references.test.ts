@@ -15,6 +15,13 @@ import {
   unlinkAbbreviation,
 } from './abbreviations.js';
 import {
+  citationKey,
+  createReferenceStatus,
+  referenceStatusAt,
+  resolveCitations,
+  updateReference,
+} from './reference-status.js';
+import {
   canInsertReference,
   createReferences,
   insertReference,
@@ -153,5 +160,47 @@ describe('abbreviations', () => {
     expect(refreshAbbreviations([{ ...entry, expansion: 'Ground service equipment' }])(state)).toBe(
       false,
     );
+  });
+});
+
+describe('external references', () => {
+  const baseline = (revisionLabel: string) => ({
+    version: 1 as const,
+    documentId: 'pwr-100',
+    numbering: 'PWR-100',
+    title: 'Power interface',
+    revision: null,
+    revisionLabel,
+    target: null,
+    defaultLabel: `PWR-100 ${revisionLabel}`,
+  });
+
+  it('DOCE-REFERENCES-1.5 marks a citation unavailable or updated, and takes its update', () => {
+    const doc = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [paragraph('See .')] }] },
+      documentSchema,
+    );
+    const source = { search: () => Promise.resolve({ ok: true as const, value: [] }) };
+    let state = EditorState.create({ doc, plugins: [createReferenceStatus({ source })] });
+    state = at(state, '.');
+    state = run(
+      state,
+      insertReference({
+        kind: 'external',
+        refType: 'external-document',
+        baseline: baseline('A'),
+        text: 'PWR-100 A',
+      }),
+    );
+    state = at(state, 'PWR-100', 3);
+    const key = citationKey({ documentId: 'pwr-100', targetId: null });
+    state = run(state, resolveCitations(new Map([[key, baseline('B')]])));
+    expect(referenceStatusAt(state)).toBe('update');
+    state = run(state, updateReference);
+    expect(state.doc.textBetween(0, state.doc.content.size)).toContain('See PWR-100 B.');
+    expect(referenceStatusAt(at(state, 'PWR-100', 3))).toBe('current');
+    state = run(state, resolveCitations(new Map([[key, null]])));
+    expect(referenceStatusAt(at(state, 'PWR-100', 3))).toBe('unavailable');
+    expect(updateReference(at(state, 'PWR-100', 3))).toBe(false);
   });
 });

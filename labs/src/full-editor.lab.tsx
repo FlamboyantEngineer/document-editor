@@ -175,6 +175,23 @@ function initialState(): EditorState {
       type: 'paragraph',
       content: [text('Locked by its workflow state: this paragraph cannot change.')],
     },
+    {
+      type: 'paragraph',
+      content: [
+        text('Approved by '),
+        {
+          type: 'signature',
+          attrs: {
+            person: 'ada',
+            label: 'Ada Lovelace',
+            vector: {
+              viewBox: { width: 100, height: 40 },
+              paths: [{ d: 'M5 30 C20 5 40 35 60 10 S90 20 95 15', fill: false, strokeWidth: 2 }],
+            },
+          },
+        },
+      ],
+    },
   );
   const state = EditorState.create({
     doc: readDocumentFile(file, schema),

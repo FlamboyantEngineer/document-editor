@@ -32,6 +32,13 @@ Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
 Implementation: `src/engine/references.ts`
 Verification: `src/engine/references.test.ts`
 
+### DOCE-REFERENCES-1.5 - Citations as they are now
+
+`createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, and mark a reference whose document or target is gone `unavailable` and one whose document's revision, number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`); `updateReference` takes the update of the reference at the selection, recording the citation as it is now and reading as its label. The context menu offers it.
+
+Implementation: `src/engine/reference-status.ts`, `src/components/document-editor/element-entries.ts`
+Verification: `src/engine/references.test.ts`
+
 ## DOCE-REFERENCES-2 - Abbreviations
 
 ### DOCE-REFERENCES-2.1 - Inserting and switching
