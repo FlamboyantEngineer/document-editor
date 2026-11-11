@@ -247,3 +247,9 @@ export function schemaAttrName(
 ): string | null {
   return schemaAttrs.find((name) => storedAttrName(mapping, name) === stored) ?? null;
 }
+
+/** The LaTeX source of stored math, inline or a block, which the format keeps in `source`. */
+export function storedMathSource(node: StoredNode): string {
+  const source = node.attrs?.source;
+  return typeof source === 'string' ? source : '';
+}
