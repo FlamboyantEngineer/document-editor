@@ -288,3 +288,4 @@ export type {
   VersionChangeKind,
 } from './version-compare.js';
 export { collectVersionBlocks, compareVersions } from './version-compare.js';
+export { createWordPaste } from './word-paste.js';

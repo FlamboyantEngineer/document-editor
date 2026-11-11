@@ -123,3 +123,19 @@ Verification: `src/model/format/docx.test.ts`
 
 Implementation: `src/model/format/docx.ts`
 Verification: `src/model/format/docx.test.ts`
+
+## DOCE-FORMAT-6 - HTML interchange
+
+### DOCE-FORMAT-6.1 - Writing and reading HTML
+
+`writeHtml(doc, document)` shall write a document's content as the schema writes each node, and `readHtml(html, schema, document)` read HTML as the schema reads markup, from an inert document so nothing in it runs or loads.
+
+Implementation: `src/model/format/html.ts`
+Verification: `src/model/format/html.test.ts`
+
+### DOCE-FORMAT-6.2 - Word processor HTML
+
+HTML from a word processor (`isWordHtml`) shall be cleaned of the word processor's own markup before it is read or pasted (`cleanWordHtml`, `createWordPaste`, which the editing plugins install): conditional comments, Office elements, its style sheets, its class names and the styles they carry are dropped, other styles kept, and runs of its list paragraphs become nested bulleted or numbered lists.
+
+Implementation: `src/model/format/html.ts`, `src/engine/word-paste.ts`
+Verification: `src/model/format/html.test.ts`, `e2e/full-editor.spec.ts`

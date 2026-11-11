@@ -67,4 +67,29 @@ test.describe('full editor lab', () => {
       content(page).locator('p', { hasText: 'Recovery takes less than one second.' }),
     ).toHaveCount(1);
   });
+
+  test('DOCE-FORMAT-6.2 pastes word processor lists as lists', async ({ lab, page }) => {
+    await lab.open('full-editor');
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    const html = [
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office"><body>',
+      '<p class="MsoListParagraph" style="mso-list:l0 level1 lfo1"><![if !supportLists]><span style="mso-list:Ignore">1.<span> </span></span><![endif]>Charge<o:p></o:p></p>',
+      '<p class="MsoListParagraph" style="mso-list:l0 level1 lfo1"><![if !supportLists]><span style="mso-list:Ignore">2.<span> </span></span><![endif]>Discharge<o:p></o:p></p>',
+      '</body></html>',
+    ].join('');
+    await content(page).evaluate((element, markup) => {
+      const data = new DataTransfer();
+      data.setData('text/html', markup);
+      data.setData('text/plain', 'Charge Discharge');
+      const target = element.querySelector('[contenteditable="true"]') ?? element;
+      target.dispatchEvent(
+        new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+      );
+    }, html);
+    const list = content(page).locator('ol', { hasText: 'Discharge' });
+    await expect(list.locator('li')).toHaveCount(2);
+    await expect(content(page)).not.toContainText('mso');
+  });
 });
