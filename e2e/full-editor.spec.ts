@@ -118,4 +118,34 @@ test.describe('full editor lab', () => {
     await page.getByLabel('Authorship').uncheck();
     await expect(written.locator('[data-author-slot]')).toHaveCount(0);
   });
+
+  test('DOCE-EDITOR-4.8 DOCE-OBJECTS-4.3 runs the host scripts into their blocks', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    // The script that runs on opening shows what it produced.
+    const status = content(page).locator('.script-block[data-script="Status"]');
+    await expect(status.locator('.script-output')).toContainText(/^Status: \d+ blocks\.$/);
+    // The writer cannot edit the output.
+    await status.locator('.script-output p').click();
+    await page.keyboard.type('xyz');
+    await expect(status).not.toContainText('xyz');
+    // A script inserted from the toolbar runs at once.
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.getByRole('toolbar', { name: 'Formatting' }).locator('[data-item="script"]').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'Script' }).fill('Summary');
+    await dialog.getByRole('button', { name: 'Apply and run' }).click();
+    const summary = content(page).locator('.script-block[data-script="Summary"]');
+    await expect(summary.locator('.script-output')).toContainText(/^Summary: \d+ blocks\.$/);
+    // The context menu edits a script, and a failing one is marked.
+    await summary.locator('.script-output p').click({ button: 'right' });
+    await page.getByRole('menu').last().getByRole('menuitem', { name: 'Edit script…' }).click();
+    await dialog.getByRole('textbox', { name: 'Script' }).fill('Summary fail');
+    await dialog.getByRole('button', { name: 'Apply and run' }).click();
+    await expect(
+      content(page).locator('.script-block[data-script="Summary fail"]'),
+    ).toHaveAttribute('data-script-state', 'error');
+  });
 });

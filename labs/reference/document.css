@@ -763,6 +763,31 @@
   font-size: 0.8em;
 }
 
+/* A script block: its output, marked on the screen as the script's; running, failed or empty. */
+.script-block {
+  position: relative;
+  outline: 1px dashed #94a3b8;
+  outline-offset: 2px;
+}
+
+.script-block[data-script-state='running'] {
+  opacity: 0.6;
+}
+
+.script-block[data-script-state='error'] {
+  outline-color: #b91c1c;
+}
+
+.script-block[data-script-state='empty'] {
+  min-height: 1.5em;
+}
+
+@media print {
+  .script-block {
+    outline: none;
+  }
+}
+
 /* A reference whose document is gone, or has changed since it was cited. */
 [data-reference-status='unavailable'] {
   text-decoration: line-through;

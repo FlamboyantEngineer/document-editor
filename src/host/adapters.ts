@@ -1,4 +1,4 @@
-import type { DocumentFile } from '../model/format/document-format.js';
+import type { DocumentFile, StoredContent } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import type { ReferenceBaseline } from '../model/reference-format.js';
@@ -127,6 +127,15 @@ export interface ResolvedCode {
 export interface CodeSourceAdapter {
   /** The code a URL names, such as `https://example.com/repo/main.ts#L10-L20`. */
   resolve(url: string, signal?: AbortSignal): Promise<HostResult<ResolvedCode>>;
+}
+
+/** Runs a document's scripts, producing the content each script block shows. */
+export interface ScriptRunnerAdapter {
+  /** The content a script produces, run against the document as it is. */
+  run(
+    request: { blockId: string; source: string; document: DocumentFile },
+    signal?: AbortSignal,
+  ): Promise<HostResult<StoredContent>>;
 }
 
 /** Completes the text a writer is typing, such as through a language model. */
@@ -320,6 +329,7 @@ export interface EditorHost {
   codeSource?: CodeSourceAdapter | undefined;
   references?: ReferenceSourceAdapter | undefined;
   glossary?: GlossaryAdapter | undefined;
+  scripts?: ScriptRunnerAdapter | undefined;
   comments?: CommentStoreAdapter | undefined;
   versions?: VersionStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;

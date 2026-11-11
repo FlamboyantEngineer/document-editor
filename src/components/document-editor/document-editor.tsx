@@ -28,6 +28,7 @@ import type {
   FeedbackAdapter,
   GlossaryAdapter,
   ReferenceSourceAdapter,
+  ScriptRunnerAdapter,
   TelemetryAdapter,
 } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
@@ -142,6 +143,8 @@ export interface DocumentEditorProps
   referenceSource?: ReferenceSourceAdapter | undefined;
   /** The glossary abbreviations cite; without it the editor offers no abbreviations. */
   glossary?: GlossaryAdapter | undefined;
+  /** Runs the script blocks: from their dialog and the context menu, and on opening for those that ask. */
+  scriptRunner?: ScriptRunnerAdapter | undefined;
   /** Tells the reader what failed, such as an upload. */
   feedback?: FeedbackAdapter | undefined;
   /** The symbol picker's characters, in place of the editor's own. */
@@ -251,14 +254,10 @@ export function DocumentEditor(props: DocumentEditorProps) {
         )}
         <BottomChrome {...chrome} openDialog={setDialog} />
         <ObjectDialogs
+          {...props}
           dialog={editable ? dialog : null}
           view={engine.view}
           labels={labels}
-          assets={props.assets}
-          codeSource={props.codeSource}
-          referenceSource={props.referenceSource}
-          glossary={props.glossary}
-          template={template}
           onClose={() => setDialog(null)}
         />
       </div>

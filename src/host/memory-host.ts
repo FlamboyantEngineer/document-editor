@@ -1,4 +1,4 @@
-import type { DocumentFile } from '../model/format/document-format.js';
+import type { DocumentFile, StoredContent } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import { sliceCodeLines } from '../model/linked-code.js';
@@ -15,6 +15,7 @@ import type {
   IdentityAdapter,
   ReferenceSourceAdapter,
   SavedState,
+  ScriptRunnerAdapter,
   StoredAsset,
   StoredDocument,
   StoredTemplate,
@@ -41,6 +42,8 @@ export interface MemoryHostOptions {
   citations?: readonly ExternalReference[] | undefined;
   /** Source files the code source resolves, by URL without its fragment. */
   code?: Readonly<Record<string, string>> | undefined;
+  /** Produces a script's content; without it the host runs no scripts. A throw is a failure. */
+  scripts?: ((request: { source: string; document: DocumentFile }) => StoredContent) | undefined;
   /** The time a document is saved at, which its version records. Defaults to now. */
   now?: (() => Date) | undefined;
 }
@@ -230,6 +233,22 @@ function createMemoryCodeSource(files: Readonly<Record<string, string>>): CodeSo
   };
 }
 
+/** Runs scripts with the function given, its throw an `unavailable` failure with the thrown message. */
+function createMemoryScripts(
+  produce: NonNullable<MemoryHostOptions['scripts']>,
+): ScriptRunnerAdapter {
+  return {
+    run: ({ source, document }) => {
+      try {
+        return Promise.resolve({ ok: true, value: produce({ source, document }) });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return Promise.resolve({ ok: false, error: { kind: 'unavailable', message } });
+      }
+    },
+  };
+}
+
 /**
  * A complete host that keeps everything in memory, for demos, tests and standalone use. Saves check
  * the base revision, so conflict handling can be exercised without a server.
@@ -262,5 +281,6 @@ export function createMemoryHost(options: MemoryHostOptions = {}): EditorHost {
     glossary: createMemoryGlossary(options.glossary ?? [], now),
     references: createMemoryReferences(options.citations ?? []),
     comments: createMemoryComments(identity, options.comments),
+    ...(options.scripts ? { scripts: createMemoryScripts(options.scripts) } : {}),
   };
 }

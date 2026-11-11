@@ -74,6 +74,13 @@ A comment store may let the reader change the text of their own comment (`edit`)
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
+### DOCE-HOST-1.11 - Script runner
+
+The host's `scripts` adapter shall run a script block's script against the document as it is and resolve with the content it produced, as stored content, or a failure with a message.
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/host/memory-host.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
@@ -153,4 +160,11 @@ Verification: `src/host/memory-host.test.ts`
 The in-memory comment store shall edit and delete only the reader's own comments, refusing another's with a `denied` error, keep each comment's reactions by emoji as the people who reacted, and tell each subscriber of a document its threads after every change.
 
 Implementation: `src/host/memory-comments.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.9 - In-memory scripts
+
+The in-memory host shall run scripts with `options.scripts`, giving it the script and the document, and resolve with what it returns, or an `unavailable` failure with the message of what it throws; without the option it has no script runner.
+
+Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`

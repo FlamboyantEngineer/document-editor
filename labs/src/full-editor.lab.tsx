@@ -32,6 +32,7 @@ import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
   createDocumentSchema,
+  type DocumentFile,
   readDocumentFile,
   resolveTemplateFile,
 } from '../../src/model/index.js';
@@ -89,7 +90,16 @@ const CITATIONS = [
   },
 ];
 
+// The lab's scripts: each states its script and how many blocks the document has, and one that
+// asks to fail throws.
+function runLabScript({ source, document }: { source: string; document: DocumentFile }) {
+  if (source.includes('fail')) throw new Error('The script failed.');
+  const blocks = document.sections.reduce((sum, section) => sum + section.content.length, 0);
+  return [{ type: 'paragraph', content: [text(`${source.trim()}: ${String(blocks)} blocks.`)] }];
+}
+
 const HOST = createMemoryHost({
+  scripts: runLabScript,
   code: CODE,
   glossary: GLOSSARY,
   citations: CITATIONS,
@@ -175,6 +185,8 @@ function initialState(): EditorState {
       type: 'paragraph',
       content: [text('Locked by its workflow state: this paragraph cannot change.')],
     },
+    // A script block the host runs each time the document opens.
+    { type: 'script', attrs: { id: '5c41b7e1', source: 'Status', refresh: 'open' } },
     {
       type: 'paragraph',
       content: [
@@ -324,6 +336,7 @@ function Lab() {
         codeSource={HOST.codeSource}
         referenceSource={HOST.references}
         glossary={HOST.glossary}
+        scriptRunner={HOST.scripts}
         feedback={feedback}
         handleRef={handle}
         {...host.notifications}

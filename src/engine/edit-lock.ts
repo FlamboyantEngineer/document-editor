@@ -15,9 +15,11 @@ export interface EditLockOptions {
 /** The lock a document runs with. */
 export const editLockKey = new PluginKey<EditLockOptions>('edit-lock');
 
-// Whether a step of a transaction changes a locked position of the document it applies to: the
-// first and the last character it replaces, or the point it inserts at.
-function touchesLock(tr: Transaction, isLocked: EditLockOptions['isLocked']): boolean {
+/**
+ * Whether a step of a transaction changes a locked position of the document it applies to: the
+ * first and the last character it replaces, or the point it inserts at.
+ */
+export function touchesLock(tr: Transaction, isLocked: EditLockOptions['isLocked']): boolean {
   return tr.mapping.maps.some((map, index) => {
     const doc = tr.docs[index];
     if (!doc) return false;
@@ -31,7 +33,7 @@ function touchesLock(tr: Transaction, isLocked: EditLockOptions['isLocked']): bo
 }
 
 /** Whether a change is the writer's own: one the undo history records. */
-const isWritersChange = (tr: Transaction) =>
+export const isWritersChange = (tr: Transaction) =>
   tr.docChanged && tr.getMeta('addToHistory') !== false && !tr.getMeta('appendedTransaction');
 
 /** The plugin refusing a writer's change to a locked position. */

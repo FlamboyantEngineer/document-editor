@@ -14,6 +14,7 @@ import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers } from './figure-paste.js';
+import { useOpeningScripts } from './script-entries.js';
 import { TableHandles } from './table-handles.js';
 import {
   isCommentKey,
@@ -97,6 +98,7 @@ export function EditorBody({
   const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onFind, onDialog });
   const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
+  useOpeningScripts(engine.view, props.scriptRunner);
   const content = (
     <RichTextEngineContent
       {...hooks.slot('content')}

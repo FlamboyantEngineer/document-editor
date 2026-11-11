@@ -16,11 +16,13 @@ import {
   objectBlockAt,
   rejectSuggestion,
 } from '../../engine/index.js';
+import type { ScriptRunnerAdapter } from '../../host/index.js';
 import type { ContextTarget } from './context-target.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { CODE_LANGUAGES, elementEntries } from './element-entries.js';
 import { proofingEntries } from './proofing-entries.js';
+import { scriptEntries } from './script-entries.js';
 import { commandEntry, objectEntries, tableCellEntries } from './table-actions.js';
 
 /** What the context menu may offer. */
@@ -37,6 +39,8 @@ export interface ContextEntriesOptions {
   readonly linkedCode?: boolean | undefined;
   /** The languages a code block's language menu offers. */
   readonly codeLanguages?: readonly string[] | undefined;
+  /** Runs the script blocks, which the menu then offers to edit and run. */
+  readonly scriptRunner?: ScriptRunnerAdapter | null | undefined;
 }
 
 const clipboardOf = (view: EditorView) =>
@@ -219,7 +223,7 @@ export function contextGroups(
             openDialog: options.openDialog ?? null,
             linkedCode: options.linkedCode ?? false,
             codeLanguages: options.codeLanguages ?? CODE_LANGUAGES,
-          })
+          }).concat(scriptEntries(view, { ...options, openDialog: options.openDialog ?? null }))
         : [],
     },
     { id: 'table', entries: objects.table },

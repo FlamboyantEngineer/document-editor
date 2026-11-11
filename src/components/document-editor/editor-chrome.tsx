@@ -45,6 +45,7 @@ export function TopChrome({
 }) {
   const linkedCode = Boolean(props.codeSource);
   const glossary = Boolean(props.glossary);
+  const scripts = Boolean(props.scriptRunner);
   const symbols = props.symbols ?? DEFAULT_SYMBOLS;
   const custom = customStyleNames(props.template).join('\n');
   const features = useMemo<InsertFeatures>(
@@ -54,8 +55,9 @@ export function TopChrome({
       glossary,
       customStyles: custom ? custom.split('\n') : [],
       template: props.template,
+      scripts,
     }),
-    [linkedCode, symbols, glossary, custom, props.template],
+    [linkedCode, symbols, glossary, custom, props.template, scripts],
   );
   return (
     <>
@@ -111,6 +113,7 @@ export function BottomChrome({
           openDialog={openDialog}
           linkedCode={Boolean(props.codeSource)}
           codeLanguages={props.codeLanguages}
+          scriptRunner={props.scriptRunner}
           options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
         />
       )}

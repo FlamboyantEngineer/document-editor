@@ -85,6 +85,29 @@ The object views shall draw a signature (`de-signature`, with `data-signed`) as 
 Implementation: `src/engine/object-views.ts`
 Verification: `e2e/objects.spec.ts`
 
+## DOCE-OBJECTS-4 - Script blocks
+
+### DOCE-OBJECTS-4.1 - Inserting a script block
+
+`insertScriptBlock(script)` shall insert a script block with the script given where a new block goes, selected and showing nothing yet, and `setScriptSource(script)` shall set the script of the script block at the selection; `listScriptBlocks(doc)` gives a document's script blocks with an element id, in document order, and `scriptBlockAt(state)` the one at the selection.
+
+Implementation: `src/engine/scripts.ts`
+Verification: `src/engine/scripts.test.ts`
+
+### DOCE-OBJECTS-4.2 - Running scripts
+
+`runScripts(view, runner, { ids })` shall run the scripts of the document, or those of the blocks with the ids given, one at a time in document order, each against the document as it is, then put what they produced in their blocks as one change the writer can undo, never recorded as a suggestion, with when it was produced (`renderedAt`); it resolves with the ids that failed, which `scriptsState` keeps with their messages until the next run. A block whose script changed while it ran, or whose output is the same, keeps what it shows. While the host runs scripts, `runOpeningScripts` runs, each time the document opens, those whose refresh policy is `open`.
+
+Implementation: `src/engine/scripts.ts`
+Verification: `src/engine/scripts.test.ts`
+
+### DOCE-OBJECTS-4.3 - The script's output
+
+The scripts plugin, which the editing plugins install, shall refuse the writer's own changes inside a script block's output, while a run, an undo or a redo may change it and the writer may still add, move or delete whole blocks and change their script; it shall mark each block running, failed or empty (`data-script-state`).
+
+Implementation: `src/engine/scripts.ts`
+Verification: `src/engine/scripts.test.ts`, `e2e/full-editor.spec.ts`
+
 ## Hooks
 
 | Hook                 | Kind      | Values                        | Description                               |
@@ -96,3 +119,4 @@ Verification: `e2e/objects.spec.ts`
 | `de-signature`       | root      |                               | A signature.                              |
 | `de-signature__name` | slot      |                               | The signer's name.                        |
 | `data-signed`        | state     | `true`, `false`               | On a signature: whether it holds strokes. |
+| `data-script-state`  | state     | `running`, `error`, `empty`   | On a script block: its last run.          |

@@ -26,6 +26,7 @@ export type {
   ProofingText,
   ReferenceSourceAdapter,
   ResolvedCode,
+  ScriptRunnerAdapter,
   StoredAsset,
   StoredDocument,
   StoredTemplate,
