@@ -251,74 +251,76 @@ function Lab() {
   const menubar = useMemo(() => hostMenubar(() => setNotice('Saved')), []);
   return (
     <>
-      <fieldset>
-        <legend>Mode</legend>
-        <label>
-          <input
-            type="checkbox"
-            name="suggesting"
-            checked={suggesting}
-            onChange={(event) => setSuggesting(event.currentTarget.checked)}
-          />{' '}
-          Suggesting
-        </label>
-        <label>
-          Markup{' '}
-          <select
-            name="markup"
-            value={markup}
-            onChange={(event) => setMarkup(event.currentTarget.value as DocumentMarkup)}
-          >
-            <option value="all">All markup</option>
-            <option value="simple">Simple markup</option>
-            <option value="final">No markup</option>
-            <option value="original">Original</option>
-          </select>
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="collaborators"
-            checked={collaborators}
-            onChange={(event) => setCollaborators(event.currentTarget.checked)}
-          />{' '}
-          Collaborators
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="panels"
-            checked={panels}
-            onChange={(event) => setPanels(event.currentTarget.checked)}
-          />{' '}
-          Outline and search
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="authorship"
-            checked={authorship}
-            onChange={(event) => setAuthorship(event.currentTarget.checked)}
-          />{' '}
-          Authorship
-        </label>
-      </fieldset>
-      <AgentPanel view={view} />
-      <HostPanel report={host.report} handle={handle} />
-      <button
-        type="button"
-        onClick={() => {
-          const snapshot = handle.current?.exportSnapshot({ title: 'Sample document' }) ?? '';
-          const pages = (snapshot.match(/class="pm-page[ "]/g) ?? []).length;
-          setSnapshot(`${String(pages)} pages`);
-        }}
-      >
-        Export a snapshot
-      </button>
-      <output aria-label="Snapshot">{snapshot}</output>
-      <p role="status" aria-label="Host feedback">
-        {notice}
-      </p>
+      <div className="lab-controls">
+        <fieldset>
+          <legend>Mode</legend>
+          <label>
+            <input
+              type="checkbox"
+              name="suggesting"
+              checked={suggesting}
+              onChange={(event) => setSuggesting(event.currentTarget.checked)}
+            />{' '}
+            Suggesting
+          </label>
+          <label>
+            Markup{' '}
+            <select
+              name="markup"
+              value={markup}
+              onChange={(event) => setMarkup(event.currentTarget.value as DocumentMarkup)}
+            >
+              <option value="all">All markup</option>
+              <option value="simple">Simple markup</option>
+              <option value="final">No markup</option>
+              <option value="original">Original</option>
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="collaborators"
+              checked={collaborators}
+              onChange={(event) => setCollaborators(event.currentTarget.checked)}
+            />{' '}
+            Collaborators
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="panels"
+              checked={panels}
+              onChange={(event) => setPanels(event.currentTarget.checked)}
+            />{' '}
+            Outline and search
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="authorship"
+              checked={authorship}
+              onChange={(event) => setAuthorship(event.currentTarget.checked)}
+            />{' '}
+            Authorship
+          </label>
+        </fieldset>
+        <AgentPanel view={view} />
+        <HostPanel report={host.report} handle={handle} />
+        <button
+          type="button"
+          onClick={() => {
+            const snapshot = handle.current?.exportSnapshot({ title: 'Sample document' }) ?? '';
+            const pages = (snapshot.match(/class="pm-page[ "]/g) ?? []).length;
+            setSnapshot(`${String(pages)} pages`);
+          }}
+        >
+          Export a snapshot
+        </button>
+        <output aria-label="Snapshot">{snapshot}</output>
+        <p role="status" aria-label="Host feedback">
+          {notice}
+        </p>
+      </div>
       <DocumentEditor
         state={state}
         onStateChange={setState}
