@@ -4,6 +4,7 @@
 // host adds entries to any menu, or a menu of its own, and arranges them.
 
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
+import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
 import { selectAll } from 'prosemirror-commands';
 import type { EditorView } from 'prosemirror-view';
 import {
@@ -13,6 +14,7 @@ import {
   setTextblockType,
 } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
+import type { EditorZoom } from './document-status-bar.js';
 import type { EditorContext } from './editor-context.js';
 import type { ToolbarGroup, ToolbarItem } from './toolbar-items.js';
 import type { DocumentLayout } from './use-document-layout.js';
@@ -45,7 +47,7 @@ export interface MenubarFeatures {
   readonly openFind: (() => void) | null;
   readonly layout: DocumentLayout;
   readonly onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
-  readonly zoom?: { readonly value: number; readonly onChange: (zoom: number) => void } | null;
+  readonly zoom?: EditorZoom | null;
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
 }
 
@@ -106,6 +108,24 @@ function editMenu(context: EditorContext, features: MenubarFeatures): DocumentMe
   };
 }
 
+// Zooming in and out steps to the next of the zoom levels, as the status bar's control does.
+function zoomEntries(zoom: EditorZoom, labels: EditorContext['labels']): MenuEntry[] {
+  const step = (direction: 1 | -1) => findNextZoomLevel(zoom.levels, zoom.value, direction);
+  const entry = (id: string, label: string, next: number | undefined): MenuEntry => ({
+    id,
+    label,
+    isDisabled: next === undefined,
+    onAction: () => {
+      if (next !== undefined) zoom.onChange(next);
+    },
+  });
+  return [
+    entry('zoom-in', labels.zoomIn, step(1)),
+    entry('zoom-out', labels.zoomOut, step(-1)),
+    { id: 'zoom-reset', label: labels.zoomReset, onAction: () => zoom.onChange(100) },
+  ];
+}
+
 function viewMenu(context: EditorContext, features: MenubarFeatures): DocumentMenu {
   const { labels } = context;
   const { onLayoutChange, zoom } = features;
@@ -117,13 +137,7 @@ function viewMenu(context: EditorContext, features: MenubarFeatures): DocumentMe
         onAction: () => onLayoutChange(layout),
       }))
     : [];
-  const zooms: MenuEntry[] = zoom
-    ? [
-        { id: 'zoom-in', label: labels.zoomIn, onAction: () => zoom.onChange(zoom.value + 10) },
-        { id: 'zoom-out', label: labels.zoomOut, onAction: () => zoom.onChange(zoom.value - 10) },
-        { id: 'zoom-reset', label: labels.zoomReset, onAction: () => zoom.onChange(100) },
-      ]
-    : [];
+  const zooms: MenuEntry[] = zoom ? zoomEntries(zoom, labels) : [];
   return {
     id: 'view',
     label: labels.menuView,
