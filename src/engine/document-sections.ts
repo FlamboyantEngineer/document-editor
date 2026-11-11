@@ -57,8 +57,37 @@ function decorate(doc: ProseMirrorNode, template: TemplateFile): DecorationSet {
     const attrs = known.get(name) ?? sectionAttrs(template, section);
     known.set(name, attrs);
     decorations.push(Decoration.node(pos, pos + node.nodeSize, attrs));
+    const placeholder = placeholderOf(node, pos, section);
+    if (placeholder) decorations.push(placeholder);
   });
   return DecorationSet.create(doc, decorations);
+}
+
+// The text of a section's placeholder, drawn in its first block while the section is empty: one
+// page holding one empty text block.
+function placeholderOf(
+  section: ProseMirrorNode,
+  pos: number,
+  template: TemplateSection,
+): Decoration | null {
+  const content = section.childCount === 1 ? section.firstChild?.child(1) : null;
+  const block = content?.childCount === 1 ? content.firstChild : null;
+  if (!template.placeholder?.length || !block?.isTextblock || block.content.size > 0) return null;
+  const text = readStoredContent(template.placeholder, section.type.schema)
+    .map((node) => node.textContent)
+    .join(' ');
+  const at = pos + 3 + (section.firstChild?.firstChild?.nodeSize ?? 0) + 1;
+  return Decoration.widget(
+    at,
+    (view) => {
+      const hint = view.dom.ownerDocument.createElement('span');
+      hint.className = 'de-section-placeholder';
+      hint.textContent = text;
+      hint.setAttribute('aria-hidden', 'true');
+      return hint;
+    },
+    { side: 1, key: `placeholder-${String(pos)}-${text}` },
+  );
 }
 
 /**

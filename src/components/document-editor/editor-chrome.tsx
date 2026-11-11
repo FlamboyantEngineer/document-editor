@@ -48,8 +48,14 @@ export function TopChrome({
   const symbols = props.symbols ?? DEFAULT_SYMBOLS;
   const custom = customStyleNames(props.template).join('\n');
   const features = useMemo<InsertFeatures>(
-    () => ({ linkedCode, symbols, glossary, customStyles: custom ? custom.split('\n') : [] }),
-    [linkedCode, symbols, glossary, custom],
+    () => ({
+      linkedCode,
+      symbols,
+      glossary,
+      customStyles: custom ? custom.split('\n') : [],
+      template: props.template,
+    }),
+    [linkedCode, symbols, glossary, custom, props.template],
   );
   return (
     <>

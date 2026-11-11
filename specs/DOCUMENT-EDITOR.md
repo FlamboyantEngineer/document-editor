@@ -157,6 +157,13 @@ With the host's `assets`, images pasted or dropped into an editable document sha
 Implementation: `src/components/document-editor/figure-paste.ts`
 Verification: `e2e/objects.spec.ts`
 
+### DOCE-EDITOR-4.7 - Adding sections
+
+While the template has sections a writer may add (`insertable`), the toolbar's insert group shall offer them in a Section menu, by label, each started after the caret's block (`insertDocumentSection`, DOCE-SECTIONS-2.1).
+
+Implementation: `src/components/document-editor/insert-controls.tsx`
+Verification: `e2e/sections.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status

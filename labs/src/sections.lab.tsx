@@ -46,6 +46,12 @@ const SECTIONED: TemplateFile = {
       header: { content: [{ type: 'paragraph', content: [text('Appendix')] }] },
       content: [{ type: 'paragraph', content: [text('Appendix text.')] }],
     },
+    {
+      name: 'summary',
+      label: 'Summary',
+      insertable: true,
+      placeholder: [{ type: 'paragraph', content: [text('Summarise the findings.')] }],
+    },
   ],
 };
 
@@ -115,6 +121,7 @@ function Lab() {
         state={state}
         onStateChange={setState}
         template={TEMPLATE}
+        toolbar
         aria-label="Sample document"
         events={{
           onTransaction: (tr) => {
