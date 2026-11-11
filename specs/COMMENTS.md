@@ -13,7 +13,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.2 - Listing anchors
 
-`listCommentAnchors(doc)` shall give one anchor per thread in reading order, with its thread, state, range and the text it marks.
+`listCommentAnchors(doc)` shall give one anchor per thread in reading order, with its thread, state, range, each stretch of text it marks (`ranges`, as edits, blocks or pages part it) and that text, the stretches joined by spaces. Threads that nest in or overlap one another shall each keep their own anchor.
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
