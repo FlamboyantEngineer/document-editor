@@ -16,8 +16,10 @@ import {
   isProofingPending,
   listPeers,
   listProofingIssues,
+  PRESENCE_COLOR_SLOTS,
   proofingLanguages,
   proofingState,
+  scrollToPeer,
   selectNextProofingIssue,
   setProofingLanguage,
 } from '../../engine/index.js';
@@ -120,9 +122,18 @@ function ProofingLanguage({ view, state, labels }: ProofingProps) {
   );
 }
 
-// The other people in the document, as avatars.
-function Presence({ state, labels }: { state: EditorState; labels: DocumentEditorLabels }) {
-  const peers = listPeers(state);
+// The other people in the document, as avatars by name in their carets' colour slots; choosing
+// one scrolls to their caret.
+function Presence({
+  view,
+  state,
+  labels,
+}: {
+  view: EditorView | null;
+  state: EditorState;
+  labels: DocumentEditorLabels;
+}) {
+  const peers = [...listPeers(state)].sort((a, b) => a.name.localeCompare(b.name));
   if (peers.length === 0) return null;
   return (
     <AvatarGroup
@@ -130,11 +141,13 @@ function Presence({ state, labels }: { state: EditorState; labels: DocumentEdito
       size="xs"
       maxVisible={5}
       nameTooltip
+      colorCount={PRESENCE_COLOR_SLOTS}
       aria-label={labels.presence}
+      onAction={view ? (id) => void scrollToPeer(view, id) : undefined}
       people={peers.map((peer) => ({
         id: peer.id,
         name: peer.name,
-        colorKey: peer.id,
+        colorIndex: peer.slot,
         ...(peer.avatar ? { src: peer.avatar } : {}),
       }))}
     />
@@ -164,7 +177,7 @@ export function DocumentStatusBar({
         <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
       </span>
       <span {...hooks.slot('status-item', { status: 'mode' })}>
-        <Presence state={deferred} labels={labels} />
+        <Presence view={view} state={deferred} labels={labels} />
         <ProofingLanguage view={view} state={state} labels={labels} />
         <ProofingStatus view={view} state={deferred} labels={labels} />
         <span>{labels[MODE_LABELS[mode]]}</span>

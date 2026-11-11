@@ -6,9 +6,10 @@ import { keydownHandler } from 'prosemirror-keymap';
 import type { Command, EditorState, Selection, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef } from 'react';
-import { proofingKey, repairElementIds } from '../../engine/index.js';
+import { proofingKey, repairElementIds, type Suggestion } from '../../engine/index.js';
 import { isPaginationTransaction } from '../../pagination/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
+import type { ChangeBar } from './use-change-notifications.js';
 
 /** What the editor tells its host. */
 export interface DocumentEditorNotifications {
@@ -23,6 +24,10 @@ export interface DocumentEditorNotifications {
   readonly onContentChange?: ((tr: Transaction) => void) | undefined;
   /** The pages are laid out for the first time, or the web layout shows: the editor is ready. */
   readonly onLayoutReady?: (() => void) | undefined;
+  /** The document's suggestions changed: added, decided, edited or discussed. */
+  readonly onSuggestionsChange?: ((suggestions: readonly Suggestion[]) => void) | undefined;
+  /** The change bars a comparison draws changed, measured on their pages (`ChangeBar`). */
+  readonly onChangeBarsChange?: ((bars: readonly ChangeBar[]) => void) | undefined;
   /** The host's own keys, such as `Mod-s`, which run before the editor's. */
   readonly keymap?: Readonly<Record<string, Command>> | undefined;
 }

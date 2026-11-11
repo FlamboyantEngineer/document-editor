@@ -27,6 +27,7 @@ export type {
   ToolbarItem,
   ToolbarMenuItem,
 } from './document-editor/index.js';
+export type { ChangeBar } from './document-editor/index.js';
 export {
   CODE_LANGUAGES,
   CONTEXT_MENU_GROUPS,

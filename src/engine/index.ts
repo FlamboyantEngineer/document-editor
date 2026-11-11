@@ -155,15 +155,17 @@ export type { LineNumbers, ObjectViewsOptions } from './object-views.js';
 export { createObjectViews, lineNumbers } from './object-views.js';
 export type { OutlineEntry } from './outline.js';
 export { documentOutline } from './outline.js';
-export type { Peer, PresenceState } from './presence.js';
+export type { Peer, PlacedPeer, PresenceState } from './presence.js';
 export {
   createPresence,
   isRemoteTransaction,
   listPeers,
   markRemote,
+  placePeers,
   PRESENCE_COLOR_SLOTS,
   presenceKey,
   REMOTE_META,
+  scrollToPeer,
   setPeers,
 } from './presence.js';
 export type {
