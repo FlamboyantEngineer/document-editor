@@ -27,6 +27,7 @@ import {
 } from '../../../src/model/index.js';
 import { isPaginationTransaction } from '../../../src/pagination/index.js';
 import { markReadyWhenSettled } from '../lab-ready.js';
+import { useRemoteTypist, useStressProbe } from './stress-probe.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -39,8 +40,19 @@ const PROOFER = createWordListProofer({ corrections: { teh: ['the'], recieve: ['
 export interface StressLabOptions {
   /** Builds the document of a size. */
   readonly build: (size: number) => DocumentFile;
-  /** The sizes the reader can pick, the first shown on load; none for a document of one size. */
+  /**
+   * The sizes the reader can pick, the first shown on load unless the page's `size` query
+   * parameter names another; none for a document of one size.
+   */
   readonly sizes?: readonly { readonly label: string; readonly value: number }[];
+  /** Offers a remote writer typing into the middle of the document. */
+  readonly remote?: boolean | undefined;
+}
+
+// The size shown on load: the one the query names, or the first.
+function initialSize(sizes: StressLabOptions['sizes']): number {
+  const asked = Number(new URLSearchParams(window.location.search).get('size'));
+  return sizes?.find(({ value }) => value === asked)?.value ?? sizes?.[0]?.value ?? 1;
 }
 
 function stateOf(file: DocumentFile): EditorState {
@@ -61,10 +73,11 @@ function stateOf(file: DocumentFile): EditorState {
 
 // The time the pages took to settle (`whenSettled`): from the start, and from the latest edit.
 function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
-  const [times, setTimes] = useState<{ first: number | null; latest: number | null }>({
-    first: null,
-    latest: null,
-  });
+  const [times, setTimes] = useState<{
+    first: number | null;
+    latest: number | null;
+    settledAt: number | null;
+  }>({ first: null, latest: null, settledAt: null });
   const started = useRef(0);
   useEffect(() => {
     started.current = performance.now();
@@ -81,7 +94,7 @@ function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
       const settled = performance.now();
       setTimes((current) =>
         current.first === null
-          ? { first: settled - started.current, latest: null }
+          ? { first: settled - started.current, latest: null, settledAt: settled }
           : { ...current, latest: since === null ? current.latest : settled - since },
       );
     });
@@ -89,7 +102,7 @@ function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
   const restart = () => {
     started.current = performance.now();
     edited.current = null;
-    setTimes({ first: null, latest: null });
+    setTimes({ first: null, latest: null, settledAt: null });
   };
   return { times, onTransaction, restart };
 }
@@ -97,12 +110,14 @@ function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
 const milliseconds = (value: number | null) =>
   value === null ? '…' : `${String(Math.round(value))} ms`;
 
-function StressLab({ build, sizes }: StressLabOptions) {
-  const [size, setSize] = useState(sizes?.[0]?.value ?? 1);
+function StressLab({ build, sizes, remote }: StressLabOptions) {
+  const [size, setSize] = useState(() => initialSize(sizes));
   const [state, setState] = useState(() => stateOf(build(size)));
   const [layout, setLayout] = useState<DocumentLayout>('page');
   const handle = useRef<DocumentEditorHandle>(null);
   const layoutTimes = useLayoutTimes(handle);
+  useStressProbe(handle, layoutTimes.times.settledAt);
+  const typist = useRemoteTypist(handle);
   const events = useMemo(() => ({ onTransaction: layoutTimes.onTransaction }), [layoutTimes]);
   const blocks = useMemo(() => {
     let count = 0;
@@ -149,6 +164,17 @@ function StressLab({ build, sizes }: StressLabOptions) {
             {value === 'page' ? 'Pages' : 'Web layout'}
           </label>
         ))}
+        {remote ? (
+          <label>
+            <input
+              type="checkbox"
+              name="remote-typist"
+              checked={typist.typing}
+              onChange={(event) => typist.setTyping(event.currentTarget.checked)}
+            />{' '}
+            Remote typist
+          </label>
+        ) : null}
         <output className="lab-stress-metrics" aria-label="Layout times">
           {blocks} blocks · first layout {milliseconds(layoutTimes.times.first)} · after the latest
           edit {milliseconds(layoutTimes.times.latest)}

@@ -67,7 +67,8 @@
     "build:labs": "node scripts/build-labs.mjs",
     "serve:labs": "node scripts/serve-labs.mjs",
     "labs": "node scripts/start-labs.mjs",
-    "test:labs": "playwright test",
+    "test:labs": "playwright test --project=chromium --project=performance",
+    "test:perf": "playwright test --project=budgets --workers=1",
     "check": "node scripts/check.mjs"
   },
   "peerDependencies": {

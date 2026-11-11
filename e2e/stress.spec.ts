@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { StressProbe } from '../labs/src/stress/stress-probe.js';
 import { expect, test } from './fixtures.js';
 
 const pages = (page: Page) => page.locator('.de-document-editor__content .pm-page');
@@ -50,5 +51,33 @@ test.describe('stress labs', () => {
     await page.getByLabel('Size').selectOption({ label: 'Four sets' });
     await expect.poll(() => pages(page).count(), { timeout: 30_000 }).toBeGreaterThan(before * 3);
     expect(await overflowing(page)).toEqual([]);
+  });
+
+  test('DOCE-LABS-2.4 shows the scale documents and a remote writer typing', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('stress-scale');
+    const count = await pages(page).count();
+    expect(count).toBeGreaterThanOrEqual(5);
+    expect(await overflowing(page)).toEqual([]);
+    const before = await page.evaluate(() => {
+      const probe = (window as unknown as { stressLab: StressProbe }).stressLab;
+      return probe.layoutStats()?.layouts ?? 0;
+    });
+    await page.getByLabel('Remote typist').check();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const probe = (window as unknown as { stressLab: StressProbe }).stressLab;
+          return probe.layoutStats()?.layouts ?? 0;
+        }),
+      )
+      .toBeGreaterThan(before);
+    await page.getByLabel('Remote typist').uncheck();
+    await expect(page.locator('.de-document-editor')).toHaveAttribute(
+      'data-layout-state',
+      'settled',
+    );
   });
 });
