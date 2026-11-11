@@ -125,6 +125,13 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 Implementation: `src/components/document-comments/comments-panel.tsx`
 Verification: `e2e/comments.spec.ts`
 
+### DOCE-COMMENTS-2.12 - Drafts kept
+
+The composers of a thread's next comment, of a suggestion's discussion and of a thread being started shall keep their draft in the base library's provider storage, keyed by the document and the thread (`de-comments:<document>:<thread>`), so a draft survives its composer going, as when the reader stops commenting or the card leaves, and, with a host's storage that lasts, the page loading again.
+
+Implementation: `src/components/document-comments/comment-cards.tsx`
+Verification: `e2e/comments.spec.ts`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

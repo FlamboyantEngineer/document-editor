@@ -832,3 +832,18 @@
   font-style: italic;
   pointer-events: none;
 }
+
+/* Layout debugging: each page says what its blocks take of its content height, and what is left. */
+.de-document-editor[data-debug='true'] .pm-page {
+  position: relative;
+  outline: 1px dashed #f97316;
+}
+
+.de-document-editor[data-debug='true'] .pm-page[data-debug-free]::after {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #c2410c;
+  font: 10px/1.2 monospace;
+  content: attr(data-debug-used) 'px used, ' attr(data-debug-free) 'px free';
+}

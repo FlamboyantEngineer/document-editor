@@ -11,61 +11,10 @@ import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
 import type { Suggestion } from '../../engine/index.js';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import type { DocumentCommentsLabels } from './comments-labels.js';
 import type { CommentThreads } from './use-comment-threads.js';
 
-/** The text the comments margin shows. */
-export interface DocumentCommentsLabels {
-  /** Names the margin. */
-  comments: string;
-  /** Starts a thread on the selected text. */
-  comment: string;
-  accept: string;
-  reject: string;
-  /** Introduces the text a suggestion adds. */
-  insert: string;
-  /** Introduces the text a suggestion deletes. */
-  remove: string;
-  /** Describes a suggestion that splits a paragraph. */
-  split: string;
-  /** Names a writer the host does not know. */
-  someone: string;
-  /** Reports a change the comment store refused without saying why. */
-  failed: string;
-  /** Names a comment's reactions. */
-  reactions: string;
-  /** Names the comments panel. */
-  commentsPanel: string;
-  /** Names the panel's filter, and its choices. */
-  filter: string;
-  filterOpen: string;
-  filterAll: string;
-  filterMine: string;
-  /** Says the panel lists no thread. */
-  noComments: string;
-  /** Takes the reader to a thread's text. */
-  showInDocument: string;
-}
-
-/** The labels of the comments margin unless the host gives its own. */
-export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
-  comments: 'Comments',
-  comment: 'Comment',
-  accept: 'Accept',
-  reject: 'Reject',
-  insert: 'Add',
-  remove: 'Delete',
-  split: 'Split the paragraph',
-  someone: 'Someone',
-  failed: 'The comment could not be saved.',
-  reactions: 'Reactions',
-  commentsPanel: 'All comments',
-  filter: 'Show',
-  filterOpen: 'Open',
-  filterAll: 'All',
-  filterMine: 'Mine',
-  noComments: 'No comments.',
-  showInDocument: 'Show in document',
-};
+export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments-labels.js';
 
 export const hooks = createHooks('document-comments', [
   'margin',
@@ -82,6 +31,34 @@ export interface CardContext {
   readonly me: string;
   readonly canComment: boolean;
   readonly labels: DocumentCommentsLabels;
+  /** The document the threads belong to, which keys the composers' drafts. */
+  readonly documentId: string;
+}
+
+/**
+ * The composer of a thread's next comment, its draft kept in the provider's storage under the
+ * thread, so it survives the card going and the page loading again.
+ */
+function DraftComposer({
+  context,
+  draftKey,
+  first,
+  onSubmit,
+}: {
+  context: CardContext;
+  draftKey: string;
+  first: boolean;
+  onSubmit: (text: string) => Promise<unknown>;
+}) {
+  const { labels } = context;
+  return (
+    <CommentComposer
+      persistKey={`de-comments:${context.documentId}:${draftKey}`}
+      label={first ? labels.addComment : labels.reply}
+      submitLabel={first ? labels.comment : labels.reply}
+      onSubmit={onSubmit}
+    />
+  );
 }
 
 // A comment's reactions, which the reader toggles while the store keeps reactions.
@@ -184,7 +161,16 @@ export function ThreadCard({
       quote={thread.quote}
       isResolved={thread.state === 'resolved'}
       onResolvedChange={canComment ? (resolved) => void onResolve(resolved) : undefined}
-      onReply={canComment ? (text) => comments.reply(thread.id, text) : undefined}
+      composer={
+        canComment ? (
+          <DraftComposer
+            context={context}
+            draftKey={thread.id}
+            first={thread.entries.length === 0}
+            onSubmit={(text) => comments.reply(thread.id, text)}
+          />
+        ) : undefined
+      }
       isReadOnly={!canComment}
       isSelected={isActive}
     >
@@ -212,6 +198,7 @@ export function PendingCard({
       composer={
         <CommentComposer
           autoFocus
+          persistKey={`de-comments:${context.documentId}:new`}
           submitLabel={context.labels.comment}
           onSubmit={onSubmit}
           onCancel={onCancel}
@@ -289,7 +276,16 @@ export function SuggestionCard({
       ) : null}
       {thread || (canComment && isActive) ? (
         <CommentThread
-          onReply={canComment ? onReply : undefined}
+          composer={
+            canComment ? (
+              <DraftComposer
+                context={context}
+                draftKey={`suggestion:${suggestion.id}`}
+                first={!thread?.entries.length}
+                onSubmit={onReply}
+              />
+            ) : undefined
+          }
           isReadOnly={!canComment}
           isSelected={isActive}
         >

@@ -479,4 +479,22 @@ test.describe('document editor lab', () => {
     await status.getByRole('button', { name: 'Pages' }).click();
     await expect(editor(page)).toHaveAttribute('data-layout', 'page');
   });
+
+  test('DOCE-PAGINATION-7.4 shows what each page takes of its height while debugging', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await expect(pages(page).first()).not.toHaveAttribute('data-debug-used');
+    await page.getByLabel('Layout debugging').check();
+    await expect(editor(page)).toHaveAttribute('data-debug', 'true');
+    const first = pages(page).first();
+    await expect(first).toHaveAttribute('data-debug-used', /^\d+$/);
+    const used = Number(await first.getAttribute('data-debug-used'));
+    const free = Number(await first.getAttribute('data-debug-free'));
+    expect(used).toBeGreaterThan(100);
+    expect(free).toBeGreaterThanOrEqual(0);
+    await page.getByLabel('Layout debugging').uncheck();
+    await expect(first).not.toHaveAttribute('data-debug-used');
+  });
 });

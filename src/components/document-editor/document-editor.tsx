@@ -4,22 +4,18 @@
 
 import type { CharacterGridCategory } from '@flamboyantengineer/ui-components/character-grid';
 import type { AriaLabellingProps, BaseProps } from '@flamboyantengineer/ui-components/core';
-import {
-  RichTextEngineContent,
-  type RichTextEngineEvents,
-  RichTextEngineHost,
-  type RichTextNodeViewProps,
-  type RichTextStateUpdate,
+import type {
+  RichTextEngineEvents,
+  RichTextNodeViewProps,
+  RichTextStateUpdate,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorState, Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
 import {
   type ComponentType,
   type CSSProperties,
   type ReactNode,
   type Ref,
-  type RefObject,
   useCallback,
   useEffect,
   useMemo,
@@ -36,33 +32,21 @@ import type {
 } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
-import {
-  DocumentComments,
-  type DocumentCommentsOptions,
-} from '../document-comments/document-comments.js';
+import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
+import { EditorBody } from './editor-body.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
 import { createEditorContext, DocumentEditorContext, type ObjectDialog } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
-import { figurePasteHandlers } from './figure-paste.js';
 import { ObjectDialogs } from './object-dialogs.js';
-import { TableHandles } from './table-handles.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
-import {
-  isCommentKey,
-  isFindKey,
-  isReferenceKey,
-  READ_SELECTION_FIRST,
-  useDispatchBody,
-  useEngineView,
-} from './use-editor-engine.js';
+import { useEngineView } from './use-editor-engine.js';
 import { useEditorTelemetry } from './use-editor-telemetry.js';
 import {
   type DocumentEditorNotifications,
   useElementIdRepair,
-  useHostViewProps,
   useLayoutReady,
 } from './use-host-events.js';
 
@@ -131,6 +115,8 @@ export interface DocumentEditorProps
   markup?: DocumentMarkup | undefined;
   /** The host's telemetry, which the editor reports its layout times to. */
   telemetry?: TelemetryAdapter | undefined;
+  /** Shows the pages' layout for debugging: what each page's blocks take, and what is left. */
+  debug?: boolean | undefined;
   /** Shows who wrote what: each writer's text in their colour slot (`data-author-slot`). */
   authorship?: boolean | undefined;
   /**
@@ -178,97 +164,6 @@ const hooks = createHooks('document-editor', [
   'find',
 ]);
 
-interface EditorBodyProps {
-  props: DocumentEditorProps;
-  /** Opens the find bar, while the editor has one. */
-  onFind: (() => void) | null;
-  /** Opens one of the editor's dialogs, while the writer can edit. */
-  onDialog: ((dialog: ObjectDialog) => void) | null;
-  engine: ReturnType<typeof useEngineView>;
-  labels: DocumentEditorLabels;
-  startCommentRef: RefObject<(() => void) | null>;
-}
-
-// The document in its engine, with the comments margin, the caller's chrome and the table handles.
-function EditorBody({ props, engine, labels, startCommentRef, onFind, onDialog }: EditorBodyProps) {
-  const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
-  const host = useHostViewProps(props);
-  const { assets, feedback } = props;
-  const viewProps = useMemo(
-    () => ({
-      ...(assets ? figurePasteHandlers({ assets, feedback, failure: labels.uploadFailed }) : {}),
-      editable: () => editable,
-      // The host's proofer checks the text; the browser's own spelling check stays off.
-      attributes: { spellcheck: 'false' },
-      handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
-        if (host.handleKeyDown?.(view, event)) return true;
-        const startComment = startCommentRef.current;
-        if (startComment && isCommentKey(event)) {
-          event.preventDefault();
-          startComment();
-          return true;
-        }
-        if (onDialog && isReferenceKey(event)) {
-          event.preventDefault();
-          onDialog({ kind: 'reference' });
-          return true;
-        }
-        if (!onFind || !isFindKey(event)) return false;
-        event.preventDefault();
-        onFind();
-        return true;
-      },
-      handleDOMEvents: {
-        ...READ_SELECTION_FIRST,
-        ...(host.focus ? { focus: host.focus } : {}),
-        ...(host.blur ? { blur: host.blur } : {}),
-      },
-    }),
-    [editable, host, onFind, onDialog, assets, feedback, labels, startCommentRef],
-  );
-  const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
-  const content = (
-    <RichTextEngineContent
-      {...hooks.slot('content')}
-      role="textbox"
-      aria-multiline="true"
-      aria-readonly={editable ? undefined : 'true'}
-      aria-label={props['aria-label']}
-      aria-labelledby={props['aria-labelledby']}
-    />
-  );
-  return (
-    <div {...hooks.slot('body')}>
-      <RichTextEngineHost
-        {...engine.events}
-        dispatchTransaction={dispatchTransaction}
-        state={state}
-        onStateChange={onStateChange}
-        nodeViews={props.nodeViews}
-        props={viewProps}
-      >
-        {props.comments ? (
-          <DocumentComments
-            {...props.comments}
-            state={state}
-            onStateChange={onStateChange}
-            canDecide={editable && !suggesting}
-            startRef={startCommentRef}
-          >
-            {content}
-          </DocumentComments>
-        ) : (
-          content
-        )}
-        {props.children}
-      </RichTextEngineHost>
-      {editable && !suggesting ? (
-        <TableHandles view={engine.view} state={state} labels={labels} />
-      ) : null}
-    </div>
-  );
-}
-
 // The editor root's hook values.
 function rootData(props: DocumentEditorProps) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
@@ -280,6 +175,7 @@ function rootData(props: DocumentEditorProps) {
     comparing: compare ? (compare.display ?? 'markup') : undefined,
     scrollable: props.scrollable ?? false,
     authorship: props.authorship ?? false,
+    debug: props.debug ?? false,
   };
 }
 
@@ -290,7 +186,7 @@ function rootData(props: DocumentEditorProps) {
  * with overlay scrollbars.
  */
 export function DocumentEditor(props: DocumentEditorProps) {
-  const { state, onStateChange, template, layout = 'page', editable = true } = props;
+  const { state, template, layout = 'page', editable = true } = props;
   const { className, compare = null } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -313,7 +209,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   useEditorHandle(props.handleRef, engine.view, { startCommentRef, template });
   useReviewNotifications(engine.view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  useDocumentLayout(measureIn, { layout, template, state, onStateChange, compare });
+  useDocumentLayout(measureIn, { ...props, layout, compare });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(

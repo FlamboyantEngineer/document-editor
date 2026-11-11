@@ -15,7 +15,7 @@ import {
 } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
-import { type DocumentLayoutOptions, layoutDocument } from './layout-document.js';
+import { type DocumentLayoutOptions, layoutDocument, type PageMetric } from './layout-document.js';
 import { createMeasureCache } from './measure-blocks.js';
 
 /** How an editor's pages are kept laid out. */
@@ -54,6 +54,17 @@ export interface Pagination {
 
 /** Marks the transactions that move an editor onto new pages; its state says a layout is due. */
 export const paginationKey = new PluginKey<boolean>('pagination');
+
+// The pages each laid-out document was laid out as, in order.
+const laidOut = new WeakMap<ProseMirrorNode, readonly PageMetric[]>();
+
+/**
+ * How the pages of the document a state shows were laid out, in order: what their blocks take of
+ * the height they have. None until a layout, and after a change until the next one.
+ */
+export function pageMetrics(state: EditorState): readonly PageMetric[] | null {
+  return laidOut.get(state.doc) ?? null;
+}
 
 /** Whether a transaction moved the editor onto new pages, rather than changing its content. */
 export function isPaginationTransaction(tr: Transaction): boolean {
@@ -222,6 +233,22 @@ function remeasureOn(container: HTMLElement, remeasure: () => void): () => void 
   };
 }
 
+// Lays the measuring view's document out on pages, with what each page's blocks take of it.
+function layOutPages(
+  measuring: EditorView,
+  options: PaginationOptions,
+  cache: ReturnType<typeof createMeasureCache>,
+) {
+  const metrics: PageMetric[] = [];
+  const sections = layoutDocument(measuring, {
+    ...options,
+    scale: options.scale?.(),
+    cache,
+    onPage: (page) => metrics.push(page),
+  });
+  return { sections, metrics };
+}
+
 // The hidden view that renders the whole document to measure it, as the editor renders it.
 const measuringView = (options: PaginationOptions, doc: ProseMirrorNode): EditorView =>
   new EditorView(options.measureIn, {
@@ -253,11 +280,12 @@ export function createPagination(options: PaginationOptions): Pagination {
       runner.restart = false;
       measuring.updateState(EditorState.create({ doc: whole, plugins: measuring.state.plugins }));
     } else follow(measuring, whole);
-    const sections = layoutDocument(measuring, { ...options, scale: options.scale?.(), cache });
+    const { sections, metrics } = layOutPages(measuring, options, cache);
     const target = projectDocument(measuring.state.doc, sections, options);
     const tr = state.tr;
     repaginate(tr, target, fragmentRules);
     restoreFootnoteSelection(tr, footnoteAnchor(state));
+    laidOut.set(tr.doc, metrics);
     editor.dispatch(tr.setMeta(paginationKey, true).setMeta('addToHistory', false));
   };
 

@@ -66,7 +66,7 @@ export function DocumentCommentsPanel(props: DocumentCommentsPanelProps) {
   const canComment = props.canComment ?? true;
   const anchors = useMemo(() => (context ? listCommentAnchors(context.state.doc) : []), [context]);
   const shown = listed(comments.threads, anchors, { filter, me });
-  const card: CardContext = { comments, me, canComment, labels };
+  const card: CardContext = { comments, me, canComment, labels, documentId: props.documentId };
   const view = context?.view ?? null;
   const goTo = (anchor: CommentAnchor) => {
     if (!view) return;

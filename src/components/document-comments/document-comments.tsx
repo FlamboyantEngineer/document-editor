@@ -163,6 +163,7 @@ export function DocumentComments(props: DocumentCommentsProps) {
     if (caret !== null) setActive(caret);
   }
   const context: CardContext = {
+    documentId: props.documentId,
     comments,
     me: props.identity.currentPerson().id,
     canComment,
