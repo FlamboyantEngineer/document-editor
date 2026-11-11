@@ -4,6 +4,7 @@
 import { BooleanField } from '@flamboyantengineer/ui-components/boolean-field';
 import { ColorField } from '@flamboyantengineer/ui-components/color-field';
 import { Combobox } from '@flamboyantengineer/ui-components/combobox';
+import { PageLandscapeGlyph, PagePortraitGlyph } from '@flamboyantengineer/ui-components/core';
 import { NumberField } from '@flamboyantengineer/ui-components/number-field';
 import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-choice';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
@@ -86,6 +87,12 @@ function SelectControl(props: ControlProps) {
   );
 }
 
+// The glyphs of the choices that have one, by the choice's id.
+const CHOICE_GLYPHS: Readonly<Record<string, typeof PagePortraitGlyph>> = {
+  portrait: PagePortraitGlyph,
+  landscape: PageLandscapeGlyph,
+};
+
 // A choice among a few, as segments: the inherited one shows picked until one is.
 function ChoiceControl({ setting, value, onChange, common, placeholder }: ControlProps) {
   const own = typeof value === 'string' ? value : null;
@@ -94,7 +101,11 @@ function ChoiceControl({ setting, value, onChange, common, placeholder }: Contro
       aria-label={common.label}
       size="sm"
       isDisabled={common.isDisabled}
-      options={optionsOf(setting).map(({ id, label }) => ({ value: id, label }))}
+      options={optionsOf(setting).map(({ id, label }) => ({
+        value: id,
+        label,
+        ...(CHOICE_GLYPHS[id] ? { icon: CHOICE_GLYPHS[id] } : {}),
+      }))}
       value={own ?? placeholder ?? null}
       isInherited={own === null}
       isClearable
