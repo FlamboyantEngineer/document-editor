@@ -31,6 +31,11 @@
       "import": "./dist/host/index.js",
       "default": "./dist/host/index.js"
     },
+    "./document": {
+      "types": "./dist/document/index.d.ts",
+      "import": "./dist/document/index.js",
+      "default": "./dist/document/index.js"
+    },
     "./model": {
       "types": "./dist/model/index.d.ts",
       "import": "./dist/model/index.js",
