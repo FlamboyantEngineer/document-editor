@@ -551,6 +551,39 @@
   background: var(--doc-change-bar-formatting-color, #dd00dd);
 }
 
+/* A block whose text changed has a bar beside each line that changed instead of one beside it. */
+.de-document-editor [data-diff-change][data-diff-lines]::after {
+  content: none;
+}
+
+.de-change-lines__line {
+  position: absolute;
+  top: var(--de-change-line-top);
+  height: var(--de-change-line-height);
+  left: var(--doc-change-bar-left, -12px);
+  right: var(--doc-change-bar-right, auto);
+  width: var(--doc-change-bar-width, 4px);
+  background: var(--doc-change-bar-modifications-color, #0000dd);
+  pointer-events: none;
+}
+
+.de-change-lines__line[data-diff-line='insertion'] {
+  background: var(--doc-change-bar-insertions-color, #00dd00);
+}
+
+.de-change-lines__line[data-diff-line='deletion'] {
+  background: var(--doc-change-bar-deletions-color, #dd0000);
+}
+
+.de-change-lines__line[data-diff-line='formatting'] {
+  background: var(--doc-change-bar-formatting-color, #dd00dd);
+}
+
+/* The holder of a block's line bars takes no room in its text. */
+.de-change-lines {
+  user-select: none;
+}
+
 .de-document-editor span[data-diff-change='insertion'] {
   position: static;
   background: color-mix(in srgb, var(--doc-change-bar-insertions-color, #00dd00) 18%, transparent);

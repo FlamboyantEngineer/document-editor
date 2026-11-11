@@ -4,6 +4,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { diffText } from './text-diff.js';
 import {
+  changeLineMarks,
   createVersionChanges,
   refreshVersionChanges,
   versionChangeDecorations,
@@ -147,23 +148,44 @@ describe('showing version changes', () => {
   const older = read(paragraph('a0000001', 'Alpha blue'), paragraph('a0000002', 'Gone'));
   const newer = read(paragraph('a0000001', 'Alpha gamma'), paragraph('a0000003', 'Added'));
 
-  it('DOCE-VERSIONS-2.1 marks changed blocks, and in markup the words and blocks they lost', () => {
+  it('DOCE-VERSIONS-2.1 marks changed blocks and lines, and in markup the words and blocks they lost', () => {
     const changes = compareVersions(older, newer);
     const markup = versionChangeDecorations(newer, changes, 'markup').find();
     // A node or inline decoration's attributes (ProseMirror keeps them on its type).
-    const attrs = markup.map(
-      (decoration) => (decoration as unknown as { type: { attrs?: object } }).type.attrs,
-    );
-    expect(attrs).toEqual(
+    const attrsOf = (decorations: typeof markup) =>
+      decorations.map(
+        (decoration) => (decoration as unknown as { type: { attrs?: object } }).type.attrs,
+      );
+    expect(attrsOf(markup)).toEqual(
       expect.arrayContaining([
-        { 'data-diff-change': 'modification' },
+        { 'data-diff-change': 'modification', 'data-diff-lines': 'kept' },
+        { 'data-diff-change': 'insertion', 'data-diff-line': 'modification' },
         { 'data-diff-change': 'insertion' },
         { 'data-diff-deletion': 'after' },
       ]),
     );
+    // In bars, the replaced word is marked for its line's bar, and no deleted text shows.
     const bars = versionChangeDecorations(newer, changes, 'bars').find();
-    expect(bars).toHaveLength(3);
+    expect(attrsOf(bars)).toContainEqual({ 'data-diff-line': 'modification' });
+    expect(bars).toHaveLength(4);
     expect(markup.length).toBeGreaterThan(bars.length);
+  });
+
+  it('DOCE-VERSIONS-2.1 marks a changed line by its kind: inserted, deleted or replaced text', () => {
+    const marks = (before: string, after: string) => {
+      const [change] = compareVersions(
+        read(paragraph('a0000001', before)),
+        read(paragraph('a0000001', after)),
+      );
+      // Positions from the paragraph's start.
+      const start = (change?.parts[0]?.from ?? 0) + 1;
+      return change
+        ? changeLineMarks(change).map(({ kind, from, to }) => [kind, from - start, to - start])
+        : [];
+    };
+    expect(marks('Alpha', 'Alpha beta')).toEqual([['insertion', 5, 10]]);
+    expect(marks('Alpha beta', 'Alpha')).toEqual([['deletion', 5, 5]]);
+    expect(marks('Alpha blue', 'Alpha gamma')).toEqual([['modification', 6, 11]]);
   });
 
   it('DOCE-VERSIONS-2.2 compares the document after each change, with the older version it reads', () => {

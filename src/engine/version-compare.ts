@@ -34,6 +34,8 @@ export interface VersionChange {
   readonly segments: readonly TextSegment[];
   /** Each character of `text`'s position in the newer version; none for a deletion. */
   readonly positions: readonly number[];
+  /** For a block whose text changed: whether its formatting changed too. */
+  readonly formatChanged?: boolean | undefined;
 }
 
 /** A block of a version: its identity, its parts, its text and how it is formatted. */
@@ -145,6 +147,9 @@ function keptInOrder(older: readonly string[], newer: readonly string[]): Set<st
   return new Set(commonSubsequence(older, newer).map(([index]) => older[index] ?? ''));
 }
 
+// A block's formatting without its runs' lengths, which change with its text.
+const withoutLengths = (format: string) => format.replace(/\|\d+:/g, '|');
+
 function changeOf(newer: VersionBlock, older: VersionBlock, moved: boolean): VersionChange | null {
   const textChanged = newer.text !== older.text;
   const kind: VersionChangeKind | null = moved
@@ -164,6 +169,7 @@ function changeOf(newer: VersionBlock, older: VersionBlock, moved: boolean): Ver
     previousText: older.text,
     segments: textChanged ? diffText(older.text, newer.text) : [],
     positions: newer.positions,
+    formatChanged: textChanged && withoutLengths(newer.format) !== withoutLengths(older.format),
   };
 }
 

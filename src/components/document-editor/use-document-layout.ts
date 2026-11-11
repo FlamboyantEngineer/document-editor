@@ -10,6 +10,7 @@ import { type RefObject, useEffect, useRef } from 'react';
 import {
   type CompareSuggestions,
   createAuthorship,
+  createChangeLines,
   createDocumentSections,
   createSearch,
   createVersionChanges,
@@ -148,6 +149,7 @@ export function useDocumentLayout(
       createSearch(),
       createAuthorship(),
       createDocumentSections({ template: () => latest.current.template }),
+      createChangeLines(),
       createVersionChanges({
         previous: () => latest.current.compare?.previous ?? null,
         display: () => latest.current.compare?.display ?? 'markup',

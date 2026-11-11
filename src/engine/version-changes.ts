@@ -1,6 +1,7 @@
 // Shows the changes from an older version of a document on the document: each changed block marked
-// with its kind (`data-diff-change`) for a change bar beside it, and, in markup, the words a block
-// gained and lost, and the blocks it lost, in place.
+// with its kind (`data-diff-change`) for a change bar beside it, the words of a block whose text
+// changed marked by the kind of change on their line (`data-diff-line`), for a bar beside each line
+// that changed, and, in markup, the words a block gained and lost, and the blocks it lost, in place.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
@@ -41,6 +42,52 @@ export function versionChanges(state: EditorState): readonly VersionChange[] {
 }
 
 const CHANGE_ATTR = 'data-diff-change';
+const LINE_ATTR = 'data-diff-line';
+
+/** What changed in a block whose text changed: a run of its text, or where text was deleted. */
+export interface ChangeLineMark {
+  readonly kind: 'insertion' | 'deletion' | 'modification';
+  readonly from: number;
+  /** Where the run ends; the same as `from` where text was deleted. */
+  readonly to: number;
+  /** For a deletion: the text deleted there. */
+  readonly text: string;
+}
+
+// The positions of a change's segments in the newer version: where each starts, and its runs.
+function segmentAt(change: VersionChange, index: number, start: number) {
+  return change.positions[index] ?? (change.positions[index - 1] ?? start - 1) + 1;
+}
+
+/**
+ * The runs of text a block whose text changed gained, and where it lost text, each by its kind: a
+ * run inserted, a run deleted, or a run replaced, which is a modification on the inserted run.
+ */
+export function changeLineMarks(change: VersionChange): ChangeLineMark[] {
+  const marks: ChangeLineMark[] = [];
+  const start = (change.parts[0]?.from ?? 0) + 1;
+  const { segments } = change;
+  let index = 0;
+  segments.forEach((segment, at) => {
+    const replaced =
+      segments[at - 1]?.kind === (segment.kind === 'inserted' ? 'deleted' : 'inserted') ||
+      segments[at + 1]?.kind === (segment.kind === 'inserted' ? 'deleted' : 'inserted');
+    if (segment.kind === 'deleted') {
+      const pos = segmentAt(change, index, start);
+      // A replaced run's bar is its inserted run's.
+      if (!replaced) marks.push({ kind: 'deletion', from: pos, to: pos, text: segment.text });
+      return;
+    }
+    const length = segment.text.length;
+    if (segment.kind === 'inserted') {
+      for (const [from, to] of ranges(change.positions.slice(index, index + length))) {
+        marks.push({ kind: replaced ? 'modification' : 'insertion', from, to, text: '' });
+      }
+    }
+    index += length;
+  });
+  return marks;
+}
 
 // A deleted run of text, or a deleted block's text (`data-diff-block`).
 function deletedText(owner: Document, text: string, block = false): HTMLElement {
@@ -62,30 +109,59 @@ function ranges(positions: readonly number[]): [number, number][] {
   return found;
 }
 
-// The words a changed block gained, marked, and those it lost, in place before what follows them.
-function textDecorations(change: VersionChange, decorations: Decoration[]) {
-  let index = 0;
-  const start = (change.parts[0]?.from ?? 0) + 1;
-  for (const segment of change.segments) {
-    const length = segment.text.length;
-    if (segment.kind === 'deleted') {
-      const at = change.positions[index] ?? (change.positions[index - 1] ?? start - 1) + 1;
-      const text = segment.text;
-      decorations.push(
-        Decoration.widget(at, (view) => deletedText(view.dom.ownerDocument, text), {
-          side: -1,
-          key: `del-${String(at)}-${text}`,
-        }),
-      );
+// The words a changed block gained, marked by the kind of change on their line, and, in markup,
+// those it lost in place before what follows them; in bars, where it lost them is marked alone.
+function textDecorations(
+  change: VersionChange,
+  display: VersionChangeDisplay,
+  decorations: Decoration[],
+) {
+  const markup = display === 'markup';
+  for (const mark of changeLineMarks(change)) {
+    if (mark.from !== mark.to) {
+      const attrs: Record<string, string> = { [LINE_ATTR]: mark.kind };
+      if (markup) attrs[CHANGE_ATTR] = 'insertion';
+      decorations.push(Decoration.inline(mark.from, mark.to, attrs));
       continue;
     }
-    if (segment.kind === 'inserted') {
-      for (const [from, to] of ranges(change.positions.slice(index, index + length))) {
-        decorations.push(Decoration.inline(from, to, { [CHANGE_ATTR]: 'insertion' }));
-      }
-    }
-    index += length;
+    const { from, text } = mark;
+    decorations.push(
+      Decoration.widget(
+        from,
+        (view) => {
+          const owner = view.dom.ownerDocument;
+          const element = markup ? deletedText(owner, text) : owner.createElement('span');
+          element.setAttribute(LINE_ATTR, 'deletion');
+          return element;
+        },
+        { side: -1, key: `del-${display}-${String(from)}-${text}` },
+      ),
+    );
   }
+  // In markup, a replaced run's deleted text shows too.
+  if (markup) replacedText(change, decorations);
+}
+
+// The text a block lost where it was replaced, in place before the run that replaced it.
+function replacedText(change: VersionChange, decorations: Decoration[]) {
+  let index = 0;
+  const start = (change.parts[0]?.from ?? 0) + 1;
+  change.segments.forEach((segment, at) => {
+    if (segment.kind !== 'deleted') {
+      index += segment.text.length;
+      return;
+    }
+    const near = [change.segments[at - 1]?.kind, change.segments[at + 1]?.kind];
+    if (!near.includes('inserted')) return;
+    const pos = segmentAt(change, index, start);
+    const text = segment.text;
+    decorations.push(
+      Decoration.widget(pos, (view) => deletedText(view.dom.ownerDocument, text), {
+        side: -1,
+        key: `del-${String(pos)}-${text}`,
+      }),
+    );
+  });
 }
 
 // Marks the blocks before which, or after which, blocks were deleted; in markup, the deleted
@@ -124,10 +200,13 @@ export function versionChangeDecorations(
 ): DecorationSet {
   const decorations = deletionDecorations(changes, display);
   for (const change of changes) {
-    for (const part of change.parts) {
-      decorations.push(Decoration.node(part.from, part.to, { [CHANGE_ATTR]: change.kind }));
-    }
-    if (display === 'markup' && change.segments.length) textDecorations(change, decorations);
+    // A block whose text changed has a bar beside each line that changed, the others marked as
+    // kept, or as formatted when its formatting changed too.
+    const lines = change.kind === 'modification' && change.segments.length > 0;
+    const attrs: Record<string, string> = { [CHANGE_ATTR]: change.kind };
+    if (lines) attrs['data-diff-lines'] = change.formatChanged ? 'formatting' : 'kept';
+    for (const part of change.parts) decorations.push(Decoration.node(part.from, part.to, attrs));
+    if (lines) textDecorations(change, display, decorations);
   }
   return DecorationSet.create(doc, decorations);
 }
