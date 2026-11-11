@@ -18,15 +18,29 @@ const landscape = (page: Page) =>
     .or(panel(page).first().getByRole('button', { name: 'Landscape', exact: true }))
     .first();
 
+// Opens a style's card and returns it.
+async function card(page: Page, name: string) {
+  const found = panel(page)
+    .first()
+    .locator('.ui-property-card', {
+      has: page.getByRole('button', { name: new RegExp(`^${name}\\b`) }),
+    });
+  await found
+    .getByRole('button', { name: new RegExp(`^${name}\\b`) })
+    .first()
+    .click();
+  return found.first();
+}
+
 test.describe('template editor lab', () => {
   test('DOCE-TEMPLATE-EDITOR-1.1 DOCE-TEMPLATE-EDITOR-1.2 DOCE-LABS-3.1 restyles the document as settings change', async ({
     lab,
     page,
   }) => {
     await lab.open('template-editor');
-    const settings = panel(page).first();
     // DOCE-TEMPLATE-EDITOR-1.7: a size in points.
-    const size = settings.getByRole('textbox', { name: 'Size' }).first();
+    const paragraph = await card(page, 'Paragraph');
+    const size = paragraph.getByRole('textbox', { name: 'Size' });
     await expect(size).toHaveAttribute('placeholder', /^\d/);
     await size.fill('12');
     await size.press('Enter');
@@ -35,9 +49,8 @@ test.describe('template editor lab', () => {
     await size.press('Enter');
     await expect.poll(() => style(page, 'p', 'font-size')).not.toBe('16px');
 
-    await settings.getByRole('button', { name: /Style$/ }).click();
-    await page.getByRole('option', { name: 'Heading 1' }).click();
-    const colour = settings.getByRole('textbox', { name: 'Colour' }).first();
+    const heading = await card(page, 'Heading 1');
+    const colour = heading.getByRole('textbox', { name: 'Colour' });
     await colour.fill('#cc0000');
     await colour.press('Enter');
     await expect.poll(() => style(page, 'h1', 'color')).toBe('rgb(204, 0, 0)');
@@ -133,6 +146,19 @@ test.describe('template editor lab', () => {
     await toolbar.getByRole('button', { name: /Text style/ }).click();
     await page.getByRole('option', { name: 'Paragraph' }).click();
     await expect(paragraph).not.toHaveAttribute('data-custom-style');
+    // The style's card renames it, and deletes it.
+    await card(page, 'style_1');
+    // The style's name is the last one; the template's is first.
+    const name = panel(page).first().getByRole('textbox', { name: 'Name' }).last();
+    await name.fill('note');
+    await name.press('Enter');
+    await expect(
+      panel(page)
+        .first()
+        .getByRole('button', { name: /^note\b/ }),
+    ).toHaveCount(1);
+    await panel(page).first().getByRole('button', { name: 'Delete the style' }).click();
+    await expect(panel(page).first().getByText('No custom styles yet.')).toBeVisible();
   });
 
   test('DOCE-TEMPLATE-EDITOR-1.7 offers fields for sizes, fonts, numbering and page sizes', async ({
@@ -151,19 +177,54 @@ test.describe('template editor lab', () => {
       /^Inherited from Base template: /,
     );
     // A font typed or picked.
-    const font = settings.getByRole('combobox', { name: 'Font' }).first();
+    const paragraph = await card(page, 'Paragraph');
+    const font = paragraph.getByRole('combobox', { name: 'Font' });
     await font.fill('Georgia');
     await expect.poll(() => style(page, 'p', 'font-family')).toContain('Georgia');
-    await font.press('Tab');
+    await page.keyboard.press('Tab');
+    // Space before and after, in points, typed as numbers.
+    const after = paragraph.getByRole('textbox', { name: 'Space after' });
+    await after.fill('20');
+    await after.press('Enter');
+    await expect.poll(() => style(page, 'p', 'margin-bottom')).toBe('26.6667px');
+    // Bold, italic and underline toggle on, off and back to inherited.
+    const bold = paragraph.getByRole('button', { name: 'Bold' });
+    await bold.click();
+    await expect.poll(() => style(page, 'p', 'font-weight')).toBe('700');
+    await paragraph.getByRole('button', { name: 'Italic' }).click();
+    await expect.poll(() => style(page, 'p', 'font-style')).toBe('italic');
+    await paragraph.getByRole('button', { name: 'Underline' }).click();
+    await expect.poll(() => style(page, 'p', 'text-decoration-line')).toBe('underline');
+    await bold.click();
+    await expect(bold).toHaveAttribute('aria-pressed', 'false');
+    await bold.click();
+    await expect(bold).toHaveAttribute('aria-pressed', 'mixed');
     // A numbering format keeps only what numbers.
-    await settings.getByRole('button', { name: /Style$/ }).click();
-    await page.getByRole('option', { name: 'Heading 1' }).click();
-    const numbering = settings.getByRole('textbox', { name: 'Numbering format' }).first();
+    const heading = await card(page, 'Heading 1');
+    const numbering = heading.getByRole('textbox', { name: 'Numbering', exact: true });
     await numbering.fill('Ab.1x');
     await expect(numbering).toHaveValue('A.1');
-    await expect(settings.getByText('1, a, A, i or I for each level').first()).toBeVisible();
+    await expect(heading.getByText('1, a, A, i or I for each level')).toBeVisible();
     // A heading has no line height of its own.
-    await expect(settings.getByRole('textbox', { name: 'Line height' })).toHaveCount(0);
+    await expect(heading.getByRole('textbox', { name: 'Line height' })).toHaveCount(0);
+    // The margins, one row of four sides, in millimetres on an A4 page.
+    const top = settings.getByRole('textbox', { name: 'Top margin' });
+    await expect(top).toHaveAttribute('placeholder', '25.4');
+    await top.fill('40');
+    await top.press('Enter');
+    await expect
+      .poll(() =>
+        content(page)
+          .locator('.pm-page-content')
+          .first()
+          .evaluate((element) =>
+            Math.round(
+              element.getBoundingClientRect().top -
+                (element.closest('.pm-page')?.getBoundingClientRect().top ?? 0),
+            ),
+          ),
+      )
+      .toBeGreaterThan(140);
   });
 
   test('DOCE-TEMPLATE-EDITOR-1.8 DOCE-TEMPLATES-8.2 previews every style and section of the template', async ({

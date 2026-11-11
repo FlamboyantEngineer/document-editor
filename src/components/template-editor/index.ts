@@ -3,11 +3,11 @@ export type { TemplateEditorLabels, TemplateEditorProps } from './template-edito
 export { DEFAULT_TEMPLATE_EDITOR_LABELS, TemplateEditor } from './template-editor.js';
 export type { TemplateJsonEditorLabels, TemplateJsonEditorProps } from './template-json-editor.js';
 export { TemplateJsonEditor } from './template-json-editor.js';
-export { DEFAULT_FONTS } from './template-rows.js';
 export type { TemplateScopeLabels } from './template-scope.js';
 export { SECTION_SETTINGS, withSection } from './template-scope.js';
 export type { SettingKind, TemplateSetting, TemplateSettingSection } from './template-settings.js';
 export {
+  DEFAULT_FONTS,
   NUMBERING_HINT,
   PAGE_SIZES,
   settingAt,

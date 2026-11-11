@@ -153,7 +153,8 @@ function PointsControl({ value, inherited, onChange, common }: ControlProps) {
       {...common}
       value={own}
       placeholder={from === null ? undefined : String(from)}
-      minValue={1}
+      hideStepper
+      minValue={0}
       maxValue={400}
       step={0.5}
       onChange={(points: number | null) => onChange(points === null ? null : `${String(points)}pt`)}
