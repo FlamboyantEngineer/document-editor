@@ -24,6 +24,17 @@
   overflow: hidden;
 }
 
+/* The document between the panels beside it: the panels at its edges, the pages taking the rest. */
+.de-document-editor__workspace {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.de-document-editor__workspace > .de-document-editor__viewport {
+  min-width: 0;
+}
+
 /* The document scrolls without the shades that mark more content above or below. */
 .de-document-editor__viewport {
   flex: 1 1 auto;

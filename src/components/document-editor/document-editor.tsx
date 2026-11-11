@@ -161,17 +161,41 @@ export interface DocumentEditorProps
   labels?: Partial<DocumentEditorLabels> | undefined;
   /** Chrome inside the editor's engine, such as a toolbar reading its state. */
   children?: ReactNode;
+  /**
+   * Panels beside the document, between the toolbar and the status bar, such as a
+   * `DocumentSidePanel` of the outline and search at the start and the properties at the end.
+   */
+  panels?: { readonly start?: ReactNode; readonly end?: ReactNode } | undefined;
 }
 
 const hooks = createHooks('document-editor', [
   'measure',
   'toolbar',
   'viewport',
+  'workspace',
   'body',
   'content',
   'status-bar',
   'find',
 ]);
+
+// The document between the panels beside it, when there are any.
+function Workspace({
+  panels,
+  children,
+}: {
+  panels: DocumentEditorProps['panels'];
+  children: ReactNode;
+}) {
+  if (!panels?.start && !panels?.end) return children;
+  return (
+    <div {...hooks.slot('workspace')}>
+      {panels.start}
+      {children}
+      {panels.end}
+    </div>
+  );
+}
 
 // The editor root's hook values.
 function rootData(props: DocumentEditorProps) {
@@ -251,13 +275,15 @@ export function DocumentEditor(props: DocumentEditorProps) {
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
         <TopChrome {...chrome} finding={finding} onFindClose={() => setFinding(false)} />
-        {props.scrollable ? (
-          <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
-            {body}
-          </ScrollRegion>
-        ) : (
-          body
-        )}
+        <Workspace panels={props.panels}>
+          {props.scrollable ? (
+            <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
+              {body}
+            </ScrollRegion>
+          ) : (
+            body
+          )}
+        </Workspace>
         <BottomChrome {...chrome} openDialog={setDialog} />
         <ObjectDialogs
           {...props}

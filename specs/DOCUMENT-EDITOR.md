@@ -185,6 +185,13 @@ Verification: `src/components/document-editor/script-language.test.ts`, `e2e/ful
 Implementation: `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/document-menubar.tsx`, `labs/src/host-menubar.ts`
 Verification: `e2e/full-editor.spec.ts`
 
+### DOCE-EDITOR-4.11 - Side panels
+
+`panels` shall place panels beside the document, between the toolbar and the status bar (`de-document-editor__workspace`), `start` before the pages and `end` after them. `DocumentSidePanel` shall be such a panel: the base library's `DockPanel` docked at the document's start or end, named by its label (Navigation and Details by default, `DEFAULT_PANELS_LABELS`), holding a tab for each of its panes in order, the built-in ones by id, `outline` (DOCE-OUTLINE), `search` (DOCE-SEARCH) and `properties`, and the host's own (`DocumentPane`: an id, a label, an icon, a count and what it renders from the editor's context). `DocumentProperties`, the `properties` pane, shall show in the base library's property panel the document's template, sections, pages and words; the section at the caret, by its template section's label or as the body, with its page size, orientation and margins; and the block at the caret, its style, element id and author.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
+Verification: `e2e/document-panels.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -303,6 +310,7 @@ Verification: `e2e/versions.spec.ts`
 | `de-document-editor__measure`           | slot      |                                                        | The hidden slot the pages are measured in.                                              |
 | `de-document-editor__toolbar`           | slot      |                                                        | The editor's toolbar, with `toolbar`.                                                   |
 | `de-document-editor__viewport`          | slot      |                                                        | The frame that scrolls the document, with `scrollable`.                                 |
+| `de-document-editor__workspace`         | slot      |                                                        | The document between the panels beside it.                                              |
 | `de-document-editor__body`              | slot      |                                                        | The document with its table handles.                                                    |
 | `de-document-editor__toolbar-start`     | slot      |                                                        | The host's controls before the toolbar's groups.                                        |
 | `de-document-editor__toolbar-end`       | slot      |                                                        | The host's controls after the toolbar's groups.                                         |

@@ -128,11 +128,14 @@
   white-space: pre-wrap;
 }
 
-/* Pages stack in one column, each centered, whatever its size or orientation. */
+/*
+ * Pages stack in one column, each centered, whatever its size or orientation; a page wider than the
+ * frame starts at its start edge, so all of it scrolls into view.
+ */
 .de-document-editor .pm-section {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: safe center;
   gap: 24px;
 }
 
@@ -834,6 +837,11 @@
  * on (`--de-comment-offset`), so cards follow each page's edge whatever its size and orientation.
  * The layer draws the anchors' highlights itself.
  */
+/* The layer is at least as wide as its widest page and the margin, so no page runs under a card. */
+.de-document-comments {
+  min-width: max-content;
+}
+
 .de-document-comments mark[data-comment-id] {
   background: transparent;
   color: inherit;
