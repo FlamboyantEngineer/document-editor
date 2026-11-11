@@ -272,13 +272,9 @@ export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export { setPageRegions } from './templates/page-regions.js';
 export { CONTENTS_TOKENS, readTemplateContent } from './templates/template-content.js';
-export {
-  lengthToCssPx,
-  MM_TO_CSS_PX,
-  PAGE_SIZE_DIMENSIONS,
-  resolveFontStack,
-} from './templates/template-css-values.js';
+export * from './templates/template-css-values.js';
 export * from './templates/template-numbering.js';
+export * from './templates/template-preview.js';
 export type {
   CustomProperties,
   FontStacks,

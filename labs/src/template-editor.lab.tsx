@@ -1,6 +1,7 @@
 // The template editor beside the document editor: each change to the template's settings restyles
 // the document and lays its pages out again as it is made. The template inherits from the base
-// template; its fields show the inherited values until it sets its own.
+// template; its fields show the inherited values until it sets its own. The preview document shows
+// every style the template sets, and each of its sections.
 
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useState } from 'react';
@@ -11,9 +12,11 @@ import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
   createDocumentSchema,
+  type DocumentFile,
   readDocumentFile,
   resolveTemplateFile,
   type TemplateFile,
+  templatePreviewDocument,
 } from '../../src/model/index.js';
 import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { sampleDocument } from './lab-document.js';
@@ -35,10 +38,12 @@ const resolve = (template: TemplateFile) =>
 // The template the plugins read, which the lab keeps up with the editor's.
 const current = { template: resolve(OWN) };
 
-function initialState(): EditorState {
+function initialState(file?: DocumentFile): EditorState {
   const schema = createDocumentSchema();
-  const file = sampleDocument(['Scope', 'Interfaces', 'Timing']);
-  file.sections[0]?.content.unshift({ type: 'contents', attrs: { kind: 'toc', depth: 2 } });
+  if (!file) {
+    file = sampleDocument(['Scope', 'Interfaces', 'Timing']);
+    file.sections[0]?.content.unshift({ type: 'contents', attrs: { kind: 'toc', depth: 2 } });
+  }
   const template = () => current.template;
   const state = EditorState.create({
     doc: readDocumentFile(file, schema),
@@ -53,7 +58,7 @@ function initialState(): EditorState {
 }
 
 function Lab() {
-  const [state, setState] = useState(initialState);
+  const [state, setState] = useState(() => initialState());
   const [own, setOwn] = useState<TemplateFile>(OWN);
   const [json, setJson] = useState(false);
   const resolved = useMemo(() => resolve(own), [own]);
@@ -72,6 +77,12 @@ function Lab() {
           />{' '}
           Edit as JSON
         </label>
+        <button
+          type="button"
+          onClick={() => setState(initialState(templatePreviewDocument(resolved)))}
+        >
+          Preview the template
+        </button>
         {json ? (
           <TemplateJsonEditor template={own} onChange={setOwn} />
         ) : (

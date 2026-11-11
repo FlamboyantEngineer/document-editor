@@ -16,7 +16,15 @@ export type SettingKind =
     }
   | { readonly type: 'color' }
   | { readonly type: 'boolean' }
-  | { readonly type: 'select'; readonly options: readonly { id: string; label: string }[] };
+  /** A size in points, such as a font's. */
+  | { readonly type: 'points' }
+  /** A font, from the editor's `fonts` or typed. */
+  | { readonly type: 'font' }
+  /** A numbering format: a character for each level, such as `1.1` or `A.i`. */
+  | { readonly type: 'numbering' }
+  | { readonly type: 'select'; readonly options: readonly { id: string; label: string }[] }
+  /** A choice among a few, shown as segments. */
+  | { readonly type: 'choice'; readonly options: readonly { id: string; label: string }[] };
 
 /** A setting of a template. */
 export interface TemplateSetting {
@@ -28,6 +36,8 @@ export interface TemplateSetting {
   readonly kind: SettingKind;
   /** Words the settings filter also finds the setting by. */
   readonly keywords?: readonly string[];
+  /** A short caption under the field. */
+  readonly hint?: string;
 }
 
 /** A section of the template editor: its settings, below a scope of the template. */
@@ -43,8 +53,13 @@ const text = { type: 'text' } as const;
 const length = { type: 'length' } as const;
 const color = { type: 'color' } as const;
 const boolean = { type: 'boolean' } as const;
+const points = { type: 'points' } as const;
 const select = (...options: [string, string][]): SettingKind => ({
   type: 'select',
+  options: options.map(([id, label]) => ({ id, label })),
+});
+const choice = (...options: [string, string][]): SettingKind => ({
+  type: 'choice',
   options: options.map(([id, label]) => ({ id, label })),
 });
 
@@ -55,13 +70,41 @@ const setting = (path: string, label: string, kind: SettingKind): TemplateSettin
   kind,
 });
 
+/** What a numbering format's characters number with. */
+export const NUMBERING_HINT = '1, a, A, i or I for each level, such as 1.1, A.1 or I-a)';
+
+/** A numbering format's setting. */
+export const numberingSetting = (path: string, label: string): TemplateSetting => ({
+  ...setting(path, label, { type: 'numbering' }),
+  hint: NUMBERING_HINT,
+});
+
+// A page size with its dimensions, such as `A4 (210 × 297 mm)`.
+function pageSizeLabel(size: string): string {
+  const found = PAGE_SIZE_DIMENSIONS[size];
+  if (!found) return size;
+  const unit = found.width.replace(/[\d.]/g, '');
+  const across = found.width.replace(unit, '');
+  const down = found.height.replace(unit, '');
+  return `${size} (${across} × ${down} ${unit})`;
+}
+
+/** The bullets a bulleted list may show. */
+const BULLETS: [string, string][] = [
+  ['disc', '• Disc'],
+  ['circle', '◦ Circle'],
+  ['square', '▪ Square'],
+  ['"– "', '– Dash'],
+  ['none', 'None'],
+];
+
 /** The page sizes a template may name. */
 export const PAGE_SIZES = Object.keys(PAGE_SIZE_DIMENSIONS);
 
 /** The settings of a text style: its font, colour, line height, alignment and spacing. */
 export const TEXT_STYLE_SETTINGS: readonly TemplateSetting[] = [
-  setting('font', 'Font', text),
-  setting('size', 'Size', length),
+  setting('font', 'Font', { type: 'font' }),
+  setting('size', 'Size', points),
   setting('weight', 'Weight', { type: 'number', min: 100, max: 900, step: 100 }),
   setting('italic', 'Italic', boolean),
   setting('underline', 'Underline', boolean),
@@ -102,12 +145,12 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
       setting(
         'size',
         'Page size',
-        select(...PAGE_SIZES.map((size): [string, string] => [size, size])),
+        select(...PAGE_SIZES.map((size): [string, string] => [size, pageSizeLabel(size)])),
       ),
       setting(
         'orientation',
         'Orientation',
-        select(['portrait', 'Portrait'], ['landscape', 'Landscape']),
+        choice(['portrait', 'Portrait'], ['landscape', 'Landscape']),
       ),
       setting('margins.top', 'Top margin', length),
       setting('margins.right', 'Right margin', length),
@@ -131,8 +174,8 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Lists',
     scope: ['styles', 'list'],
     settings: [
-      setting('bullet', 'Bullet', text),
-      setting('format', 'Numbering format', text),
+      setting('bullet', 'Bullet', select(...BULLETS)),
+      numberingSetting('format', 'Numbering format'),
       setting('indentation', 'Indentation', length),
       setting('spaceBefore', 'Space before', length),
       setting('spaceAfter', 'Space after', length),
@@ -151,7 +194,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
       setting('rows.odd', 'Odd rows', color),
       setting('rows.even', 'Even rows', color),
       setting('repeatHeader', 'Repeat the header on each page', boolean),
-      setting('caption.placement', 'Caption', select(['above', 'Above'], ['below', 'Below'])),
+      setting('caption.placement', 'Caption', choice(['above', 'Above'], ['below', 'Below'])),
     ],
   },
   {
@@ -160,7 +203,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     scope: ['styles', 'codeBlock'],
     settings: [
       setting('background', 'Background', color),
-      setting('caption.placement', 'Caption', select(['above', 'Above'], ['below', 'Below'])),
+      setting('caption.placement', 'Caption', choice(['above', 'Above'], ['below', 'Below'])),
     ],
   },
   {
@@ -176,7 +219,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
       setting('separator.enabled', 'Separator line', boolean),
       setting('separator.color', 'Separator colour', color),
       setting('spacingToContent', 'Space above', length),
-      setting('text.size', 'Text size', length),
+      setting('text.size', 'Text size', points),
     ],
   },
   {
@@ -185,8 +228,8 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     scope: ['styles', 'contents'],
     settings: [
       setting('leader', 'Leader', text),
-      setting('title.size', 'Title size', length),
-      setting('entry.size', 'Entry size', length),
+      setting('title.size', 'Title size', points),
+      setting('entry.size', 'Entry size', points),
     ],
   },
   {
@@ -194,10 +237,15 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Change bars',
     scope: ['changeBars'],
     settings: [
-      setting('insertions.color', 'Insertions', color),
-      setting('deletions.color', 'Deletions', color),
-      setting('modifications.color', 'Modifications', color),
-      setting('side', 'Side', select(['left', 'Left'], ['right', 'Right'])),
+      ...(['insertions', 'deletions', 'modifications', 'formatting'] as const).flatMap((kind) => {
+        const label = `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
+        return [
+          setting(`${kind}.enabled`, `Show ${kind}`, boolean),
+          setting(`${kind}.color`, label, color),
+        ];
+      }),
+      setting('side', 'Side', choice(['left', 'Left'], ['right', 'Right'])),
+      setting('offset', 'Offset', length),
       setting('width', 'Width', length),
     ],
   },

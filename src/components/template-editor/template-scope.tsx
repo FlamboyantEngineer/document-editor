@@ -17,7 +17,8 @@ export interface TemplateScopeLabels {
   readonly addSection: string;
   readonly deleteSection: string;
   readonly section: string;
-  readonly inherited: (value: string) => string;
+  /** Names an inherited value, and where it comes from when known. */
+  readonly inherited: (value: string, source?: string) => string;
 }
 
 /** The settings of a section only. */

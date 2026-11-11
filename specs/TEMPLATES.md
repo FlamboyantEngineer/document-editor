@@ -171,3 +171,10 @@ A template's content (a section's starting content, its headers and footers) sha
 
 Implementation: `src/model/templates/template-content.ts`, `src/model/templates/page-regions.ts`, `src/engine/document-sections.ts`, `src/engine/template-sync.ts`
 Verification: `src/model/templates/template-content.test.ts`
+
+### DOCE-TEMPLATES-8.2 - Previewing a template
+
+`templatePreviewDocument(template, text)` shall give a document, never stored, that shows what a resolved template looks like: its name as the title, a table of contents, every heading level with text, a footnote, a bulleted and a numbered list, a captioned table and code block and an equation, a paragraph in each custom style, then each template section with the content it starts with, else its placeholder, else its label and text.
+
+Implementation: `src/model/templates/template-preview.ts`
+Verification: `src/model/templates/template-preview.test.ts`, `e2e/template-editor.spec.ts`

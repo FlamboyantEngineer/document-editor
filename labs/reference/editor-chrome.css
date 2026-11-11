@@ -394,6 +394,11 @@
   min-width: 0;
 }
 
+/* A setting's field takes the row's place for its control, its tooltip naming what it inherits. */
+.de-template-editor__field {
+  display: contents;
+}
+
 /* The template's JSON editor fills the panel it is in. */
 .de-template-json-editor {
   display: flex;
