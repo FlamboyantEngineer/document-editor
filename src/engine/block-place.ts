@@ -24,6 +24,9 @@ export function isInPageRegion($pos: ResolvedPos): boolean {
  */
 export function topLevelBlockEnd($pos: ResolvedPos): number | null {
   if (isInPageRegion($pos)) return null;
+  // Between top-level blocks, as a selected object's start is: the end of the block after it.
+  if ($pos.depth > 0 && isBodyParent($pos.parent))
+    return $pos.pos + ($pos.nodeAfter?.nodeSize ?? 0);
   for (let depth = $pos.depth; depth > 0; depth -= 1) {
     if (isBodyParent($pos.node(depth - 1)) || depth === 1) return $pos.after(depth);
   }
