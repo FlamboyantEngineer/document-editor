@@ -28,7 +28,7 @@ test.describe('versions lab', () => {
   }) => {
     await lab.open('versions');
     await compareWith(page, 'Version 1');
-    await expect(page.getByLabel('Changes')).toHaveText('5 changes');
+    await expect(page.getByLabel('Changes')).toHaveText('6 changes');
     await expect(page.locator('.de-document-editor')).toHaveAttribute('data-comparing', 'markup');
     await expect(block(page, 'shall report each fault')).toHaveAttribute(
       'data-diff-change',
@@ -36,7 +36,7 @@ test.describe('versions lab', () => {
     );
     await expect(block(page, 'shall report each fault').locator('del')).toHaveText(['one']);
     await expect(block(page, 'Each report names')).toHaveAttribute('data-diff-change', 'insertion');
-    await expect(block(page, 'Each report names').locator('del[data-diff-block]')).toHaveText(
+    await expect(block(page, 'Each fault record').locator('del[data-diff-block]')).toHaveText(
       'Operators may clear the log at any time.',
     );
     await expect(block(page, 'Reports go')).toHaveAttribute('data-diff-change', 'move');
@@ -55,7 +55,45 @@ test.describe('versions lab', () => {
     await expect(content(page).locator('del[data-diff-block]')).toHaveCount(0);
     const inserted = await bar(page, 'Each report names');
     expect(inserted).toEqual({ color: 'rgb(0, 221, 0)', left: -15, width: 5 });
-    expect((await bar(page, 'within two seconds')).color).toBe('rgb(0, 0, 221)');
+    expect((await bar(page, 'Reports go')).color).toBe('rgb(0, 0, 221)');
+  });
+
+  test('DOCE-VERSIONS-3.4 draws a bar beside each line that changed, by its strongest change', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('versions');
+    await compareWith(page, 'Version 1');
+    await page.getByLabel('Change bars').check();
+    // The block's own bar gives way to its lines' bars.
+    const record = block(page, 'Each fault record');
+    expect(await record.evaluate((element) => getComputedStyle(element, '::after').content)).toBe(
+      'none',
+    );
+    const lines = record.locator('.de-change-lines__line');
+    // The blocks deleted before it mark its first line; the replaced words its last.
+    await expect(lines).toHaveCount(2);
+    const drawn = await lines.evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        return {
+          kind: element.getAttribute('data-diff-line'),
+          top: box.top,
+          bottom: box.bottom,
+          color: getComputedStyle(element).backgroundColor,
+        };
+      }),
+    );
+    expect(drawn.map(({ kind, color }) => [kind, color])).toEqual([
+      ['deletion', 'rgb(221, 0, 0)'],
+      ['modification', 'rgb(0, 0, 221)'],
+    ]);
+    // Successive lines' bars meet.
+    expect(Math.abs((drawn[1]?.top ?? 0) - (drawn[0]?.bottom ?? 0))).toBeLessThan(1);
+    // A changed word on a one-line block marks its line, in the strongest change's color.
+    await expect(
+      block(page, 'within two seconds').locator('.de-change-lines__line'),
+    ).toHaveAttribute('data-diff-line', 'modification');
   });
 
   test('DOCE-VERSIONS-3.3 follows edits made while comparing', async ({ lab, page }) => {

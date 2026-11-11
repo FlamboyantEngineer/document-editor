@@ -6,11 +6,13 @@ import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef } from 'react';
 import {
+  changeLinesOf,
   listSuggestions,
   showAuthorship,
   type Suggestion,
   versionChanges,
 } from '../../engine/index.js';
+import { useChangeLines } from './change-lines-measure.js';
 import { type DocumentEditorNotifications, useSelectionNotification } from './use-host-events.js';
 
 /** A change bar: the kind of change beside a block, on a page, by its offset from the page top. */
@@ -59,11 +61,21 @@ function measureBars(view: EditorView, scale: number): ChangeBar[] {
     const index = page ? pages.indexOf(page) : -1;
     if (!page || index < 0) continue;
     const box = element.getBoundingClientRect();
-    const top = page.getBoundingClientRect().top;
+    const top = (box.top - page.getBoundingClientRect().top) / scale;
+    // A block whose text changed has a bar beside each line that changed.
+    const lines = element.hasAttribute('data-diff-lines')
+      ? changeLinesOf(view.state).get(view.posAtDOM(element, 0) - 1)
+      : undefined;
+    if (lines) {
+      for (const line of lines) {
+        bars.push({ kind: line.kind, page: index, top: top + line.top, height: line.height });
+      }
+      continue;
+    }
     bars.push({
       kind: element.getAttribute('data-diff-change') ?? '',
       page: index,
-      top: (box.top - top) / scale,
+      top,
       height: box.height / scale,
     });
   }
@@ -129,6 +141,7 @@ export function useReviewNotifications(
   useAuthorship(view, props.state, props.authorship ?? false);
   useSelectionNotification(props.state, props.onSelectionChange);
   useSuggestionsNotification(props.state, props.onSuggestionsChange);
+  useChangeLines(view, props.state, props.zoom ?? 100);
   useChangeBarsNotification(view, props.state, {
     onChangeBarsChange: props.onChangeBarsChange,
     zoom: props.zoom ?? 100,

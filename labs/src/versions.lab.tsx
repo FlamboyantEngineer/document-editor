@@ -51,11 +51,16 @@ const file = (...content: StoredNode[]): DocumentFile => ({
   sections: [{ name: null, content: [heading(1, 'Scope'), ...content] }],
 });
 
+// A paragraph of several lines, of which the newest version changes the last.
+const RECORD =
+  'Each fault record holds the time it was detected, the unit that detected it, the operating state at that time, the readings that led to it and the action the system took in response, so that the record alone explains what happened.';
+
 const FIRST = file(
   line('a0000001', 'The system shall report each fault within one second of detecting it.'),
   line('a0000002', 'Reports go to the operator console and to the log.'),
   line('a0000003', 'The log keeps every report for ninety days.'),
   line('a0000004', 'Operators may clear the log at any time.'),
+  line('a0000006', RECORD),
 );
 
 const SECOND = file(
@@ -67,6 +72,7 @@ const SECOND = file(
   ]),
   line('a0000003', 'The log keeps every report for ninety days.'),
   line('a0000004', 'Operators may clear the log at any time.'),
+  line('a0000006', RECORD),
 );
 
 const THIRD = file(
@@ -78,6 +84,7 @@ const THIRD = file(
     text(' and to the log.'),
   ]),
   line('a0000005', 'Each report names the fault and where it was detected.'),
+  line('a0000006', RECORD.replace('what happened', 'the fault')),
 );
 
 const HOST = createMemoryHost({

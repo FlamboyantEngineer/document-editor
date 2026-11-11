@@ -50,7 +50,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-2.1 - Decorations
 
-`versionChangeDecorations(doc, changes, display)` shall mark each changed block's parts with `data-diff-change` and the block before which, or after which, blocks were deleted with `data-diff-deletion`. In `markup` it shall also mark inserted words (`data-diff-change="insertion"`), show deleted words as `del` elements where they were, and show each deleted block's text as a `del` element with `data-diff-block` inside the block it is placed at; in `bars` it shall do neither.
+`versionChangeDecorations(doc, changes, display)` shall mark each changed block's parts with `data-diff-change` and the block before which, or after which, blocks were deleted with `data-diff-deletion`. A block whose text changed shall also be marked `data-diff-lines`, `formatting` when its formatting changed too, else `kept`, and what changed in it marked by kind (`data-diff-line`, from `changeLineMarks`): a run inserted (`insertion`), a run replacing deleted text (`modification`), and where text was deleted without a replacement (`deletion`). In `markup` it shall also mark inserted words (`data-diff-change="insertion"`), show deleted words as `del` elements where they were, and show each deleted block's text as a `del` element with `data-diff-block` inside the block it is placed at; in `bars` it shall do neither.
 
 Implementation: `src/engine/version-changes.ts`
 Verification: `src/engine/version-compare.test.ts`
@@ -68,6 +68,13 @@ The document editor shall run the version changes in its view and its measuring 
 
 Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/versions.spec.ts`
+
+### DOCE-VERSIONS-2.4 - Changed lines
+
+`createChangeLines()` shall draw, inside each block it is given lines for (`setChangeLines`), a bar for each line (`de-change-lines__line`) with its kind (`data-diff-line`) and its top and height from the block's top (`--de-change-line-top`, `--de-change-line-height`), and keep the lines where their blocks go until they are set again. Changes on one line merge into the strongest (`strongerChange`): a modification, then an insertion, a deletion and a formatting change. The document editor shall install it, and, while the document shows changes, measure the lines of each block whose text changed after each render: a line takes the strongest change marked on it, a deleted block's text the deletion, blocks deleted before or after a block whose text does not show its first or last line, and every line of a block whose formatting changed too at least the formatting; each line reaches halfway to the next, so the bars of successive lines meet.
+
+Implementation: `src/engine/change-lines.ts`, `src/components/document-editor/change-lines-measure.ts`
+Verification: `src/engine/change-lines.test.ts`, `e2e/versions.spec.ts`
 
 ## DOCE-VERSIONS-3 - Versions in the browser
 
@@ -92,11 +99,24 @@ Edits made while comparing shall update the changes shown.
 Implementation: `src/engine/version-changes.ts`, `labs/src/versions.lab.tsx`
 Verification: `e2e/versions.spec.ts`
 
+### DOCE-VERSIONS-3.4 - Bars beside changed lines
+
+Showing changes shall draw, for a block whose text changed, a bar beside each line that changed instead of one beside the block, in the color of the strongest change on the line, the bars of successive lines meeting.
+
+Implementation: `labs/reference/document.css`, `src/engine/change-lines.ts`
+Verification: `e2e/versions.spec.ts`
+
 ## Hooks
 
-| Hook                 | Kind      | Values                                                        | Description                                                     |
-| -------------------- | --------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
-| `data-comparing`     | state     | `markup`, `bars`                                              | On the editor while it shows changes from an older version.     |
-| `data-diff-change`   | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move` | On a changed block, an inserted word or a deleted text.         |
-| `data-diff-deletion` | attribute | `before`, `after`                                             | On the block before which, or after which, blocks were deleted. |
-| `data-diff-block`    | attribute | `true`                                                        | On a deleted block's text.                                      |
+| Hook                      | Kind      | Values                                                        | Description                                                     |
+| ------------------------- | --------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
+| `data-comparing`          | state     | `markup`, `bars`                                              | On the editor while it shows changes from an older version.     |
+| `data-diff-change`        | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move` | On a changed block, an inserted word or a deleted text.         |
+| `data-diff-deletion`      | attribute | `before`, `after`                                             | On the block before which, or after which, blocks were deleted. |
+| `data-diff-block`         | attribute | `true`                                                        | On a deleted block's text.                                      |
+| `data-diff-lines`         | attribute | `kept`, `formatting`                                          | On a block whose text changed: what its other lines show.       |
+| `data-diff-line`          | attribute | `insertion`, `deletion`, `modification`, `formatting`         | On a changed word, where text was deleted, or a line's bar.     |
+| `de-change-lines`         | root      |                                                               | The bars beside a block's changed lines.                        |
+| `de-change-lines__line`   | slot      |                                                               | One changed line's bar.                                         |
+| `--de-change-line-top`    | property  |                                                               | The line's top from the block's top, in pixels.                 |
+| `--de-change-line-height` | property  |                                                               | The line's height, in pixels.                                   |

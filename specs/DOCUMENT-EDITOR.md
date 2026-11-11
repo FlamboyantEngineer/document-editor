@@ -268,7 +268,7 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-6.11 - Change bars
 
-While the document is compared with an older version, `onChangeBarsChange` shall receive the change bars it draws whenever they change, once drawn: each changed block's kind of change, its page from 0, and its top and height from the page's top in unscaled CSS pixels (`ChangeBar`); none while nothing is compared.
+While the document is compared with an older version, `onChangeBarsChange` shall receive the change bars it draws whenever they change, once drawn: each changed block's, or, for a block whose text changed, each changed line's (DOCE-VERSIONS-2.4), kind of change, its page from 0, and its top and height from the page's top in unscaled CSS pixels (`ChangeBar`); none while nothing is compared.
 
 Implementation: `src/components/document-editor/use-change-notifications.ts`
 Verification: `e2e/versions.spec.ts`

@@ -1,5 +1,15 @@
 // The second half of the engine's exports, re-exported by its index.
 
+export type { ChangeLine, ChangeLineKind, ChangeLines } from './change-lines.js';
+export {
+  CHANGE_LINE_KINDS,
+  changeLinesKeyOf,
+  changeLinesOf,
+  createChangeLines,
+  drawsChangeLines,
+  setChangeLines,
+  strongerChange,
+} from './change-lines.js';
 export {
   convertMath,
   insertCharacter,
@@ -160,8 +170,13 @@ export {
 } from './template-sync.js';
 export type { TextSegment } from './text-diff.js';
 export { diffText } from './text-diff.js';
-export type { VersionChangeDisplay, VersionChangesOptions } from './version-changes.js';
+export type {
+  ChangeLineMark,
+  VersionChangeDisplay,
+  VersionChangesOptions,
+} from './version-changes.js';
 export {
+  changeLineMarks,
   createVersionChanges,
   refreshVersionChanges,
   versionChangeDecorations,
