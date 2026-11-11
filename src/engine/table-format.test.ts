@@ -8,6 +8,7 @@ import { captionedAt, setCaption, toggleCaption } from './captions.js';
 import { createDocumentEditing, documentKeys } from './document-editing.js';
 import { distributeColumns, insertTableLines, setCellAlignment } from './table-format.js';
 import { MIN_ROW_HEIGHT, selectCellTo, setRowHeight } from './table-pointer.js';
+import { createTableWidth, fitColumns } from './table-width.js';
 
 const cell = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
   type: 'tableCell',
@@ -168,5 +169,24 @@ describe('tables under the pointer', () => {
       48,
     ]);
     expect(setRowHeight(table, 9, 20)(state)).toBe(false);
+  });
+
+  it('DOCE-TABLES-3.7 keeps a widened table within the page width', () => {
+    expect(fitColumns([100, 500], [100, 300], 450)).toEqual([100, 350]);
+    expect(fitColumns([100, 200], [100, 100], 450)).toEqual([100, 200]);
+    let state = EditorState.create({
+      doc: grid(),
+      plugins: [createTableWidth({ maxWidth: () => 450 })],
+    });
+    let cellPos = -1;
+    state.doc.descendants((node, pos) => {
+      if (cellPos < 0 && node.type.name === 'table_cell' && node.textContent === 'B1')
+        cellPos = pos;
+    });
+    const cell = state.doc.nodeAt(cellPos);
+    state = state.apply(
+      state.tr.setNodeMarkup(cellPos, undefined, { ...cell?.attrs, colwidth: [500] }),
+    );
+    expect(cells(state).map((attrs) => attrs.colwidth)).toEqual([[100], [350], [100], [350]]);
   });
 });

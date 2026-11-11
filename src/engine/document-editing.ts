@@ -20,7 +20,12 @@ import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
-import { resolveFootnoteSettings, type TemplateFile } from '../model/index.js';
+import {
+  findTemplateSection,
+  resolveFootnoteSettings,
+  type TemplateFile,
+  templatePageMetrics,
+} from '../model/index.js';
 import { createCommentDraft } from './comment-draft.js';
 import { createCustomStyles } from './custom-styles.js';
 import {
@@ -38,6 +43,7 @@ import { createFootnotes, insertFootnote } from './footnotes.js';
 import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
+import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
 import { createWordPaste } from './word-paste.js';
 
@@ -182,6 +188,18 @@ export function documentKeys(
   };
 }
 
+// The width of a section's pages' content, which its tables keep within.
+const tableWidth = (template: () => TemplateFile) => ({
+  maxWidth: (sectionName: string | null) => {
+    const resolved = template();
+    const { width, margins } = templatePageMetrics(
+      resolved,
+      findTemplateSection(resolved, sectionName),
+    );
+    return width - margins.left - margins.right;
+  },
+});
+
 // Whether footnotes are numbered in document order after each change: unless the template numbers
 // them on each page, which the pagination does.
 const numbersInOrder = (template: (() => TemplateFile) | undefined) => () =>
@@ -201,7 +219,7 @@ export function createDocumentEditing(
     createMathViews(),
     createObjectViews(),
     createWordPaste(),
-    ...(template ? [createCustomStyles({ template })] : []),
+    ...(template ? [createCustomStyles({ template }), createTableWidth(tableWidth(template))] : []),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
@@ -262,6 +280,12 @@ export function createDocumentEditingExtension<C = unknown>(
         priority: 515,
         when: () => Boolean(template),
         build: () => (template ? [createCustomStyles({ template })] : []),
+      },
+      {
+        name: 'table-width',
+        priority: 845,
+        when: () => Boolean(template),
+        build: () => (template ? [createTableWidth(tableWidth(template))] : []),
       },
       {
         name: 'tables',

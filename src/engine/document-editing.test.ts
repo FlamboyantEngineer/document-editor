@@ -245,6 +245,7 @@ describe('the editing extension', () => {
       'object-views',
       'word-paste',
       'custom-styles',
+      'table-width',
       'tables',
       'gap-cursor',
       'keymap',
