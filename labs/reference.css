@@ -23,18 +23,59 @@
   padding: 16px 24px 48px;
 }
 
+/* A lab opens with its name and one short paragraph, kept small so the document has the room. */
+#lab-root > h1 {
+  margin: 0 0 2px;
+  font-size: 1.125rem;
+}
+
+#lab-root > h1 + p {
+  max-width: 120ch;
+  margin: 0 0 8px;
+  color: var(--ref-muted);
+  font-size: 0.8125rem;
+}
+
 #lab-index a {
   color: var(--ref-accent-ink);
 }
 
+/* A lab's controls: compact rows, each group led by its name on the same line. */
 fieldset {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 4px 12px;
   align-items: center;
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   border: 0;
   padding: 0;
+  font-size: 0.8125rem;
+}
+
+fieldset > legend {
+  float: left;
+  padding: 0;
+  color: var(--ref-muted);
+  font-weight: 600;
+}
+
+/* The full labs gather their control groups on as few lines as fit. */
+.lab-controls {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.8125rem;
+}
+
+.lab-controls > fieldset {
+  margin: 0;
+}
+
+.lab-controls p {
+  margin: 0;
 }
 
 /* A lab's document beside a side panel, which stays in view below the lab toolbar. */
@@ -91,7 +132,7 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding-bottom: 16px;
+  padding: 8px 16px;
 }
 
 /* A flex column keeps both margins between the heading and the text; keep the heading's alone. */

@@ -120,99 +120,101 @@ function Lab() {
   );
   return (
     <>
-      <fieldset>
-        <legend>View</legend>
-        {(['page', 'web'] as const).map((value) => (
-          <label key={value}>
+      <div className="lab-controls">
+        <fieldset>
+          <legend>View</legend>
+          {(['page', 'web'] as const).map((value) => (
+            <label key={value}>
+              <input
+                type="radio"
+                name="layout"
+                value={value}
+                checked={layout === value}
+                onChange={() => setLayout(value)}
+              />{' '}
+              {value === 'page' ? 'Pages' : 'Web layout'}
+            </label>
+          ))}
+          <label>
             <input
-              type="radio"
-              name="layout"
-              value={value}
-              checked={layout === value}
-              onChange={() => setLayout(value)}
+              type="checkbox"
+              name="authoring"
+              checked={editable}
+              onChange={(event) => setEditable(event.currentTarget.checked)}
             />{' '}
-            {value === 'page' ? 'Pages' : 'Web layout'}
+            Authoring
           </label>
-        ))}
-        <label>
-          <input
-            type="checkbox"
-            name="authoring"
-            checked={editable}
-            onChange={(event) => setEditable(event.currentTarget.checked)}
-          />{' '}
-          Authoring
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="toolbar"
-            checked={toolbar}
-            onChange={(event) => setToolbar(event.currentTarget.checked)}
-          />{' '}
-          Toolbar
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="scrollable"
-            checked={scrollable}
-            onChange={(event) => setScrollable(event.currentTarget.checked)}
-          />{' '}
-          Scrolling frame
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="debug"
-            checked={debug}
-            onChange={(event) => setDebug(event.currentTarget.checked)}
-          />{' '}
-          Layout debugging
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="status-bar"
-            checked={statusBar}
-            onChange={(event) => setStatusBar(event.currentTarget.checked)}
-          />{' '}
-          Status bar
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="host-items"
-            checked={hostItems}
-            onChange={(event) => setHostItems(event.currentTarget.checked)}
-          />{' '}
-          Host items
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            name="collaborators"
-            checked={collaborators}
-            onChange={(event) => setCollaborators(event.currentTarget.checked)}
-          />{' '}
-          Collaborators
-        </label>
-        <label>
-          Markup{' '}
-          <select
-            name="markup"
-            value={markup}
-            onChange={(event) => setMarkup(event.currentTarget.value as DocumentMarkup)}
-          >
-            <option value="all">All markup</option>
-            <option value="simple">Simple markup</option>
-            <option value="final">No markup</option>
-            <option value="original">Original</option>
-          </select>
-        </label>
-      </fieldset>
-      <AgentPanel view={view} />
-      <HostPanel report={host.report} handle={handle} />
+          <label>
+            <input
+              type="checkbox"
+              name="toolbar"
+              checked={toolbar}
+              onChange={(event) => setToolbar(event.currentTarget.checked)}
+            />{' '}
+            Toolbar
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="scrollable"
+              checked={scrollable}
+              onChange={(event) => setScrollable(event.currentTarget.checked)}
+            />{' '}
+            Scrolling frame
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="debug"
+              checked={debug}
+              onChange={(event) => setDebug(event.currentTarget.checked)}
+            />{' '}
+            Layout debugging
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="status-bar"
+              checked={statusBar}
+              onChange={(event) => setStatusBar(event.currentTarget.checked)}
+            />{' '}
+            Status bar
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="host-items"
+              checked={hostItems}
+              onChange={(event) => setHostItems(event.currentTarget.checked)}
+            />{' '}
+            Host items
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="collaborators"
+              checked={collaborators}
+              onChange={(event) => setCollaborators(event.currentTarget.checked)}
+            />{' '}
+            Collaborators
+          </label>
+          <label>
+            Markup{' '}
+            <select
+              name="markup"
+              value={markup}
+              onChange={(event) => setMarkup(event.currentTarget.value as DocumentMarkup)}
+            >
+              <option value="all">All markup</option>
+              <option value="simple">Simple markup</option>
+              <option value="final">No markup</option>
+              <option value="original">Original</option>
+            </select>
+          </label>
+        </fieldset>
+        <AgentPanel view={view} />
+        <HostPanel report={host.report} handle={handle} />
+      </div>
       <DocumentEditor
         state={state}
         onStateChange={setState}
