@@ -6,7 +6,7 @@
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Plugin, PluginKey } from 'prosemirror-state';
-import { type RefObject, useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useMemo, useRef } from 'react';
 import {
   type CompareSuggestions,
   createAuthorship,
@@ -30,7 +30,15 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../../model/index.js';
-import { createPageDebug, createPagination, pageDebugKey } from '../../pagination/index.js';
+import {
+  createPageDebug,
+  createPagination,
+  type LayoutState,
+  pageDebugKey,
+  type PageDebugParts,
+  type Pagination,
+  type PaginationStats,
+} from '../../pagination/index.js';
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
 export type DocumentLayout = 'page' | 'web';
@@ -38,7 +46,7 @@ export type DocumentLayout = 'page' | 'web';
 // The plugins the layout adds to the editor's own, reading the options as they are now.
 function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
   return [
-    createPageDebug({ shown: () => latest.current.debug === true }),
+    createPageDebug({ shown: () => latest.current.debug ?? {} }),
     createSearch(),
     createAuthorship(),
     createRegionEditing({
@@ -74,16 +82,17 @@ function useRegionsEditable(
 
 // Showing or hiding the layout for debugging draws the pages again.
 function useLayoutDebug(
-  debug: boolean | undefined,
+  debug: PageDebugParts | undefined,
   onStateChange: (update: RichTextStateUpdate) => void,
 ) {
   const latest = useRef(onStateChange);
   useEffect(() => {
     latest.current = onStateChange;
   });
+  const shown = `${String(debug?.pages ?? false)} ${String(debug?.blocks ?? false)}`;
   useEffect(() => {
     latest.current((state) => state.apply(state.tr.setMeta(pageDebugKey, true)));
-  }, [debug]);
+  }, [shown]);
 }
 
 /** What the layout hook reads. */
@@ -95,7 +104,9 @@ export interface DocumentLayoutOptions {
   /** The older version the document is compared with, and how its changes show. */
   readonly compare: DocumentComparison | null;
   /** Shows the pages' layout for debugging (DOCE-PAGINATION-7.4). */
-  readonly debug?: boolean | undefined;
+  readonly debug?: PageDebugParts | undefined;
+  /** Tells of each change of the layout state; the web layout is always settled. */
+  readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
   /** Edits the pages' headers and footers in place, handing each edit here. */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
 }
@@ -162,6 +173,25 @@ function useLayoutPlugins(
   }, [plugins, onStateChange, own, pagination]);
 }
 
+/** What the layout tells of its pages: when they settle, and what their layouts did. */
+export interface LayoutProgress {
+  /** Resolves with `settled` or `failed` once no layout is pending; at once in the web layout. */
+  whenSettled(): Promise<LayoutState>;
+  /** What the layouts did since the pages were first laid out; null in the web layout. */
+  stats(): PaginationStats | null;
+}
+
+// What the active pagination tells of its pages; with none, in the web layout, they are settled.
+function useLayoutProgress(active: RefObject<Pagination | null>): LayoutProgress {
+  return useMemo(
+    () => ({
+      whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
+      stats: () => active.current?.stats() ?? null,
+    }),
+    [active],
+  );
+}
+
 /**
  * Shows each section in its template section's scope, paginates the document in page layout,
  * measuring it in the element `measureIn` holds, and joins its pages in the web layout. A new
@@ -170,7 +200,7 @@ function useLayoutPlugins(
 export function useDocumentLayout(
   measureIn: RefObject<HTMLDivElement | null>,
   options: DocumentLayoutOptions,
-): void {
+): LayoutProgress {
   const { layout, template } = options;
   // The template's settings that change how the pages are laid out: the pagination starts over
   // when they do.
@@ -183,6 +213,7 @@ export function useDocumentLayout(
   const refresh = useRef<(() => void) | null>(null);
   const ownPlugins = useRef<readonly Plugin[]>([]);
   const paginationPlugin = useRef<Plugin | null>(null);
+  const active = useRef<Pagination | null>(null);
 
   useEffect(() => {
     const own = layoutOwnPlugins(latest);
@@ -203,6 +234,7 @@ export function useDocumentLayout(
     const element = measureIn.current;
     if (layout !== 'page' || !element) {
       latest.current.onStateChange(joinPages);
+      latest.current.onLayoutStateChange?.('settled');
       return undefined;
     }
     const pagination = createPagination({
@@ -211,15 +243,19 @@ export function useDocumentLayout(
       plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
       rules: createLayoutRules({ repeatTableHeader }),
       footnoteNumbering,
+      onLayoutStateChange: (state) => latest.current.onLayoutStateChange?.(state),
     });
+    latest.current.onLayoutStateChange?.(pagination.layoutState());
     refresh.current = () => {
       pagination.refresh({ remeasure: true });
     };
+    active.current = pagination;
     paginationPlugin.current = pagination.plugin;
     const { onStateChange } = latest.current;
     onStateChange((state) => state.reconfigure({ plugins: [...state.plugins, pagination.plugin] }));
     return () => {
       refresh.current = null;
+      active.current = null;
       paginationPlugin.current = null;
       onStateChange((state) =>
         state.reconfigure({
@@ -243,4 +279,5 @@ export function useDocumentLayout(
   }, [previous, display, suggestions]);
   useLayoutDebug(options.debug, options.onStateChange);
   useRegionsEditable(Boolean(options.onRegionChange), options.onStateChange);
+  return useLayoutProgress(active);
 }

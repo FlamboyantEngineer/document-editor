@@ -35,7 +35,6 @@ import {
   resolveTemplateFile,
   type TemplateFile,
 } from '../../src/model/index.js';
-import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
@@ -44,7 +43,7 @@ import { HostPanel, useHostPanel } from './host-panel.js';
 import { labPanels } from './host-panes.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { chapter, heading, sampleDocument, text } from './lab-document.js';
-import { pagesLaidOut } from './lab-ready.js';
+import { markReadyWhenSettled } from './lab-ready.js';
 import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
 
 // The base template with a landscape appendix, so pages of two orientations hold comments.
@@ -444,9 +443,6 @@ function Lab() {
         aria-label="Sample document"
         events={{
           onMounted: setView,
-          onTransaction: (tr) => {
-            if (isPaginationTransaction(tr)) pagesLaidOut();
-          },
         }}
       ></DocumentEditor>
     </>
@@ -454,4 +450,7 @@ function Lab() {
 }
 
 const container = document.querySelector('#lab-editor');
-if (container) createRoot(container).render(<Lab />);
+if (container) {
+  createRoot(container).render(<Lab />);
+  markReadyWhenSettled();
+}

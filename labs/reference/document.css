@@ -1102,3 +1102,31 @@
   font: 10px/1.2 monospace;
   content: attr(data-debug-used) 'px used, ' attr(data-debug-free) 'px free';
 }
+
+/* Block heights: each block on the pages outlined, with the height the last layout measured. */
+.de-document-editor[data-debug-blocks='true'] [data-debug-height] {
+  position: relative;
+  outline: 1px dotted #0ea5e9;
+}
+
+.de-document-editor[data-debug-blocks='true'] [data-debug-height]::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: #0369a1;
+  font: 10px/1.2 monospace;
+  pointer-events: none;
+  content: attr(data-debug-height) 'px';
+}
+
+/* The measuring view: shown over the editor's end, at the width it measures at. */
+.de-document-editor[data-debug-measure='true'] .de-document-editor__measure {
+  left: auto;
+  right: 0;
+  z-index: 2;
+  max-height: 100%;
+  overflow: hidden;
+  outline: 1px dashed #0ea5e9;
+  background: rgb(255 255 255 / 0.92);
+  pointer-events: none;
+}

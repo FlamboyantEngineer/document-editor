@@ -28,9 +28,8 @@ import {
   resolveTemplateFile,
   type StoredNode,
 } from '../../src/model/index.js';
-import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { heading, text } from './lab-document.js';
-import { pagesLaidOut } from './lab-ready.js';
+import { markReadyWhenSettled } from './lab-ready.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -159,11 +158,6 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
           compare={previous ? { previous, display } : null}
           onChangeBarsChange={setBars}
           aria-label="Sample document"
-          events={{
-            onTransaction: (tr) => {
-              if (isPaginationTransaction(tr)) pagesLaidOut();
-            },
-          }}
         />
       </div>
       <aside>
@@ -186,5 +180,8 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
 
 const container = document.querySelector('#lab-editor');
 if (container) {
-  void saveVersions().then((versions) => createRoot(container).render(<Lab versions={versions} />));
+  void saveVersions().then((versions) => {
+    createRoot(container).render(<Lab versions={versions} />);
+    markReadyWhenSettled();
+  });
 }

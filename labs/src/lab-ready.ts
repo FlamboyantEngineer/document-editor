@@ -1,18 +1,31 @@
-// When a paginated lab is ready for a test: once its pages are laid out and the views that follow
-// the layout, such as a table of contents taking its page numbers, have drawn it. A lab calls
-// `pagesLaidOut` after each layout; the page is marked ready once no layout has followed for a
-// short while.
+// When a lab with document editors is ready for a test: once every editor's pages are settled, laid
+// out with no layout due and drawn by the views that follow them, such as a table of contents
+// taking its page numbers (`data-layout-state`).
 
-/** How long the page stays still after a layout before it counts as ready, in milliseconds. */
-const SETTLE = 150;
+// Whether every document editor on the page has settled its pages, and there is one.
+function isSettled(): boolean {
+  const editors = [...document.querySelectorAll('.de-document-editor')];
+  return (
+    editors.length > 0 &&
+    editors.every((editor) => editor.getAttribute('data-layout-state') === 'settled')
+  );
+}
 
-let latest = 0;
-
-/** Marks the lab ready a short while after its latest layout. */
-export function pagesLaidOut(): void {
-  latest += 1;
-  const layout = latest;
-  window.setTimeout(() => {
-    if (layout === latest) document.documentElement.dataset.labReady = 'true';
-  }, SETTLE);
+/** Marks the lab ready (`data-lab-ready`) once every document editor on the page has settled. */
+export function markReadyWhenSettled(): void {
+  const mark = () => {
+    if (!isSettled()) return false;
+    document.documentElement.dataset.labReady = 'true';
+    return true;
+  };
+  if (mark()) return;
+  const observer = new MutationObserver(() => {
+    if (mark()) observer.disconnect();
+  });
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['data-layout-state'],
+  });
 }

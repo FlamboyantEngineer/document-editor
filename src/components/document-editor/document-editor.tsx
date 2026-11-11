@@ -10,13 +10,12 @@ import type {
   RichTextStateUpdate,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
-import type { EditorState, Transaction } from 'prosemirror-state';
+import type { EditorState } from 'prosemirror-state';
 import {
   type ComponentType,
   type CSSProperties,
   type ReactNode,
   type Ref,
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -32,6 +31,7 @@ import type {
   TelemetryAdapter,
 } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
+import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
@@ -45,15 +45,17 @@ import { ObjectDialogs } from './object-dialogs.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useEngineView } from './use-editor-engine.js';
-import { useEditorTelemetry } from './use-editor-telemetry.js';
-import {
-  type DocumentEditorNotifications,
-  useElementIdRepair,
-  useLayoutReady,
-} from './use-host-events.js';
+import { useLayoutTap } from './use-editor-telemetry.js';
+import { type DocumentEditorNotifications, useElementIdRepair } from './use-host-events.js';
 
 /** How suggestions show in the document. */
 export type DocumentMarkup = 'all' | 'simple' | 'final' | 'original';
+
+/** What the layout debugging shows. */
+export interface DocumentEditorDebug extends PageDebugParts {
+  /** The hidden view the pages are measured in, for a stylesheet to show beside them. */
+  readonly measure?: boolean | undefined;
+}
 import {
   type DocumentComparison,
   type DocumentLayout,
@@ -122,8 +124,11 @@ export interface DocumentEditorProps
   markup?: DocumentMarkup | undefined;
   /** The host's telemetry, which the editor reports its layout times to. */
   telemetry?: TelemetryAdapter | undefined;
-  /** Shows the pages' layout for debugging: what each page's blocks take, and what is left. */
-  debug?: boolean | undefined;
+  /**
+   * Shows the pages' layout for debugging: `true` shows what each page's blocks take and what is
+   * left; the parts name what else shows.
+   */
+  debug?: boolean | DocumentEditorDebug | undefined;
   /** Shows who wrote what: each writer's text in their colour slot (`data-author-slot`). */
   authorship?: boolean | undefined;
   /**
@@ -197,9 +202,15 @@ function Workspace({
   );
 }
 
+// The parts of the layout debugging shown: `true` shows the pages'.
+function debugParts(debug: DocumentEditorProps['debug']): DocumentEditorDebug {
+  return typeof debug === 'object' ? debug : { pages: debug ?? false };
+}
+
 // The editor root's hook values.
-function rootData(props: DocumentEditorProps) {
+function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
+  const debug = debugParts(props.debug);
   return {
     markup: props.markup ?? 'all',
     layout,
@@ -208,7 +219,10 @@ function rootData(props: DocumentEditorProps) {
     comparing: compare ? (compare.display ?? 'markup') : undefined,
     scrollable: props.scrollable ?? false,
     authorship: props.authorship ?? false,
-    debug: props.debug ?? false,
+    debug: debug.pages ?? false,
+    debugBlocks: debug.blocks ?? false,
+    debugMeasure: debug.measure ?? false,
+    layoutState,
   };
 }
 
@@ -224,25 +238,24 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
-  const measure = useEditorTelemetry(props.telemetry);
-  const ready = useLayoutReady(props.onLayoutReady);
-  const tap = useCallback(
-    (tr: Transaction) => {
-      measure(tr);
-      ready.tap(tr);
-    },
-    [measure, ready],
-  );
+  const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props.onContentChange, tap);
   useEffect(() => {
     if (engine.view && layout === 'web') ready.signal();
   }, [engine.view, layout, ready]);
   useElementIdRepair(props.repairIds ? engine.view : null, state);
   const startCommentRef = useRef<(() => void) | null>(null);
-  useEditorHandle(props.handleRef, engine.view, { startCommentRef, template });
   useReviewNotifications(engine.view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  useDocumentLayout(measureIn, { ...props, layout, compare });
+  const [layoutState, setLayoutState] = useState<LayoutState>('pending');
+  const progress = useDocumentLayout(measureIn, {
+    ...props,
+    layout,
+    compare,
+    debug: debugParts(props.debug),
+    onLayoutStateChange: setLayoutState,
+  });
+  useEditorHandle(props.handleRef, engine.view, { startCommentRef, template, layout: progress });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(
@@ -266,7 +279,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
     <DocumentEditorContext value={context}>
       <div
         ref={root}
-        {...hooks.root({ className, props, data: rootData(props) })}
+        {...hooks.root({ className, props, data: rootData(props, layoutState) })}
         style={
           { ...templateStyle, '--de-zoom': String((props.zoom ?? 100) / 100) } as CSSProperties
         }

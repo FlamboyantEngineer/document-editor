@@ -27,11 +27,29 @@ interface CacheEntry {
   readonly key: string | undefined;
 }
 
-const cacheEntries = new WeakMap<MeasureCache, { entries: WeakMap<ProseMirrorNode, CacheEntry> }>();
+/** What a cache has served since it was made: blocks found, blocks absent, and blocks measured. */
+export interface MeasureCounts {
+  /** Blocks taken from the cache. */
+  hits: number;
+  /** Blocks the cache did not hold. */
+  misses: number;
+  /** Blocks measured in the view: those it did not hold, and those whose measure key changed. */
+  measured: number;
+}
+
+interface CacheStore {
+  entries: WeakMap<ProseMirrorNode, CacheEntry>;
+  readonly counts: MeasureCounts;
+}
+
+const cacheEntries = new WeakMap<MeasureCache, CacheStore>();
 
 /** A cache for measured blocks. */
 export function createMeasureCache(): MeasureCache {
-  const store = { entries: new WeakMap<ProseMirrorNode, CacheEntry>() };
+  const store: CacheStore = {
+    entries: new WeakMap<ProseMirrorNode, CacheEntry>(),
+    counts: { hits: 0, misses: 0, measured: 0 },
+  };
   const cache: MeasureCache = {
     clear: () => {
       store.entries = new WeakMap();
@@ -39,6 +57,11 @@ export function createMeasureCache(): MeasureCache {
   };
   cacheEntries.set(cache, store);
   return cache;
+}
+
+/** What a cache has served so far; clearing it keeps the counts. */
+export function measureCacheCounts(cache: MeasureCache): Readonly<MeasureCounts> {
+  return { ...(cacheEntries.get(cache)?.counts ?? { hits: 0, misses: 0, measured: 0 }) };
 }
 
 /** The attribute a block's element names what else its rendering depends on with. */
@@ -50,8 +73,12 @@ function cachedBlock(
   node: ProseMirrorNode,
   at: { readonly pos: number; readonly element: HTMLElement },
 ) {
-  const entry = cache ? cacheEntries.get(cache)?.entries.get(node) : undefined;
+  const store = cache ? cacheEntries.get(cache) : undefined;
+  if (!store) return undefined;
+  const entry = store.entries.get(node);
+  if (!entry) store.counts.misses += 1;
   if (!entry || entry.key !== at.element.dataset[MEASURE_KEY]) return undefined;
+  store.counts.hits += 1;
   entry.placement.pos = at.pos;
   return entry.block;
 }
@@ -261,11 +288,11 @@ export function measureBlock(
     leadLineHeight: leadLineHeight(measuring, node, pos),
     measurement: measureContent(measuring, { node, relative: 0 }),
   };
-  if (options.cache) {
+  const store = options.cache ? cacheEntries.get(options.cache) : undefined;
+  if (store) {
     const key = element.dataset[MEASURE_KEY];
-    cacheEntries
-      .get(options.cache)
-      ?.entries.set(node, { block, placement: measuring.placement, key });
+    store.entries.set(node, { block, placement: measuring.placement, key });
+    store.counts.measured += 1;
   }
   return block;
 }

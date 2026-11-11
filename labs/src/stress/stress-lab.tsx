@@ -1,11 +1,15 @@
 // The stress labs' page: a generated document in the document editor with its toolbar, status bar
-// and scrolling frame, proofed by a word-list proofer, and the time its pages took to lay out, first
+// and scrolling frame, proofed by a word-list proofer, and the time its pages took to settle, first
 // and after the latest edit. A size picker builds a larger document.
 
 import { EditorState, type Transaction } from 'prosemirror-state';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocumentEditor, type DocumentLayout } from '../../../src/components/index.js';
+import {
+  DocumentEditor,
+  type DocumentEditorHandle,
+  type DocumentLayout,
+} from '../../../src/components/index.js';
 import {
   assignElementIds,
   createContents,
@@ -22,7 +26,7 @@ import {
   resolveTemplateFile,
 } from '../../../src/model/index.js';
 import { isPaginationTransaction } from '../../../src/pagination/index.js';
-import { pagesLaidOut } from '../lab-ready.js';
+import { markReadyWhenSettled } from '../lab-ready.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -55,8 +59,8 @@ function stateOf(file: DocumentFile): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
-// The time the pages took to lay out: from the start, and from the latest edit.
-function useLayoutTimes() {
+// The time the pages took to settle (`whenSettled`): from the start, and from the latest edit.
+function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
   const [times, setTimes] = useState<{ first: number | null; latest: number | null }>({
     first: null,
     latest: null,
@@ -72,13 +76,15 @@ function useLayoutTimes() {
       if (tr.docChanged) edited.current = now;
       return;
     }
-    pagesLaidOut();
     const since = edited.current;
-    setTimes((current) =>
-      current.first === null
-        ? { first: now - started.current, latest: null }
-        : { ...current, latest: since === null ? current.latest : now - since },
-    );
+    void handle.current?.whenSettled().then(() => {
+      const settled = performance.now();
+      setTimes((current) =>
+        current.first === null
+          ? { first: settled - started.current, latest: null }
+          : { ...current, latest: since === null ? current.latest : settled - since },
+      );
+    });
   };
   const restart = () => {
     started.current = performance.now();
@@ -95,7 +101,8 @@ function StressLab({ build, sizes }: StressLabOptions) {
   const [size, setSize] = useState(sizes?.[0]?.value ?? 1);
   const [state, setState] = useState(() => stateOf(build(size)));
   const [layout, setLayout] = useState<DocumentLayout>('page');
-  const layoutTimes = useLayoutTimes();
+  const handle = useRef<DocumentEditorHandle>(null);
+  const layoutTimes = useLayoutTimes(handle);
   const events = useMemo(() => ({ onTransaction: layoutTimes.onTransaction }), [layoutTimes]);
   const blocks = useMemo(() => {
     let count = 0;
@@ -157,6 +164,7 @@ function StressLab({ build, sizes }: StressLabOptions) {
         statusBar
         className="lab-document-editor"
         aria-label="Stress document"
+        handleRef={handle}
         events={events}
       />
     </>
@@ -166,5 +174,7 @@ function StressLab({ build, sizes }: StressLabOptions) {
 /** Mounts a stress lab in `#lab-editor`. */
 export function mountStressLab(options: StressLabOptions): void {
   const container = document.querySelector('#lab-editor');
-  if (container) createRoot(container).render(<StressLab {...options} />);
+  if (!container) return;
+  createRoot(container).render(<StressLab {...options} />);
+  markReadyWhenSettled();
 }

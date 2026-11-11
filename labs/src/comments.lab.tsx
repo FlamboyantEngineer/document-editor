@@ -21,9 +21,8 @@ import {
   readDocumentFile,
   resolveTemplateFile,
 } from '../../src/model/index.js';
-import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { heading, text } from './lab-document.js';
-import { pagesLaidOut } from './lab-ready.js';
+import { markReadyWhenSettled } from './lab-ready.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -172,9 +171,6 @@ function Lab() {
           }
         }
         events={{
-          onTransaction: (tr) => {
-            if (isPaginationTransaction(tr)) pagesLaidOut();
-          },
           // Where the editor's caret is, so a test knows the editor took a click.
           onSelectionChange: (selection) => {
             document.documentElement.dataset.labCaret = `${String(selection.from)}-${String(selection.to)}`;
@@ -197,4 +193,7 @@ function Lab() {
 }
 
 const container = document.querySelector('#lab-editor');
-if (container) createRoot(container).render(<Lab />);
+if (container) {
+  createRoot(container).render(<Lab />);
+  markReadyWhenSettled();
+}

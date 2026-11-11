@@ -10,7 +10,7 @@ import {
   type SectionPages,
   stackedHeight,
 } from '../model/index.js';
-import { type MeasureCache, measureChildBlocks } from './measure-blocks.js';
+import { type MeasureCache, measureCacheCounts, measureChildBlocks } from './measure-blocks.js';
 import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 
 /**
@@ -29,6 +29,11 @@ export interface DocumentLayoutOptions {
   cache?: MeasureCache | undefined;
   /** Receives each page laid out: the height its blocks take and the height it has for them. */
   onPage?: ((page: PageMetric) => void) | undefined;
+  /**
+   * Receives each section laid out, with how many of its blocks were measured in the view rather
+   * than taken from the cache.
+   */
+  onSection?: ((section: { readonly blocksMeasured: number }) => void) | undefined;
 }
 
 /** A page as it was laid out: how much of its content height its blocks take. */
@@ -37,6 +42,8 @@ export interface PageMetric {
   readonly used: number;
   /** The height it has for its blocks, beside its header, footer and footnotes. */
   readonly available: number;
+  /** The height of each of its blocks, in order, without their margins. */
+  readonly blocks: readonly number[];
 }
 
 const citations = new WeakMap<ProseMirrorNode, readonly string[]>();
@@ -118,7 +125,11 @@ function layoutSection(fill: SectionFill, options: DocumentLayoutOptions): Secti
   const pages: ProseMirrorNode[][] = [];
   while (queue.length) {
     const page = layoutNextPage(queue, pages.length, { pageHeight, rules: options.rules });
-    options.onPage?.({ used: stackedHeight(page), available: pageHeight(page) });
+    options.onPage?.({
+      used: stackedHeight(page),
+      available: pageHeight(page),
+      blocks: page.map((block) => block.height),
+    });
     for (const id of cited(page)) shown.add(id);
     pages.push(page.map((block) => block.node));
   }
@@ -134,14 +145,18 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   const { scale, cache } = options;
   const ratio = scale && scale > 0 ? scale : 1;
   const shown = new Set<string>();
+  const measuredSoFar = () => (cache ? measureCacheCounts(cache).measured : 0);
   return sectionPlaces(view.state.doc).map(({ section, content, footnotes, regions }, index) => {
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
     const regionsHeight = regions.reduce((sum, pos) => sum + regionHeight(view, pos, ratio), 0);
     const baseHeight = pageHeight - regionsHeight;
+    const before = measuredSoFar();
+    const blocks = measureChildBlocks(view, content, { scale, cache });
+    options.onSection?.({ blocksMeasured: cache ? measuredSoFar() - before : blocks.length });
     return layoutSection(
       {
-        blocks: measureChildBlocks(view, content, { scale, cache }),
+        blocks,
         area: footnotes === null ? null : measureFootnotes(view, footnotes, { scale }),
         baseHeight,
         shown,

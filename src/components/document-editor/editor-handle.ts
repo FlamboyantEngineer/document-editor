@@ -18,6 +18,8 @@ import {
   type SnapshotOptions,
 } from '../../engine/index.js';
 import type { TemplateFile } from '../../model/index.js';
+import type { LayoutState, PaginationStats } from '../../pagination/index.js';
+import type { LayoutProgress } from './use-document-layout.js';
 
 /** What a host can do with a mounted editor. */
 export interface DocumentEditorHandle {
@@ -53,6 +55,13 @@ export interface DocumentEditorHandle {
   run(command: Command): boolean;
   /** Applies a batch of automation edits (DOCE-AUTOMATION) and dispatches it when it is accepted. */
   applyEdits(edits: readonly AutomationEdit[], options: AutomationOptions): AutomationResult | null;
+  /**
+   * Resolves once the pages are laid out with no layout due and the views that follow them have
+   * drawn: with `settled`, or `failed` when they could not be laid out. At once in the web layout.
+   */
+  whenSettled(): Promise<LayoutState>;
+  /** What the page layouts have done (`PaginationStats`); null in the web layout. */
+  layoutStats(): PaginationStats | null;
 }
 
 // The document range an address names in the view's document: a range of a text block's text, or
@@ -102,7 +111,12 @@ export function useEditorHandle(
   {
     startCommentRef,
     template,
-  }: { startCommentRef: RefObject<(() => void) | null>; template: TemplateFile },
+    layout,
+  }: {
+    startCommentRef: RefObject<(() => void) | null>;
+    template: TemplateFile;
+    layout: LayoutProgress;
+  },
 ) {
   useImperativeHandle(
     ref,
@@ -132,7 +146,9 @@ export function useEditorHandle(
         if (result.ok) view.dispatch(result.tr);
         return result;
       },
+      whenSettled: layout.whenSettled,
+      layoutStats: layout.stats,
     }),
-    [view, startCommentRef, template],
+    [view, startCommentRef, template, layout],
   );
 }
