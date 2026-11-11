@@ -205,6 +205,17 @@ function createMemoryReferences(citations: readonly ExternalReference[]): Refere
           .filter((citation) => matches(query, citation.label))
           .map((citation) => structuredClone(citation)),
       }),
+    resolve: (wanted) =>
+      Promise.resolve({
+        ok: true,
+        value: wanted.map(({ documentId, targetId }) => {
+          const found = citations.find(
+            ({ baseline }) =>
+              baseline.documentId === documentId && (baseline.target?.id ?? null) === targetId,
+          );
+          return found ? structuredClone(found.baseline) : null;
+        }),
+      }),
   };
 }
 

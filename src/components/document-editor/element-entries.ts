@@ -19,6 +19,7 @@ import {
   internalTargetId,
   linkAt,
   referenceAt,
+  referenceStatusAt,
   removeReference,
   revealElement,
   setAbbreviationDisplay,
@@ -28,6 +29,7 @@ import {
   setObjectLayout,
   toggleCaption,
   unlinkAbbreviation,
+  updateReference,
 } from '../../engine/index.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -244,6 +246,15 @@ function referenceEntries(view: EditorView, options: ElementEntriesOptions): Men
       { kind: 'reference' },
     ),
     commandEntry(view, { id: 'remove-reference', label: labels.removeReference }, removeReference),
+    ...(referenceStatusAt(view.state) === 'update'
+      ? [
+          commandEntry(
+            view,
+            { id: 'update-reference', label: labels.updateReference },
+            updateReference,
+          ),
+        ]
+      : []),
     ...(target
       ? [
           {

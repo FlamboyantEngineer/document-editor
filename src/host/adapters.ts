@@ -153,6 +153,14 @@ export interface ExternalReference {
 export interface ReferenceSourceAdapter {
   /** The citations whose document or target matches the query. */
   search(query: string, signal?: AbortSignal): Promise<HostResult<ExternalReference[]>>;
+  /**
+   * Each citation, by the document and target it names, as the host has it now, in the order
+   * given; null for one whose document or target is gone.
+   */
+  resolve?(
+    citations: readonly { documentId: string; targetId: string | null }[],
+    signal?: AbortSignal,
+  ): Promise<HostResult<(ReferenceBaseline | null)[]>>;
 }
 
 /** The glossary abbreviations cite. */

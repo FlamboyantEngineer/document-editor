@@ -718,3 +718,57 @@
   color: #b91c1c;
   font-family: monospace;
 }
+
+/* Code with line numbers: the numbers in a gutter beside the lines, which do not wrap. */
+:where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  pre:has(> .de-code-gutter)
+  > .doc-caption-line {
+  grid-column: 1 / -1;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) pre:has(> .de-code-gutter) > code {
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.de-code-gutter {
+  color: #94a3b8;
+  text-align: right;
+  white-space: pre;
+  user-select: none;
+}
+
+/* A signature: its strokes over the signer's name; an unsigned one is a line to sign on. */
+.de-signature {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: bottom;
+  min-width: 120px;
+  border-bottom: 1px solid currentColor;
+}
+
+.de-signature svg {
+  width: 120px;
+  height: 48px;
+}
+
+.de-signature__name {
+  font-size: 0.8em;
+}
+
+/* A reference whose document is gone, or has changed since it was cited. */
+[data-reference-status='unavailable'] {
+  text-decoration: line-through;
+  color: #b91c1c;
+}
+
+[data-reference-status='update'] {
+  text-decoration: underline dotted #b45309;
+}
