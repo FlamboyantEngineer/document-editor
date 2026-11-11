@@ -105,6 +105,7 @@ function Lab() {
   const [editable, setEditable] = useState(true);
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
+  const [debug, setDebug] = useState(false);
   const [statusBar, setStatusBar] = useState(true);
   const [hostItems, setHostItems] = useState(true);
   const [view, setView] = useState<EditorView | null>(null);
@@ -163,6 +164,15 @@ function Lab() {
         <label>
           <input
             type="checkbox"
+            name="debug"
+            checked={debug}
+            onChange={(event) => setDebug(event.currentTarget.checked)}
+          />{' '}
+          Layout debugging
+        </label>
+        <label>
+          <input
+            type="checkbox"
             name="status-bar"
             checked={statusBar}
             onChange={(event) => setStatusBar(event.currentTarget.checked)}
@@ -212,6 +222,7 @@ function Lab() {
         editable={editable}
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
+        debug={debug}
         statusBar={statusBar}
         find
         repairIds

@@ -261,6 +261,13 @@ A selection in a footnote entry that moves to another page shall move with it, a
 Implementation: `src/pagination/pagination.ts`
 Verification: `e2e/pagination.spec.ts`
 
+### DOCE-PAGINATION-7.4 - Layout debugging
+
+Each layout shall keep what each page's blocks take of the height it has for them (`pageMetrics(state)`, `PageMetric`, from `layoutDocument`'s `onPage`), until the next change; with the document editor's `debug`, each page carries the height its blocks take and the height left (`data-debug-used`, `data-debug-free`, `createPageDebug`) and the root `data-debug`.
+
+Implementation: `src/pagination/pagination.ts`, `src/pagination/layout-document.ts`, `src/pagination/page-debug.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `e2e/document-editor.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

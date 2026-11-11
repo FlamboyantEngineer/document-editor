@@ -8,6 +8,7 @@ import {
   layoutNextPage,
   type LayoutRules,
   type SectionPages,
+  stackedHeight,
 } from '../model/index.js';
 import { type MeasureCache, measureChildBlocks } from './measure-blocks.js';
 import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
@@ -26,6 +27,16 @@ export interface DocumentLayoutOptions {
   footnoteNumbering?: 'document' | 'page' | undefined;
   scale?: number | undefined;
   cache?: MeasureCache | undefined;
+  /** Receives each page laid out: the height its blocks take and the height it has for them. */
+  onPage?: ((page: PageMetric) => void) | undefined;
+}
+
+/** A page as it was laid out: how much of its content height its blocks take. */
+export interface PageMetric {
+  /** The height its blocks take, in unscaled CSS pixels. */
+  readonly used: number;
+  /** The height it has for its blocks, beside its header, footer and footnotes. */
+  readonly available: number;
 }
 
 const citations = new WeakMap<ProseMirrorNode, readonly string[]>();
@@ -107,6 +118,7 @@ function layoutSection(fill: SectionFill, options: DocumentLayoutOptions): Secti
   const pages: ProseMirrorNode[][] = [];
   while (queue.length) {
     const page = layoutNextPage(queue, pages.length, { pageHeight, rules: options.rules });
+    options.onPage?.({ used: stackedHeight(page), available: pageHeight(page) });
     for (const id of cited(page)) shown.add(id);
     pages.push(page.map((block) => block.node));
   }

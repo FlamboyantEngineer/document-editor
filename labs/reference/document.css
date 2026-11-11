@@ -763,6 +763,31 @@
   font-size: 0.8em;
 }
 
+/* A script block: its output, marked on the screen as the script's; running, failed or empty. */
+.script-block {
+  position: relative;
+  outline: 1px dashed #94a3b8;
+  outline-offset: 2px;
+}
+
+.script-block[data-script-state='running'] {
+  opacity: 0.6;
+}
+
+.script-block[data-script-state='error'] {
+  outline-color: #b91c1c;
+}
+
+.script-block[data-script-state='empty'] {
+  min-height: 1.5em;
+}
+
+@media print {
+  .script-block {
+    outline: none;
+  }
+}
+
 /* A reference whose document is gone, or has changed since it was cited. */
 [data-reference-status='unavailable'] {
   text-decoration: line-through;
@@ -831,4 +856,19 @@
   color: #94a3b8;
   font-style: italic;
   pointer-events: none;
+}
+
+/* Layout debugging: each page says what its blocks take of its content height, and what is left. */
+.de-document-editor[data-debug='true'] .pm-page {
+  position: relative;
+  outline: 1px dashed #f97316;
+}
+
+.de-document-editor[data-debug='true'] .pm-page[data-debug-free]::after {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #c2410c;
+  font: 10px/1.2 monospace;
+  content: attr(data-debug-used) 'px used, ' attr(data-debug-free) 'px free';
 }

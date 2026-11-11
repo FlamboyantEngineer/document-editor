@@ -26,7 +26,9 @@ import {
   insertDocumentSection,
   insertFootnote,
   insertMath,
+  insertScriptBlock,
   linkAt,
+  scriptBlockAt,
   setFigure,
   setLink,
   setLinkedCode,
@@ -48,6 +50,8 @@ export interface InsertFeatures {
   readonly customStyles?: readonly string[] | undefined;
   /** The template, whose sections a writer may add the section menu offers. */
   readonly template?: TemplateFile | undefined;
+  /** Whether the host runs scripts, which the script button then inserts. */
+  readonly scripts?: boolean | undefined;
 }
 
 // Whether a command can run, while the writer can edit there.
@@ -169,6 +173,40 @@ const sectionItem = (labels: DocumentEditorLabels, features: InsertFeatures): To
     Boolean(features.template?.sections?.some((section) => section.insertable === true)),
 });
 
+// The items for what the host provides: abbreviations from its glossary and scripts it runs.
+function hostItems(labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem[] {
+  return [
+    ...(features.glossary
+      ? [
+          {
+            kind: 'button' as const,
+            id: 'abbreviation',
+            label: labels.abbreviation,
+            icon: <span>Ab</span>,
+            run: (context: EditorContext) => context.openDialog({ kind: 'abbreviation' }),
+            isEnabled: (context: EditorContext) =>
+              context.editable &&
+              !context.locked &&
+              context.state.selection.$from.parent.inlineContent,
+          },
+        ]
+      : []),
+    ...(features.scripts
+      ? [
+          {
+            kind: 'button' as const,
+            id: 'script',
+            label: labels.script,
+            icon: <span>{'{ }'}</span>,
+            run: (context: EditorContext) => context.openDialog({ kind: 'script' }),
+            isEnabled: (context: EditorContext) =>
+              can(context, insertScriptBlock('')) && !scriptBlockAt(context.state),
+          },
+        ]
+      : []),
+  ];
+}
+
 /** The insert group's items after the table and the page break. */
 export function insertItems(labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem[] {
   return [
@@ -220,21 +258,7 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
       isEnabled: (context) =>
         context.editable && !context.locked && canInsertReference(context.state),
     },
-    ...(features.glossary
-      ? [
-          {
-            kind: 'button' as const,
-            id: 'abbreviation',
-            label: labels.abbreviation,
-            icon: <span>Ab</span>,
-            run: (context: EditorContext) => context.openDialog({ kind: 'abbreviation' }),
-            isEnabled: (context: EditorContext) =>
-              context.editable &&
-              !context.locked &&
-              context.state.selection.$from.parent.inlineContent,
-          },
-        ]
-      : []),
+    ...hostItems(labels, features),
     sectionItem(labels, features),
     {
       kind: 'custom',

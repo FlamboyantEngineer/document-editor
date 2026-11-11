@@ -21,7 +21,8 @@ export type ObjectDialog =
   | { readonly kind: 'linked-code' }
   | { readonly kind: 'caption' }
   | { readonly kind: 'reference' }
-  | { readonly kind: 'abbreviation' };
+  | { readonly kind: 'abbreviation' }
+  | { readonly kind: 'script' };
 
 /** The editor as its chrome and a host's controls see it. */
 export interface EditorContext {

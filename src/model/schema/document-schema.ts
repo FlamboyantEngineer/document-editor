@@ -19,6 +19,7 @@ import { createMarksExtension } from './marks.js';
 import { mathNodesExtension } from './math-nodes.js';
 import { createPageNodesExtension } from './page-nodes.js';
 import type { DocumentSchemaOptions } from './schema-options.js';
+import { scriptNodesExtension } from './script-nodes.js';
 import { tableNodesExtension } from './table-nodes.js';
 import { templateNodesExtension } from './template-nodes.js';
 
@@ -51,6 +52,7 @@ export function createDocumentSchemaExtensions(
     tableNodesExtension,
     mathNodesExtension,
     createInlineAtomNodesExtension(options),
+    scriptNodesExtension,
     createMarksExtension(options),
     elementAttributesExtension,
   ];

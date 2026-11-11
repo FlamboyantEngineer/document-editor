@@ -183,4 +183,17 @@ test.describe('comments lab', () => {
     );
     await expect(page.getByRole('textbox', { name: 'Sample document' })).toBeFocused();
   });
+
+  test('DOCE-COMMENTS-2.12 keeps a reply being written when its composer goes and comes back', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    const thread = card(page, 'Is one second measured');
+    await thread.getByRole('textbox', { name: 'Reply' }).fill('From the detection.');
+    await page.getByLabel('Reading only').check();
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveCount(0);
+    await page.getByLabel('Reading only').uncheck();
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveValue('From the detection.');
+  });
 });

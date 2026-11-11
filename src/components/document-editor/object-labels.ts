@@ -8,6 +8,12 @@ export interface ObjectLabels {
   readonly outline: string;
   readonly updateReference: string;
   readonly section: string;
+  readonly script: string;
+  readonly editScript: string;
+  readonly scriptSource: string;
+  readonly applyAndRun: string;
+  readonly runScript: string;
+  readonly runAllScripts: string;
   readonly superscript: string;
   readonly subscript: string;
   readonly link: string;
@@ -104,6 +110,12 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   outline: 'Outline',
   updateReference: 'Update reference',
   section: 'Section',
+  script: 'Script…',
+  editScript: 'Edit script…',
+  scriptSource: 'Script',
+  applyAndRun: 'Apply and run',
+  runScript: 'Run script',
+  runAllScripts: 'Run all scripts',
   superscript: 'Superscript',
   subscript: 'Subscript',
   link: 'Link',

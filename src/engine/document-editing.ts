@@ -43,6 +43,7 @@ import { createFootnotes, insertFootnote } from './footnotes.js';
 import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
+import { createScripts } from './scripts.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
 import { createWordPaste } from './word-paste.js';
@@ -219,6 +220,7 @@ export function createDocumentEditing(
     createMathViews(),
     createObjectViews(),
     createWordPaste(),
+    createScripts(),
     ...(template ? [createCustomStyles({ template }), createTableWidth(tableWidth(template))] : []),
     ...createTableEditing(),
     gapCursor(),
@@ -274,6 +276,11 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'word-paste',
         priority: 510,
         build: () => [createWordPaste()],
+      },
+      {
+        name: 'scripts',
+        priority: 512,
+        build: () => [createScripts()],
       },
       {
         name: 'custom-styles',

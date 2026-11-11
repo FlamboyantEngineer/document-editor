@@ -106,6 +106,13 @@ Links shall keep whether they open elsewhere and who wrote them; links and inlin
 Implementation: `src/model/schema/marks.ts`, `src/model/schema/reference-mark.ts`
 Verification: `src/model/schema/marks.test.ts`
 
+### DOCE-SCHEMA-3.9 - Script blocks
+
+A script block (`section[data-block-type="scripted-content"]`) shall keep its script (`data-script`), its refresh policy, `manual` or `open` (`data-refresh-policy`), and when its output was produced (`data-rendered-at`), and hold the blocks its script produced last in its output (`.script-output`). It is stored as a `script` node, with `source`, `refresh` and `renderedAt`.
+
+Implementation: `src/model/schema/script-nodes.ts`, `src/model/format/document-format.ts`
+Verification: `src/model/schema/script-nodes.test.ts`
+
 ## DOCE-SCHEMA-4 - References
 
 ### DOCE-SCHEMA-4.1 - Format keys

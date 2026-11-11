@@ -94,6 +94,18 @@ export {
 } from './references.js';
 export type { RevealOptions } from './reveal.js';
 export { revealElement } from './reveal.js';
+export type { ScriptBlockAt } from './scripts.js';
+export {
+  applyScriptOutputs,
+  createScripts,
+  insertScriptBlock,
+  listScriptBlocks,
+  runOpeningScripts,
+  runScripts,
+  scriptBlockAt,
+  scriptsState,
+  setScriptSource,
+} from './scripts.js';
 export type { SearchMatch, SearchOptions, SearchResult, SearchState } from './search.js';
 export {
   createSearch,

@@ -272,4 +272,30 @@ describe('createMemoryHost', () => {
     await comments.reply('doc', 't1', 'Unseen.');
     expect(seen).toEqual([1, 1, 1, 1, 1]);
   });
+  it('DOCE-HOST-1.11 DOCE-HOST-3.9 runs scripts with the function given, a throw a failure', async () => {
+    expect(createMemoryHost().scripts).toBeUndefined();
+    const host = createMemoryHost({
+      scripts: ({ source, document }) => {
+        if (source === 'fail') throw new Error('Broken');
+        return [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: `${source} ${String(document.sections.length)}` }],
+          },
+        ];
+      },
+    });
+    await expect(
+      host.scripts?.run({ blockId: 'b', source: 'count', document: CONTENT }),
+    ).resolves.toEqual({
+      ok: true,
+      value: [{ type: 'paragraph', content: [{ type: 'text', text: 'count 1' }] }],
+    });
+    await expect(
+      host.scripts?.run({ blockId: 'b', source: 'fail', document: CONTENT }),
+    ).resolves.toEqual({
+      ok: false,
+      error: { kind: 'unavailable', message: 'Broken' },
+    });
+  });
 });

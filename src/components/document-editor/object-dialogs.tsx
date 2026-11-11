@@ -19,6 +19,7 @@ import type {
   CodeSourceAdapter,
   GlossaryAdapter,
   ReferenceSourceAdapter,
+  ScriptRunnerAdapter,
 } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { AbbreviationDialog } from './abbreviation-dialog.js';
@@ -28,6 +29,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { FigureDialog } from './figure-dialog.js';
 import { LinkedCodeDialog } from './linked-code-dialog.js';
 import { ReferenceDialog } from './reference-dialog.js';
+import { ScriptDialog } from './script-dialog.js';
 
 /** What the editor's dialogs need beside the view. */
 export interface ObjectDialogsProps {
@@ -43,6 +45,8 @@ export interface ObjectDialogsProps {
   readonly referenceSource?: ReferenceSourceAdapter | undefined;
   /** The glossary the abbreviation dialog finds and adds entries in. */
   readonly glossary?: GlossaryAdapter | undefined;
+  /** Runs the script blocks; without it the editor offers no scripts. */
+  readonly scriptRunner?: ScriptRunnerAdapter | undefined;
   /** The template references are formatted by. */
   readonly template: TemplateFile;
   readonly onClose: () => void;
@@ -185,6 +189,8 @@ export function ObjectDialogs({
       );
     case 'abbreviation':
       return hosted.glossary ? <AbbreviationDialog {...shared} glossary={hosted.glossary} /> : null;
+    case 'script':
+      return hosted.scriptRunner ? <ScriptDialog {...shared} runner={hosted.scriptRunner} /> : null;
     case 'caption':
       return <CaptionDialog {...shared} />;
     case 'linked-code':

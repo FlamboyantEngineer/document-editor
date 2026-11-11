@@ -164,6 +164,13 @@ While the template has sections a writer may add (`insertable`), the toolbar's i
 Implementation: `src/components/document-editor/insert-controls.tsx`
 Verification: `e2e/sections.spec.ts`
 
+### DOCE-EDITOR-4.8 - Script blocks
+
+While the editor has a `scriptRunner`, the toolbar's insert group shall offer a Script button, outside a script block, opening the script dialog, which edits the script of the script block selected, or inserts one, then runs it; the context menu shall offer, on a script block, to edit its script, run it, or run every script of the document; and the scripts whose refresh policy is `open` shall run each time the editor opens the document (DOCE-OBJECTS-4.2).
+
+Implementation: `src/components/document-editor/script-dialog.tsx`, `src/components/document-editor/script-entries.ts`, `src/components/document-editor/insert-controls.tsx`
+Verification: `e2e/full-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status

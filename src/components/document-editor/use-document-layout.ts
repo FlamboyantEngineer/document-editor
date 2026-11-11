@@ -27,10 +27,24 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../../model/index.js';
-import { createPagination } from '../../pagination/index.js';
+import { createPageDebug, createPagination, pageDebugKey } from '../../pagination/index.js';
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
 export type DocumentLayout = 'page' | 'web';
+
+// Showing or hiding the layout for debugging draws the pages again.
+function useLayoutDebug(
+  debug: boolean | undefined,
+  onStateChange: (update: RichTextStateUpdate) => void,
+) {
+  const latest = useRef(onStateChange);
+  useEffect(() => {
+    latest.current = onStateChange;
+  });
+  useEffect(() => {
+    latest.current((state) => state.apply(state.tr.setMeta(pageDebugKey, true)));
+  }, [debug]);
+}
 
 /** What the layout hook reads. */
 export interface DocumentLayoutOptions {
@@ -40,6 +54,8 @@ export interface DocumentLayoutOptions {
   readonly onStateChange: (update: RichTextStateUpdate) => void;
   /** The older version the document is compared with, and how its changes show. */
   readonly compare: DocumentComparison | null;
+  /** Shows the pages' layout for debugging (DOCE-PAGINATION-7.4). */
+  readonly debug?: boolean | undefined;
 }
 
 /** An older version to show a document's changes from, as change bars or marked in place. */
@@ -128,6 +144,7 @@ export function useDocumentLayout(
 
   useEffect(() => {
     const own = [
+      createPageDebug({ shown: () => latest.current.debug === true }),
       createSearch(),
       createAuthorship(),
       createDocumentSections({ template: () => latest.current.template }),
@@ -192,4 +209,5 @@ export function useDocumentLayout(
     latest.current.onStateChange(recompare);
     refresh.current?.();
   }, [previous, display, suggestions]);
+  useLayoutDebug(options.debug, options.onStateChange);
 }
