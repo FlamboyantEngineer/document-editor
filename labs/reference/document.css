@@ -143,7 +143,7 @@
 
 /* A section whose template section restarts numbering counts its headings and objects again. */
 .de-document-editor .pm-section[data-numbering='restart'] {
-  counter-reset: h1 h2 h3 h4 h5 h6 figure table codeblock equation;
+  counter-set: h1 h2 h3 h4 h5 h6 figure table codeblock equation;
 }
 
 .de-document-editor .pm-page {
@@ -830,13 +830,10 @@
 }
 
 /*
- * The comments margin sits beside the pages, on the page around them, so its cards follow the
- * theme's tokens; the layer draws the anchors' highlights itself.
+ * The comments margin beside the pages: each card moves across to sit beside the page its text is
+ * on (`--de-comment-offset`), so cards follow each page's edge whatever its size and orientation.
+ * The layer draws the anchors' highlights itself.
  */
-.de-document-comments {
-  align-items: start;
-}
-
 .de-document-comments mark[data-comment-id] {
   background: transparent;
   color: inherit;
@@ -846,40 +843,8 @@
   min-height: 100%;
 }
 
-.de-document-comments__draft,
-.de-document-comments__suggestion {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--ref-raised, #fff);
-  color: var(--ref-text, inherit);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
-}
-
-:root[data-theme='dark'] :is(.de-document-comments__draft, .de-document-comments__suggestion) {
-  box-shadow: 0 0 0 1px var(--ref-border, #3d444d);
-}
-
-.de-document-comments__suggestion[data-active] {
-  box-shadow: 0 0 0 2px var(--ref-accent, #0969da);
-}
-
-.de-document-comments__summary {
-  margin: 0;
-}
-
-.de-document-comments__summary ins {
-  color: var(--ref-success, #116329);
-}
-
-.de-document-comments__summary del {
-  color: var(--ref-danger, #a40e26);
-}
-
-.de-document-comments__decisions {
-  display: flex;
-  gap: 8px;
+.de-document-comments__card {
+  translate: var(--de-comment-offset, 0px) 0;
 }
 
 /* The gap cursor: a blinking line where the caret stands between two objects. */

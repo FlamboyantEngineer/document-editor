@@ -12,8 +12,12 @@ export interface DocumentCommentsLabels {
   insert: string;
   /** Introduces the text a suggestion deletes. */
   remove: string;
+  /** Describes a suggestion that replaces text. */
+  replace: string;
   /** Describes a suggestion that splits a paragraph. */
   split: string;
+  /** Names a suggestion's Accept and Reject. */
+  decide: string;
   /** Names a writer the host does not know. */
   someone: string;
   /** Reports a change the comment store refused without saying why. */
@@ -45,7 +49,9 @@ export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   reject: 'Reject',
   insert: 'Add',
   remove: 'Delete',
+  replace: 'Replace',
   split: 'Split the paragraph',
+  decide: 'Decide',
   someone: 'Someone',
   failed: 'The comment could not be saved.',
   reactions: 'Reactions',

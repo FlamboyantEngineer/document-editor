@@ -212,4 +212,45 @@ test.describe('full editor lab', () => {
     await page.getByRole('menuitem', { name: 'Save' }).click();
     await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText('Saved');
   });
+
+  test('DOCE-COMMENTS-3.5 keeps each card beside its own page, portrait or landscape', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    // The gap between a thread's page and its card, once both are in view.
+    const gap = async (quote: string) => {
+      const mark = content(page).locator('mark[data-comment-id]', { hasText: quote });
+      await mark.scrollIntoViewIfNeeded();
+      const card = margin(page)
+        .locator(':scope > [role="listitem"]')
+        .filter({ hasText: quote })
+        .locator('.de-document-comments__card');
+      await expect(card).toBeVisible();
+      const edge = await mark.evaluate(
+        (element) => element.closest('.pm-page')?.getBoundingClientRect().right ?? 0,
+      );
+      return { edge, start: (await card.boundingBox())?.x ?? 0 };
+    };
+    await expect
+      .poll(async () => {
+        const { edge, start } = await gap('landscape pages');
+        return Math.round(start - edge);
+      })
+      .toBe(16);
+    const landscape = await gap('landscape pages');
+    await expect
+      .poll(async () => {
+        const { edge, start } = await gap('portrait pages again');
+        return Math.round(start - edge);
+      })
+      .toBe(16);
+    const portrait = await gap('portrait pages again');
+    expect(landscape.edge - portrait.edge).toBeGreaterThan(100);
+    // Markers instead of cards, each opening its card.
+    await page.getByLabel('Comment markers').check();
+    const markers = margin(page).getByRole('button', { name: /annotation|comment|\d/i });
+    await expect(markers.first()).toBeVisible();
+    await expect(margin(page).getByText('This card sits beside the landscape page')).toHaveCount(0);
+  });
 });
