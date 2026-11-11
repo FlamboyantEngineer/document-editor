@@ -1,5 +1,6 @@
 // A template as JSON text: edited in a code editor, checked as it is typed, and handed to the
-// host once it reads as a valid template.
+// host once it reads as a valid template. A template changed elsewhere, such as in the settings
+// panel, replaces the text, so the text never hands back a template older than the host's.
 
 import { CodeEditor } from '@flamboyantengineer/ui-components/code-editor';
 import { useState } from 'react';
@@ -32,8 +33,10 @@ export interface TemplateJsonEditorProps {
   readonly className?: string | undefined;
 }
 
+const NO_ERRORS: readonly string[] = [];
+
 // The errors of a text as a template: not JSON, or the template's own.
-function errorsOf(text: string, labels: TemplateJsonEditorLabels): string[] {
+function errorsOf(text: string, labels: TemplateJsonEditorLabels): readonly string[] {
   try {
     return validateTemplateFile(JSON.parse(text));
   } catch {
@@ -44,15 +47,22 @@ function errorsOf(text: string, labels: TemplateJsonEditorLabels): string[] {
 /** Edits a template as JSON, handing each valid template to the host. */
 export function TemplateJsonEditor(props: TemplateJsonEditorProps) {
   const labels = { ...DEFAULT_LABELS, ...props.labels };
-  const [text, setText] = useState(() => JSON.stringify(props.template, null, 2));
-  const [errors, setErrors] = useState<readonly string[]>([]);
+  const external = JSON.stringify(props.template, null, 2);
+  // The text as typed, and the template's JSON it was typed over or hands the host.
+  const [draft, setDraft] = useState({ text: external, from: external, errors: NO_ERRORS });
+  const current = draft.from === external ? draft : { text: external, errors: NO_ERRORS };
   const change = (next: string) => {
-    setText(next);
     const errors = errorsOf(next, labels);
-    setErrors(errors);
     props.onValidityChange?.(errors);
-    if (errors.length === 0) props.onChange(JSON.parse(next) as TemplateFile);
+    if (errors.length) {
+      setDraft({ text: next, from: external, errors });
+      return;
+    }
+    const template = JSON.parse(next) as TemplateFile;
+    setDraft({ text: next, from: JSON.stringify(template, null, 2), errors });
+    props.onChange(template);
   };
+  const { text, errors } = current;
   return (
     <div {...hooks.root({ className: props.className })}>
       <CodeEditor
