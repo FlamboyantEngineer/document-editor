@@ -5,7 +5,7 @@ import {
   type BoxSide,
   FourSidePropertyStrip,
 } from '@flamboyantengineer/ui-components/four-side-property-strip';
-import { NumberField } from '@flamboyantengineer/ui-components/number-field';
+import { useState } from 'react';
 import type { Rows } from './template-rows.js';
 import { settingAt } from './template-settings.js';
 
@@ -33,6 +33,43 @@ export const marginUnit = (size: unknown): 'mm' | 'in' =>
 
 const SIDES: readonly BoxSide[] = ['top', 'right', 'bottom', 'left'];
 
+// What a margin side may hold while it is typed: digits with one decimal point.
+const NUMBER = /^\d*(\.\d*)?$/;
+
+// One side's value: the strip's own small input, holding what is typed until it reads as a number.
+function MarginInput({
+  label,
+  value,
+  inherited,
+  isDisabled,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  inherited: number | null;
+  isDisabled: boolean | undefined;
+  onChange: (value: number | null) => void;
+}) {
+  const external = value === null ? '' : String(value);
+  const [draft, setDraft] = useState({ text: external, from: external });
+  return (
+    <input
+      aria-label={label}
+      inputMode="decimal"
+      disabled={isDisabled}
+      placeholder={inherited === null ? undefined : String(inherited)}
+      value={draft.from === external ? draft.text : external}
+      onChange={(event) => {
+        const text = event.currentTarget.value.trim();
+        if (!NUMBER.test(text)) return;
+        const next = text === '' || text === '.' ? null : Number(text);
+        setDraft({ text, from: next === null ? '' : String(next) });
+        onChange(next);
+      }}
+    />
+  );
+}
+
 /** The margins of the scope's pages. */
 export function MarginsRow({ context }: { context: Rows }) {
   const { target, labels, props } = context;
@@ -49,21 +86,13 @@ export function MarginsRow({ context }: { context: Rows }) {
       isOverridden={SIDES.some((side) => read(['page', 'margins', side]).own !== undefined)}
       renderSide={(side) => {
         const value = read(['page', 'margins', side]);
-        const inherited = lengthIn(value.inherited, unit);
         return (
-          <NumberField
+          <MarginInput
             label={labels.marginSides[side]}
-            labelLayout="control-only"
-            size="sm"
-            density="compact"
-            tracksChanges={false}
-            hideStepper
-            isDisabled={props.isDisabled}
-            minValue={0}
-            step={unit === 'mm' ? 0.5 : 0.05}
             value={lengthIn(value.own, unit)}
-            placeholder={inherited === null ? undefined : String(inherited)}
-            onChange={(next: number | null) =>
+            inherited={lengthIn(value.inherited, unit)}
+            isDisabled={props.isDisabled}
+            onChange={(next) =>
               target.set(['page', 'margins', side], next === null ? null : `${String(next)}${unit}`)
             }
           />
