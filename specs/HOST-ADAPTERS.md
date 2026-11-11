@@ -76,7 +76,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.11 - Script runner
 
-The host's `scripts` adapter shall run a script block's script against the document as it is and resolve with the content it produced, as stored content, or a failure with a message.
+The host's `scripts` adapter shall run a script block's script against the document as it is and resolve with the content it produced, as stored content, or a failure with a message. It may give the names a script can use (`vocabulary`: each name, its kind, signature, description, documentation and the text a completion inserts), and check a script without running it (`check`), resolving with its problems by line and column.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -164,7 +164,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-3.9 - In-memory scripts
 
-The in-memory host shall run scripts with `options.scripts`, giving it the script and the document, and resolve with what it returns, or an `unavailable` failure with the message of what it throws; without the option it has no script runner.
+The in-memory host shall run scripts with `options.scripts`, giving it the script and the document, and resolve with what it returns, or an `unavailable` failure with the message of what it throws, give the names of `options.scriptVocabulary` and check a script with `options.checkScript`; without `options.scripts` it has no script runner.
 
 Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`

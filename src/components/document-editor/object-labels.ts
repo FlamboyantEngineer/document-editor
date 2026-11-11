@@ -14,6 +14,16 @@ export interface ObjectLabels {
   readonly applyAndRun: string;
   readonly runScript: string;
   readonly runAllScripts: string;
+  readonly scriptAside: string;
+  readonly scriptPreview: string;
+  readonly scriptReference: string;
+  readonly refreshPreview: string;
+  readonly scriptPreviewIdle: string;
+  readonly scriptPreviewRunning: string;
+  readonly scriptPreviewEmpty: string;
+  readonly filterScriptReference: string;
+  /** Heads the names that belong to no object in the script reference. */
+  readonly scriptGlobals: string;
   readonly superscript: string;
   readonly subscript: string;
   readonly link: string;
@@ -126,6 +136,15 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   applyAndRun: 'Apply and run',
   runScript: 'Run script',
   runAllScripts: 'Run all scripts',
+  scriptAside: 'Preview and reference',
+  scriptPreview: 'Preview',
+  scriptReference: 'Reference',
+  refreshPreview: 'Refresh preview',
+  scriptPreviewIdle: 'Refresh the preview to run the script.',
+  scriptPreviewRunning: 'Updating the preview…',
+  scriptPreviewEmpty: 'The script produced nothing.',
+  filterScriptReference: 'Filter the reference',
+  scriptGlobals: 'Globals',
   superscript: 'Superscript',
   subscript: 'Subscript',
   link: 'Link',

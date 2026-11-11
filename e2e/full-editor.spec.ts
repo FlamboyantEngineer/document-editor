@@ -125,7 +125,8 @@ test.describe('full editor lab', () => {
   }) => {
     await lab.open('full-editor');
     // The script that runs on opening shows what it produced.
-    const status = content(page).locator('.script-block[data-script="Status"]');
+    const blocks = content(page).locator('.script-block');
+    const status = blocks.first();
     await expect(status.locator('.script-output')).toContainText(/^Status: \d+ blocks\.$/);
     // The writer cannot edit the output.
     await status.locator('.script-output p').click();
@@ -135,17 +136,48 @@ test.describe('full editor lab', () => {
     await content(page).locator('h1', { hasText: 'Timing' }).click();
     await page.getByRole('toolbar', { name: 'Formatting' }).locator('[data-item="script"]').click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('textbox', { name: 'Script' }).fill('Summary');
+    const source = dialog.getByRole('textbox', { name: 'Script' });
+    await source.fill('render.paragraph("Summary: ${document.blocks} blocks.")');
     await dialog.getByRole('button', { name: 'Apply and run' }).click();
-    const summary = content(page).locator('.script-block[data-script="Summary"]');
+    const summary = content(page).locator('.script-block', { hasText: 'Summary:' });
     await expect(summary.locator('.script-output')).toContainText(/^Summary: \d+ blocks\.$/);
-    // The context menu edits a script, and a failing one is marked.
+    // The context menu edits a script; a problem the host's check finds keeps it from applying.
     await summary.locator('.script-output p').click({ button: 'right' });
     await page.getByRole('menu').last().getByRole('menuitem', { name: 'Edit script…' }).click();
-    await dialog.getByRole('textbox', { name: 'Script' }).fill('Summary fail');
-    await dialog.getByRole('button', { name: 'Apply and run' }).click();
-    await expect(
-      content(page).locator('.script-block[data-script="Summary fail"]'),
-    ).toHaveAttribute('data-script-state', 'error');
+    await source.fill('render.table()');
+    await expect(dialog.getByText(/Not a statement the lab knows/).first()).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Apply and run' })).toBeDisabled();
+  });
+
+  test('DOCE-EDITOR-4.9 previews, completes and documents a script in its editor', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.getByRole('toolbar', { name: 'Formatting' }).locator('[data-item="script"]').click();
+    const dialog = page.getByRole('dialog');
+    const source = dialog.getByRole('textbox', { name: 'Script' });
+    // The names after an object's dot complete.
+    await source.fill('render.');
+    await source.press('End');
+    await page.keyboard.press('Control+Space');
+    await expect(page.getByRole('option', { name: /paragraph/ }).first()).toBeVisible();
+    await page.keyboard.press('Escape');
+    // The preview runs the script on asking, without changing the document.
+    await source.fill('render.heading("Preview heading", 2)');
+    await expect(dialog.getByText('Refresh the preview to run the script.')).toBeVisible();
+    await dialog.getByRole('button', { name: 'Refresh preview' }).click();
+    await expect(dialog.locator('h2', { hasText: 'Preview heading' })).toBeVisible();
+    // The document's own content comes first; the preview's is in the dialog.
+    await expect(content(page).first().locator('h2', { hasText: 'Preview heading' })).toHaveCount(
+      0,
+    );
+    // The reference lists the names a script can use, by object.
+    await dialog.getByRole('tab', { name: 'Reference' }).click();
+    await expect(dialog.getByText('render.heading(text, level)')).toBeVisible();
+    await dialog.getByRole('searchbox', { name: 'Filter the reference' }).fill('blocks');
+    await expect(dialog.getByText('render.heading(text, level)')).toBeHidden();
+    await expect(dialog.getByText('How many blocks the document holds.')).toBeVisible();
   });
 });
