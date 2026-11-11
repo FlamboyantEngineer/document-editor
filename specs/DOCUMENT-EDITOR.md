@@ -178,6 +178,13 @@ The script dialog shall be the script editor (`de-script-editor`): the script (`
 Implementation: `src/components/document-editor/script-dialog.tsx`, `src/components/document-editor/script-panes.tsx`, `src/components/document-editor/script-language.ts`
 Verification: `src/components/document-editor/script-language.test.ts`, `e2e/full-editor.spec.ts`
 
+### DOCE-EDITOR-4.10 - The menubar
+
+`menubar` shall show a menubar above the toolbar (`de-document-editor__menubar`, the base library's `Menubar` named by `menubar`) whose menus (`menubarMenus`) run the toolbar's own items: File, holding only the host's entries; Edit, with undo and redo, select all and, with `find`, find; View, with the page and web views while the host switches layouts and zooming in, out and to actual size while it zooms; Insert, with a table and the toolbar's insert items, a menu of them as a submenu; Format, with the marks, the text styles and the lists; and Tools, with the next proofing issue and, while the host runs scripts, running every script. A host given as options adds entries to a menu by its id, or a menu of its own (`items`), and arranges the menus (`arrange`); a menu without entries is left out.
+
+Implementation: `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/document-menubar.tsx`, `labs/src/host-menubar.ts`
+Verification: `e2e/full-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -284,6 +291,7 @@ Verification: `e2e/versions.spec.ts`
 
 | Hook                                    | Kind      | Values                                                 | Description                                                                             |
 | --------------------------------------- | --------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `de-document-editor__menubar`           | slot      |                                                        | The menubar above the toolbar.                                                          |
 | `de-script-editor`                      | root      |                                                        | The script editor in the script dialog.                                                 |
 | `de-script-editor__source`              | slot      |                                                        | The script's code editor.                                                               |
 | `de-script-editor__aside`               | slot      |                                                        | The preview and reference tabs.                                                         |

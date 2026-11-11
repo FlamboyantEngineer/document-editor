@@ -40,6 +40,7 @@ import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
 import { createEditorContext, DocumentEditorContext, type ObjectDialog } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
+import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
@@ -91,6 +92,11 @@ export interface DocumentEditorProps
    * as options. Defaults to false.
    */
   toolbar?: boolean | DocumentToolbarOptions | undefined;
+  /**
+   * Shows a menubar above the toolbar: File, Edit, View, Insert, Format and Tools, shaped by the
+   * host when given as options. Defaults to false.
+   */
+  menubar?: boolean | DocumentMenubarOptions | undefined;
   /**
    * Scrolls the document inside the editor, with overlay scrollbars, the toolbar staying above it;
    * the host gives the editor its height. Defaults to false.
@@ -221,7 +227,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   );
   const [finding, setFinding] = useState(false);
   const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
-  const chrome = { props, context, view: engine.view, templateStyle, startCommentRef };
+  const chrome = { props, context, view: engine.view, templateStyle, startCommentRef, openFind };
   const body = (
     <EditorBody
       props={props}

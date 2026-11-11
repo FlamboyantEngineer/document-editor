@@ -180,4 +180,36 @@ test.describe('full editor lab', () => {
     await expect(dialog.getByText('render.heading(text, level)')).toBeHidden();
     await expect(dialog.getByText('How many blocks the document holds.')).toBeVisible();
   });
+
+  test('DOCE-EDITOR-4.10 offers the editor commands and the host File menu in a menubar', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const menubar = page.getByRole('menubar', { name: 'Menu' });
+    await expect(menubar.getByRole('menuitem')).toHaveText([
+      'File',
+      'Edit',
+      'View',
+      'Insert',
+      'Format',
+      'Tools',
+    ]);
+    // Format runs the toolbar's commands.
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Bold words');
+    await page.keyboard.press('Shift+Home');
+    await menubar.getByRole('menuitem', { name: 'Format' }).click();
+    await page.getByRole('menuitem', { name: 'Bold' }).click();
+    await expect(content(page).locator('strong', { hasText: 'Bold words' })).toHaveCount(1);
+    // View switches the layout; the host's File menu saves.
+    await menubar.getByRole('menuitem', { name: 'View' }).click();
+    await page.getByRole('menuitem', { name: 'Zoom in' }).click();
+    await expect(page.locator('.de-document-editor__zoom')).toContainText('110');
+    await menubar.getByRole('menuitem', { name: 'File' }).click();
+    await page.getByRole('menuitem', { name: 'Save' }).click();
+    await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText('Saved');
+  });
 });

@@ -305,6 +305,14 @@
   line-height: inherit;
 }
 
+/* The menubar above the toolbar. */
+.de-document-editor__menubar {
+  flex: none;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--ref-border, #d0d7de);
+  background: var(--ref-raised, #fff);
+}
+
 /* The host's controls at the toolbar's ends: the end ones pushed to the far side. */
 .de-document-editor__toolbar-start,
 .de-document-editor__toolbar-end {
