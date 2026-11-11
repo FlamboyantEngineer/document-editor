@@ -276,3 +276,10 @@ Verification: `e2e/page-regions.spec.ts`
 
 Implementation: `src/pagination/page-variables.ts`
 Verification: `src/pagination/page-variables.test.ts`, `e2e/page-regions.spec.ts`
+
+### DOCE-PAGINATION-8.3 - Variables in the text
+
+The plugin shall show the variables in the document's text too, `page.current` by the page they are on, counted through the document, and `page.total` the document's page count; and `date.current` shall show today's date (`now`), written long in the plugin's `locale`, wherever it is.
+
+Implementation: `src/pagination/page-variables.ts`
+Verification: `src/pagination/page-variables.test.ts`

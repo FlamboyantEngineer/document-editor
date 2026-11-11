@@ -162,3 +162,12 @@ A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall 
 
 Implementation: `src/engine/custom-styles.ts`, `src/model/templates/template-text-properties.ts`, `src/components/document-editor/toolbar-controls.tsx`
 Verification: `src/engine/custom-styles.test.ts`, `e2e/template-editor.spec.ts`
+
+## DOCE-TEMPLATES-8 - Template content
+
+### DOCE-TEMPLATES-8.1 - Tokens
+
+A template's content (a section's starting content, its headers and footers) shall be read with each `{{key}}` token in its text a live variable of that key (DOCE-PAGINATION-8.3), and a paragraph that is only a list token (`table_of_contents`, `list_of_figures`, `list_of_tables`, `list_of_code`, `list_of_equations`) a list of contents of its kind (`readTemplateContent`); drift is judged on content read so.
+
+Implementation: `src/model/templates/template-content.ts`, `src/model/templates/page-regions.ts`, `src/engine/document-sections.ts`, `src/engine/template-sync.ts`
+Verification: `src/model/templates/template-content.test.ts`

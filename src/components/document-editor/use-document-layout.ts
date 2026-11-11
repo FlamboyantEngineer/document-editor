@@ -9,6 +9,7 @@ import type { EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { type RefObject, useEffect, useRef } from 'react';
 import {
   type CompareSuggestions,
+  createAuthorship,
   createDocumentSections,
   createSearch,
   createVersionChanges,
@@ -128,6 +129,7 @@ export function useDocumentLayout(
   useEffect(() => {
     const own = [
       createSearch(),
+      createAuthorship(),
       createDocumentSections({ template: () => latest.current.template }),
       createVersionChanges({
         previous: () => latest.current.compare?.previous ?? null,

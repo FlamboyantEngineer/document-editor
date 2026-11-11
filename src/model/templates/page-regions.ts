@@ -4,9 +4,9 @@
 
 import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import type { Transform } from 'prosemirror-transform';
-import { readStoredContent } from '../format/document-format-convert.js';
 import type { TemplateFile } from '../format/template-format.js';
 import { resolveSectionRegion } from '../format/template-format-resolve.js';
+import { readTemplateContent } from './template-content.js';
 import { findTemplateSection } from './template-sections.js';
 
 const REGIONS = { page_header: 'header', page_footer: 'footer' } as const;
@@ -29,11 +29,7 @@ function regionContents(template: TemplateFile, schema: Schema) {
     const section = findTemplateSection(template, sectionName);
     const read = (region: 'header' | 'footer') =>
       Fragment.from(
-        readStoredContent(
-          resolveSectionRegion(template, section, region)?.content ?? [],
-          schema,
-          `${region}.content`,
-        ),
+        readTemplateContent(resolveSectionRegion(template, section, region)?.content ?? [], schema),
       );
     const contents = { page_header: read('header'), page_footer: read('footer') };
     known.set(sectionName, contents);

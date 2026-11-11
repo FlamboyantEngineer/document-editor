@@ -41,6 +41,22 @@ Verification: `src/engine/presence.test.ts`
 Implementation: `src/engine/presence.ts`, `src/engine/proofing.ts`
 Verification: `src/engine/presence.test.ts`
 
+## DOCE-COLLAB-3 - Authorship
+
+### DOCE-COLLAB-3.1 - Who wrote what
+
+`documentAuthors(doc)` shall give the document's writers, the most text first, with the characters each wrote and a colour slot no other writer has (DOCE-COLLAB-1.4): a run of text is its contributor's, else its suggested insertion's writer's, else the writer of its block. `createAuthorship()` marks each writer's text with their slot (`data-author`, `data-author-slot`) while shown (`showAuthorship`, `isAuthorshipShown`).
+
+Implementation: `src/engine/authorship.ts`
+Verification: `src/engine/authorship.test.ts`
+
+### DOCE-COLLAB-3.2 - Showing authorship
+
+The document editor's `authorship` shall show who wrote what, the editor running the authorship plugin itself, and publish `data-authorship` on its root.
+
+Implementation: `src/components/document-editor/use-change-notifications.ts`, `src/components/document-editor/use-document-layout.ts`, `labs/reference/editor-chrome.css`
+Verification: `e2e/full-editor.spec.ts`
+
 ## Hooks
 
 | Hook                       | Kind      | Values  | Description                                      |

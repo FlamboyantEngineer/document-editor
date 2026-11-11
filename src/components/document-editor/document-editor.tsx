@@ -131,6 +131,8 @@ export interface DocumentEditorProps
   markup?: DocumentMarkup | undefined;
   /** The host's telemetry, which the editor reports its layout times to. */
   telemetry?: TelemetryAdapter | undefined;
+  /** Shows who wrote what: each writer's text in their colour slot (`data-author-slot`). */
+  authorship?: boolean | undefined;
   /**
    * Repairs the element ids of each document the editor is given (`repairElementIds`), telling the
    * host through `onContentChange`. Defaults to false.
@@ -277,6 +279,7 @@ function rootData(props: DocumentEditorProps) {
     suggesting: editable && suggesting,
     comparing: compare ? (compare.display ?? 'markup') : undefined,
     scrollable: props.scrollable ?? false,
+    authorship: props.authorship ?? false,
   };
 }
 

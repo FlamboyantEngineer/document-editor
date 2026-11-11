@@ -1,5 +1,6 @@
-// Shows the values of the variables in page headers and footers: a page's number and the page
-// count from its region, and any other variable, such as a document property, from the host.
+// Shows the values of the variables in page headers and footers and in the document's text: a
+// page's number and the page count, today's date, and any other variable, such as a document
+// property, from the host.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey } from 'prosemirror-state';
@@ -12,17 +13,54 @@ export type VariableValue = (key: string) => string | null | undefined;
 export interface PageVariablesOptions {
   /** The text of a variable other than `page.current` and `page.total`, such as `document.name`. */
   value?: VariableValue | undefined;
+  /** The time `date.current` shows, as the locale writes a date. Defaults to now. */
+  now?: (() => Date) | undefined;
+  /** The locale `date.current` is written in. Defaults to the browser's. */
+  locale?: string | undefined;
 }
 
 /** Marks a transaction that shows the variables' values again, as after a host value changed. */
 export const pageVariablesKey = new PluginKey<DecorationSet>('page-variables');
 
-const REGIONS = new Set(['page_header', 'page_footer']);
+const REGIONS = new Set(['page_header', 'page_footer', 'page_content']);
 
-function variableText(key: string, region: ProseMirrorNode, value: VariableValue | undefined) {
-  if (key === 'page.current') return String(region.attrs.pageNumber ?? '');
-  if (key === 'page.total') return String(region.attrs.totalPages ?? '');
-  return value?.(key) ?? '';
+// Where a variable is: its page's number and the page count, as its region or the document counts.
+interface Place {
+  readonly page: number;
+  readonly pages: number;
+}
+
+// One date format per locale, made once.
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+function dateFormat(locale: string | undefined): Intl.DateTimeFormat {
+  const key = locale ?? '';
+  let format = dateFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, { dateStyle: 'long' });
+    dateFormats.set(key, format);
+  }
+  return format;
+}
+
+function variableText(key: string, place: Place, options: PageVariablesOptions) {
+  if (key === 'page.current') return String(place.page);
+  if (key === 'page.total') return String(place.pages);
+  if (key === 'date.current') {
+    return dateFormat(options.locale).format(options.now?.() ?? new Date());
+  }
+  return options.value?.(key) ?? '';
+}
+
+// The pages of a document, by the position of their first child, numbered through it from 1.
+function pagesOf(doc: ProseMirrorNode): { places: Map<number, Place> } {
+  const starts: number[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'page') starts.push(pos);
+    return node.type.name === 'page_section' || node.type.name === 'doc';
+  });
+  return {
+    places: new Map(starts.map((pos, index) => [pos, { page: index + 1, pages: starts.length }])),
+  };
 }
 
 function widget(pos: number, text: string, key: string) {
@@ -37,14 +75,24 @@ function widget(pos: number, text: string, key: string) {
   );
 }
 
-function decorate(doc: ProseMirrorNode, value: VariableValue | undefined): DecorationSet {
+function decorate(doc: ProseMirrorNode, options: PageVariablesOptions): DecorationSet {
   const decorations: Decoration[] = [];
+  const { places } = pagesOf(doc);
   doc.descendants((node, pos) => {
-    if (!REGIONS.has(node.type.name)) return node.type.name !== 'page_content';
+    if (!REGIONS.has(node.type.name)) return !node.isTextblock;
+    const page = places.get(doc.resolve(pos).before()) ?? { page: 0, pages: 0 };
+    // A header or footer counts as its region says; the text, by its page in the document.
+    const place =
+      node.type.name === 'page_content'
+        ? page
+        : {
+            page: Number(node.attrs.pageNumber ?? page.page),
+            pages: Number(node.attrs.totalPages ?? page.pages),
+          };
     node.descendants((child, offset) => {
       if (child.type.name !== 'template_variable') return true;
       const key = String(child.attrs.variableKey ?? '');
-      const text = variableText(key, node, value);
+      const text = variableText(key, place, options);
       // Inside the variable: past the region's start, its offset and the variable's start.
       if (text) decorations.push(widget(pos + offset + 2, text, key));
       return false;
@@ -54,14 +102,14 @@ function decorate(doc: ProseMirrorNode, value: VariableValue | undefined): Decor
   return DecorationSet.create(doc, decorations);
 }
 
-/** A plugin that shows each header and footer variable's value inside it. */
-export function createPageVariables({ value }: PageVariablesOptions = {}): Plugin<DecorationSet> {
+/** A plugin that shows each variable's value inside it, in the headers, footers and text. */
+export function createPageVariables(options: PageVariablesOptions = {}): Plugin<DecorationSet> {
   return new Plugin<DecorationSet>({
     key: pageVariablesKey,
     state: {
-      init: (_config, state: EditorState) => decorate(state.doc, value),
+      init: (_config, state: EditorState) => decorate(state.doc, options),
       apply: (tr, set) =>
-        tr.docChanged || tr.getMeta(pageVariablesKey) ? decorate(tr.doc, value) : set,
+        tr.docChanged || tr.getMeta(pageVariablesKey) ? decorate(tr.doc, options) : set,
     },
     props: { decorations: (state) => pageVariablesKey.getState(state) },
   });

@@ -271,6 +271,7 @@ export {
 export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export { setPageRegions } from './templates/page-regions.js';
+export { CONTENTS_TOKENS, readTemplateContent } from './templates/template-content.js';
 export {
   lengthToCssPx,
   MM_TO_CSS_PX,

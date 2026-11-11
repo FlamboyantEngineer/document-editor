@@ -5,7 +5,12 @@
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef } from 'react';
-import { listSuggestions, type Suggestion, versionChanges } from '../../engine/index.js';
+import {
+  listSuggestions,
+  showAuthorship,
+  type Suggestion,
+  versionChanges,
+} from '../../engine/index.js';
 import { type DocumentEditorNotifications, useSelectionNotification } from './use-host-events.js';
 
 /** A change bar: the kind of change beside a block, on a page, by its offset from the page top. */
@@ -98,7 +103,18 @@ export function useChangeBarsNotification(
   }, [view, state, changes, onChangeBarsChange, zoom]);
 }
 
-/** The notifications of an editor's props: its selection, its suggestions and its change bars. */
+// Shows who wrote what while the editor is asked to, once its own plugins are installed.
+function useAuthorship(view: EditorView | null, state: EditorState, shown: boolean) {
+  const { plugins } = state;
+  useEffect(() => {
+    if (view) showAuthorship(shown)(view.state, view.dispatch);
+  }, [view, shown, plugins]);
+}
+
+/**
+ * The notifications of an editor's props, its selection, its suggestions and its change bars, and
+ * the authorship it shows.
+ */
 export function useReviewNotifications(
   view: EditorView | null,
   props: {
@@ -107,8 +123,10 @@ export function useReviewNotifications(
     readonly onSuggestionsChange?: ((suggestions: readonly Suggestion[]) => void) | undefined;
     readonly onChangeBarsChange?: ((bars: readonly ChangeBar[]) => void) | undefined;
     readonly onSelectionChange?: DocumentEditorNotifications['onSelectionChange'];
+    readonly authorship?: boolean | undefined;
   },
 ) {
+  useAuthorship(view, props.state, props.authorship ?? false);
   useSelectionNotification(props.state, props.onSelectionChange);
   useSuggestionsNotification(props.state, props.onSuggestionsChange);
   useChangeBarsNotification(view, props.state, {
