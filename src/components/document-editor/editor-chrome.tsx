@@ -46,6 +46,7 @@ export function TopChrome({
   const linkedCode = Boolean(props.codeSource);
   const glossary = Boolean(props.glossary);
   const scripts = Boolean(props.scriptRunner);
+  const references = Boolean(props.referenceSource);
   const symbols = props.symbols ?? DEFAULT_SYMBOLS;
   const custom = customStyleNames(props.template).join('\n');
   const features = useMemo<InsertFeatures>(
@@ -56,8 +57,9 @@ export function TopChrome({
       customStyles: custom ? custom.split('\n') : [],
       template: props.template,
       scripts,
+      references,
     }),
-    [linkedCode, symbols, glossary, custom, props.template, scripts],
+    [linkedCode, symbols, glossary, custom, props.template, scripts, references],
   );
   return (
     <>

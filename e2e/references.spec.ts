@@ -27,7 +27,11 @@ test.describe('references', () => {
   }) => {
     await newParagraph(page, 'Power', 'See ');
     await page.keyboard.press('ControlOrMeta+k');
-    const picker = dialog(page).getByRole('combobox', { name: 'In this document' });
+    // The target's kind, then the target among those of the kind.
+    await expect(dialog(page).getByRole('button', { name: /Target type/ })).toContainText(
+      'Heading',
+    );
+    const picker = dialog(page).getByRole('combobox', { name: 'Target' });
     await picker.fill('Timing');
     await page.getByRole('option', { name: /^\d+\.\s*Timing$/ }).click();
     await dialog(page).getByRole('button', { name: 'Insert' }).click();
@@ -47,8 +51,9 @@ test.describe('references', () => {
 
   test('DOCE-REFERENCES-3.1 cites another document the host finds', async ({ page }) => {
     await newParagraph(page, 'Power', 'As in ');
-    await toolbar(page).getByRole('button', { name: 'Reference…' }).click();
-    await dialog(page).getByRole('combobox', { name: 'In another document' }).fill('power');
+    await toolbar(page).getByRole('button', { name: 'Reference' }).click();
+    await item(page, 'Reference to another document…').click();
+    await dialog(page).getByRole('combobox', { name: 'Document' }).fill('power');
     await page.getByRole('option', { name: 'PWR-100 Power interface specification' }).click();
     await dialog(page).getByRole('button', { name: 'Insert' }).click();
     await expect(reference(page)).toHaveText('PWR-100');

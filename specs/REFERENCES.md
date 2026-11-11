@@ -59,7 +59,7 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-3.1 - The reference dialog
 
-The toolbar's reference button and Mod-K shall open the reference dialog, which picks a target of the document by its label, or, while the host gives a `referenceSource`, a citation it finds, and inserts the reference or changes the one at the selection. The context menu on a reference offers editing it, removing it and going to its target.
+The toolbar's reference menu shall offer a reference in this document and, while the host gives a `referenceSource`, a reference to another document, each opening its own dialog (`data-reference`); Mod-K opens the first. The dialog for this document picks the target's kind (`REFERENCE_TARGET_KINDS`: heading, figure, table, code block, equation), then the target among those of the kind by its label, a new kind clearing a target that no longer fits; the one for another document picks a citation the host finds. Each inserts the reference or changes the one at the selection, and editing a reference opens the dialog of its kind. The context menu on a reference offers editing it, removing it and going to its target.
 
 Implementation: `src/components/document-editor/reference-dialog.tsx`, `src/components/document-editor/element-entries.ts`
 Verification: `e2e/references.spec.ts`
