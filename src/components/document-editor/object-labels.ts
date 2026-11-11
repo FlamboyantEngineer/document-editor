@@ -106,6 +106,17 @@ export interface ObjectLabels {
   readonly unlinkAbbreviation: string;
   readonly goToPage: string;
   readonly pageLayout: string;
+  readonly menubar: string;
+  readonly menuFile: string;
+  readonly menuEdit: string;
+  readonly menuView: string;
+  readonly menuInsert: string;
+  readonly menuFormat: string;
+  readonly menuTools: string;
+  readonly selectAll: string;
+  readonly zoomIn: string;
+  readonly zoomOut: string;
+  readonly zoomReset: string;
   readonly webLayout: string;
   /** Names the layout buttons together. */
   readonly layout: string;
@@ -223,6 +234,17 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   unlinkAbbreviation: 'Turn into text',
   goToPage: 'Go to page',
   pageLayout: 'Page view',
+  menubar: 'Menu',
+  menuFile: 'File',
+  menuEdit: 'Edit',
+  menuView: 'View',
+  menuInsert: 'Insert',
+  menuFormat: 'Format',
+  menuTools: 'Tools',
+  selectAll: 'Select all',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  zoomReset: 'Actual size',
   webLayout: 'Web view',
   layout: 'Layout',
 };

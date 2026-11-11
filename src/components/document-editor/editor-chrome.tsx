@@ -10,10 +10,12 @@ import type { DocumentContextMenuOptions } from './context-providers.js';
 import { DocumentContextMenu } from './document-context-menu.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentFindBar } from './document-find-bar.js';
+import { DocumentMenubar } from './document-menubar.js';
 import { DocumentStatusBar, ZOOM_LEVELS } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
 import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
+import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
@@ -22,6 +24,7 @@ const hooks = createHooks('document-editor', ['toolbar', 'find', 'status-bar']);
 
 const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
 const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
+const NO_MENUBAR_OPTIONS: DocumentMenubarOptions = {};
 
 /** What the chrome reads. */
 export interface ChromeProps {
@@ -30,6 +33,8 @@ export interface ChromeProps {
   view: EditorView | null;
   templateStyle: Readonly<Record<string, string>>;
   startCommentRef: RefObject<(() => void) | null>;
+  /** Opens the find bar, while the editor has one. */
+  openFind?: (() => void) | null | undefined;
 }
 
 /** The toolbar and the find bar above the document. */
@@ -39,6 +44,8 @@ export function TopChrome({
   templateStyle,
   finding,
   onFindClose,
+  view,
+  openFind = null,
 }: ChromeProps & {
   finding: boolean;
   onFindClose: () => void;
@@ -63,6 +70,24 @@ export function TopChrome({
   );
   return (
     <>
+      {props.menubar ? (
+        <DocumentMenubar
+          context={context}
+          templateStyle={templateStyle}
+          features={features}
+          options={props.menubar === true ? NO_MENUBAR_OPTIONS : props.menubar}
+          menus={{
+            view,
+            openFind,
+            layout: props.layout ?? 'page',
+            onLayoutChange: props.onLayoutChange,
+            zoom: props.onZoomChange
+              ? { value: props.zoom ?? 100, onChange: props.onZoomChange }
+              : null,
+            scriptRunner: props.scriptRunner,
+          }}
+        />
+      ) : null}
       {props.toolbar ? (
         <DocumentToolbar
           {...hooks.slot('toolbar')}

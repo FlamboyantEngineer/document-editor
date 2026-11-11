@@ -39,6 +39,7 @@ import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
+import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument, text } from './lab-document.js';
@@ -247,6 +248,7 @@ function Lab() {
     [view, collaborators],
   );
   const comments = HOST.comments;
+  const menubar = useMemo(() => hostMenubar(() => setNotice('Saved')), []);
   return (
     <>
       <fieldset>
@@ -325,6 +327,7 @@ function Lab() {
         author="ada"
         markup={markup}
         toolbar={HOST_TOOLBAR}
+        menubar={menubar}
         contextMenu={HOST_CONTEXT_MENU}
         scrollable
         statusBar
