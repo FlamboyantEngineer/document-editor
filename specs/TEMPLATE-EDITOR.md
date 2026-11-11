@@ -27,9 +27,9 @@ Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.4 - Header and footer content
 
-The header and footer rows shall open the region's content in a document editor, with its toolbar, over the template's stored content of the scope shown, and write it back to the template when applied.
+The header and footer content shall be edited in place, on the pages of the document beside the template editor (DOCE-SECTIONS-5.1), and `withRegionChange` shall write each edit into the template: into the section's own region while it has its own content, and into the document's otherwise.
 
-Implementation: `src/components/template-editor/region-content-editor.tsx`
+Implementation: `src/components/template-editor/template-editor.tsx`, `labs/src/template-editor.lab.tsx`
 Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.5 - The template as JSON

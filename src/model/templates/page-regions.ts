@@ -37,11 +37,36 @@ function regionContents(template: TemplateFile, schema: Schema) {
   };
 }
 
+// An editable region has a paragraph to type in, even while the template gives it none.
+function withParagraph(content: Fragment, schema: Schema): Fragment {
+  const paragraph = schema.nodes.paragraph;
+  return content.size === 0 && paragraph ? Fragment.from(paragraph.create()) : content;
+}
+
+// Whether content is one empty paragraph, whatever its id: an empty region keeps the one it has.
+const isEmptyParagraph = (content: Fragment) =>
+  content.childCount === 1 &&
+  content.firstChild?.type.name === 'paragraph' &&
+  content.firstChild.content.size === 0;
+
+/** How `setPageRegions` sets the regions. */
+export interface PageRegionOptions {
+  /** Whether the regions can be edited in place. Defaults to false: read-only. */
+  readonly editable?: boolean | undefined;
+  /** Content standing over the template's, by section name and region (`regionKey`). */
+  readonly edits?: ReadonlyMap<string, Fragment> | undefined;
+}
+
 /**
- * Sets every page's header and footer to its section's template regions, read-only, and returns the
- * transform. Regions that already hold them are left alone, so setting them again changes nothing.
+ * Sets every page's header and footer to its section's template regions, read-only unless asked,
+ * and returns the transform. Regions that already hold them are left alone, so setting them again
+ * changes nothing.
  */
-export function setPageRegions<T extends Transform>(tr: T, template: TemplateFile): T {
+export function setPageRegions<T extends Transform>(
+  tr: T,
+  template: TemplateFile,
+  { editable = false, edits }: PageRegionOptions = {},
+): T {
   const contentsOf = regionContents(template, tr.doc.type.schema);
   const targets: RegionTarget[] = [];
   tr.doc.forEach((section, sectionOffset) => {
@@ -51,14 +76,22 @@ export function setPageRegions<T extends Transform>(tr: T, template: TemplateFil
       page.forEach((node, regionOffset) => {
         const name = node.type.name;
         if (!isRegion(name)) return;
-        const content = contents[name];
-        if (node.content.eq(content) && node.attrs.editable === false) return;
-        targets.push({ pos: sectionOffset + pageOffset + regionOffset + 2, node, content });
+        const sectionName = (section.attrs.sectionName as string | null) ?? null;
+        const content = edits?.get(`${sectionName ?? ''}\u0000${REGIONS[name]}`) ?? contents[name];
+        const shown = editable ? withParagraph(content, node.type.schema) : content;
+        const kept =
+          node.content.eq(shown) || (isEmptyParagraph(shown) && isEmptyParagraph(node.content));
+        if (kept && node.attrs.editable === editable) return;
+        targets.push({
+          pos: sectionOffset + pageOffset + regionOffset + 2,
+          node,
+          content: shown,
+        });
       });
     });
   });
   for (const { pos, node, content } of targets.reverse()) {
-    const region = node.type.createChecked({ ...node.attrs, editable: false }, content, node.marks);
+    const region = node.type.createChecked({ ...node.attrs, editable }, content, node.marks);
     tr.replaceWith(pos, pos + node.nodeSize, region);
   }
   return tr;

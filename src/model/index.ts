@@ -23,6 +23,7 @@ export {
   readDocumentFile,
   readStoredContent,
   writeDocumentFile,
+  writeStoredContent,
 } from './format/document-format-convert.js';
 export type { DocxOptions } from './format/docx.js';
 export { writeDocx } from './format/docx.js';

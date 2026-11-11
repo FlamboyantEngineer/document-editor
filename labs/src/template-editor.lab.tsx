@@ -1,7 +1,8 @@
 // The template editor beside the document editor: each change to the template's settings restyles
 // the document and lays its pages out again as it is made. The template inherits from the base
 // template; its fields show the inherited values until it sets its own. The preview document shows
-// every style the template sets, and each of its sections.
+// every style the template sets, and each of its sections. The pages' headers and footers are the
+// template's, edited in place.
 
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useState } from 'react';
@@ -11,6 +12,7 @@ import {
   type DocumentLayout,
   TemplateEditor,
   TemplateJsonEditor,
+  withRegionChange,
 } from '../../src/components/index.js';
 import {
   assignElementIds,
@@ -120,6 +122,7 @@ function Lab() {
         template={resolved}
         layout={layout}
         onLayoutChange={setLayout}
+        onRegionChange={(change) => setOwn((template) => withRegionChange(template, change))}
         zoom={zoom}
         onZoomChange={setZoom}
         toolbar
