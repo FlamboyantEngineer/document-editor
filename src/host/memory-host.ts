@@ -15,7 +15,9 @@ import type {
   IdentityAdapter,
   ReferenceSourceAdapter,
   SavedState,
+  ScriptDiagnostic,
   ScriptRunnerAdapter,
+  ScriptVocabularyEntry,
   StoredAsset,
   StoredDocument,
   StoredTemplate,
@@ -44,6 +46,10 @@ export interface MemoryHostOptions {
   code?: Readonly<Record<string, string>> | undefined;
   /** Produces a script's content; without it the host runs no scripts. A throw is a failure. */
   scripts?: ((request: { source: string; document: DocumentFile }) => StoredContent) | undefined;
+  /** The names the scripts can use, which the script editor completes and documents. */
+  scriptVocabulary?: readonly ScriptVocabularyEntry[] | undefined;
+  /** Checks a script without running it, returning its problems. */
+  checkScript?: ((source: string) => readonly ScriptDiagnostic[]) | undefined;
   /** The time a document is saved at, which its version records. Defaults to now. */
   now?: (() => Date) | undefined;
 }
@@ -236,8 +242,13 @@ function createMemoryCodeSource(files: Readonly<Record<string, string>>): CodeSo
 /** Runs scripts with the function given, its throw an `unavailable` failure with the thrown message. */
 function createMemoryScripts(
   produce: NonNullable<MemoryHostOptions['scripts']>,
+  { scriptVocabulary, checkScript }: MemoryHostOptions,
 ): ScriptRunnerAdapter {
   return {
+    vocabulary: scriptVocabulary,
+    ...(checkScript
+      ? { check: (source: string) => Promise.resolve({ ok: true, value: checkScript(source) }) }
+      : {}),
     run: ({ source, document }) => {
       try {
         return Promise.resolve({ ok: true, value: produce({ source, document }) });
@@ -281,6 +292,6 @@ export function createMemoryHost(options: MemoryHostOptions = {}): EditorHost {
     glossary: createMemoryGlossary(options.glossary ?? [], now),
     references: createMemoryReferences(options.citations ?? []),
     comments: createMemoryComments(identity, options.comments),
-    ...(options.scripts ? { scripts: createMemoryScripts(options.scripts) } : {}),
+    ...(options.scripts ? { scripts: createMemoryScripts(options.scripts, options) } : {}),
   };
 }

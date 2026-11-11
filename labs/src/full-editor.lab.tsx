@@ -32,7 +32,6 @@ import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
   createDocumentSchema,
-  type DocumentFile,
   readDocumentFile,
   resolveTemplateFile,
 } from '../../src/model/index.js';
@@ -44,6 +43,7 @@ import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument, text } from './lab-document.js';
 import { pagesLaidOut } from './lab-ready.js';
+import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -90,16 +90,10 @@ const CITATIONS = [
   },
 ];
 
-// The lab's scripts: each states its script and how many blocks the document has, and one that
-// asks to fail throws.
-function runLabScript({ source, document }: { source: string; document: DocumentFile }) {
-  if (source.includes('fail')) throw new Error('The script failed.');
-  const blocks = document.sections.reduce((sum, section) => sum + section.content.length, 0);
-  return [{ type: 'paragraph', content: [text(`${source.trim()}: ${String(blocks)} blocks.`)] }];
-}
-
 const HOST = createMemoryHost({
   scripts: runLabScript,
+  scriptVocabulary: LAB_SCRIPT_VOCABULARY,
+  checkScript: checkLabScript,
   code: CODE,
   glossary: GLOSSARY,
   citations: CITATIONS,
@@ -186,7 +180,14 @@ function initialState(): EditorState {
       content: [text('Locked by its workflow state: this paragraph cannot change.')],
     },
     // A script block the host runs each time the document opens.
-    { type: 'script', attrs: { id: '5c41b7e1', source: 'Status', refresh: 'open' } },
+    {
+      type: 'script',
+      attrs: {
+        id: '5c41b7e1',
+        source: 'render.paragraph(`Status: ${document.blocks} blocks.`)',
+        refresh: 'open',
+      },
+    },
     {
       type: 'paragraph',
       content: [

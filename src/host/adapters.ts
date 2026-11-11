@@ -129,6 +129,29 @@ export interface CodeSourceAdapter {
   resolve(url: string, signal?: AbortSignal): Promise<HostResult<ResolvedCode>>;
 }
 
+/** A name a script can use: an object, a function, a property, or a snippet it inserts. */
+export interface ScriptVocabularyEntry {
+  /** The name as written, such as `render.paragraph`; a member's name follows its object's. */
+  readonly name: string;
+  readonly kind?: 'object' | 'function' | 'property' | 'snippet' | 'keyword' | undefined;
+  /** How it is called, such as `render.paragraph(text)`. */
+  readonly signature?: string | undefined;
+  /** One line on what it is. */
+  readonly description?: string | undefined;
+  /** More on it, shown beside the completions and in the reference. */
+  readonly documentation?: string | undefined;
+  /** The text a completion inserts in place of the name, such as a snippet's body. */
+  readonly insertText?: string | undefined;
+}
+
+/** A problem a check found in a script, by its line and column from 1. */
+export interface ScriptDiagnostic {
+  readonly message: string;
+  readonly line?: number | undefined;
+  readonly column?: number | undefined;
+  readonly severity?: 'error' | 'warning' | undefined;
+}
+
 /** Runs a document's scripts, producing the content each script block shows. */
 export interface ScriptRunnerAdapter {
   /** The content a script produces, run against the document as it is. */
@@ -136,6 +159,10 @@ export interface ScriptRunnerAdapter {
     request: { blockId: string; source: string; document: DocumentFile },
     signal?: AbortSignal,
   ): Promise<HostResult<StoredContent>>;
+  /** The names a script can use, which the script editor completes and documents. */
+  readonly vocabulary?: readonly ScriptVocabularyEntry[] | undefined;
+  /** Checks a script without running it; an error keeps it from being applied. */
+  check?(source: string, signal?: AbortSignal): Promise<HostResult<readonly ScriptDiagnostic[]>>;
 }
 
 /** Completes the text a writer is typing, such as through a language model. */

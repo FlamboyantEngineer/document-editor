@@ -195,7 +195,9 @@ export function ObjectDialogs({
     case 'abbreviation':
       return hosted.glossary ? <AbbreviationDialog {...shared} glossary={hosted.glossary} /> : null;
     case 'script':
-      return hosted.scriptRunner ? <ScriptDialog {...shared} runner={hosted.scriptRunner} /> : null;
+      return hosted.scriptRunner ? (
+        <ScriptDialog {...shared} runner={hosted.scriptRunner} template={hosted.template} />
+      ) : null;
     case 'caption':
       return <CaptionDialog {...shared} />;
     case 'linked-code':

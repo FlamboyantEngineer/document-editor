@@ -275,6 +275,8 @@ describe('createMemoryHost', () => {
   it('DOCE-HOST-1.11 DOCE-HOST-3.9 runs scripts with the function given, a throw a failure', async () => {
     expect(createMemoryHost().scripts).toBeUndefined();
     const host = createMemoryHost({
+      scriptVocabulary: [{ name: 'render', kind: 'object' }],
+      checkScript: (source) => (source === 'bad' ? [{ message: 'Bad', line: 1 }] : []),
       scripts: ({ source, document }) => {
         if (source === 'fail') throw new Error('Broken');
         return [
@@ -296,6 +298,11 @@ describe('createMemoryHost', () => {
     ).resolves.toEqual({
       ok: false,
       error: { kind: 'unavailable', message: 'Broken' },
+    });
+    expect(host.scripts?.vocabulary).toEqual([{ name: 'render', kind: 'object' }]);
+    await expect(host.scripts?.check?.('bad')).resolves.toEqual({
+      ok: true,
+      value: [{ message: 'Bad', line: 1 }],
     });
   });
 });

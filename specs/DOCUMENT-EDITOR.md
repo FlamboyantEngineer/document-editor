@@ -171,6 +171,13 @@ While the editor has a `scriptRunner`, the toolbar's insert group shall offer a 
 Implementation: `src/components/document-editor/script-dialog.tsx`, `src/components/document-editor/script-entries.ts`, `src/components/document-editor/insert-controls.tsx`
 Verification: `e2e/full-editor.spec.ts`
 
+### DOCE-EDITOR-4.9 - The script editor
+
+The script dialog shall be the script editor (`de-script-editor`): the script (`de-script-editor__source`) in the base library's code editor, which completes, at the caret, an object's members after its dot and the names without an object otherwise (`scriptCompletions`), from the host's `vocabulary` then the standard names and keywords every script has (`SCRIPT_STANDARD_VOCABULARY`), with each one's signature and documentation, and documents the name under the pointer (`scriptEntryAt`); beside it (`de-script-editor__aside`), a Preview tab (`de-script-editor__preview`, with `data-status`), which runs the script on asking (Refresh preview) through the host's runner without changing the document and shows what it produced in the template's look, or why it failed, and goes back to not run whenever the script changes; and a Reference tab (`de-script-editor__reference`) listing the names by the object they belong to (`groupScriptVocabulary`, each a `de-script-editor__entry` with `data-kind`), found by a filter. A moment after the script stops changing, the host's `check` marks the problems it finds, which keep the script from being applied.
+
+Implementation: `src/components/document-editor/script-dialog.tsx`, `src/components/document-editor/script-panes.tsx`, `src/components/document-editor/script-language.ts`
+Verification: `src/components/document-editor/script-language.test.ts`, `e2e/full-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -277,6 +284,13 @@ Verification: `e2e/versions.spec.ts`
 
 | Hook                                    | Kind      | Values                                                 | Description                                                                             |
 | --------------------------------------- | --------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `de-script-editor`                      | root      |                                                        | The script editor in the script dialog.                                                 |
+| `de-script-editor__source`              | slot      |                                                        | The script's code editor.                                                               |
+| `de-script-editor__aside`               | slot      |                                                        | The preview and reference tabs.                                                         |
+| `de-script-editor__preview`             | slot      |                                                        | The preview, with `data-status`.                                                        |
+| `de-script-editor__status`              | slot      |                                                        | What the preview says while it shows no output.                                         |
+| `de-script-editor__reference`           | slot      |                                                        | The names a script can use.                                                             |
+| `de-script-editor__entry`               | slot      |                                                        | One name in the reference, with `data-kind`.                                            |
 | `de-document-editor`                    | root      |                                                        | The editor, carrying the template's `--doc-*` values.                                   |
 | `de-document-editor__measure`           | slot      |                                                        | The hidden slot the pages are measured in.                                              |
 | `de-document-editor__toolbar`           | slot      |                                                        | The editor's toolbar, with `toolbar`.                                                   |
