@@ -25,5 +25,19 @@ export default defineConfig({
     url: `${origin}/index.html`,
     reuseExistingServer: !process.env.CI,
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: /\.performance\.spec\.ts$/,
+    },
+    // Timing budgets run after every other test, with no other worker sharing the machine.
+    {
+      name: 'performance',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /\.performance\.spec\.ts$/,
+      dependencies: ['chromium'],
+      fullyParallel: false,
+    },
+  ],
 });

@@ -11,14 +11,14 @@ The spike tries the paged projection method (PG-40, P0-9) on the library's own c
 
 ## The checks
 
-| #   | Check                                                                  | Result                                                                     | Where                          |
-| --- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------ |
-| 1   | Caret, arrows, selection, Backspace and Enter across a split paragraph | Pass                                                                       | `e2e/spike-projection.spec.ts` |
-| 2   | Cell selection and column resize across a split table                  | Pass                                                                       | same                           |
-| 3   | IME composition and spellcheck at a page break                         | Pass (Chromium)                                                            | same                           |
-| 4   | Undo across a repagination                                             | Pass, by construction                                                      | same                           |
-| 5   | Typing p95 ≤ 32 ms at 300 pages                                        | Pass: **17 ms** (today's editor: 18 ms)                                    | same                           |
-| 6   | Exact position mapping on generated edits (property test)              | Pass: 60 generated layouts, then 1,000 generated edits mirrored either way | `projection-map.test.ts`       |
+| #   | Check                                                                  | Result                                                                     | Where                                                                   |
+| --- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1   | Caret, arrows, selection, Backspace and Enter across a split paragraph | Pass                                                                       | `e2e/spike-projection.spec.ts`                                          |
+| 2   | Cell selection and column resize across a split table                  | Pass                                                                       | same                                                                    |
+| 3   | IME composition and spellcheck at a page break                         | Pass (Chromium)                                                            | same                                                                    |
+| 4   | Undo across a repagination                                             | Pass, by construction                                                      | same                                                                    |
+| 5   | Typing p95 ≤ 32 ms at 300 pages                                        | Pass: **17 ms** (today's editor: 18 ms)                                    | `e2e/spike-projection.performance.spec.ts`, alone after the other tests |
+| 6   | Exact position mapping on generated edits (property test)              | Pass: 60 generated layouts, then 1,000 generated edits mirrored either way | `projection-map.test.ts`                                                |
 
 ### Measurements at 300 pages
 

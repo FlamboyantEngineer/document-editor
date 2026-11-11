@@ -1,6 +1,7 @@
 // The paged projection spike's browser checks (PG-40, P0-9): input and selection routed between a
 // read-only paged projection and the canonical whole document. Check 6, exact position mapping on
-// generated edits, is the property test in labs/src/spikes/projection-map.test.ts.
+// generated edits, is the property test in labs/src/spikes/projection-map.test.ts. Check 5, typing
+// latency at 300 pages, is spike-projection.performance.spec.ts, which runs with nothing beside it.
 
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.js';
@@ -75,11 +76,6 @@ async function expectInSync(page: Page) {
   const { outOfSync, resyncs, refused } = await stats(page);
   expect({ outOfSync, resyncs, refused }).toEqual({ outOfSync: 0, resyncs: 0, refused: 0 });
 }
-
-const percentile = (values: readonly number[], at: number) => {
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * at))] ?? 0;
-};
 
 test.describe('paged projection spike', () => {
   test('check 1: caret, arrows, selection, Backspace and Enter across a split paragraph', async ({
@@ -242,40 +238,5 @@ test.describe('paged projection spike', () => {
     await page.keyboard.press('ControlOrMeta+y');
     await expect(page.locator('.lab-pages').getByText(added.trim().slice(0, 40))).toBeVisible();
     await expectInSync(page);
-  });
-
-  test('check 5: typing p95 at 300 pages', async ({ lab, page }) => {
-    test.setTimeout(180_000);
-    // Laying 300 pages out the first time takes longer than the fixture waits.
-    await page.goto('spike-projection.html?copies=60');
-    await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
-      timeout: 120_000,
-    });
-    void lab;
-    const pages = await page.evaluate(() => window.projectionSpike?.pages() ?? 0);
-    expect(pages).toBeGreaterThanOrEqual(300);
-    await page.locator('.lab-pages p[data-id="p2-30"]').first().scrollIntoViewIfNeeded();
-    await page
-      .locator('.lab-pages p[data-id="p2-30"]')
-      .first()
-      .click({ position: { x: 4, y: 8 } });
-    await page.evaluate(() => window.projectionSpike?.latencies.splice(0));
-    await page.keyboard.type('the quick brown fox jumps over the lazy dog '.repeat(4), {
-      delay: 60,
-    });
-    await expect.poll(async () => (await stats(page)).layouts).toBeGreaterThan(1);
-    const latencies = (await page.evaluate(() => window.projectionSpike?.latencies)) ?? [];
-    const { layoutMs } = await stats(page);
-    const report = {
-      pages,
-      keys: latencies.length,
-      p50: percentile(latencies, 0.5),
-      p95: percentile(latencies, 0.95),
-      layoutP50: percentile(layoutMs.slice(1), 0.5),
-      layoutMax: Math.max(...layoutMs.slice(1)),
-    };
-    test.info().annotations.push({ type: 'typing', description: JSON.stringify(report) });
-    console.log(JSON.stringify(report));
-    expect(report.p95).toBeLessThanOrEqual(32);
   });
 });
