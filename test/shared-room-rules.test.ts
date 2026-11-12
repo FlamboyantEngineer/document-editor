@@ -33,8 +33,8 @@ function roomCapabilities({ edit, suggest, comment }: EditorCapabilities): strin
 
 const READERS: Record<string, EditorCapabilities> = {
   editor: FULL_CAPABILITIES,
-  suggester: { edit: false, suggest: true, comment: true },
-  commenter: { edit: false, suggest: false, comment: true },
+  suggester: { ...READ_ONLY_CAPABILITIES, suggest: true, comment: true },
+  commenter: { ...READ_ONLY_CAPABILITIES, comment: true },
   reader: READ_ONLY_CAPABILITIES,
 };
 
