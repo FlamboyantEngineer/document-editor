@@ -4,7 +4,7 @@
 // measuring view too.
 
 import { DOMSerializer, type Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
 
@@ -111,6 +111,13 @@ function signatureView(node: ProseMirrorNode, view: EditorView): NodeView {
   };
 }
 
+// Whether typing replaces a selected node: as its type's spec says (`replaceOnType`), or else for
+// inline nodes only, so typing over a selected block object, such as linked code, leaves it.
+function isReplacedOnType(node: ProseMirrorNode): boolean {
+  const replaces = node.type.spec.replaceOnType as unknown;
+  return typeof replaces === 'boolean' ? replaces : node.isInline;
+}
+
 /** Which code shows line numbers. */
 export type LineNumbers = 'all' | 'linked' | 'none';
 
@@ -120,7 +127,10 @@ export interface ObjectViewsOptions {
   readonly lineNumbers?: LineNumbers | undefined;
 }
 
-/** Draws code with its line numbers and signatures from their vector, in every view. */
+/**
+ * Draws code with its line numbers and signatures from their vector, in every view, and keeps a
+ * selected node that is not replaced on typing (`isReplacedOnType`) from the writer's typing.
+ */
 export function createObjectViews({
   lineNumbers: numbered = 'linked',
 }: ObjectViewsOptions = {}): Plugin {
@@ -128,6 +138,8 @@ export function createObjectViews({
   return new Plugin({
     key: new PluginKey('object-views'),
     props: {
+      handleTextInput: ({ state }) =>
+        state.selection instanceof NodeSelection && !isReplacedOnType(state.selection.node),
       nodeViews: {
         signature: (node, view) => signatureView(node, view),
         ...(numbered === 'none' ? {} : { linked_code_block: code }),

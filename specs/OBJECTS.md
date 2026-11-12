@@ -13,10 +13,10 @@ Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.2 - Linked code
 
-`setLinkedCode({ url, code, language, startLine })` shall insert linked code where a new block goes, selected, or change the linked code selected. `parseCodeLines(url)` reads the lines a URL's fragment names, such as `#L10-L20` or `#L7`.
+`setLinkedCode({ url, code, language, startLine })` shall insert linked code where a new block goes, selected, or change the linked code selected. `parseCodeLines(url)` reads the lines a URL's fragment names, such as `#L10-L20` or `#L7`. Typing while linked code, or any other block object, is selected leaves it, so a stray key never replaces it; the object views, which the editing plugins install, keep the writer's typed text from replacing a selected node unless its type replaces on typing: as its node spec's `replaceOnType` says, or else for inline nodes, such as inline math, only.
 
-Implementation: `src/engine/object-commands.ts`, `src/model/linked-code.ts`
-Verification: `src/engine/object-commands.test.ts`
+Implementation: `src/engine/object-commands.ts`, `src/model/linked-code.ts`, `src/engine/object-views.ts`
+Verification: `src/engine/object-commands.test.ts`, `src/engine/object-views.test.ts`
 
 ### DOCE-OBJECTS-1.3 - Math
 
