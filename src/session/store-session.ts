@@ -14,7 +14,9 @@ import type {
   DocumentSessionOptions,
   SessionDocument,
   SessionStateContext,
+  SessionStateUpdate,
 } from './document-session.js';
+import type { MergeConflict } from './merge.js';
 import {
   loadPinnedTemplate,
   type OpenedDocument,
@@ -23,6 +25,7 @@ import {
 } from './open-document.js';
 import { followSession } from './session-follow.js';
 import type { SessionStatus } from './status.js';
+import { createStoreRefresh } from './store-refresh.js';
 import { createStoreSaving, storeBaseline } from './store-saving.js';
 import { createValueStore } from './value-store.js';
 
@@ -76,6 +79,7 @@ export function createSessionStores(
     dirty: false,
   });
   const document = createValueStore<SessionDocument | null>(null);
+  const conflicts = createValueStore<readonly MergeConflict[]>([]);
   // The template a state is made in reads the loaded one until the document shows.
   let loaded: TemplateFile | null = null;
   const context: SessionStateContext = {
@@ -93,7 +97,7 @@ export function createSessionStores(
   const setLoaded = (template: TemplateFile) => {
     loaded = template;
   };
-  return { status, document, context, current, setLoaded };
+  return { status, document, conflicts, context, current, setLoaded };
 }
 
 export type SessionStores = ReturnType<typeof createSessionStores>;
@@ -113,14 +117,36 @@ export async function changeTemplate(
   return { doc: shown.state.doc, saved: loaded.value.saved };
 }
 
+// Commits the editor's new state, measuring a changed document for saving.
+function commitState(
+  { document, saving }: { document: SessionStores['document']; saving: StoreSaving | null },
+  update: SessionStateUpdate,
+) {
+  const shown = document.get();
+  if (!shown) return;
+  const state = typeof update === 'function' ? update(shown.state) : update;
+  if (state === shown.state) return;
+  document.set({ ...shown, state });
+  if (state.doc !== shown.state.doc) saving?.changed(state.doc, shown.pin);
+}
+
 /** Opens a document from the host's document store (DOCE-SESSION-1, DOCE-SESSION-2). */
 export function createStoreSession(options: DocumentSessionOptions): DocumentSession {
   const { host, documentId } = options;
   const schema = options.schema ?? createDocumentSchema();
   const controller = new AbortController();
   const stores = createSessionStores(options);
-  const { status, document } = stores;
+  const { status, document, conflicts } = stores;
   let saving: StoreSaving | null = null;
+  const refresh = createStoreRefresh({
+    host,
+    documentId,
+    schema,
+    signal: controller.signal,
+    document,
+    conflicts,
+    saving: () => saving,
+  });
   const follow = followSession({
     host,
     documentId,
@@ -141,19 +167,26 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     document.set(read.value);
     const autosaveDelay = options.autosaveDelay ?? DEFAULT_AUTOSAVE_DELAY;
     saving = createStoreSaving(
-      { host, documentId, status, current: stores.current, autosaveDelay },
-      storeBaseline(read.value.state.doc, {
-        revision: opened.value.stored.revision,
-        pin: read.value.pin,
-      }),
+      {
+        host,
+        documentId,
+        status,
+        current: stores.current,
+        autosaveDelay,
+        onConflict: refresh.onConflict,
+      },
+      storeBaseline(read.value.state.doc, opened.value.stored),
     );
     follow.followTemplate(read.value.pin, opened.value.template.saved);
+    stopRefresh = refresh.follow();
     status.set({ ...status.get(), load: 'ready' });
     return true;
   };
 
+  let stopRefresh = () => undefined as void;
   const close = () => {
     controller.abort();
+    stopRefresh();
     saving?.close();
     follow.stop();
   };
@@ -164,15 +197,9 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     mode: 'store',
     status,
     document,
+    conflicts,
     ready: load(),
-    update: (update) => {
-      const shown = document.get();
-      if (!shown) return;
-      const state = typeof update === 'function' ? update(shown.state) : update;
-      if (state === shown.state) return;
-      document.set({ ...shown, state });
-      if (state.doc !== shown.state.doc) saving?.changed(state.doc, shown.pin);
-    },
+    update: (update) => commitState({ document, saving }, update),
     setTemplate: async (pin) => {
       const changed = await changeTemplate({ host, signal: controller.signal }, stores, pin);
       if (!changed) return false;
@@ -182,6 +209,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     },
     save: () => saving?.save() ?? Promise.resolve(),
     flush: () => saving?.flush() ?? Promise.resolve(true),
+    resolveConflict: refresh.resolve,
     hasUnsavedChanges: () => saving?.hasUnsavedChanges() ?? false,
     close,
   };

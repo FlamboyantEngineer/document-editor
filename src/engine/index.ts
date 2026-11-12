@@ -227,6 +227,7 @@ export { isReferencePlace, repairPastedReferences } from './reference-places.js'
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
+export { replaceDocumentContent } from './replace-document-content.js';
 export { revealRange, selectionAddress } from './reveal.js';
 export type { SectionFootnoteNumbersOptions } from './section-footnote-numbers.js';
 export {
