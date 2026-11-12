@@ -44,12 +44,6 @@ export {
 } from './format/template-format-resolve.js';
 export type { SettingShape } from './format/template-format-shape.js';
 export { TEMPLATE_SHAPE } from './format/template-format-shape.js';
-export type { TemplateValidationOptions } from './format/template-format-validate.js';
-export {
-  isTemplateColor,
-  isTemplateLength,
-  validateTemplateFile,
-} from './format/template-format-validate.js';
 export * from './format/template-format-validate.js';
 export type { ZipEntry } from './format/zip.js';
 export { crc32, writeZip } from './format/zip.js';
