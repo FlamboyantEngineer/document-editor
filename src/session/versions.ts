@@ -23,8 +23,8 @@ import type {
   SessionStateUpdate,
 } from './document-session.js';
 import { failure, loadPinnedTemplate, readStored } from './open-document.js';
-import { groupVersions, type VersionGroup } from './version-groups.js';
 import { createValueStore, type ValueStore } from './value-store.js';
+import { groupVersions, type VersionGroup } from './version-groups.js';
 
 /** A version about to be saved: its content and name, which a `beforeVersion` hook may change. */
 export interface NewVersion {
@@ -74,6 +74,8 @@ export interface DocumentVersionsOptions {
 
 /** A document's versions (DOCE-VERSIONS-4, DOCE-VERSIONS-5). */
 export interface DocumentVersions<R> {
+  /** The session whose document's versions these are. */
+  readonly session: DocumentSession;
   readonly list: ValueStore<VersionList>;
   /** The historical view shown, or null while the document is. */
   readonly view: ValueStore<HistoricalView<R> | null>;
@@ -158,22 +160,15 @@ async function restoreThrough(session: DocumentSession, opened: OpenedVersion) {
   return session.status.get().error;
 }
 
-/** Follows a document's versions beside its session (DOCE-VERSIONS-4.1). */
-export function createDocumentVersions<R>(options: DocumentVersionsOptions): DocumentVersions<R> {
-  const { host, session } = options;
-  const { documentId } = session;
-  // Versions are read with the session's schema, so a restored version's nodes are the document's.
-  const schemaOf = () => session.document.get()?.state.schema ?? createDocumentSchema();
+// The host's list of a document's versions, followed until `stop`.
+function followVersionList(store: VersionStoreAdapter | undefined, documentId: string) {
   const list = createValueStore<VersionList>({
     status: 'loading',
     versions: [],
     groups: [],
     error: null,
   });
-  const view = createValueStore<HistoricalView<R> | null>(null);
   const controller = new AbortController();
-  const store = host.versions;
-
   const refresh = async () => {
     if (!store) {
       list.set({ ...list.get(), status: 'failed', error: unsupported('list') });
@@ -181,30 +176,82 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
     }
     const listed = await store.list(documentId, controller.signal);
     if (controller.signal.aborted) return;
+    const { value } = listed.ok ? listed : { value: null };
     list.set(
-      listed.ok
-        ? {
-            status: 'ready',
-            versions: listed.value,
-            groups: groupVersions(listed.value),
-            error: null,
-          }
-        : { ...list.get(), status: 'failed', error: listed.error },
+      value
+        ? { status: 'ready', versions: value, groups: groupVersions(value), error: null }
+        : { ...list.get(), status: 'failed', error: listed.ok ? null : listed.error },
     );
   };
-  const stop = store?.subscribe?.(documentId, () => void refresh()) ?? (() => undefined);
+  const unsubscribe = store?.subscribe?.(documentId, () => void refresh()) ?? (() => undefined);
   void refresh();
+  const stop = () => {
+    controller.abort();
+    unsubscribe();
+  };
+  return { list, refresh, stop };
+}
 
+type ViewParts<R> = Pick<
+  DocumentVersions<R>,
+  'view' | 'viewVersion' | 'updateView' | 'returnFromView'
+>;
+
+// The historical view: versions opened by `open`, shown until the reader returns.
+function createHistoricalView<R>(
+  open: (revision: string) => Promise<HostResult<OpenedVersion>>,
+): ViewParts<R> {
+  const view = createValueStore<HistoricalView<R> | null>(null);
+  return {
+    view,
+    viewVersion: async (revision, { returnTo, compareWith = null }) => {
+      const [version, previous] = await Promise.all([
+        open(revision),
+        compareWith === null ? null : open(compareWith),
+      ]);
+      if (!version.ok) return version;
+      if (previous && !previous.ok) return previous;
+      // A view opened while another shows keeps what the reader had before the first.
+      const shown = {
+        version: version.value,
+        previous: previous?.value ?? null,
+        returnTo: view.get()?.returnTo ?? returnTo,
+      };
+      view.set(shown);
+      return { ok: true, value: shown };
+    },
+    updateView: (update) => {
+      const shown = view.get();
+      if (!shown) return;
+      const state = typeof update === 'function' ? update(shown.version.state) : update;
+      view.set({ ...shown, version: { ...shown.version, state } });
+    },
+    returnFromView: () => {
+      const shown = view.get();
+      view.set(null);
+      return shown?.returnTo ?? null;
+    },
+  };
+}
+
+/** Follows a document's versions beside its session (DOCE-VERSIONS-4.1). */
+export function createDocumentVersions<R>(options: DocumentVersionsOptions): DocumentVersions<R> {
+  const { host, session } = options;
+  const { documentId } = session;
+  const store = host.versions;
+  const { list, refresh, stop } = followVersionList(store, documentId);
+  // Versions are read with the session's schema, so a restored version's nodes are the document's.
+  const schemaOf = () => session.document.get()?.state.schema ?? createDocumentSchema();
   const open = (revision: string): Promise<HostResult<OpenedVersion>> => {
     const version = findVersion(list.get(), revision);
     if (!store) return Promise.resolve({ ok: false, error: unsupported('open') });
     if (!version) return Promise.resolve({ ok: false, error: failure('not-found') });
     return openVersion({ ...options, schema: schemaOf(), store }, version);
   };
-
   return {
+    session,
     list,
-    view,
+    ...createHistoricalView<R>(open),
     refresh,
     saveVersion: async (label) => {
       if (!store?.create) return { ok: false, error: unsupported('save') };
@@ -221,38 +268,12 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
       if (renamed.ok) await refresh();
       return renamed;
     },
-    viewVersion: async (revision, { returnTo, compareWith = null }) => {
-      const [version, previous] = await Promise.all([
-        open(revision),
-        compareWith === null ? null : open(compareWith),
-      ]);
-      if (!version.ok) return version;
-      if (previous && !previous.ok) return previous;
-      const shown = { version: version.value, previous: previous?.value ?? null, returnTo };
-      // A view opened while another shows keeps what the reader had before the first.
-      view.set({ ...shown, returnTo: view.get()?.returnTo ?? returnTo });
-      return { ok: true, value: shown };
-    },
-    updateView: (update) => {
-      const shown = view.get();
-      if (!shown) return;
-      const state = typeof update === 'function' ? update(shown.version.state) : update;
-      view.set({ ...shown, version: { ...shown.version, state } });
-    },
-    returnFromView: () => {
-      const shown = view.get();
-      view.set(null);
-      return shown?.returnTo ?? null;
-    },
     restore: async (revision) => {
       const opened = await open(revision);
       if (!opened.ok) return opened;
       const error = await restoreThrough(session, opened.value);
       return error ? { ok: false, error } : { ok: true, value: opened.value.version };
     },
-    close: () => {
-      controller.abort();
-      stop();
-    },
+    close: stop,
   };
 }

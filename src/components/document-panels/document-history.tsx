@@ -12,16 +12,21 @@ import {
   VersionHistory,
   type VersionHistoryVersion,
 } from '@flamboyantengineer/ui-components/version-history';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { VersionChangeDisplay } from '../../engine/version-changes.js';
 import type { DocumentVersion, HostResult, IdentityAdapter } from '../../host/adapters.js';
 import type { EditorCapabilities } from '../../host/capabilities.js';
 import type { TemplateFile } from '../../model/format/template-format.js';
-import type { SessionStateUpdate } from '../../session/document-session.js';
+import type { DocumentSession, SessionStateUpdate } from '../../session/document-session.js';
 import type { VersionGroup } from '../../session/version-groups.js';
-import type { DocumentVersions, HistoricalView } from '../../session/versions.js';
-import type { DocumentEditorProps } from '../document-editor/document-editor.js';
+import {
+  createDocumentVersions,
+  type DocumentVersions,
+  type DocumentVersionsOptions,
+  type HistoricalView,
+} from '../../session/versions.js';
 import { useSessionValue } from '../document-session/document-session.js';
 import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-labels.js';
 
@@ -56,7 +61,31 @@ export interface HistoricalEditorProps {
   /** A historical version never accepts changes. */
   editable: false;
   /** The older version compared with, or null. */
-  compare: NonNullable<DocumentEditorProps['compare']> | null;
+  compare: { previous: ProseMirrorNode; display?: VersionChangeDisplay | undefined } | null;
+}
+
+/**
+ * Follows a session's versions while the component is shown, and again whenever the session
+ * changes; null until the first are followed. The other options are read when they are.
+ */
+export function useDocumentVersions<R>(
+  options: Omit<DocumentVersionsOptions, 'session'> & { session: DocumentSession | null },
+): DocumentVersions<R> | null {
+  const [versions, setVersions] = useState<DocumentVersions<R> | null>(null);
+  const latest = useRef(options);
+  useEffect(() => {
+    latest.current = options;
+  });
+  const { session } = options;
+  useEffect(() => {
+    if (!session) return;
+    const opened = createDocumentVersions<R>({ ...latest.current, session });
+    // The versions are followed outside React, by this effect, and stop with it.
+
+    setVersions(opened);
+    return () => opened.close();
+  }, [session]);
+  return versions?.session === session ? versions : null;
 }
 
 // A host failure as an error the base library's dialogs show.

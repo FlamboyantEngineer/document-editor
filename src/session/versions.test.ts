@@ -21,7 +21,11 @@ const paragraph = (text: string): DocumentFile => ({
   ],
 });
 
-const TEMPLATE: TemplateFile = { formatVersion: BASE_TEMPLATE.formatVersion, id: 'report', name: 'Report' };
+const TEMPLATE: TemplateFile = {
+  formatVersion: BASE_TEMPLATE.formatVersion,
+  id: 'report',
+  name: 'Report',
+};
 
 const version = (sequence: number, label: string | null = null): DocumentVersion => ({
   revision: `rev-${String(sequence)}`,

@@ -13,6 +13,7 @@ import {
   DocumentHistoryBanner,
   type DocumentHistoryProps,
   historicalEditorProps,
+  useDocumentVersions,
 } from './document-history.js';
 
 const paragraph = (text: string): DocumentFile => ({
@@ -115,7 +116,7 @@ describe('DocumentHistory', () => {
     render(<Host versions={versions} />);
     const user = userEvent.setup();
     await user.click(await row(/Draft/));
-    await user.click(screen.getAllByRole('row')[0] as HTMLElement, { pointerEventsCheck: 0 });
+    await user.click(screen.getAllByRole('row')[0] as HTMLElement);
     await waitFor(() => expect(screen.getByRole('button', { name: /compare/i })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: /compare/i }));
     expect(await screen.findByText('Compared Two')).toBeVisible();
@@ -128,9 +129,23 @@ describe('DocumentHistory', () => {
       <Host versions={versions} capabilities={{ ...FULL_CAPABILITIES, saveVersion: false }} />,
     );
     await row(/Draft/);
-    expect(screen.queryByRole('button', { name: 'Save version…' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save version…' })).not.toBeInTheDocument();
     rerender(<Host versions={versions} capabilities={{ ...FULL_CAPABILITIES, history: false }} />);
     expect(screen.getByText('You cannot open this document’s versions.')).toBeVisible();
-    expect(screen.queryByRole('row')).toBeNull();
+    expect(screen.queryByRole('row')).not.toBeInTheDocument();
+  });
+
+  it('DOCE-VERSIONS-4.1 follows the versions of the session it is given', async () => {
+    const { host, session } = await openHistory();
+    function Count() {
+      const versions = useDocumentVersions<Markup>({ host, session });
+      const list = useSessionValue(
+        versions?.list ?? { get: () => null, subscribe: () => () => undefined },
+      );
+      return <p>{list ? `${String(list.versions.length)} versions` : 'Following'}</p>;
+    }
+    const { unmount } = render(<Count />);
+    expect(await screen.findByText('3 versions')).toBeVisible();
+    unmount();
   });
 });

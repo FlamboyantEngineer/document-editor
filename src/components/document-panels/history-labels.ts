@@ -27,8 +27,13 @@ export interface DocumentHistoryLabels {
   readonly returnToCurrent: string;
 }
 
-const savedTime = (version: DocumentVersion) =>
-  new Date(version.savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+let timeFormat: Intl.DateTimeFormat | null = null;
+
+// When a version was saved, in the reader's locale, with one formatter for every title.
+function savedTime(version: DocumentVersion) {
+  timeFormat ??= new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  return timeFormat.format(new Date(version.savedAt));
+}
 
 const plural = (count: number, one: string) => `${String(count)} ${one}${count === 1 ? '' : 's'}`;
 
