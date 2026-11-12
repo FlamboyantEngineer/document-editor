@@ -12,12 +12,15 @@ import type {
 import { cloneJson } from '../clone-json.js';
 import {
   DOCUMENT_FORMAT_VERSION,
+  type DocumentRead,
+  type DocumentReadOptions,
+  type DocumentReadPolicy,
+  type DocumentReadProblem,
   schemaAttrName,
   STORED_MARK_TYPES,
   STORED_NODE_TYPES,
   type StoredTypeMapping,
 } from './document-format.js';
-import type { TemplatePin } from './template-format.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -59,32 +62,6 @@ const SCHEMA_MARK_NAMES = new Map(
 
 function isRecord(value: unknown): value is Attrs {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-/** What a read does with stored content it cannot read: throw, drop it, or keep it as stored. */
-export type DocumentReadPolicy = 'throw' | 'drop' | 'keep';
-
-/** How a stored document is read. */
-export interface DocumentReadOptions {
-  /**
-   * Stored content the schema does not know or its parent does not allow. `throw`, the default,
-   * fails at the first; `drop` leaves it out; `keep` keeps each such node whole, written back
-   * unchanged, and drops unknown marks and attributes. Both lenient policies list every problem.
-   */
-  unknown?: DocumentReadPolicy | undefined;
-}
-
-/** Stored content a lenient read could not read, where it was, and whether it was kept. */
-export interface DocumentReadProblem {
-  path: string;
-  message: string;
-  kept: boolean;
-}
-
-/** An editor document read from a stored one, with what it could not read. */
-export interface DocumentRead {
-  doc: ProseMirrorNode;
-  problems: DocumentReadProblem[];
 }
 
 interface ReadContext {
