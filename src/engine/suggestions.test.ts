@@ -9,9 +9,12 @@ import { documentKeys } from './document-editing.js';
 import {
   acceptAllSuggestions,
   acceptSuggestion,
+  decideSuggestions,
   listSuggestions,
   rejectAllSuggestions,
   rejectSuggestion,
+  suggestionAuthor,
+  suggestionDecisionOf,
 } from './suggestion-decisions.js';
 import { suggestTransaction } from './suggestions.js';
 import { markSystemChange } from './transaction-kind.js';
@@ -29,6 +32,15 @@ function positionOf(doc: Node, value: string): number {
     if (found < 0 && node.isText && node.text?.includes(value))
       found = pos + node.text.indexOf(value);
     return found < 0;
+  });
+  return found;
+}
+
+function textNode(doc: Node, value: string): Node | null {
+  let found: Node | null = null;
+  doc.descendants((node) => {
+    if (node.isText && node.text === value) found = node;
+    return found === null;
   });
   return found;
 }
@@ -246,5 +258,109 @@ describe('deciding suggestions', () => {
     ]);
     const again = file ? readDocumentFile(file, documentSchema).doc : null;
     expect(again && state?.doc.eq(again)).toBe(true);
+  });
+});
+
+describe('suggestion parts', () => {
+  type Part = {
+    text: string;
+    kind?: 'insertion' | 'deletion';
+    id?: string;
+    author?: string;
+    thread?: string;
+  };
+  const runs = (...parts: Part[]) =>
+    read({
+      type: 'paragraph',
+      content: parts.map(({ text, kind, id, author, thread }) => ({
+        type: 'text',
+        text,
+        ...(kind ? { marks: [{ type: kind, attrs: { id, author, thread } }] } : {}),
+      })),
+    });
+  const decideIn = (doc: Node, command: Command) => decide(EditorState.create({ doc }), command);
+
+  it('DOCE-SUGGESTIONS-2.4 groups the parts discussed in one thread as one suggestion', () => {
+    const doc = runs(
+      { text: 'Alpha ' },
+      { text: 'blue', kind: 'deletion', id: 'd1', author: 'writer', thread: 't1' },
+      { text: 'gamma', kind: 'insertion', id: 'i1', author: 'writer', thread: 't1' },
+    );
+    expect(listSuggestions(doc)).toEqual([
+      expect.objectContaining({ id: 'd1', thread: 't1', deleted: 'blue', inserted: 'gamma' }),
+    ]);
+    const accepted = decideIn(doc, acceptSuggestion('d1'));
+    expect(accepted && markup(accepted.doc)).toEqual(['Alpha gamma']);
+  });
+
+  it('DOCE-SUGGESTIONS-2.4 keeps parts named only by their threads apart', () => {
+    const doc = runs(
+      { text: 'one', kind: 'insertion', thread: 't1' },
+      { text: ' two ', kind: 'deletion', thread: 't2' },
+      { text: 'three', kind: 'insertion', thread: 't1' },
+    );
+    expect(listSuggestions(doc)).toEqual([
+      expect.objectContaining({ id: 't1', thread: 't1', inserted: 'onethree' }),
+      expect.objectContaining({ id: 't2', thread: 't2', deleted: ' two ' }),
+    ]);
+    const rejected = decideIn(doc, rejectSuggestion('t1'));
+    expect(rejected && markup(rejected.doc)).toEqual(['[- two ]']);
+  });
+
+  it('DOCE-SUGGESTIONS-2.5 falls back to the thread’s writer for an unattributed suggestion', () => {
+    const doc = runs({ text: 'one', kind: 'insertion', id: 'i1', thread: 't1' });
+    const [suggestion] = listSuggestions(doc);
+    const threadAuthor = (thread: string) => (thread === 't1' ? 'opener' : null);
+    expect(suggestion && suggestionAuthor(suggestion, threadAuthor)).toBe('opener');
+    const tr = EditorState.create({ doc }).tr;
+    decideSuggestions(tr, 'accept', { threadAuthor });
+    expect(textNode(tr.doc, 'one')?.marks.map((mark) => mark.attrs)).toEqual([
+      expect.objectContaining({ dataAuthor: 'opener' }),
+    ]);
+  });
+
+  it('DOCE-SUGGESTIONS-2.6 reports the suggestions a rejected insertion removes as decided', () => {
+    const doc = read(paragraph('Alpha'));
+    const end = positionOf(doc, 'Alpha') + 5;
+    const typed = suggest(select(EditorState.create({ doc }), end), typing(' blue sky'));
+    const at = typed ? positionOf(typed.doc, 'blue') : 0;
+    const nested = typed && suggest(select(typed, at, at + 4), backspace, 'reviewer');
+    expect(nested && markup(nested.doc)).toEqual(['Alpha[+ ][-blue][+ sky]']);
+    const [outer, inner] = nested ? listSuggestions(nested.doc) : [];
+    const tr = nested?.tr;
+    const report = tr && decideSuggestions(tr, 'reject', { ids: new Set([outer?.id ?? '']) });
+    expect(report).toEqual({
+      decision: 'reject',
+      suggestions: [expect.objectContaining({ id: outer?.id })],
+      dependents: [
+        { suggestion: expect.objectContaining({ id: inner?.id }), dependsOn: outer?.id },
+      ],
+    });
+    expect(tr && suggestionDecisionOf(tr)).toBe(report);
+    expect(tr && markup(tr.doc)).toEqual(['Alpha']);
+  });
+
+  it('DOCE-SUGGESTIONS-2.7 keeps who suggested accepted text', () => {
+    const doc = read(paragraph('Alpha'));
+    const end = positionOf(doc, 'Alpha') + 5;
+    const typed = suggest(select(EditorState.create({ doc }), end), typing('!'));
+    const accepted = typed && decide(typed, acceptAllSuggestions);
+    const inserted = accepted && textNode(accepted.doc, '!');
+    expect(accepted && markup(accepted.doc)).toEqual(['Alpha!']);
+    expect(inserted?.marks.map((mark) => [mark.type.name, mark.attrs.dataAuthor])).toEqual([
+      ['contributor', 'writer'],
+    ]);
+  });
+
+  it('DOCE-SUGGESTIONS-1.7 makes typing after deleting one replacement', () => {
+    const doc = read(paragraph('Alpha blue'));
+    const at = positionOf(doc, ' blue');
+    const back = suggest(select(EditorState.create({ doc }), at), backspace);
+    const twice = back && suggest(back, backspace);
+    const typed = twice && suggest(twice, typing('X'));
+    expect(typed && markup(typed.doc)).toEqual(['Alp[+X][-ha] blue']);
+    expect(typed && listSuggestions(typed.doc)).toEqual([
+      expect.objectContaining({ inserted: 'X', deleted: 'ha' }),
+    ]);
   });
 });
