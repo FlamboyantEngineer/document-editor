@@ -597,3 +597,41 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* The fields that edit math and captions in place: the layer covers the body, and the field sits
+ * over the caption line, or below the math, by its measured box (`--de-object-editors-*`). */
+.de-object-editors {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.de-object-editors__field {
+  position: absolute;
+  top: var(--de-object-editors-top);
+  left: var(--de-object-editors-left);
+  width: var(--de-object-editors-width);
+  pointer-events: auto;
+}
+
+.de-object-editors__field[data-kind='math'] {
+  top: calc(var(--de-object-editors-top) + var(--de-object-editors-height) + 4px);
+  min-width: 320px;
+  padding: 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 0.15);
+}
+
+.de-object-editors__field[data-kind='caption'] {
+  height: var(--de-object-editors-height);
+}
+
+.de-object-editors__field[data-kind='caption'] > .ui-inline-text-field {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  font: inherit;
+}
