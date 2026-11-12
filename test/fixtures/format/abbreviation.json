@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "Before " },
+            {
+              "type": "abbreviation",
+              "attrs": {
+                "entry": "sample-entryId",
+                "display": "sample-display",
+                "abbreviation": "sample-abbr",
+                "expansion": "sample-expansion",
+                "id": "abbreviation-1",
+                "author": "author-1",
+                "aiSession": "session-1"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

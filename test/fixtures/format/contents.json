@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "contents",
+          "attrs": {
+            "kind": "sample-tocType",
+            "depth": 8,
+            "referenceFilter": "sample-refFilter",
+            "id": "contents-1",
+            "author": "author-1",
+            "aiSession": "session-1"
+          }
+        }
+      ]
+    }
+  ]
+}

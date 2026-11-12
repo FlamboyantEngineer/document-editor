@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "figure",
+          "attrs": {
+            "kind": "sample-figureType",
+            "layout": "sample-objectLayout",
+            "src": "sample-src",
+            "assetId": "sample-fileAssetId",
+            "assetRevision": "sample-snapshotId",
+            "alt": "sample-alt",
+            "caption": "sample-caption",
+            "captionEnabled": false,
+            "width": "sample-width",
+            "height": "sample-height",
+            "id": "figure-1",
+            "author": "author-1",
+            "aiSession": "session-1",
+            "suggestionKind": "sample-suggestionSplitKind",
+            "suggestionId": "sample-suggestionSplitId"
+          }
+        }
+      ]
+    }
+  ]
+}

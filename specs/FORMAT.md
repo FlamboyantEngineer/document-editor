@@ -139,3 +139,28 @@ HTML from a word processor (`isWordHtml`) shall be cleaned of the word processor
 
 Implementation: `src/model/format/html.ts`, `src/engine/word-paste.ts`
 Verification: `src/model/format/html.test.ts`, `e2e/full-editor.spec.ts`
+
+## DOCE-FORMAT-7 - Contract tests
+
+Committed snapshots lock what stored and pasted documents depend on. Until the owner's switch to the library, a change to any of them shall come with the matching change to this spec or to DOCUMENT-SCHEMA.md and the updated snapshot, and needs no upgrade step; from the switch on, it shall also step `formatVersion`. A snapshot is updated with `npx vitest run -u` on the test that holds it, never by editing the test's expectations away.
+
+### DOCE-FORMAT-7.1 - Schema fingerprint
+
+The document schema's fingerprint shall match the committed `src/model/schema/schema-fingerprint.snapshot.json`: each node and mark type in schema order with its ordinal, its group, content and marks expressions and flags, each attribute's default (or that it is required) and the kinds of value it takes, its parse rules, and the markup it writes with its attributes at their defaults and with every attribute set. A change to an attribute default, a parse tag or the markup a type writes shall fail the test.
+
+Implementation: `src/model/schema/document-schema.ts`, `src/model/schema/node-order.ts`
+Verification: `src/model/schema/schema-fingerprint.test.ts`
+
+### DOCE-FORMAT-7.2 - Stored-format golden files
+
+`test/fixtures/format/` shall hold a stored document for every stored node type, a type that sits only inside another (list items, table rows and cells, columns) within its parent's file, and one for every stored mark type, with each stored attribute set away from its default. Each shall read and write back unchanged (DOCE-FORMAT-1.1), and a stored type or attribute name that changes shall fail to read.
+
+Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
+Verification: `src/model/format/stored-format-golden.test.ts`
+
+### DOCE-FORMAT-7.3 - Plugin and fragment-rule registries
+
+The editing plugins (DOCE-EDITING-3.1) shall run in a recorded order of plugin keys, with and without a template and from `createDocumentEditing` and its kit extension alike, and `FRAGMENT_RULES` shall record which types split, the attributes their whole block takes, and which join or continue by their own rule, naming only schema types and attributes.
+
+Implementation: `src/engine/document-editing.ts`, `src/model/pagination/fragments.ts`
+Verification: `src/engine/features.test.ts`

@@ -1,0 +1,40 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "orderedList",
+          "attrs": {
+            "start": 3,
+            "id": "orderedList-1",
+            "author": "author-1",
+            "aiSession": "session-1"
+          },
+          "content": [
+            {
+              "type": "listItem",
+              "attrs": { "id": "listItem-2", "author": "author-1", "aiSession": "session-1" },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "style": "sample-className",
+                    "id": "paragraph-3",
+                    "author": "author-1",
+                    "aiSession": "session-1",
+                    "suggestionKind": "sample-suggestionSplitKind",
+                    "suggestionId": "sample-suggestionSplitId",
+                    "level": 3
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

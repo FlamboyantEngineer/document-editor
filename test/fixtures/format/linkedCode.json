@@ -1,0 +1,23 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "linkedCode",
+          "attrs": {
+            "url": "sample-url",
+            "language": "sample-language",
+            "code": "sample-code",
+            "startLine": 3,
+            "id": "linkedCode-1",
+            "author": "author-1",
+            "aiSession": "session-1"
+          }
+        }
+      ]
+    }
+  ]
+}

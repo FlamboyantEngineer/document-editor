@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 3,
+            "title": true,
+            "style": "sample-className",
+            "id": "heading-1",
+            "author": "author-1",
+            "aiSession": "session-1",
+            "suggestionKind": "sample-suggestionSplitKind",
+            "suggestionId": "sample-suggestionSplitId"
+          },
+          "content": [{ "type": "text", "text": "Sample text" }]
+        }
+      ]
+    }
+  ]
+}

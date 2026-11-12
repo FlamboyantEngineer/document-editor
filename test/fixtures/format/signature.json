@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "template": "sample-template",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            { "type": "text", "text": "Before " },
+            {
+              "type": "signature",
+              "attrs": {
+                "person": "sample-userId",
+                "label": "sample-displayName",
+                "vector": "sample-vector",
+                "revision": "sample-signatureRevisionId",
+                "id": "signature-1",
+                "author": "author-1",
+                "aiSession": "session-1"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
