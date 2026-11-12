@@ -10,6 +10,7 @@ import type { EditorView } from 'prosemirror-view';
 import { cleanWordHtml, isWordHtml, type TemplateFile } from '../model/index.js';
 import { copyPastedSlice } from './clipboard-copies.js';
 import { copiedText, parsePastedText } from './clipboard-text.js';
+import { unwrapPastedEmbeds } from './embeds.js';
 import { flattenFootnotePaste } from './footnote-paste.js';
 import { repairPastedReferences } from './reference-places.js';
 
@@ -20,8 +21,13 @@ import { repairPastedReferences } from './reference-places.js';
 export type PasteFilter = (slice: Slice, state: EditorState) => Slice;
 
 // The library's own filters: footnote entries take one run of text and markers land only where a
-// footnote may be cited (DOCE-FOOTNOTES-1.6), and references only where one may go (D13).
-const libraryFilters: readonly PasteFilter[] = [flattenFootnotePaste, repairPastedReferences];
+// footnote may be cited (DOCE-FOOTNOTES-1.6), references only where one may go (D13), and a copy
+// of part of an embed comes in as its content (DOCE-EMBEDS-2.2).
+const libraryFilters: readonly PasteFilter[] = [
+  flattenFootnotePaste,
+  repairPastedReferences,
+  (slice) => unwrapPastedEmbeds(slice),
+];
 
 /** What the clipboard depends on. */
 export interface ClipboardOptions {
