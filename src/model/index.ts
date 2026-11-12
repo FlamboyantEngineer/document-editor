@@ -114,13 +114,7 @@ export {
   paragraphNumberingIndentationStyle,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
-export type { ChildLayout, ContainerMeasurement } from './pagination/container-split.js';
-export {
-  isContainerMeasurement,
-  splitBlockquote,
-  splitList,
-  splitListItem,
-} from './pagination/container-split.js';
+export * from './pagination/container-split.js';
 export * from './pagination/contents-split.js';
 export type { BlockRun, FragmentRule, FragmentRules } from './pagination/fragments.js';
 export {
@@ -132,11 +126,13 @@ export {
   joinFragments,
   makeWhole,
 } from './pagination/fragments.js';
+export { splitLayoutSection } from './pagination/layout-section-split.js';
 export type {
   LayoutBlock,
   LayoutRule,
   LayoutRuleOptions,
   LayoutRules,
+  MeasureInput,
   PageHeight,
   PageLayoutOptions,
   SplitBlock,

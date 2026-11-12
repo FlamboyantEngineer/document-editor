@@ -7,8 +7,9 @@ import {
   joinFragments,
   LAYOUT_RULES,
   type LayoutBlock,
-  splitBlockquote,
+  splitContainer,
   type SplitContext,
+  splitLayoutSection,
   splitList,
   splitListItem,
   splitTableWith,
@@ -62,7 +63,7 @@ describe('container splits', () => {
     expect(split?.head.node.childCount).toBe(2);
     expect(split?.tail[0]).toMatchObject({ height: 40, breakBefore: true });
     expect(split?.tail[0]?.node.attrs).toMatchObject({ order: 3, splitPartIndex: 1 });
-    expect(split?.tail[0]?.measurement).toEqual({ children: rows(2, 20) });
+    expect(split?.tail[0]?.measurement).toEqual({ children: rows(2, 20), overhead: 0 });
     expect(splitList(measured(list, 80, rows(4, 20)), 90, context)).toBeNull();
   });
 
@@ -119,7 +120,7 @@ describe('container splits', () => {
       paragraph('B'),
       paragraph('C'),
     ]);
-    const split = splitBlockquote(measured(quote, 64, rows(3, 20, 2)), 45, context);
+    const split = splitContainer(measured(quote, 64, rows(3, 20, 2)), 45, context);
     expect(split?.head.node.childCount).toBe(2);
     expect(split?.head.height).toBe(42);
     expect(split?.tail[0]).toMatchObject({ height: 22 });
@@ -151,5 +152,95 @@ describe('container splits', () => {
     const short = node('table', null, [row('table_header', 'Name'), row('table_cell', 'One')]);
     expect(splitTableWith(true)(measured(short, 35, layouts.slice(0, 2)), 20)).toBeNull();
     expect(createLayoutRules({ repeatTableHeader: false }).table?.split).toBeTypeOf('function');
+  });
+});
+
+describe('script block and layout section splits', () => {
+  const column = (id: string, children: Node[]) => node('layout_column', { dataId: id }, children);
+  const parts = (split: ReturnType<typeof splitContainer>) =>
+    [split?.head.node, ...(split?.tail.map((part) => part.node) ?? [])].filter(
+      (part): part is Node => Boolean(part),
+    );
+
+  it('DOCE-PAGINATION-4.6 splits a script block’s output between and through its blocks, and joins it back', () => {
+    const text = words(10);
+    const script = node('script_block', { dataId: 's1', script: 'report()' }, [
+      paragraph('Lead', { dataId: 'p1' }),
+      paragraph(text, { dataId: 'p2' }),
+    ]);
+    const block = {
+      ...measured(script, 74, [
+        { top: 0, bottom: 20 },
+        { top: 20, bottom: 70, measurement: lines() },
+      ]),
+      measurement: {
+        children: [
+          { top: 0, bottom: 20 },
+          { top: 20, bottom: 70, measurement: lines() },
+        ],
+        overhead: 4,
+      },
+    };
+    const through = LAYOUT_RULES.script_block?.split?.(block, 46, context) ?? null;
+    expect(through?.head.height).toBe(44);
+    expect(through?.head.node.lastChild?.textContent).toBe('w00 w01 w02 w03 ');
+    expect(through?.tail[0]).toMatchObject({ height: 34, breakBefore: true });
+    expect(through?.tail[0]?.node.attrs).toMatchObject({ script: 'report()', splitPartIndex: 1 });
+    const [joined] = joinFragments(parts(through));
+    expect(joined?.eq(script)).toBe(true);
+    const between = splitContainer(block, 30, context);
+    expect(between?.head.node.childCount).toBe(1);
+    expect(joinFragments(parts(between))[0]?.eq(script)).toBe(true);
+    expect(LAYOUT_RULES.script_block?.keepsWithHeading).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-4.7 splits a layout section by splitting every column at one height', () => {
+    const section = node('layout_section', { dataId: 'ls1', preset: 'halves' }, [
+      column('c1', [paragraph('A', { dataId: 'a' }), paragraph('B', { dataId: 'b' })]),
+      column('c2', [
+        paragraph('C', { dataId: 'c' }),
+        paragraph('D', { dataId: 'd' }),
+        paragraph('E', { dataId: 'e' }),
+        paragraph('F', { dataId: 'f' }),
+      ]),
+    ]);
+    const columnLayout = (count: number) => ({
+      top: 0,
+      bottom: count * 20 + 10,
+      measurement: { children: rows(count, 20), overhead: 10 },
+    });
+    const block = measured(section, 90, [columnLayout(2), columnLayout(4)]);
+    const split = splitLayoutSection(block, 55, context);
+    const tail = split?.tail[0];
+    expect(split?.head.node.child(0).childCount).toBe(2);
+    expect(split?.head.node.child(1).textContent).toBe('CD');
+    expect(split?.head.height).toBe(50);
+    expect(tail).toMatchObject({ height: 50, breakBefore: true });
+    expect(tail?.node.attrs).toMatchObject({ preset: 'halves', splitPartIndex: 1 });
+    expect(tail?.node.child(0).textContent).toBe('');
+    expect(tail?.node.child(1).textContent).toBe('EF');
+    expect(joinFragments(parts(split))[0]?.eq(section)).toBe(true);
+    expect(splitLayoutSection(block, 15, context)).toBeNull();
+    expect(LAYOUT_RULES.layout_section?.keepsWithHeading).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-4.7 splits a layout column through a paragraph and joins it back', () => {
+    const text = words(10);
+    const section = node('layout_section', { dataId: 'ls1' }, [
+      column('c1', [paragraph(text, { dataId: 'p1' })]),
+      column('c2', [paragraph('Side', { dataId: 'p2' })]),
+    ]);
+    const block = measured(section, 50, [
+      {
+        top: 0,
+        bottom: 50,
+        measurement: { children: [{ top: 0, bottom: 50, measurement: lines() }] },
+      },
+      { top: 0, bottom: 20, measurement: { children: rows(1, 20) } },
+    ]);
+    const split = splitLayoutSection(block, 32, context);
+    expect(split?.head.node.child(0).textContent).toBe('w00 w01 w02 w03 w04 w05 ');
+    expect(split?.head.node.child(1).textContent).toBe('Side');
+    expect(joinFragments(parts(split))[0]?.eq(section)).toBe(true);
   });
 });

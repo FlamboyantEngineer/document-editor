@@ -5,6 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { createPageMap } from './page-map.js';
 
 /** A variable's text, or nothing to show none. */
 export type VariableValue = (key: string) => string | null | undefined;
@@ -51,16 +52,11 @@ function variableText(key: string, place: Place, options: PageVariablesOptions) 
   return options.value?.(key) ?? '';
 }
 
-// The pages of a document, by the position of their first child, numbered through it from 1.
-function pagesOf(doc: ProseMirrorNode): { places: Map<number, Place> } {
-  const starts: number[] = [];
-  doc.descendants((node, pos) => {
-    if (node.type.name === 'page') starts.push(pos);
-    return node.type.name === 'page_section' || node.type.name === 'doc';
-  });
-  return {
-    places: new Map(starts.map((pos, index) => [pos, { page: index + 1, pages: starts.length }])),
-  };
+// The pages of a document, by the position of their page node, numbered through it from 1, as
+// its layout reads them.
+function pagesOf(doc: ProseMirrorNode): Map<number, Place> {
+  const pages = createPageMap(doc).pages();
+  return new Map(pages.map((page) => [page.pos, { page: page.number, pages: pages.length }]));
 }
 
 function widget(pos: number, text: string, key: string) {
@@ -77,7 +73,7 @@ function widget(pos: number, text: string, key: string) {
 
 function decorate(doc: ProseMirrorNode, options: PageVariablesOptions): DecorationSet {
   const decorations: Decoration[] = [];
-  const { places } = pagesOf(doc);
+  const places = pagesOf(doc);
   doc.descendants((node, pos) => {
     if (!REGIONS.has(node.type.name)) return !node.isTextblock;
     const page = places.get(doc.resolve(pos).before()) ?? { page: 0, pages: 0 };

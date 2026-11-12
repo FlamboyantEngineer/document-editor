@@ -1,5 +1,6 @@
 // The text proofing reads: each prose block's text, with code, deleted suggestions and objects as
-// spaces so offsets stay the block's, and long texts cut into segments a proofer takes at once.
+// spaces and inline atoms as their text, each character mapped to its offset in the block, and
+// long texts cut into segments a proofer takes at once.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type RegionKind, regionKind } from '../model/index.js';
@@ -38,8 +39,11 @@ function blockText(block: ProseMirrorNode): BlockText {
       text += skipped ? ' '.repeat(child.text.length) : child.text;
       for (let index = 0; index < child.text.length; index += 1) offsets.push(offset + index);
     } else {
-      text += ' ';
-      offsets.push(offset);
+      // An inline atom reads as its text (`leafText`), such as a value it shows; other nodes as a
+      // space. Each character maps to the atom.
+      const read = child.type.spec.leafText?.(child) || ' ';
+      text += read;
+      for (let index = 0; index < read.length; index += 1) offsets.push(offset);
     }
   });
   const language = typeof block.attrs.lang === 'string' ? block.attrs.lang : null;

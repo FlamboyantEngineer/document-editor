@@ -1,6 +1,6 @@
 // The paged projection spike's browser checks (PG-40, P0-9): input and selection routed between a
 // read-only paged projection and the canonical whole document. Check 6, exact position mapping on
-// generated edits, is the property test in labs/src/spikes/projection-map.test.ts. Check 5, typing
+// generated edits, is the property test in src/pagination/projection-map.test.ts. Check 5, typing
 // latency at 300 pages, is spike-projection.performance.spec.ts, which runs with nothing beside it.
 
 import type { Page } from '@playwright/test';
