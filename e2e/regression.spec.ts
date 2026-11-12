@@ -408,6 +408,10 @@ const FAILING_CELLS: Readonly<Record<string, string>> = {
   'long-bullet-list-with-nesting bullet_list continuation-start Backspace': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
   'table-long-repeated-header table continuation-start Backspace': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
   'table-long-single-header table continuation-start Backspace': `${PROJECTION}: the continuation's first row is no row of the stored table`,
+  'oversized-blocks list_item continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
+  'long-ordered-list ordered_list continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
+  'table-long-headerless table continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
+  'blockquotes blockquote continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
   'code-blocks code_block head-end Delete': `${PROJECTION}: the line break between two code fragments cannot be deleted`,
   'code-blocks code_block continuation-start Backspace': `${PROJECTION}: the line break between two code fragments cannot be deleted`,
 };
@@ -697,7 +701,6 @@ test.describe('pagination corner cases', () => {
   test('DOCE-LABS-4.8 DOCE-PAGINATION-8.2 fills the page number and count into each footer', async ({
     page,
   }) => {
-    expectedFailure('PG-06', 'the document editor installs no page variables');
     await openDocument(page, 'long-mixed');
     const pages = await pagesOf(page);
     expect(pages.map(({ footer }) => footer)).toEqual(

@@ -49,7 +49,7 @@ function opened(name: RegressionDocumentName): { state: EditorState; template: T
   const { file, template } = regressionDocument(name);
   const schema = createDocumentSchema();
   const state = EditorState.create({
-    doc: readDocumentFile(file, schema),
+    doc: readDocumentFile(file, schema).doc,
     plugins: [
       createContents({ template: () => template }),
       ...createDocumentEditing(schema, { template: () => template, author: () => 'lab' }),
