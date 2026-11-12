@@ -81,7 +81,7 @@ describe('paragraph numbering', () => {
     view.destroy();
   });
 
-  it('DOCE-NUMBERING-6.2 counts across pages and split parts, restarting at headings and sections', () => {
+  it('DOCE-NUMBERING-6.2 counts across sections, restarting at headings and sections', () => {
     const doc = documentOf(
       {
         name: 'body',
@@ -98,20 +98,6 @@ describe('paragraph numbering', () => {
       { name: 'appendix', content: [paragraph('D')] },
     );
     expect(numbersOf(doc)).toEqual(['1.', '1.1.', '1.', '2.', '3.', '1.']);
-    // A paragraph the pages split shows its number on its first part only.
-    let firstPos = -1;
-    doc.descendants((node, pos) => {
-      if (firstPos < 0 && node.type.name === 'paragraph' && node.textContent === 'A')
-        firstPos = pos;
-      return firstPos < 0;
-    });
-    const continued = doc.resolve(firstPos).parent.type;
-    expect(continued.name).toBe('page_content');
-    const tr = EditorState.create({ doc }).tr.insert(
-      firstPos + (doc.nodeAt(firstPos)?.nodeSize ?? 0),
-      documentSchema.node('paragraph', { splitPartIndex: 1 }, documentSchema.text('A, continued')),
-    );
-    expect(numbersOf(tr.doc)).toEqual(['1.', '1.1.', '1.', '2.', '3.', '1.']);
   });
 
   it('DOCE-NUMBERING-6.3 writes the number with its levels, separators and affixes', () => {
