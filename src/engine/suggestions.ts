@@ -10,6 +10,7 @@ import { type EditorState, PluginKey, TextSelection, type Transaction } from 'pr
 import { Mapping, ReplaceAroundStep, ReplaceStep, type Step } from 'prosemirror-transform';
 import { addMarkInOrder } from '../model/index.js';
 import { createElementId } from './element-ids.js';
+import { suggestFormatting } from './suggested-formatting.js';
 import { isSystemChange } from './transaction-kind.js';
 
 /** Marks a transaction a suggestion built or decided, which suggest mode leaves as it is. */
@@ -23,7 +24,8 @@ export interface SuggestOptions {
   newId?: (() => string) | undefined;
 }
 
-interface Suggesting {
+/** A change being rewritten as a suggestion, and who suggests it. */
+export interface Suggesting {
   readonly tr: Transaction;
   readonly insertion: MarkType;
   readonly deletion: MarkType;
@@ -51,8 +53,8 @@ function markOf(suggesting: Suggesting, type: MarkType, id: string): Mark {
   return type.create({ dataId: id, dataAuthor: suggesting.author });
 }
 
-// Inline content in a range: each run of text or inline leaves, with its marks.
-function inlineRuns(doc: ProseMirrorNode, from: number, to: number) {
+/** Inline content in a range: each run of text or inline leaves, with its marks. */
+export function inlineRuns(doc: ProseMirrorNode, from: number, to: number) {
   const runs: { from: number; to: number; marks: readonly Mark[] }[] = [];
   doc.nodesBetween(from, to, (node, pos) => {
     if (!node.isInline) return true;
@@ -267,7 +269,10 @@ function rewriteSteps(
       // The suggested blocks already carry the attributes the command sets on them.
     } else {
       const mapped = step.map(mapping);
-      if (!mapped || out.maybeStep(mapped).failed) return null;
+      if (!mapped) return null;
+      const formatted = suggestFormatting(suggesting, mapped, { markup: isMarkupStep(step) });
+      if (formatted === false || (formatted === undefined && out.maybeStep(mapped).failed))
+        return null;
     }
     const next = new Mapping();
     next.appendMap(step.getMap().invert());

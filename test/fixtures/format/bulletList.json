@@ -9,11 +9,19 @@
       "content": [
         {
           "type": "bulletList",
-          "attrs": { "id": "bulletList-1", "author": "author-1", "aiSession": "session-1" },
+          "attrs": {
+            "id": "bulletList-1",
+            "author": "author-1",
+            "aiSession": "session-1"
+          },
           "content": [
             {
               "type": "listItem",
-              "attrs": { "id": "listItem-2", "author": "author-1", "aiSession": "session-1" },
+              "attrs": {
+                "id": "listItem-2",
+                "author": "author-1",
+                "aiSession": "session-1"
+              },
               "content": [
                 {
                   "type": "paragraph",
@@ -24,6 +32,14 @@
                     "aiSession": "session-1",
                     "suggestionKind": "sample-suggestionSplitKind",
                     "suggestionId": "sample-suggestionSplitId",
+                    "suggestionFormat": {
+                      "id": "sample-suggestionFormat",
+                      "author": "sample-dataAuthor",
+                      "type": "paragraph",
+                      "attrs": {
+                        "level": 2
+                      }
+                    },
                     "level": 3
                   }
                 }

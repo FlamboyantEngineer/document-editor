@@ -151,7 +151,11 @@ function Lab() {
               <strong>{suggestion.author ?? 'Someone'}</strong>
               {suggestion.deleted ? <del> {suggestion.deleted}</del> : null}
               {suggestion.inserted ? <ins> {suggestion.inserted}</ins> : null}
-              {suggestion.deleted || suggestion.inserted ? null : ' split a paragraph'}
+              {suggestion.deleted || suggestion.inserted
+                ? null
+                : suggestion.formatted
+                  ? ' changed formatting'
+                  : ' split a paragraph'}
               <div>
                 <button type="button" onClick={() => run(acceptSuggestion(suggestion.id))}>
                   Accept

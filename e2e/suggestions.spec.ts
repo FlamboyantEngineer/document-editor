@@ -139,4 +139,24 @@ test.describe('suggestions lab', () => {
     await expect(menuItem('Cut')).toBeVisible();
     await expect(menuItem('Reject suggestion')).toHaveCount(0);
   });
+
+  test('DOCE-SUGGESTIONS-4.5 suggests bolding text and restores it when rejected', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('suggestions');
+    await page.getByRole('textbox', { name: 'Sample document' }).focus();
+    await caretBefore(page, 'operator');
+    await page.keyboard.down('Shift');
+    for (const _ of 'operator') await page.keyboard.press('ArrowRight');
+    await page.keyboard.up('Shift');
+    await page.keyboard.press('ControlOrMeta+b');
+    const changed = content(page).locator('[data-format-change]');
+    await expect(changed).toHaveText('operator');
+    await expect(changed.locator('strong')).toHaveCount(0);
+    await expect(block(page, 'Reports go').locator('strong')).toHaveText('operator');
+    const item = suggestions(page).getByRole('listitem').filter({ hasText: 'changed formatting' });
+    await item.getByRole('button', { name: 'Reject' }).click();
+    await expect(block(page, 'Reports go').locator('strong, [data-format-change]')).toHaveCount(0);
+  });
 });
