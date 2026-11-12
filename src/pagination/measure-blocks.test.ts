@@ -63,7 +63,7 @@ describe('measured block cache', () => {
     const doc = readDocumentFile(
       { formatVersion: 1, sections: [{ content: [paragraph('One'), paragraph('Two')] }] },
       documentSchema,
-    );
+    ).doc;
     const mount = document.body.appendChild(document.createElement('div'));
     const view = new EditorView(mount, { state: EditorState.create({ doc }) });
     const cache = createMeasureCache();
@@ -85,7 +85,7 @@ describe('measured block cache', () => {
     const doc = readDocumentFile(
       { formatVersion: 1, sections: [{ content: [paragraph('One'), paragraph('Two')] }] },
       documentSchema,
-    );
+    ).doc;
     const view = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc }),
     });
@@ -107,7 +107,7 @@ describe('measured block cache', () => {
     const doc = readDocumentFile(
       { formatVersion: 1, sections: [{ content: [paragraph('One')] }] },
       documentSchema,
-    );
+    ).doc;
     const view = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc }),
     });
