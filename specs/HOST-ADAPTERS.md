@@ -34,7 +34,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.5 - Comment store
 
-The host's `comments` adapter shall keep each document's comment threads: `list`, `create` with the id the editor chose, the text it quotes, its opening comment and its suggestion, `reply`, `setState` to `open` or `resolved`, and `remove`. It shall attribute each comment to the reader, with the time it was posted, and return the thread as it is after the change.
+The host's `comments` adapter shall keep each document's comment threads: `list`, `create` with the id the editor chose, the text it quotes, its opening comment and its suggestion, `reply`, `setState` to `open` or `resolved`, and `remove`. It shall attribute each comment to the reader, with the time it was posted, and return the thread as it is after the change. A thread record may also carry its scope (`text`, the default, or `document` for a thread about the whole document with no anchor), its portable target (`CommentTarget`: ranges by element id and offsets, and the quote), who started it, when it was started, last changed and resolved and by whom, what its suggestion does (`change`), how that suggestion was decided (`decision`: accept or reject, the suggestion, who, when, and the suggestion whose decision took it along), whether the editor started it for a suggestion (`automatic`), and its thread-level reactions; a store keeps what it is given and returns it unchanged.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -50,7 +50,7 @@ Verification: `src/host/memory-host.test.ts`
 
 The host's `proofer` adapter shall check texts (`check(texts, { signal })`), resolving to each text's issues in order: the offsets of the issue's characters in its text, its kind (`spelling`, `grammar` or `style`), an optional message, its suggestions, best first, and optionally the rule that found it and a finer category. Each text comes with its language. It may keep the reader's dictionary (`addWord`) and the rules they turned off (`ignoreRule`), and list the languages it checks (`languages`). The editor proofs through it (DOCE-PROOFING) and keeps no dictionary of its own.
 
-Implementation: `src/host/adapters.ts`
+Implementation: `src/host/proofing-adapters.ts`
 Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-HOST-1.8 - Assets and linked code
@@ -69,7 +69,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.10 - Changing comments and following them
 
-A comment store may let the reader change the text of their own comment (`edit`), recording when, delete their own reply (`removeEntry`), and add or take back a reaction to a comment (`react`), each returning the thread as it is after; and tell a subscriber a document's threads whenever they change, by anyone, until it unsubscribes (`subscribe`).
+A comment store may let the reader change the text of their own comment (`edit`), recording when, delete their own reply (`removeEntry`), and add or take back a reaction to a comment (`react`), each returning the thread as it is after; react to a thread as a whole (`react` without `entryId`), record how a thread's suggestion was decided by the reader and resolve the thread (`decide`), change a thread's quote, target or change (`update`), cancel a pending reply or retry a failed one (`settleEntry`), tell others the reader is writing in a thread (`setTyping`) and tell a subscriber what others are doing in a document's threads (`subscribeActivity`); and tell a subscriber a document's threads whenever they change, by anyone, until it unsubscribes (`subscribe`).
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -108,6 +108,41 @@ The host's optional `diagrams` adapter shall open its own diagram editor on a fi
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/components/document-editor/figure-dialog.test.tsx`
+
+### DOCE-HOST-1.16 - Following changes
+
+The host may tell the editor of changes it did not make, each until the editor unsubscribes: a document's new saved state whenever anyone saves it (`documents.subscribe`), the latest saved state of a template whenever it is saved (`templates.subscribe`), a change to a document's versions (`versions.subscribe`), and the reader's new capabilities on a document (`permissions.subscribe`).
+
+Implementation: `src/host/adapters.ts`, `src/host/memory-documents.ts`, `src/host/memory-session.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-1.17 - Conflicts with the stored document
+
+A document save refused as `conflict` may carry the document as it is stored now (`error.current`), which the editor merges its changes into without loading it again.
+
+Implementation: `src/host/adapters.ts`, `src/host/memory-documents.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-1.18 - Named versions
+
+The `versions` adapter may save a document's content as a new version with a name or none (`create`), name a version or take its name away (`rename`), and make a version's content the document's current content as a new saved state (`restore`).
+
+Implementation: `src/host/adapters.ts`, `src/host/memory-documents.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-1.19 - Drafts
+
+The host's optional `drafts` adapter shall keep at most one draft of a document per mode, read it (`get`, null for none), replace it (`put`) and remove it (`clear`): in store mode the unsaved content and the revision it was edited from; in room mode the shared document's state and the changes the room has not confirmed, for the room's generation. The editor touches no browser storage itself.
+
+Implementation: `src/host/session-adapters.ts`, `src/host/memory-session.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-1.20 - Page lifecycle
+
+The host's optional `lifecycle` adapter shall tell the editor when the page is `hidden`, `visible` again, or being left (`leaving`), as the page's visibility and `pagehide` events say, so the editor reads no page globals.
+
+Implementation: `src/host/session-adapters.ts`, `src/host/memory-session.ts`
+Verification: `src/host/memory-host.test.ts`
 
 ## DOCE-HOST-2 - Capabilities
 
@@ -166,7 +201,7 @@ Verification: `src/host/memory-host.test.ts`
 
 The in-memory host shall keep every state of a document it saves as a version, attributed to the reader at `options.now`, from the state it started with.
 
-Implementation: `src/host/memory-host.ts`
+Implementation: `src/host/memory-host.ts`, `src/host/memory-documents.ts`
 Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-3.6 - In-memory linked code
@@ -195,4 +230,11 @@ Verification: `src/host/memory-host.test.ts`
 The in-memory host shall run scripts with `options.scripts`, giving it the script and the document, and resolve with what it returns, or an `unavailable` failure with the message of what it throws, give the names of `options.scriptVocabulary` and check a script with `options.checkScript`; without `options.scripts` it has no script runner.
 
 Implementation: `src/host/memory-host.ts`
+Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.10 - Driving an in-memory host
+
+The in-memory host's `memory` controls shall make each store request (document loads and saves, template loads, version requests and draft writes) take the latency set (`setLatency`), fail the next requests of a kind with a given error (`failNext`), give the reader other capabilities and tell the subscribers (`setCapabilities`), and tell the lifecycle subscribers of a lifecycle change (`emitLifecycle`), for labs and tests.
+
+Implementation: `src/host/memory-session.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`

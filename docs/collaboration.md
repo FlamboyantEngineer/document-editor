@@ -6,11 +6,11 @@ The library edits one document in a shared room through its own ProseMirror ↔ 
 
 A room is one Yjs document (`@y/y` 14). The library uses three top-level types, and a host keeps its own data out of them:
 
-| Type       | Holds                                                                                                                                                                                                                                                                                                                                                 | Written by                            |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `content`  | The canonical whole-document state, the one the editor takes edits on (decision D5): sections and their blocks, never laid-out pages. Each node is a child type named by its node type; its attributes, other than those at their default, are the type's attributes; text is text with each mark as a format; inline nodes are embedded child types. | Writers who edit or suggest.          |
-| `comments` | The comment and suggestion threads (decision D29), one attribute per thread keyed by its thread id. What a thread holds is the room-backed comment store's (`specs/COMMENTS.md` §2).                                                                                                                                                                  | Writers who edit, suggest or comment. |
-| `meta`     | The document's settings outside its content, as attributes: `formatVersion` (the stored format's version) and `template` (the template pin, or `null`).                                                                                                                                                                                               | Writers who edit.                     |
+| Type       | Holds                                                                                                                                                                                                                                                                                                                                                 | Written by                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `content`  | The canonical whole-document state, the one the editor takes edits on (decision D5): sections and their blocks, never laid-out pages. Each node is a child type named by its node type; its attributes, other than those at their default, are the type's attributes; text is text with each mark as a format; inline nodes are embedded child types. | Writers who edit, suggest or decide on suggestions. |
+| `comments` | The comment and suggestion threads (decision D29), one attribute per thread, comment and reaction, keyed as the room-backed comment store says (`specs/COMMENTS.md` 2.20).                                                                                                                                                                            | Writers who edit, suggest, decide or comment.       |
+| `meta`     | The document's settings outside its content, as attributes: `formatVersion` (the stored format's version) and `template` (the template pin, or `null`).                                                                                                                                                                                               | Writers who edit.                                   |
 
 The room server keeps its own metadata in a type of its own (collaboration-tools uses `__room`, COLLAB-PROTOCOL-3.1), which no connection may write.
 
@@ -24,13 +24,13 @@ Each top-level type has its own writers, so a room server can decide every updat
 
 Give each connection the capabilities named after what it may write, from the editor capabilities the host grants the reader (`EditorCapabilities`):
 
-| Capability       | Granted when                   | Lets the connection write |
-| ---------------- | ------------------------------ | ------------------------- |
-| `write-content`  | `edit` or `suggest`            | `content`                 |
-| `write-meta`     | `edit`                         | `meta`                    |
-| `write-comments` | `edit`, `suggest` or `comment` | `comments`                |
+| Capability       | Granted when                             | Lets the connection write |
+| ---------------- | ---------------------------------------- | ------------------------- |
+| `write-content`  | `edit`, `suggest` or `decide`            | `content`                 |
+| `write-meta`     | `edit`                                   | `meta`                    |
+| `write-comments` | `edit`, `suggest`, `decide` or `comment` | `comments`                |
 
-A reader with none of them joins read-only. A type outside the layout needs a capability no connection holds, so a stray write is refused rather than stored.
+Deciding on a suggestion accepts or rejects it in the content and records the decision on its thread, so a reader who may only decide writes both. A reader with none of them joins read-only. A type outside the layout needs a capability no connection holds, so a stray write is refused rather than stored.
 
 ### collaboration-tools
 
@@ -45,11 +45,11 @@ const writeRules: RoomWriteRules = {
   otherwise: 'write-outside-layout',
 };
 
-function roomCapabilities({ edit, suggest, comment }: EditorCapabilities): string[] {
+function roomCapabilities({ edit, suggest, decide, comment }: EditorCapabilities): string[] {
   const capabilities: string[] = [];
-  if (edit || suggest) capabilities.push('write-content');
+  if (edit || suggest || decide) capabilities.push('write-content');
   if (edit) capabilities.push('write-meta');
-  if (edit || suggest || comment) capabilities.push('write-comments');
+  if (edit || suggest || decide || comment) capabilities.push('write-comments');
   return capabilities;
 }
 

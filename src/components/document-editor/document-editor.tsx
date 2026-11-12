@@ -45,6 +45,7 @@ import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
+import { useFindBar } from './document-find-bar.js';
 import { EditorBody } from './editor-body.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
 import {
@@ -62,7 +63,11 @@ import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
 import { useLayoutTap } from './use-editor-telemetry.js';
-import { type DocumentEditorNotifications, useElementIdRepair } from './use-host-events.js';
+import {
+  type DocumentEditorNotifications,
+  useActiveProps,
+  useElementIdRepair,
+} from './use-host-events.js';
 import { usePagedEditor, usePagedView } from './use-paged-projection.js';
 
 /** How suggestions show in the document. */
@@ -100,6 +105,12 @@ export interface DocumentEditorProps
   layout?: DocumentLayout | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
   editable?: boolean | undefined;
+  /**
+   * Whether the editor is shown. A hidden editor, such as one in a background tab, keeps showing
+   * the state it last showed, so it lays out, measures and proofs nothing, and shows the latest
+   * state once it is active again. Defaults to true.
+   */
+  active?: boolean | undefined;
   /** Whether an editable document takes changes as suggestions (`suggestTransaction`). */
   suggesting?: boolean | undefined;
   /** The writer suggestions are attributed to. */
@@ -317,7 +328,8 @@ function useEditorLayout(
  * its toolbar above the document and its status bar below it, and scrolls the document itself,
  * with overlay scrollbars.
  */
-export function DocumentEditor(props: DocumentEditorProps) {
+export function DocumentEditor(given: DocumentEditorProps) {
+  const props = useActiveProps(given);
   const { state, template, layout = 'page', editable = true } = props;
   const { className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
@@ -337,7 +349,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const startCommentRef = useRef<(() => void) | null>(null);
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress });
+  const find = useFindBar(root, view, Boolean(props.find));
+  const openFind = find.open;
+  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress, openFind });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(
@@ -347,8 +361,6 @@ export function DocumentEditor(props: DocumentEditorProps) {
   useLayoutEffect(() => {
     editorContext.current = context;
   }, [context]);
-  const [finding, setFinding] = useState(false);
-  const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
   const chrome = { props, context, view, templateStyle, startCommentRef, openFind };
   const body = (
     <EditorBody
@@ -358,12 +370,11 @@ export function DocumentEditor(props: DocumentEditorProps) {
       paged={progress.paged}
       labels={labels}
       startCommentRef={startCommentRef}
-      onFind={openFind}
       onDialog={editable ? setDialog : null}
     />
   );
   return (
-    <EditorScope context={context} comments={props.comments}>
+    <EditorScope context={context} comments={props.comments} transactions={engine.transactions}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}
@@ -374,7 +385,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
-        <TopChrome {...chrome} finding={finding} onFindClose={() => setFinding(false)} />
+        <TopChrome {...chrome} findRequest={find.request} onFindClose={find.close} />
         <Workspace panels={props.panels}>
           {props.scrollable ? (
             <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>

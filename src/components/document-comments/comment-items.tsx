@@ -124,10 +124,10 @@ function renderSuggestion(
 ): ReactNode {
   const { context, run } = actions;
   const { suggestion, thread } = item;
+  // The editor records the decision on the suggestion's thread (DOCE-COMMENTS-2.19).
   const decide = (accept: boolean) => {
     const ids = new Set([suggestion.id]);
     run(decideWithPolicy(actions.policy, accept ? 'accept' : 'reject', ids));
-    if (thread) void context.comments.setState(thread.id, 'resolved').catch(() => undefined);
   };
   const reply = async (text: string) => {
     if (thread) return context.comments.reply(thread.id, text);

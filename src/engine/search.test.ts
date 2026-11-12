@@ -1,4 +1,5 @@
-import { type Command, EditorState } from 'prosemirror-state';
+import { type Command, EditorState, TextSelection } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
@@ -7,13 +8,18 @@ import {
   createSearch,
   replaceAllMatches,
   replaceMatch,
+  revealMatchAt,
+  SEARCH_MATCH_ATTR,
+  SEARCH_RESULT_ATTR,
   searchKey,
-  searchResults,
-  selectMatchAt,
+  searchPaneKey,
+  searchSeed,
+  searchState,
   selectNextMatch,
   selectPreviousMatch,
   setSearch,
 } from './search.js';
+import { searchResults } from './search-results.js';
 
 const paragraph = (value: string): StoredNode => ({
   type: 'paragraph',
@@ -107,7 +113,7 @@ describe('search', () => {
     ).doc;
     let state = EditorState.create({ doc, plugins: [createSearch()] });
     state = run(state, setSearch('log'));
-    expect(searchResults(state, BASE_TEMPLATE)).toEqual([
+    expect(searchResults(state, { template: BASE_TEMPLATE })).toEqual([
       {
         index: 0,
         source: 'A log before any heading.',
@@ -133,8 +139,114 @@ describe('search', () => {
         replaceable: true,
       },
     ]);
-    state = run(state, selectMatchAt(2));
+  });
+
+  it('DOCE-SEARCH-3.1 reveals a match without moving the selection', () => {
+    let state = run(stateOf('one two one two one'), setSearch('one'));
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 5)));
+    state = run(state, revealMatchAt(2));
     expect(searchKey.getState(state)?.current).toBe(2);
-    expect(selectMatchAt(5)(state)).toBe(false);
+    expect(state.selection.from).toBe(5);
+    expect(state.selection.empty).toBe(true);
+    expect(revealMatchAt(5)(state)).toBe(false);
+  });
+});
+
+// A paragraph holding a mention of a person, a template variable showing a value, and text.
+const withInlineNodes = (): StoredNode => ({
+  type: 'paragraph',
+  content: [
+    { type: 'text', text: 'Ask ' },
+    { type: 'mention', attrs: { person: 'u-1', label: 'Ana' } },
+    { type: 'text', text: ' about ' },
+    {
+      type: 'variable',
+      attrs: { key: 'model' },
+      content: [{ type: 'text', text: 'Pump 7' }],
+    },
+    { type: 'text', text: ' and pump care.' },
+  ],
+});
+
+// Where the first text block's text starts.
+function firstTextAt(state: EditorState): number {
+  let at = -1;
+  state.doc.descendants((node, pos) => {
+    if (at < 0 && node.isTextblock) at = pos + 1;
+    return at < 0;
+  });
+  return at;
+}
+
+function stateWith(content: StoredNode[]) {
+  const doc = readDocumentFile(
+    { formatVersion: 1, sections: [{ name: null, content }] },
+    documentSchema,
+  ).doc;
+  return EditorState.create({ doc, plugins: [createSearch(), createSearch('pane')] });
+}
+
+describe('search scopes, inline nodes and seeding', () => {
+  it('DOCE-SEARCH-1.5 keeps the find bar and the pane searches apart', () => {
+    let state = stateWith([paragraph('cat and dog and cat')]);
+    state = run(state, setSearch('cat'));
+    state = run(state, setSearch('dog', {}, 'pane'));
+    expect(searchState(state)?.matches).toHaveLength(2);
+    expect(searchState(state, 'pane')?.matches).toHaveLength(1);
+    state = run(state, selectNextMatch);
+    expect(searchKey.getState(state)?.current).toBe(1);
+    expect(searchPaneKey.getState(state)?.current).toBe(0);
+    state = run(state, replaceAllMatches('cow', 'pane'));
+    expect(textOf(state)).toBe('cat and cow and cat');
+    expect(searchState(state)?.matches).toHaveLength(2);
+    const view = new EditorView(document.createElement('div'), {
+      state: run(state, setSearch('cat', {}, 'pane')),
+    });
+    expect(view.dom.querySelectorAll(`[${SEARCH_MATCH_ATTR}]`)).toHaveLength(2);
+    expect(view.dom.querySelectorAll(`[${SEARCH_RESULT_ATTR}="current"]`)).toHaveLength(1);
+    view.destroy();
+  });
+
+  it('DOCE-SEARCH-1.5 replaces from the pane without moving the selection', () => {
+    let state = run(stateWith([paragraph('cat and cat')]), setSearch('cat', {}, 'pane'));
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 6)));
+    state = run(state, revealMatchAt(1, 'pane'));
+    state = run(state, replaceMatch('dog', 'pane'));
+    expect(textOf(state)).toBe('cat and dog');
+    expect(state.selection.from).toBe(6);
+  });
+
+  it('DOCE-SEARCH-1.6 finds the text inline nodes show, and never replaces it', () => {
+    let state = run(stateWith([withInlineNodes()]), setSearch('@Ana'));
+    expect(searchState(state)?.matches).toHaveLength(1);
+    expect(replaceMatch('Bo')(state)).toBe(false);
+    state = run(state, setSearch('pump'));
+    expect(searchState(state)?.matches).toHaveLength(2);
+    expect(searchResults(state).map((result) => result.replaceable)).toEqual([false, true]);
+    expect(searchResults(state)[0]).toMatchObject({
+      source: 'Ask @Ana about Pump 7 and pump care.',
+      start: 15,
+      end: 21,
+    });
+    state = run(state, replaceAllMatches('valve'));
+    expect(textOf(state)).toContain('Pump 7 and valve care.');
+    expect(searchState(state)?.matches).toHaveLength(1);
+    expect(replaceAllMatches('valve')(state)).toBe(false);
+  });
+
+  it('DOCE-SEARCH-1.7 seeds a search with the text selected in one block', () => {
+    const state = stateWith([withInlineNodes(), paragraph('Second block')]);
+    const start = firstTextAt(state);
+    const select = (from: number, to: number) =>
+      state.apply(state.tr.setSelection(TextSelection.create(state.doc, start + from, start + to)));
+    expect(searchSeed(state)).toBeNull();
+    // "Ask " and the mention after it.
+    expect(searchSeed(select(0, 5))).toBe('Ask @Ana');
+    expect(searchSeed(select(1, 3))).toBe('sk');
+    expect(searchSeed(select(0, 40))).toBeNull();
+    const long = stateWith([paragraph('word '.repeat(60))]);
+    const from = firstTextAt(long);
+    const all = long.apply(long.tr.setSelection(TextSelection.create(long.doc, from, from + 250)));
+    expect(searchSeed(all)).toBeNull();
   });
 });

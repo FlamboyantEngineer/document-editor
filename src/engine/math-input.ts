@@ -1,7 +1,8 @@
 // Writing math as it is typed: `$x$` turns into inline math as its closing dollar is typed, and a
 // paragraph of `$$`, or `$$` and LaTeX, turns into display math on Enter. Math is then edited in
 // place: the math being edited is kept here, mapped through changes, for the editor to draw its
-// field over, and committing sets its LaTeX (empty LaTeX deletes it). Mod-Alt-L writes math too.
+// field over, and committing sets its LaTeX (empty LaTeX deletes it). The shortcut table's `math`
+// key (Mod-Alt-L) writes math too.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
@@ -14,6 +15,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import type { EditorProps, EditorView } from 'prosemirror-view';
+import { matchesShortcut, shortcutsOf } from './shortcuts.js';
 
 /** The math being edited in place: its position and node. */
 export interface MathEditing {
@@ -215,13 +217,13 @@ export function mathInputProps(key: PluginKey<MathInputState>): EditorProps {
   return {
     handleTextInput: (...input) => typeInlineMath(input),
     handleKeyDown(view, event) {
-      if (event.isComposing || event.shiftKey) return false;
+      if (event.isComposing) return false;
       const mod = event.ctrlKey || event.metaKey;
       const command =
-        event.key === 'Enter' && !mod && !event.altKey
+        event.key === 'Enter' && !mod && !event.altKey && !event.shiftKey
           ? (state: EditorState, dispatch?: (tr: Transaction) => void) =>
               edit(state, dispatch) || enter(state, dispatch)
-          : mod && event.altKey && event.code === 'KeyL'
+          : matchesShortcut(shortcutsOf(view.state), 'math', event)
             ? write
             : null;
       if (!command || !command(view.state, view.dispatch, view)) return false;

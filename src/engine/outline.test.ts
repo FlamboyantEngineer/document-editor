@@ -7,7 +7,7 @@ import {
   readDocumentFile,
   type StoredNode,
 } from '../model/index.js';
-import { documentOutline } from './outline.js';
+import { documentOutline, headingSectionSpan } from './outline.js';
 
 const heading = (id: string, level: number, value: string): StoredNode => ({
   type: 'heading',
@@ -51,6 +51,7 @@ describe('outline', () => {
       number: '',
       pos: expect.any(Number),
       active,
+      highlight: null,
     });
     expect(documentOutline(state)).toEqual([
       entry('a1a1a1a1', 1, 'Scope', false),
@@ -99,6 +100,55 @@ describe('outline', () => {
     ]);
     expect(catalog.map((each) => [each.text, each.number.trim()])).toEqual(
       outline.map((each) => [each.text, each.number]),
+    );
+  });
+
+  const sectioned = () =>
+    readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              heading('a1a1a1a1', 1, 'Scope'),
+              paragraph('First'),
+              heading('b2b2b2b2', 2, 'Detail'),
+              paragraph('Second'),
+            ],
+          },
+          {
+            name: 'appendix',
+            content: [paragraph('Carried'), heading('c3c3c3c3', 1, 'Annex'), paragraph('Last')],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+
+  it('DOCE-OUTLINE-1.3 spans a heading to the next heading of its level or above', () => {
+    const doc = sectioned();
+    const at = (text: string) => {
+      let found = -1;
+      doc.descendants((node, pos) => {
+        if (found < 0 && node.isTextblock && node.textContent === text) found = pos;
+        return found < 0;
+      });
+      return found;
+    };
+    const textIn = (span: { from: number; to: number } | null) =>
+      span ? doc.textBetween(span.from, span.to, '|') : null;
+    expect(textIn(headingSectionSpan(doc, at('Scope')))).toBe('Scope|First|Detail|Second|Carried');
+    expect(textIn(headingSectionSpan(doc, at('Detail')))).toBe('Detail|Second|Carried');
+    expect(textIn(headingSectionSpan(doc, at('Annex')))).toBe('Annex|Last');
+    expect(headingSectionSpan(doc, at('First'))).toBeNull();
+  });
+
+  it('DOCE-OUTLINE-1.4 gives each heading the highlight it is under', () => {
+    const state = EditorState.create({ doc: sectioned() });
+    const highlights = new Map([['a1a1a1a1', 'in-review']]);
+    expect(documentOutline(state, undefined, { highlights }).map((each) => each.highlight)).toEqual(
+      ['in-review', 'in-review', null],
     );
   });
 });
