@@ -5,9 +5,8 @@
 // projection's.
 
 import type { EditorState, Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
 import { type FragmentRules, projectDocument, repaginate } from '../model/index.js';
-import { followDocument } from './ghost-view.js';
+import { followDocument, type MeasuringView } from './ghost-view.js';
 import {
   layoutDocument,
   type LayoutMemory,
@@ -24,7 +23,7 @@ import { projectionSelection } from './selection-mirror.js';
 export interface LayoutSource {
   /** The projection's state, stepped onto the new pages. */
   readonly projection: EditorState;
-  readonly ghost: EditorView;
+  readonly ghost: MeasuringView;
   readonly canonical: EditorState;
   readonly cache: MeasureCache;
   /** What the latest layout found, which this one starts from. */
@@ -54,9 +53,9 @@ export function layOutProjection(
   { projection, ghost, canonical, cache, memory, onSection }: LayoutSource,
   options: ProjectionLayoutOptions,
 ): ProjectionLayout {
-  followDocument(ghost, canonical.doc);
+  followDocument(ghost.view, canonical.doc, ghost.show);
   const metrics: PageMetric[] = [];
-  const sections = layoutDocument(ghost, {
+  const sections = layoutDocument(ghost.view, {
     pageHeight: options.pageHeight,
     rules: options.rules,
     footnoteNumbering: options.footnoteNumbering,
@@ -65,7 +64,7 @@ export function layOutProjection(
     onPage: (page) => metrics.push(page),
     onSection,
   });
-  const target = projectDocument(ghost.state.doc, sections, options);
+  const target = projectDocument(ghost.view.state.doc, sections, options);
   const tr = projection.tr;
   repaginate(tr, target, options.fragmentRules);
   const map = createProjectionMap(tr.doc, options.fragmentRules);

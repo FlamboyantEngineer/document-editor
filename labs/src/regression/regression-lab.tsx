@@ -1,6 +1,6 @@
 // The regression lab's page: a document of the regression set, picked by the Document picker or
 // the page's `document` query parameter, in the document editor with its scrolling frame and
-// status bar, laid out on its template's pages. The regression scenarios (`e2e/regression.spec.ts`)
+// status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view. The regression scenarios (`e2e/regression.spec.ts`)
 // read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
@@ -23,6 +23,7 @@ import {
 } from '../../../src/model/index.js';
 import { markReadyWhenSettled } from '../lab-ready.js';
 import { useStressProbe } from '../stress/stress-probe.js';
+import { HOST_VIEWS } from './host-quote-view.js';
 import {
   REGRESSION_DOCUMENTS,
   regressionDocument,
@@ -47,6 +48,9 @@ const LAYOUT: DocumentLayout =
 
 // Whether the pages are a projection of the document (`projection`, DOCE-PAGINATION-7.17).
 const PROJECTION = new URLSearchParams(window.location.search).has('projection');
+
+// Whether the host draws quotes with a React view of its own (`hostViews`).
+const HOST = new URLSearchParams(window.location.search).has('hostViews');
 
 function opened(name: RegressionDocumentName): { state: EditorState; template: TemplateFile } {
   const { file, template } = regressionDocument(name);
@@ -108,6 +112,7 @@ function RegressionLab() {
         template={template}
         layout={LAYOUT}
         projection={PROJECTION}
+        nodeViews={HOST ? HOST_VIEWS : undefined}
         scrollable
         statusBar
         className="lab-document-editor"

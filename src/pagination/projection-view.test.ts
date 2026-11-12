@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { joinDocumentPages, readDocumentFile, sameStructure } from '../model/index.js';
 import { canonicalView } from './canonical-view.js';
+import { type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import { pageMap } from './page-map.js';
 import { isPaginationTransaction, layoutStats, pageMetrics } from './pagination.js';
 import { createProjectionView, type ProjectionViewOptions } from './projection-view.js';
@@ -96,6 +97,34 @@ describe('projection view', () => {
     expect(pageCount(projection.view.state.doc)).toBe(3);
     expect(inSync(projection)).toBe(true);
     expect(projection.stats()).toMatchObject({ layouts: 1, refused: 0, relaid: 0 });
+  });
+
+  it('DOCE-PAGINATION-7.17 measures in the ghost the host mounts, shown each document it lays out', () => {
+    const shown: EditorState[] = [];
+    const destroyed = vi.fn();
+    const mountGhost = vi.fn((element: HTMLElement, options: MeasuringViewOptions) => {
+      const ghost = mountMeasuringView(element, options);
+      return {
+        view: ghost.view,
+        show: (state: EditorState) => {
+          shown.push(state);
+          ghost.show(state);
+        },
+        destroy: () => {
+          destroyed();
+          ghost.destroy();
+        },
+      };
+    });
+    const { projection, drain } = mount({ mountGhost });
+    expect(mountGhost).toHaveBeenCalledOnce();
+    const at = positionOf(projection.view.state.doc, 'Alpha');
+    projection.view.dispatch(projection.view.state.tr.insertText('New ', at));
+    drain();
+    expect(shown.at(-1)?.doc.eq(projection.state.doc)).toBe(true);
+    expect(pageCount(projection.view.state.doc)).toBe(3);
+    projection.destroy();
+    expect(destroyed).toHaveBeenCalledOnce();
   });
 
   it('DOCE-PAGINATION-7.10 refuses a change to the pages that is not an edit of the canonical state', () => {

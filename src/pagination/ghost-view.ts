@@ -3,7 +3,7 @@
 
 import type { Fragment, Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import { type EditorProps, EditorView } from 'prosemirror-view';
 
 // A node of the view's document and where its content starts.
 interface Placed {
@@ -57,10 +57,48 @@ function patchContent(tr: Transaction, from: Placed, to: ProseMirrorNode) {
 }
 
 /**
- * Moves a view onto a document by the smallest replacements, node by node where the two documents
- * pair up, or onto a new state when that fails.
+ * A view that measures a document, mounted out of sight: the view, how it shows another state,
+ * drawn before it returns, and how it goes.
  */
-export function followDocument(view: EditorView, whole: ProseMirrorNode): void {
+export interface MeasuringView {
+  readonly view: EditorView;
+  show(state: EditorState): void;
+  destroy(): void;
+}
+
+/** What a measuring view is mounted with: its first state and the node views it renders with. */
+export interface MeasuringViewOptions {
+  readonly state: EditorState;
+  readonly nodeViews?: EditorProps['nodeViews'];
+}
+
+/** Mounts a measuring view of the state: a view that is not editable, with the node views given. */
+export function mountMeasuringView(
+  element: HTMLElement,
+  { state, nodeViews }: MeasuringViewOptions,
+): MeasuringView {
+  const view = new EditorView(element, {
+    state,
+    editable: () => false,
+    nodeViews: nodeViews ?? {},
+  });
+  return {
+    view,
+    show: (next) => view.updateState(next),
+    destroy: () => view.destroy(),
+  };
+}
+
+/**
+ * Moves a view onto a document by the smallest replacements, node by node where the two documents
+ * pair up, or onto a new state when that fails; `show` draws the state, by default the view's own
+ * `updateState`.
+ */
+export function followDocument(
+  view: EditorView,
+  whole: ProseMirrorNode,
+  show: (state: EditorState) => void = (state) => view.updateState(state),
+): void {
   const { state } = view;
   if (state.doc.eq(whole)) return;
   // Out of the history, so a plugin such as an edit lock never refuses the ghost's own update.
@@ -69,5 +107,5 @@ export function followDocument(view: EditorView, whole: ProseMirrorNode): void {
   const next = tr.doc.eq(whole)
     ? state.apply(tr)
     : EditorState.create({ doc: whole, plugins: state.plugins });
-  view.updateState(next);
+  show(next);
 }

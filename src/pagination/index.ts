@@ -6,6 +6,8 @@ export { canonicalDecorations } from './canonical-decorations.js';
 export type { CanonicalViewSource } from './canonical-view.js';
 export { canonicalView } from './canonical-view.js';
 export { FONT_TIMEOUT, loadTemplateFonts, templateFontFamilies } from './fonts.js';
+export type { MeasuringView, MeasuringViewOptions } from './ghost-view.js';
+export { mountMeasuringView } from './ghost-view.js';
 export type {
   DocumentLayoutOptions,
   SectionLayoutRules,

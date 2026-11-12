@@ -18,7 +18,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { columnResizing } from 'prosemirror-tables';
-import { type EditorProps, EditorView } from 'prosemirror-view';
+import type { EditorProps, EditorView } from 'prosemirror-view';
 import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
 import {
@@ -29,6 +29,7 @@ import {
   canonicalViewOf,
 } from './canonical-plugins.js';
 import { holdCellSelection } from './cell-drag.js';
+import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
   createLayoutMemory,
   type SectionLayoutRules,
@@ -76,6 +77,12 @@ export interface PagedProjectionOptions {
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
   /** The node views the ghost renders with, as the projection does. */
   readonly nodeViews?: EditorProps['nodeViews'];
+  /**
+   * Mounts the ghost in `measureIn`, such as with the host's React node views, so it measures the
+   * blocks as the pages draw them; by default a plain view with `nodeViews` (`mountMeasuringView`).
+   */
+  readonly mountGhost?:
+    ((element: HTMLElement, options: MeasuringViewOptions) => MeasuringView) | undefined;
   /** Plugins that change what the document renders, run on the projection and the ghost. */
   readonly plugins?: readonly Plugin[] | undefined;
   /**
@@ -242,13 +249,13 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
   const rules = options.fragmentRules ?? FRAGMENT_RULES;
   const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
-  const ghost = new EditorView(options.measureIn, {
+  const mount = options.mountGhost ?? mountMeasuringView;
+  const ghost = mount(options.measureIn, {
     state: EditorState.create({
       doc: options.state.doc,
       plugins: [...(options.plugins ?? []), ...(options.ghostPlugins ?? [])],
     }),
-    editable: () => false,
-    nodeViews: options.nodeViews ?? {},
+    nodeViews: options.nodeViews,
   });
   return {
     options,
@@ -280,7 +287,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
 // What the projection's measuring asks: measure the blocks that changed size again, and lay out.
 function remeasureGhost(live: Session): () => void {
   return remeasureOn(live.options.measureIn, (change) => {
-    forgetRemeasured(live.cache, live.ghost, change);
+    forgetRemeasured(live.cache, live.ghost.view, change);
     requestLayout(live);
   });
 }
