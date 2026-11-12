@@ -42,6 +42,7 @@ import { HostPanel, useHostPanel } from './host-panel.js';
 import { labPanels } from './host-panes.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { chapter, heading, sampleDocument, text } from './lab-document.js';
+import { labAssets, labDiagrams } from './lab-figures.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 import { checkLabScript, LAB_SCRIPT_VOCABULARY, runLabScript } from './lab-scripts.js';
 
@@ -160,6 +161,10 @@ const HOST = createMemoryHost({
   },
 });
 
+// The host's uploads beside a library of images to choose from, and diagrams drawn at once.
+const ASSETS = HOST.assets && labAssets(HOST.assets);
+const DIAGRAMS = ASSETS && labDiagrams(ASSETS);
+
 // A provider that completes one sentence, as a language model would.
 const COMPLETER = {
   complete: ({ before }: { before: string }) =>
@@ -182,7 +187,7 @@ const PROOFERS = [
 function initialState(): EditorState {
   // Uploaded figures show from the in-memory host's assets.
   const schema = createDocumentSchema({
-    schema: { assetPreviewUrl: (id: string) => HOST.assets?.resolveUrl(id) ?? '' },
+    schema: { assetPreviewUrl: (id: string) => ASSETS?.resolveUrl(id) ?? '' },
   });
   const file = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power']);
   const content = file.sections[0]?.content ?? [];
@@ -421,7 +426,8 @@ function Lab() {
         zoom={zoom}
         onZoomChange={setZoom}
         telemetry={host.telemetry}
-        assets={HOST.assets}
+        assets={ASSETS}
+        diagrams={DIAGRAMS}
         codeSource={HOST.codeSource}
         referenceSource={HOST.references}
         glossary={HOST.glossary}

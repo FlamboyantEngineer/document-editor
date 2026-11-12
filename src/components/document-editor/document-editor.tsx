@@ -26,6 +26,7 @@ import {
 import type {
   AssetAdapter,
   CodeSourceAdapter,
+  DiagramAdapter,
   FeedbackAdapter,
   FontsAdapter,
   GlossaryAdapter,
@@ -184,6 +185,11 @@ export interface DocumentEditorProps
    * address.
    */
   assets?: AssetAdapter | undefined;
+  /**
+   * Draws the diagrams figures show in the host's diagram editor; without it the editor offers no
+   * diagrams.
+   */
+  diagrams?: DiagramAdapter | undefined;
   /** Resolves the code linked code blocks show; without it the editor offers no linked code. */
   codeSource?: CodeSourceAdapter | undefined;
   /** Finds citations of other documents, which the reference dialog then offers. */

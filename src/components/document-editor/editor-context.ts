@@ -16,7 +16,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
  */
 export type ObjectDialog =
   | { readonly kind: 'math'; readonly display: boolean }
-  | { readonly kind: 'figure' }
+  | { readonly kind: 'figure'; readonly figureType?: 'image' | 'diagram' | undefined }
   | { readonly kind: 'link' }
   | { readonly kind: 'linked-code' }
   | { readonly kind: 'caption' }
