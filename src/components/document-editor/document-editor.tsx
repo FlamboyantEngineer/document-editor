@@ -47,6 +47,7 @@ import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
+import { useFindBar } from './document-find-bar.js';
 import { EditorBody } from './editor-body.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
 import {
@@ -361,7 +362,9 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const startCommentRef = useRef<(() => void) | null>(null);
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress });
+  const find = useFindBar(root, view, Boolean(props.find));
+  const openFind = find.open;
+  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress, openFind });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(
@@ -371,8 +374,6 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useLayoutEffect(() => {
     editorContext.current = context;
   }, [context]);
-  const [finding, setFinding] = useState(false);
-  const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
   const chrome = { props, context, view, templateStyle, startCommentRef, openFind };
   const body = (
     <EditorBody
@@ -382,7 +383,6 @@ export function DocumentEditor(given: DocumentEditorProps) {
       paged={progress.paged}
       labels={labels}
       startCommentRef={startCommentRef}
-      onFind={openFind}
       onDialog={editable ? setDialog : null}
     />
   );
@@ -398,7 +398,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
-        <TopChrome {...chrome} finding={finding} onFindClose={() => setFinding(false)} />
+        <TopChrome {...chrome} findRequest={find.request} onFindClose={find.close} />
         <Workspace panels={props.panels}>
           {props.scrollable ? (
             <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>

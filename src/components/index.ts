@@ -24,6 +24,7 @@ export type {
   DocumentToolbarOptions,
   EditorContext,
   EditorSession,
+  FindBarMode,
   ObjectDialog,
   ToolbarButtonItem,
   ToolbarCustomItem,
