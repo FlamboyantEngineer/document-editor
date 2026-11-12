@@ -41,7 +41,15 @@ const hooks = createHooks('document-editor', [
   'zoom',
 ]);
 
-/** The zoom levels the reader steps through, in percent. */
+/** The document's zoom, the levels the reader steps through and how they change it. */
+export interface EditorZoom {
+  readonly value: number;
+  readonly onChange: (zoom: number) => void;
+  /** In percent, ascending. */
+  readonly levels: readonly number[];
+}
+
+/** The zoom levels the reader steps through by default, in percent. */
 export const ZOOM_LEVELS = [50, 75, 90, 100, 110, 125, 150, 200] as const;
 
 /** What the status bar reports the writer is doing. */
@@ -56,7 +64,7 @@ interface DocumentStatusBarProps {
   /** The host's own items, after the editor's. */
   items?: ReactNode;
   /** The document's zoom and how the reader changes it, when they can. */
-  zoom?: { readonly value: number; readonly onChange: (zoom: number) => void } | null;
+  zoom?: EditorZoom | null;
   /** Switches the layout, which the bar then offers. */
   onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
   className?: string | undefined;
@@ -206,7 +214,7 @@ export function DocumentStatusBar({
           <ZoomControl
             {...hooks.slot('zoom')}
             aria-label={labels.zoom}
-            levels={ZOOM_LEVELS}
+            levels={zoom.levels}
             value={zoom.value}
             resetValue={100}
             onChange={zoom.onChange}

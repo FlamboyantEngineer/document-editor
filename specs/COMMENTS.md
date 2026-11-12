@@ -13,7 +13,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.2 - Listing anchors
 
-`listCommentAnchors(doc)` shall give one anchor per thread in reading order, with its thread, state, range and the text it marks.
+`listCommentAnchors(doc)` shall give one anchor per thread in reading order, with its thread, state, range, each stretch of text it marks (`ranges`, as edits, blocks or pages part it) and that text, the stretches joined by spaces. Threads that nest in or overlap one another shall each keep their own anchor.
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
@@ -71,7 +71,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.4 - Suggestion cards
 
-A suggestion's card (the base library's `Card`) shall show its writer, what it does (Add, Delete, Replace or splitting the paragraph) and the text it deletes and adds (`InlineTextDiff`). A reader who may edit, and is not suggesting, shall get Accept and Reject, which decide the suggestion and resolve its thread. The active card shall offer to start the suggestion's thread, which is stored with the suggestion's id and named on its marks.
+A suggestion's card (the base library's `Card`) shall show its writer, named by the host's identity whether or not they wrote a comment, and as someone, never by an id, until then, what it does (Add, Delete, Replace or splitting the paragraph) and the text it deletes and adds (`InlineTextDiff`). A reader who may edit, and is not suggesting, shall get Accept and Reject, which decide the suggestion and resolve its thread. The active card shall offer to start the suggestion's thread, which is stored with the suggestion's id and named on its marks.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
