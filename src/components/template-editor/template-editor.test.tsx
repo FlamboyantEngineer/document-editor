@@ -108,5 +108,6 @@ describe('TemplateEditor', () => {
     if (!reset) throw new Error('No reset button');
     await user.click(reset);
     expect(changes.at(-1)).not.toHaveProperty('page');
-  });
+    // The whole editor renders here, which takes over 5 s on a shared CI runner.
+  }, 15_000);
 });

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Spike: two editors on one document through an in-process collaboration-tools room server."
+    />
+    <title>Spike: collaboration binding · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/collab-binding.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Spike: collaboration binding</h1>
+      <p>
+        Two people edit one document through a collaboration-tools room server running in this page.
+        Each editor holds the whole document, without pages, through the library's own Yjs binding.
+        Undo (<kbd>Mod-Z</kbd>) undoes only that person's changes, and each editor shows the other
+        person's caret. Take one editor offline, edit both, and bring it back.
+      </p>
+      <div class="lab-controls">
+        <label>
+          Document
+          <select name="size">
+            <option value="sample">Short sample</option>
+            <option value="20">20 chapters (about 40 pages)</option>
+            <option value="150">150 chapters (about 330 pages)</option>
+          </select>
+        </label>
+        <p>Seed: <output name="seed">…</output></p>
+        <p>Open: <output name="open">…</output></p>
+        <p>Room traffic: <output name="traffic">…</output></p>
+      </div>
+      <div class="lab-collab">
+        <section class="lab-collab__pane" aria-label="Ada Lovelace">
+          <h2>Ada Lovelace</h2>
+          <div class="lab-controls">
+            <button type="button" data-action="undo">Undo</button>
+            <button type="button" data-action="redo">Redo</button>
+            <label><input type="checkbox" name="online" checked /> Online</label>
+            <p>Connection: <output name="status">…</output></p>
+            <p>Local: <output name="local">…</output></p>
+            <p>Remote: <output name="remote">…</output></p>
+          </div>
+          <div class="lab-collab__editor de-document-editor"></div>
+        </section>
+        <section class="lab-collab__pane" aria-label="Grace Hopper">
+          <h2>Grace Hopper</h2>
+          <div class="lab-controls">
+            <button type="button" data-action="undo">Undo</button>
+            <button type="button" data-action="redo">Redo</button>
+            <label><input type="checkbox" name="online" checked /> Online</label>
+            <p>Connection: <output name="status">…</output></p>
+            <p>Local: <output name="local">…</output></p>
+            <p>Remote: <output name="remote">…</output></p>
+          </div>
+          <div class="lab-collab__editor de-document-editor"></div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
