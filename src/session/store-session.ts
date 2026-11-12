@@ -14,6 +14,7 @@ import type {
   SessionDocument,
   SessionStateContext,
 } from './document-session.js';
+import { createSessionDrafts } from './drafts.js';
 import {
   loadPinnedTemplate,
   type OpenedDocument,
@@ -26,6 +27,7 @@ import { createStoreSaving, storeBaseline } from './store-saving.js';
 import { createValueStore } from './value-store.js';
 
 const DEFAULT_AUTOSAVE_DELAY = 1000;
+const DEFAULT_DRAFT_DELAY = 300;
 
 const defaultState = (schema: Schema) => (doc: ProseMirrorNode, context: SessionStateContext) =>
   EditorState.create({ doc, plugins: createDocumentEditing(schema, context) });
@@ -98,6 +100,23 @@ async function changeTemplate(
   return { doc: shown.state.doc, saved: loaded.value.saved };
 }
 
+// The session's drafts, of what it shows and saves (DOCE-SESSION-6).
+function sessionDrafts(
+  options: DocumentSessionOptions & { schema: Schema },
+  stores: SessionStores,
+  { session, saving }: { session: () => DocumentSession; saving: () => StoreSaving | null },
+) {
+  const { schema } = options;
+  return createSessionDrafts({
+    ...options,
+    ...stores,
+    delay: options.draftDelay ?? DEFAULT_DRAFT_DELAY,
+    createState: (doc) => (options.createState ?? defaultState(schema))(doc, stores.context),
+    setTemplate: (pin) => session().setTemplate(pin),
+    saving,
+  });
+}
+
 /** Opens a document from the host's document store (DOCE-SESSION-1, DOCE-SESSION-2). */
 export function createStoreSession(options: DocumentSessionOptions): DocumentSession {
   const { host, documentId } = options;
@@ -106,6 +125,10 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
   const stores = createSessionStores(options);
   const { status, document } = stores;
   let saving: StoreSaving | null = null;
+  const drafts = sessionDrafts({ ...options, schema }, stores, {
+    session: () => session,
+    saving: () => saving,
+  });
   const follow = followSession({
     host,
     documentId,
@@ -115,6 +138,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
 
   const load = async () => {
     const opened = await openStoredDocument(host, documentId, controller.signal);
+    if (opened.ok) await drafts.load(opened.value.stored);
     if (controller.signal.aborted) return false;
     const context = stores.context;
     if (opened.ok) stores.setLoaded(opened.value.template.template);
@@ -140,11 +164,12 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
   const close = () => {
     controller.abort();
     saving?.close();
+    drafts.close();
     follow.stop();
   };
   options.signal?.addEventListener('abort', close, { once: true });
 
-  return {
+  const session: DocumentSession = {
     documentId,
     mode: 'store',
     status,
@@ -165,9 +190,13 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
       saving?.changed(changed.doc, pin);
       return true;
     },
+    draft: drafts.offer,
+    restoreDraft: drafts.restore,
+    discardDraft: drafts.discard,
     save: () => saving?.save() ?? Promise.resolve(),
     flush: () => saving?.flush() ?? Promise.resolve(true),
     hasUnsavedChanges: () => saving?.hasUnsavedChanges() ?? false,
     close,
   };
+  return session;
 }

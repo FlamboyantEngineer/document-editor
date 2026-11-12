@@ -78,7 +78,6 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
   let closed = false;
   const patch = (next: Partial<SessionStatus>) => status.set({ ...status.get(), ...next });
   const pause = createPause(context.autosaveDelay, () => void saveAutomatically());
-  const cancelTimer = pause.cancel;
   const changedSince = (doc: ProseMirrorNode, pin: TemplatePin | null) =>
     !samePin(pin, baseline.pin) || contentKey(doc) !== baseline.key;
 
@@ -111,7 +110,7 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
   };
 
   const save = (): Promise<void> => {
-    cancelTimer();
+    pause.cancel();
     // A save waits for the one in flight, then saves what changed meanwhile.
     const run = saving ? saving.then(saveOnce) : saveOnce();
     const tracked = run.finally(() => {
@@ -142,9 +141,18 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
       }
       schedule();
     },
+    /**
+     * Saves from now on against `revision`, such as the one a restored draft was edited from, so
+     * the store refuses the save as a conflict when it holds a newer one rather than losing it.
+     */
+    rebase: (revision: string) => {
+      baseline = { ...baseline, revision };
+    },
+    /** The revision the document is edited from. */
+    revision: () => baseline.revision,
     save,
     flush: async () => {
-      cancelTimer();
+      pause.cancel();
       if (dirty) await saveAutomatically();
       if (saving) await saving;
       return !dirty;
@@ -152,7 +160,7 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
     hasUnsavedChanges: () => dirty,
     close: () => {
       closed = true;
-      cancelTimer();
+      pause.cancel();
     },
   };
 }

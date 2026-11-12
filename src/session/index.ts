@@ -10,6 +10,7 @@ export type {
   SessionStateUpdate,
 } from './document-session.js';
 export { createDocumentSession } from './document-session.js';
+export type { DraftOffer } from './drafts.js';
 export type {
   SessionLoadPhase,
   SessionSavePhase,
