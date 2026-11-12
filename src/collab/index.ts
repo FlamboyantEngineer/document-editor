@@ -9,6 +9,16 @@ export {
   writeRoomDocument,
   yjsToDocument,
 } from './convert.js';
+export {
+  keepRoomDrafts,
+  mergeRoomDraft,
+  readRoomGeneration,
+  restoreRoomDraft,
+  type RoomDraft,
+  type RoomDraftMerge,
+  type RoomDrafts,
+  type RoomDraftsOptions,
+} from './offline.js';
 export { roomConnection, type RoomProviderLike } from './room-connection.js';
 export {
   type CollabChange,

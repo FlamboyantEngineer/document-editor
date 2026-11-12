@@ -13,6 +13,7 @@ import {
   DATA_CONTRIBUTOR_ATTR,
   DATA_ID_ATTR,
   type DomAttributes,
+  FORMAT_CHANGE_ATTR,
   readContributorAuthorAttr,
 } from './dom-attributes.js';
 import { DOCUMENT_MARK_ORDER } from './node-order.js';
@@ -192,6 +193,46 @@ function suggestionMark(tag: 'ins' | 'del'): MarkSpec {
   };
 }
 
+// The formatting a format change replaced, from its stored attribute.
+function readBefore(value: string | null): unknown {
+  try {
+    const parsed: unknown = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** A suggested formatting change, which records the formatting it replaced (`before`). */
+const formatChange: MarkSpec = {
+  excludes: 'format_change',
+  attrs: {
+    dataId: { default: null },
+    dataAuthor: { default: null },
+    commentId: { default: null },
+    before: { default: [] },
+  },
+  parseDOM: [
+    {
+      tag: `span[${FORMAT_CHANGE_ATTR}]`,
+      priority: 60,
+      getAttrs: (dom: HTMLElement) => ({
+        dataId: dom.getAttribute(DATA_ID_ATTR) || null,
+        dataAuthor: readContributorAuthorAttr(dom),
+        commentId: dom.getAttribute('data-comment-id') || null,
+        before: readBefore(dom.getAttribute(FORMAT_CHANGE_ATTR)),
+      }),
+    },
+  ],
+  toDOM(mark: Mark) {
+    const attrs: DomAttributes = { [FORMAT_CHANGE_ATTR]: JSON.stringify(mark.attrs.before) };
+    if (mark.attrs.dataId) attrs[DATA_ID_ATTR] = String(mark.attrs.dataId);
+    if (mark.attrs.dataAuthor) attrs[DATA_CONTRIBUTOR_ATTR] = String(mark.attrs.dataAuthor);
+    if (mark.attrs.commentId) attrs['data-comment-id'] = String(mark.attrs.commentId);
+    return ['span', attrs, 0];
+  },
+};
+
 function placed(name: keyof typeof DOCUMENT_MARK_ORDER, spec: MarkSpec): RichTextExtensionMark {
   return { name, spec, order: DOCUMENT_MARK_ORDER[name] };
 }
@@ -214,6 +255,7 @@ export function createMarksExtension(options?: DocumentSchemaOptions): RichTextE
       placed('comment_highlight', commentHighlight),
       placed('insertion', suggestionMark('ins')),
       placed('deletion', suggestionMark('del')),
+      placed('format_change', formatChange),
       placed('reference', createReferenceMark(resolved)),
     ],
   };

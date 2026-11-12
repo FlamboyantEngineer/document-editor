@@ -9,12 +9,13 @@ import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { findTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
-  acceptSuggestion,
   canStartComment,
   clearFormatting,
+  decideWithPolicy,
   listSuggestions,
   objectBlockAt,
-  rejectSuggestion,
+  suggestionPermissions,
+  type SuggestionPolicy,
 } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
 import type { ContextTarget } from './context-target.js';
@@ -29,8 +30,8 @@ import { commandEntry, objectEntries, tableCellEntries } from './table-actions.j
 export interface ContextEntriesOptions {
   readonly labels: DocumentEditorLabels;
   readonly editable: boolean;
-  /** Whether the reader may accept and reject suggestions. */
-  readonly canDecide: boolean;
+  /** Who may accept and reject suggestions (`editorSuggestionPolicy`). */
+  readonly suggestionPolicy: SuggestionPolicy;
   /** Starts a comment thread on the selected text, when the reader may comment. */
   readonly startComment: (() => void) | null;
   /** Opens one of the editor's dialogs for the selection, while the editor has them. */
@@ -127,24 +128,34 @@ function clipboardEntries(view: EditorView, { labels, editable }: ContextEntries
   ] satisfies MenuEntry[];
 }
 
-function suggestionEntries(view: EditorView, { labels, canDecide }: ContextEntriesOptions) {
+function suggestionEntries(view: EditorView, { labels, suggestionPolicy }: ContextEntriesOptions) {
   const { head } = view.state.selection;
-  const suggestion = canDecide
-    ? listSuggestions(view.state.doc).find((each) => each.from <= head && head <= each.to)
-    : undefined;
+  const suggestion = listSuggestions(view.state.doc).find(
+    (each) => each.from <= head && head <= each.to,
+  );
   if (!suggestion) return [];
-  return [
-    commandEntry(
-      view,
-      { id: 'accept', label: labels.acceptSuggestion },
-      acceptSuggestion(suggestion.id),
-    ),
-    commandEntry(
-      view,
-      { id: 'reject', label: labels.rejectSuggestion },
-      rejectSuggestion(suggestion.id),
-    ),
-  ];
+  const allowed = suggestionPermissions(suggestion, suggestionPolicy);
+  const ids = new Set([suggestion.id]);
+  const entries: MenuEntry[] = [];
+  if (allowed.accept) {
+    entries.push(
+      commandEntry(
+        view,
+        { id: 'accept', label: labels.acceptSuggestion },
+        decideWithPolicy(suggestionPolicy, 'accept', ids),
+      ),
+    );
+  }
+  if (allowed.reject) {
+    entries.push(
+      commandEntry(
+        view,
+        { id: 'reject', label: labels.rejectSuggestion },
+        decideWithPolicy(suggestionPolicy, 'reject', ids),
+      ),
+    );
+  }
+  return entries;
 }
 
 function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuEntry[] {
@@ -208,7 +219,13 @@ export function contextGroups(
   target: ContextTarget,
   given: ContextEntriesOptions,
 ): ContextMenuGroup[] {
-  const options = target.locked ? { ...given, editable: false, canDecide: false } : given;
+  const options = target.locked
+    ? {
+        ...given,
+        editable: false,
+        suggestionPolicy: { ...given.suggestionPolicy, canDecide: false, canWithdraw: false },
+      }
+    : given;
   const objects = objectGroups(view, options);
   return [
     { id: 'proofing', entries: proofingEntries(view, options) },

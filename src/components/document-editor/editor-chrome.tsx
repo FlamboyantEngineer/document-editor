@@ -18,7 +18,7 @@ import { DocumentEditorContext, type EditorContext, type ObjectDialog } from './
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
-import { canDecideSuggestions } from './save-status-item.js';
+import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
@@ -205,18 +205,14 @@ function EditorContextMenu({
   startCommentRef,
   openDialog,
 }: BottomChromeProps) {
-  const { editable = true, suggesting = false } = props;
+  const { editable = true } = props;
   if (props.contextMenu === false) return null;
   return (
     <DocumentContextMenu
       view={view}
       labels={context.labels}
       editable={editable}
-      canDecide={canDecideSuggestions({
-        editable,
-        suggesting,
-        capabilities: props.capabilities,
-      })}
+      suggestionPolicy={editorSuggestionPolicy(props)}
       startCommentRef={startCommentRef}
       openDialog={openDialog}
       linkedCode={Boolean(props.codeSource)}

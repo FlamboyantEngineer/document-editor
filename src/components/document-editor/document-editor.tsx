@@ -367,7 +367,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useWheelZoom(root, props);
   useSaveShortcut(root, { session: props.session, shortcuts: shortcutsOf(state) });
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
-  const engine = useEngineView(props.events, props.onContentChange, tap);
+  const engine = useEngineView(props.events, props, tap);
   const editorContext = useRef<EditorContext | null>(null);
   const { progress, view, layoutState } = useEditorLayout(props, engine, {
     measureIn,

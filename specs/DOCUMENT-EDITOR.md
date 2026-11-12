@@ -275,10 +275,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.1 - Notifications
 
-The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids.
+The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids. A review-only change (DOCE-COMMENTS-1.13) shall also be told as one (`onReviewChange`, with the threads and suggestions it touched), and is never made a suggestion while suggesting.
 
 Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
-Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/document-editor.test.tsx`
+Verification: `e2e/document-editor.spec.ts`, `e2e/full-editor.spec.ts`, `src/components/document-editor/document-editor.test.tsx`
 
 ### DOCE-EDITOR-6.2 - The host's keys
 
