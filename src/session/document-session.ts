@@ -2,17 +2,21 @@
 // status. It needs no framework; `useDocumentSession` gives it to React.
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
+import type { EditorState, Plugin } from 'prosemirror-state';
 import type { EditorHost, SavedState } from '../host/adapters.js';
 import type { EditingMode, EditorCapabilities } from '../host/capabilities.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
 import type { DraftOffer } from './drafts.js';
+import { createRoomSession } from './room-session.js';
 import type { SessionStatusStore } from './status.js';
 import { createStoreSession } from './store-session.js';
 import type { ValueStore } from './value-store.js';
 
-/** How a session keeps its document: through the host's document store. */
-export type SessionMode = 'store';
+/**
+ * How a session keeps its document: through the host's document store, or in the document's
+ * shared room (`host.collaboration`), where every writer edits the same document at once.
+ */
+export type SessionMode = 'store' | 'room';
 
 /** A new editor state, or an update of the current one, as the editor commits them. */
 export type SessionStateUpdate = EditorState | ((state: EditorState) => EditorState);
@@ -23,6 +27,11 @@ export interface SessionStateContext {
   template: () => TemplateFile;
   /** The reader, whom new elements are attributed to. */
   author: () => string | null;
+  /**
+   * In room mode, the plugins that keep the state and the room the same. The state runs them after
+   * its own, with no undo history of its own: the room's binding keeps the reader's undo.
+   */
+  room?: { readonly plugins: readonly Plugin[] } | undefined;
 }
 
 export interface DocumentSessionOptions {
@@ -32,8 +41,8 @@ export interface DocumentSessionOptions {
   /** The schema documents are read with. Defaults to `createDocumentSchema()`. */
   schema?: Schema | undefined;
   /**
-   * Makes the editor state for a document read from the store. Defaults to the document's
-   * editing plugins (`createDocumentEditing`).
+   * Makes the editor state for a loaded document. Defaults to the document's editing plugins
+   * (`createDocumentEditing`); in room mode it must run the context's `room` plugins.
    */
   createState?: ((doc: ProseMirrorNode, context: SessionStateContext) => EditorState) | undefined;
   /** How long after the last change store mode saves, in milliseconds. Defaults to 1000. */
@@ -103,5 +112,5 @@ export interface DocumentSession {
 
 /** Opens a document by id in the mode given (DOCE-SESSION-3). */
 export function createDocumentSession(options: DocumentSessionOptions): DocumentSession {
-  return createStoreSession(options);
+  return options.mode === 'room' ? createRoomSession(options) : createStoreSession(options);
 }

@@ -35,7 +35,6 @@ import { createEditLock, type EditLockOptions } from './edit-lock.js';
 import {
   changeParagraphLevel,
   deleteEmptyListItem,
-  joinAcrossPages,
   splitBlockKeepingLevel,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
@@ -167,16 +166,9 @@ export function documentKeys(
       atFootnoteEdge(-1),
       deleteEmptyListItem,
       selectAtom(-1),
-      joinAcrossPages(-1),
       joinBackward,
     ),
-    Delete: chainCommands(
-      deleteSelection,
-      atFootnoteEdge(1),
-      selectAtom(1),
-      joinAcrossPages(1),
-      joinForward,
-    ),
+    Delete: chainCommands(deleteSelection, atFootnoteEdge(1), selectAtom(1), joinForward),
     Tab: always(chainCommands(listKey(sinkListItem), changeParagraphLevel(1, template))),
     'Shift-Tab': always(chainCommands(listKey(liftListItem), changeParagraphLevel(-1, template))),
   };

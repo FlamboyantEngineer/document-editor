@@ -1,7 +1,7 @@
 // Keeps every element of a document's content identified: after a local change, each element
 // without an id, or with an id an earlier element already holds, gets a fresh one, and the elements
-// a local change adds are attributed to the writer. The parts a split element is laid out in share
-// its id. Page chrome is view content and is left as it is.
+// a local change adds are attributed to the writer. Page chrome is view content and is left as it
+// is.
 
 import { Fragment, type Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
@@ -36,35 +36,6 @@ const isDrawnRegion = (node: ProseMirrorNode) => {
   return kind !== null && kind !== 'content';
 };
 
-const isSplitPart = (node: ProseMirrorNode) =>
-  node.attrs.splitPartIndex !== null && node.attrs.splitPartIndex !== undefined;
-
-// The empty paragraph a list item's later part opens with when the pagination splits it.
-const isPlaceholder = (node: ProseMirrorNode, parent: ProseMirrorNode | null) =>
-  parent?.type.name === 'list_item' &&
-  parent.firstChild === node &&
-  isSplitPart(parent) &&
-  node.type.name === 'paragraph' &&
-  node.content.size === 0 &&
-  !node.attrs.dataId;
-
-// A header row a later part of a split table repeats: one of the header rows it leads with.
-function isRepeatedHeaderRow(node: ProseMirrorNode, parent: ProseMirrorNode | null): boolean {
-  if (!parent || parent.type.spec.tableRole !== 'table' || !isSplitPart(parent)) return false;
-  if (Number(parent.attrs.splitPartIndex) === 0 || node.type.spec.tableRole !== 'row') return false;
-  let leading = true;
-  let found = false;
-  parent.forEach((row) => {
-    if (!leading || found) return;
-    const header =
-      row.childCount > 0 &&
-      row.content.content.every((cell) => cell.type.spec.tableRole === 'header_cell');
-    if (!header) leading = false;
-    else if (row === node) found = true;
-  });
-  return found;
-}
-
 // A step that only changes text or marks inside text blocks, which adds no element: an inline atom,
 // such as a mention or an equation, is an element of its own.
 function isTextStep(step: Step): boolean {
@@ -86,12 +57,10 @@ export function assignElementIds(
   tr: Transaction,
   { author = null, newId = createElementId }: AssignOptions,
 ): boolean {
-  const walk: Walk = { tr, seen: new Map(), author, newId, changed: false };
-  tr.doc.descendants((node, pos, parent) => {
+  const walk: Walk = { tr, seen: new Set(), author, newId, changed: false };
+  tr.doc.descendants((node, pos) => {
     if (node.isText || isDrawnRegion(node)) return false;
-    // The header rows a later part of a split table repeats are copies of the first part's.
-    if (isRepeatedHeaderRow(node, parent)) return false;
-    if (!isStructureNode(node) && !isPlaceholder(node, parent)) identify(walk, node, pos);
+    if (!isStructureNode(node)) identify(walk, node, pos);
     return true;
   });
   return walk.changed;
@@ -103,28 +72,27 @@ interface AssignOptions {
   newId?: (() => string) | undefined;
 }
 
-// The state of one walk: the ids met so far, each with whether a split part held it.
+// The state of one walk: the ids met so far.
 interface Walk {
   readonly tr: Transaction;
-  readonly seen: Map<string, boolean>;
+  readonly seen: Set<string>;
   readonly author: string | null;
   readonly newId: () => string;
   changed: boolean;
 }
 
-// Keeps an element's id when it is valid and its own, or a split part's of the same element, or
-// gives it a fresh one.
+// Keeps an element's id when it is valid and its own, or gives it a fresh one.
 function identify(walk: Walk, node: ProseMirrorNode, pos: number): void {
   const id: unknown = node.attrs.dataId;
-  const splitPart = isSplitPart(node);
-  const earlier = typeof id === 'string' ? walk.seen.get(id) : undefined;
   const valid = typeof id === 'string' && ELEMENT_ID_PATTERN.test(id);
-  if (valid && earlier === undefined) walk.seen.set(id, splitPart);
-  if (valid && (earlier === undefined || (earlier && splitPart))) return;
+  const copied = valid && walk.seen.has(id);
+  if (valid && !copied) {
+    walk.seen.add(id);
+    return;
+  }
   let fresh = walk.newId();
   while (walk.seen.has(fresh)) fresh = walk.newId();
-  walk.seen.set(fresh, splitPart);
-  const copied = valid && earlier !== undefined;
+  walk.seen.add(fresh);
   walk.tr.setNodeMarkup(pos, null, {
     ...node.attrs,
     dataId: fresh,

@@ -41,7 +41,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.6 - Versions store
 
-The host's `versions` adapter shall list a document's saved versions, newest first, each with its saved state, when it was saved, who saved it and its name, and load a version's content by its revision in the stored format.
+The host's `versions` adapter shall list a document's saved versions, newest first, each with its saved state, when it was saved, who saved it and its name, and, when the host keeps them, the template the version pins and how many comment threads the document had (`template`, `threads`), and load a version's content by its revision in the stored format.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -125,7 +125,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.18 - Named versions
 
-The `versions` adapter may save a document's content as a new version with a name or none (`create`), name a version or take its name away (`rename`), and make a version's content the document's current content as a new saved state (`restore`).
+The `versions` adapter may save a document's content as a new version with a name or none (`create`), name a version or take its name away (`rename`), and make a version's content the document's current content as a new saved state (`restore`). The in-memory host's `create` of the content the document holds names its latest saved state rather than saving a new one, so an open session's base revision stays the latest.
 
 Implementation: `src/host/adapters.ts`, `src/host/memory-documents.ts`
 Verification: `src/host/memory-host.test.ts`

@@ -4,6 +4,7 @@
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { createDocumentEditing } from '../engine/document-editing.js';
+import { isRemoteTransaction } from '../engine/transaction-kind.js';
 import type { HostResult } from '../host/adapters.js';
 import { resolveEditingMode } from '../host/capabilities.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
@@ -29,8 +30,19 @@ import { createValueStore } from './value-store.js';
 const DEFAULT_AUTOSAVE_DELAY = 1000;
 const DEFAULT_DRAFT_DELAY = 300;
 
-const defaultState = (schema: Schema) => (doc: ProseMirrorNode, context: SessionStateContext) =>
-  EditorState.create({ doc, plugins: createDocumentEditing(schema, context) });
+/**
+ * The editor state the session makes by default: the document's editing plugins, and in room mode
+ * the room's, with the room's undo in place of the editor's history.
+ */
+export const defaultState =
+  (schema: Schema) => (doc: ProseMirrorNode, context: SessionStateContext) => {
+    const { room } = context;
+    const editing = createDocumentEditing(schema, {
+      ...context,
+      ...(room ? { history: false, isRemote: isRemoteTransaction } : {}),
+    });
+    return EditorState.create({ doc, plugins: [...editing, ...(room?.plugins ?? [])] });
+  };
 
 // The loaded document, read for the editor, or why it cannot be.
 function readOpened(
@@ -54,10 +66,13 @@ function readOpened(
   };
 }
 
-// The stores a session keeps, and what its editor state reads from them.
-function createSessionStores(options: DocumentSessionOptions) {
+/** The stores a session keeps, and what its editor state reads from them. */
+export function createSessionStores(
+  options: DocumentSessionOptions,
+  load: SessionStatus['load'] = 'loading',
+) {
   const status = createValueStore<SessionStatus>({
-    load: 'loading',
+    load,
     save: 'idle',
     error: null,
     dirty: false,
@@ -83,11 +98,11 @@ function createSessionStores(options: DocumentSessionOptions) {
   return { status, document, context, current, setLoaded };
 }
 
-type SessionStores = ReturnType<typeof createSessionStores>;
+export type SessionStores = ReturnType<typeof createSessionStores>;
 type StoreSaving = ReturnType<typeof createStoreSaving>;
 
-// Pins another template: the document shows it and has a change to save.
-async function changeTemplate(
+/** Shows another template the document pins; null when it cannot load or the document is gone. */
+export async function changeTemplate(
   { host, signal }: { host: DocumentSessionOptions['host']; signal: AbortSignal },
   { status, document }: SessionStores,
   pin: TemplatePin | null,

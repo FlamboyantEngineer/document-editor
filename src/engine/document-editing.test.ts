@@ -104,7 +104,7 @@ describe('element ids', () => {
     expect(second?.attrs.dataAuthor).toBe('writer');
   });
 
-  it('DOCE-EDITING-1.3 leaves remote, pagination and typing changes as they are', () => {
+  it('DOCE-EDITING-1.3 leaves remote, layout and typing changes as they are', () => {
     const newId = vi.fn(() => '0000000b');
     const remote = new Set<Transaction>();
     const plugin = createElementIds({ newId, isRemote: (tr) => remote.has(tr) });
@@ -117,14 +117,6 @@ describe('element ids', () => {
     state.applyTransaction(state.tr.insert(end, block).setMeta('addToHistory', false));
     state.applyTransaction(state.tr.insertText('!'));
     expect(newId).not.toHaveBeenCalled();
-    const doc = read(paragraph('A', { id: '0000000a' }), paragraph('B', { id: '0000000a' }));
-    const tr = EditorState.create({ doc }).tr;
-    tr.doc.descendants((node, pos) => {
-      if (node.type.name === 'paragraph')
-        tr.setNodeMarkup(pos, null, { ...node.attrs, splitPartIndex: pos > 10 ? 1 : 0 });
-      return true;
-    });
-    expect(assignElementIds(tr, { newId })).toBe(false);
   });
 });
 
@@ -215,45 +207,6 @@ describe('document keys', () => {
     expect(items[1]?.child(0).attrs.dataId).toBe('0000000d');
     expect(items[0]?.attrs.dataId).not.toBe('0000000c');
     expect(items[0]?.child(0).attrs.dataId).not.toBe('0000000d');
-  });
-
-  it('DOCE-EDITING-2.4 joins text across a page break with Backspace and Delete', () => {
-    const block = (value: string, id: string) =>
-      value === '|'
-        ? documentSchema.node('page_break')
-        : documentSchema.node('paragraph', { dataId: id }, documentSchema.text(value));
-    const pageOf = (blocks: Node[]) =>
-      documentSchema.node('page', null, [
-        documentSchema.node('page_header'),
-        documentSchema.node('page_content', null, blocks),
-        documentSchema.node('page_footnotes'),
-        documentSchema.node('page_footer'),
-      ]);
-    const paged = (first: Node[], second: Node[]) =>
-      documentSchema.node('doc', null, [
-        documentSchema.node('page_section', null, [pageOf(first), pageOf(second)]),
-      ]);
-    const texts = (state: EditorState) => {
-      const all: string[] = [];
-      state.doc.descendants((node) => {
-        if (node.isTextblock) all.push(node.textContent);
-        return !node.isTextblock;
-      });
-      return all;
-    };
-    const split = paged([block('Alpha', 'aaaaaaaa')], [block('blue', 'aaaaaaaa')]);
-    expect(texts(run(stateAt(split, 'blue'), key('Backspace')))).toEqual(['Alph', 'blue']);
-    const two = paged([block('Alpha', 'aaaaaaaa')], [block('Blue', 'bbbbbbbb')]);
-    expect(texts(run(stateAt(two, 'Blue'), key('Backspace')))).toEqual(['AlphaBlue']);
-    const atEnd = stateAt(two, 'Alpha');
-    const end = atEnd.apply(
-      atEnd.tr.setSelection(TextSelection.create(two, positionOf(two, 'Alpha') + 5)),
-    );
-    expect(texts(run(end, key('Delete')))).toEqual(['AlphaBlue']);
-    const broken = paged([block('Alpha', 'aaaaaaaa'), block('|', '')], [block('Blue', 'bbbbbbbb')]);
-    const selected = run(stateAt(broken, 'Blue'), key('Backspace'));
-    expect(selected.selection.from).toBe(positionOf(broken, 'Alpha') + 6);
-    expect(texts(run(selected, key('Backspace')))).toEqual(['Alpha', 'Blue']);
   });
 
   it('DOCE-EDITING-2.5 changes paragraph levels with Tab where the template numbers paragraphs', () => {
@@ -393,30 +346,5 @@ describe('the editing extension', () => {
     });
     expect(ids.every((id) => typeof id === 'string' && ELEMENT_ID_PATTERN.test(id))).toBe(true);
     expect(repairElementIds(repaired)).toBeNull();
-  });
-
-  it('DOCE-EDITING-1.4 keeps the ids of the header rows a split table repeats', () => {
-    const header: StoredNode = {
-      type: 'tableRow',
-      content: [{ type: 'tableHeader', content: [paragraph('Name')] }],
-    };
-    const body: StoredNode = {
-      type: 'tableRow',
-      content: [{ type: 'tableCell', content: [paragraph('First')] }],
-    };
-    let state = EditorState.create({ doc: read({ type: 'table', content: [header, body] }) });
-    state = state.apply(repairElementIds(state) as Transaction);
-    let after = -1;
-    state.doc.descendants((node, pos) => {
-      if (node.type.name === 'table') after = pos + node.nodeSize;
-      return after < 0;
-    });
-    const table = state.doc.resolve(after).nodeBefore;
-    if (!table) throw new Error('The document has a table');
-    // The later part repeats the header row only.
-    const part = table.type.create({ ...table.attrs, splitPartIndex: 1 }, [table.child(0)]);
-    const first = table.type.create({ ...table.attrs, splitPartIndex: 0 }, table.content);
-    const split = state.apply(state.tr.replaceWith(after - table.nodeSize, after, [first, part]));
-    expect(repairElementIds(split)).toBeNull();
   });
 });

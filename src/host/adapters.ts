@@ -1,5 +1,5 @@
 import type { DocumentFile, StoredContent } from '../model/format/document-format.js';
-import type { TemplateFile } from '../model/format/template-format.js';
+import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import type { ReferenceBaseline } from '../model/reference-format.js';
 import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
@@ -95,6 +95,13 @@ export interface DocumentVersion extends SavedState {
   author: string | null;
   /** The version's name; null for a version saved automatically. */
   label: string | null;
+  /**
+   * The template the version pins (its content's `template`), when the host lists it; null for the
+   * base template.
+   */
+  template?: TemplatePin | null | undefined;
+  /** How many comment threads the document had when the version was saved, when the host keeps them. */
+  threads?: number | undefined;
 }
 
 /** A document's saved versions, to show its history and compare one with another. */

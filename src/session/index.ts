@@ -18,3 +18,14 @@ export type {
   SessionStatusStore,
 } from './status.js';
 export type { ValueStore } from './value-store.js';
+export type { VersionGroup } from './version-groups.js';
+export { groupVersions } from './version-groups.js';
+export type {
+  DocumentVersions,
+  DocumentVersionsOptions,
+  HistoricalView,
+  NewVersion,
+  OpenedVersion,
+  VersionList,
+} from './versions.js';
+export { createDocumentVersions } from './versions.js';
