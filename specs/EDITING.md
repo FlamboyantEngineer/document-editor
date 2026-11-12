@@ -171,3 +171,10 @@ The plain text a copy writes shall be one line for each block the selection touc
 
 Implementation: `src/engine/clipboard-text.ts`, `src/engine/contents.ts`
 Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.5 - Images in pasted content
+
+With the host's `assets`, pasted HTML with images whose bytes come with the paste shall be pasted once those images are uploaded, each as its own figure in its place (DOCE-EDITOR-4.6): an image written as a data URI is decoded, and a local file a word processor's HTML names is taken from the next PNG or JPEG picture of the paste's RTF, leaving out the metafile copies it writes beside them. The host's `feedback` says the images are uploading; an image that fails to upload, or whose bytes the paste does not carry, is left out and the feedback says so, and the rest is pasted. Pasted HTML whose images are only addresses is left to the editor.
+
+Implementation: `src/components/document-editor/figure-paste.ts`, `src/components/document-editor/pasted-images.ts`
+Verification: `src/components/document-editor/figure-paste.test.ts`

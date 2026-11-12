@@ -55,7 +55,14 @@ function useBodyViewProps({
   const host = useHostViewProps(props);
   return useMemo(
     () => ({
-      ...(assets ? figurePasteHandlers({ assets, feedback, failure: labels.uploadFailed }) : {}),
+      ...(assets
+        ? figurePasteHandlers({
+            assets,
+            feedback,
+            failure: labels.uploadFailed,
+            uploading: labels.uploading,
+          })
+        : {}),
       editable: () => editable,
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
