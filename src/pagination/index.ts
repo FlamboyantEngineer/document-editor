@@ -1,6 +1,10 @@
 // The editor's pagination runtime: measuring laid-out blocks, laying the whole document out on
 // pages, and keeping an editor on its pages as it changes.
 
+export type { DecorationSource } from './canonical-decorations.js';
+export { canonicalDecorations } from './canonical-decorations.js';
+export type { CanonicalViewSource } from './canonical-view.js';
+export { canonicalView } from './canonical-view.js';
 export type { DocumentLayoutOptions, SectionPageHeight } from './layout-document.js';
 export type { PageMetric } from './layout-document.js';
 export { layoutDocument } from './layout-document.js';

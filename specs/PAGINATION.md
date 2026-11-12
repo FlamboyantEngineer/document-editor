@@ -352,6 +352,20 @@ Verification: `src/pagination/projection-view.test.ts`, `e2e/spike-projection.sp
 Implementation: `src/pagination/projection-mirror.ts`, `src/pagination/projection-view.ts`
 Verification: `src/pagination/projection-view.test.ts`
 
+### DOCE-PAGINATION-7.13 - Canonical decorations on the pages
+
+The projection shall draw every decoration the canonical state's plugins draw (search, proofing, comments, changes), mapped onto its pages, including one that crosses a page break; a decoration on content only the projection holds, such as a repeated header row, is not drawn there. Whatever renders the projection (`createPagedProjection`, without a view of its own) shall render it with the plugins its state carries, pass each of its transactions to `receive`, and take each new projection state from `onProjection`.
+
+Implementation: `src/pagination/canonical-decorations.ts`, `src/pagination/projection.ts`
+Verification: `src/pagination/projection-view.test.ts`
+
+### DOCE-PAGINATION-7.14 - The pages' view as a canonical view
+
+`canonicalView(view, { canonical, map, dispatch })` shall give the view that renders the projection as a view of the canonical state, for toolbars, menus and commands: its `state` is the canonical state, `dispatch` takes canonical transactions, and `coordsAtPos`, `domAtPos`, `nodeDOM`, `posAtDOM` and `posAtCoords` take and give canonical positions; everything else is the projection view's.
+
+Implementation: `src/pagination/canonical-view.ts`
+Verification: `src/pagination/projection-view.test.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

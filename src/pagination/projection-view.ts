@@ -3,7 +3,11 @@
 // canonical state (`createPagedProjection`).
 
 import { EditorView } from 'prosemirror-view';
-import { createPagedProjection, type PagedProjection, type PagedProjectionOptions } from './projection.js';
+import {
+  createPagedProjection,
+  type PagedProjection,
+  type PagedProjectionOptions,
+} from './projection.js';
 
 /** How a projection with a view of its own is set up. */
 export interface ProjectionViewOptions extends Omit<PagedProjectionOptions, 'onProjection'> {

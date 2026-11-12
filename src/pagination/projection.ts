@@ -14,6 +14,7 @@ import { type Command, EditorState, Plugin, type Transaction } from 'prosemirror
 import { columnResizing } from 'prosemirror-tables';
 import { type EditorProps, EditorView } from 'prosemirror-view';
 import { FRAGMENT_RULES, type FragmentRules, type LayoutRules } from '../model/index.js';
+import { canonicalDecorations } from './canonical-decorations.js';
 import { holdCellSelection } from './cell-drag.js';
 import type { SectionPageHeight } from './layout-document.js';
 import { settleEdits } from './layout-triggers.js';
@@ -156,6 +157,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
         selection: () => session().canonical.selection,
         map: () => session().map,
       }),
+      canonicalDecorations({ canonical: () => session().canonical, map: () => session().map }),
       columnResizing({ View: null }),
       ...(options.plugins ?? []),
     ],
