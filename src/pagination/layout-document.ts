@@ -10,6 +10,11 @@ import {
   type SectionPages,
   stackedHeight,
 } from '../model/index.js';
+import {
+  type IncrementalResult,
+  layoutSectionIncrementally,
+  type SectionLayout,
+} from './incremental-layout.js';
 import { type MeasureCache, measureCacheCounts, measureChildBlocks } from './measure-blocks.js';
 import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 
@@ -31,9 +36,28 @@ export interface DocumentLayoutOptions {
   onPage?: ((page: PageMetric) => void) | undefined;
   /**
    * Receives each section laid out, with how many of its blocks were measured in the view rather
-   * than taken from the cache.
+   * than taken from the cache, and how many of its pages were laid out rather than reused.
    */
-  onSection?: ((section: { readonly blocksMeasured: number }) => void) | undefined;
+  onSection?: ((section: SectionReport) => void) | undefined;
+  /** Where each section's layout is kept, so the next layout reuses the pages a change leaves. */
+  memory?: LayoutMemory | undefined;
+}
+
+/** What a layout did in one section. */
+export interface SectionReport {
+  readonly blocksMeasured: number;
+  readonly pagesLaidOut: number;
+  readonly pages: number;
+}
+
+/** The sections' layouts a document was laid out with, for the next layout to reuse. */
+export interface LayoutMemory {
+  sections: SectionLayout[];
+}
+
+/** A memory for layouts, empty until the first. */
+export function createLayoutMemory(): LayoutMemory {
+  return { sections: [] };
 }
 
 /** A page as it was laid out: how much of its content height its blocks take. */
@@ -114,7 +138,17 @@ interface SectionFill {
   readonly shown: Set<string>;
 }
 
-function layoutSection(fill: SectionFill, options: DocumentLayoutOptions): SectionPages {
+// What a section's page heights depend on besides its blocks, as a key.
+function fillKey(fill: SectionFill, perPage: boolean): string {
+  const entries = fill.area ? [...fill.area.entries].map(([id, height]) => `${id}:${height}`) : [];
+  return [fill.baseHeight, perPage, fill.area?.overhead ?? '-', ...entries].join('|');
+}
+
+function layoutSection(
+  fill: SectionFill,
+  options: DocumentLayoutOptions,
+  previous: SectionLayout | undefined,
+): IncrementalResult {
   const perPage = options.footnoteNumbering === 'page';
   const { area, shown, baseHeight } = fill;
   const pageHeight = (blocks: readonly LayoutBlock[]) => {
@@ -122,19 +156,22 @@ function layoutSection(fill: SectionFill, options: DocumentLayoutOptions): Secti
     const fresh = [...cited(blocks)].filter((id) => perPage || !shown.has(id));
     return baseHeight - footnoteAreaHeight(area, fresh);
   };
-  const queue = [...fill.blocks];
-  const pages: ProseMirrorNode[][] = [];
-  while (queue.length) {
-    const page = layoutNextPage(queue, pages.length, { pageHeight, rules: options.rules });
-    options.onPage?.({
-      used: stackedHeight(page),
-      available: pageHeight(page),
-      blocks: page.map((block) => block.height),
-    });
-    for (const id of cited(page)) shown.add(id);
-    pages.push(page.map((block) => block.node));
-  }
-  return pages;
+  return layoutSectionIncrementally({
+    blocks: fill.blocks,
+    key: fillKey(fill, perPage),
+    previous,
+    // With footnotes numbered through the document, a page's room depends on those shown before.
+    state: () => (area && !perPage ? [...shown].join(' ') : ''),
+    next: (queue, index) => layoutNextPage(queue, index, { pageHeight, rules: options.rules }),
+    page(page) {
+      options.onPage?.({
+        used: stackedHeight(page),
+        available: pageHeight(page),
+        blocks: page.map((block) => block.height),
+      });
+      for (const id of cited(page)) shown.add(id);
+    },
+  });
 }
 
 /**
@@ -143,26 +180,25 @@ function layoutSection(fill: SectionFill, options: DocumentLayoutOptions): Secti
  * its footnote entries' heights.
  */
 export function layoutDocument(view: EditorView, options: DocumentLayoutOptions): SectionPages[] {
-  const { scale, cache } = options;
+  const { scale, cache, memory } = options;
   const ratio = scale && scale > 0 ? scale : 1;
   const shown = new Set<string>();
   const measuredSoFar = () => (cache ? measureCacheCounts(cache).measured : 0);
-  return sectionPlaces(view.state.doc).map(({ section, content, footnotes, regions }, index) => {
+  const places = sectionPlaces(view.state.doc);
+  const sections = places.map(({ section, content, footnotes, regions }, index) => {
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
     const regionsHeight = regions.reduce((sum, pos) => sum + regionHeight(view, pos, ratio), 0);
-    const baseHeight = pageHeight - regionsHeight;
     const before = measuredSoFar();
     const blocks = measureChildBlocks(view, content, { scale, cache });
-    options.onSection?.({ blocksMeasured: cache ? measuredSoFar() - before : blocks.length });
-    return layoutSection(
-      {
-        blocks,
-        area: footnotes === null ? null : measureFootnotes(view, footnotes, { scale }),
-        baseHeight,
-        shown,
-      },
-      options,
-    );
+    const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
+    const area = footnotes === null ? null : measureFootnotes(view, footnotes, { scale });
+    const fill = { blocks, area, baseHeight: pageHeight - regionsHeight, shown };
+    const result = layoutSection(fill, options, memory?.sections[index]);
+    const { pagesLaidOut, pages } = result;
+    options.onSection?.({ blocksMeasured, pagesLaidOut, pages: pages.length });
+    return result;
   });
+  if (memory) memory.sections = sections.map((result) => result.layout);
+  return sections.map(({ pages }) => pages.map((page) => page.map((block) => block.node)));
 }

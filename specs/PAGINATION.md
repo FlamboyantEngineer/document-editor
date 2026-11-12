@@ -201,6 +201,13 @@ When the measuring view's content changes size after it was drawn, the pages sha
 Implementation: `src/pagination/measure-blocks.ts`, `src/pagination/layout-triggers.ts`, `src/pagination/pagination.ts`
 Verification: `src/pagination/measure-blocks.test.ts`, `src/pagination/layout-triggers.test.ts`
 
+### DOCE-PAGINATION-5.5 - Incremental layout
+
+Given a layout memory (`createLayoutMemory`, `layoutDocument`'s `memory`), laying a section out again shall reuse what the change cannot reach (`layoutSectionIncrementally`): with its page height, its footnote area's measurements and the footnotes shown before it as they were, the pages before the first changed block that read no changed block, and, once a page after the change starts at the same unchanged block, with no fragment before it, at the same page index and with the same footnotes shown before it as a page did before, every page from there. A section that did not change reuses every page, and a block that kept its height lays out only the pages around it. The pages shall always be those a full layout gives. `onSection` tells how many pages each section laid out (`pagesLaidOut`).
+
+Implementation: `src/pagination/incremental-layout.ts`, `src/pagination/layout-document.ts`, `src/pagination/pagination.ts`
+Verification: `src/pagination/incremental-layout.test.ts`, `src/pagination/pagination.test.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document
@@ -277,7 +284,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-PAGINATION-7.5 - Stats
 
-`stats()` shall count what the pagination's layouts did since it was made (`PaginationStats`): the layouts run (`layouts`); the blocks measured in the measuring view (`blocksMeasured`), those the cache did not hold (`cacheMisses`) and those taken from it (`cacheHits`); the sections laid out with at least one block measured again (`sectionsRelaid`) and from cached measurements alone (`sectionsReused`); and the pages a layout kept as they were (`pagesReused`) and built anew (`pagesRebuilt`). The transaction a layout moves the editor with carries the counts as they stood after it (`layoutStats(tr)`); any other transaction carries none. Every section's pages are still broken from its blocks on each layout; the counters show what was measured and rebuilt.
+`stats()` shall count what the pagination's layouts did since it was made (`PaginationStats`): the layouts run (`layouts`); the blocks measured in the measuring view (`blocksMeasured`), those the cache did not hold (`cacheMisses`) and those taken from it (`cacheHits`); the sections laid out with at least one block measured again (`sectionsRelaid`) and from cached measurements alone (`sectionsReused`); the pages broken from their blocks rather than reused from the layout before (`pagesLaidOut`, DOCE-PAGINATION-5.5); and the pages a layout kept as they were (`pagesReused`) and built anew (`pagesRebuilt`). The transaction a layout moves the editor with carries the counts as they stood after it (`layoutStats(tr)`); any other transaction carries none.
 
 Implementation: `src/pagination/pagination.ts`, `src/pagination/pagination-stats.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`
 Verification: `src/pagination/pagination.test.ts`

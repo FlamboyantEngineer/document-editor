@@ -108,6 +108,7 @@ describe('pagination stats', () => {
       cacheMisses: 0,
       sectionsRelaid: 0,
       sectionsReused: 0,
+      pagesLaidOut: 0,
       pagesReused: 0,
       pagesRebuilt: 0,
     });
@@ -120,6 +121,7 @@ describe('pagination stats', () => {
       cacheMisses: 4,
       sectionsRelaid: 2,
       sectionsReused: 0,
+      pagesLaidOut: 2,
     });
     expect(first.pagesReused + first.pagesRebuilt).toBe(2);
 
@@ -132,6 +134,7 @@ describe('pagination stats', () => {
       cacheMisses: 5,
       sectionsRelaid: 3,
       sectionsReused: 1,
+      pagesLaidOut: 3,
       pagesReused: first.pagesReused + 2,
       pagesRebuilt: first.pagesRebuilt,
     });
@@ -151,6 +154,7 @@ describe('pagination stats', () => {
       layouts: 2,
       blocksMeasured: 3,
       cacheHits: 3,
+      pagesLaidOut: before.pagesLaidOut,
       pagesReused: before.pagesReused + 3,
       pagesRebuilt: before.pagesRebuilt,
     });
