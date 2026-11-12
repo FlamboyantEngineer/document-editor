@@ -26,6 +26,8 @@ export { useDocumentEditor } from './editor-context.js';
 export type { DocumentEditorHandle } from './editor-handle.js';
 export type { DocumentEditorLabels } from './editor-labels.js';
 export { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
+export type { DocumentOverviewOptions } from './editor-overview.js';
+export { OVERVIEW_LAYERS } from './editor-overview.js';
 export { CODE_LANGUAGES } from './element-entries.js';
 export type { DocumentMenu, DocumentMenubarOptions } from './menubar-menus.js';
 export { menubarMenus } from './menubar-menus.js';

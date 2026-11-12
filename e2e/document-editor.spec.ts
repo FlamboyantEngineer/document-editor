@@ -353,8 +353,7 @@ test.describe('document editor lab', () => {
     const report = page.getByRole('status', { name: 'Host report' });
     const onScreen = async () =>
       Number(/(\d+) elements on screen/.exec((await report.textContent()) ?? '')?.[1] ?? 0);
-    // The contents fill most of the first screen; the first chapter's heading shows below them.
-    await expect.poll(onScreen).toBeGreaterThan(0);
+    // The lead and the contents fill the first screen; the first chapter shows below them.
     const viewport = page.locator('.de-document-editor__viewport .ui-scroll-region__viewport');
     await viewport.evaluate((element) => {
       element.scrollTop = 600;
@@ -385,6 +384,35 @@ test.describe('document editor lab', () => {
     await banner.getByRole('button', { name: /dismiss/i }).click();
     await expect(notices).toHaveCount(0);
     await expect(page.getByLabel('Banner')).not.toBeChecked();
+  });
+
+  test('DOCE-EDITOR-4.18 DOCE-EDITOR-4.19 shows the lead, then the pages, with the overview over the frame', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const viewport = page.locator('.de-document-editor__viewport');
+    await expect(viewport.locator('.de-document-editor__lead')).toHaveText(
+      'Sample document · draft',
+    );
+    await expect(page.locator('.de-document-editor__placeholder')).toHaveCount(0);
+    await expect(pages(page).first()).toBeVisible();
+    const overview = page.locator('.de-document-editor__overview');
+    await expect(overview).toHaveCount(1);
+    // The word-list proofer's issues are marked on the overview's track.
+    await expect(page.locator('[data-proofing-issue]').first()).toBeAttached();
+    await expect
+      .poll(() =>
+        overview.evaluate((element) =>
+          [element, ...element.querySelectorAll('*')].some((each) =>
+            getComputedStyle(each).backgroundImage.includes('gradient'),
+          ),
+        ),
+      )
+      .toBe(true);
+    await page.getByLabel('Scrolling frame').uncheck();
+    await expect(overview).toHaveCount(0);
+    await expect(page.locator('.de-document-editor__lead')).toBeVisible();
   });
 
   test('DOCE-EDITOR-4.3 DOCE-EDITOR-4.4 adds the host items, controls and arrangement to the toolbar', async ({

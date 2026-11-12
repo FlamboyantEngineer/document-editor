@@ -62,6 +62,7 @@ import {
 } from './editor-context.js';
 import { type DocumentEditorHandle, useCommentRefs, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
+import type { DocumentOverviewOptions } from './editor-overview.js';
 import { EditorScope } from './editor-scope.js';
 import { EditorSurface } from './editor-surface.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
@@ -262,6 +263,15 @@ export interface DocumentEditorProps
    * template, and the template's fonts that did not load.
    */
   banners?: readonly DocumentBanner[] | undefined;
+  /** The host's content before the document's pages, scrolling with them, such as its title. */
+  lead?: ReactNode;
+  /** Shown before the document while the pages await their first layout, such as a skeleton. */
+  placeholder?: ReactNode;
+  /**
+   * Marks the changes, the search matches, the proofing issues and the elements the reader has not
+   * read on a scroll overview beside the frame, while the editor scrolls the document.
+   */
+  overview?: boolean | DocumentOverviewOptions | undefined;
   /** Chrome inside the editor's engine, such as a toolbar reading its state. */
   children?: ReactNode;
   /**
@@ -412,6 +422,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
           onFindClose={find.close}
           openDialog={setDialog}
           missingFonts={missingFonts}
+          layoutState={layoutState}
         >
           {body}
         </EditorSurface>

@@ -668,3 +668,33 @@
   padding: 4px 8px;
   border-bottom: 1px solid var(--ref-border, #d0d7de);
 }
+
+/* The host's lead before the pages, and the placeholder standing in for them until they are laid out. */
+.de-document-editor__lead {
+  padding: 16px 24px 0;
+}
+
+.de-document-editor__placeholder {
+  padding: 24px;
+  color: var(--ref-text-muted, #59636e);
+}
+
+.de-document-editor__placeholder ~ .de-document-editor__body {
+  visibility: hidden;
+}
+
+/* The scroll overview over the frame's track, in the overview layers' colours. */
+.de-document-editor {
+  --de-overview-search: #bf8700;
+  --de-overview-proofing: #cf222e;
+  --de-overview-changes: #0969da;
+  --de-overview-unread: #8250df;
+}
+
+.de-document-editor__overview {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 6px;
+  pointer-events: none;
+}

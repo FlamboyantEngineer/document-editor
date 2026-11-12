@@ -241,6 +241,20 @@ The Tools menu shall offer updating every reference, rendering the internal ones
 Implementation: `src/components/document-editor/tools-entries.ts`
 Verification: `src/components/document-editor/tools-entries.test.ts`
 
+### DOCE-EDITOR-4.18 - Lead and placeholder
+
+`lead` shall be shown before the document (`de-document-editor__lead`), inside the scrolling frame while the editor has one, scrolling with the pages, such as the document's title. On pages, `placeholder` shall be shown before the document (`de-document-editor__placeholder`, a busy `status`, followed by `de-document-editor__body` for a stylesheet to hide) until the pages are laid out for the first time, settled or failed, and never again for later layouts; in the web layout it is not shown.
+
+Implementation: `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-4.19 - Scroll overview
+
+While the editor scrolls the document (`scrollable`), `overview` shall show the base library's `ScrollOverview` over the frame (`de-document-editor__overview`), given the editor's marker layers by element (`overviewLayers`, `OVERVIEW_LAYERS`): `search` for the search matches (`data-search-match`), `proofing` for the proofing issues (`data-proofing-issue`), `changes` for the suggested insertions and deletions, and `unread` for the elements whose ids `overview.unread` names, in that order of priority where they meet. Each marker's colour is the host stylesheet's `--de-overview-<layer>`; the editor draws nothing itself. The layers follow the document's elements at most once a frame.
+
+Implementation: `src/components/document-editor/editor-overview.tsx`, `src/components/document-editor/editor-surface.tsx`
+Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -476,6 +490,9 @@ Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-e
 | `de-document-editor__block-style`       | slot      |                                                                        | The toolbar's text style field.                                                         |
 | `de-document-editor__style-preview`     | slot      |                                                                        | A text style's name in the list, in that style.                                         |
 | `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`, `custom`                      | On a preview, or the text style field: the style it shows.                              |
+| `de-document-editor__lead`              | slot      |                                                                        | The host's lead before the document (DOCE-EDITOR-4.18).                                 |
+| `de-document-editor__placeholder`       | slot      |                                                                        | The placeholder until the pages are first laid out (DOCE-EDITOR-4.18).                  |
+| `de-document-editor__overview`          | slot      |                                                                        | The scroll overview over the frame (DOCE-EDITOR-4.19).                                  |
 | `de-document-editor__banners`           | slot      |                                                                        | The banner region above the document (DOCE-EDITOR-7.1).                                 |
 | `data-banner`                           | attribute | `EDITOR_BANNERS`, the host's ids                                       | On a banner: which it is.                                                               |
 | `de-document-editor__status-bar`        | slot      |                                                                        | The editor's status bar, with `statusBar`.                                              |

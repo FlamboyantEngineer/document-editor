@@ -2,15 +2,19 @@
 // between the panels beside it in its scrolling frame, and the chrome below it.
 
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
-import type { ReactNode, RefObject } from 'react';
+import { type ReactNode, type RefObject, useState } from 'react';
+import type { LayoutState } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentBanners } from './banners.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { FindRequest } from './document-find-bar.js';
 import { BottomChrome, type ChromeProps, TopChrome } from './editor-chrome.js';
 import type { ObjectDialog } from './editor-context.js';
+import { DocumentOverview, type DocumentOverviewOptions } from './editor-overview.js';
 
-const hooks = createHooks('document-editor', ['workspace', 'viewport']);
+const hooks = createHooks('document-editor', ['workspace', 'viewport', 'lead', 'placeholder']);
+
+const NO_OVERVIEW_OPTIONS: DocumentOverviewOptions = {};
 
 /** What the surface shows around the document. */
 export interface EditorSurfaceProps {
@@ -21,6 +25,7 @@ export interface EditorSurfaceProps {
   readonly openDialog: (dialog: ObjectDialog) => void;
   /** The template's font families that did not load. */
   readonly missingFonts: readonly string[];
+  readonly layoutState: LayoutState;
   /** The document with its handles. */
   readonly children: ReactNode;
 }
@@ -43,6 +48,38 @@ function Workspace({
   );
 }
 
+// Whether the pages have yet to be laid out for the first time; once they have, they stay shown
+// through every later layout.
+function useAwaitingFirstLayout(isPaged: boolean, layoutState: LayoutState): boolean {
+  const [laidOut, setLaidOut] = useState(false);
+  if (!laidOut && layoutState !== 'pending') setLaidOut(true);
+  return isPaged && !laidOut && layoutState === 'pending';
+}
+
+// The host's lead before the document, and its placeholder while the pages await their first
+// layout, before the document it stands in for.
+function SurfaceContent({
+  props,
+  isAwaiting,
+  children,
+}: {
+  props: DocumentEditorProps;
+  isAwaiting: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      {props.lead ? <div {...hooks.slot('lead')}>{props.lead}</div> : null}
+      {isAwaiting && props.placeholder ? (
+        <div {...hooks.slot('placeholder')} role="status" aria-busy="true">
+          {props.placeholder}
+        </div>
+      ) : null}
+      {children}
+    </>
+  );
+}
+
 /** The chrome, the banners and the document, in its frame while the editor scrolls it. */
 export function EditorSurface({
   chrome,
@@ -51,9 +88,17 @@ export function EditorSurface({
   onFindClose,
   openDialog,
   missingFonts,
+  layoutState,
   children,
 }: EditorSurfaceProps) {
   const { props, context, view } = chrome;
+  const isAwaiting = useAwaitingFirstLayout((props.layout ?? 'page') === 'page', layoutState);
+  const [region, setRegion] = useState<HTMLDivElement | null>(null);
+  const content = (
+    <SurfaceContent props={props} isAwaiting={isAwaiting}>
+      {children}
+    </SurfaceContent>
+  );
   return (
     <>
       <TopChrome {...chrome} findRequest={findRequest} onFindClose={onFindClose} />
@@ -69,11 +114,26 @@ export function EditorSurface({
       />
       <Workspace panels={props.panels}>
         {props.scrollable ? (
-          <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
-            {children}
-          </ScrollRegion>
+          <>
+            <ScrollRegion
+              {...hooks.slot('viewport')}
+              ref={setRegion}
+              axis="both"
+              scrollbar="overlay"
+              tabIndex={-1}
+            >
+              {content}
+            </ScrollRegion>
+            {props.overview && region ? (
+              <DocumentOverview
+                region={region}
+                view={view}
+                options={props.overview === true ? NO_OVERVIEW_OPTIONS : props.overview}
+              />
+            ) : null}
+          </>
         ) : (
-          children
+          content
         )}
       </Workspace>
       <BottomChrome {...chrome} openDialog={openDialog} />

@@ -3,7 +3,8 @@
 // between authoring and reading without losing its state, with or without its toolbar, its
 // scrolling frame and its status bar, which shows the page in view. Right-click anywhere in the
 // document for its context menu, and hover a table for the handles that drag its rows and columns.
-// The lab adds its own toolbar items, a banner and arranges the status bar, as a host does
+// The scrolling frame shows an overview of the proofing issues and changes. The lab adds its own
+// toolbar items, a lead, a placeholder and a banner and arranges the status bar, as a host does
 // (`host-toolbar.tsx`). A word-list proofer marks a few misspellings and
 // a grammar slip, which the context menu corrects.
 
@@ -265,6 +266,9 @@ function Lab() {
         scrollable={scrollable}
         debug={debug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
+        lead={hostItems ? <p className="lab-lead">Sample document · draft</p> : undefined}
+        placeholder={<p>Laying out the pages…</p>}
+        overview
         banners={
           banner
             ? [
