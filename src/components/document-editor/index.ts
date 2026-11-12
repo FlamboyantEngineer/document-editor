@@ -13,6 +13,7 @@ export type {
   DocumentMarkup,
 } from './document-editor.js';
 export { DocumentEditor } from './document-editor.js';
+export type { FindBarMode } from './document-find-bar.js';
 export { ZOOM_LEVELS } from './document-status-bar.js';
 export type { EditorContext, ObjectDialog } from './editor-context.js';
 export { useDocumentEditor } from './editor-context.js';

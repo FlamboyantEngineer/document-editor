@@ -38,8 +38,6 @@ const hooks = createHooks('document-editor', ['body', 'content']);
 /** What the editor body reads. */
 export interface EditorBodyProps {
   props: DocumentEditorProps;
-  /** Opens the find bar, while the editor has one. */
-  onFind: (() => void) | null;
   /** Opens one of the editor's dialogs, while the writer can edit. */
   onDialog: ((dialog: ObjectDialog) => void) | null;
   engine: ReturnType<typeof useEngineView>;
@@ -52,15 +50,14 @@ export interface EditorBodyProps {
 }
 
 // The editor's own keys beside the document's, by their ids in the shortcut table, while each can
-// act: starting a comment, the reference and script dialogs, and the find bar.
+// act: starting a comment, and the reference and script dialogs. The find bar's keys are the editor
+// root's (`useFindBar`), so they work outside the document too.
 function editorKeys({
   startComment,
-  onFind,
   onDialog,
   scripts,
 }: {
   startComment: (() => void) | null;
-  onFind: (() => void) | null;
   onDialog: ((dialog: ObjectDialog) => void) | null;
   scripts: boolean;
 }): (readonly [ShortcutId, () => void])[] {
@@ -68,18 +65,16 @@ function editorKeys({
     ...(startComment ? [['comment', startComment] as const] : []),
     ...(onDialog ? [['reference', () => onDialog({ kind: 'reference' })] as const] : []),
     ...(onDialog && scripts ? [['script', () => onDialog({ kind: 'script' })] as const] : []),
-    ...(onFind ? [['find', onFind] as const] : []),
   ];
 }
 
 // The body's view props: pasted figures, the host's keys before the editor's own (comment,
-// reference, script, find), secondary clicks left to the context menu, and the events that read the DOM
+// reference, script), secondary clicks left to the context menu, and the events that read the DOM
 // selection first.
 function useBodyViewProps({
   props,
   labels,
   startCommentRef,
-  onFind,
   onDialog,
 }: Omit<EditorBodyProps, 'engine' | 'view' | 'paged'>) {
   const { editable = true, assets, feedback } = props;
@@ -103,7 +98,6 @@ function useBodyViewProps({
         const table = shortcutsOf(view.state);
         const action = editorKeys({
           startComment: startCommentRef.current,
-          onFind,
           onDialog,
           scripts,
         }).find(([id]) => matchesShortcut(table, id, event))?.[1];
@@ -121,7 +115,7 @@ function useBodyViewProps({
         ...(host.blur ? { blur: host.blur } : {}),
       },
     }),
-    [editable, host, onFind, onDialog, scripts, assets, feedback, labels, startCommentRef],
+    [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef],
   );
 }
 
@@ -172,11 +166,10 @@ export function EditorBody({
   paged,
   labels,
   startCommentRef,
-  onFind,
   onDialog,
 }: EditorBodyProps) {
   const { state, onStateChange, editable = true, suggesting = false } = props;
-  const viewProps = useBodyViewProps({ props, labels, startCommentRef, onFind, onDialog });
+  const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   useOpeningScripts(view, props.scriptRunner);
   const content = (
