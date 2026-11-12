@@ -39,6 +39,13 @@ Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.tes
 Implementation: `src/engine/element-ids.ts`
 Verification: `src/engine/element-ids.test.ts`
 
+### DOCE-EDITING-1.6 - An element lifecycle
+
+A host shall be able to build an element lifecycle of its own (states, stamping and gating) from the library's parts, as `docs/recipes/element-lifecycle.md` shows: the state declared as an identity attribute that a copy clears (DOCE-SCHEMA-2.3), a plugin stamping elements without a state, and the edit lock (DOCE-EDITING-4.1) refusing edits inside, and joins into, an element in a frozen state. The library holds no states or transitions.
+
+Implementation: `src/model/schema/element-attributes.ts`, `src/engine/edit-lock.ts`
+Verification: `test/element-lifecycle.test.ts`
+
 ## DOCE-EDITING-2 - Keys
 
 ### DOCE-EDITING-2.1 - Formatting and block types
