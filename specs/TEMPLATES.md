@@ -206,8 +206,8 @@ Verification: `src/model/format/template-format.test.ts`
 
 A template's contents settings shall hold, beside the lists' fonts, padding and spacing, a `leader` (`{ character, spacing }`), `levels` with their own indentation, spacing and leader, and `kinds`: each kind of list's own `title`, leader character and levels' leader characters, by the kind's key (`toc`, `figures` and the host's kinds). `resolveContentsList(contents, kind)` shall give a kind its title, or null, and its six levels, each with its leader character resolved from the least to the most specific of the lists' leader, their level's, the kind's and the kind's level's; an empty character shall draw no leader and none set shall draw `.`. A list of contents (DOCE-CONTENTS-2.1) shall show the template's title for its kind over the editor's label and draw each entry's leader with its level's character.
 
-Implementation: `src/model/templates/template-contents.ts`, `src/model/format/template-format.ts`, `src/engine/contents.ts`
-Verification: `src/model/templates/template-contents.test.ts`, `src/engine/contents.test.ts`
+Implementation: `src/model/templates/template-settings.ts`, `src/model/format/template-format.ts`, `src/engine/contents.ts`
+Verification: `src/model/templates/template-settings.test.ts`, `src/engine/contents.test.ts`
 
 ### DOCE-TEMPLATES-10.5 - Leaders and list numbers
 
@@ -220,14 +220,14 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 A host shall keep a keyed collection in `extensions` as a record, so a template inherits and overrides it entry by entry. `extensionRecord(template, name)` shall read such a record after inheritance, leaving out each entry set to `false`, which removes the entry a template inherits as null inherits it, and give an empty record for a missing or non-record value.
 
-Implementation: `src/model/format/template-format-resolve.ts`
+Implementation: `src/model/templates/template-settings.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-TEMPLATES-10.7 - Missing settings
 
 `missingTemplateSettings(template, base)` shall list, by path such as `styles.heading1.size`, each setting a full template sets (the base template's, or the host's `base`, apart from its identity and sections) that the template leaves absent or null, so a host can tell what a root template (DOCE-TEMPLATES-5.7) leaves to the stylesheet. A template resolved over the base shall miss none.
 
-Implementation: `src/model/format/template-format-resolve.ts`
+Implementation: `src/model/templates/template-settings.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-TEMPLATES-10.8 - Template fixtures

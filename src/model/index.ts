@@ -42,7 +42,6 @@ export {
   resolveTemplateFile,
   resolveTemplateFileAsync,
 } from './format/template-format-resolve.js';
-export { extensionRecord, missingTemplateSettings } from './format/template-format-resolve.js';
 export type { SettingShape } from './format/template-format-shape.js';
 export { TEMPLATE_SHAPE } from './format/template-format-shape.js';
 export type { TemplateValidationOptions } from './format/template-format-validate.js';
@@ -276,7 +275,6 @@ export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export { setPageRegions } from './templates/page-regions.js';
 export { CONTENTS_TOKENS, readTemplateContent } from './templates/template-content.js';
-export * from './templates/template-contents.js';
 export * from './templates/template-css-values.js';
 export * from './templates/template-numbering.js';
 export * from './templates/template-preview.js';
@@ -302,3 +300,4 @@ export {
   sectionRestartsNumbering,
 } from './templates/template-scopes.js';
 export { findTemplateSection, requiredTemplateSections } from './templates/template-sections.js';
+export * from './templates/template-settings.js';

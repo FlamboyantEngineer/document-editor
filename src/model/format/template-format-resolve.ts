@@ -3,7 +3,6 @@
 // one walk is driven by a synchronous or an asynchronous loader.
 
 import { cloneJson } from '../clone-json.js';
-import { BASE_TEMPLATE } from '../templates/base-template.js';
 import type { RegionSettings, TemplateFile, TemplateSection } from './template-format.js';
 
 type LooseRecord = Record<string, unknown>;
@@ -74,45 +73,6 @@ export function resolveSectionRegion(
   const inherited = template[region] ?? null;
   if (!own || own.inherit === true) return inherited;
   return mergeTemplateSettings(inherited, own);
-}
-
-/**
- * The entries of a keyed collection a host keeps in `extensions`, after inheritance: an entry set
- * to `false` removes the one inherited, as null inherits it.
- */
-export function extensionRecord(
-  template: Pick<TemplateFile, 'extensions'>,
-  name: string,
-): Record<string, unknown> {
-  const record = template.extensions?.[name];
-  if (!isRecord(record)) return {};
-  return Object.fromEntries(Object.entries(record).filter(([, entry]) => entry !== false));
-}
-
-function missingPaths(reference: unknown, value: unknown, path: string): string[] {
-  if (value === null || value === undefined) return [path];
-  if (Array.isArray(reference) && Array.isArray(value)) {
-    return reference.flatMap((entry, index) =>
-      missingPaths(entry, value[index], `${path}[${String(index)}]`),
-    );
-  }
-  if (!isRecord(reference) || !isRecord(value)) return [];
-  return Object.entries(reference).flatMap(([key, entry]) =>
-    missingPaths(entry, value[key], path ? `${path}.${key}` : key),
-  );
-}
-
-/**
- * The settings a resolved template leaves unset that a full template sets, by path, such as
- * `styles.heading1.size`: those of the base template, or of the host's base. A template resolved
- * over the base misses none; a root template (DOCE-TEMPLATES-5.7) lists what it should set.
- */
-export function missingTemplateSettings(
-  template: TemplateFile,
-  base: TemplateFile = BASE_TEMPLATE,
-): string[] {
-  const { id: _id, name: _name, parent: _parent, sections: _sections, ...settings } = base;
-  return missingPaths(settings, template, '');
 }
 
 /** How a template's chain is resolved. */
