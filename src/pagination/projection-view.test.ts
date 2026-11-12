@@ -1,4 +1,5 @@
 import { history, undo } from 'prosemirror-history';
+import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
@@ -206,6 +207,48 @@ describe('projection view', () => {
     canonical.dispatch(canonical.state.tr.insertText('!', at));
     expect(sent).toHaveLength(1);
     expect(sent[0]?.before).toBe(projection.state.doc);
+  });
+
+  it("DOCE-PAGINATION-7.15 runs the canonical plugins' views, keys and text input on the canonical state", () => {
+    const seen: EditorState[] = [];
+    const watcher = new Plugin({
+      view: (view) => {
+        seen.push(view.state);
+        return { update: (updated) => seen.push(updated.state) };
+      },
+    });
+    const keys = keymap({
+      'Ctrl-q': (state, dispatch) => {
+        dispatch?.(state.tr.insertText('Q'));
+        return true;
+      },
+    });
+    const arrows = new Plugin({
+      props: {
+        handleTextInput(view, from, to, text) {
+          if (text !== '>') return false;
+          view.dispatch(view.state.tr.insertText('→', from, to));
+          return true;
+        },
+      },
+    });
+    const { projection } = mount({ state: canonicalState([watcher, keys, arrows]) });
+    const { view } = projection;
+    expect(seen).toEqual([projection.state]);
+    const at = positionOf(view.state.doc, 'Delta') + 'Delta'.length;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    const press = new KeyboardEvent('keydown', { key: 'q', ctrlKey: true });
+    expect(view.someProp('handleKeyDown', (handle) => handle(view, press))).toBe(true);
+    expect(textOf(view.state.doc)).toContain('DeltaQ four');
+    const typedAt = view.state.selection.from;
+    const typed = view.someProp('handleTextInput', (handle) =>
+      handle(view, typedAt, typedAt, '>', () => view.state.tr.insertText('>', typedAt)),
+    );
+    expect(typed).toBe(true);
+    expect(textOf(projection.state.doc)).toContain('DeltaQ→ four');
+    expect(textOf(view.state.doc)).toContain('DeltaQ→ four');
+    expect(inSync(projection)).toBe(true);
+    expect(seen.at(-1)).toBe(projection.state);
   });
 });
 

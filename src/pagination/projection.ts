@@ -15,6 +15,12 @@ import { columnResizing } from 'prosemirror-tables';
 import { type EditorProps, EditorView } from 'prosemirror-view';
 import { FRAGMENT_RULES, type FragmentRules, type LayoutRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
+import {
+  canonicalKeys,
+  canonicalPaste,
+  canonicalPlugins,
+  type CanonicalPluginsSource,
+} from './canonical-plugins.js';
 import { holdCellSelection } from './cell-drag.js';
 import type { SectionPageHeight } from './layout-document.js';
 import { settleEdits } from './layout-triggers.js';
@@ -22,8 +28,10 @@ import { createMeasureCache } from './measure-blocks.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import {
+  dispatchCanonical,
   layout,
   moveAcrossBreak,
+  prepare,
   receive,
   requestLayout,
   runCommand,
@@ -99,8 +107,10 @@ export interface PagedProjection {
 
 // The projection's own plugin: keys and paste run on the canonical state, and a press may start a
 // cell selection across the parts of a split table.
-function inputPlugin(session: () => Session): Plugin {
+function inputPlugin(session: () => Session, source: CanonicalPluginsSource): Plugin {
   let keys: ReturnType<typeof projectionKeys> | null = null;
+  const delegated = canonicalKeys(source);
+  const pasted = canonicalPaste(source);
   return new Plugin({
     props: {
       handleKeyDown(view, event) {
@@ -109,13 +119,15 @@ function inputPlugin(session: () => Session): Plugin {
           keys: session().options.keys,
           run: (command) => runCommand(session(), command),
           across: (move) => moveAcrossBreak(session(), move),
+          delegate: (pressed) => delegated(view, pressed),
         });
         const handled = keys(view, event);
         const arrow = !event.shiftKey && event.key.startsWith('Arrow');
         if (!handled && arrow) session().cells.release();
         return handled;
       },
-      handlePaste: (_view, _event, slice: Slice) =>
+      handlePaste: (view, event, slice: Slice) =>
+        pasted(view, event, slice) ||
         runCommand(session(), (state, dispatch) => {
           dispatch?.(state.tr.replaceSelection(slice).scrollIntoView());
           return true;
@@ -139,6 +151,31 @@ function inputPlugin(session: () => Session): Plugin {
   });
 }
 
+// The projection's first state: the canonical document, with the plugins that route input to the
+// canonical state and draw what it draws, and the host's.
+function projectionState(options: PagedProjectionOptions, session: () => Session): EditorState {
+  const source: CanonicalPluginsSource = {
+    canonical: () => session().canonical,
+    map: () => session().map,
+    dispatch: (tr) => dispatchCanonical(session(), tr),
+    prepare: () => prepare(session()),
+  };
+  return EditorState.create({
+    doc: options.state.doc,
+    plugins: [
+      inputPlugin(session, source),
+      canonicalPlugins(source),
+      cellSelectionDecorations({
+        selection: () => session().canonical.selection,
+        map: () => session().map,
+      }),
+      canonicalDecorations(source),
+      columnResizing({ View: null }),
+      ...(options.plugins ?? []),
+    ],
+  });
+}
+
 /** Lays a canonical state out on pages, routing input on them back to it. */
 export function createPagedProjection(options: PagedProjectionOptions): PagedProjection {
   const rules = options.fragmentRules ?? FRAGMENT_RULES;
@@ -149,19 +186,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     return current;
   };
   const map = createProjectionMap(options.state.doc, rules);
-  const projection = EditorState.create({
-    doc: options.state.doc,
-    plugins: [
-      inputPlugin(session),
-      cellSelectionDecorations({
-        selection: () => session().canonical.selection,
-        map: () => session().map,
-      }),
-      canonicalDecorations({ canonical: () => session().canonical, map: () => session().map }),
-      columnResizing({ View: null }),
-      ...(options.plugins ?? []),
-    ],
-  });
+  const projection = projectionState(options, session);
   const ghost = new EditorView(options.measureIn, {
     state: EditorState.create({ doc: options.state.doc, plugins: [...(options.plugins ?? [])] }),
     editable: () => false,

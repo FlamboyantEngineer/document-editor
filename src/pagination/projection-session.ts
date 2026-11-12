@@ -126,16 +126,26 @@ export function showCanonical(session: Session, tr: Transaction | null): void {
   if (changed) session.edits.request();
 }
 
-/** Runs a command on the canonical state, with the projection's selection mirrored there first. */
-export function runCommand(session: Session, command: Command): boolean {
+/** Readies the canonical state for input: the browser's selection read and mirrored there. */
+export function prepare(session: Session): void {
   readDom(session);
   syncSelection(session);
   session.cells.release();
+}
+
+/** Takes a transaction of the canonical state as it stands, and shows it on the pages at once. */
+export function dispatchCanonical(session: Session, tr: Transaction): void {
+  send(session, tr);
+  showCanonical(session, tr);
+}
+
+/** Runs a command on the canonical state, with the projection's selection mirrored there first. */
+export function runCommand(session: Session, command: Command): boolean {
+  prepare(session);
   let ran = false;
   command(session.canonical, (tr) => {
     ran = true;
-    send(session, tr);
-    showCanonical(session, tr);
+    dispatchCanonical(session, tr);
   });
   return ran;
 }
