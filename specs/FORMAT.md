@@ -135,10 +135,10 @@ Verification: `src/model/format/html.test.ts`
 
 ### DOCE-FORMAT-6.2 - Word processor HTML
 
-HTML from a word processor (`isWordHtml`) shall be cleaned of the word processor's own markup before it is read or pasted (`cleanWordHtml`, `createWordPaste`, which the editing plugins install): conditional comments, Office elements, its style sheets, its class names and the styles they carry are dropped, other styles kept, and runs of its list paragraphs become nested bulleted or numbered lists.
+HTML from a word processor (`isWordHtml`) shall be cleaned of the word processor's own markup before it is read or pasted (`cleanWordHtml`, which the clipboard runs, DOCE-EDITING-5.1): conditional comments, Office elements, its style sheets, its class names and the styles they carry are dropped, other styles kept, and runs of its list paragraphs become nested bulleted or numbered lists. Its tracked changes read as accepted, so deleted runs are dropped and inserted runs keep their text, and its comments' references, ranges and texts are dropped: none of them becomes a suggestion or a comment (D12).
 
-Implementation: `src/model/format/html.ts`, `src/engine/word-paste.ts`
-Verification: `src/model/format/html.test.ts`, `e2e/full-editor.spec.ts`
+Implementation: `src/model/format/html.ts`, `src/engine/clipboard.ts`
+Verification: `src/model/format/html.test.ts`, `src/engine/clipboard.test.ts`, `e2e/full-editor.spec.ts`
 
 ## DOCE-FORMAT-7 - Contract tests
 

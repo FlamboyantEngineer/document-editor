@@ -259,7 +259,7 @@ describe('the editing extension', () => {
       'comment-draft',
       'math-views',
       'object-views',
-      'word-paste',
+      'clipboard',
       'scripts',
       'custom-styles',
       'table-width',

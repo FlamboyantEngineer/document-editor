@@ -24,7 +24,7 @@ const EDITING_KEYS = [
   'comment-draft',
   'math-views',
   'object-views',
-  'word-paste',
+  'clipboard',
   'scripts',
 ];
 // Column resizing, cell selection, the table pointer and the table keys.

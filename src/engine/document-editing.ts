@@ -26,6 +26,7 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { setTextblockType } from './block-type.js';
+import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentDraft } from './comment-draft.js';
 import { createCustomStyles } from './custom-styles.js';
 import {
@@ -47,7 +48,6 @@ import { createScripts } from './scripts.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
 import { includeAppended } from './transaction-kind.js';
-import { createWordPaste } from './word-paste.js';
 
 /** What a document's editing depends on. */
 export interface DocumentEditingOptions {
@@ -59,6 +59,8 @@ export interface DocumentEditingOptions {
   isRemote?: ((tr: Transaction) => boolean) | undefined;
   /** Whether to keep the undo history; a collaborative editor keeps its own. Defaults to true. */
   history?: boolean | undefined;
+  /** Filters the clipboard runs on every pasted and dropped slice, after the library's own. */
+  pasteFilters?: readonly PasteFilter[] | undefined;
 }
 
 const NO_TEMPLATE = (): TemplateFile => ({ formatVersion: 1, id: 'none' });
@@ -221,7 +223,7 @@ export function createDocumentEditing(
     createCommentDraft(),
     createMathViews(),
     createObjectViews(),
-    createWordPaste(),
+    createClipboard({ filters: options.pasteFilters, template }),
     createScripts(),
     ...(template
       ? [createCustomStyles({ template }), createTableWidth({ ...tableWidth(template), isRemote })]
@@ -278,9 +280,9 @@ export function createDocumentEditingExtension<C = unknown>(
         build: () => [createObjectViews()],
       },
       {
-        name: 'word-paste',
+        name: 'clipboard',
         priority: 510,
-        build: () => [createWordPaste()],
+        build: () => [createClipboard({ filters: options.pasteFilters, template })],
       },
       {
         name: 'scripts',
