@@ -61,12 +61,25 @@ export type {
   DocumentSearchPaneProps,
   DocumentSidePanelProps,
 } from './document-panels/index.js';
+export type {
+  DocumentHistoryBannerProps,
+  DocumentHistoryLabels,
+  DocumentHistoryProps,
+  HistoricalEditorProps,
+} from './document-panels/index.js';
 export {
   DEFAULT_PANELS_LABELS,
   DocumentOutline,
   DocumentProperties,
   DocumentSearchPane,
   DocumentSidePanel,
+} from './document-panels/index.js';
+export {
+  DEFAULT_HISTORY_LABELS,
+  DocumentHistory,
+  DocumentHistoryBanner,
+  historicalEditorProps,
+  useDocumentVersions,
 } from './document-panels/index.js';
 export type {
   DocumentSessionBoundaryProps,
