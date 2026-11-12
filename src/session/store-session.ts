@@ -22,7 +22,7 @@ import {
 } from './open-document.js';
 import { followSession } from './session-follow.js';
 import type { SessionStatus } from './status.js';
-import { createStoreSaving } from './store-saving.js';
+import { createStoreSaving, storeBaseline } from './store-saving.js';
 import { createValueStore } from './value-store.js';
 
 const DEFAULT_AUTOSAVE_DELAY = 1000;
@@ -127,7 +127,10 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     const autosaveDelay = options.autosaveDelay ?? DEFAULT_AUTOSAVE_DELAY;
     saving = createStoreSaving(
       { host, documentId, status, current: stores.current, autosaveDelay },
-      { doc: read.value.state.doc, revision: opened.value.stored.revision, pin: read.value.pin },
+      storeBaseline(read.value.state.doc, {
+        revision: opened.value.stored.revision,
+        pin: read.value.pin,
+      }),
     );
     follow.followTemplate(read.value.pin, opened.value.template.saved);
     status.set({ ...status.get(), load: 'ready' });

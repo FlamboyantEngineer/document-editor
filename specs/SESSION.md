@@ -9,7 +9,7 @@ A document session opens one document by id through the host and keeps its chang
 A session shall load the document by id from the host's document store, the template it pins at the revision it pins (`templates.load`), with the chain it inherits resolved, or the base template when it pins none, and the reader's capabilities (`permissions.capabilities`). Its `document` store shall then hold the editor state, the template, the pin, the capabilities and the editing mode they give, and its `status` store shall go from `loading` to `ready`. `ready` resolves true once the document is loaded.
 
 Implementation: `src/session/document-session.ts`, `src/session/store-session.ts`, `src/session/open-document.ts`, `src/session/status.ts`, `src/session/value-store.ts`
-Verification: `src/session/document-session.test.ts`
+Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-1.2 - A document that cannot load
 
@@ -50,24 +50,24 @@ Verification: `src/components/document-session/document-session.test.tsx`
 
 ### DOCE-SESSION-2.1 - The dirty baseline
 
-The session shall measure each new document against the content the store holds. A change that only gives elements other ids or changes who wrote what (element ids, authorship attributes and contributor marks) shall leave it clean; any other change, or a new template pin, makes it dirty, with the save status `dirty`.
+The session shall measure each new document against the content the store holds, compared in the stored format, so what the editor derives and does not store, such as heading levels, is no change. A change that only gives elements other ids or changes who wrote what (element ids, authorship attributes and contributor marks) shall leave it clean; any other change, or a new template pin, makes it dirty, with the save status `dirty`.
 
 Implementation: `src/session/dirty.ts`, `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`
+Verification: `src/session/document-session.test.ts`, `src/components/document-session/document-session.test.tsx`
 
 ### DOCE-SESSION-2.2 - Saving
 
 `save()` shall write the document in the stored format with its template pin and save it against the revision it was edited from, one save at a time, the save status going `saving` and then `saved`. A change made during a save stays to save. A refused save, such as a `conflict`, shall set the status to `error` with the host's error and keep the change to save again.
 
 Implementation: `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`
+Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-2.3 - Automatic saves
 
 In store mode the session shall save by itself once changes pause for `autosaveDelay` milliseconds (1000 by default).
 
 Implementation: `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`
+Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-2.4 - No empty automatic saves
 
@@ -106,4 +106,4 @@ Verification: `src/session/document-session.test.ts`
 When the host's `lifecycle` adapter says the page is hidden or being left, the session shall flush; a closed session saves nothing.
 
 Implementation: `src/session/session-follow.ts`, `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`
+Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`

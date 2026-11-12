@@ -34,7 +34,7 @@ function Host({ host, documentId }: { host: EditorHost; documentId: string }) {
       fallback={<p>Opening</p>}
       renderError={(error) => <p role="alert">{error?.kind}</p>}
     >
-      {(props) => <DocumentEditor {...props} layout="web" aria-label="Report" />}
+      {(props) => <DocumentEditor {...props} aria-label="Report" />}
     </DocumentSessionBoundary>
   );
 }
@@ -47,13 +47,17 @@ const stored = async (host: EditorHost) => {
 installEditorDom();
 
 describe('DocumentSessionBoundary', () => {
-  it('DOCE-SESSION-1.6 shows the fallback, then the editor, and saves what is typed', async () => {
+  it('DOCE-SESSION-1.6 DOCE-SESSION-2.1 shows the fallback, then the editor, and saves what is typed', async () => {
     const user = userEvent.setup();
     const host = createMemoryHost({ documents: [{ id: 'doc', content: DOCUMENT }] });
     render(<Host host={host} documentId="doc" />);
     expect(screen.getByText('Opening')).toBeInTheDocument();
     const editor = await screen.findByRole('textbox', { name: 'Report' });
     expect(editor).toHaveTextContent('Hello');
+    // What the editor derives on opening, such as heading levels, is not a change to save.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const versions = await host.versions?.list('doc');
+    expect(versions?.ok && versions.value).toHaveLength(1);
     await user.click(editor);
     await user.keyboard('!');
     await vi.waitFor(async () => expect(await stored(host)).toContain('!'));

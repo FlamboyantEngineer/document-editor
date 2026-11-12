@@ -5,15 +5,26 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorHost } from '../host/adapters.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
-import { sameContent } from './dirty.js';
+import { contentKey, storedContentKey } from './dirty.js';
 import type { SessionStatus } from './status.js';
 import type { WritableStore } from './value-store.js';
 
-/** What the store holds: the content as the editor read it, at a revision, with its pin. */
+/** What the store holds: its content as the editor read it, at a revision, with its pin. */
 export interface StoreBaseline {
-  doc: ProseMirrorNode;
+  /** The content as stored, without identity (`contentKey`). */
+  key: string;
+  /** Whether the stored document has no content. */
+  empty: boolean;
   revision: string;
   pin: TemplatePin | null;
+}
+
+/** The baseline of a document the editor read from the store at a revision. */
+export function storeBaseline(
+  doc: ProseMirrorNode,
+  state: { revision: string; pin: TemplatePin | null },
+): StoreBaseline {
+  return { key: contentKey(doc), empty: isEmptyDocument(doc), ...state };
 }
 
 /** What store-mode saving reads and writes. */
@@ -41,21 +52,35 @@ const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
   (one?.id ?? null) === (other?.id ?? null) &&
   (one?.revision ?? null) === (other?.revision ?? null);
 
+// Runs `run` once `delay` milliseconds pass with no new `schedule`.
+function createPause(delay: number, run: () => void) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const cancel = () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+  };
+  const schedule = () => {
+    cancel();
+    timer = setTimeout(() => {
+      timer = null;
+      run();
+    }, delay);
+  };
+  return { schedule, cancel };
+}
+
 /** Saving for a store-mode session, from the baseline it was loaded at. */
 export function createStoreSaving(context: StoreSavingContext, initial: StoreBaseline) {
   const { host, documentId, status } = context;
   let baseline = initial;
   let dirty = false;
   let saving: Promise<void> | null = null;
-  let timer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
   const patch = (next: Partial<SessionStatus>) => status.set({ ...status.get(), ...next });
-  const cancelTimer = () => {
-    if (timer !== null) clearTimeout(timer);
-    timer = null;
-  };
+  const pause = createPause(context.autosaveDelay, () => void saveAutomatically());
+  const cancelTimer = pause.cancel;
   const changedSince = (doc: ProseMirrorNode, pin: TemplatePin | null) =>
-    !samePin(pin, baseline.pin) || !sameContent(doc, baseline.doc);
+    !samePin(pin, baseline.pin) || contentKey(doc) !== baseline.key;
 
   // One save of what the document holds now; a change made meanwhile stays to save.
   const saveOnce = async () => {
@@ -73,7 +98,12 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
       patch({ save: 'error', error: result.error });
       return;
     }
-    baseline = { doc, revision: result.value.revision, pin };
+    baseline = {
+      key: storedContentKey(content.sections),
+      empty: isEmptyDocument(doc),
+      revision: result.value.revision,
+      pin,
+    };
     const after = context.current();
     dirty = after !== null && changedSince(after.doc, after.pin);
     patch({ save: dirty ? 'dirty' : 'saved', dirty });
@@ -92,19 +122,14 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
   };
 
   // An automatic save, which never empties a document the store holds content for.
-  const saveAutomatically = async () => {
+  async function saveAutomatically() {
     const current = context.current();
-    if (current && isEmptyDocument(current.doc) && !isEmptyDocument(baseline.doc)) return;
+    if (current && isEmptyDocument(current.doc) && !baseline.empty) return;
     await save();
-  };
+  }
 
   function schedule() {
-    cancelTimer();
-    if (closed) return;
-    timer = setTimeout(() => {
-      timer = null;
-      void saveAutomatically();
-    }, context.autosaveDelay);
+    if (!closed) pause.schedule();
   }
 
   return {
