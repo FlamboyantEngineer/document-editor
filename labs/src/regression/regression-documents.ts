@@ -85,7 +85,9 @@ export function regressionDocument(name: RegressionDocumentName): {
   template: TemplateFile;
 } {
   const file = REGRESSION_DOCUMENTS[name] as unknown as DocumentFile;
-  const own = TEMPLATES.get(file.template ?? BASE_TEMPLATE_ID) as TemplateFile;
+  const pin = file.template;
+  const id = (typeof pin === 'string' ? pin : pin?.id) ?? BASE_TEMPLATE_ID;
+  const own = TEMPLATES.get(id) as TemplateFile;
   const template = resolveTemplateFile(own, {
     loadTemplate: (id) => TEMPLATES.get(id) ?? null,
     baseTemplateId: BASE_TEMPLATE_ID,
