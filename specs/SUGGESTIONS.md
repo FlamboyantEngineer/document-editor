@@ -136,9 +136,9 @@ Verification: `e2e/suggestions.spec.ts`
 
 ### DOCE-SUGGESTIONS-3.4 - Deciding on every path
 
-The comments margin and the context menu shall decide suggestions through one policy (`editorSuggestionPolicy`): the reader is the editor's `author`, else the comments' reader; an editable editor that is not suggesting may decide, as the comments' `decide` option narrows it; and an editable writer may withdraw their own suggestion, while suggesting too. The context menu shall offer only the decisions the policy allows, and none on locked content.
+The comments margin, the comments panel and the context menu shall decide suggestions through one policy (`editorSuggestionPolicy`): the reader is the editor's `author`, else the comments' reader; an editable editor that is not suggesting may decide, as the comments' `decide` option narrows it; and an editable writer may withdraw their own suggestion, while suggesting too. The context menu shall offer only the decisions the policy allows, and none on locked content.
 
-Implementation: `src/components/document-editor/suggestion-policy.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-comments/comment-items.tsx`
+Implementation: `src/components/document-editor/suggestion-policy.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comments-panel.tsx`
 Verification: `e2e/suggestions.spec.ts`
 
 ## Hooks

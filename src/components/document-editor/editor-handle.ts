@@ -3,7 +3,7 @@
 
 import { type Command, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type Ref, type RefObject, useImperativeHandle } from 'react';
+import { type Ref, type RefObject, useImperativeHandle, useMemo, useRef } from 'react';
 import { type FoundElement, textRange } from '../../engine/automation-address.js';
 import {
   applyEdits,
@@ -19,8 +19,21 @@ import {
 } from '../../engine/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { LayoutState, PaginationStats } from '../../pagination/index.js';
+import type {
+  OpenComment,
+  StartComment,
+  StartCommentOptions,
+} from '../document-comments/document-comments.js';
 import type { FindBarMode } from './document-find-bar.js';
 import type { LayoutProgress } from './use-document-layout.js';
+
+/** Where `openThread` takes the reader within a thread. */
+export interface OpenThreadOptions {
+  /** The comment to point the reader at, such as the one a link names. */
+  readonly entryId?: string | undefined;
+  /** A reply to start writing in the thread's composer. */
+  readonly reply?: string | undefined;
+}
 
 /** What a host can do with a mounted editor. */
 export interface DocumentEditorHandle {
@@ -38,15 +51,18 @@ export interface DocumentEditorHandle {
   /** Selects a range of an element's text, or the whole element; false when it cannot. */
   select(address: EditAddress): boolean;
   /**
-   * Opens a comment thread: puts the caret in its anchor, which makes its card the active one, and
-   * scrolls it into view; false when the document does not anchor it.
+   * Opens a comment thread: puts the caret in its anchor and centres it, makes its card the active
+   * one in the margin and the comments panel, shown whatever their filter, points at `entryId`'s
+   * comment and starts `reply` in its composer; false when neither the document anchors it nor the
+   * comments hold it.
    */
-  openThread(threadId: string): boolean;
+  openThread(threadId: string, options?: OpenThreadOptions): boolean;
   /**
-   * Starts a comment thread on the selected text, or the caret's block, while the editor shows
-   * comments and the reader may comment; false otherwise.
+   * Starts a comment thread on the selected text, or the caret's block, its opening comment
+   * beginning with `text`, while the editor shows comments and the reader may comment; false
+   * otherwise.
    */
-  startComment(): boolean;
+  startComment(options?: StartCommentOptions): boolean;
   /**
    * Opens the find bar at its find box, or at its replacement with `replace`, seeded with the
    * selected text, while the editor has a find bar (`find`); false otherwise.
@@ -100,14 +116,31 @@ function selectIn(view: EditorView | null, address: EditAddress): boolean {
   return true;
 }
 
-// Puts the caret in a thread's anchor and scrolls it into view.
-function openThread(view: EditorView, threadId: string): boolean {
+// Puts the caret in a thread's anchor and centres its text in view.
+function placeInThread(view: EditorView, threadId: string): boolean {
   const anchor = commentAnchors(view.state).find((each) => each.thread === threadId);
   if (!anchor) return false;
   const selection = TextSelection.create(view.state.doc, anchor.from);
   view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+  // The anchor's text, centred: a text node's parent, since only elements scroll into view.
+  const { node } = view.domAtPos(anchor.from);
+  const element = node.nodeType === node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  element?.scrollIntoView?.({ block: 'center' });
   view.focus();
   return true;
+}
+
+/** Where the comments give the editor and its handle their ways in. */
+export interface CommentRefs {
+  readonly startCommentRef: RefObject<StartComment | null>;
+  readonly openThreadRef: RefObject<OpenComment | null>;
+}
+
+/** The refs the comments fill with their ways in. */
+export function useCommentRefs(): CommentRefs {
+  const startCommentRef = useRef<StartComment | null>(null);
+  const openThreadRef = useRef<OpenComment | null>(null);
+  return useMemo(() => ({ startCommentRef, openThreadRef }), []);
 }
 
 /** Gives the host a handle on the editor through its `handleRef`. */
@@ -116,11 +149,11 @@ export function useEditorHandle(
   view: EditorView | null,
   {
     startCommentRef,
+    openThreadRef,
     template,
     layout,
     openFind,
-  }: {
-    startCommentRef: RefObject<(() => void) | null>;
+  }: CommentRefs & {
     template: TemplateFile;
     layout: LayoutProgress;
     openFind: ((mode?: FindBarMode) => void) | null;
@@ -135,11 +168,15 @@ export function useEditorHandle(
       revealElement: (elementId, options) =>
         view ? revealElement(view, elementId, options) : false,
       select: (address) => selectIn(view, address),
-      openThread: (threadId) => (view ? openThread(view, threadId) : false),
+      openThread: (threadId, options) => {
+        const placed = view ? placeInThread(view, threadId) : false;
+        const opened = openThreadRef.current?.({ threadId, ...options }) ?? false;
+        return placed || opened;
+      },
       exportSnapshot: (options) => (view ? documentSnapshot(view, { ...options, template }) : null),
-      startComment: () => {
+      startComment: (options) => {
         const start = startCommentRef.current;
-        start?.();
+        start?.(options);
         return Boolean(start);
       },
       openFind(mode) {
@@ -161,6 +198,6 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
     }),
-    [view, startCommentRef, template, layout, openFind],
+    [view, startCommentRef, openThreadRef, template, layout, openFind],
   );
 }

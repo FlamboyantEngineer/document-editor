@@ -8,28 +8,22 @@ import {
   AnnotationMargin,
   type AnnotationRect,
 } from '@flamboyantengineer/ui-components/annotation-layer';
+import type { CommentTextFormat } from '@flamboyantengineer/ui-components/comment-thread';
 import type { Key } from '@flamboyantengineer/ui-components/core';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
-import type { Command, EditorState } from 'prosemirror-state';
+import type { EditorState } from 'prosemirror-state';
 import {
   type CSSProperties,
   type ReactNode,
   type RefObject,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import {
-  canStartComment,
-  createElementId,
-  startCommentDraft,
-  type Suggestion,
-  suggestionDecisionOf,
-  type SuggestionPolicy,
-} from '../../engine/index.js';
-import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
+import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
+import type { CommentStoreAdapter, IdentityAdapter, MentionsAdapter } from '../../host/index.js';
 import {
   type AnchorTarget,
   isSameMeasurement,
@@ -39,21 +33,32 @@ import {
 } from './anchor-rects.js';
 import {
   type CardContext,
+  type CommentActionTarget,
   DEFAULT_COMMENTS_LABELS,
   type DocumentCommentsLabels,
   hooks,
+  type MentionCardTarget,
 } from './comment-cards.js';
-import { type CommentItem, listCommentItems, renderCommentCard } from './comment-items.js';
+import { useCommentControls } from './comment-controls.js';
+import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
+import {
+  type OpenComment,
+  type OpenedComment,
+  type StartComment,
+  useCommentFocus,
+} from './comment-focus.js';
+import { caretKey, listCommentItems, renderCommentCard } from './comment-items.js';
 import { useCommentMentions } from './comment-mentions.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
-import {
-  type CommentThreads,
-  useProvidedCommentThreads,
-  useSuggestionAuthors,
-} from './use-comment-threads.js';
-import { recordDecision } from './use-decision-records.js';
+import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
 
+export type {
+  OpenComment,
+  StartComment,
+  StartCommentOptions,
+  ThreadTarget,
+} from './comment-focus.js';
 export { EditorCommentThreads } from './comment-threads-provider.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
@@ -68,13 +73,41 @@ export interface DocumentCommentsOptions {
   canComment?: boolean | undefined;
   /** The text the margin shows, beside the defaults. */
   labels?: Partial<DocumentCommentsLabels> | undefined;
-  /** Shows resolved threads too, to read or reopen. Defaults to false. */
-  showResolved?: boolean | undefined;
+  /**
+   * Which threads the margin shows: the open ones (the default), all of them, resolved ones too to
+   * read or reopen, or the reader's own open ones, which they wrote or which mention them.
+   */
+  filter?: CommentsFilter | undefined;
+  /**
+   * What comments may mention: people, groups and assistants, in the host's token format. Without
+   * it, comments mention the people `identity` finds.
+   */
+  mentions?: MentionsAdapter | undefined;
+  /** Whether the reader is among the people a thread is for; threads they are not are hidden. */
+  audience?: CommentsAudience | undefined;
+  /** How comments read: as plain text (the default) or as inline Markdown (`markdown-inline`). */
+  format?: CommentTextFormat | undefined;
+  /**
+   * The card a mention's chip opens; by default a `UserCard` with the name and the picture the
+   * identity gives, and none with null.
+   */
+  mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
+  /**
+   * The host's own actions in each comment's menu, before Edit and Delete, such as copying a link
+   * to it; the opening comment's (`index` 0) act on the whole thread.
+   */
+  commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
   /**
    * Shows a card for each thread and suggestion (`cards`, the default), or a marker for each that
    * opens its card (`markers`), which leaves the document more room.
    */
   presentation?: 'cards' | 'markers' | undefined;
+  /**
+   * Where the threads show: in a margin beside the pages (`margin`, the default), or only in the
+   * comments panel (`pane`), which then holds the thread being started too and leaves the document
+   * its whole width.
+   */
+  placement?: 'margin' | 'pane' | undefined;
   /**
    * Starts a thread for each of the reader's suggestions once they pause, `delay` milliseconds
    * (800 by default), and keeps it to what the suggestion does. Off by default.
@@ -91,10 +124,12 @@ export interface DocumentCommentsOptions {
 interface DocumentCommentsProps extends DocumentCommentsOptions {
   state: EditorState;
   onStateChange: (update: RichTextStateUpdate) => void;
-  /** Who may accept and reject suggestions; the editor's one policy. */
+  /** Whether the reader may accept and reject suggestions. */
   suggestionPolicy: SuggestionPolicy;
   /** Receives the way to start a thread on the selected text while the reader may comment. */
-  startRef?: RefObject<(() => void) | null> | undefined;
+  startRef?: RefObject<StartComment | null> | undefined;
+  /** Receives the way to take the reader to a thread. */
+  openRef?: RefObject<OpenComment | null> | undefined;
   /** The document's content. */
   children: ReactNode;
 }
@@ -154,18 +189,42 @@ function useAnchorRects(
 
 const MARGIN_CLASS = 'de-document-comments__margin';
 
-// What every card reads, with mentions of the people the host's identity finds.
+// What every card reads, with mentions of the people the host's identity finds, and which threads
+// and suggestions the margin shows.
 function useCardContext(
   props: DocumentCommentsProps,
   shared: Pick<CardContext, 'comments' | 'canComment' | 'labels'>,
-): CardContext {
-  const mentions = useCommentMentions(props.identity);
-  return {
+): { context: CardContext; filter: ThreadFilter; opened: OpenedComment | null } {
+  const mentions = useCommentMentions(props.identity, props.mentions);
+  const me = props.identity.currentPerson().id;
+  const { format, mentionCard, audience, commentActions } = props;
+  const host = props.mentions;
+  const listed = useMemo(
+    () => ({
+      filter: props.filter ?? 'open',
+      me,
+      audience,
+      parse: mentions.parse,
+      includes: host?.includes?.bind(host),
+    }),
+    [props.filter, me, audience, mentions, host],
+  );
+  const focus = useCommentFocus();
+  const revealed = focus.opened?.threadId;
+  const filter = useMemo(() => ({ ...listed, revealed }), [listed, revealed]);
+  const context: CardContext = {
     ...shared,
     mentions,
+    format,
+    mentionCard,
+    commentActions,
     documentId: props.documentId,
-    me: props.identity.currentPerson().id,
+    me,
+    scope: 'margin',
+    opened: focus.opened,
+    newText: focus.newText,
   };
+  return { context, filter, opened: focus.opened };
 }
 
 // A card beside its anchor's page, whatever the page's size and orientation.
@@ -186,37 +245,6 @@ function PlacedCard({
   );
 }
 
-// Runs a command on the latest state the caller holds. A command that decides suggestions has its
-// decision recorded on their threads, read from a run on the state shown, since the caller applies
-// it later and outside the editor's transactions.
-function useRunCommand(
-  onStateChange: DocumentCommentsProps['onStateChange'],
-  { state, comments }: { state: EditorState; comments: CommentThreads },
-) {
-  return (command: Command) => {
-    command(state, (tr) => {
-      const report = suggestionDecisionOf(tr);
-      if (report) recordDecision(comments, report);
-    });
-    onStateChange((current) => {
-      let next = current;
-      command(current, (tr) => {
-        next = current.apply(tr);
-      });
-      return next;
-    });
-  };
-}
-
-// The card the caret is in: a thread's or a suggestion's, else the offer to comment on a selection.
-function caretKey(items: readonly CommentItem[], state: EditorState): string | null {
-  const { head } = state.selection;
-  const inside = items.find(
-    (item) => item.kind !== 'draft' && item.from <= head && head <= item.to,
-  );
-  return (inside ?? items.find((item) => item.kind === 'draft'))?.key ?? null;
-}
-
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread
  * and each suggestion level with its text, and, while text is selected, a button that starts a
@@ -227,23 +255,41 @@ export function DocumentComments(props: DocumentCommentsProps) {
   const failed = props.labels?.failed ?? DEFAULT_COMMENTS_LABELS.failed;
   return (
     <WithCommentThreads {...props} failed={failed}>
-      <CommentsMargin {...props} />
+      {props.placement === 'pane' ? <PaneComments {...props} /> : <CommentsMargin {...props} />}
     </WithCommentThreads>
   );
 }
 
+// The document alone, its threads shown in the comments panel, which the editor still reaches.
+function PaneComments(props: DocumentCommentsProps) {
+  const comments = useProvidedCommentThreads(props);
+  useCommentControls({ ...props, canComment: props.canComment ?? true, comments });
+  return props.children;
+}
+
 function CommentsMargin(props: DocumentCommentsProps) {
-  const { state, onStateChange, children, canComment = true } = props;
+  const { state, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
   const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
-  const run = useRunCommand(onStateChange, { state, comments });
+  const { context, filter, opened } = useCardContext(props, { comments, canComment, labels });
+  const { run, startThread } = useCommentControls({
+    ...props,
+    canComment,
+    comments,
+    onStart: setActive,
+  });
   useSuggestionThreads({ state, comments, run, options: props });
-  const { showResolved } = props;
+  // A thread the reader is taken to becomes the active card.
+  const [lastOpened, setLastOpened] = useState(opened);
+  if (opened !== lastOpened) {
+    setLastOpened(opened);
+    if (opened) setActive(`comment:${opened.threadId}`);
+  }
   const items = useMemo(
-    () => listCommentItems(state, { threads: comments.threads, canComment, showResolved }),
-    [state, comments.threads, canComment, showResolved],
+    () => listCommentItems(state, { threads: comments.threads, canComment, filter }),
+    [state, comments.threads, canComment, filter],
   );
   const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
   const { rects, offsets } = useAnchorRects(layer, targets);
@@ -258,28 +304,12 @@ function CommentsMargin(props: DocumentCommentsProps) {
     setLastCaret(caret);
     if (caret !== null) setActive(caret);
   }
-  const context = useCardContext(props, { comments, canComment, labels });
   const byKey = new Map(items.map((item) => [item.key, item]));
-  // A thread starts as a draft on the selection, or the caret's block, until the store keeps it.
-  const startThread = () => {
-    if (!canStartComment(state)) return;
-    const id = createElementId();
-    run(startCommentDraft(id));
-    setActive(`comment:${id}`);
-  };
   // Unattributed suggestions are their thread's writer's (DOCE-SUGGESTIONS-2.5).
   const policy = {
     ...props.suggestionPolicy,
     threadAuthor: (thread: string) => comments.threads.get(thread)?.entries[0]?.author,
   };
-  const { startRef } = props;
-  useEffect(() => {
-    if (!startRef) return undefined;
-    startRef.current = canComment ? startThread : null;
-    return () => {
-      startRef.current = null;
-    };
-  });
   return (
     <AnnotationLayer
       ref={setLayer}
@@ -302,7 +332,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
                 isActive,
                 policy,
                 run,
-                startThread,
+                startThread: () => startThread(),
               })}
             </PlacedCard>
           ) : null;
