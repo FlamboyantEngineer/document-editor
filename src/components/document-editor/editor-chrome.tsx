@@ -140,6 +140,7 @@ export function BottomChrome({
           layout={layout}
           mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
           items={props.statusItems}
+          session={props.session}
           zoom={editorZoom(props)}
           onLayoutChange={props.onLayoutChange}
         />

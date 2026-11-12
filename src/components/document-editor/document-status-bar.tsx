@@ -1,6 +1,6 @@
 // The editor's status bar: the page holding the caret, the words of the document or the selection,
-// the proofing issues when the document is proofed, and whether the writer is editing, suggesting
-// or reading, then the host's own items. It counts
+// the proofing issues when the document is proofed, whether the writer is editing, suggesting
+// or reading, and where the session's changes stand, then the host's own items. It counts
 // the state React defers, so typing in a long document never waits on the count.
 
 import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
@@ -27,6 +27,7 @@ import {
 import { pageMap } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { type EditorSession, SaveStatusItem } from './save-status-item.js';
 import { LayoutToggle, PageJump } from './status-controls.js';
 import { runCommand } from './table-actions.js';
 import type { DocumentLayout } from './use-document-layout.js';
@@ -64,6 +65,8 @@ interface DocumentStatusBarProps {
   mode: DocumentEditorMode;
   /** The host's own items, after the editor's. */
   items?: ReactNode;
+  /** The document's session, whose save status the bar shows. */
+  session?: EditorSession | undefined;
   /** The document's zoom and how the reader changes it, when they can. */
   zoom?: EditorZoom | null;
   /** Switches the layout, which the bar then offers. */
@@ -182,6 +185,7 @@ export function DocumentStatusBar({
   layout,
   mode,
   items,
+  session,
   zoom,
   onLayoutChange,
   className,
@@ -207,6 +211,11 @@ export function DocumentStatusBar({
           <Presence view={view} state={deferred} labels={labels} />
           <span>{labels[MODE_LABELS[mode]]}</span>
         </span>
+        {session ? (
+          <span {...hooks.slot('status-item', { status: 'save' })}>
+            <SaveStatusItem session={session} />
+          </span>
+        ) : null}
         {items}
       </span>
       <span {...hooks.slot('status-end')}>
