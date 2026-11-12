@@ -1,5 +1,18 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type {
+  AbbreviationHealthOptions,
+  AbbreviationIssue,
+  AbbreviationIssueKind,
+  GlossaryAnswer,
+  ResolvedGlossaryEntry,
+} from './abbreviation-health.js';
+export {
+  abbreviationIssueAt,
+  abbreviationIssues,
+  createAbbreviationHealth,
+  recordGlossaryEntries,
+} from './abbreviation-health.js';
 export type { AbbreviationDisplay, AbbreviationEntry } from './abbreviations.js';
 export {
   abbreviationAt,
