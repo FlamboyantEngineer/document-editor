@@ -1,13 +1,8 @@
 // An in-memory comment store: each document's threads, attributed to the reader, kept for the
 // page session, with every change told to the document's subscribers.
 
-import type {
-  CommentEntry,
-  CommentStoreAdapter,
-  CommentThread,
-  HostResult,
-  IdentityAdapter,
-} from './adapters.js';
+import type { HostResult, IdentityAdapter } from './adapters.js';
+import type { CommentEntry, CommentStoreAdapter, CommentThread } from './comment-adapters.js';
 
 /** What the in-memory comment store starts with and how it tells time. */
 export interface MemoryCommentsOptions {
@@ -29,6 +24,38 @@ type Change = (
   threadId: string,
   apply: (thread: CommentThread) => HostResult<CommentThread> | null,
 ) => Promise<HostResult<CommentThread>>;
+
+// The changes to a thread as a whole: opening and resolving it, deciding its suggestion, and
+// changing what it is about.
+function threadChanges(
+  change: Change,
+  { me, now }: { me: () => string; now: () => Date },
+): Pick<CommentStoreAdapter, 'setState' | 'decide' | 'update'> {
+  // Opens or resolves a thread, stamping who resolved it and when.
+  const resolve = (thread: CommentThread, state: CommentThread['state']) => {
+    thread.state = state;
+    thread.resolvedBy = state === 'resolved' ? me() : undefined;
+    thread.resolvedAt = state === 'resolved' ? now().toISOString() : undefined;
+  };
+  return {
+    setState: (documentId, threadId, state) =>
+      change(documentId, threadId, (thread) => {
+        resolve(thread, state);
+        return null;
+      }),
+    decide: (documentId, { threadId, ...decision }) =>
+      change(documentId, threadId, (thread) => {
+        thread.decision = { ...decision, by: me(), at: now().toISOString() };
+        resolve(thread, 'resolved');
+        return null;
+      }),
+    update: (documentId, threadId, fields) =>
+      change(documentId, threadId, (thread) => {
+        Object.assign(thread, fields);
+        return null;
+      }),
+  };
+}
 
 // The changes to one comment of a thread: editing and deleting the reader's own, and reacting.
 function entryChanges(
@@ -59,8 +86,8 @@ function entryChanges(
       }),
     react: (documentId, { threadId, entryId, emoji, reacted }) =>
       change(documentId, threadId, (thread) => {
-        const found = thread.entries.find((each) => each.id === entryId);
-        if (!found) return missing(entryId);
+        const found = entryId === undefined ? thread : thread.entries.find((e) => e.id === entryId);
+        if (!found) return missing(entryId ?? threadId);
         const reactions = { ...found.reactions };
         const people = (reactions[emoji] ?? []).filter((person) => person !== me());
         if (reacted) people.push(me());
@@ -107,23 +134,27 @@ export function createMemoryComments(
     if (!thread) return Promise.resolve(missing(threadId));
     const refused = apply(thread);
     if (refused) return Promise.resolve(refused);
+    thread.updatedAt = now().toISOString();
     notify(documentId);
     return Promise.resolve({ ok: true, value: structuredClone(thread) });
   };
   return {
     list: (documentId) =>
       Promise.resolve({ ok: true, value: structuredClone([...threadsOf(documentId).values()]) }),
-    create: (documentId, { id, quote, text, suggestion = null }) => {
+    create: (documentId, { text, suggestion = null, ...fields }) => {
       const list = threadsOf(documentId);
-      if (list.has(id)) return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
+      if (list.has(fields.id)) return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
+      const at = now().toISOString();
       const thread: CommentThread = {
-        id,
+        ...fields,
         state: 'open',
-        quote,
         suggestion,
-        entries: [entry(text)],
+        entries: text ? [entry(text)] : [],
+        author: me(),
+        createdAt: at,
+        updatedAt: at,
       };
-      list.set(id, thread);
+      list.set(fields.id, thread);
       notify(documentId);
       return Promise.resolve({ ok: true, value: structuredClone(thread) });
     },
@@ -132,16 +163,12 @@ export function createMemoryComments(
         thread.entries.push(entry(text));
         return null;
       }),
-    setState: (documentId, threadId, state) =>
-      change(documentId, threadId, (thread) => {
-        thread.state = state;
-        return null;
-      }),
     remove: (documentId, threadId) => {
       if (!threadsOf(documentId).delete(threadId)) return Promise.resolve(missing(threadId));
       notify(documentId);
       return Promise.resolve({ ok: true, value: null });
     },
+    ...threadChanges(change, { me, now }),
     ...entryChanges(change, { me, now }),
     subscribe: (documentId, onThreads) => {
       const set = listeners.get(documentId) ?? new Set();
