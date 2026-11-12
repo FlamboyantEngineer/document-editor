@@ -18,6 +18,20 @@ Given the template, `documentOutline(state, template)` shall give each heading i
 Implementation: `src/engine/outline.ts`
 Verification: `src/engine/outline.test.ts`
 
+### DOCE-OUTLINE-1.3 - A heading's span
+
+`headingSectionSpan(doc, pos)` shall give the span a structural heading heads: from the heading to the next structural heading of its level or above, across the document's sections, or else to the end of its last content; and null for a position that holds no structural heading. A host scopes a review or a comparison to it (DOCE-VERSIONS-2.6).
+
+Implementation: `src/engine/outline.ts`
+Verification: `src/engine/outline.test.ts`
+
+### DOCE-OUTLINE-1.4 - Highlights
+
+Given highlights by heading element id (`documentOutline(state, template, { highlights })`), such as the sections a review covers, each heading shall carry the highlight it is under: its own, or else the nearest heading's above it; else null.
+
+Implementation: `src/engine/outline.ts`
+Verification: `src/engine/outline.test.ts`
+
 ## DOCE-OUTLINE-2 - The outline panel
 
 ### DOCE-OUTLINE-2.1 - Navigating by heading

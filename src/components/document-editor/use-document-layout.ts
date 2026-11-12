@@ -90,6 +90,7 @@ function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
       previous: () => latest.current.compare?.previous ?? null,
       display: () => latest.current.compare?.display ?? 'markup',
       suggestions: () => latest.current.compare?.suggestions ?? 'rejected',
+      scope: () => latest.current.compare?.scope ?? null,
     }),
   ];
 }
@@ -174,11 +175,14 @@ export interface DocumentLayoutOptions {
 
 /** An older version to show a document's changes from, as change bars or marked in place. */
 export interface DocumentComparison {
-  readonly previous: ProseMirrorNode;
+  /** The older version, or `opened` for the document as the editor opened it. */
+  readonly previous: ProseMirrorNode | 'opened';
   /** Defaults to markup. */
   readonly display?: VersionChangeDisplay | undefined;
   /** Whether the document's suggestions count as rejected (the default) or as accepted. */
   readonly suggestions?: CompareSuggestions | undefined;
+  /** The element ids compared, a heading for its headed section; the others are marked outside. */
+  readonly scope?: readonly string[] | undefined;
 }
 
 // A state with its sections shown in the template again, out of the history.
@@ -327,11 +331,12 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [template]);
 
-  const { previous, display, suggestions } = options.compare ?? {};
+  const { previous, display, suggestions, scope } = options.compare ?? {};
+  const scopeKey = scope?.join(' ');
   useEffect(() => {
     latest.current.onStateChange(recompare);
     refresh.current?.();
-  }, [previous, display, suggestions]);
+  }, [previous, display, suggestions, scopeKey]);
   useHostVariables(options, { refresh, redraw });
   useLayoutDebug(options.debug, options.onStateChange, redraw);
   useRegionsEditable(Boolean(options.onRegionChange), options.onStateChange);
