@@ -30,8 +30,9 @@ const paragraph = (text: string): DocumentFile => ({
 
 type Markup = 'all' | 'final';
 
-async function openHistory() {
+async function openHistory(capabilities = FULL_CAPABILITIES) {
   const host = createMemoryHost({
+    capabilities,
     person: { id: 'ada', name: 'Ada Lovelace' },
     documents: [{ id: 'doc', content: paragraph('One') }],
   });
@@ -147,5 +148,12 @@ describe('DocumentHistory', () => {
     const { unmount } = render(<Count />);
     expect(await screen.findByText('3 versions')).toBeVisible();
     unmount();
+  });
+
+  it('DOCE-VERSIONS-4.7 follows the session’s capabilities unless given its own', async () => {
+    const { versions } = await openHistory({ ...FULL_CAPABILITIES, saveVersion: false });
+    render(<Host versions={versions} capabilities={undefined} />);
+    await row(/Draft/);
+    expect(screen.queryByRole('button', { name: 'Save version…' })).not.toBeInTheDocument();
   });
 });
