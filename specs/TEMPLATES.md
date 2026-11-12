@@ -244,6 +244,13 @@ The generic templates in `test/fixtures/templates/` shall be valid, resolve over
 Implementation: `test/fixtures/templates/`
 Verification: `test/fixtures/templates/template-fixtures.test.ts`
 
+### DOCE-TEMPLATES-10.9 - Template images
+
+`validateTemplateFile` shall report each image in a template's or its sections' headers, footers, content and placeholders that is stored by an address or names no asset (`templateImageErrors`, DOCE-SCHEMA-3.3), once the template's settings are of the right shape.
+
+Implementation: `src/model/format/template-format-validate.ts`
+Verification: `src/model/format/template-format.test.ts`
+
 ## DOCE-TEMPLATES-11 - Template pinning
 
 ### DOCE-TEMPLATES-11.1 - Pinned revisions
