@@ -1,0 +1,74 @@
+{
+  "formatVersion": 1,
+  "template": {
+    "id": "regression-mixed-geometry"
+  },
+  "sections": [
+    {
+      "id": "section-cover",
+      "name": "cover",
+      "header": {
+        "content": [
+          {
+            "type": "paragraph",
+            "attrs": {
+              "id": "5e5e0001"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Station survey, draft"
+              }
+            ]
+          }
+        ],
+        "height": "18mm"
+      },
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "5e5e0002"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Weather station survey"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-body",
+      "name": "body",
+      "editable": false,
+      "footer": {
+        "inherit": true
+      },
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "5e5e0003"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Readings were taken at dawn and at dusk."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-appendix",
+      "name": "appendix",
+      "header": {
+        "inherit": false,
+        "content": []
+      },
+      "content": []
+    }
+  ]
+}

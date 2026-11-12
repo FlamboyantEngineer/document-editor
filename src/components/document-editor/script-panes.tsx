@@ -62,7 +62,7 @@ function PreviewDocument({
       doc: readDocumentFile(
         { formatVersion: 1, sections: [{ name: null, content: output }] },
         view.state.schema,
-      ),
+      ).doc,
     }),
   );
   return (

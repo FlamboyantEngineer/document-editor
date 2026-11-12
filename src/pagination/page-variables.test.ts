@@ -18,7 +18,7 @@ function documentWithRegions() {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content: [] }] },
     documentSchema,
-  );
+  ).doc;
   const template = {
     ...BASE_TEMPLATE,
     header: { content: [{ type: 'paragraph', content: [variable('document.name')] }] },
@@ -86,7 +86,7 @@ describe('page variables', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const view = new EditorView(document.createElement('div'), {
       state: EditorState.create({
         doc,
