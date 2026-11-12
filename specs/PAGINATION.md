@@ -450,6 +450,13 @@ DocumentEditor shall keep `state` as the whole document, each section on one pag
 Implementation: `src/components/document-editor/use-paged-projection.ts`, `src/pagination/canonical-plugins.ts`, `src/engine/code-highlighting.ts`, `src/components/document-editor/start-paging.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `e2e/projection-editor.spec.ts`, `e2e/regression.spec.ts`
 
+### DOCE-PAGINATION-7.18 - The pages' layout without joining them
+
+The layout of a canonical document a projection shows (`pageMap`, DOCE-PAGINATION-7.17) shall map its positions through the map the projection keeps between its pages and that document (DOCE-PAGINATION-7.9), so reading pages and positions on each keystroke joins no pages; `createPageMap(paged, rules, positions)` shall do so for any paged document whose positions are known. Only a document the pages do not show exactly, as while an edit typed on the pages is on its way to the canonical state, shall map through the page transform, and a document shown before keeps the pages it was shown on. Joining a section's pages shall take time linear in its blocks.
+
+Implementation: `src/pagination/page-map.ts`, `src/pagination/projection-session.ts`, `src/model/pagination/fragments.ts`
+Verification: `src/pagination/page-map.test.ts`, `src/pagination/projection-view.test.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers
