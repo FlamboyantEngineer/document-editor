@@ -84,6 +84,7 @@ function Harness(props: {
   decide?: DocumentCommentsOptions['decide'];
   /** Shows the comments panel inside the editor too. */
   panel?: boolean;
+  suggestionThreads?: DocumentCommentsOptions['suggestionThreads'];
 }) {
   const [state, setState] = useState(() => initial(props.select));
   useEffect(() => {
@@ -106,6 +107,7 @@ function Harness(props: {
               identity,
               canComment: props.canComment,
               decide: props.decide,
+              suggestionThreads: props.suggestionThreads,
             }
           : undefined
       }
@@ -284,5 +286,24 @@ describe('DocumentComments', () => {
         decision: { decision: 'reject', suggestion: 's1', by: 'ada' },
       });
     });
+  });
+
+  it('DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause', async () => {
+    const store = host();
+    render(<Harness host={store} suggestionThreads={{ delay: 0 }} />);
+    await waitFor(() =>
+      expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(expect.any(String)),
+    );
+    const [suggestion] = seen.state ? listSuggestions(seen.state.doc) : [];
+    const listed = await store.comments?.list('doc');
+    expect(listed?.ok && listed.value.find((each) => each.id === suggestion?.thread)).toMatchObject(
+      {
+        suggestion: 's1',
+        quote: 'epsilon',
+        automatic: true,
+        change: { kind: 'insert', inserted: 'epsilon' },
+        entries: [],
+      },
+    );
   });
 });

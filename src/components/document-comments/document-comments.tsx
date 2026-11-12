@@ -51,6 +51,7 @@ import {
   useSuggestionAuthors,
 } from './use-comment-threads.js';
 import { recordDecision } from './use-decision-records.js';
+import { useSuggestionThreads } from './use-suggestion-threads.js';
 
 export { EditorCommentThreads } from './comment-threads-provider.js';
 
@@ -73,6 +74,11 @@ export interface DocumentCommentsOptions {
    * opens its card (`markers`), which leaves the document more room.
    */
   presentation?: 'cards' | 'markers' | undefined;
+  /**
+   * Starts a thread for each of the reader's suggestions once they pause, `delay` milliseconds
+   * (800 by default), and keeps it to what the suggestion does. Off by default.
+   */
+  suggestionThreads?: boolean | { delay?: number | undefined } | undefined;
   /**
    * Whether the reader may accept a suggestion, and reject it, while they may decide at all; both
    * by default.
@@ -232,6 +238,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const run = useRunCommand(onStateChange, { state, comments });
+  useSuggestionThreads({ state, comments, run, options: props });
   const { showResolved, decide } = props;
   const items = useMemo(
     () => listCommentItems(state, { threads: comments.threads, canComment, showResolved }),

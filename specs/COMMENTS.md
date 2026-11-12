@@ -195,6 +195,13 @@ In room mode, `createRoomCommentStore({ doc, identity })` from `./collab` shall 
 Implementation: `src/collab/comment-store.ts`
 Verification: `src/collab/comment-store.test.ts`
 
+### DOCE-COMMENTS-2.21 - Threads for suggestions
+
+With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes, what it does (`change`: insert, delete or replace) and `automatic`, and name it on the suggestion's marks outside the reader's history; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions are left to that writer's editor (`planSuggestionThreads`).
+
+Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text
