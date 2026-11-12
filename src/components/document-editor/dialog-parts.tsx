@@ -15,6 +15,12 @@ export interface DialogProps {
   readonly onClose: () => void;
 }
 
+/** What a host's own dialog is given: the view, the editor's labels, its data and closing. */
+export interface HostDialogProps extends DialogProps {
+  /** What the opener handed the dialog (`openDialog({ kind: 'host', name, data })`). */
+  readonly data?: unknown;
+}
+
 /** The node selected, when it is of one of the types. */
 export function selectedNode(state: EditorState, types: readonly string[]): ProseMirrorNode | null {
   const { selection } = state;
@@ -39,7 +45,10 @@ export const applying = (
   },
 });
 
-/** A dialog of the editor's, open until it closes, handing focus back to the document. */
+/**
+ * A dialog of the editor's, open until it closes, handing focus back to the document. A host's own
+ * dialog renders it too, so it looks and behaves as the editor's.
+ */
 export function EditorModal({
   view,
   onClose,

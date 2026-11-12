@@ -5,7 +5,7 @@
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { ReactNode } from 'react';
-import type { EditorContext } from './editor-context.js';
+import { type EditorContext, unavailableReason } from './editor-context.js';
 
 interface ToolbarItemBase {
   /** Unique in the toolbar. */
@@ -26,6 +26,11 @@ export interface ToolbarButtonItem extends ToolbarItemBase {
   readonly run: (context: EditorContext) => void;
   /** Whether the button can be pressed; defaults to while the writer can edit there. */
   readonly isEnabled?: ((context: EditorContext) => boolean) | undefined;
+  /**
+   * Why the button cannot be pressed now, shown while it is disabled, which keeps it focusable;
+   * defaults to why the writer cannot edit there.
+   */
+  readonly disabledReason?: ((context: EditorContext) => string | undefined) | undefined;
   /** Makes the button a toggle, pressed while this holds, such as a format of the selection. */
   readonly isPressed?: ((context: EditorContext) => boolean) | undefined;
 }
@@ -38,6 +43,8 @@ export interface ToolbarMenuItem extends ToolbarItemBase {
   readonly entries: (context: EditorContext) => readonly MenuEntry[];
   /** Whether the menu can open; defaults to while the writer can edit there. */
   readonly isEnabled?: ((context: EditorContext) => boolean) | undefined;
+  /** Why the menu cannot open now; defaults to why the writer cannot edit there. */
+  readonly disabledReason?: ((context: EditorContext) => string | undefined) | undefined;
 }
 
 /** A control the host draws itself, such as a picker in a popover. */
@@ -53,6 +60,8 @@ export interface ToolbarGroup {
   readonly id: string;
   /** Names the group for assistive technology. */
   readonly label?: string | undefined;
+  /** Joins the group's controls into one segmented run. */
+  readonly attached?: boolean | undefined;
   readonly items: readonly ToolbarItem[];
 }
 
@@ -85,7 +94,12 @@ export const TOOLBAR_GROUPS = {
     'section',
     'symbol',
   ],
+  layout: ['layout'],
+  mode: ['mode', 'markup'],
 } as const;
+
+/** What happens to a toolbar too wide for its row: it wraps onto more rows, or scrolls. */
+export type ToolbarOverflow = 'wrap' | 'scroll';
 
 /** How the host shapes the editor's toolbar. */
 export interface DocumentToolbarOptions {
@@ -100,7 +114,24 @@ export interface DocumentToolbarOptions {
   readonly start?: ReactNode;
   /** The host's own controls after the editor's, such as saving and the workflow state. */
   readonly end?: ReactNode;
+  /** What happens when the toolbar does not fit its row. Defaults to `wrap`. */
+  readonly overflow?: ToolbarOverflow | undefined;
 }
+
+/** Whether an item can be used, by its `isEnabled` or, by default, while the writer can edit. */
+export const isItemEnabled = (item: ToolbarButtonItem | ToolbarMenuItem, context: EditorContext) =>
+  item.isEnabled ? item.isEnabled(context) : context.editable && !context.locked;
+
+/** Why a disabled item cannot be used, by its `disabledReason` or why the writer cannot edit. */
+export const disabledReasonOf = (
+  item: ToolbarButtonItem | ToolbarMenuItem,
+  context: EditorContext,
+): string | undefined =>
+  isItemEnabled(item, context)
+    ? undefined
+    : item.disabledReason
+      ? item.disabledReason(context)
+      : unavailableReason(context);
 
 /** The groups with the host's items joined to them, then arranged as the host asks. */
 export function arrangeToolbar(
