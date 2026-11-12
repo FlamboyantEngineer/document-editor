@@ -1,10 +1,11 @@
-// Fills each page's header and footer with its section's template regions. The regions are view
+// Fills each page's header and footer with its section's regions: a document section's own over
+// its template section's. The regions are view
 // content: a stored document never holds them, so a host sets them after reading a document and
 // again when its template changes.
 
 import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import type { Transform } from 'prosemirror-transform';
-import type { TemplateFile } from '../format/template-format.js';
+import type { RegionSettings, TemplateFile } from '../format/template-format.js';
 import { resolveSectionRegion } from '../format/template-format-resolve.js';
 import { readTemplateContent } from './template-content.js';
 import { findTemplateSection } from './template-sections.js';
@@ -21,18 +22,33 @@ interface RegionTarget {
   readonly content: Fragment;
 }
 
+// A document section's own region, as stored (DOCE-FORMAT-1.6), or null.
+function ownRegion(section: ProseMirrorNode, region: 'header' | 'footer'): RegionSettings | null {
+  const own: unknown = section.attrs[region === 'header' ? 'pageHeader' : 'pageFooter'];
+  return own && typeof own === 'object' ? (own as RegionSettings) : null;
+}
+
 function regionContents(template: TemplateFile, schema: Schema) {
   const known = new Map<string | null, Record<RegionName, Fragment>>();
-  return (sectionName: string | null): Record<RegionName, Fragment> => {
-    const cached = known.get(sectionName);
+  return (section: ProseMirrorNode): Record<RegionName, Fragment> => {
+    const sectionName = (section.attrs.sectionName as string | null) ?? null;
+    const own = { header: ownRegion(section, 'header'), footer: ownRegion(section, 'footer') };
+    const shared = !own.header && !own.footer;
+    const cached = shared ? known.get(sectionName) : undefined;
     if (cached) return cached;
-    const section = findTemplateSection(template, sectionName);
-    const read = (region: 'header' | 'footer') =>
-      Fragment.from(
-        readTemplateContent(resolveSectionRegion(template, section, region)?.content ?? [], schema),
+    const scope = findTemplateSection(template, sectionName);
+    // The document section's own region over its template section's, field by field.
+    const read = (region: 'header' | 'footer') => {
+      const inherited = resolveSectionRegion(template, scope, region);
+      const resolved = resolveSectionRegion(
+        { [region]: inherited },
+        { [region]: own[region] },
+        region,
       );
+      return Fragment.from(readTemplateContent(resolved?.content ?? [], schema));
+    };
     const contents = { page_header: read('header'), page_footer: read('footer') };
-    known.set(sectionName, contents);
+    if (shared) known.set(sectionName, contents);
     return contents;
   };
 }
@@ -71,7 +87,7 @@ export function setPageRegions<T extends Transform>(
   const targets: RegionTarget[] = [];
   tr.doc.forEach((section, sectionOffset) => {
     if (section.type.name !== 'page_section') return;
-    const contents = contentsOf((section.attrs.sectionName as string | null) ?? null);
+    const contents = contentsOf(section);
     section.forEach((page, pageOffset) => {
       page.forEach((node, regionOffset) => {
         const name = node.type.name;

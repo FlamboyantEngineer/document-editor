@@ -150,4 +150,29 @@ describe('template setting rules', () => {
       'template.sections[0].styles.custom.averyveryverylongname must be named with a letter, then letters, digits, underscores or hyphens, 16 at most',
     ]);
   });
+
+  it('DOCE-TEMPLATES-10.9 reports template images stored by address or without an asset', () => {
+    const image = (attrs: Record<string, unknown>) => ({
+      type: 'paragraph',
+      content: [{ type: 'image', attrs }],
+    });
+    const errors = validateTemplateFile(
+      {
+        ...TEMPLATE,
+        header: { content: [image({ src: 'https://example.com/seal.png' })] },
+        sections: [{ name: 'scope', placeholder: [image({ alt: 'Seal' })] }],
+      },
+      { schema: documentSchema },
+    );
+    expect(errors).toEqual([
+      'template.header.content[0].content[0]: a template image is stored by its asset, not by an address (src)',
+      'template.sections[0].placeholder[0].content[0]: a template image must name its asset (assetId)',
+    ]);
+    expect(
+      validateTemplateFile({ ...TEMPLATE, header: { content: [image({ assetId: 'seal' })] } }),
+    ).toEqual([]);
+    expect(validateTemplateFile({ ...TEMPLATE, sections: 'none' })).toEqual([
+      'template.sections must be a list',
+    ]);
+  });
 });
