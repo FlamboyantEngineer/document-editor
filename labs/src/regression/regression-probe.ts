@@ -108,6 +108,20 @@ function headOf(doc: ProseMirrorNode, continuation: { node: ProseMirrorNode; pos
   return head as { node: ProseMirrorNode; pos: number } | null;
 }
 
+// The size of the leading rows of a table's continuation that repeat its head's header rows.
+function repeatedHeaderSize(head: ProseMirrorNode, continuation: ProseMirrorNode): number {
+  if (head.type.name !== 'table') return 0;
+  let size = 0;
+  for (let index = 0; index < Math.min(head.childCount, continuation.childCount); index += 1) {
+    const row = head.child(index);
+    const isHeader =
+      row.childCount > 0 && row.content.content.every((cell) => cell.type.name === 'table_header');
+    if (!isHeader || !row.eq(continuation.child(index))) break;
+    size += row.nodeSize;
+  }
+  return size;
+}
+
 function placeCaret(view: EditorView, at: number) {
   const { doc } = view.state;
   view.dispatch(view.state.tr.setSelection(TextSelection.create(doc, at)).scrollIntoView());
@@ -120,9 +134,15 @@ function caretAtFragment(view: EditorView, type: string, edge: FragmentEdge): Fr
   const doc = pageMap(view.state).projection;
   const continuation = firstContinuation(doc, type);
   if (!continuation) return null;
-  const target = edge === 'continuation-start' ? continuation : headOf(doc, continuation);
+  const head = headOf(doc, continuation);
+  const target = edge === 'continuation-start' ? continuation : head;
   if (!target) return null;
-  const at = textEdge(doc, target.pos, target.pos + target.node.nodeSize, edge === 'head-end');
+  // A table's continuation starts after the header rows it repeats, which are its head's own.
+  const from =
+    edge === 'continuation-start' && head
+      ? target.pos + 1 + repeatedHeaderSize(head.node, target.node)
+      : target.pos;
+  const at = textEdge(doc, from, target.pos + target.node.nodeSize, edge === 'head-end');
   if (at === null) return null;
   const joined = joinDocumentPages(doc).mapping.map(at, edge === 'head-end' ? -1 : 1);
   placeCaret(view, doc === view.state.doc ? at : joined);

@@ -73,8 +73,10 @@ export function canonicalSelection(
     const node = at === null ? null : doc.nodeAt(at);
     return at !== null && node?.type === selection.node.type ? NodeSelection.create(doc, at) : null;
   }
-  const anchor = map.toCanonical(selection.anchor, 1);
-  const head = map.toCanonical(selection.head, 1);
+  // A textblock's end keeps to the text before it, as a code fragment's end to the line break
+  // after it.
+  const anchor = map.toCanonical(selection.anchor);
+  const head = map.toCanonical(selection.head);
   if (anchor === null || head === null) return null;
   return TextSelection.between(doc.resolve(anchor), doc.resolve(head));
 }

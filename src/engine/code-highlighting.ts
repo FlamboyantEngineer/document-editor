@@ -171,8 +171,11 @@ export function paintCodeHighlights(view: EditorView): { update: () => void; des
       if (!dom) return false;
       const before = painted.get(dom);
       painted.delete(dom);
-      if (before?.node === node && sameTexts(before.texts, textsOf(dom))) next.set(dom, before);
-      else {
+      // A block drawn in parts, as on a projection's pages, may have a later part drawn again.
+      const kept = before?.ranges.every(([, range]) => range.startContainer.isConnected) ?? false;
+      if (before?.node === node && kept && sameTexts(before.texts, textsOf(dom))) {
+        next.set(dom, before);
+      } else {
         if (before) unpaint(before);
         next.set(dom, paintBlock(view, { node, pos }, dom));
       }
