@@ -27,11 +27,14 @@ import {
   type TemplateSection,
 } from '../model/index.js';
 import { editsRegions, regionEdits } from './region-editing.js';
+import { isRemoteTransaction } from './transaction-kind.js';
 
 /** How a document's sections are shown. */
 export interface DocumentSectionsOptions {
   /** The document's resolved template, whose sections set their own values. */
   template: () => TemplateFile;
+  /** Whether a change came from elsewhere, its regions already set there. Defaults to `isRemoteTransaction`. */
+  isRemote?: ((tr: Transaction) => boolean) | undefined;
 }
 
 /** The sections plugin; a transaction with its meta sets every section's values again. */
@@ -97,7 +100,10 @@ function placeholderOf(
  * each page's header and footer its section's (`setPageRegions`), outside the history. After the
  * template changes, a host dispatches a transaction with `documentSectionsKey` meta.
  */
-export function createDocumentSections({ template }: DocumentSectionsOptions): Plugin {
+export function createDocumentSections({
+  template,
+  isRemote = isRemoteTransaction,
+}: DocumentSectionsOptions): Plugin {
   return new Plugin<DecorationSet>({
     key: documentSectionsKey,
     state: {
@@ -106,7 +112,9 @@ export function createDocumentSections({ template }: DocumentSectionsOptions): P
         tr.docChanged || tr.getMeta(documentSectionsKey) ? decorate(tr.doc, template()) : value,
     },
     appendTransaction(transactions, _before, after) {
-      if (!transactions.some((tr) => tr.docChanged || tr.getMeta(documentSectionsKey))) return null;
+      const asked = (tr: Transaction) =>
+        Boolean(tr.getMeta(documentSectionsKey)) || (tr.docChanged && !isRemote(tr));
+      if (!transactions.some(asked)) return null;
       const tr = setPageRegions(after.tr, template(), {
         editable: editsRegions(after),
         edits: regionEdits(after),

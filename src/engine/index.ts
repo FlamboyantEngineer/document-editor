@@ -119,6 +119,7 @@ export {
   ELEMENT_IDS_REPAIR,
   repairElementIds,
 } from './element-ids.js';
+export { clearCopiedIdentity } from './element-ids.js';
 export * from './features.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
 export {

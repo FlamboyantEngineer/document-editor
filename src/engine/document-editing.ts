@@ -46,6 +46,7 @@ import { createObjectViews } from './object-views.js';
 import { createScripts } from './scripts.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
+import { includeAppended } from './transaction-kind.js';
 import { createWordPaste } from './word-paste.js';
 
 /** What a document's editing depends on. */
@@ -211,7 +212,8 @@ export function createDocumentEditing(
   schema: Schema,
   options: DocumentEditingOptions = {},
 ): Plugin[] {
-  const { template, author, isRemote, history: keepHistory = true } = options;
+  const { template, author, history: keepHistory = true } = options;
+  const isRemote = options.isRemote && includeAppended(options.isRemote);
   return [
     ...(keepHistory ? [history()] : []),
     createElementIds({ author, isRemote }),
@@ -221,7 +223,9 @@ export function createDocumentEditing(
     createObjectViews(),
     createWordPaste(),
     createScripts(),
-    ...(template ? [createCustomStyles({ template }), createTableWidth(tableWidth(template))] : []),
+    ...(template
+      ? [createCustomStyles({ template }), createTableWidth({ ...tableWidth(template), isRemote })]
+      : []),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
@@ -237,7 +241,8 @@ export function createDocumentEditing(
 export function createDocumentEditingExtension<C = unknown>(
   options: DocumentEditingOptions = {},
 ): RichTextExtension<C> {
-  const { template, author, isRemote, history: keepHistory = true } = options;
+  const { template, author, history: keepHistory = true } = options;
+  const isRemote = options.isRemote && includeAppended(options.isRemote);
   return {
     name: 'document-editing',
     plugins: [
@@ -292,7 +297,7 @@ export function createDocumentEditingExtension<C = unknown>(
         name: 'table-width',
         priority: 845,
         when: () => Boolean(template),
-        build: () => (template ? [createTableWidth(tableWidth(template))] : []),
+        build: () => (template ? [createTableWidth({ ...tableWidth(template), isRemote })] : []),
       },
       {
         name: 'tables',
