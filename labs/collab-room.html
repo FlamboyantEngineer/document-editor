@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Shared room: two writers edit one document on an in-process room server, at their own widths and zooms."
+    />
+    <title>Shared room · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/collab-room.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Shared room</h1>
+      <p>
+        Two writers edit the same document in its shared room, on a room server in this page, each
+        at their own width and zoom. What one types reaches the other, and each writer's undo undoes
+        only their own changes. Take a writer offline to edit on their own, then bring them back to
+        merge.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>

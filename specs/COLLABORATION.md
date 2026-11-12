@@ -135,10 +135,17 @@ Verification: `src/collab/convert.test.ts`
 
 ### DOCE-COLLAB-6.3 - Each writer's own undo
 
-`createCollabUndo()`, run beside the sync plugin with the editing history off, shall undo and redo only the changes the editor sent as its own: never another writer's, a write a plugin derived from one, or a host's system change. An undo shall reach the editor at once as an undo, not as a remote change. The editor's undo and redo (`undoCommand`, `redoCommand`), which its keys, toolbar and menubar run, shall run the commands a plugin of the state provides (`provideUndoCommands`), and the editing history's otherwise. A room-mode session shall run it beside its sync plugin.
+`createCollabUndo()`, run beside the sync plugin with the editing history off, shall undo and redo only the changes the editor sent as its own: never another writer's, a write a plugin derived from one, or a host's system change. An undo shall reach the editor at once as an undo, not as a remote change. The editor's undo and redo (`undoCommand`, `redoCommand`), which its keys, toolbar and menubar run, shall run the commands a plugin of the state provides (`provideUndoCommands`), and the editing history's otherwise. Like the sync plugin, it shall keep one view at a time and stay out of the paged layout's measuring view. A room-mode session shall run it beside its sync plugin.
 
 Implementation: `src/collab/undo.ts`, `src/engine/undo-commands.ts`, `src/engine/shortcut-commands.ts`, `src/components/document-editor/toolbar-controls.tsx`, `src/session/room-binding.ts`
 Verification: `src/collab/undo.test.ts`, `src/engine/undo-commands.test.ts`, `src/session/room-session.test.ts`
+
+### DOCE-COLLAB-6.4 - Shared room lab
+
+The shared room lab shall show two writers editing one document in its room on an in-process room server, each at their own width and zoom, either able to go offline and come back. What either changes, together or apart, shall reach the other, both holding the same document, and each one's undo shall undo only their own changes.
+
+Implementation: `labs/src/collab-room.lab.tsx`, `test/session-rooms.ts`
+Verification: `e2e/shared-room.spec.ts`
 
 ## Hooks
 

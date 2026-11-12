@@ -16,10 +16,10 @@ import {
   type PairedSocket,
 } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
-import { CONTENT_TYPE, writeContent } from '../src/collab/delta.js';
+import { documentToYjs } from '../src/collab/convert.js';
 import { roomConnection } from '../src/collab/room-connection.js';
 import type { CollaborationAdapter } from '../src/host/session-adapters.js';
-import { type DocumentFile, readDocumentFile } from '../src/model/index.js';
+import type { DocumentFile } from '../src/model/index.js';
 import { documentSchema } from './document-markup.js';
 
 /** Rooms for documents, and the readers who may only read them. */
@@ -46,14 +46,7 @@ export interface SessionRooms {
 
 /** A room's first state: the document's content and its template pin, as one Yjs update. */
 export function roomSeed(content: DocumentFile): Uint8Array {
-  const doc = new Y.Doc();
-  doc.transact(() => {
-    writeContent(doc.get(CONTENT_TYPE), readDocumentFile(content, documentSchema).doc);
-    const meta = doc.get('meta');
-    meta.setAttr('formatVersion', content.formatVersion as never);
-    meta.setAttr('template', (content.template ?? null) as never);
-  });
-  return Y.encodeStateAsUpdate(doc);
+  return documentToYjs(content, { schema: documentSchema });
 }
 
 /** Rooms for `documents` on a room server in this process (DOCE-SESSION-3.7). */

@@ -158,4 +158,18 @@ describe('shared document undo', () => {
     expect(handled).toBe(true);
     expect(text(a)).not.toMatch(/Keyed\./);
   });
+
+  it('DOCE-COLLAB-6.3 keeps one view at a time and stays out of the measuring view', async () => {
+    const { a, sync } = pair();
+    await sync();
+    // The pair runs each editor's undo plugin just before its sync plugin, which comes last.
+    const plugin = a.state.plugins.at(-2);
+    expect(plugin?.spec.measured).toBe(false);
+    // A second view, such as a measuring view the layout should not have given it, stays inert.
+    plugin?.spec.view?.(a.view);
+    type(a, 1, ' Once.');
+    run(a, undoCommand);
+    expect(text(a)).not.toMatch(/Once\./);
+    expect(run(a, undoCommand)).toBe(false);
+  });
 });

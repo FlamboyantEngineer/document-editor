@@ -26,7 +26,7 @@ import { addMarkInOrder, type DocumentFile } from '../model/index.js';
 
 const DOCUMENTS = [footnotes, pageBreaks, longTable] as unknown as DocumentFile[];
 
-// The spike's seed count (labs/src/spikes/collab-findings.md); each seed checks every step, so CI
+// The spike's seed count (docs/collaboration.md, "What the binding spike found"); each seed checks every step, so CI
 // gets an explicit timeout rather than fewer seeds.
 const SEEDS = 6;
 const ROUNDS = 120;
