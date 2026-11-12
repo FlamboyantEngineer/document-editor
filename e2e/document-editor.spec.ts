@@ -165,7 +165,12 @@ test.describe('document editor lab', () => {
     await openMenuAt(page, 'every');
     await item(page, 'Accept suggestion').click();
     await expect(content(page)).toContainText('The log keeps each report');
+    // The decision lays the pages out again; select once they have settled, so the drag lands.
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
     await selectText(page, 'operator console');
+    await expect
+      .poll(() => page.evaluate(() => getSelection()?.toString()))
+      .toBe('operator console');
     await openMenuAt(page, 'operator console');
     await item(page, 'Comment').click();
     // The right-click kept the selection, so the thread is on exactly the selected text.
