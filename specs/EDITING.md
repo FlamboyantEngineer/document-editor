@@ -39,7 +39,7 @@ Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.tes
 Implementation: `src/engine/element-ids.ts`
 Verification: `src/engine/element-ids.test.ts`
 
-### DOCE-EDITING-1.5 - Stored ids
+### DOCE-EDITING-1.6 - Stored ids
 
 `checkStoredIds(file)` shall list, in document order, each element of a stored document (every stored node but text, outside a footnote's own text) whose id is missing, not of the id form (DOCE-EDITING-1.1) or held by an earlier element, with its path; a footnote's element id is its `elementId`. `assignStoredIds(file, { newId, author })` shall give a copy in which each of those elements has a fresh id from `newId` that no other element holds, attributed as DOCE-EDITING-1.2 says: an element that repeated an earlier id is a copy, so it takes `author` and drops its assistant session, and any other keeps its author or takes `author` when it has none. The same `newId` sequence shall give the same document.
 

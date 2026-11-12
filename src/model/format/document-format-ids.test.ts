@@ -32,7 +32,7 @@ const FILE: DocumentFile = {
 };
 
 describe('stored element ids', () => {
-  it('DOCE-EDITING-1.5 names each missing, invalid or repeated id in a stored document', () => {
+  it('DOCE-EDITING-1.6 names each missing, invalid or repeated id in a stored document', () => {
     expect(checkStoredIds(FILE)).toEqual([
       { path: 'sections[0].content[1]', problem: 'repeated', id: '0000000a' },
       { path: 'sections[0].content[2]', problem: 'invalid', id: 'list' },
@@ -41,7 +41,7 @@ describe('stored element ids', () => {
     ]);
   });
 
-  it('DOCE-EDITING-1.5 gives those elements fresh ids, attributed as the editor does', () => {
+  it('DOCE-EDITING-1.6 gives those elements fresh ids, attributed as the editor does', () => {
     const ids = ['0000000c', '00000001', '00000002', '00000003', '00000004'];
     const file = assignStoredIds(FILE, { newId: () => ids.shift() ?? 'ffffffff', author: 'cy' });
     const [, copied, list, cited] = file.sections[0]?.content ?? [];
@@ -53,7 +53,7 @@ describe('stored element ids', () => {
     expect(FILE.sections[0]?.content[1]?.attrs?.id).toBe('0000000a');
   });
 
-  it('DOCE-EDITING-1.5 makes the same ids each time from the same id source', () => {
+  it('DOCE-EDITING-1.6 makes the same ids each time from the same id source', () => {
     const counter = () => {
       let next = 0;
       return () => (next++).toString(16).padStart(8, '0');
