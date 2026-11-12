@@ -44,4 +44,29 @@ describe('server-safe entry points', () => {
     ]);
     expect(diffText('Alpha', 'Alpha beta').map(({ kind }) => kind)).toContain('inserted');
   });
+
+  it('DOCE-ENTRY-1.3 seeds a shared room and reads it back without DOM globals', async () => {
+    const { createDocumentSchema } = await import('../src/model/index.js');
+    const { documentToYjs, yjsToDocument } = await import('../src/collab/index.js');
+    expect(typeof document).toBe('undefined');
+    const schema = createDocumentSchema();
+    const file = {
+      formatVersion: 1 as const,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: 'a0000001' },
+              content: [{ type: 'text', text: 'Alpha' }],
+            },
+          ],
+        },
+      ],
+    };
+    const update = documentToYjs(file, { schema });
+    expect(yjsToDocument(update, { schema })?.sections).toEqual(file.sections);
+    expect(typeof window).toBe('undefined');
+  });
 });

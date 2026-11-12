@@ -497,7 +497,8 @@
   gap: 8px;
 }
 
-.de-comments-panel__thread {
+.de-comments-panel__thread,
+.de-comments-panel__suggestion {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -675,4 +676,16 @@
   width: 100%;
   height: 100%;
   font: inherit;
+}
+
+/* The conflict prompt above a session's editor: one warning per block, stacked. */
+.de-merge-conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.de-merge-conflicts__conflict {
+  max-width: 120ch;
 }

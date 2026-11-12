@@ -6,14 +6,15 @@ import type { RefObject } from 'react';
 import { useEditorPanes } from '../document-panels/document-panels.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { useFindBar } from './document-find-bar.js';
-import { useEditorHandle } from './editor-handle.js';
+import { type CommentRefs, useEditorHandle } from './editor-handle.js';
 import type { LayoutProgress } from './use-document-layout.js';
 import type { TransactionFeed } from './use-editor-engine.js';
 
 /** What the editor's find bar, handle and scope are built from. */
 export interface HostReachOptions {
   readonly root: RefObject<HTMLDivElement | null>;
-  readonly startCommentRef: RefObject<(() => void) | null>;
+  /** The comment actions the handle runs. */
+  readonly refs: CommentRefs;
   readonly progress: LayoutProgress;
   readonly transactions: TransactionFeed;
 }
@@ -22,12 +23,12 @@ export interface HostReachOptions {
 export function useHostReach(
   props: DocumentEditorProps,
   view: EditorView | null,
-  { root, startCommentRef, progress, transactions }: HostReachOptions,
+  { root, refs, progress, transactions }: HostReachOptions,
 ) {
   const find = useFindBar(root, view, Boolean(props.find));
   const panes = useEditorPanes(props.comments);
   useEditorHandle(props.handleRef, view, {
-    startCommentRef,
+    ...refs,
     template: props.template,
     layout: progress,
     openFind: find.open,

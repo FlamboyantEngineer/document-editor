@@ -23,11 +23,13 @@ import {
   useRef,
   useState,
 } from 'react';
+import { shortcutsOf } from '../../engine/index.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
   DiagramAdapter,
   EditingMode,
+  EditorCapabilities,
   FeedbackAdapter,
   FontsAdapter,
   GlossaryAdapter,
@@ -56,11 +58,12 @@ import {
   type ObjectDialog,
   useShownContext,
 } from './editor-context.js';
-import type { DocumentEditorHandle } from './editor-handle.js';
+import { type DocumentEditorHandle, useCommentRefs } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { EditorScope } from './editor-scope.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
+import { type EditorSession, useSaveShortcut } from './save-status-item.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
@@ -145,6 +148,16 @@ export interface DocumentEditorProps
   statusBar?: boolean | undefined;
   /** The host's own items at the end of the status bar. */
   statusItems?: ReactNode;
+  /**
+   * The document's session (`createDocumentSession`): the status bar shows where its changes stand,
+   * with Retry after a failed save, and Mod-S saves it.
+   */
+  session?: EditorSession | undefined;
+  /**
+   * What the reader may do, as the session's live capabilities say: without `decide` the editor
+   * offers no accept or reject. Defaults to every capability.
+   */
+  capabilities?: EditorCapabilities | undefined;
   /** Switches the layout: the status bar then offers a switch between pages and the web layout. */
   onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
   /** The document's zoom, in percent. Defaults to 100. */
@@ -347,11 +360,11 @@ function useEditorLayout(
  */
 export function DocumentEditor(given: DocumentEditorProps) {
   const props = useActiveProps(given);
-  const { state, template, layout = 'page', editable = true } = props;
-  const { className } = props;
+  const { state, template, layout = 'page', editable = true, className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
+  useSaveShortcut(root, { session: props.session, shortcuts: shortcutsOf(state) });
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props.onContentChange, tap);
   const editorContext = useRef<EditorContext | null>(null);
@@ -363,10 +376,11 @@ export function DocumentEditor(given: DocumentEditorProps) {
     if (view && layout === 'web') ready.signal();
   }, [view, layout, ready]);
   useElementIdRepair(editable ? view : null, state, props.repairIds);
-  const startCommentRef = useRef<(() => void) | null>(null);
+  const refs = useCommentRefs();
+  const { startCommentRef } = refs;
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  const reach = { root, startCommentRef, progress, transactions: engine.transactions };
+  const reach = { root, refs, progress, transactions: engine.transactions };
   const { find, scope } = useHostReach(props, view, reach);
   const openFind = find.open;
   const templateStyle = useMemo(() => templateProperties(template), [template]);
@@ -383,7 +397,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
       view={view}
       paged={progress.paged}
       labels={labels}
-      startCommentRef={startCommentRef}
+      commentRefs={refs}
       onDialog={editable ? setDialog : null}
     />
   );

@@ -133,6 +133,20 @@ A shared room shall hold the canonical whole-document state in the top-level typ
 Implementation: `docs/collaboration.md`
 Verification: `test/shared-room-rules.test.ts`
 
+### DOCE-COLLAB-6.2 - Seeds and server reads
+
+`documentToYjs(file, { schema })` shall give the Yjs update that builds a room holding a stored document, its content in `content` and its format version and template pin in `meta`, each element without its own valid id given one as the editor gives it on opening (`newId`, random by default); `writeRoomDocument` shall write the same into a Yjs document that holds no document yet and refuse one that does. `yjsToDocument(update, { schema })` and `readRoomDocument` shall give back the stored document a room holds, or `null` for a room without one, and refuse a room of another format version. Both shall run without a DOM, and every document of the regression set shall come back as the editor opens it.
+
+Implementation: `src/collab/convert.ts`
+Verification: `src/collab/convert.test.ts`
+
+### DOCE-COLLAB-6.3 - Each writer's own undo
+
+`createCollabUndo()`, run beside the sync plugin with the editing history off, shall undo and redo only the changes the editor sent as its own: never another writer's, a write a plugin derived from one, or a host's system change. An undo shall reach the editor at once as an undo, not as a remote change. The editor's undo and redo (`undoCommand`, `redoCommand`), which its keys, toolbar and menubar run, shall run the commands a plugin of the state provides (`provideUndoCommands`), and the editing history's otherwise. A room-mode session shall run it beside its sync plugin.
+
+Implementation: `src/collab/undo.ts`, `src/engine/undo-commands.ts`, `src/engine/shortcut-commands.ts`, `src/components/document-editor/toolbar-controls.tsx`, `src/session/room-binding.ts`
+Verification: `src/collab/undo.test.ts`, `src/engine/undo-commands.test.ts`, `src/session/room-session.test.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values  | Description                                          |

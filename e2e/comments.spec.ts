@@ -189,7 +189,7 @@ test.describe('comments lab', () => {
     await expect(panel).toContainText('No comments.');
     await panel.getByRole('radio', { name: 'Open' }).click();
     const before = await page.evaluate(() => document.documentElement.dataset.labCaret ?? '');
-    await panel.getByRole('button', { name: 'Show in document' }).click();
+    await panel.getByRole('button', { name: 'Show in document' }).first().click();
     await page.waitForFunction(
       (previous) => (document.documentElement.dataset.labCaret ?? '') !== previous,
       before,
@@ -223,5 +223,105 @@ test.describe('comments lab', () => {
     await expect(thread.getByRole('article').last()).toContainText('Over to');
     await expect(thread.getByRole('article').last()).toContainText('Grace Hopper');
     await expect(thread.getByRole('article').last()).not.toContainText('@[');
+  });
+
+  test('DOCE-COMMENTS-4.1 decides a suggestion from the panel', async ({ lab, page }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments panel').check();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    const suggestion = panel.locator('.de-comments-panel__suggestion');
+    await expect(suggestion).toContainText('Grace Hopper');
+    await expect(panel.getByRole('radio', { name: /All/ })).toContainText('2');
+    await suggestion.getByRole('button', { name: 'Accept' }).click();
+    await expect(content(page)).toContainText('The log keeps each report');
+    await expect(suggestion).toHaveCount(0);
+  });
+
+  test('DOCE-COMMENTS-4.3 DOCE-COMMENTS-4.4 reads Markdown and opens a mention’s card', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Markdown comments').check();
+    const thread = card(page, 'Is one second measured');
+    await thread.getByRole('textbox', { name: 'Reply' }).click();
+    await page.keyboard.type('**Ask** @Gra');
+    await page.getByRole('option', { name: /Grace Hopper/ }).click();
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    const reply = thread.getByRole('article').last();
+    await expect(reply.locator('strong')).toHaveText('Ask');
+    await reply.getByRole('button', { name: 'Grace Hopper' }).click();
+    await expect(page.getByRole('dialog', { name: 'Grace Hopper' })).toBeVisible();
+  });
+
+  test('DOCE-COMMENTS-4.2 filters the margin to the reader’s own threads', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await expect(card(page, 'Is one second measured')).toHaveCount(1);
+    await page.getByLabel('Mine only').check();
+    await expect(card(page, 'Is one second measured')).toHaveCount(0);
+    await page.getByLabel('Mine only').uncheck();
+    await page.getByLabel('Threads I wrote in only').check();
+    await expect(card(page, 'Is one second measured')).toHaveCount(0);
+  });
+
+  test('DOCE-COMMENTS-4.7 keeps the threads in the pane and starts one there with Mod-Alt-M', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments in the pane only').check();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    await expect(panel).toContainText('Is one second measured');
+    await expect(margin(page)).toHaveCount(0);
+    await selectText(page, 'operator console');
+    await page.keyboard.press('ControlOrMeta+Alt+m');
+    const composer = panel.getByRole('textbox').last();
+    await expect(composer).toBeFocused();
+    await page.keyboard.type('Which one?');
+    await panel.getByRole('button', { name: 'Comment', exact: true }).click();
+    await expect(panel).toContainText('Which one?');
+  });
+
+  test('DOCE-COMMENTS-4.8 DOCE-COMMENTS-4.9 opens a thread at a comment with a reply started', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments panel').check();
+    await page.getByRole('button', { name: 'Answer the first comment' }).click();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    const thread = card(page, 'Is one second measured');
+    await expect(thread).toHaveAttribute('data-active', 'true');
+    await expect(panel.locator('[data-highlighted="true"]')).toContainText(
+      'Is one second measured',
+    );
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveText('From the detection.');
+  });
+
+  test('DOCE-COMMENTS-4.10 DOCE-COMMENTS-4.11 mentions a group and copies a link from a comment’s menu', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Groups and assistants in mentions').check();
+    await page.getByLabel('Copy-link action').check();
+    const thread = card(page, 'Is one second measured');
+    await thread.getByRole('textbox', { name: 'Reply' }).click();
+    await page.keyboard.type('Over to @Rev');
+    await page.getByRole('option', { name: /Reviewers/ }).click();
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    const reply = thread.getByRole('article').last();
+    await expect(reply).toContainText('Reviewers');
+    await expect(reply).not.toContainText('@group[');
+    const first = thread.getByRole('article').first();
+    await first.hover();
+    await first.getByRole('button', { name: /actions|more/i }).click();
+    await page.getByRole('menuitem', { name: 'Copy link to thread' }).click();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.labCopied))
+      .toBe('c0ffee01/e1');
   });
 });

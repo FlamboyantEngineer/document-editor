@@ -1,4 +1,14 @@
 export { createRoomCommentStore, type RoomCommentStoreOptions } from './comment-store.js';
+export {
+  COMMENTS_TYPE,
+  documentToYjs,
+  META_TYPE,
+  readRoomDocument,
+  type RoomReadOptions,
+  type RoomWriteOptions,
+  writeRoomDocument,
+  yjsToDocument,
+} from './convert.js';
 export { roomConnection, type RoomProviderLike } from './room-connection.js';
 export {
   type CollabChange,
@@ -9,3 +19,4 @@ export {
   getCollabSync,
   readCollabChange,
 } from './sync.js';
+export { type CollabUndoOptions, createCollabUndo } from './undo.js';
