@@ -139,11 +139,16 @@ describe('room-mode drafts in a session', () => {
     expect(textOf(shown(again).state)).toBe('Hello there|World');
     const kept = await host.drafts.get('doc', 'room');
     expect(kept.ok && kept.value?.mode === 'room' && kept.value.unconfirmed).toBeTruthy();
+    const view = mount(again);
+    follow(again, view);
     await again.resolveConflict('a0000001', 'mine');
     expect(textOf(shown(again).state)).toBe('Offline Hello|World');
+    // Bound to the room, the editor takes the settled block once.
+    await vi.waitFor(() => expect(textOf(view.state)).toBe('Offline Hello|World'));
     expect(again.conflicts.get()).toEqual([]);
     const grace = openAs(createMemoryHost({ person: { id: 'grace', name: 'Grace' } }), 'grace');
     await grace.ready;
     await vi.waitFor(() => expect(textOf(shown(grace).state)).toBe('Offline Hello|World'));
+    expect(textOf(view.state)).toBe('Offline Hello|World');
   });
 });
