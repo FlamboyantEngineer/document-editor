@@ -32,7 +32,12 @@ import type {
   TelemetryAdapter,
   VariablesAdapter,
 } from '../../host/index.js';
-import { type TemplateFile, templateProperties } from '../../model/index.js';
+import {
+  type FragmentRules,
+  type LayoutRules,
+  type TemplateFile,
+  templateProperties,
+} from '../../model/index.js';
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
@@ -139,6 +144,13 @@ export interface DocumentEditorProps
    * pending until they load, fail or time out (DOCE-PAGINATION-5.6).
    */
   fonts?: FontsAdapter | undefined;
+  /**
+   * The host's layout rules by node type, over the library's: how its blocks split and keep
+   * together on pages. Read when the pages mount (DOCE-PAGINATION-1.7).
+   */
+  layoutRules?: LayoutRules | undefined;
+  /** The host's fragment rules by node type, over `FRAGMENT_RULES`: how its fragments join. */
+  fragmentRules?: FragmentRules | undefined;
   /**
    * Shows the pages' layout for debugging: `true` shows what each page's blocks take and what is
    * left; the parts name what else shows.

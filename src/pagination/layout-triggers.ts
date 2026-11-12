@@ -161,3 +161,20 @@ export function awaitReady(ready: PromiseLike<unknown> | undefined, settled: () 
   ready?.then(done, done);
   return { waiting: () => waiting };
 }
+
+/**
+ * Runs before the window an element is in next paints, in a microtask, and returns how to cancel
+ * it: the schedule for a first layout, so the first paint already shows the pages.
+ */
+export function beforePaintIn(container: HTMLElement): (run: () => void) => () => void {
+  const owner = container.ownerDocument.defaultView;
+  return (run) => {
+    let cancelled = false;
+    owner?.queueMicrotask(() => {
+      if (!cancelled) run();
+    });
+    return () => {
+      cancelled = true;
+    };
+  };
+}

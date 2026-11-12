@@ -264,6 +264,20 @@ Verification: `src/pagination/layout-validation.test.ts`, `src/pagination/pagina
 Implementation: `src/pagination/page-geometry.ts`
 Verification: `src/pagination/page-geometry.test.ts`
 
+### DOCE-PAGINATION-5.11 - Host rules on the document editor
+
+`DocumentEditor` shall lay its pages out with the host's `layoutRules` over the library's (`createLayoutRules`) and join their fragments with the host's `fragmentRules` over `FRAGMENT_RULES` (DOCE-PAGINATION-1.7), on pages and when it joins them for the web layout. Both are read when the pages mount.
+
+Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`
+
+### DOCE-PAGINATION-5.12 - A first layout before the first paint
+
+`beforePaintIn(element)` shall give a schedule that runs in a microtask of the element's window, before it next paints, and can be cancelled, so a pagination's first layout can land before the first paint.
+
+Implementation: `src/pagination/layout-triggers.ts`
+Verification: `src/pagination/layout-triggers.test.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document

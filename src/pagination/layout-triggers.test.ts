@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
-import { awaitReady, type Remeasure, remeasureOn } from './layout-triggers.js';
+import { awaitReady, beforePaintIn, type Remeasure, remeasureOn } from './layout-triggers.js';
 
 // Runs animation frames when the test says, so the events of one frame gather.
 function stubFrames() {
@@ -87,5 +87,18 @@ describe('remeasure triggers', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect([loaded.waiting(), failed.waiting()]).toEqual([false, false]);
     expect(settled).toEqual(['loaded', 'failed']);
+  });
+});
+
+describe('first layout schedule', () => {
+  it('DOCE-PAGINATION-5.12 runs before the next paint, in a microtask, unless cancelled', async () => {
+    const schedule = beforePaintIn(document.createElement('div'));
+    const ran: string[] = [];
+    schedule(() => ran.push('first'));
+    const cancel = schedule(() => ran.push('cancelled'));
+    cancel();
+    expect(ran).toEqual([]);
+    await Promise.resolve();
+    expect(ran).toEqual(['first']);
   });
 });

@@ -192,3 +192,36 @@ describe('DocumentEditor', () => {
     expect(listeners.size).toBe(0);
   });
 });
+
+describe('DocumentEditor host layout rules', () => {
+  it('DOCE-PAGINATION-5.11 lays its pages out with the host layout rules over the library rules', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+    const state = EditorState.create({
+      doc: readDocumentFile(
+        { formatVersion: 1, sections: [{ content: [paragraph('One'), paragraph('Two')] }] },
+        documentSchema,
+      ).doc,
+      plugins: createDocumentEditing(documentSchema),
+    });
+    function Ruled() {
+      const [current, setCurrent] = useState(state);
+      return (
+        <DocumentEditor
+          state={current}
+          onStateChange={setCurrent}
+          template={TEMPLATE}
+          layout="page"
+          aria-label="Report"
+          handleRef={handle}
+          layoutRules={{ paragraph: { endsPage: true } }}
+        />
+      );
+    }
+    const { container } = render(<Ruled />);
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    await waitFor(() =>
+      expect(container.querySelectorAll('.de-document-editor__content .pm-page')).toHaveLength(2),
+    );
+  });
+});
