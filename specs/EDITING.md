@@ -113,6 +113,26 @@ Verification: `src/engine/block-place.test.ts`
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`
 Verification: `src/engine/document-editing.test.ts`
 
+### DOCE-EDITING-3.2 - Transaction kinds
+
+`src/engine/transaction-kind.ts` shall name what kind of change a transaction is, so every plugin decides the same way whether to act on it:
+
+- A remote change (`markRemote`, `isRemoteTransaction`, DOCE-COLLAB-2.1) came from elsewhere.
+- A derived change (`markDerived`, `isDerivedTransaction`) is one a plugin made from other changes: marked, or appended by a plugin's `appendTransaction`. It stays out of the undo history.
+- A system change (`markSystemChange`, `isSystemChange`) is one the library or the host made for the writer, such as a template update or a script's output. It keeps its history setting.
+- A local edit (`isLocalEdit(tr, isRemote)`) changes the document and is none of the three; `isRemote` defaults to `isRemoteTransaction`, so an editor that recognises remote changes another way passes its own test.
+- An inline text change (`isInlineTextOnly`) has steps that each only type or delete text inside one textblock: no block boundary, inline node, mark or attribute changes. A transaction without steps is not one.
+
+Implementation: `src/engine/transaction-kind.ts`
+Verification: `src/engine/transaction-kind.test.ts`
+
+### DOCE-EDITING-3.3 - No derived writes on remote changes
+
+A plugin that writes to the document in response to other changes (element ids, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
+
+Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/two-state-collab.test.ts`
+
 ## DOCE-EDITING-4 - Locked positions
 
 ### DOCE-EDITING-4.1 - The edit lock
