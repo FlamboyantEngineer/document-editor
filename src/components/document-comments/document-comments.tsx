@@ -8,6 +8,7 @@ import {
   AnnotationMargin,
   type AnnotationRect,
 } from '@flamboyantengineer/ui-components/annotation-layer';
+import type { CommentTextFormat } from '@flamboyantengineer/ui-components/comment-thread';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Command, EditorState } from 'prosemirror-state';
@@ -40,8 +41,10 @@ import {
   DEFAULT_COMMENTS_LABELS,
   type DocumentCommentsLabels,
   hooks,
+  type MentionTarget,
 } from './comment-cards.js';
-import { type CommentItem, listCommentItems, renderCommentCard } from './comment-items.js';
+import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
+import { caretKey, listCommentItems, renderCommentCard } from './comment-items.js';
 import { useCommentMentions } from './comment-mentions.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
@@ -60,8 +63,20 @@ export interface DocumentCommentsOptions {
   canComment?: boolean | undefined;
   /** The text the margin shows, beside the defaults. */
   labels?: Partial<DocumentCommentsLabels> | undefined;
-  /** Shows resolved threads too, to read or reopen. Defaults to false. */
-  showResolved?: boolean | undefined;
+  /**
+   * Which threads the margin shows: the open ones (the default), all of them, resolved ones too to
+   * read or reopen, or the reader's own open ones, which they wrote or which mention them.
+   */
+  filter?: CommentsFilter | undefined;
+  /** Whether the reader is among the people a thread is for; threads they are not are hidden. */
+  audience?: CommentsAudience | undefined;
+  /** How comments read: as plain text (the default) or as inline Markdown (`markdown-inline`). */
+  format?: CommentTextFormat | undefined;
+  /**
+   * The card a mention's chip opens; by default a `UserCard` with the name and the picture the
+   * identity gives, and none with null.
+   */
+  mentionCard?: ((target: MentionTarget) => ReactNode) | null | undefined;
   /**
    * Shows a card for each thread and suggestion (`cards`, the default), or a marker for each that
    * opens its card (`markers`), which leaves the document more room.
@@ -141,18 +156,21 @@ function useAnchorRects(
 
 const MARGIN_CLASS = 'de-document-comments__margin';
 
-// What every card reads, with mentions of the people the host's identity finds.
+// What every card reads, with mentions of the people the host's identity finds, and which threads
+// and suggestions the margin shows.
 function useCardContext(
   props: DocumentCommentsProps,
   shared: Pick<CardContext, 'comments' | 'canComment' | 'labels'>,
-): CardContext {
+): { context: CardContext; filter: ThreadFilter } {
   const mentions = useCommentMentions(props.identity);
-  return {
-    ...shared,
-    mentions,
-    documentId: props.documentId,
-    me: props.identity.currentPerson().id,
-  };
+  const me = props.identity.currentPerson().id;
+  const { format, mentionCard, audience } = props;
+  const filter = useMemo(
+    () => ({ filter: props.filter ?? 'open', me, audience, parse: mentions.parse }),
+    [props.filter, me, audience, mentions],
+  );
+  const context = { ...shared, mentions, format, mentionCard, documentId: props.documentId, me };
+  return { context, filter };
 }
 
 // A card beside its anchor's page, whatever the page's size and orientation.
@@ -188,15 +206,6 @@ function useRunCommand(onStateChange: DocumentCommentsProps['onStateChange']) {
   );
 }
 
-// The card the caret is in: a thread's or a suggestion's, else the offer to comment on a selection.
-function caretKey(items: readonly CommentItem[], state: EditorState): string | null {
-  const { head } = state.selection;
-  const inside = items.find(
-    (item) => item.kind !== 'draft' && item.from <= head && head <= item.to,
-  );
-  return (inside ?? items.find((item) => item.kind === 'draft'))?.key ?? null;
-}
-
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread
  * and each suggestion level with its text, and, while text is selected, a button that starts a
@@ -219,10 +228,11 @@ function CommentsMargin(props: DocumentCommentsProps) {
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const run = useRunCommand(onStateChange);
-  const { showResolved, decide } = props;
+  const { decide } = props;
+  const { context, filter } = useCardContext(props, { comments, canComment, labels });
   const items = useMemo(
-    () => listCommentItems(state, { threads: comments.threads, canComment, showResolved }),
-    [state, comments.threads, canComment, showResolved],
+    () => listCommentItems(state, { threads: comments.threads, canComment, filter }),
+    [state, comments.threads, canComment, filter],
   );
   const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
   const { rects, offsets } = useAnchorRects(layer, targets);
@@ -237,7 +247,6 @@ function CommentsMargin(props: DocumentCommentsProps) {
     setLastCaret(caret);
     if (caret !== null) setActive(caret);
   }
-  const context = useCardContext(props, { comments, canComment, labels });
   const byKey = new Map(items.map((item) => [item.key, item]));
   // A thread starts as a draft on the selection, or the caret's block, until the store keeps it.
   const startThread = () => {

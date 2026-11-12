@@ -57,7 +57,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
 
-Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each comment's author resolved by the identity adapter. Each card (`de-document-comments__card`) sits beside the page its text is on, a gap from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureCardOffsets`), so cards follow each page's edge whatever its size and orientation. With `presentation: 'markers'`, the margin shows a marker for each thread and suggestion instead, which opens its card (the base library's icons presentation). Resolved threads shall not be shown, unless `showResolved` asks; their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
+Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each comment's author resolved by the identity adapter. Each card (`de-document-comments__card`) sits beside the page its text is on, a gap from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureCardOffsets`), so cards follow each page's edge whatever its size and orientation. With `presentation: 'markers'`, the margin shows a marker for each thread and suggestion instead, which opens its card (the base library's icons presentation). Resolved threads shall not be shown, unless `filter: 'all'` asks (DOCE-COMMENTS-4.2); their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
@@ -106,7 +106,7 @@ Verification: `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.8 - Reopening a thread
 
-With `showResolved`, resolved threads shall show their cards too, and Reopen shall reopen the thread in the store and its anchor in the document.
+With `filter: 'all'`, resolved threads shall show their cards too, and Reopen shall reopen the thread in the store and its anchor in the document.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`
 Verification: `e2e/comments.spec.ts`
@@ -190,13 +190,58 @@ In the full editor lab, whose appendix is on landscape pages between portrait on
 Implementation: `src/components/document-comments/anchor-rects.ts`, `src/components/document-comments/document-comments.tsx`, `labs/reference/document.css`, `labs/src/full-editor.lab.tsx`
 Verification: `e2e/full-editor.spec.ts`
 
+## DOCE-COMMENTS-4 - Reviewing
+
+### DOCE-COMMENTS-4.1 - Suggestions in the comments panel
+
+The comments panel shall list the document's suggestions among its threads, in reading order, each as the margin's suggestion card (`de-comments-panel__suggestion`) with its discussion, offering to show its text; a reader who may decide (`canDecide`, by default whether the editor is editable, and as `decide` allows) gets Accept and Reject. A suggestion's thread shows on its card while the suggestion stands, and is listed apart once it is decided.
+
+Implementation: `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/suggestion-card.tsx`
+Verification: `src/components/document-comments/comments-panel.test.tsx`
+
+### DOCE-COMMENTS-4.2 - Filters and audience
+
+The margin's `filter` and the panel's filter shall show the open threads (the default), all of them, or the reader's own: those with a comment the reader wrote or one that mentions them, with suggestions the reader made or whose thread is theirs. The margin's `mine` shows open threads only; the panel's shows resolved ones too. Each of the panel's filter choices shall show how many items it keeps. Given `audience(thread, me)`, threads the reader is not among the audience of shall show nowhere and count nowhere.
+
+Implementation: `src/components/document-comments/comment-filters.ts`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/comments-panel.test.tsx`
+
+### DOCE-COMMENTS-4.3 - Markdown bodies
+
+With `format: 'markdown-inline'`, the margin's and the panel's comments shall read as inline Markdown (the base library's `CommentText`): emphasis, strong, strikethrough, code spans, safe links and line breaks, with raw HTML kept as text and mentions as chips. By default they read as plain text.
+
+Implementation: `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`
+
+### DOCE-COMMENTS-4.4 - Mention cards
+
+A mention's chip shall open a card about what it names: by default the base library's `UserCard` with its name and the picture the identity gives, the host's own with `mentionCard(target)`, and none, a plain chip, with `mentionCard: null`.
+
+Implementation: `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`
+
+### DOCE-COMMENTS-4.5 - Whitespace suggestions
+
+A suggestion that adds or deletes only spaces, tabs and line breaks shall name them on its card (`whitespace` label, such as "(2 spaces)"), since the text itself shows as nothing.
+
+Implementation: `src/components/document-comments/suggestion-card.tsx`, `src/components/document-comments/comments-labels.ts`
+Verification: `src/components/document-comments/document-comments.test.tsx`
+
+### DOCE-COMMENTS-4.6 - One active card
+
+The panel's card of the thread or suggestion the caret is in shall be the active one, as the margin's is, so taking the reader to a thread's text from the panel makes its card active in both.
+
+Implementation: `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comment-items.tsx`
+Verification: `src/components/document-comments/comments-panel.test.tsx`
+
 ## Hooks
 
-| Hook                           | Kind     | Values | Description                                                |
-| ------------------------------ | -------- | ------ | ---------------------------------------------------------- |
-| `de-document-comments`         | root     |        | The annotation layer around the document and margin.       |
-| `de-document-comments__margin` | slot     |        | The margin of cards.                                       |
-| `de-document-comments__card`   | slot     |        | A card, beside its anchor's page.                          |
-| `--de-comment-offset`          | property |        | On a card: how far it moves across to sit beside its page. |
-| `de-comments-panel`            | root     |        | The comments panel.                                        |
-| `de-comments-panel__thread`    | slot     |        | A thread of the panel, with `data-anchored`.               |
+| Hook                            | Kind     | Values | Description                                                |
+| ------------------------------- | -------- | ------ | ---------------------------------------------------------- |
+| `de-document-comments`          | root     |        | The annotation layer around the document and margin.       |
+| `de-document-comments__margin`  | slot     |        | The margin of cards.                                       |
+| `de-document-comments__card`    | slot     |        | A card, beside its anchor's page.                          |
+| `--de-comment-offset`           | property |        | On a card: how far it moves across to sit beside its page. |
+| `de-comments-panel`             | root     |        | The comments panel.                                        |
+| `de-comments-panel__thread`     | slot     |        | A thread of the panel, with `data-anchored`.               |
+| `de-comments-panel__suggestion` | slot     |        | A suggestion of the panel, with `data-anchored`.           |

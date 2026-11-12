@@ -1,121 +1,10 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { EditorState, TextSelection } from 'prosemirror-state';
-import { useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { documentSchema } from '../../../test/document-markup.js';
+import { Harness, host, PARAGRAPH, seen, text, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
-import { createDocumentEditing, listCommentAnchors, listSuggestions } from '../../engine/index.js';
-import { type CommentThread, createMemoryHost, type EditorHost } from '../../host/index.js';
-import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
-import { DocumentEditor } from '../document-editor/document-editor.js';
-import { DocumentCommentsPanel } from './comments-panel.js';
-import type { DocumentCommentsOptions } from './document-comments.js';
-
-const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
-
-const text = (value: string, marks?: StoredNode['marks']): StoredNode => ({
-  type: 'text',
-  text: value,
-  ...(marks ? { marks } : {}),
-});
-
-const thread = (id: string, state: CommentThread['state'], comment: string): CommentThread => ({
-  id,
-  state,
-  quote: id === 'open' ? 'blue' : 'delta',
-  suggestion: null,
-  entries: [{ id: `${id}-1`, author: 'ada', text: comment, createdAt: '2026-01-02T03:04:05Z' }],
-});
-
-function initial(select?: string) {
-  const doc = readDocumentFile(
-    {
-      formatVersion: 1,
-      sections: [
-        {
-          name: null,
-          content: [
-            {
-              type: 'paragraph',
-              content: [
-                text('Alpha '),
-                text('blue', [{ type: 'comment', attrs: { thread: 'open', state: 'open' } }]),
-                text(' gamma '),
-                text('delta', [{ type: 'comment', attrs: { thread: 'done', state: 'resolved' } }]),
-                text(' '),
-                text('epsilon', [{ type: 'insertion', attrs: { id: 's1', author: 'ada' } }]),
-              ],
-            },
-          ],
-        },
-      ],
-    },
-    documentSchema,
-  ).doc;
-  let selection: TextSelection | undefined;
-  doc.descendants((node, pos) => {
-    const at = select && node.isText ? (node.text?.indexOf(select) ?? -1) : -1;
-    if (select && at >= 0)
-      selection = TextSelection.create(doc, pos + at, pos + at + select.length);
-    return !selection;
-  });
-  return EditorState.create({ doc, selection, plugins: createDocumentEditing(documentSchema) });
-}
-
-const host = () =>
-  createMemoryHost({
-    person: { id: 'ada', name: 'Ada Lovelace' },
-    comments: {
-      threads: {
-        doc: [thread('open', 'open', 'Is blue right?'), thread('done', 'resolved', 'Old')],
-      },
-    },
-  });
-
-// The state the harness last committed, which the tests read the document from.
-const seen: { state: EditorState | null } = { state: null };
-
-function Harness(props: {
-  host: EditorHost;
-  select?: string;
-  canComment?: boolean;
-  editable?: boolean;
-  decide?: DocumentCommentsOptions['decide'];
-  /** Shows the comments panel inside the editor too. */
-  panel?: boolean;
-}) {
-  const [state, setState] = useState(() => initial(props.select));
-  useEffect(() => {
-    seen.state = state;
-  });
-  const { comments, identity } = props.host;
-  return (
-    <DocumentEditor
-      state={state}
-      onStateChange={setState}
-      template={TEMPLATE}
-      layout="web"
-      editable={props.editable}
-      aria-label="Report"
-      comments={
-        comments
-          ? {
-              store: comments,
-              documentId: 'doc',
-              identity,
-              canComment: props.canComment,
-              decide: props.decide,
-            }
-          : undefined
-      }
-    >
-      {props.panel && comments ? (
-        <DocumentCommentsPanel store={comments} documentId="doc" identity={identity} />
-      ) : null}
-    </DocumentEditor>
-  );
-}
+import { listCommentAnchors, listSuggestions } from '../../engine/index.js';
+import { createMemoryHost } from '../../host/index.js';
 
 installEditorDom();
 
@@ -262,5 +151,59 @@ describe('DocumentComments', () => {
     await user.click(within(thread).getByRole('button', { name: 'Reply' }));
     expect(await within(margin).findByText('From the panel')).toBeInTheDocument();
     expect(list).toHaveBeenCalledTimes(1);
+  });
+
+  it('DOCE-COMMENTS-4.3 reads comments as inline Markdown when asked', async () => {
+    const store = createMemoryHost({
+      person: { id: 'ada', name: 'Ada Lovelace' },
+      comments: { threads: { doc: [thread('open', 'open', 'Is **blue** `right`?')] } },
+    });
+    render(<Harness host={store} options={{ format: 'markdown-inline' }} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const strong = await within(margin).findByText('blue', { selector: 'strong' });
+    expect(strong).toBeInTheDocument();
+    expect(within(margin).getByText('right', { selector: 'code' })).toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-4.4 opens a person’s card from a mention’s chip', async () => {
+    const user = userEvent.setup();
+    const store = createMemoryHost({
+      person: { id: 'ada', name: 'Ada Lovelace' },
+      comments: {
+        threads: { doc: [thread('open', 'open', 'Ask @[Ada Lovelace](ada) first')] },
+      },
+    });
+    render(<Harness host={store} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    await within(margin).findByText(/first/);
+    await user.click(within(margin).getByRole('button', { name: 'Ada Lovelace' }));
+    expect(await screen.findByRole('dialog', { name: 'Ada Lovelace' })).toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-4.4 shows a mention as a plain chip without a card when asked', async () => {
+    const store = createMemoryHost({
+      person: { id: 'ada', name: 'Ada Lovelace' },
+      comments: {
+        threads: { doc: [thread('open', 'open', 'Ask @[Ada Lovelace](ada) first')] },
+      },
+    });
+    render(<Harness host={store} options={{ mentionCard: null }} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    await within(margin).findByText(/first/);
+    expect(within(margin).queryByRole('button', { name: 'Ada Lovelace' })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-4.5 names a suggestion of whitespace alone', async () => {
+    render(
+      <Harness
+        host={host()}
+        content={[
+          ...PARAGRAPH.slice(0, 5),
+          text('  ', [{ type: 'insertion', attrs: { id: 's1', author: 'ada' } }]),
+        ]}
+      />,
+    );
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    expect(await within(margin).findByText('(2 spaces)')).toBeInTheDocument();
   });
 });

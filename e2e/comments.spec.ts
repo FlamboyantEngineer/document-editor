@@ -179,7 +179,7 @@ test.describe('comments lab', () => {
     await expect(panel).toContainText('No comments.');
     await panel.getByRole('radio', { name: 'Open' }).click();
     const before = await page.evaluate(() => document.documentElement.dataset.labCaret ?? '');
-    await panel.getByRole('button', { name: 'Show in document' }).click();
+    await panel.getByRole('button', { name: 'Show in document' }).first().click();
     await page.waitForFunction(
       (previous) => (document.documentElement.dataset.labCaret ?? '') !== previous,
       before,
@@ -213,5 +213,47 @@ test.describe('comments lab', () => {
     await expect(thread.getByRole('article').last()).toContainText('Over to');
     await expect(thread.getByRole('article').last()).toContainText('Grace Hopper');
     await expect(thread.getByRole('article').last()).not.toContainText('@[');
+  });
+
+  test('DOCE-COMMENTS-4.1 decides a suggestion from the panel', async ({ lab, page }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments panel').check();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    const suggestion = panel.locator('.de-comments-panel__suggestion');
+    await expect(suggestion).toContainText('Grace Hopper');
+    await expect(panel.getByRole('radio', { name: /All/ })).toContainText('2');
+    await suggestion.getByRole('button', { name: 'Accept' }).click();
+    await expect(content(page)).toContainText('The log keeps each report');
+    await expect(suggestion).toHaveCount(0);
+  });
+
+  test('DOCE-COMMENTS-4.3 DOCE-COMMENTS-4.4 reads Markdown and opens a mention’s card', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Markdown comments').check();
+    const thread = card(page, 'Is one second measured');
+    await thread.getByRole('textbox', { name: 'Reply' }).click();
+    await page.keyboard.type('**Ask** @Gra');
+    await page.getByRole('option', { name: /Grace Hopper/ }).click();
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    const reply = thread.getByRole('article').last();
+    await expect(reply.locator('strong')).toHaveText('Ask');
+    await reply.getByRole('button', { name: 'Grace Hopper' }).click();
+    await expect(page.getByRole('dialog', { name: 'Grace Hopper' })).toBeVisible();
+  });
+
+  test('DOCE-COMMENTS-4.2 filters the margin to the reader’s own threads', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await expect(card(page, 'Is one second measured')).toHaveCount(1);
+    await page.getByLabel('Mine only').check();
+    await expect(card(page, 'Is one second measured')).toHaveCount(0);
+    await page.getByLabel('Mine only').uncheck();
+    await page.getByLabel('Threads I wrote in only').check();
+    await expect(card(page, 'Is one second measured')).toHaveCount(0);
   });
 });

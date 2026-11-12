@@ -19,13 +19,9 @@ import {
 } from '../../engine/index.js';
 import type { CommentThread } from '../../host/index.js';
 import type { AnchorTarget } from './anchor-rects.js';
-import {
-  type CardContext,
-  DraftCard,
-  PendingCard,
-  SuggestionCard,
-  ThreadCard,
-} from './comment-cards.js';
+import { type CardContext, DraftCard, PendingCard, ThreadCard } from './comment-cards.js';
+import { isSuggestionShown, isThreadShown, type ThreadFilter } from './comment-filters.js';
+import { SuggestionCard } from './suggestion-card.js';
 
 interface Placed {
   /** The annotation's key: `comment:<thread>`, `suggestion:<id>` or `draft`. */
@@ -48,19 +44,22 @@ export type CommentItem = Placed &
     | { readonly kind: 'draft' }
   );
 
-/** What decides which items the margin shows. */
+/** What decides which items the margin and the panel show. */
 export interface CommentItemsOptions {
   readonly threads: ReadonlyMap<string, CommentThread>;
+  /** Whether the reader may comment, which offers Comment on a selection. */
   readonly canComment: boolean;
-  /** Whether resolved threads show too, to read or reopen. Defaults to false. */
-  readonly showResolved?: boolean | undefined;
+  /** Which threads and suggestions show. */
+  readonly filter: ThreadFilter;
+  /** Whether a resolved thread of the reader's shows under `mine`, as in the panel. */
+  readonly mineResolved?: boolean | undefined;
 }
 
-function threadItems(state: EditorState, { threads, showResolved }: CommentItemsOptions) {
+function threadItems(state: EditorState, { threads, filter, mineResolved }: CommentItemsOptions) {
   const items: CommentItem[] = [];
   for (const anchor of listCommentAnchors(state.doc)) {
     const thread = threads.get(anchor.thread);
-    if (!thread || (thread.state !== 'open' && !showResolved)) continue;
+    if (!thread || !isThreadShown(thread, filter, { resolved: mineResolved ?? false })) continue;
     const key = `comment:${anchor.thread}`;
     const target: AnchorTarget = { kind: 'comment', id: anchor.thread };
     items.push({ key, target, from: anchor.from, to: anchor.to, kind: 'thread', thread });
@@ -86,6 +85,7 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
   const items = threadItems(state, options);
   for (const suggestion of listSuggestions(state.doc)) {
     const thread = suggestion.thread ? (options.threads.get(suggestion.thread) ?? null) : null;
+    if (!isSuggestionShown(suggestion, thread, options.filter)) continue;
     items.push({
       key: `suggestion:${suggestion.id}`,
       target: { kind: 'suggestion', id: suggestion.id },
@@ -103,6 +103,15 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
     items.push({ key: 'draft', target: { kind: 'selection' }, from, to, kind: 'draft' });
   }
   return items.sort((a, b) => a.from - b.from);
+}
+
+/** The card the caret is in: a thread's or a suggestion's, else the offer to comment on a selection. */
+export function caretKey(items: readonly CommentItem[], state: EditorState): string | null {
+  const { head } = state.selection;
+  const inside = items.find(
+    (item) => item.kind !== 'draft' && item.from <= head && head <= item.to,
+  );
+  return (inside ?? items.find((item) => item.kind === 'draft'))?.key ?? null;
 }
 
 /** What a card does beside showing its item. */

@@ -2,12 +2,14 @@
 // host's comment store, anchored to the text they quote, and suggestions with Accept, Reject and a
 // thread of their own. Reading, the margin shows the threads without composers or decisions. The
 // reader edits and deletes their own comments, reacts to any, shows resolved threads to reopen
-// them, and opens a thread through the editor's handle.
+// them, and opens a thread through the editor's handle. The margin filters to the reader's own
+// threads, reads comments as Markdown, keeps to an audience and shows mentions without cards.
 
 import { EditorState } from 'prosemirror-state';
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  type CommentsAudience,
   DocumentCommentsPanel,
   DocumentEditor,
   type DocumentEditorHandle,
@@ -112,13 +114,27 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// Whether the reader wrote in a thread, as an audience that hides the threads they did not.
+const onlyMine: CommentsAudience = (thread, me) =>
+  thread.entries.some((entry) => entry.author === me);
+
 function Lab() {
   const [state, setState] = useState(initialState);
   const [reading, setReading] = useState(false);
   const [resolved, setResolved] = useState(false);
   const [panel, setPanel] = useState(false);
+  const [mine, setMine] = useState(false);
+  const [markdown, setMarkdown] = useState(false);
+  const [audience, setAudience] = useState(false);
+  const [plainChips, setPlainChips] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
   const comments = HOST.comments;
+  const review = {
+    format: markdown ? ('markdown-inline' as const) : ('plain' as const),
+    audience: audience ? onlyMine : undefined,
+    mentionCard: plainChips ? null : undefined,
+  };
+  const filter = mine ? 'mine' : resolved ? 'all' : 'open';
   return (
     <div>
       <fieldset>
@@ -150,6 +166,42 @@ function Lab() {
           />{' '}
           Comments panel
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="mine"
+            checked={mine}
+            onChange={(event) => setMine(event.currentTarget.checked)}
+          />{' '}
+          Mine only
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="markdown"
+            checked={markdown}
+            onChange={(event) => setMarkdown(event.currentTarget.checked)}
+          />{' '}
+          Markdown comments
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="audience"
+            checked={audience}
+            onChange={(event) => setAudience(event.currentTarget.checked)}
+          />{' '}
+          Threads I wrote in only
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="plain-chips"
+            checked={plainChips}
+            onChange={(event) => setPlainChips(event.currentTarget.checked)}
+          />{' '}
+          Mentions without cards
+        </label>
         <button type="button" onClick={() => handle.current?.openThread('c0ffee01')}>
           Open the first thread
         </button>
@@ -167,7 +219,8 @@ function Lab() {
             documentId: 'lab',
             identity: HOST.identity,
             canComment: !reading,
-            showResolved: resolved,
+            ...review,
+            filter,
           }
         }
         events={{
@@ -184,6 +237,7 @@ function Lab() {
               documentId="lab"
               identity={HOST.identity}
               canComment={!reading}
+              {...review}
             />
           </aside>
         ) : null}
