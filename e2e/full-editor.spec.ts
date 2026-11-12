@@ -172,6 +172,7 @@ test.describe('full editor lab', () => {
     await content(page).locator('h1', { hasText: 'Timing' }).click();
     await page.getByRole('toolbar', { name: 'Formatting' }).locator('[data-item="script"]').click();
     const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
     const source = dialog.getByRole('textbox', { name: 'Script' });
     // The names after an object's dot complete.
     await source.fill('render.');
