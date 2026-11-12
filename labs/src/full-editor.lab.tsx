@@ -298,10 +298,6 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
-// The pages are a projection of the state (DOCE-PAGINATION-7.17) unless `?paginate` asks for the
-// state paginated itself.
-const PROJECTION = !new URLSearchParams(window.location.search).has('paginate');
-
 function Lab() {
   const [state, setState] = useState(initialState);
   const [view, setView] = useState<EditorView | null>(null);
@@ -412,7 +408,6 @@ function Lab() {
         state={state}
         onStateChange={setState}
         template={TEMPLATE}
-        projection={PROJECTION}
         suggesting={suggesting}
         author="ada"
         markup={markup}

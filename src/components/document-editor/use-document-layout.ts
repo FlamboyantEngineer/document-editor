@@ -160,11 +160,6 @@ export interface DocumentLayoutOptions {
   /** The host's variables, shown in the headers, footers and text (`createPageVariables`). */
   readonly variables?: VariablesAdapter | undefined;
   /**
-   * Shows the pages as a projection of the state, which stays the whole document
-   * (DOCE-PAGINATION-7.17), rather than paginating the state itself.
-   */
-  readonly projection?: boolean | undefined;
-  /**
    * The host's React node views, which a projection's ghost renders as the pages do, read when the
    * pages mount.
    */
@@ -235,21 +230,18 @@ function joinPages(state: EditorState, rules: FragmentRules): EditorState {
 }
 
 // A new state the host hands in, such as another document, takes the layout's plugins again.
-function useLayoutPlugins(
-  options: DocumentLayoutOptions,
-  [own, pagination]: readonly [RefObject<readonly Plugin[]>, RefObject<Plugin | null>],
-) {
+function useLayoutPlugins(options: DocumentLayoutOptions, own: RefObject<readonly Plugin[]>) {
   const { plugins } = options.state;
   const { onStateChange } = options;
   useEffect(() => {
-    const layoutPlugins = [...own.current, ...(pagination.current ? [pagination.current] : [])];
+    const layoutPlugins = own.current;
     if (layoutPlugins.every((plugin) => plugins.includes(plugin))) return;
     onStateChange((state) => {
       const absent = layoutPlugins.filter((plugin) => !state.plugins.includes(plugin));
       if (absent.length === 0) return state;
       return restyleSections(state.reconfigure({ plugins: [...state.plugins, ...absent] }));
     });
-  }, [plugins, onStateChange, own, pagination]);
+  }, [plugins, onStateChange, own]);
 }
 
 /** What the layout tells of its pages: when they settle, and what their layouts did. */
@@ -272,8 +264,9 @@ function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgre
 }
 
 /**
- * Shows each section in its template section's scope, paginates the document in page layout,
- * measuring it in the element `measureIn` holds, and joins its pages in the web layout. A new
+ * Shows each section in its template section's scope, lays the document out on a paged projection
+ * in page layout, measuring it in the element `measureIn` holds, and joins its pages in the web
+ * layout. A new
  * template restyles the sections and lays the pages out again.
  */
 export function useDocumentLayout(
@@ -292,7 +285,6 @@ export function useDocumentLayout(
   const refresh = useRef<(() => void) | null>(null);
   const redraw = useRef<Redraw | null>(null);
   const ownPlugins = useRef<readonly Plugin[]>([]);
-  const paginationPlugin = useRef<Plugin | null>(null);
   const active = useRef<LayoutRunner | null>(null);
   const [paged, setPaged] = useState<PagedEditor | null>(null);
 
@@ -313,7 +305,7 @@ export function useDocumentLayout(
 
   // A projection's pages hold nodes of the document's schema, so a document of another schema, as
   // a host opening another document may hand in, starts them over.
-  const schema = options.projection ? options.state.schema : null;
+  const { schema } = options.state;
   useEffect(() => {
     const element = measureIn.current;
     if (layout !== 'page' || !element) {
@@ -323,12 +315,12 @@ export function useDocumentLayout(
     }
     return startPaging(element, latest, {
       settings: { footnoteNumbering },
-      refs: { refresh, redraw, active, ownPlugins, paginationPlugin },
+      refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, measureIn, repeatHeaders, footnoteNumbering, options.projection, schema]);
+  }, [layout, measureIn, repeatHeaders, footnoteNumbering, schema]);
 
-  useLayoutPlugins(options, [ownPlugins, paginationPlugin]);
+  useLayoutPlugins(options, ownPlugins);
 
   useEffect(() => {
     latest.current.onStateChange(restyleSections);

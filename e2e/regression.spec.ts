@@ -21,10 +21,9 @@ declare global {
 async function openDocument(
   page: Page,
   name: RegressionDocumentName,
-  { layout = 'page', projection = true }: { layout?: string; projection?: boolean } = {},
+  { layout = 'page' }: { layout?: string } = {},
 ) {
-  const shown = projection ? '' : '&paginate';
-  await page.goto(`regression.html?document=${name}&layout=${layout}${shown}`);
+  await page.goto(`regression.html?document=${name}&layout=${layout}`);
   await waitForLab(page);
 }
 
@@ -478,7 +477,7 @@ test.describe('host views on the projection', () => {
   test('DOCE-LABS-4.2 DOCE-PAGINATION-7.17 measures blocks a host view draws as the pages draw them', async ({
     page,
   }) => {
-    await openDocument(page, 'blockquotes', { projection: true });
+    await openDocument(page, 'blockquotes');
     const plain = (await pagesOf(page)).length;
     await page.goto('regression.html?document=blockquotes&layout=page&hostViews');
     await waitForLab(page);
@@ -509,17 +508,15 @@ test.describe('list split stress', () => {
     expectPagesHoldContent(pages);
   });
 
-  for (const projection of [false, true]) {
-    test(`DOCE-LABS-4.3 DOCE-PAGINATION-4.1 numbers a split ordered list on from page to page${projection ? ' on the projection (DOCE-PAGINATION-7.17)' : ''}`, async ({
-      page,
-    }) => {
-      await openDocument(page, 'long-ordered-list', { projection });
-      const numbers = (await pagesOf(page)).flatMap((each) =>
-        each.lists.flatMap((list) => list.numbers),
-      );
-      expect(numbers).toEqual(numbers.map((_, index) => index + 1));
-    });
-  }
+  test('DOCE-LABS-4.3 DOCE-PAGINATION-4.1 numbers a split ordered list on from page to page on the projection (DOCE-PAGINATION-7.17)', async ({
+    page,
+  }) => {
+    await openDocument(page, 'long-ordered-list');
+    const numbers = (await pagesOf(page)).flatMap((each) =>
+      each.lists.flatMap((list) => list.numbers),
+    );
+    expect(numbers).toEqual(numbers.map((_, index) => index + 1));
+  });
 
   for (const name of ['long-bullet-list-with-nesting', 'oversized-blocks'] as const) {
     test(`DOCE-LABS-4.3 DOCE-PAGINATION-4.2 splits the lists of ${name} and shows every item`, async ({
@@ -733,17 +730,15 @@ test.describe('pagination corner cases', () => {
     expect(pages.map(({ section }) => section)).toEqual(['cover', 'body', 'appendix']);
   });
 
-  for (const projection of [false, true]) {
-    test(`DOCE-LABS-4.8 DOCE-PAGINATION-8.2 fills the page number and count into each footer${projection ? ' on the projection (DOCE-PAGINATION-7.17)' : ''}`, async ({
-      page,
-    }) => {
-      await openDocument(page, 'long-mixed', { projection });
-      const pages = await pagesOf(page);
-      expect(pages.map(({ footer }) => footer)).toEqual(
-        pages.map((_, index) => `Page ${String(index + 1)} of ${String(pages.length)}`),
-      );
-    });
-  }
+  test('DOCE-LABS-4.8 DOCE-PAGINATION-8.2 fills the page number and count into each footer on the projection (DOCE-PAGINATION-7.17)', async ({
+    page,
+  }) => {
+    await openDocument(page, 'long-mixed');
+    const pages = await pagesOf(page);
+    expect(pages.map(({ footer }) => footer)).toEqual(
+      pages.map((_, index) => `Page ${String(index + 1)} of ${String(pages.length)}`),
+    );
+  });
 
   test('DOCE-LABS-4.8 DOCE-PAGINATION-6.6 lays a long mixed document out again after an edit and its undo', async ({
     page,

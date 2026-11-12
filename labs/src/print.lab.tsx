@@ -75,10 +75,6 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
-// The pages are a projection of the state (DOCE-PAGINATION-7.17) unless `?paginate` asks for the
-// state paginated itself.
-const PROJECTION = !new URLSearchParams(window.location.search).has('paginate');
-
 // The lab's own stylesheet, so the preview is styled as the editor is.
 const stylesheet = () => new URL('build/reference.css', window.location.href).href;
 
@@ -150,7 +146,6 @@ function Lab() {
         state={state}
         onStateChange={setState}
         template={TEMPLATE}
-        projection={PROJECTION}
         toolbar
         find
         debug={debug}
