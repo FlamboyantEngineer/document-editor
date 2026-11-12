@@ -18,17 +18,6 @@ const watch = flag('watch');
 const profile = flag('profile');
 const labs = listLabSources();
 
-// The collaboration spike runs collaboration-tools' room server in the page; its server entry
-// imports two Node built-ins, which resolve to small page versions.
-const nodeShims = join(labSourceDir, 'spikes', 'node-shims.ts');
-/** @type {import('esbuild').Plugin} */
-const nodeBuiltinsInPage = {
-  name: 'node-builtins-in-page',
-  setup(build) {
-    build.onResolve({ filter: /^node:(crypto|buffer)$/ }, () => ({ path: nodeShims }));
-  },
-};
-
 rmSync(outdir, { recursive: true, force: true });
 
 /** @type {import('esbuild').BuildOptions} */
@@ -51,7 +40,6 @@ const options = {
   chunkNames: 'chunks/[name]-[hash]',
   define: { 'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production') },
   legalComments: 'none',
-  plugins: [nodeBuiltinsInPage],
   logLevel: 'info',
 };
 

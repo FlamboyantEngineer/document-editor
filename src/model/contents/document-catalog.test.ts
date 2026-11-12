@@ -57,7 +57,7 @@ const doc = readDocumentFile(
     ],
   },
   documentSchema,
-);
+).doc;
 
 const brief = (entries: readonly { number: string; text: string; page: number }[] = []) =>
   entries.map(({ number, text: value, page }) => `${number}|${value}|${String(page)}`);
@@ -101,7 +101,7 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     expect(brief(catalogDocument(nested, BASE_TEMPLATE).toc)).toEqual([
       '1.|Scope|1',
       '2.|Interfaces|1',
@@ -135,7 +135,7 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const catalog = catalogDocument(quotes, BASE_TEMPLATE, {
       quotes: { nodes: ['blockquote'], number: (node) => `Q${node.childCount}` },
       chapters: { nodes: ['heading'], text: (node) => node.textContent.toUpperCase() },
@@ -158,7 +158,7 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const catalog = catalogDocument(terms, BASE_TEMPLATE, {
       terms: { nodes: ['paragraph'], unique: true, sort: (a, b) => a.text.localeCompare(b.text) },
     });
@@ -218,7 +218,7 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const { references } = catalogDocument(cited, BASE_TEMPLATE);
     expect(references?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
       'STD-2|Interface standard',
@@ -256,7 +256,7 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const { abbreviations } = catalogDocument(used, BASE_TEMPLATE);
     expect(abbreviations?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
       'CPU|Central processing unit',
