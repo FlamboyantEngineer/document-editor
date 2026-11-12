@@ -19,6 +19,7 @@ import {
 } from '../../engine/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { LayoutState, PaginationStats } from '../../pagination/index.js';
+import type { EditorPanes, RevealPaneOptions } from '../document-panels/document-panels.js';
 import type { LayoutProgress } from './use-document-layout.js';
 
 /** What a host can do with a mounted editor. */
@@ -62,6 +63,11 @@ export interface DocumentEditorHandle {
   whenSettled(): Promise<LayoutState>;
   /** What the page layouts have done (`PaginationStats`); null in the web layout. */
   layoutStats(): PaginationStats | null;
+  /**
+   * Shows a pane of the editor's side panels: selects it in the panel holding it, expands that
+   * panel and, unless asked not to, moves focus into it; false when no panel holds it.
+   */
+  revealPane(paneId: string, options?: RevealPaneOptions): boolean;
 }
 
 // The document range an address names in the view's document: a range of a text block's text, or
@@ -112,10 +118,12 @@ export function useEditorHandle(
     startCommentRef,
     template,
     layout,
+    panes,
   }: {
     startCommentRef: RefObject<(() => void) | null>;
     template: TemplateFile;
     layout: LayoutProgress;
+    panes: EditorPanes;
   },
 ) {
   useImperativeHandle(
@@ -148,7 +156,8 @@ export function useEditorHandle(
       },
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
+      revealPane: (paneId, options) => panes.reveal(paneId, options),
     }),
-    [view, startCommentRef, template, layout],
+    [view, startCommentRef, template, layout, panes],
   );
 }

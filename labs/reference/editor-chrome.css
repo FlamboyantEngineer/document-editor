@@ -493,6 +493,37 @@
   align-items: flex-start;
 }
 
+/* A side panel's pane fills the panel; it takes focus only when revealed. */
+.de-document-side-panel {
+  min-height: 0;
+}
+
+.de-document-side-panel__pane {
+  min-height: 0;
+  outline: none;
+}
+
+/* The contributors pane: the authorship switch above one writer per row. */
+.de-document-contributors {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.de-document-contributors__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.de-document-contributors__contributor {
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
 /* Who wrote what, while the editor shows authorship: each writer's text tinted in their slot. */
 .de-document-editor[data-authorship='true'] [data-author-slot='0'] {
   background: color-mix(in srgb, #0969da 14%, transparent);

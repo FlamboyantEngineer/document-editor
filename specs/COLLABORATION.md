@@ -64,6 +64,13 @@ The text each of the writer's own changes inserts, typed or pasted, shall read a
 Implementation: `src/engine/provenance.ts`, `src/engine/element-ids.ts`
 Verification: `src/engine/provenance.test.ts`
 
+### DOCE-COLLAB-3.4 - The contributors pane
+
+`DocumentContributors`, the side panel's `contributors` pane, shall list the document's writers (`documentAuthors`), the most text first, each named by the host's identity adapter (the panel's `identity`, else the editor's comment identity) or by their id, with the characters they wrote and their colour slot (`data-author`, `data-author-slot`), and publish whether authorship shows (`data-authorship`). With `onAuthorshipChange`, a switch shows or hides authorship by asking the host to change the editor's `authorship`.
+
+Implementation: `src/components/document-panels/document-contributors.tsx`, `src/components/document-panels/built-in-panes.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+
 ## DOCE-COLLAB-6 - Shared rooms
 
 ### DOCE-COLLAB-6.1 - Room layout and write rules
@@ -75,11 +82,14 @@ Verification: `test/shared-room-rules.test.ts`
 
 ## Hooks
 
-| Hook                       | Kind      | Values  | Description                                      |
-| -------------------------- | --------- | ------- | ------------------------------------------------ |
-| `de-presence-caret`        | root      |         | A peer's caret, at the head of their selection.  |
-| `de-presence-caret__label` | slot      |         | The peer's name above their caret.               |
-| `de-presence-selection`    | root      |         | The text a peer's selection covers.              |
-| `data-presence-peer`       | attribute |         | On a caret or selection: the peer's id.          |
-| `data-presence-slot`       | attribute | `0`–`7` | On a caret or selection: the peer's colour slot. |
-| `--de-presence-color`      | property  |         | On a caret or selection: the peer's own colour.  |
+| Hook                                    | Kind      | Values  | Description                                          |
+| --------------------------------------- | --------- | ------- | ---------------------------------------------------- |
+| `de-presence-caret`                     | root      |         | A peer's caret, at the head of their selection.      |
+| `de-presence-caret__label`              | slot      |         | The peer's name above their caret.                   |
+| `de-presence-selection`                 | root      |         | The text a peer's selection covers.                  |
+| `data-presence-peer`                    | attribute |         | On a caret or selection: the peer's id.              |
+| `data-presence-slot`                    | attribute | `0`–`7` | On a caret or selection: the peer's colour slot.     |
+| `--de-presence-color`                   | property  |         | On a caret or selection: the peer's own colour.      |
+| `de-document-contributors`              | root      |         | The contributors pane, with `data-authorship`.       |
+| `de-document-contributors__list`        | slot      |         | The list of writers.                                 |
+| `de-document-contributors__contributor` | slot      |         | A writer, with `data-author` and `data-author-slot`. |

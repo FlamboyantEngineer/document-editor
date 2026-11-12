@@ -44,6 +44,7 @@ import {
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
+import { useEditorPanes } from '../document-panels/document-panels.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { EditorBody } from './editor-body.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
@@ -337,7 +338,8 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const startCommentRef = useRef<(() => void) | null>(null);
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress });
+  const panes = useEditorPanes(props.comments);
+  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress, panes });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(
@@ -363,7 +365,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
     />
   );
   return (
-    <EditorScope context={context} comments={props.comments}>
+    <EditorScope context={context} comments={props.comments} panes={panes}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}

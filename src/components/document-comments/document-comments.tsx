@@ -47,6 +47,8 @@ import { WithCommentThreads } from './comment-threads-provider.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
 
 export { EditorCommentThreads } from './comment-threads-provider.js';
+export { DocumentCommentsPanel } from './comments-panel.js';
+export { SharedCommentThreadsContext } from './use-comment-threads.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
 export interface DocumentCommentsOptions {
