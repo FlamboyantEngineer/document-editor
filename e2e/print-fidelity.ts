@@ -178,18 +178,29 @@ function visibleText(page: Element): string {
   return parts.join(' ');
 }
 
-// Moves a printed page by less than a pixel, so it sits at the same fraction of a pixel as the
+// Moves each printed page by less than a pixel, so it sits at the same fraction of a pixel as the
 // editor's page did: text is drawn snapped to the pixel grid from where its page sits, so pages
-// at different fractions would draw it a pixel apart.
-async function alignToEditor(page: Locator, editor: { x: number; y: number }): Promise<void> {
-  await page.evaluate((element, { x, y }) => {
-    const box = element.getBoundingClientRect();
+// at different fractions would draw it a pixel apart. Every page is read before any moves, since
+// reading a page after another moved lays the whole printed document out again; a page moved
+// relatively moves no other. Only the places go to the browser: the editor's screenshots would be
+// serialized with them.
+async function alignToEditor(
+  pages: Locator,
+  editor: { readonly x: number; readonly y: number }[],
+): Promise<void> {
+  await pages.evaluateAll((elements, places) => {
+    const boxes = elements.map((element) => element.getBoundingClientRect());
     const fraction = (value: number) => value - Math.floor(value);
     const shift = (to: number, from: number) => fraction(fraction(to) - fraction(from));
-    Object.assign((element as HTMLElement).style, {
-      position: 'relative',
-      left: `${String(shift(x, box.x))}px`,
-      top: `${String(shift(y, box.y))}px`,
+    elements.forEach((element, index) => {
+      const box = boxes[index];
+      const { x, y } = places[index] ?? { x: 0, y: 0 };
+      if (!box) return;
+      Object.assign((element as HTMLElement).style, {
+        position: 'relative',
+        left: `${String(shift(x, box.x))}px`,
+        top: `${String(shift(y, box.y))}px`,
+      });
     });
   }, editor);
 }
@@ -256,9 +267,12 @@ export async function expectPrintEqualsEditor(
 
   await printed.emulateMedia({ media: 'print' });
   const printedPages = printed.locator('.pm-page');
+  await alignToEditor(
+    printedPages,
+    shown.map(({ x, y }) => ({ x, y })),
+  );
   const comparisons: PageComparison[] = [];
   for (let index = 0; index < count; index += 1) {
-    await alignToEditor(printedPages.nth(index), shown[index] ?? { x: 0, y: 0 });
     const image = await printedPages.nth(index).screenshot({ animations: 'disabled' });
     const editor = shown[index]?.image ?? Buffer.alloc(0);
     const { share: differing, box } = await differingShare(printed, editor, image);

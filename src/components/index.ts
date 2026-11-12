@@ -10,6 +10,7 @@ export type {
   ContextMenuPlacement,
   ContextMenuProvider,
   ContextTarget,
+  DialogProps,
   DocumentComparison,
   DocumentContextMenuOptions,
   DocumentEditorDebug,
@@ -24,12 +25,14 @@ export type {
   DocumentToolbarOptions,
   EditorContext,
   FindBarMode,
+  HostDialogProps,
   ObjectDialog,
   ToolbarButtonItem,
   ToolbarCustomItem,
   ToolbarGroup,
   ToolbarItem,
   ToolbarMenuItem,
+  ToolbarOverflow,
 } from './document-editor/index.js';
 export type { ChangeBar } from './document-editor/index.js';
 export type { ContentChangeCause } from './document-editor/index.js';
@@ -42,6 +45,7 @@ export {
   DocumentEditor,
   EDITOR_COUNTS,
   EDITOR_MEASURES,
+  EditorModal,
   isContentChange,
   menubarMenus,
   TOOLBAR_GROUPS,
@@ -62,6 +66,12 @@ export type {
   PropertiesSectionId,
   RevealPaneOptions,
 } from './document-panels/index.js';
+export type {
+  DocumentHistoryBannerProps,
+  DocumentHistoryLabels,
+  DocumentHistoryProps,
+  HistoricalEditorProps,
+} from './document-panels/index.js';
 export {
   DEFAULT_PANELS_LABELS,
   DocumentContributors,
@@ -69,6 +79,13 @@ export {
   DocumentProperties,
   DocumentSearchPane,
   DocumentSidePanel,
+} from './document-panels/index.js';
+export {
+  DEFAULT_HISTORY_LABELS,
+  DocumentHistory,
+  DocumentHistoryBanner,
+  historicalEditorProps,
+  useDocumentVersions,
 } from './document-panels/index.js';
 export type {
   DocumentSessionBoundaryProps,

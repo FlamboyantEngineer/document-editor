@@ -1,29 +1,20 @@
 // The editing commands a document's keys run beside ProseMirror's own: lists that join their
-// neighbours, paragraph levels, a split that keeps the level, Backspace and Delete across pages,
-// Select All over the body, clearing formatting and a page break.
+// neighbours, paragraph levels, a split that keeps the level, Select All over the body, clearing formatting and a page break.
 
 import { autoJoin, splitBlock } from 'prosemirror-commands';
 import type { Node as ProseMirrorNode, NodeType, ResolvedPos } from 'prosemirror-model';
 import { wrapInList } from 'prosemirror-schema-list';
-import {
-  type Command,
-  NodeSelection,
-  Selection,
-  TextSelection,
-  type Transaction,
-} from 'prosemirror-state';
+import { type Command, Selection, TextSelection, type Transaction } from 'prosemirror-state';
 import {
   documentRegions,
   findTemplateSection,
   isSectionNode,
   MAX_PARAGRAPH_LEVEL,
   normalizeParagraphLevel,
-  regionAt,
   type RegionKind,
   regionKind,
   resolveParagraphNumberingConfig,
   sectionAt,
-  sectionRegions,
   type TemplateFile,
   templateScopeStyles,
 } from '../model/index.js';
@@ -126,98 +117,6 @@ function bodyTextblocks(doc: ProseMirrorNode): { pos: number; node: ProseMirrorN
     });
   }
   return blocks;
-}
-
-// The page content holding a position, as its depth, or -1 outside one.
-function pageContentDepth($pos: ResolvedPos): number {
-  const region = regionAt($pos);
-  return region?.kind === 'content' ? region.depth : -1;
-}
-
-// Whether a text block is the first (-1) or last (1) of its page content, at every depth.
-function atPageEdge($pos: ResolvedPos, contentDepth: number, direction: -1 | 1): boolean {
-  for (let depth = contentDepth; depth < $pos.depth; depth += 1) {
-    const index = $pos.index(depth);
-    if (direction < 0 ? index !== 0 : index !== $pos.node(depth).childCount - 1) return false;
-  }
-  return true;
-}
-
-/** A node and its position. */
-interface Placed {
-  readonly node: ProseMirrorNode;
-  readonly pos: number;
-}
-
-// The page content of the page before (-1) or after (1) the one holding a position, in the same
-// section; null where the section has none, as on its first or last page.
-function neighbourContent($pos: ResolvedPos, direction: -1 | 1): Placed | null {
-  const section = sectionAt($pos);
-  if (!section) return null;
-  const at = regionAt($pos)?.pos;
-  const contents = sectionRegions(section, CONTENT);
-  const here = contents.findIndex((region) => region.pos === at);
-  return here < 0 ? null : (contents[here + direction] ?? null);
-}
-
-// The text block at the edge of a page content that faces the caret, through its last (-1) or
-// first (1) children, or the top-level block that holds anything else, such as a page break.
-function facingBlock(content: Placed, direction: -1 | 1): { block: Placed; text: boolean } | null {
-  let node = content.node;
-  let pos = content.pos;
-  let top: Placed | null = null;
-  for (;;) {
-    const child = direction < 0 ? node.lastChild : node.firstChild;
-    if (!child) return top ? { block: top, text: false } : null;
-    const childPos = direction < 0 ? pos + node.content.size + 1 - child.nodeSize : pos + 1;
-    top ??= { node: child, pos: childPos };
-    if (child.isTextblock) return { block: { node: child, pos: childPos }, text: true };
-    if (child.isLeaf || child.type.spec.isolating) return { block: top, text: false };
-    node = child;
-    pos = childPos;
-  }
-}
-
-// Whether two text blocks are parts of one split element.
-const sameElement = (a: ProseMirrorNode, b: ProseMirrorNode) =>
-  a.type === b.type && Boolean(a.attrs.dataId) && a.attrs.dataId === b.attrs.dataId;
-
-/**
- * Backspace at the start of a page's first text block (-1), or Delete at the end of its last (1),
- * acts on the text across the page break. The other part of a split element loses its last or
- * first character; another text block joins this one; any other block, such as a page break or a
- * table, is selected. The pagination lays the pages out again.
- */
-export function joinAcrossPages(direction: -1 | 1): Command {
-  return (state, dispatch) => {
-    const { $from, empty } = state.selection;
-    if (!empty || !$from.parent.isTextblock) return false;
-    const edge = direction < 0 ? 0 : $from.parent.content.size;
-    const depth = pageContentDepth($from);
-    if ($from.parentOffset !== edge || depth < 0 || !atPageEdge($from, depth, direction))
-      return false;
-    const content = neighbourContent($from, direction);
-    const facing = content ? facingBlock(content, direction) : null;
-    if (facing && dispatch) dispatch(joinFacing(state.tr, facing, direction).scrollIntoView());
-    return true;
-  };
-}
-
-// Acts on the block across the page break from the caret, as `joinAcrossPages` describes.
-function joinFacing(
-  tr: Transaction,
-  { block, text }: { block: Placed; text: boolean },
-  direction: -1 | 1,
-): Transaction {
-  if (!text) return tr.setSelection(NodeSelection.create(tr.doc, block.pos));
-  const { $from } = tr.selection;
-  const start = block.pos + 1;
-  const end = start + block.node.content.size;
-  if (!sameElement($from.parent, block.node)) {
-    return tr.delete(direction < 0 ? end : $from.pos, direction < 0 ? $from.pos : start);
-  }
-  if (end === start) return tr;
-  return direction < 0 ? tr.delete(end - 1, end) : tr.delete(start, start + 1);
 }
 
 /**

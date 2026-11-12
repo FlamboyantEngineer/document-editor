@@ -25,7 +25,7 @@ import {
   createProofing,
   createReferences,
 } from '../../src/engine/index.js';
-import { createMemoryHost, createWordListProofer } from '../../src/host/index.js';
+import { createMemoryHost, createWordListProofer, type EditingMode } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -37,6 +37,7 @@ import {
 import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
+import { HOST_DIALOGS, NOTE_ITEM } from './host-dialogs.js';
 import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { labPanels, RevealPanes } from './host-panes.js';
@@ -303,10 +304,21 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// The host's toolbar with its note dialog, scrolling when the window is narrow.
+const TOOLBAR = {
+  ...HOST_TOOLBAR,
+  items: [...(HOST_TOOLBAR.items ?? []), NOTE_ITEM],
+  overflow: 'scroll' as const,
+};
+
+// Why the writer may not edit, while the lab restricts editing.
+const RESTRICTED = { edit: 'The host lets this writer only suggest' };
+
 function Lab() {
   const [state, setState] = useState(initialState);
   const [view, setView] = useState<EditorView | null>(null);
-  const [suggesting, setSuggesting] = useState(false);
+  const [mode, setMode] = useState<EditingMode>('edit');
+  const [restricted, setRestricted] = useState(false);
   const [markup, setMarkup] = useState<DocumentMarkup>('all');
   const [zoom, setZoom] = useState(100);
   const [collaborators, setCollaborators] = useState(false);
@@ -337,10 +349,19 @@ function Lab() {
             <input
               type="checkbox"
               name="suggesting"
-              checked={suggesting}
-              onChange={(event) => setSuggesting(event.currentTarget.checked)}
+              checked={mode === 'suggest'}
+              onChange={(event) => setMode(event.currentTarget.checked ? 'suggest' : 'edit')}
             />{' '}
             Suggesting
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="restricted"
+              checked={restricted}
+              onChange={(event) => setRestricted(event.currentTarget.checked)}
+            />{' '}
+            Restrict editing
           </label>
           <label>
             Markup{' '}
@@ -414,10 +435,15 @@ function Lab() {
         state={state}
         onStateChange={setState}
         template={TEMPLATE}
-        suggesting={suggesting}
+        editable={mode === 'edit' || mode === 'suggest'}
+        suggesting={mode === 'suggest'}
+        onModeChange={setMode}
+        modeReasons={restricted ? RESTRICTED : undefined}
         author="ada"
         markup={markup}
-        toolbar={HOST_TOOLBAR}
+        onMarkupChange={setMarkup}
+        toolbar={TOOLBAR}
+        dialogs={HOST_DIALOGS}
         menubar={menubar}
         contextMenu={HOST_CONTEXT_MENU}
         scrollable
@@ -441,7 +467,7 @@ function Lab() {
             store: comments,
             documentId: 'full',
             identity: HOST.identity,
-            canComment: true,
+            canComment: mode !== 'read',
             presentation: markers ? 'markers' : 'cards',
           }
         }
