@@ -1,6 +1,8 @@
 // The editor's surface around its engine: the chrome above the document, the banners, the document
-// between the panels beside it in its scrolling frame, and the chrome below it.
+// between the panels beside it in its named scrolling frame, and the chrome below it, all inside
+// the editor's live regions (`Announcer`).
 
+import { Announcer } from '@flamboyantengineer/ui-components/announcer';
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import { type ReactNode, type RefObject, useState } from 'react';
 import type { LayoutState } from '../../pagination/index.js';
@@ -100,7 +102,7 @@ export function EditorSurface({
     </SurfaceContent>
   );
   return (
-    <>
+    <Announcer>
       <TopChrome {...chrome} findRequest={findRequest} onFindClose={onFindClose} />
       <DocumentBanners
         root={root}
@@ -118,6 +120,8 @@ export function EditorSurface({
             <ScrollRegion
               {...hooks.slot('viewport')}
               ref={setRegion}
+              role="region"
+              aria-label={context.labels.viewport}
               axis="both"
               scrollbar="overlay"
               tabIndex={-1}
@@ -137,6 +141,6 @@ export function EditorSurface({
         )}
       </Workspace>
       <BottomChrome {...chrome} openDialog={openDialog} />
-    </>
+    </Announcer>
   );
 }

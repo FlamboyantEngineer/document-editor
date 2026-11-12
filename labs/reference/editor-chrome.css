@@ -287,6 +287,12 @@
   text-decoration-color: #1a7f37;
 }
 
+/* The issue the proofing status just revealed, flashed for a moment. */
+.de-document-editor [data-proofing-flash] {
+  background: rgb(255 212 59 / 60%);
+  transition: background 0.4s;
+}
+
 /* The proofing status in the status bar: a quiet button that selects the next issue. */
 .de-document-editor__proofing-status {
   min-height: 0;

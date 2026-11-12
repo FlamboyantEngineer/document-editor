@@ -3,11 +3,12 @@
 // editing mode. Each reads the editor it is in and counts the state React defers, so typing in a
 // long document never waits on it.
 
+import { useAnnounce } from '@flamboyantengineer/ui-components/announcer';
 import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { GlobeGlyph } from '@flamboyantengineer/ui-components/core';
 import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
-import { useDeferredValue, useMemo } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef } from 'react';
 import {
   documentStatistics,
   isProofingPending,
@@ -20,6 +21,7 @@ import {
   selectNextProofingIssue,
   setProofingLanguage,
 } from '../../engine/index.js';
+import { revealSelectedProofingIssue } from '../../engine/proofing-commands.js';
 import { pageMap } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { type EditorContext, useDocumentEditor } from './editor-context.js';
@@ -75,17 +77,37 @@ export function DocumentWordStatus() {
   return <span>{shown.editor.labels.wordStatus(statistics.words, statistics.selectedWords)}</span>;
 }
 
+// Calls `announce` each time the settled issue count changes after the first, so a screen reader
+// hears the result of each check without hearing the count it opened with.
+function useSettledAnnouncement(count: number | null, announce: (count: number) => void) {
+  const last = useRef<number | null>(null);
+  const latest = useRef(announce);
+  useEffect(() => {
+    latest.current = announce;
+  });
+  useEffect(() => {
+    if (count === null) return;
+    if (last.current !== null && last.current !== count) latest.current(count);
+    last.current = count;
+  }, [count]);
+}
+
 /**
- * The proofing status, when the document is proofed: a button selecting the next issue, or saying
- * the proofers do not answer.
+ * The proofing status, when the document is proofed: a button selecting, centring and flashing the
+ * next issue, announced, or saying the proofers do not answer; each new count once checked is
+ * announced.
  */
 export function DocumentProofingStatus() {
   const shown = useDeferredEditor();
+  const announce = useAnnounce();
   const proofing = shown ? proofingState(shown.deferred) : null;
-  if (!shown || !proofing) return null;
+  const issues = proofing && shown ? listProofingIssues(shown.deferred).length : null;
+  const pending = proofing && shown ? isProofingPending(shown.deferred) : true;
+  useSettledAnnouncement(pending ? null : issues, (count) =>
+    shown ? announce(shown.editor.labels.proofingStatus(count, false)) : undefined,
+  );
+  if (!shown || !proofing || issues === null) return null;
   const { view, labels } = shown.editor;
-  const issues = listProofingIssues(shown.deferred).length;
-  const pending = isProofingPending(shown.deferred);
   const { status } = proofing;
   const text =
     status === 'unavailable'
@@ -100,7 +122,16 @@ export function DocumentProofingStatus() {
       isDisabled={issues === 0 || view === null}
       preventFocusOnPress
       onPress={() => {
-        if (view) runCommand(view, selectNextProofingIssue);
+        if (!view) return;
+        runCommand(view, selectNextProofingIssue);
+        // The selection's own scroll lands with the view's next update; centre the issue after it.
+        const owner = view.dom.ownerDocument.defaultView;
+        owner?.requestAnimationFrame(() =>
+          owner.requestAnimationFrame(() => {
+            const revealed = revealSelectedProofingIssue(view);
+            if (revealed) announce(labels.proofingIssueAnnouncement(revealed));
+          }),
+        );
       }}
     >
       {text}

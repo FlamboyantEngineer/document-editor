@@ -1,5 +1,5 @@
 // The context menu's proofing group for the issue at the caret: its suggestions under its message,
-// replacing every issue like it, ignoring it once or its word everywhere, adding its word to the
+// a submenu replacing every issue like it with one of them, ignoring it once or its word everywhere, adding its word to the
 // dictionary and turning its rule off.
 
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
@@ -29,16 +29,14 @@ export function proofingEntries(
   const { state } = view;
   const issue = editable ? proofingIssueAt(state, state.selection.head) : null;
   if (!issue) return [];
-  const suggestions: MenuEntry[] = issue.suggestions
-    .slice(0, PROOFING_SUGGESTIONS)
-    .map((suggestion, index) =>
-      commandEntry(
-        view,
-        { id: `proofing-${String(index)}`, label: suggestion },
-        replaceProofingIssue(issue, suggestion),
-      ),
-    );
-  const best = issue.suggestions[0];
+  const offered = issue.suggestions.slice(0, PROOFING_SUGGESTIONS);
+  const suggestions: MenuEntry[] = offered.map((suggestion, index) =>
+    commandEntry(
+      view,
+      { id: `proofing-${String(index)}`, label: suggestion },
+      replaceProofingIssue(issue, suggestion),
+    ),
+  );
   const entries: MenuEntry[] = [
     {
       type: 'section',
@@ -50,14 +48,18 @@ export function proofingEntries(
           : [{ id: 'proofing-none', label: labels.noSuggestions, isDisabled: true }],
     },
   ];
-  if (best !== undefined && countAlikeIssues(state, issue) > 1) {
-    entries.push(
-      commandEntry(
-        view,
-        { id: 'proofing-replace-all', label: labels.replaceAll(best) },
-        replaceAllProofingIssues(issue, best),
+  if (offered.length > 0 && countAlikeIssues(state, issue) > 1) {
+    entries.push({
+      id: 'proofing-replace-all',
+      label: labels.replaceAll,
+      items: offered.map((suggestion, index) =>
+        commandEntry(
+          view,
+          { id: `proofing-replace-all-${String(index)}`, label: suggestion },
+          replaceAllProofingIssues(issue, suggestion),
+        ),
       ),
-    );
+    });
   }
   entries.push(
     commandEntry(

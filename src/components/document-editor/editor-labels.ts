@@ -1,6 +1,7 @@
 // The text the document editor's own chrome shows: its toolbar, its context menu, the table handles
 // and their menus. A host passes its own wording through the editor's `labels`.
 
+import type { RevealedProofingIssue } from '../../engine/proofing-commands.js';
 import type { ProofingKind } from '../../host/index.js';
 import { type BannerLabels, DEFAULT_BANNER_LABELS } from './banner-labels.js';
 import { DEFAULT_OBJECT_LABELS, type ObjectLabels } from './object-labels.js';
@@ -60,6 +61,8 @@ export interface DocumentEditorLabels extends ObjectLabels, ShellLabels, BannerL
   /** Names a column's handle, such as `Column 3`. */
   readonly columnHandle: (column: number) => string;
   readonly statusBar: string;
+  /** Names the frame that scrolls the document. */
+  readonly viewport: string;
   /** The page holding the caret, such as `Page 2 of 9`. */
   readonly pageStatus: (page: number, pages: number) => string;
   /** The document's words, or the selection's among them: `1,204 words`, `12 of 1,204 words`. */
@@ -71,7 +74,8 @@ export interface DocumentEditorLabels extends ObjectLabels, ShellLabels, BannerL
   readonly proofingIssue: (kind: ProofingKind) => string;
   readonly noSuggestions: string;
   /** Replaces every issue like the one at the caret with a suggestion. */
-  readonly replaceAll: (suggestion: string) => string;
+  /** The submenu replacing every issue like the one at the caret with one of its suggestions. */
+  readonly replaceAll: string;
   /** Ignores the issue at the caret alone. */
   readonly ignoreIssue: string;
   /** Ignores the issue's word everywhere. */
@@ -97,6 +101,8 @@ export interface DocumentEditorLabels extends ObjectLabels, ShellLabels, BannerL
   readonly proofingStatus: (issues: number, pending: boolean) => string;
   /** Names the status bar's button that selects the next proofing issue. */
   readonly nextIssue: string;
+  /** Read out when the next issue is selected: its kind and text, and where it stands. */
+  readonly proofingIssueAnnouncement: (revealed: RevealedProofingIssue) => string;
 }
 
 const count = new Intl.NumberFormat('en-US');
@@ -154,6 +160,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   rowHandle: (row) => `Row ${String(row)}`,
   columnHandle: (column) => `Column ${String(column)}`,
   statusBar: 'Document status',
+  viewport: 'Document view',
   pageStatus: (page, pages) => `Page ${count.format(page)} of ${count.format(pages)}`,
   wordStatus: (words, selected) => {
     const total = `${count.format(words)} ${words === 1 ? 'word' : 'words'}`;
@@ -164,7 +171,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   readingMode: 'Reading',
   proofingIssue: (kind) => PROOFING_KINDS[kind],
   noSuggestions: 'No suggestions',
-  replaceAll: (suggestion) => `Replace all with “${suggestion}”`,
+  replaceAll: 'Replace all',
   ignoreIssue: 'Ignore',
   ignoreAll: 'Ignore all',
   addToDictionary: 'Add to dictionary',
@@ -185,6 +192,8 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
     return `${count.format(issues)} ${issues === 1 ? 'issue' : 'issues'}`;
   },
   nextIssue: 'Go to the next issue',
+  proofingIssueAnnouncement: ({ issue, index, total }) =>
+    `${issue.message ?? PROOFING_KINDS[issue.kind]}: ${issue.text}, ${count.format(index + 1)} of ${count.format(total)}`,
   ...DEFAULT_OBJECT_LABELS,
   ...DEFAULT_SHELL_LABELS,
   ...DEFAULT_BANNER_LABELS,

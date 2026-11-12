@@ -131,9 +131,9 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.2 - Scrolling frame
 
-`scrollable` shall scroll the document inside the editor (`de-document-editor__viewport`), with the base library's overlay scrollbars, below the toolbar, which stays in view; the root publishes `data-scrollable` and the host gives the editor its height. Without it the document grows with the page. The document editor lab gives a scrolling editor the window's height left below its controls, so the lab page itself does not scroll.
+`scrollable` shall scroll the document inside the editor (`de-document-editor__viewport`, a region named by the `viewport` label), with the base library's overlay scrollbars, below the toolbar, which stays in view; the root publishes `data-scrollable` and the host gives the editor its height. Without it the document grows with the page. The document editor lab gives a scrolling editor the window's height left below its controls, so the lab page itself does not scroll.
 
-Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
+Implementation: `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
 Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.3 - The host's toolbar items
@@ -291,6 +291,13 @@ Verification: `src/components/document-editor/visible-elements.test.ts`, `e2e/do
 
 Implementation: `src/components/document-editor/document-status-bar.tsx`, `src/components/document-editor/status-items.tsx`
 Verification: `src/components/document-editor/document-status-bar.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-5.6 - Live regions
+
+The editor's chrome, panels and document shall share one pair of live regions (the base library's `Announcer`), through which its parts read out what they report: the proofing status each settled issue count after the first and the issue it moves to (DOCE-PROOFING-3.6). Banners announce themselves (DOCE-EDITOR-7.1).
+
+Implementation: `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/status-items.tsx`
+Verification: `e2e/proofing.spec.ts`
 
 ## DOCE-EDITOR-6 - Host integration
 
