@@ -167,43 +167,6 @@ describe('table lines', () => {
   });
 });
 
-type Attrs = Record<string, unknown>;
-
-function create(name: string, attrs: Attrs | null, content?: Node[] | string): Node {
-  const type = documentSchema.nodes[name];
-  if (!type) throw new Error(name);
-  const children = typeof content === 'string' ? [documentSchema.text(content)] : content;
-  return type.create(attrs, children);
-}
-
-const tableRow = (kind: string, ...texts: string[]) =>
-  create(
-    'table_row',
-    null,
-    texts.map((text) => create(kind, null, [create('paragraph', null, text)])),
-  );
-const page = (...blocks: Node[]) =>
-  create('page', null, [
-    create('page_header', null),
-    create('page_content', null, blocks),
-    create('page_footnotes', null, []),
-    create('page_footer', null),
-  ]);
-
-// A table the pages split after its first body row, the second part repeating the header.
-function splitTable(): EditorState {
-  const header = () => tableRow('table_header', 'Name', 'Value');
-  const part = (index: number, ...rows: Node[]) =>
-    create('table', { dataId: 't1', splitPartIndex: index }, rows);
-  const doc = create('doc', null, [
-    create('page_section', { sectionName: null }, [
-      page(part(0, header(), tableRow('table_cell', 'A', '1'))),
-      page(part(1, header(), tableRow('table_cell', 'B', '2'))),
-    ]),
-  ]);
-  return EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) });
-}
-
 // Each top-level table of each page, as its rows' text.
 function tables(state: EditorState): string[][] {
   const found: string[][] = [];
@@ -241,19 +204,8 @@ describe('inserting tables', () => {
   });
 });
 
-describe('tables split across pages', () => {
-  it('DOCE-TABLES-1.5 moves a column of every part, joining the parts in the same change', () => {
-    const state = splitTable();
-    let second = -1;
-    state.doc.descendants((node, pos) => {
-      if (node.type.name === 'table') second = pos;
-      return node.type.name !== 'table';
-    });
-    const moved = run(state, moveTableLine({ table: second, axis: 'column', index: 0 }, 1));
-    expect(tables(moved)).toEqual([['Value|Name', '1|A', '2|B']]);
-  });
-
-  it('DOCE-TABLES-1.5 leaves a whole table on its page', () => {
+describe('changing a table', () => {
+  it('DOCE-TABLES-1.5 changes a table whole, as one change', () => {
     const state = stateAt(grid(), 'A1');
     const at = tablePos(state)?.pos ?? -1;
     const moved = run(state, moveTableLine({ table: at, axis: 'column', index: 0 }, 1));

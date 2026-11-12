@@ -1,7 +1,7 @@
 import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { joinSectionPages, readDocumentFile, type StoredNode } from '../model/index.js';
+import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { applyEdits, automationActor, type AutomationOptions } from './automation.js';
 import { describeBlocks } from './automation-read.js';
 import { listCommentAnchors } from './comments.js';
@@ -160,7 +160,6 @@ describe('automation', () => {
 
   it('DOCE-AUTOMATION-1.2 edits an element the pages split as one', () => {
     const state = stateOf(paragraph('a1a1a1a1', 'Whole paragraph'));
-    expect(joinSectionPages).toBeTypeOf('function');
     const { state: next } = apply(
       state,
       [{ op: 'insertText', at: { elementId: 'a1a1a1a1', from: 5 }, text: ' new' }],

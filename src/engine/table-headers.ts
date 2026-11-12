@@ -5,7 +5,6 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, Transaction } from 'prosemirror-state';
 import { findTable, isInTable, selectedRect, TableMap } from 'prosemirror-tables';
-import { inWholeTable } from './table-parts.js';
 import type { TableAxis } from './tables.js';
 
 /** How many leading rows and leading columns of a table hold only header cells. */
@@ -106,6 +105,6 @@ export function toggleHeaderLines(axis: TableAxis): Command {
   };
   return (state, dispatch, view) => {
     const found = findTable(state.selection.$from);
-    return found ? inWholeTable(found.pos, toggle)(state, dispatch, view) : false;
+    return found ? toggle(state, dispatch, view) : false;
   };
 }

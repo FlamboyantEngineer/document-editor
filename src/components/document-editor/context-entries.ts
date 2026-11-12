@@ -177,7 +177,7 @@ function objectGroups(view: EditorView, { labels, editable }: ContextEntriesOpti
   const table = findTable(view.state.selection.$from);
   const tableGroup: MenuEntry[] =
     table?.pos === object
-      ? [{ id: 'table', label: labels.table, items: tableCellEntries(view, labels, object) }]
+      ? [{ id: 'table', label: labels.table, items: tableCellEntries(view, labels) }]
       : [];
   return { table: tableGroup, object: objectEntries(view, labels, object) };
 }

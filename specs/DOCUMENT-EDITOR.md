@@ -80,14 +80,14 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.4 - Objects
 
-In an editable document, with the selection in an object (a table, figure, code block, display equation, list of contents, signature or rule), the menu shall offer to add an empty paragraph before or after it (`insertParagraphBesideObject`), around the whole table when the pages split one, and, for an object other than a table, to delete it (`deleteObject`); deleting a page's only block leaves an empty paragraph.
+In an editable document, with the selection in an object (a table, figure, code block, display equation, list of contents, signature or rule), the menu shall offer to add an empty paragraph before or after it (`insertParagraphBesideObject`), around the whole table, and, for an object other than a table, to delete it (`deleteObject`); deleting a page's only block leaves an empty paragraph.
 
 Implementation: `src/engine/block-commands.ts`, `src/components/document-editor/table-actions.ts`
 Verification: `src/engine/block-commands.test.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.5 - Tables
 
-In a table cell of an editable document, the menu shall offer a Table submenu: insert a row above or below or a column to the left or right, merge the selected cells, split a merged cell, make the row or column a header, and delete the row, the column or the table, each disabled while it cannot run and run on the whole table when the pages split it (DOCE-TABLES-1.5).
+In a table cell of an editable document, the menu shall offer a Table submenu: insert a row above or below or a column to the left or right, merge the selected cells, split a merged cell, make the row or column a header, and delete the row, the column or the table, each disabled while it cannot run and run on the whole table (DOCE-TABLES-1.5).
 
 Implementation: `src/components/document-editor/table-actions.ts`, `src/components/document-editor/context-entries.ts`
 Verification: `e2e/document-editor.spec.ts`

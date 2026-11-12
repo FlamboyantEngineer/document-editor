@@ -33,7 +33,6 @@ import {
   distributeRows,
   insertParagraphBesideObject,
   insertTableLines,
-  inWholeTable,
   moveTableLine,
   setCellAlignment,
   splitTableCell,
@@ -198,17 +197,9 @@ function alignmentEntries(view: EditorView, labels: DocumentEditorLabels): MenuE
   );
 }
 
-/**
- * The table entries of the context menu in a cell of the table at `table`: insert, merge, split,
- * header and delete, each on the whole table when the pages split it.
- */
-export function tableCellEntries(
-  view: EditorView,
-  labels: DocumentEditorLabels,
-  table: number,
-): MenuEntry[] {
-  const item = (command: Command, entry: EntryOf) =>
-    commandEntry(view, entry, inWholeTable(table, command));
+/** The table entries of the context menu in a table cell: insert, merge, split, header and delete. */
+export function tableCellEntries(view: EditorView, labels: DocumentEditorLabels): MenuEntry[] {
+  const item = (command: Command, entry: EntryOf) => commandEntry(view, entry, command);
   const danger = 'danger' as const;
   return [
     {
@@ -266,8 +257,8 @@ export function tableCellEntries(
 
 /**
  * The entries of the object at `pos`, such as a table or a figure, holding the selection: a
- * paragraph before or after it, around the whole table when the pages split it, and, for an object
- * other than a table, which the table entries delete, deleting it.
+ * paragraph before or after it, and, for an object other than a table, which the table entries
+ * delete, deleting it.
  */
 export function objectEntries(
   view: EditorView,
@@ -275,7 +266,6 @@ export function objectEntries(
   pos: number,
 ): MenuEntry[] {
   const isTable = view.state.doc.nodeAt(pos)?.type.name === 'table';
-  const whole = (command: Command) => inWholeTable(pos, command);
   const deleting: MenuEntry[] = isTable
     ? []
     : [
@@ -289,12 +279,12 @@ export function objectEntries(
     commandEntry(
       view,
       { id: 'paragraph-before', label: labels.paragraphBefore },
-      whole(insertParagraphBesideObject('before')),
+      insertParagraphBesideObject('before'),
     ),
     commandEntry(
       view,
       { id: 'paragraph-after', label: labels.paragraphAfter },
-      whole(insertParagraphBesideObject('after')),
+      insertParagraphBesideObject('after'),
     ),
     ...deleting,
   ];

@@ -21,7 +21,7 @@ import {
 } from '../../model/index.js';
 import {
   createPagedProjection,
-  createPagination,
+  type createPagination,
   type LayoutState,
   listStartsKey,
   loadTemplateFonts,
@@ -91,11 +91,9 @@ export interface PagingRefs {
   readonly redraw: RefObject<Redraw | null>;
   readonly active: RefObject<LayoutRunner | null>;
   readonly ownPlugins: RefObject<readonly Plugin[]>;
-  readonly paginationPlugin: RefObject<Plugin | null>;
 }
 
-// Lays the pages out in the element given: by a projection when asked, otherwise by a pagination
-// of the state; returns how to stop.
+// Lays the pages out in the element given, as a projection of the state; returns how to stop.
 export function startPaging(
   element: HTMLElement,
   latest: RefObject<DocumentLayoutOptions>,
@@ -117,37 +115,11 @@ export function startPaging(
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
   };
-  const { refresh, active, ownPlugins, paginationPlugin } = refs;
-  if (latest.current.projection) {
-    const start = () => startProjectionOf(setup, latest, { refs, setPaged });
-    if (!ghostWith(latest)) return start();
-    // Pending until the ghost has mounted, so nothing reads the pages as settled before then.
-    setup.onLayoutStateChange('pending');
-    return afterCommit(start);
-  }
-  const pagination = createPagination({
-    ...setup,
-    plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
-    ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
-  });
-  latest.current.onLayoutStateChange?.(pagination.layoutState());
-  refresh.current = () => {
-    pagination.refresh({ remeasure: true });
-  };
-  active.current = pagination;
-  paginationPlugin.current = pagination.plugin;
-  const { onStateChange } = latest.current;
-  onStateChange((state) => state.reconfigure({ plugins: [...state.plugins, pagination.plugin] }));
-  return () => {
-    refresh.current = null;
-    active.current = null;
-    paginationPlugin.current = null;
-    onStateChange((state) =>
-      state.reconfigure({
-        plugins: state.plugins.filter((plugin) => plugin !== pagination.plugin),
-      }),
-    );
-  };
+  const start = () => startProjectionOf(setup, latest, { refs, setPaged });
+  if (!ghostWith(latest)) return start();
+  // Pending until the ghost has mounted, so nothing reads the pages as settled before then.
+  setup.onLayoutStateChange('pending');
+  return afterCommit(start);
 }
 
 // The layout's plugins that read the pages, which run on a projection's pages rather than on the

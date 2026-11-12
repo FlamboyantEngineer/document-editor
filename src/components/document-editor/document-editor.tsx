@@ -96,12 +96,6 @@ export interface DocumentEditorProps
   template: TemplateFile;
   /** On pages (the default), or as one page per section that fills the surface. */
   layout?: DocumentLayout | undefined;
-  /**
-   * Shows the pages as a projection of `state`, which stays the whole document with each section
-   * on one page (DOCE-PAGINATION-7.17). Defaults to true; false paginates `state` itself, which
-   * goes once nothing needs it.
-   */
-  projection?: boolean | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
   editable?: boolean | undefined;
   /** Whether an editable document takes changes as suggestions (`suggestTransaction`). */
@@ -300,7 +294,6 @@ function useEditorLayout(
     compare: props.compare ?? null,
     debug: debugParts(props.debug),
     onLayoutStateChange: setLayoutState,
-    projection: props.projection ?? true,
     onCanonical: paging.onCanonical,
     onLayout: paging.onLayout,
     wrapGhost: (shown) => (

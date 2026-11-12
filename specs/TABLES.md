@@ -1,6 +1,6 @@
 # Tables
 
-A document's tables are edited through the plugins `createTableEditing()` returns, which `createDocumentEditing` installs (DOCE-EDITING): cell selections, Tab between cells, column widths dragged by the cell borders, and keys that move rows and columns. In the document editor, handles beside the table under the pointer drag its rows and columns to another place and open their menus. A table the pages split is laid out as parts, one per page, sharing the table's id; a change to its structure runs on the whole table (`inWholeTable`), so it reaches every part.
+A document's tables are edited through the plugins `createTableEditing()` returns, which `createDocumentEditing` installs (DOCE-EDITING): cell selections, Tab between cells, column widths dragged by the cell borders, and keys that move rows and columns. In the document editor, handles beside the table under the pointer drag its rows and columns to another place and open their menus. A table the pages split stays whole in the editing state, so a change to its structure reaches every part the pages show.
 
 ## DOCE-TABLES-1 - Editing tables
 
@@ -34,9 +34,9 @@ Verification: `src/engine/tables.test.ts`
 
 ### DOCE-TABLES-1.5 - Tables the pages split
 
-A change to the structure of a table the pages split (`inWholeTable`), such as moving, inserting or deleting a column, shall first join the pages its parts sit on, map the selection onto the whole table and run the change there, all as one change, so every part takes it and the pagination lays the table out again. A whole table is changed on its page.
+The editing state holds every table whole, however the pages split it (DOCE-PAGINATION-7.17), so a change to a table's structure, such as moving, inserting or deleting a column, shall run on the whole table as one change, and every part the pages show shall take it.
 
-Implementation: `src/engine/table-parts.ts`, `src/engine/tables.ts`
+Implementation: `src/engine/tables.ts`
 Verification: `src/engine/tables.test.ts`
 
 ### DOCE-TABLES-1.6 - Inserting a table
