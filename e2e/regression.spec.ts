@@ -437,6 +437,43 @@ test.describe('split-paragraph repagination matrix', () => {
   }
 });
 
+test.describe('caret across a re-layout', () => {
+  // The page holding the browser's caret, and the text before it in its text node.
+  const caretOf = (page: Page) =>
+    page.evaluate(() => {
+      const selection = getSelection();
+      const node = selection?.anchorNode ?? null;
+      const shown = node instanceof Element ? node : (node?.parentElement ?? null);
+      const pages = [...document.querySelectorAll('.pm-page')];
+      const on = shown?.closest('.pm-page') ?? null;
+      const before = node?.textContent?.slice(0, selection?.anchorOffset ?? 0) ?? '';
+      return { page: on ? pages.indexOf(on) : -1, before };
+    });
+
+  test("DOCE-PAGINATION-7.17 DOCE-EDITOR-1.4 keeps the caret in a continuation's text as the pages are laid out again", async ({
+    page,
+  }) => {
+    await openDocument(page, 'oversized-blocks');
+    const caret = await page.evaluate(() =>
+      window.regressionLab.caretAtFragment('paragraph', 'continuation-start'),
+    );
+    expect(caret, 'a split paragraph').not.toBeNull();
+    // Typed at the continuation's start, the text goes there, and the caret after it.
+    await page.keyboard.type('ZQ');
+    await settle(page);
+    const typed = await caretOf(page);
+    expect(typed.before).toBe('ZQ');
+    expect(typed.page).toBeGreaterThan(0);
+    // Each layout after the next keys keeps it on that page, after what was typed.
+    for (const key of ['X', 'Y']) {
+      await page.keyboard.type(key);
+      await settle(page);
+      typed.before += key;
+      expect(await caretOf(page)).toEqual(typed);
+    }
+  });
+});
+
 test.describe('host views on the projection', () => {
   test('DOCE-LABS-4.2 DOCE-PAGINATION-7.17 measures blocks a host view draws as the pages draw them', async ({
     page,
