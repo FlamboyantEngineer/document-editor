@@ -44,6 +44,7 @@ import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
 import { createScripts } from './scripts.js';
+import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
 import { createWordPaste } from './word-paste.js';
@@ -160,14 +161,16 @@ export function documentKeys(
     'Mod-Alt-f': insertFootnote(),
     'Mod-Alt-t': insertTable({ rows: 3, columns: 3 }),
     'Shift-Enter': inFootnoteEntry,
-    Enter: chainCommands(
-      inFootnoteEntry,
-      newlineInCode,
-      listKey(splitListItem),
-      createParagraphNear,
-      deleteSelection,
-      liftEmptyBlock,
-      splitBlockKeepingLevel,
+    Enter: keepIdentityWithContent(
+      chainCommands(
+        inFootnoteEntry,
+        newlineInCode,
+        listKey(splitListItem),
+        createParagraphNear,
+        deleteSelection,
+        liftEmptyBlock,
+        splitBlockKeepingLevel,
+      ),
     ),
     Backspace: chainCommands(
       deleteSelection,
