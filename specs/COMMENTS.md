@@ -6,14 +6,14 @@ A comment thread is a discussion about part of a document. Its anchor, the text 
 
 ### DOCE-COMMENTS-1.1 - Anchoring a thread
 
-`addCommentAnchor(thread)` shall mark the selected text as the open anchor of a thread, across blocks, and refuse an empty selection or one without text. `selectedText(state)` shall give the selected text as a new thread quotes it.
+`addCommentAnchor(thread)` shall mark the selected text as the open anchor of a thread, across blocks, and refuse an empty selection or one without text. `selectedText(state)` shall give the selected text as a new thread quotes it, and `selectionRanges(state)` the stretches it covers in reading order.
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.2 - Listing anchors
 
-`listCommentAnchors(doc)` shall give one anchor per thread in reading order, with its thread, state, range, each stretch of text it marks (`ranges`, as edits, blocks or pages part it) and that text, the stretches joined by spaces. Threads that nest in or overlap one another shall each keep their own anchor.
+`listCommentAnchors(doc)` shall give one anchor per thread in reading order (by start, an outer anchor before those it holds, then by thread), with its thread, state, range, each stretch of text it marks (`ranges`, as edits, blocks, cells or pages part it) and that text, the stretches joined by spaces. Threads that nest in or overlap one another shall each keep their own anchor. A cell selection shall anchor one range per selected cell, leaving the cells between them unmarked (`anchorCommentRanges` anchors any ranges).
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
@@ -27,7 +27,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.4 - Stored anchors
 
-An anchor shall be stored with its thread and state, and read back unchanged.
+An anchor shall be stored with its thread, its state and its element id, and read back unchanged. Each new anchor shall get a fresh element id (`newId`, random by default), one for all its ranges.
 
 Implementation: `src/model/schema/marks.ts`, `src/model/format/document-format.ts`
 Verification: `src/engine/comments.test.ts`
@@ -41,17 +41,31 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.6 - A thread being started
 
-`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`) that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
+`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`), with a range per selected cell, that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
 
 Implementation: `src/engine/comment-draft.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.7 - Anchors in canonical order
 
-Anchoring a thread, resolving or reopening it and linking a suggestion to a thread shall add their marks in canonical order (DOCE-SCHEMA-5.1), so text anchored to several threads holds them by thread id whichever was anchored first, and two people who anchor the same threads in another order hold equal documents.
+Anchoring a thread, resolving or reopening it and linking a suggestion to a thread shall add their marks in canonical order (DOCE-SCHEMA-5.1), so text anchored to several threads holds them by anchor id whichever was anchored first, and two people who anchor the same anchors in another order hold equal documents.
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
+
+### DOCE-COMMENTS-1.8 - The anchor index
+
+The editing plugins shall keep an index of the comment anchors (`createCommentAnchors`) that follows each change by scanning only the text blocks it touches, so typing walks no document, and `commentAnchors(state)` shall give the anchors `listCommentAnchors` gives, from the index, or from the document without it. The margin, the comments panel and the handle read the anchors from it.
+
+Implementation: `src/engine/comment-anchors.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/comment-anchors.test.ts`
+
+### DOCE-COMMENTS-1.9 - The active anchor
+
+`activeCommentThread(state)` shall give the thread whose anchor holds the caret, the innermost when anchors nest, or null, and the index shall draw that anchor's text with `data-comment-active`.
+
+Implementation: `src/engine/comment-anchors.ts`
+Verification: `src/engine/comment-anchors.test.ts`
 
 ## DOCE-COMMENTS-2 - The comments margin
 
@@ -146,6 +160,62 @@ Every composer of the margin and the comments panel shall take mentions: `@` lis
 Implementation: `src/components/document-comments/comment-mentions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`
 Verification: `e2e/comments.spec.ts`
 
+### DOCE-COMMENTS-2.14 - One thread state
+
+The document editor given `comments` shall keep one state of the document's threads, which its margin, a comments panel inside it for the same store and document, and every other part inside it share: the store lists the threads once, and a change made in one shows in the others at once, whether or not the store tells of changes. A margin or panel outside such an editor keeps its own (`WithCommentThreads`).
+
+Implementation: `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`
+
+### DOCE-COMMENTS-2.15 - Changes the store refuses
+
+A change the comment store refuses shall show on its thread as an error row (the base library's `CommentThread` activity) with the store's message, or the `failed` label, until the reader dismisses it, and leave the thread as it was. A refused reply resolves with nothing and offers Retry, which posts it again; every other refused change also rejects, so its caller leaves the document's anchors as they were. A listing that fails gives its message and keeps the threads listed before.
+
+Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-thread-actions.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-activity-rows.ts`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.16 - Stale listings
+
+A listing asked for before the reader changed a thread shall keep that thread as the change left it, and a store's report of its threads shall keep the threads whose changes it has not answered yet, so a thread the reader just started or answered does not vanish.
+
+Implementation: `src/components/document-comments/comment-thread-list.ts`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.17 - Activity in a thread
+
+A thread's card shall show, after its comments, a row for the reader's reply while it is posted, for each reply the store is still writing for the reader, such as an assistant's (an entry with `status` `pending`, with Cancel) or could not (`failed`, with Retry and Cancel, through `settleEntry`), and for each person the store says is writing in it (`subscribeActivity`); such entries show only as rows.
+
+Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.18 - Deciding, updating and reacting to threads
+
+While the store can, the thread state shall record how a thread's suggestion was decided (`decide`), change a thread's quote, target or change (`update`), react to a whole thread (`react` without a comment) and tell others the reader is writing (`setTyping`), each keeping the thread as the store returns it.
+
+Implementation: `src/components/document-comments/comment-thread-actions.ts`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.19 - Decisions recorded on threads
+
+Every decision on suggestions the reader makes in the editor, from a suggestion's card, the context menu, the handle or a host's command (`suggestionDecisionOf`), shall be recorded on the thread of each suggestion it decided and of each suggestion it removed with them (`dependsOn`), through the store's `decide`, which resolves the thread; with a store that records no decisions, the threads are resolved. Another writer's decision, arriving as a remote change, is not recorded again.
+
+Implementation: `src/components/document-comments/use-decision-records.ts`, `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/editor-scope.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/use-decision-records.test.ts`
+
+### DOCE-COMMENTS-2.20 - Threads in a shared room
+
+In room mode, `createRoomCommentStore({ doc, identity })` from `./collab` shall keep the threads in the shared document's `comments` type (decision D29), which a commenter may write while the rest is refused to them, and tell each subscriber every change, by anyone. Each thread's own fields, each comment and each reaction is one attribute of that type, keyed by a JSON array: `["thread", thread]` holds the thread's fields without its comments and reactions, `["entry", thread, comment]` a comment without its reactions, and `["reaction", thread, comment, emoji, person]` a reaction, with an empty comment id for one to the whole thread; so replies, reactions and edits that writers make at once to one thread all stay. It attributes changes to the reader, refuses changing another person's comment and starting a thread twice, records decisions, and removes a thread with its comments and reactions.
+
+Implementation: `src/collab/comment-store.ts`
+Verification: `src/collab/comment-store.test.ts`
+
+### DOCE-COMMENTS-2.21 - Threads for suggestions
+
+With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes, what it does (`change`: insert, delete or replace) and `automatic`, and name it on the suggestion's marks outside the reader's history; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions are left to that writer's editor (`planSuggestionThreads`).
+
+Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text
@@ -183,13 +253,21 @@ In the full editor lab, whose appendix is on landscape pages between portrait on
 Implementation: `src/components/document-comments/anchor-rects.ts`, `src/components/document-comments/document-comments.tsx`, `labs/reference/document.css`, `labs/src/full-editor.lab.tsx`
 Verification: `e2e/full-editor.spec.ts`
 
+### DOCE-COMMENTS-3.6 - The active anchor drawn
+
+In the comments lab, opening a thread shall draw its anchor's text with `data-comment-active`, and moving the caret out of it shall stop. The margin measures every anchor in one pass over the document, however many threads it shows.
+
+Implementation: `src/engine/comment-anchors.ts`, `src/components/document-comments/anchor-rects.ts`, `labs/src/comments.lab.tsx`
+Verification: `e2e/comments.spec.ts`
+
 ## Hooks
 
-| Hook                           | Kind     | Values | Description                                                |
-| ------------------------------ | -------- | ------ | ---------------------------------------------------------- |
-| `de-document-comments`         | root     |        | The annotation layer around the document and margin.       |
-| `de-document-comments__margin` | slot     |        | The margin of cards.                                       |
-| `de-document-comments__card`   | slot     |        | A card, beside its anchor's page.                          |
-| `--de-comment-offset`          | property |        | On a card: how far it moves across to sit beside its page. |
-| `de-comments-panel`            | root     |        | The comments panel.                                        |
-| `de-comments-panel__thread`    | slot     |        | A thread of the panel, with `data-anchored`.               |
+| Hook                           | Kind      | Values | Description                                                |
+| ------------------------------ | --------- | ------ | ---------------------------------------------------------- |
+| `de-document-comments`         | root      |        | The annotation layer around the document and margin.       |
+| `de-document-comments__margin` | slot      |        | The margin of cards.                                       |
+| `de-document-comments__card`   | slot      |        | A card, beside its anchor's page.                          |
+| `--de-comment-offset`          | property  |        | On a card: how far it moves across to sit beside its page. |
+| `de-comments-panel`            | root      |        | The comments panel.                                        |
+| `de-comments-panel__thread`    | slot      |        | A thread of the panel, with `data-anchored`.               |
+| `data-comment-active`          | attribute | `true` | On the text of the anchor holding the caret.               |

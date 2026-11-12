@@ -26,6 +26,7 @@ import {
 import type {
   AssetAdapter,
   CodeSourceAdapter,
+  DiagramAdapter,
   FeedbackAdapter,
   FontsAdapter,
   GlossaryAdapter,
@@ -55,6 +56,7 @@ import {
 } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
+import { EditorScope } from './editor-scope.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
@@ -185,6 +187,11 @@ export interface DocumentEditorProps
    * address.
    */
   assets?: AssetAdapter | undefined;
+  /**
+   * Draws the diagrams figures show in the host's diagram editor; without it the editor offers no
+   * diagrams.
+   */
+  diagrams?: DiagramAdapter | undefined;
   /** Resolves the code linked code blocks show; without it the editor offers no linked code. */
   codeSource?: CodeSourceAdapter | undefined;
   /** Finds citations of other documents, which the reference dialog then offers. */
@@ -356,7 +363,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
     />
   );
   return (
-    <DocumentEditorContext value={context}>
+    <EditorScope context={context} comments={props.comments} transactions={engine.transactions}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}
@@ -386,7 +393,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
           onClose={() => setDialog(null)}
         />
       </div>
-    </DocumentEditorContext>
+    </EditorScope>
   );
 }
 

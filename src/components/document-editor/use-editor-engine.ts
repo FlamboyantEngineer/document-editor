@@ -3,7 +3,7 @@
 // and the view props that read the browser's selection before keys and bind the find key.
 
 import type { RichTextEngineEvents } from '@flamboyantengineer/ui-components/rich-text-editor';
-import type { EditorState } from 'prosemirror-state';
+import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { automationActor, proofingUpdate, suggestTransaction } from '../../engine/index.js';
@@ -63,26 +63,6 @@ export const READ_SELECTION_FIRST = {
 
 type EngineEvents = NonNullable<EnginePlumbingProps['events']>;
 
-// Mod and a letter alone: Ctrl, or Cmd on a Mac.
-const isModKey = (event: KeyboardEvent, letter: string) =>
-  event.key.toLowerCase() === letter &&
-  (event.ctrlKey || event.metaKey) &&
-  !event.altKey &&
-  !event.shiftKey;
-
-// Mod-F opens the find bar.
-export const isFindKey = (event: KeyboardEvent) => isModKey(event, 'f');
-
-// Mod-H opens the find bar at its replacement.
-export const isReplaceKey = (event: KeyboardEvent) => isModKey(event, 'h');
-
-// Mod-Alt-M starts a comment.
-export const isCommentKey = (event: KeyboardEvent) =>
-  event.code === 'KeyM' && (event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey;
-
-// Mod-K opens the reference dialog.
-export const isReferenceKey = (event: KeyboardEvent) => isModKey(event, 'k');
-
 /**
  * The engine's events as the editor keeps them: `onMounted` may name the view the host is shown,
  * such as the canonical view over a projection, beside the view the engine mounted.
@@ -91,13 +71,36 @@ export type EngineViewEvents = Omit<EngineEvents, 'onMounted'> & {
   onMounted(view: EditorView, shown?: EditorView): void;
 };
 
-// The caller's events, with the engine's view kept for the chrome that acts on it.
+/** The transactions the engine applies, for the parts of the editor that follow them. */
+export interface TransactionFeed {
+  /** Calls `listener` with each transaction until the returned function is called. */
+  subscribe(listener: (tr: Transaction) => void): () => void;
+}
+
+function createTransactionFeed() {
+  const listeners = new Set<(tr: Transaction) => void>();
+  return {
+    feed: {
+      subscribe: (listener: (tr: Transaction) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    } satisfies TransactionFeed,
+    publish: (tr: Transaction) => {
+      for (const listener of listeners) listener(tr);
+    },
+  };
+}
+
+// The caller's events, with the engine's view kept for the chrome that acts on it, and the feed of
+// its transactions.
 export function useEngineView(
   events: EnginePlumbingProps['events'],
   onContentChange: EnginePlumbingProps['onContentChange'],
   tap?: (tr: Parameters<NonNullable<RichTextEngineEvents['onTransaction']>>[0]) => void,
 ) {
   const [view, setView] = useState<EditorView | null>(null);
+  const [{ feed, publish }] = useState(createTransactionFeed);
   // The host's latest events, behind handlers that keep their identity: a new events object on
   // each of the host's renders would otherwise give the view new props, which redraws its
   // selection over a caret the browser has placed and not reported yet.
@@ -110,6 +113,7 @@ export function useEngineView(
       onTransaction: (tr, current) => {
         latest.current.events?.onTransaction?.(tr, current);
         latest.current.tap?.(tr);
+        publish(tr);
         const notify = latest.current.onContentChange;
         if (notify && isContentChange(tr)) notify(tr);
       },
@@ -126,9 +130,9 @@ export function useEngineView(
         latest.current.events?.onUnmounted?.();
       },
     }),
-    [],
+    [publish],
   );
-  return { view, events: withView };
+  return { view, events: withView, transactions: feed };
 }
 
 /**

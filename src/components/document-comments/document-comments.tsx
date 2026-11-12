@@ -24,9 +24,9 @@ import {
 import {
   canStartComment,
   createElementId,
-  listSuggestions,
   startCommentDraft,
   type Suggestion,
+  suggestionDecisionOf,
 } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
 import {
@@ -44,7 +44,16 @@ import {
 } from './comment-cards.js';
 import { type CommentItem, listCommentItems, renderCommentCard } from './comment-items.js';
 import { useCommentMentions } from './comment-mentions.js';
-import { useCommentThreads } from './use-comment-threads.js';
+import { WithCommentThreads } from './comment-threads-provider.js';
+import {
+  type CommentThreads,
+  useProvidedCommentThreads,
+  useSuggestionAuthors,
+} from './use-comment-threads.js';
+import { recordDecision } from './use-decision-records.js';
+import { useSuggestionThreads } from './use-suggestion-threads.js';
+
+export { EditorCommentThreads } from './comment-threads-provider.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
 export interface DocumentCommentsOptions {
@@ -65,6 +74,11 @@ export interface DocumentCommentsOptions {
    * opens its card (`markers`), which leaves the document more room.
    */
   presentation?: 'cards' | 'markers' | undefined;
+  /**
+   * Starts a thread for each of the reader's suggestions once they pause, `delay` milliseconds
+   * (800 by default), and keeps it to what the suggestion does. Off by default.
+   */
+  suggestionThreads?: boolean | { delay?: number | undefined } | undefined;
   /**
    * Whether the reader may accept a suggestion, and reject it, while they may decide at all; both
    * by default.
@@ -171,19 +185,26 @@ function PlacedCard({
   );
 }
 
-// Runs a command on the latest state the caller holds.
-function useRunCommand(onStateChange: DocumentCommentsProps['onStateChange']) {
-  return useMemo(
-    () => (command: Command) =>
-      onStateChange((current) => {
-        let next = current;
-        command(current, (tr) => {
-          next = current.apply(tr);
-        });
-        return next;
-      }),
-    [onStateChange],
-  );
+// Runs a command on the latest state the caller holds. A command that decides suggestions has its
+// decision recorded on their threads, read from a run on the state shown, since the caller applies
+// it later and outside the editor's transactions.
+function useRunCommand(
+  onStateChange: DocumentCommentsProps['onStateChange'],
+  { state, comments }: { state: EditorState; comments: CommentThreads },
+) {
+  return (command: Command) => {
+    command(state, (tr) => {
+      const report = suggestionDecisionOf(tr);
+      if (report) recordDecision(comments, report);
+    });
+    onStateChange((current) => {
+      let next = current;
+      command(current, (tr) => {
+        next = current.apply(tr);
+      });
+      return next;
+    });
+  };
 }
 
 // The card the caret is in: a thread's or a suggestion's, else the offer to comment on a selection.
@@ -195,32 +216,29 @@ function caretKey(items: readonly CommentItem[], state: EditorState): string | n
   return (inside ?? items.find((item) => item.kind === 'draft'))?.key ?? null;
 }
 
-// The people who made the document's suggestions, the same list while they stay the same.
-function useSuggestionAuthors(state: EditorState): readonly string[] {
-  const doc = state.doc;
-  const key = useMemo(
-    () =>
-      [...new Set(listSuggestions(doc).flatMap(({ author }) => (author ? [author] : [])))]
-        .sort()
-        .join('\n'),
-    [doc],
-  );
-  return useMemo(() => (key ? key.split('\n') : []), [key]);
-}
-
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread
  * and each suggestion level with its text, and, while text is selected, a button that starts a
- * thread on it. Resolved threads are hidden; their anchors stay in the document.
+ * thread on it. Resolved threads are hidden; their anchors stay in the document. The threads are
+ * those of the provider around it, or of its own.
  */
 export function DocumentComments(props: DocumentCommentsProps) {
+  const failed = props.labels?.failed ?? DEFAULT_COMMENTS_LABELS.failed;
+  return (
+    <WithCommentThreads {...props} failed={failed}>
+      <CommentsMargin {...props} />
+    </WithCommentThreads>
+  );
+}
+
+function CommentsMargin(props: DocumentCommentsProps) {
   const { state, onStateChange, canDecide, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
-  const authors = useSuggestionAuthors(state);
-  const comments = useCommentThreads({ ...props, failed: labels.failed, authors });
+  const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
-  const run = useRunCommand(onStateChange);
+  const run = useRunCommand(onStateChange, { state, comments });
+  useSuggestionThreads({ state, comments, run, options: props });
   const { showResolved, decide } = props;
   const items = useMemo(
     () => listCommentItems(state, { threads: comments.threads, canComment, showResolved }),

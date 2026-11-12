@@ -144,6 +144,176 @@ describe('comparing versions', () => {
   });
 });
 
+describe('comparing structure, pairing and targets', () => {
+  const item = (id: string, value: string): StoredNode => ({
+    type: 'listItem',
+    attrs: { id: `${id}9` },
+    content: [paragraph(id, value)],
+  });
+  const linked = (href: string): StoredNode => ({
+    type: 'paragraph',
+    attrs: { id: 'a0000001' },
+    content: [
+      { type: 'text', text: 'See ' },
+      { type: 'text', text: 'the site', marks: [{ type: 'link', attrs: { href } }] },
+    ],
+  });
+  const cited = (target: string, label: string): StoredNode => ({
+    type: 'paragraph',
+    attrs: { id: 'a0000001' },
+    content: [
+      { type: 'text', text: 'See ' },
+      { type: 'text', text: label, marks: [{ type: 'reference', attrs: { target } }] },
+    ],
+  });
+  const facts = (older: StoredNode[], newer: StoredNode[], generated = false) =>
+    compareVersions(read(...older), read(...newer), { generated }).map((change) => ({
+      kind: change.kind,
+      text: change.text,
+      structureChanged: change.structureChanged,
+      targets: change.targets,
+      generated: change.generated,
+    }));
+
+  it('DOCE-VERSIONS-1.7 finds blocks wrapped in, taken out of or moved between containers', () => {
+    const plain = [paragraph('a0000001', 'One'), paragraph('a0000002', 'Two')];
+    const listed: StoredNode[] = [
+      { type: 'bulletList', attrs: { id: 'b0000001' }, content: [item('a0000001', 'One')] },
+      paragraph('a0000002', 'Two'),
+    ];
+    const ordered: StoredNode[] = [
+      { type: 'orderedList', attrs: { id: 'b0000001' }, content: [item('a0000001', 'One')] },
+      paragraph('a0000002', 'Two'),
+    ];
+    const quoted: StoredNode[] = [
+      paragraph('a0000001', 'One'),
+      { type: 'blockquote', attrs: { id: 'b0000002' }, content: [paragraph('a0000002', 'Two')] },
+    ];
+    const formatting = {
+      kind: 'formatting',
+      structureChanged: true,
+      targets: [],
+      generated: false,
+    };
+    expect(facts(plain, listed)).toEqual([{ ...formatting, text: 'One' }]);
+    expect(facts(listed, ordered)).toEqual([{ ...formatting, text: 'One' }]);
+    expect(facts(quoted, plain)).toEqual([{ ...formatting, text: 'Two' }]);
+    const [edited] = compareVersions(
+      read(...plain),
+      read(...quoted.slice(0, 1), {
+        type: 'blockquote',
+        attrs: { id: 'b0000002' },
+        content: [paragraph('a0000002', 'Two more')],
+      }),
+    );
+    expect(edited).toMatchObject({
+      kind: 'modification',
+      structureChanged: true,
+      formatChanged: true,
+    });
+  });
+
+  it('DOCE-VERSIONS-1.7 finds a table cell merged or split', () => {
+    const cell = (id: string, value: string, colspan = 1): StoredNode => ({
+      type: 'tableCell',
+      attrs: { id: `${id}9`, colspan },
+      content: [paragraph(id, value)],
+    });
+    const table = (...cells: StoredNode[]): StoredNode => ({
+      type: 'table',
+      attrs: { id: 'c0000001' },
+      content: [{ type: 'tableRow', attrs: { id: 'c0000002' }, content: cells }],
+    });
+    expect(
+      facts(
+        [table(cell('a0000001', 'Left'), cell('a0000002', 'Right'))],
+        [table(cell('a0000001', 'Left', 2))],
+      ),
+    ).toEqual([
+      { kind: 'formatting', text: 'Left', structureChanged: true, targets: [], generated: false },
+      {
+        kind: 'deletion',
+        text: 'Right',
+        structureChanged: undefined,
+        targets: undefined,
+        generated: undefined,
+      },
+    ]);
+  });
+
+  it('DOCE-VERSIONS-1.8 pairs blocks without ids by how alike their words are', () => {
+    const bare = (value: string): StoredNode => ({
+      type: 'paragraph',
+      content: [{ type: 'text', text: value }],
+    });
+    const older = [bare('The pump starts when the tank is low.'), bare('Valves close at night.')];
+    const newer = [
+      bare('The pump starts when the tank is nearly empty.'),
+      bare('Lights dim at dusk.'),
+    ];
+    expect(summary(older, newer)).toEqual([
+      ['modification', null, 'The pump starts when the tank is nearly empty.'],
+      ['insertion', null, 'Lights dim at dusk.'],
+      ['deletion', null, 'Valves close at night.'],
+    ]);
+    // A block alike two others pairs with the likest, and each older block pairs once.
+    expect(
+      summary(
+        [bare('Red green blue'), bare('Red green blue yellow')],
+        [bare('Red green blue yellow!')],
+      ),
+    ).toEqual([
+      ['deletion', null, 'Red green blue'],
+      ['modification', null, 'Red green blue yellow!'],
+    ]);
+  });
+
+  it('DOCE-VERSIONS-1.9 tells a link or reference whose target changed from formatting', () => {
+    expect(facts([linked('https://example.com/a')], [linked('https://example.com/b')])).toEqual([
+      {
+        kind: 'modification',
+        text: 'See the site',
+        structureChanged: false,
+        targets: ['link'],
+        generated: false,
+      },
+    ]);
+    expect(facts([cited('a0000002', 'the heading')], [cited('a0000003', 'the heading')])).toEqual([
+      {
+        kind: 'modification',
+        text: 'See the heading',
+        structureChanged: false,
+        targets: ['reference'],
+        generated: false,
+      },
+    ]);
+  });
+
+  it('DOCE-VERSIONS-1.10 leaves out values the document generates, unless asked', () => {
+    const older = [cited('a0000002', 'Section 3')];
+    const newer = [cited('a0000002', 'Section 10')];
+    expect(facts(older, newer)).toEqual([]);
+    expect(facts(older, newer, true)).toEqual([
+      {
+        kind: 'modification',
+        text: 'See Section 10',
+        structureChanged: false,
+        targets: [],
+        generated: true,
+      },
+    ]);
+    const script = (output: string): StoredNode => ({
+      type: 'script',
+      attrs: { id: 'e0000001', source: 'return [];' },
+      content: [paragraph('e0000002', output)],
+    });
+    expect(facts([script('Generated')], [script('Generated again')])).toEqual([]);
+    expect(facts([script('Generated')], [script('Generated again')], true)).toMatchObject([
+      { kind: 'modification', generated: true },
+    ]);
+  });
+});
+
 describe('showing version changes', () => {
   const older = read(paragraph('a0000001', 'Alpha blue'), paragraph('a0000002', 'Gone'));
   const newer = read(paragraph('a0000001', 'Alpha gamma'), paragraph('a0000003', 'Added'));

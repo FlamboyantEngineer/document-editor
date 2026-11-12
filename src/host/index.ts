@@ -1,9 +1,5 @@
 export type {
-  AssetAdapter,
   CodeSourceAdapter,
-  CommentEntry,
-  CommentStoreAdapter,
-  CommentThread,
   CompletionAdapter,
   DocumentSave,
   DocumentStoreAdapter,
@@ -22,7 +18,6 @@ export type {
   HostError,
   HostResult,
   IdentityAdapter,
-  NewCommentThread,
   PermissionsAdapter,
   ProoferAdapter,
   ProofingIssue,
@@ -31,10 +26,10 @@ export type {
   ProofingText,
   ReferenceSourceAdapter,
   ResolvedCode,
+  SavedState,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptVocabularyEntry,
-  StoredAsset,
   StoredDocument,
   StoredTemplate,
   TelemetryAdapter,
@@ -43,6 +38,14 @@ export type {
   VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
+export type {
+  AssetAdapter,
+  AssetSearchPage,
+  DiagramAdapter,
+  FoundAsset,
+  StoredAsset,
+  StoredDiagram,
+} from './asset-adapters.js';
 export type {
   ConnectionAccess,
   EditingMode,
@@ -55,9 +58,30 @@ export {
   READ_ONLY_CAPABILITIES,
   resolveEditingMode,
 } from './capabilities.js';
+export type {
+  CommentActivity,
+  CommentChange,
+  CommentDecision,
+  CommentEntry,
+  CommentStoreAdapter,
+  CommentTarget,
+  CommentTargetRange,
+  CommentThread,
+  NewCommentThread,
+} from './comment-adapters.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHostOptions } from './memory-host.js';
 export { createMemoryHost } from './memory-host.js';
+export type {
+  CollaborationAdapter,
+  DocumentDraft,
+  DraftsAdapter,
+  LifecycleAdapter,
+  LifecycleEvent,
+  RoomConnection,
+  RoomConnectOptions,
+  RoomState,
+} from './session-adapters.js';
 export type { WordListProoferOptions } from './word-list-proofer.js';
 export { createWordListProofer } from './word-list-proofer.js';

@@ -10,6 +10,7 @@ import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import {
   isMatchReplaceable,
+  matchesShortcut,
   replaceAllMatches,
   replaceMatch,
   searchSeed,
@@ -17,10 +18,10 @@ import {
   selectNextMatch,
   selectPreviousMatch,
   setSearch,
+  shortcutsOf,
 } from '../../engine/index.js';
 import { searchControlState, searchOptionsOf } from '../../utils/search-options.js';
 import type { EditorContext } from './editor-context.js';
-import { isFindKey, isReplaceKey } from './use-editor-engine.js';
 
 /** Which box of the find bar a request focuses: the find box, or the replacement box. */
 export type FindBarMode = 'find' | 'replace';
@@ -70,7 +71,7 @@ export function useFindBar(
       setRequest({ mode });
     };
   }, [enabled, view]);
-  useFindShortcuts(rootRef, open);
+  useFindShortcuts(rootRef, view, open);
   return { request, open, close: () => setRequest(null) };
 }
 
@@ -78,6 +79,7 @@ export function useFindBar(
 // A key something inside the editor already handled, as the search pane does these, is left alone.
 function useFindShortcuts(
   rootRef: RefObject<HTMLElement | null>,
+  view: EditorView | null,
   open: ((mode?: FindBarMode) => void) | null,
 ) {
   useEffect(() => {
@@ -85,14 +87,17 @@ function useFindShortcuts(
     if (!root || !open) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
-      const mode = isFindKey(event) ? 'find' : isReplaceKey(event) ? 'replace' : null;
+      const table = view ? shortcutsOf(view.state) : null;
+      const mode = table
+        ? (['find', 'replace'] as const).find((id) => matchesShortcut(table, id, event))
+        : undefined;
       if (!mode) return;
       event.preventDefault();
       open(mode);
     };
     root.addEventListener('keydown', onKeyDown);
     return () => root.removeEventListener('keydown', onKeyDown);
-  }, [rootRef, open]);
+  }, [rootRef, view, open]);
 }
 
 /** The find bar, searching the document the context shows. */

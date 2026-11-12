@@ -9,6 +9,12 @@ export interface EditorCapabilities {
   suggest: boolean;
   /** Add, reply to and react to comments. */
   comment: boolean;
+  /** Accept and reject other readers' suggestions. */
+  decide: boolean;
+  /** Save a named version of the document. */
+  saveVersion: boolean;
+  /** Open the document's saved versions and compare them. */
+  history: boolean;
 }
 
 /** How the editor treats content input for one mounted document. */
@@ -32,6 +38,9 @@ export const READ_ONLY_CAPABILITIES: EditorCapabilities = Object.freeze({
   edit: false,
   suggest: false,
   comment: false,
+  decide: false,
+  saveVersion: false,
+  history: false,
 });
 
 /** Every capability, for a reader who owns the document. */
@@ -39,6 +48,9 @@ export const FULL_CAPABILITIES: EditorCapabilities = Object.freeze({
   edit: true,
   suggest: true,
   comment: true,
+  decide: true,
+  saveVersion: true,
+  history: true,
 });
 
 /**

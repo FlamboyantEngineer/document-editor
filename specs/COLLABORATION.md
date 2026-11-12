@@ -64,6 +64,15 @@ The text each of the writer's own changes inserts, typed or pasted, shall read a
 Implementation: `src/engine/provenance.ts`, `src/engine/element-ids.ts`
 Verification: `src/engine/provenance.test.ts`
 
+## DOCE-COLLAB-6 - Shared rooms
+
+### DOCE-COLLAB-6.1 - Room layout and write rules
+
+A shared room shall hold the canonical whole-document state in the top-level type `content`, the comment and suggestion threads in `comments`, one attribute per thread keyed by its id, and the stored format version and template pin as attributes of `meta` (`docs/collaboration.md`). The documented write rules shall let a connection write `content` when its reader may edit, suggest or decide on suggestions, `meta` when they may edit, `comments` when they may edit, suggest, decide or comment, and no type outside the layout, deciding each update by the types it changes alone, so a commenter writes only `comments`.
+
+Implementation: `docs/collaboration.md`
+Verification: `test/shared-room-rules.test.ts`
+
 ## Hooks
 
 | Hook                       | Kind      | Values  | Description                                      |

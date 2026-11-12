@@ -54,6 +54,7 @@ export { canInsertBlock } from './block-place.js';
 export { setTextblockType } from './block-type.js';
 export type { CaptionedObject } from './captions.js';
 export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
+export { activeCommentThread, commentAnchors, createCommentAnchors } from './comment-anchors.js';
 export type { CommentDraft } from './comment-draft.js';
 export {
   canStartComment,
@@ -63,14 +64,15 @@ export {
   createCommentDraft,
   startCommentDraft,
 } from './comment-draft.js';
-export type { CommentAnchor, CommentState } from './comments.js';
+export type { AnchorOptions, CommentAnchor, CommentRange, CommentState } from './comments.js';
 export {
   addCommentAnchor,
-  anchorCommentRange,
+  anchorCommentRanges,
   linkSuggestionThread,
   listCommentAnchors,
   removeCommentAnchor,
   selectedText,
+  selectionRanges,
   setCommentState,
 } from './comments.js';
 export type { ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
@@ -222,6 +224,17 @@ export {
   createSectionFootnoteNumbers,
   sectionFootnoteNumbersKey,
 } from './section-footnote-numbers.js';
+export type { ShortcutId, ShortcutOverrides, ShortcutTable } from './shortcuts.js';
+export {
+  createShortcuts,
+  DEFAULT_SHORTCUTS,
+  formatShortcut,
+  matchesShortcut,
+  resolveShortcuts,
+  shortcutLabel,
+  shortcutsKey,
+  shortcutsOf,
+} from './shortcuts.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

@@ -1,8 +1,12 @@
 // A document's comment threads as the host's comment store keeps them, the people who wrote them,
-// and the changes the reader makes, each resolving once the store accepts it.
+// and the changes the reader makes, each resolving once the store accepts it. Inside a
+// `CommentThreadsProvider` for the same store and document, every caller shares one thread state,
+// so the margin and the comments panel show each change at once, with one listing.
 
 import type { AvatarIdentity } from '@flamboyantengineer/ui-components/avatar';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { EditorState } from 'prosemirror-state';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { listSuggestions } from '../../engine/index.js';
 import type {
   CommentStoreAdapter,
   CommentThread,
@@ -10,12 +14,14 @@ import type {
   IdentityAdapter,
   NewCommentThread,
 } from '../../host/index.js';
-
-/** A comment of a thread, by the thread's id and its own. */
-interface EntryChange {
-  readonly threadId: string;
-  readonly entryId: string;
-}
+import {
+  type EntryChange,
+  threadActions,
+  type ThreadChange,
+  type ThreadDecision,
+} from './comment-thread-actions.js';
+import { useThreadList } from './comment-thread-list.js';
+import { type ThreadActivity, useThreadActivity } from './use-thread-activity.js';
 
 /** The threads of a document and the changes the reader can make to them. */
 export interface CommentThreads {
@@ -23,20 +29,39 @@ export interface CommentThreads {
   readonly threads: ReadonlyMap<string, CommentThread>;
   /** Who wrote each comment, by person id. */
   readonly people: ReadonlyMap<string, AvatarIdentity>;
-  /** Why the threads could not be listed, if they could not. */
+  /** Why the threads could not be listed, if they could not; the threads listed before stay. */
   readonly error: string | null;
+  /** What is happening in each thread besides its comments, by thread id. */
+  readonly activity: ReadonlyMap<string, readonly ThreadActivity[]>;
   create(thread: NewCommentThread): Promise<CommentThread>;
-  reply(threadId: string, text: string): Promise<CommentThread>;
+  /** Posts a reply; a failure shows as the thread's activity, with Retry, and resolves `null`. */
+  reply(threadId: string, text: string): Promise<CommentThread | null>;
   setState(threadId: string, state: CommentThread['state']): Promise<CommentThread>;
   remove(threadId: string): Promise<void>;
   /** Changes the reader's own comment, while the store can. */
   edit: ((change: EntryChange & { text: string }) => Promise<CommentThread>) | null;
   /** Deletes the reader's own reply, while the store can. */
   removeEntry: ((entry: EntryChange) => Promise<CommentThread>) | null;
-  /** Adds or takes back the reader's reaction to a comment, while the store can. */
+  /** Adds or takes back the reader's reaction to a comment, or to the thread without `entryId`. */
   react:
-    | ((reaction: EntryChange & { emoji: string; reacted: boolean }) => Promise<CommentThread>)
+    | ((reaction: {
+        threadId: string;
+        entryId?: string | undefined;
+        emoji: string;
+        reacted: boolean;
+      }) => Promise<CommentThread>)
     | null;
+  /** Records how a thread's suggestion was decided and resolves it, while the store can. */
+  decide: ((decision: ThreadDecision) => Promise<CommentThread>) | null;
+  /** Changes a thread's quote, target or change, while the store can. */
+  update:
+    | ((
+        threadId: string,
+        fields: Partial<Pick<CommentThread, 'quote' | 'target' | 'change'>>,
+      ) => Promise<CommentThread>)
+    | null;
+  /** Tells others the reader is writing in a thread, or has stopped, while the store can. */
+  setTyping: ((threadId: string, isTyping: boolean) => void) | null;
 }
 
 /** Where a document's threads are kept, and who the reader is. */
@@ -46,23 +71,40 @@ export interface CommentThreadsOptions {
   identity: IdentityAdapter;
   /** The message a failed change shows when the store gives none. */
   failed: string;
-  /** Other people to name beside the threads' authors, such as the authors of suggestions. */
-  authors?: readonly string[] | undefined;
 }
 
+/** The thread state a provider shares with the margin and the panel inside it. */
+export interface SharedCommentThreads {
+  readonly store: CommentStoreAdapter;
+  readonly documentId: string;
+  readonly threads: CommentThreads;
+}
+
+/** The thread state of the nearest `CommentThreadsProvider`, if any. */
+export const SharedCommentThreadsContext = createContext<SharedCommentThreads | null>(null);
+
 const NO_AUTHORS: readonly string[] = [];
+const NO_THREADS: ReadonlyMap<string, CommentThread> = new Map();
+const NO_PEOPLE: ReadonlyMap<string, AvatarIdentity> = new Map();
 
 function valueOf<T>(result: HostResult<T>, failed: string): T {
   if (result.ok) return result.value;
   throw new Error(result.error.message ?? failed);
 }
 
-// Each author's name and picture, looked up once for every id the threads and `others` name.
-function usePeople(
+/** Whose names to look up: the threads' authors and `others`, less the people `known` names. */
+interface PeopleSources {
+  readonly threads: ReadonlyMap<string, CommentThread>;
+  readonly others: readonly string[];
+  readonly known: ReadonlyMap<string, AvatarIdentity>;
+}
+
+// Each author's name and picture, looked up once for every id the threads and `others` name;
+// people `known` already names are not looked up again, and are given with the rest.
+function useCommentPeople(
   identity: IdentityAdapter,
-  threads: ReadonlyMap<string, CommentThread>,
-  others: readonly string[],
-) {
+  { threads, others, known }: PeopleSources,
+): ReadonlyMap<string, AvatarIdentity> {
   const [people, setPeople] = useState<ReadonlyMap<string, AvatarIdentity>>(new Map());
   const authors = useMemo(() => {
     const ids = new Set<string>(others);
@@ -70,7 +112,7 @@ function usePeople(
       for (const entry of thread.entries) ids.add(entry.author);
     return [...ids].sort();
   }, [threads, others]);
-  const missing = authors.filter((id) => !people.has(id));
+  const missing = authors.filter((id) => !people.has(id) && !known.has(id));
   const key = missing.join('\n');
   useEffect(() => {
     if (!key) return;
@@ -88,7 +130,10 @@ function usePeople(
       current = false;
     };
   }, [identity, key]);
-  return people;
+  return useMemo(
+    () => (known.size === 0 ? people : people.size === 0 ? known : new Map([...known, ...people])),
+    [known, people],
+  );
 }
 
 /** Lists a document's threads from the host's store and keeps them as the reader changes them. */
@@ -97,64 +142,74 @@ export function useCommentThreads({
   documentId,
   identity,
   failed,
-  authors = NO_AUTHORS,
 }: CommentThreadsOptions): CommentThreads {
-  const [threads, setThreads] = useState<ReadonlyMap<string, CommentThread>>(new Map());
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    void store.list(documentId, controller.signal).then((result) => {
-      if (controller.signal.aborted) return;
-      setError(result.ok ? null : (result.error.message ?? failed));
-      setThreads(new Map(result.ok ? result.value.map((thread) => [thread.id, thread]) : []));
-    });
-    // A store that tells of changes keeps the threads current, whoever changes them.
-    const stop = store.subscribe?.(documentId, (threads) => {
-      if (!controller.signal.aborted) {
-        setThreads(new Map(threads.map((thread) => [thread.id, thread])));
+  const { threads, error, write, settle } = useThreadList(store, { documentId, failed });
+  const { activity, track } = useThreadActivity(store, { documentId, threads, failed });
+  const people = useCommentPeople(identity, { threads, others: NO_AUTHORS, known: NO_PEOPLE });
+  // Makes a change to a thread: noted before the store is asked, kept as the store returns it,
+  // and shown as the thread's activity while it is made and when it fails.
+  const change = useCallback<ThreadChange>(
+    async (threadId, ask, tracked = {}) => {
+      write(threadId);
+      try {
+        const asked = ask().then((result) => valueOf(result, failed));
+        const thread = await track(threadId, tracked, asked);
+        settle(threadId, thread);
+        return thread;
+      } catch (cause) {
+        settle(threadId, undefined);
+        throw cause;
       }
-    });
-    return () => {
-      controller.abort();
-      stop?.();
-    };
-  }, [store, documentId, failed]);
-  const keep = useCallback(
-    (result: HostResult<CommentThread> | undefined) => {
-      if (!result) throw new Error(failed);
-      const thread = valueOf(result, failed);
-      setThreads((current) => new Map(current).set(thread.id, thread));
-      return thread;
     },
-    [failed],
+    [write, settle, track, failed],
   );
-  const people = usePeople(identity, threads, authors);
   return useMemo(
-    () => ({
-      threads,
-      people,
-      error,
-      create: async (thread) => keep(await store.create(documentId, thread)),
-      reply: async (threadId, text) => keep(await store.reply(documentId, threadId, text)),
-      setState: async (threadId, state) => keep(await store.setState(documentId, threadId, state)),
-      edit: store.edit
-        ? async (change) => keep(await store.edit?.call(store, documentId, change))
-        : null,
-      removeEntry: store.removeEntry
-        ? async (entry) => keep(await store.removeEntry?.call(store, documentId, entry))
-        : null,
-      react: store.react
-        ? async (reaction) => keep(await store.react?.call(store, documentId, reaction))
-        : null,
-      remove: async (threadId) => {
-        valueOf(await store.remove(documentId, threadId), failed);
-        setThreads((current) => {
-          const next = new Map(current);
-          next.delete(threadId);
-          return next;
-        });
-      },
-    }),
-    [threads, people, error, keep, store, documentId, failed],
+    () => threadActions({ store, documentId, change }, { threads, people, error, activity }),
+    [store, documentId, change, threads, people, error, activity],
   );
+}
+
+/** The thread state of the nearest provider, when it keeps this store's threads of the document. */
+export function useSharedCommentThreads({
+  store,
+  documentId,
+}: Pick<CommentThreadsOptions, 'store' | 'documentId'>): CommentThreads | null {
+  const shared = useContext(SharedCommentThreadsContext);
+  return shared?.store === store && shared.documentId === documentId ? shared.threads : null;
+}
+
+/** The people who made the document's suggestions, the same list while they stay the same. */
+export function useSuggestionAuthors(state: EditorState): readonly string[] {
+  const doc = state.doc;
+  const key = useMemo(
+    () =>
+      [...new Set(listSuggestions(doc).flatMap(({ author }) => (author ? [author] : [])))]
+        .sort()
+        .join('\n'),
+    [doc],
+  );
+  return useMemo(() => (key ? key.split('\n') : []), [key]);
+}
+
+/**
+ * The threads the nearest provider keeps (`WithCommentThreads`), with `authors`, such as the
+ * writers of suggestions, named beside the threads' own.
+ */
+export function useProvidedCommentThreads(
+  options: Pick<CommentThreadsOptions, 'store' | 'documentId' | 'identity'>,
+  authors: readonly string[] = NO_AUTHORS,
+): CommentThreads {
+  const shared = useSharedCommentThreads(options);
+  const known = shared?.people ?? NO_PEOPLE;
+  const people = useCommentPeople(options.identity, {
+    threads: NO_THREADS,
+    others: authors,
+    known,
+  });
+  const provided = useMemo(
+    () => (shared && people !== known ? { ...shared, people } : shared),
+    [shared, people, known],
+  );
+  if (!provided) throw new Error('Comment threads are read inside WithCommentThreads.');
+  return provided;
 }

@@ -10,9 +10,9 @@ import {
   type AutomationEdit,
   type AutomationOptions,
   type AutomationResult,
+  commentAnchors,
   documentSnapshot,
   type EditAddress,
-  listCommentAnchors,
   revealElement,
   type RevealOptions,
   type SnapshotOptions,
@@ -102,7 +102,7 @@ function selectIn(view: EditorView | null, address: EditAddress): boolean {
 
 // Puts the caret in a thread's anchor and scrolls it into view.
 function openThread(view: EditorView, threadId: string): boolean {
-  const anchor = listCommentAnchors(view.state.doc).find((each) => each.thread === threadId);
+  const anchor = commentAnchors(view.state).find((each) => each.thread === threadId);
   if (!anchor) return false;
   const selection = TextSelection.create(view.state.doc, anchor.from);
   view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());

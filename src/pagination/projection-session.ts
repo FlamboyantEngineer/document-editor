@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, EditorState, type Transaction } from 'prosemirror-state';
+import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
@@ -74,10 +75,23 @@ export interface Session {
   quiet: number;
 }
 
-/** Takes a canonical transaction: applied, and handed to the host's `dispatch`. */
-export function send(session: Session, tr: Transaction): void {
-  session.canonical = session.canonical.apply(tr);
+/**
+ * Takes a canonical transaction: applied with what the canonical plugins append to it, and handed
+ * to the host's `dispatch`. Gives the transactions applied, the appended ones after it; none when a
+ * plugin filtered it out.
+ */
+export function send(session: Session, tr: Transaction): readonly Transaction[] {
+  const { state, transactions } = session.canonical.applyTransaction(tr);
+  session.canonical = state;
   session.options.dispatch?.(tr);
+  return transactions;
+}
+
+// The steps of transactions applied one after another, from the document the first starts from.
+function chain(from: ProseMirrorNode, transactions: readonly Transaction[]): Transform {
+  const all = new Transform(from);
+  for (const each of transactions) for (const step of each.steps) all.step(step);
+  return all;
 }
 
 // The projection's new state, told to whatever renders it.
@@ -230,7 +244,7 @@ export function layout(session: Session): void {
  * Mirrors the canonical state onto the projection from the document shown, by `tr` when it made
  * the state from that document; or lays the pages out at once when a step cannot be placed.
  */
-export function showCanonical(session: Session, tr: Transaction | null): void {
+export function showCanonical(session: Session, tr: Transform | null): void {
   const { projection, map, rules, canonical, shown } = session;
   const changed = canonical.doc !== shown;
   const by = changed && tr?.before === shown ? tr : null;
@@ -256,8 +270,7 @@ export function prepare(session: Session): void {
 
 /** Takes a transaction of the canonical state as it stands, and shows it on the pages at once. */
 export function dispatchCanonical(session: Session, tr: Transaction): void {
-  send(session, tr);
-  showCanonical(session, tr);
+  showCanonical(session, chain(tr.before, send(session, tr)));
 }
 
 /** Runs a command on the canonical state, with the projection's selection mirrored there first. */
@@ -276,8 +289,7 @@ function routeInput(session: Session, tr: Transaction): void {
   if (isColumnWidthChange(tr)) {
     const ctr = routeColumnWidth(tr, session);
     if (!ctr) return refuse(session);
-    send(session, ctr);
-    return showCanonical(session, ctr);
+    return showCanonical(session, chain(ctr.before, send(session, ctr)));
   }
   syncSelection(session);
   const { rules } = session;
@@ -287,8 +299,13 @@ function routeInput(session: Session, tr: Transaction): void {
   session.map = routed.atBreak ? createProjectionMap(doc, rules) : routed.map.on(doc);
   copyMeta(tr, routed.projection);
   take(session, routed.projection);
-  send(session, routed.canonical);
-  session.shown = session.canonical.doc;
+  const made = send(session, routed.canonical);
+  session.shown = routed.canonical.doc;
+  // What the canonical plugins appended, or a change they refused, is mirrored after the edit.
+  if (session.canonical.doc !== session.shown) {
+    const appended = made[0] === routed.canonical ? made.slice(1) : null;
+    return showCanonical(session, appended && chain(session.shown, appended));
+  }
   markChanged(session);
   session.edits.request();
 }

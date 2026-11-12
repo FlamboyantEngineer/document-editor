@@ -7,8 +7,8 @@ import {
   resolveEditingMode,
 } from './capabilities.js';
 
-const SUGGESTER: EditorCapabilities = { edit: false, suggest: true, comment: true };
-const COMMENTER: EditorCapabilities = { edit: false, suggest: false, comment: true };
+const SUGGESTER: EditorCapabilities = { ...READ_ONLY_CAPABILITIES, suggest: true, comment: true };
+const COMMENTER: EditorCapabilities = { ...READ_ONLY_CAPABILITIES, comment: true };
 
 describe('resolveEditingMode', () => {
   it('DOCE-HOST-2.1 DOCE-HOST-2.2 edits with the edit capability, whatever the connection', () => {

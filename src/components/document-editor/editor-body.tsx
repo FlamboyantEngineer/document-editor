@@ -8,6 +8,7 @@ import {
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useMemo } from 'react';
+import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import type { DocumentEditorProps } from './document-editor.js';
@@ -18,8 +19,6 @@ import { ObjectEditors } from './object-editors.js';
 import { useOpeningScripts } from './script-entries.js';
 import { TableHandles } from './table-handles.js';
 import {
-  isCommentKey,
-  isReferenceKey,
   READ_SELECTION_FIRST,
   SelectionFirst,
   useDispatchBody,
@@ -50,8 +49,27 @@ export interface EditorBodyProps {
   startCommentRef: RefObject<(() => void) | null>;
 }
 
+// The editor's own keys beside the document's, by their ids in the shortcut table, while each can
+// act: starting a comment, and the reference and script dialogs. The find bar's keys are the editor
+// root's (`useFindBar`), so they work outside the document too.
+function editorKeys({
+  startComment,
+  onDialog,
+  scripts,
+}: {
+  startComment: (() => void) | null;
+  onDialog: ((dialog: ObjectDialog) => void) | null;
+  scripts: boolean;
+}): (readonly [ShortcutId, () => void])[] {
+  return [
+    ...(startComment ? [['comment', startComment] as const] : []),
+    ...(onDialog ? [['reference', () => onDialog({ kind: 'reference' })] as const] : []),
+    ...(onDialog && scripts ? [['script', () => onDialog({ kind: 'script' })] as const] : []),
+  ];
+}
+
 // The body's view props: pasted figures, the host's keys before the editor's own (comment,
-// reference; find is the editor root's), secondary clicks left to the context menu, and the events that read the DOM
+// reference, script), secondary clicks left to the context menu, and the events that read the DOM
 // selection first.
 function useBodyViewProps({
   props,
@@ -60,6 +78,7 @@ function useBodyViewProps({
   onDialog,
 }: Omit<EditorBodyProps, 'engine' | 'view' | 'paged'>) {
   const { editable = true, assets, feedback } = props;
+  const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
   return useMemo(
     () => ({
@@ -76,18 +95,16 @@ function useBodyViewProps({
       attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
         if (host.handleKeyDown?.(view, event)) return true;
-        const startComment = startCommentRef.current;
-        if (startComment && isCommentKey(event)) {
-          event.preventDefault();
-          startComment();
-          return true;
-        }
-        if (onDialog && isReferenceKey(event)) {
-          event.preventDefault();
-          onDialog({ kind: 'reference' });
-          return true;
-        }
-        return false;
+        const table = shortcutsOf(view.state);
+        const action = editorKeys({
+          startComment: startCommentRef.current,
+          onDialog,
+          scripts,
+        }).find(([id]) => matchesShortcut(table, id, event))?.[1];
+        if (!action) return false;
+        event.preventDefault();
+        action();
+        return true;
       },
       // A secondary click belongs to the context menu, which selects what it opens on: left to the
       // engine, its release would select the clicked object again and take focus from the menu.
@@ -98,7 +115,7 @@ function useBodyViewProps({
         ...(host.blur ? { blur: host.blur } : {}),
       },
     }),
-    [editable, host, onDialog, assets, feedback, labels, startCommentRef],
+    [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef],
   );
 }
 
