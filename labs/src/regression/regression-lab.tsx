@@ -45,6 +45,9 @@ function initialName(): RegressionDocumentName {
 const LAYOUT: DocumentLayout =
   new URLSearchParams(window.location.search).get('layout') === 'web' ? 'web' : 'page';
 
+// Whether the pages are a projection of the document (`projection`, DOCE-PAGINATION-7.17).
+const PROJECTION = new URLSearchParams(window.location.search).has('projection');
+
 function opened(name: RegressionDocumentName): { state: EditorState; template: TemplateFile } {
   const { file, template } = regressionDocument(name);
   const schema = createDocumentSchema();
@@ -104,6 +107,7 @@ function RegressionLab() {
         onStateChange={setState}
         template={template}
         layout={LAYOUT}
+        projection={PROJECTION}
         scrollable
         statusBar
         className="lab-document-editor"

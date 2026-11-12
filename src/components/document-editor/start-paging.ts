@@ -19,7 +19,9 @@ import {
   createPagination,
   type LayoutState,
   loadTemplateFonts,
+  pageDebugKey,
   type PagedProjection,
+  pageVariablesKey,
   type Pagination,
 } from '../../pagination/index.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
@@ -52,9 +54,14 @@ export function fragmentRulesOf(options: DocumentLayoutOptions): FragmentRules {
   return { ...FRAGMENT_RULES, ...options.fragmentRules };
 }
 
-// The refs the page layout keeps: how to lay out again, what lays out, and the plugins it added.
-interface PagingRefs {
+/** Has the plugins of these keys that read the pages draw them again. */
+export type Redraw = (key: PluginKey) => void;
+
+/** The refs the page layout keeps: how to lay out and draw again, what lays out, its plugins. */
+export interface PagingRefs {
   readonly refresh: RefObject<(() => void) | null>;
+  /** Set while a projection's pages run the plugins that read them. */
+  readonly redraw: RefObject<Redraw | null>;
   readonly active: RefObject<LayoutRunner | null>;
   readonly ownPlugins: RefObject<readonly Plugin[]>;
   readonly paginationPlugin: RefObject<Plugin | null>;
@@ -87,17 +94,7 @@ export function startPaging(
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
   };
   const { refresh, active, ownPlugins, paginationPlugin } = refs;
-  if (latest.current.projection) {
-    const projection = startProjection(setup, latest, { own: ownPlugins.current, setPaged });
-    active.current = projection;
-    refresh.current = () => projection.refresh({ remeasure: true });
-    return () => {
-      refresh.current = null;
-      active.current = null;
-      setPaged(null);
-      projection.destroy();
-    };
-  }
+  if (latest.current.projection) return startProjectionOf(setup, latest, { refs, setPaged });
   const pagination = createPagination({
     ...setup,
     plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
@@ -123,21 +120,71 @@ export function startPaging(
   };
 }
 
-// A projection of the state on pages: the ghost measures with the state's plugins that take room,
-// and the editor renders each projection state it makes.
-function startProjection(
-  setup: Omit<Parameters<typeof createPagination>[0], 'plugins'>,
+// The layout's plugins that read the pages, which run on a projection's pages rather than on the
+// canonical state.
+const ON_PAGES = new Set<PluginKey>([pageDebugKey, pageVariablesKey]);
+const onPages = (plugin: Plugin) => ON_PAGES.has(plugin.spec.key as PluginKey);
+
+type PagingSetup = Omit<Parameters<typeof createPagination>[0], 'plugins'>;
+type SetPaged = (paged: PagedEditor | null) => void;
+
+// Lays the pages out as a projection of the state, the layout's plugins that read the pages moved
+// from the state onto them; returns how to stop.
+function startProjectionOf(
+  setup: PagingSetup,
   latest: RefObject<DocumentLayoutOptions>,
-  { own, setPaged }: { own: readonly Plugin[]; setPaged: (paged: PagedEditor | null) => void },
+  { refs, setPaged }: { refs: PagingRefs; setPaged: SetPaged },
+): () => void {
+  const { refresh, redraw, active, ownPlugins } = refs;
+  const own = ownPlugins.current;
+  const pages = own.filter(onPages);
+  const kept = own.filter((plugin) => !onPages(plugin));
+  const { onStateChange } = latest.current;
+  ownPlugins.current = kept;
+  onStateChange((state) =>
+    state.reconfigure({ plugins: state.plugins.filter((plugin) => !pages.includes(plugin)) }),
+  );
+  const projection = startProjection(setup, latest, { own: ownPlugins.current, pages, setPaged });
+  active.current = projection;
+  refresh.current = () => projection.refresh({ remeasure: true });
+  redraw.current = (key) => projection.redraw(key);
+  return () => {
+    refresh.current = null;
+    redraw.current = null;
+    active.current = null;
+    setPaged(null);
+    projection.destroy();
+    // The pages' plugins go back to the state only while the layout keeps its plugins, as when
+    // the projection is turned off, not as the editor goes.
+    if (ownPlugins.current !== kept) return;
+    ownPlugins.current = own;
+    onStateChange((state) => state.reconfigure({ plugins: [...state.plugins, ...pages] }));
+  };
+}
+
+// A projection of the state on pages: the ghost measures with the state's plugins that take room,
+// the plugins that read the pages run on them, and the editor renders each projection state.
+function startProjection(
+  setup: PagingSetup,
+  latest: RefObject<DocumentLayoutOptions>,
+  {
+    own,
+    pages,
+    setPaged,
+  }: { own: readonly Plugin[]; pages: readonly Plugin[]; setPaged: SetPaged },
 ): PagedProjection {
   let made: PagedProjection | null = null;
   const projection = createPagedProjection({
     ...setup,
     state: latest.current.state,
     pageHeight: setup.pageHeight,
+    ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
     // The engine renders the projection's states with React node identities kept.
-    plugins: [reactKeys()],
-    ghostPlugins: withOwn(latest.current.state.plugins, own),
+    plugins: [reactKeys(), ...pages],
+    ghostPlugins: withOwn(
+      latest.current.state.plugins.filter((plugin) => !pages.includes(plugin)),
+      own,
+    ),
     dispatch: (tr) => latest.current.onCanonical?.(tr),
     onProjection: (state) => {
       if (made) setPaged({ projection: made, state });

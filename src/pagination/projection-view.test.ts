@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { joinDocumentPages, readDocumentFile, sameStructure } from '../model/index.js';
 import { canonicalView } from './canonical-view.js';
+import { pageMap } from './page-map.js';
 import { isPaginationTransaction, layoutStats, pageMetrics } from './pagination.js';
 import { createProjectionView, type ProjectionViewOptions } from './projection-view.js';
 
@@ -317,6 +318,22 @@ describe('projection view', () => {
     expect(laid).toHaveLength(2);
     expect(projection.stats()).toMatchObject({ layouts: 2, pagesReused: 3, refused: 0 });
     expect(states).toEqual(['settled', 'pending', 'settled']);
+  });
+
+  it('DOCE-PAGINATION-7.17 waits for its fonts, and counts the pages it shows as the layout of the canonical state', async () => {
+    let loaded: () => void = () => undefined;
+    const ready = new Promise<void>((resolve) => {
+      loaded = resolve;
+    });
+    const { projection, drain } = mount({ ready });
+    drain();
+    expect(projection.layoutState()).toBe('pending');
+    loaded();
+    await ready;
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    expect(pageMap(projection.state).pages()).toHaveLength(3);
+    expect(projection.stats()).toMatchObject({ layouts: 2 });
   });
 });
 

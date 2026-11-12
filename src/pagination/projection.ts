@@ -10,7 +10,13 @@
 // `receive`, and takes each new projection state from `onProjection`.
 
 import type { Slice } from 'prosemirror-model';
-import { type Command, EditorState, Plugin, type Transaction } from 'prosemirror-state';
+import {
+  type Command,
+  EditorState,
+  Plugin,
+  type PluginKey,
+  type Transaction,
+} from 'prosemirror-state';
 import { columnResizing } from 'prosemirror-tables';
 import { type EditorProps, EditorView } from 'prosemirror-view';
 import { FRAGMENT_RULES, type FragmentRules, type LayoutRules } from '../model/index.js';
@@ -23,9 +29,15 @@ import {
   canonicalViewOf,
 } from './canonical-plugins.js';
 import { holdCellSelection } from './cell-drag.js';
-import type { SectionPageHeight } from './layout-document.js';
+import { createLayoutMemory, type SectionPageHeight } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { forgetRemeasured, frameIn, remeasureOn, settleEdits } from './layout-triggers.js';
+import {
+  awaitReady,
+  forgetRemeasured,
+  frameIn,
+  remeasureOn,
+  settleEdits,
+} from './layout-triggers.js';
 import { createMeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
@@ -33,11 +45,11 @@ import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import {
   dispatchCanonical,
   layout,
-  markChanged,
   moveAcrossBreak,
   prepare,
   quietly,
   receive,
+  refreshLayout,
   replug,
   requestLayout,
   runCommand,
@@ -87,6 +99,11 @@ export interface PagedProjectionOptions {
   readonly onLayout?: ((tr: Transaction) => void) | undefined;
   /** Tells of each change of the layout state (`PagedProjection.layoutState`). */
   readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
+  /**
+   * Settles once what the pages measure with is loaded, such as the template's fonts: the pages
+   * are laid out at once, measured again then, and pending until it settles (DOCE-PAGINATION-5.6).
+   */
+  readonly ready?: PromiseLike<unknown> | undefined;
 }
 
 /** What a projection has done since it was made: what its layouts did, as a pagination's. */
@@ -122,6 +139,11 @@ export interface PagedProjection {
   canonicalView(view: EditorView): EditorView;
   /** Lays the pages out now. */
   layout(): void;
+  /**
+   * Has the projection's own plugins of these keys draw the pages again, as after a value they
+   * show changed, with no change to the pages.
+   */
+  redraw(...keys: readonly PluginKey[]): void;
   /**
    * Lays the pages out again soon. `remeasure` forgets every measurement and starts the ghost's
    * plugins over, as after a width change or a change to a value a plugin shows.
@@ -238,6 +260,8 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       changed: true,
       passes: 0,
       restart: false,
+      memory: createLayoutMemory(),
+      ready: awaitReady(options.ready, () => refreshLayout(session(), true)),
     },
     canonical: options.state,
     projection: projectionState(options, session),
@@ -299,15 +323,12 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     dispatch: (tr) => dispatchCanonical(live, tr),
     canonicalView: (view) => canonicalViewOf(view, sourceOf(session)),
     layout: () => layout(live),
-    refresh({ remeasure = false } = {}) {
-      if (remeasure) {
-        live.cache.clear();
-        live.pace.restart = true;
-      }
-      markChanged(live);
-      live.edits.cancel();
-      requestLayout(live);
+    redraw(...keys) {
+      const tr = live.projection.tr.setMeta('addToHistory', false);
+      for (const key of keys) tr.setMeta(key, true);
+      take(live, tr);
     },
+    refresh: ({ remeasure = false } = {}) => refreshLayout(live, remeasure),
     layoutState: live.pace.readiness.state,
     whenSettled: live.pace.readiness.whenSettled,
     stats: () => ({ ...live.pace.counter.stats(), ...live.counts }),
