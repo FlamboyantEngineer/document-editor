@@ -64,6 +64,15 @@ export {
   DocumentSidePanel,
 } from './document-panels/index.js';
 export type {
+  DocumentSessionBoundaryProps,
+  DocumentSessionEditorProps,
+} from './document-session/index.js';
+export {
+  DocumentSessionBoundary,
+  useDocumentSession,
+  useSessionValue,
+} from './document-session/index.js';
+export type {
   SettingKind,
   TemplateEditorLabels,
   TemplateEditorProps,
