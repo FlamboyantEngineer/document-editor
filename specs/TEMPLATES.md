@@ -91,7 +91,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.2 - Style properties
 
-`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table and code block settings, its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies.
+`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies.
 
 Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`
 Verification: `src/model/templates/template-properties.test.ts`
@@ -167,7 +167,7 @@ Verification: `src/engine/custom-styles.test.ts`, `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATES-8.1 - Tokens
 
-A template's content (a section's starting content, its headers and footers) shall be read with each `{{key}}` token in its text a live variable of that key (DOCE-PAGINATION-8.3), and a paragraph that is only a list token (`table_of_contents`, `list_of_figures`, `list_of_tables`, `list_of_code`, `list_of_equations`) a list of contents of its kind (`readTemplateContent`); drift is judged on content read so.
+A template's content (a section's starting content, its headers and footers) shall be read with each `{{key}}` token in its text a live variable of that key (DOCE-PAGINATION-8.3), and a paragraph that is only a list token a list of contents of its kind (`readTemplateContent`); drift is judged on content read so. The list tokens are `table_of_contents`, `list_of_figures`, `list_of_tables`, `list_of_code`, `list_of_equations`, `list_of_references` and `list_of_abbreviations` (`CONTENTS_TOKENS`), or the tokens a host gives in their place (`contentsTokens`, token to kind), such as for its own kinds of list. `{{key}}` is the only token form: other bracketings stay text.
 
 Implementation: `src/model/templates/template-content.ts`, `src/model/templates/page-regions.ts`, `src/engine/document-sections.ts`, `src/engine/template-sync.ts`
 Verification: `src/model/templates/template-content.test.ts`
@@ -178,3 +178,84 @@ Verification: `src/model/templates/template-content.test.ts`
 
 Implementation: `src/model/templates/template-preview.ts`
 Verification: `src/model/templates/template-preview.test.ts`, `e2e/template-editor.spec.ts`
+
+### DOCE-TEMPLATES-8.3 - Typed tokens
+
+`createVariableTokens()` shall turn a `{{key}}` token a writer types into a live variable of that key as soon as its closing braces are typed, wherever the schema allows a variable. Text in code, other bracketings and an unclosed token shall stay as typed.
+
+Implementation: `src/engine/variable-tokens.ts`
+Verification: `src/engine/variable-tokens.test.ts`
+
+## DOCE-TEMPLATES-10 - Template settings
+
+### DOCE-TEMPLATES-10.1 - Numbering formats
+
+`validateTemplateFile` shall accept a numbering format (`isNumberingFormat`) of up to six levels, each `1`, `a`, `A`, `i` or `I` followed by its separators (`.`, `-`, `:`, `_`, `/`, `)` and space), or an empty format, wherever a heading, paragraph, paragraph level, list or object sets one, and report any other value. A numbering `enabled` setting shall be true or false.
+
+Implementation: `src/model/format/template-format-validate.ts`, `src/model/format/template-format-shape.ts`
+Verification: `src/model/format/template-format.test.ts`
+
+### DOCE-TEMPLATES-10.2 - Bullets
+
+A list's `bullet` shall be a marker keyword (`disc`, `circle`, `square`, `none`) or up to 8 characters of text without control or formatting characters (`isTemplateBullet`), and `validateTemplateFile` shall report any other. `templateProperties` shall write a keyword as the list style and text as an escaped CSS string followed by a space (DOCE-NUMBERING-2.4), so a bullet can never close the style element.
+
+Implementation: `src/model/format/template-format-validate.ts`, `src/model/templates/template-text-properties.ts`, `src/components/template-editor/template-settings.ts`
+Verification: `src/model/format/template-format.test.ts`, `src/model/templates/template-properties.test.ts`
+
+### DOCE-TEMPLATES-10.3 - Custom style names
+
+A custom style's name shall start with a letter, then up to 15 letters, digits, underscores or hyphens (`CUSTOM_STYLE_NAME`). `validateTemplateFile` shall report each custom style of the template's or a section's styles named otherwise, and the template editor shall rename a style only to such a name.
+
+Implementation: `src/model/format/template-format-validate.ts`, `src/components/template-editor/style-sections.tsx`
+Verification: `src/model/format/template-format.test.ts`
+
+### DOCE-TEMPLATES-10.4 - Lists of contents per kind
+
+A template's contents settings shall hold, beside the lists' fonts, padding and spacing, a `leader` (`{ character, spacing }`), `levels` with their own indentation, spacing and leader, and `kinds`: each kind of list's own `title`, leader character and levels' leader characters, by the kind's key (`toc`, `figures` and the host's kinds). `resolveContentsList(contents, kind)` shall give a kind its title, or null, and its six levels, each with its leader character resolved from the least to the most specific of the lists' leader, their level's, the kind's and the kind's level's; an empty character shall draw no leader and none set shall draw `.`. A list of contents (DOCE-CONTENTS-2.1) shall show the template's title for its kind over the editor's label and draw each entry's leader with its level's character.
+
+Implementation: `src/model/templates/template-settings.ts`, `src/model/format/template-format.ts`, `src/engine/contents.ts`
+Verification: `src/model/templates/template-settings.test.ts`, `src/engine/contents.test.ts`
+
+### DOCE-TEMPLATES-10.5 - Leaders and list numbers
+
+`templateProperties` shall write the lists' leader character (`--doc-contents-leader`, an escaped string) and spacing (`--doc-contents-leader-spacing`), and each level's leader spacing it sets (`--doc-contents-level-<n>-leader-spacing`). A numbered list's counter content (`--doc-ol-counter-content`) shall print its `prefix`, its number in its format's first level, the level's separator and its `suffix`, each escaped.
+
+Implementation: `src/model/templates/template-text-properties.ts`
+Verification: `src/model/templates/template-properties.test.ts`
+
+### DOCE-TEMPLATES-10.6 - Extension records
+
+A host shall keep a keyed collection in `extensions` as a record, so a template inherits and overrides it entry by entry. `extensionRecord(template, name)` shall read such a record after inheritance, leaving out each entry set to `false`, which removes the entry a template inherits as null inherits it, and give an empty record for a missing or non-record value.
+
+Implementation: `src/model/templates/template-settings.ts`
+Verification: `src/model/format/template-format-resolve.test.ts`
+
+### DOCE-TEMPLATES-10.7 - Missing settings
+
+`missingTemplateSettings(template, base)` shall list, by path such as `styles.heading1.size`, each setting a full template sets (the base template's, or the host's `base`, apart from its identity and sections) that the template leaves absent or null, so a host can tell what a root template (DOCE-TEMPLATES-5.7) leaves to the stylesheet. A template resolved over the base shall miss none.
+
+Implementation: `src/model/templates/template-settings.ts`
+Verification: `src/model/format/template-format-resolve.test.ts`
+
+### DOCE-TEMPLATES-10.8 - Template fixtures
+
+The generic templates in `test/fixtures/templates/` shall be valid, resolve over the base template with no setting missing, give each scope its custom properties, and between them set every setting `TEMPLATE_SHAPE` knows.
+
+Implementation: `test/fixtures/templates/`
+Verification: `test/fixtures/templates/template-fixtures.test.ts`
+
+## DOCE-TEMPLATES-11 - Template pinning
+
+### DOCE-TEMPLATES-11.1 - Pinned revisions
+
+A stored document's `template` shall be a `TemplatePin`: the template's `id` and, optionally, the host's `revision` of it, so the document, and each of its saved versions, renders with the template it pinned until an explicit update moves it to a newer revision. `writeDocumentFile(doc, { template })` shall write the pin as given, and `readDocumentFile` shall refuse a pin that is not an id with an optional text revision with a `DocumentFormatError` at `template`.
+
+Implementation: `src/model/format/template-format.ts`, `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
+Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
+
+### DOCE-TEMPLATES-11.2 - Loading a pinned revision
+
+`templates.load(id, { revision, signal })` shall give that revision of the stored template, or the latest without one, and a `not-found` error for a revision the store does not hold. The in-memory host shall keep each template it is given again under the same id as its next revision.
+
+Implementation: `src/host/adapters.ts`, `src/host/memory-host.ts`
+Verification: `src/host/memory-host.test.ts`

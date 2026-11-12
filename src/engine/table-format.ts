@@ -1,19 +1,24 @@
 // Table formatting: aligning the selected cells' content, giving a table's columns equal widths,
-// and inserting as many rows or columns as the selection spans.
+// giving rows one height, and inserting as many rows or columns as the selection spans, keeping the header rows and
+// columns leading.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, type EditorState, Selection, type Transaction } from 'prosemirror-state';
+import type { Command, EditorState, Transaction } from 'prosemirror-state';
 import {
-  addColumnAfter,
-  addColumnBefore,
-  addRowAfter,
-  addRowBefore,
+  addColumn,
+  addRow,
   CellSelection,
   findTable,
   isInTable,
   selectedRect,
+  TableMap,
 } from 'prosemirror-tables';
+import { Transform } from 'prosemirror-transform';
+import type { EditorView } from 'prosemirror-view';
+import { applyHeaders, headerKey, selectedLines, tableHeaders } from './table-headers.js';
 import { inWholeTable } from './table-parts.js';
+import { MIN_ROW_HEIGHT } from './table-pointer.js';
+import type { TableAxis } from './tables.js';
 
 /** How a cell's content sits across it. */
 export type CellTextAlign = 'left' | 'center' | 'right';
@@ -109,41 +114,108 @@ export const distributeColumns: Command = (state, dispatch, view) => {
   return inWholeTable(found.pos, distribute)(state, dispatch, view);
 };
 
-// Runs a command as many times as given, as one transaction.
-function repeated(command: Command, times: number): Command {
-  return (state, dispatch, view) => {
-    let current = state;
-    const tr = state.tr;
-    for (let index = 0; index < times; index += 1) {
-      let next: Transaction | null = null;
-      if (!command(current, (step) => (next = step), view) || !next) break;
-      for (const step of (next as Transaction).steps) tr.step(step);
-      current = current.apply(next);
+// The rows the selection covers when it spans more than one, or every row of its table.
+function rowsToDistribute(state: EditorState): { from: number; to: number } | null {
+  if (!isInTable(state)) return null;
+  const rect = selectedRect(state);
+  const spans = state.selection instanceof CellSelection && rect.bottom - rect.top > 1;
+  return spans ? { from: rect.top, to: rect.bottom } : { from: 0, to: rect.map.height };
+}
+
+// The height of each of some rows: its cells' set height, or its height as laid out in the view.
+function rowHeights(state: EditorState, view: EditorView | undefined): number[] {
+  const rows = rowsToDistribute(state);
+  const found = findTable(state.selection.$from);
+  if (!rows || !found) return [];
+  const heights: number[] = [];
+  const pos = found.start;
+  found.node.forEach((row, offset, index) => {
+    if (index < rows.from || index >= rows.to) return;
+    const set = row.firstChild?.attrs.rowHeight as number | null | undefined;
+    const dom = view?.nodeDOM(pos + offset) as Element | null | undefined;
+    const laidOut = dom?.getBoundingClientRect?.().height ?? 0;
+    heights.push(set || Math.round(laidOut));
+  });
+  return heights;
+}
+
+// Sets the rows the selection covers, or every row of its table, to a height.
+const setRowsHeight =
+  (height: number): Command =>
+  (state, dispatch) => {
+    const rows = rowsToDistribute(state);
+    if (!rows) return false;
+    if (dispatch) {
+      const rect = selectedRect(state);
+      const tr = state.tr;
+      const area = { left: 0, right: rect.map.width, top: rows.from, bottom: rows.to };
+      for (const offset of rect.map.cellsInRect(area)) {
+        const cell = rect.table.nodeAt(offset);
+        if (cell)
+          tr.setNodeMarkup(rect.tableStart + offset, undefined, {
+            ...cell.attrs,
+            rowHeight: height,
+          });
+      }
+      dispatch(tr);
     }
-    if (!tr.docChanged) return false;
-    tr.setSelection(Selection.fromJSON(tr.doc, current.selection.toJSON()));
-    dispatch?.(tr.scrollIntoView());
     return true;
   };
-}
+
+/**
+ * Gives the rows the selection covers, or every row of its table, one height: the average of
+ * their heights. Refused while a row has no height or the heights are equal already.
+ */
+export const distributeRows: Command = (state, dispatch, view) => {
+  const found = findTable(state.selection.$from);
+  const heights = rowHeights(state, view);
+  if (!found || heights.length < 2 || heights.some((height) => !(height > 0))) return false;
+  const height = Math.max(
+    MIN_ROW_HEIGHT,
+    Math.round(heights.reduce((sum, each) => sum + each, 0) / heights.length),
+  );
+  if (heights.every((each) => each === height)) return false;
+  return inWholeTable(found.pos, setRowsHeight(height))(state, dispatch, view);
+};
 
 /**
  * Inserts rows above or below the selection, or columns before or after it, as many as the
- * selection spans.
+ * selection spans, keeping the headers: a row or column inserted before a header one is a header,
+ * any other is not, and its cells in a header column or row are header cells.
  */
-export function insertTableLines(axis: 'row' | 'column', side: 'before' | 'after'): Command {
-  const single = {
-    row: { before: addRowBefore, after: addRowAfter },
-    column: { before: addColumnBefore, after: addColumnAfter },
-  }[axis][side];
-  return (state, dispatch, view) => {
+export function insertTableLines(axis: TableAxis, side: 'before' | 'after'): Command {
+  const insert: Command = (state, dispatch) => {
     if (!isInTable(state)) return false;
     const rect = selectedRect(state);
-    const span = axis === 'row' ? rect.bottom - rect.top : rect.right - rect.left;
-    const command = repeated(single, Math.max(1, span));
+    const [first, end] = selectedLines(axis, rect);
+    const count = Math.max(1, end - first);
+    const at = side === 'before' ? first : end;
+    const headers = tableHeaders(rect.table);
+    if (dispatch) {
+      const tr = state.tr;
+      const tablePos = rect.tableStart - 1;
+      // Each insert is one transform of its own: the table commands map their positions through
+      // the steps of the transform they write to.
+      let doc = state.doc;
+      for (let index = 0; index < count; index += 1) {
+        const table = doc.nodeAt(tablePos);
+        if (!table) break;
+        const step = new Transform(doc);
+        const current = { ...rect, map: TableMap.get(table), table };
+        if (axis === 'row') addRow(step as Transaction, current, at);
+        else addColumn(step as Transaction, current, at);
+        for (const each of step.steps) tr.step(each);
+        doc = step.doc;
+      }
+      const key = headerKey(axis);
+      const grown = at < headers[key] ? { ...headers, [key]: headers[key] + count } : headers;
+      applyHeaders(tr, { pos: tablePos, headers: grown }, { axis, from: at, to: at + count });
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+  return (state, dispatch, view) => {
     const found = findTable(state.selection.$from);
-    return found
-      ? inWholeTable(found.pos, command)(state, dispatch, view)
-      : command(state, dispatch, view);
+    return found ? inWholeTable(found.pos, insert)(state, dispatch, view) : false;
   };
 }

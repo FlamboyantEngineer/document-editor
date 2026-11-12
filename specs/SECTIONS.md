@@ -89,14 +89,14 @@ Verification: `e2e/sections.spec.ts`
 
 ### DOCE-SECTIONS-4.1 - Drift
 
-`templateSectionDrift(doc, template)` shall list how a document's sections drifted from its template: each required section it lacks (`missing`), each section of a name the template does not have (`unexpected`), and each section the writer cannot edit whose content is not the template's (`stale`), compared block by block by type and text.
+`templateSectionDrift(doc, template)` shall list how a document's sections drifted from its template: each required section it lacks (`missing`), each section of a name the template does not have (`unexpected`), and each section the writer cannot edit whose content is not the template's (`stale`), with the template's tokens read as `readTemplateContent` reads them (`contentsTokens`). Content shall be compared node by node by type, attributes, marks and text, leaving out what is the document's own: each element's identity attributes (DOCE-SCHEMA-2.1) and each script block's output and when it ran, so a script is compared by its script and settings alone.
 
 Implementation: `src/engine/template-sync.ts`
 Verification: `src/engine/template-sync.test.ts`
 
 ### DOCE-SECTIONS-4.2 - Bringing sections back in line
 
-`syncTemplateSections(template)` shall give each stale section the template's content again, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it, with its starting content; it is refused when nothing drifted.
+`syncTemplateSections(template, options)` shall give each stale section the template's content again, each of its script blocks keeping the output and run time of the section's script block of the same script, in order, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it, with its starting content; it is refused when nothing drifted.
 
 Implementation: `src/engine/template-sync.ts`, `src/engine/document-sections.ts`
 Verification: `src/engine/template-sync.test.ts`

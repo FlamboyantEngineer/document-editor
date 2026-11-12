@@ -33,6 +33,7 @@ export type {
   StoredDocument,
   StoredTemplate,
   TelemetryAdapter,
+  TemplateLoadOptions,
   TemplateSourceAdapter,
   VariablesAdapter,
   VersionStoreAdapter,

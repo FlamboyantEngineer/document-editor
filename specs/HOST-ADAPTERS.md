@@ -55,14 +55,14 @@ Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-HOST-1.8 - Assets and linked code
 
-The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from. The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
+The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from (`resolveUrl(assetId, snapshotId, { asOf })`, as of the time the document shows its assets as of, null for now). The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.9 - Citations and the glossary
 
-The host's `references` adapter shall find citations of other documents, or of targets in them, by a query, each with its reference type, what it records of the document cited and its label, and may resolve citations, by the document and target they name, as they are now, null for one that is gone. The host's `glossary` adapter shall find entries by their abbreviation or expansion, add an entry and return it with its id, and resolve entries by id as they are now.
+The host's `references` adapter shall find citations of other documents, or of targets in them, by a query, each with its reference type, what it records of the document cited and its label, and may resolve citations, by the document and target they name, as they are now, null for one that is gone and `no-access` for one the reader may not read. The host's `glossary` adapter shall find entries by their abbreviation or expansion, add an entry and return it with its id, and resolve entries by id as they are now.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`

@@ -189,10 +189,17 @@ Verification: `e2e/pagination.spec.ts`
 
 ### DOCE-PAGINATION-5.3 - Measurement cache
 
-Given a cache (`createMeasureCache`), measuring shall reuse a block's measurement while its node is the same, at the node's new position, measure a changed block again, and measure everything again after `clear()`.
+Given a cache (`createMeasureCache`), measuring shall reuse a block's measurement while its node is the same, at the node's new position, measure a changed block again, and measure everything again after `clear()`. A cached block that became or stopped being the first or last of its siblings, where styles zero a page's edge margins, shall read its margins again.
 
 Implementation: `src/pagination/measure-blocks.ts`
 Verification: `src/pagination/measure-blocks.test.ts`
+
+### DOCE-PAGINATION-5.4 - Measuring again what changed size
+
+When the measuring view's content changes size after it was drawn, the pages shall be laid out again once a frame, measuring again only what changed: an element that dispatches the remeasure event (`REMEASURE_EVENT`, such as math once typeset) or an image that loads or fails shall forget the measurement of the block that holds it (`forgetMeasurement`), and a change of the measuring container's width shall forget every measurement (`remeasureOn`). A block holding an image still loading measures provisionally and is not kept, so the next layout measures it again. Measuring shall read styles and frames from the window its views mount in, never the global one.
+
+Implementation: `src/pagination/measure-blocks.ts`, `src/pagination/layout-triggers.ts`, `src/pagination/pagination.ts`
+Verification: `src/pagination/measure-blocks.test.ts`, `src/pagination/layout-triggers.test.ts`
 
 ## DOCE-PAGINATION-6 - Projection
 

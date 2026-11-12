@@ -48,6 +48,13 @@ A paragraph level shall be an integer from 1 to 6; any other value shall read as
 Implementation: `src/model/schema/element-attributes.ts`
 Verification: `src/model/schema/element-attributes.test.ts`
 
+### DOCE-SCHEMA-2.3 - Identity attributes
+
+The attributes that say which element a node is, rather than how it looks, shall be declared on each node type as identity attributes (`IdentityAttribute`: `name`, `dom`, `scope`, `onCopy`), which `identityAttributesOf(type)` gives. The built-in ones are `dataId`, `dataAuthor`, `dataAiSession` and `splitPartIndex` on every type but text, and the suggestion split attributes on the types that carry them; a copy clears each of them. A host shall declare its own through `DocumentSchemaOptions.identityAttributes`, such as an element's review state: every type in its `scope` (every type but text when it names none) carries it, defaulting to null, reads it from and writes it to the `dom` attribute, and writes nothing when it is empty; a host attribute named as a built-in one shall be refused. `onCopy` says whether a pasted copy keeps the source's value (`keep`) or clears it (`clear`). `pickIdentityAttrs(type, attrs)` shall give a node's identity attributes, as a type change carries them over, and `clearIdentityAttrs(type, attrs)` its attributes with those a copy clears reset, as a new element's.
+
+Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/schema-options.ts`
+Verification: `src/model/schema/element-attributes.test.ts`
+
 ## DOCE-SCHEMA-3 - Stored markup
 
 ### DOCE-SCHEMA-3.1 - Pages and footnotes
@@ -66,10 +73,10 @@ Verification: `src/model/schema/page-nodes.test.ts`
 
 ### DOCE-SCHEMA-3.3 - Figures and images
 
-A figure shall keep its type (`image` or `diagram`), caption, whether the caption shows, size and alignment, and write the size and alignment on its image so the caption spans the content width. An uploaded or pasted figure shall store its asset and snapshot ids and no address: the address it was written with is only a preview, and the host's `assetPreviewUrl` gives the one it shows. A diagram without a stored rendering shall show a placeholder image. An inline image shall keep its address, text and tooltip. An image a template places from its own files (`templateFile:<file>:<snapshot>` or the template image attributes) shall render in a wrapper that aligns it, at its stored size or 160 by 96 pixels.
+A figure shall keep its type (`image` or `diagram`), caption, whether the caption shows, size and alignment, and write the size and alignment on its image so the caption spans the content width. An uploaded or pasted figure shall store its asset and snapshot ids and no address: the address it was written with is only a preview, and the host's `assetPreviewUrl` gives the one it shows. A diagram without a stored rendering shall show a placeholder image. An inline image shall keep its address, text and tooltip. An image a template places from its own files (`templateFile:<file>:<snapshot>` or the template image attributes) shall render in a wrapper that aligns it, at its stored size or 160 by 96 pixels. It shall be stored by its asset and snapshot and never by an address, and render at the address the host's `assetPreviewUrl(file, snapshot, { asOf })` gives, where `asOf` is the time the host shows the document's assets as of (`assetsAsOf`, null for now); without an address its wrapper shall carry `data-image-missing="true"` so the host can style an image that was not found. `templateImageRefs(template)` shall list the assets a template's content shows (its own and its sections' headers, footers, content and placeholders), each once, and `templateImageErrors(template)` shall name every image there stored by an address or without an asset.
 
-Implementation: `src/model/schema/figure-nodes.ts`, `src/model/schema/image-node.ts`, `src/model/schema/object-layout.ts`
-Verification: `src/model/schema/figure-nodes.test.ts`
+Implementation: `src/model/schema/figure-nodes.ts`, `src/model/schema/image-node.ts`, `src/model/schema/object-layout.ts`, `src/model/schema/schema-options.ts`, `src/model/templates/template-content.ts`
+Verification: `src/model/schema/figure-nodes.test.ts`, `src/model/schema/image-node.test.ts`
 
 ### DOCE-SCHEMA-3.4 - Code and math
 
@@ -135,3 +142,12 @@ Verification: `src/model/reference-format.test.ts`
 
 Implementation: `src/model/reference-format.ts`
 Verification: `src/model/reference-format.test.ts`
+
+## DOCE-SCHEMA-5 - Mark order
+
+### DOCE-SCHEMA-5.1 - Canonical order of overlapping marks
+
+Marks of a type that does not exclude itself (`overlapsItself`: comment highlights, suggested insertions and suggested deletions) may sit on one run several times, and ProseMirror keeps them in the order they were added. They shall have one canonical order instead, so two people who add the same marks in another order hold equal documents (`doc.eq`): a run's marks are sorted by type rank, and marks of one such type by `dataId`, then `commentId`, then their other attributes (`compareMarks`). `orderMarks` shall put a mark set in that order, returning the same array when it already is; `orderDocumentMarks` shall put every run of a document in that order and join the runs that then match, returning the same node when nothing changed; `addMarkInOrder(tr, from, to, mark)` shall add a mark so the runs it covers stay in that order, and add a mark of any other type as `addMark` does. Every engine command that adds such a mark adds it with `addMarkInOrder`, and a collaboration binding builds mark sets with `orderMarks` rather than normalizing documents.
+
+Implementation: `src/model/schema/mark-order.ts`
+Verification: `src/model/schema/mark-order.test.ts`
