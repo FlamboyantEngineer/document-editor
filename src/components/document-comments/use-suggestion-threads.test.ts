@@ -11,6 +11,7 @@ const suggestion = (id: string, fields: Partial<Suggestion>): Suggestion => ({
   to: 2,
   inserted: '',
   deleted: '',
+  formatted: false,
   ...fields,
 });
 
