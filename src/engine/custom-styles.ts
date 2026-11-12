@@ -13,6 +13,7 @@ import {
   type TextSettings,
 } from '../model/index.js';
 import { documentSectionsKey } from './document-sections.js';
+import { isInlineTextOnly } from './transaction-kind.js';
 
 /** The block types a custom style applies to. */
 const STYLED = new Set(['paragraph', 'heading']);
@@ -109,11 +110,14 @@ export function createCustomStyles({ template }: CustomStylesOptions): Plugin<De
     key: customStylesKey,
     state: {
       init: (_config, state) => decorate(state.doc, template()),
-      // A change of the template, which restyles the sections too, styles the blocks again.
-      apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(customStylesKey) || tr.getMeta(documentSectionsKey)
-          ? decorate(tr.doc, template())
-          : value,
+      // A change of the template, which restyles the sections too, styles the blocks again. Typing
+      // changes no block's style, so the styles only move with it.
+      apply: (tr, value) => {
+        if (tr.getMeta(customStylesKey) || tr.getMeta(documentSectionsKey))
+          return decorate(tr.doc, template());
+        if (!tr.docChanged) return value;
+        return isInlineTextOnly(tr) ? value.map(tr.mapping, tr.doc) : decorate(tr.doc, template());
+      },
     },
     props: { decorations: (state) => customStylesKey.getState(state) ?? null },
   });
