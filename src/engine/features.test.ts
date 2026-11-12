@@ -36,6 +36,7 @@ describe('plugin order', () => {
   it('DOCE-FORMAT-7.3 runs the editing plugins in the recorded key order', () => {
     expect(keysOf(createDocumentEditing(documentSchema))).toEqual([
       ...EDITING_KEYS,
+      'variable-tokens',
       ...TABLE_KEYS,
       ...LAST_KEYS,
     ]);
@@ -45,6 +46,7 @@ describe('plugin order', () => {
     expect(keysOf(createDocumentEditing(documentSchema, { template: () => TEMPLATE }))).toEqual([
       ...EDITING_KEYS,
       'custom-styles',
+      'variable-tokens',
       'table-width',
       ...TABLE_KEYS,
       ...LAST_KEYS,
@@ -62,6 +64,7 @@ describe('plugin order', () => {
     });
     expect(keysOf(shared.buildPlugins(undefined))).toEqual([
       ...EDITING_KEYS.slice(1),
+      'variable-tokens',
       ...TABLE_KEYS,
       ...LAST_KEYS,
     ]);

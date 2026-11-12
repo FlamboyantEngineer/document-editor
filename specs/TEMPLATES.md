@@ -167,7 +167,7 @@ Verification: `src/engine/custom-styles.test.ts`, `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATES-8.1 - Tokens
 
-A template's content (a section's starting content, its headers and footers) shall be read with each `{{key}}` token in its text a live variable of that key (DOCE-PAGINATION-8.3), and a paragraph that is only a list token (`table_of_contents`, `list_of_figures`, `list_of_tables`, `list_of_code`, `list_of_equations`) a list of contents of its kind (`readTemplateContent`); drift is judged on content read so.
+A template's content (a section's starting content, its headers and footers) shall be read with each `{{key}}` token in its text a live variable of that key (DOCE-PAGINATION-8.3), and a paragraph that is only a list token a list of contents of its kind (`readTemplateContent`); drift is judged on content read so. The list tokens are `table_of_contents`, `list_of_figures`, `list_of_tables`, `list_of_code`, `list_of_equations`, `list_of_references` and `list_of_abbreviations` (`CONTENTS_TOKENS`), or the tokens a host gives in their place (`contentsTokens`, token to kind), such as for its own kinds of list. `{{key}}` is the only token form: other bracketings stay text.
 
 Implementation: `src/model/templates/template-content.ts`, `src/model/templates/page-regions.ts`, `src/engine/document-sections.ts`, `src/engine/template-sync.ts`
 Verification: `src/model/templates/template-content.test.ts`
@@ -178,3 +178,10 @@ Verification: `src/model/templates/template-content.test.ts`
 
 Implementation: `src/model/templates/template-preview.ts`
 Verification: `src/model/templates/template-preview.test.ts`, `e2e/template-editor.spec.ts`
+
+### DOCE-TEMPLATES-8.3 - Typed tokens
+
+`createVariableTokens()` shall turn a `{{key}}` token a writer types into a live variable of that key as soon as its closing braces are typed, wherever the schema allows a variable. Text in code, other bracketings and an unclosed token shall stay as typed.
+
+Implementation: `src/engine/variable-tokens.ts`
+Verification: `src/engine/variable-tokens.test.ts`

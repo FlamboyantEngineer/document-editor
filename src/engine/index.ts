@@ -153,3 +153,4 @@ export { isReferencePlace, repairPastedReferences } from './reference-places.js'
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
+export { createVariableTokens, variableTokensKey } from './variable-tokens.js';

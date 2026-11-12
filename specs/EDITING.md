@@ -108,9 +108,9 @@ Verification: `src/engine/block-place.test.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), word processor paste (510, DOCE-FORMAT-6.2), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), word processor paste (510, DOCE-FORMAT-6.2), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
 
-Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`
 Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-3.2 - Transaction kinds

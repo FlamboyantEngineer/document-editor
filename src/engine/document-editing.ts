@@ -48,6 +48,7 @@ import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
 import { includeAppended } from './transaction-kind.js';
+import { createVariableTokens } from './variable-tokens.js';
 import { createWordPaste } from './word-paste.js';
 
 /** What a document's editing depends on. */
@@ -226,15 +227,22 @@ export function createDocumentEditing(
     createObjectViews(),
     createWordPaste(),
     createScripts(),
-    ...(template
-      ? [createCustomStyles({ template }), createTableWidth({ ...tableWidth(template), isRemote })]
-      : []),
+    ...(template ? [createCustomStyles({ template })] : []),
+    createVariableTokens(),
+    ...(template ? [createTableWidth({ ...tableWidth(template), isRemote })] : []),
     ...createTableEditing(),
     gapCursor(),
     keymap(documentKeys(schema, template)),
     keymap(baseKeymap),
   ];
 }
+
+// Typed `{{key}}` tokens becoming variables, before the table and key handling.
+const VARIABLE_TOKENS_PLUGIN = {
+  name: 'variable-tokens',
+  priority: 840,
+  build: () => [createVariableTokens()],
+};
 
 /**
  * The editing plugins as a kit extension: the history first, the element ids among the
@@ -296,6 +304,7 @@ export function createDocumentEditingExtension<C = unknown>(
         when: () => Boolean(template),
         build: () => (template ? [createCustomStyles({ template })] : []),
       },
+      VARIABLE_TOKENS_PLUGIN,
       {
         name: 'table-width',
         priority: 845,
