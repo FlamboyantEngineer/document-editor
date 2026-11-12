@@ -41,6 +41,11 @@
       "import": "./dist/model/index.js",
       "default": "./dist/model/index.js"
     },
+    "./collab": {
+      "types": "./dist/collab/index.d.ts",
+      "import": "./dist/collab/index.js",
+      "default": "./dist/collab/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -74,6 +79,7 @@
   "peerDependencies": {
     "@flamboyantengineer/ui-components": ">=0.1.0",
     "@handlewithcare/react-prosemirror": "^3.2.11",
+    "@y/y": "^14.0.0-rc.23",
     "katex": "^0.19.1",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-history": "^1.5.1",
@@ -135,6 +141,9 @@
     "prosemirror-schema-list": "^1.6.0"
   },
   "peerDependenciesMeta": {
+    "@y/y": {
+      "optional": true
+    },
     "katex": {
       "optional": true
     }

@@ -106,7 +106,7 @@ Verification: `src/pagination/fonts.test.ts`
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
 
-The host shall describe the reader's permissions on a document as `EditorCapabilities`: whether they may `edit`, `suggest` and `comment`. The editor shall never interpret host role names.
+The host shall describe the reader's permissions on a document as `EditorCapabilities`: whether they may `edit`, `suggest`, `comment`, `decide` on other readers' suggestions, `saveVersion` and open the document's `history`. The editor shall never interpret host role names.
 
 Implementation: `src/host/capabilities.ts`
 Verification: `src/host/capabilities.test.ts`
