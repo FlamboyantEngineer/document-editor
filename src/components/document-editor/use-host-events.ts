@@ -5,8 +5,10 @@
 import { keydownHandler } from 'prosemirror-keymap';
 import type { Command, EditorState, Selection, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ELEMENT_IDS_REPAIR,
+  isRemoteTransaction,
   proofingKey,
   type RegionChange,
   repairElementIds,
@@ -24,9 +26,9 @@ export interface DocumentEditorNotifications {
   readonly onFocusChange?: ((focused: boolean) => void) | undefined;
   /**
    * The document's content changed: every change but the editor's own layouts of the pages and
-   * proofing marks, such as to save it.
+   * proofing marks, such as to save it, with its cause.
    */
-  readonly onContentChange?: ((tr: Transaction) => void) | undefined;
+  readonly onContentChange?: ((tr: Transaction, cause: ContentChangeCause) => void) | undefined;
   /** The pages are laid out for the first time, or the web layout shows: the editor is ready. */
   readonly onLayoutReady?: (() => void) | undefined;
   /** The document's suggestions changed: added, decided, edited or discussed. */
@@ -40,6 +42,33 @@ export interface DocumentEditorNotifications {
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /** The host's own keys, such as `Mod-s`, which run before the editor's. */
   readonly keymap?: Readonly<Record<string, Command>> | undefined;
+}
+
+/**
+ * Why the content changed: `remote` for another writer's change (`isRemoteTransaction`), and
+ * `repair` for the editor's repair of element ids (`repairElementIds`). Neither is the writer's.
+ */
+export interface ContentChangeCause {
+  readonly remote: boolean;
+  readonly repair: boolean;
+}
+
+/** The cause of a content change. */
+export function contentChangeCause(tr: Transaction): ContentChangeCause {
+  return { remote: isRemoteTransaction(tr), repair: tr.getMeta(ELEMENT_IDS_REPAIR) === true };
+}
+
+/**
+ * The props an editor shows: while `active` is false, the state it last showed while active, so a
+ * hidden editor follows no change until it is shown again.
+ */
+export function useActiveProps<Props extends { state: EditorState; active?: boolean | undefined }>(
+  props: Props,
+): Props {
+  const active = props.active ?? true;
+  const [shown, setShown] = useState(props.state);
+  if (active && shown !== props.state) setShown(props.state);
+  return active || shown === props.state ? props : { ...props, state: shown };
 }
 
 /** Whether a transaction changes the document's content, rather than its layout or marks. */

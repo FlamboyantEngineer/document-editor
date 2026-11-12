@@ -1,4 +1,4 @@
-// Spike (P0-10): a Yjs 14 behaviour the binding spike found. Three documents edited concurrently
+// A Yjs 14 behaviour the binding spike found (DOCE-COLLAB-4.6). Three documents edited concurrently
 // whose updates reach a fourth out of causal order can leave it with pending structs after every
 // update has arrived: the same updates in another order integrate fully, and a second pass of the
 // same order integrates them too. The 31 updates here are what generated edits left, minimised.
@@ -8,7 +8,7 @@
 
 import * as Y from '@y/y';
 import { describe, expect, it } from 'vitest';
-import stored from './yjs-pending-updates.json' with { type: 'json' };
+import stored from '../../test/fixtures/yjs-pending-updates.json' with { type: 'json' };
 
 const updates = (stored as string[]).map((base64) => new Uint8Array(Buffer.from(base64, 'base64')));
 
@@ -18,7 +18,7 @@ function hasPending(doc: Y.Doc): boolean {
 }
 
 describe('Yjs 14 pending updates', () => {
-  it('P0-10 leaves complete updates pending when they arrive out of causal order', () => {
+  it('DOCE-COLLAB-4.6 leaves complete updates pending when they arrive out of causal order', () => {
     const once = new Y.Doc();
     for (const update of updates) Y.applyUpdate(once, update);
     const twice = new Y.Doc();

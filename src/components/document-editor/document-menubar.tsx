@@ -3,6 +3,7 @@
 
 import { Menubar, MenubarMenu } from '@flamboyantengineer/ui-components/menubar';
 import { useMemo } from 'react';
+import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
@@ -30,9 +31,10 @@ export function DocumentMenubar({
   menus: Omit<MenubarFeatures, 'groups'>;
 }) {
   const { labels, state } = context;
+  const shortcuts = shortcutsOf(state);
   const groups = useMemo(
-    () => builtInToolbarGroups(state.schema, labels, { templateStyle, features }),
-    [state.schema, labels, templateStyle, features],
+    () => builtInToolbarGroups(state.schema, labels, { templateStyle, features, shortcuts }),
+    [state.schema, labels, templateStyle, features, shortcuts],
   );
   return (
     <Menubar {...hooks.slot('menubar')} aria-label={labels.menubar} size="sm">

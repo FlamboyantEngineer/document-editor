@@ -12,6 +12,9 @@ import {
   runScripts,
   selectNextProofingIssue,
   setTextblockType,
+  type ShortcutId,
+  shortcutLabel,
+  shortcutsOf,
 } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
 import type { EditorZoom } from './document-status-bar.js';
@@ -89,6 +92,7 @@ const groupEntries = (features: MenubarFeatures, id: string, context: EditorCont
 
 function editMenu(context: EditorContext, features: MenubarFeatures): DocumentMenu {
   const { labels } = context;
+  const shortcuts = shortcutsOf(context.state);
   return {
     id: 'edit',
     label: labels.menuEdit,
@@ -98,11 +102,18 @@ function editMenu(context: EditorContext, features: MenubarFeatures): DocumentMe
       {
         id: 'select-all',
         label: labels.selectAll,
-        shortcut: 'Ctrl+A',
+        shortcut: shortcutLabel(shortcuts, 'select-all'),
         onAction: () => context.run(selectAll),
       },
       ...(features.openFind
-        ? [{ id: 'find', label: labels.find, shortcut: 'Ctrl+F', onAction: features.openFind }]
+        ? [
+            {
+              id: 'find',
+              label: labels.find,
+              shortcut: shortcutLabel(shortcuts, 'find'),
+              onAction: features.openFind,
+            },
+          ]
         : []),
     ],
   };
@@ -151,6 +162,7 @@ function viewMenu(context: EditorContext, features: MenubarFeatures): DocumentMe
 
 function formatMenu(context: EditorContext, features: MenubarFeatures): DocumentMenu {
   const { labels } = context;
+  const shortcuts = shortcutsOf(context.state);
   const { paragraph, heading } = context.state.schema.nodes;
   const styles: MenuEntry[] = [
     ...(paragraph
@@ -158,7 +170,7 @@ function formatMenu(context: EditorContext, features: MenubarFeatures): Document
           {
             id: 'paragraph',
             label: labels.paragraph,
-            shortcut: 'Ctrl+Shift+0',
+            shortcut: shortcutLabel(shortcuts, 'paragraph'),
             onAction: () => context.run(setTextblockType(paragraph)),
           },
         ]
@@ -167,7 +179,7 @@ function formatMenu(context: EditorContext, features: MenubarFeatures): Document
       ? [1, 2, 3, 4, 5, 6].map((level) => ({
           id: `heading-${String(level)}`,
           label: labels.heading(level),
-          shortcut: `Ctrl+Shift+${String(level)}`,
+          shortcut: shortcutLabel(shortcuts, `heading-${String(level)}` as ShortcutId),
           onAction: () => context.run(setTextblockType(heading, { level })),
         }))
       : []),

@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { DocumentFile } from '../model/index.js';
-import { FULL_CAPABILITIES } from './capabilities.js';
+import { FULL_CAPABILITIES, READ_ONLY_CAPABILITIES } from './capabilities.js';
 import type { CommentThread } from './comment-adapters.js';
 import { createMemoryHost } from './memory-host.js';
 
@@ -32,7 +32,7 @@ describe('createMemoryHost', () => {
     const first = await documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
     expect(first).toEqual({ ok: true, value: { revision: 'rev-2', sequence: 2 } });
     const stale = await documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
-    expect(stale).toEqual({ ok: false, error: { kind: 'conflict' } });
+    expect(stale).toMatchObject({ ok: false, error: { kind: 'conflict' } });
     await expect(documents.load('a')).resolves.toMatchObject({
       value: { revision: 'rev-2', sequence: 2 },
     });
@@ -399,5 +399,107 @@ describe('createMemoryHost', () => {
       ok: true,
       value: [{ message: 'Bad', line: 1 }],
     });
+  });
+});
+
+describe('createMemoryHost session parts', () => {
+  it('DOCE-HOST-1.16 tells subscribers of saves, version changes and capabilities', async () => {
+    const host = createMemoryHost({ documents: [{ id: 'a', content: CONTENT }] });
+    const saves: string[] = [];
+    const versionChanges: number[] = [];
+    const capabilities: boolean[] = [];
+    const stop = host.documents.subscribe?.('a', (state) => saves.push(state.revision));
+    host.versions?.subscribe?.('a', () => versionChanges.push(1));
+    host.permissions.subscribe?.('a', (next) => capabilities.push(next.edit));
+    await host.documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
+    stop?.();
+    await host.documents.save('a', { content: CONTENT, baseRevision: 'rev-2' });
+    expect(saves).toEqual(['rev-2']);
+    expect(versionChanges).toHaveLength(2);
+    host.memory.setCapabilities(READ_ONLY_CAPABILITIES);
+    expect(capabilities).toEqual([false]);
+    await expect(host.permissions.capabilities('a')).resolves.toEqual(READ_ONLY_CAPABILITIES);
+  });
+
+  it('DOCE-HOST-1.17 refuses a stale save with the stored document', async () => {
+    const host = createMemoryHost({ documents: [{ id: 'a', content: CONTENT }] });
+    await host.documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
+    const stale = await host.documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
+    expect(stale).toEqual({
+      ok: false,
+      error: {
+        kind: 'conflict',
+        current: { id: 'a', revision: 'rev-2', sequence: 2, content: CONTENT },
+      },
+    });
+  });
+
+  it('DOCE-HOST-1.18 names, renames and restores versions', async () => {
+    const host = createMemoryHost({ documents: [{ id: 'a', content: CONTENT }] });
+    const versions = host.versions;
+    if (!versions?.create || !versions.rename || !versions.restore) throw new Error('No versions.');
+    const named = await versions.create('a', { content: CONTENT, label: 'Draft' });
+    expect(named).toMatchObject({ ok: true, value: { revision: 'rev-2', label: 'Draft' } });
+    await expect(versions.rename('a', 'rev-2', 'Final')).resolves.toMatchObject({
+      value: { label: 'Final' },
+    });
+    await expect(versions.restore('a', 'rev-1')).resolves.toEqual({
+      ok: true,
+      value: { revision: 'rev-3', sequence: 3 },
+    });
+    const listed = await versions.list('a');
+    expect(listed.ok && listed.value.map(({ label }) => label)).toEqual([null, 'Final', null]);
+  });
+
+  it('DOCE-HOST-1.19 keeps one draft per document and mode, as copies', async () => {
+    const { drafts } = createMemoryHost();
+    const draft = {
+      mode: 'store' as const,
+      content: CONTENT,
+      baseRevision: 'rev-1',
+      savedAt: '2026-01-01T00:00:00.000Z',
+    };
+    await drafts.put('a', draft);
+    draft.baseRevision = 'changed';
+    await expect(drafts.get('a', 'store')).resolves.toMatchObject({
+      value: { baseRevision: 'rev-1' },
+    });
+    await expect(drafts.get('a', 'room')).resolves.toEqual({ ok: true, value: null });
+    await drafts.clear('a', 'store');
+    await expect(drafts.get('a', 'store')).resolves.toEqual({ ok: true, value: null });
+  });
+
+  it('DOCE-HOST-1.20 DOCE-HOST-3.10 tells lifecycle subscribers what the controls emit', () => {
+    const host = createMemoryHost();
+    const events: string[] = [];
+    const stop = host.lifecycle.subscribe((event) => events.push(event));
+    host.memory.emitLifecycle('hidden');
+    stop();
+    host.memory.emitLifecycle('leaving');
+    expect(events).toEqual(['hidden']);
+  });
+
+  it('DOCE-HOST-3.10 delays store requests and fails the next ones as asked', async () => {
+    vi.useFakeTimers();
+    try {
+      const host = createMemoryHost({ documents: [{ id: 'a', content: CONTENT }] });
+      host.memory.setLatency(200);
+      host.memory.failNext('documents.save', { kind: 'unavailable' });
+      let done = false;
+      const failed = host.documents
+        .save('a', { content: CONTENT, baseRevision: 'rev-1' })
+        .finally(() => {
+          done = true;
+        });
+      await vi.advanceTimersByTimeAsync(150);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(50);
+      await expect(failed).resolves.toEqual({ ok: false, error: { kind: 'unavailable' } });
+      const saved = host.documents.save('a', { content: CONTENT, baseRevision: 'rev-1' });
+      await vi.advanceTimersByTimeAsync(200);
+      await expect(saved).resolves.toMatchObject({ ok: true });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

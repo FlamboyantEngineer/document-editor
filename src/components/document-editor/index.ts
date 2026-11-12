@@ -36,5 +36,5 @@ export { TOOLBAR_GROUPS } from './toolbar-items.js';
 export type { ChangeBar } from './use-change-notifications.js';
 export type { DocumentComparison, DocumentLayout } from './use-document-layout.js';
 export { EDITOR_COUNTS, EDITOR_MEASURES } from './use-editor-telemetry.js';
-export type { DocumentEditorNotifications } from './use-host-events.js';
-export { isContentChange } from './use-host-events.js';
+export type { ContentChangeCause, DocumentEditorNotifications } from './use-host-events.js';
+export { contentChangeCause, isContentChange } from './use-host-events.js';

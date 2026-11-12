@@ -8,14 +8,17 @@ import type { EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { automationActor, proofingUpdate, suggestTransaction } from '../../engine/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
-import { isContentChange } from './use-host-events.js';
+import {
+  contentChangeCause,
+  type DocumentEditorNotifications,
+  isContentChange,
+} from './use-host-events.js';
 
 /** What the plumbing reads of the editor's props. */
 export interface EnginePlumbingProps {
   readonly onStateChange: (update: (state: EditorState) => EditorState) => void;
   readonly events?: Omit<RichTextEngineEvents, 'props'> | undefined;
-  readonly onContentChange?:
-    ((tr: Parameters<NonNullable<RichTextEngineEvents['onTransaction']>>[0]) => void) | undefined;
+  readonly onContentChange?: DocumentEditorNotifications['onContentChange'];
 }
 
 type DispatchBody = NonNullable<RichTextEngineEvents['dispatchTransaction']>;
@@ -62,23 +65,6 @@ export const READ_SELECTION_FIRST = {
 };
 
 type EngineEvents = NonNullable<EnginePlumbingProps['events']>;
-
-// Mod and a letter alone: Ctrl, or Cmd on a Mac.
-const isModKey = (event: KeyboardEvent, letter: string) =>
-  event.key.toLowerCase() === letter &&
-  (event.ctrlKey || event.metaKey) &&
-  !event.altKey &&
-  !event.shiftKey;
-
-// Mod-F opens the find bar.
-export const isFindKey = (event: KeyboardEvent) => isModKey(event, 'f');
-
-// Mod-Alt-M starts a comment.
-export const isCommentKey = (event: KeyboardEvent) =>
-  event.code === 'KeyM' && (event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey;
-
-// Mod-K opens the reference dialog.
-export const isReferenceKey = (event: KeyboardEvent) => isModKey(event, 'k');
 
 /**
  * The engine's events as the editor keeps them: `onMounted` may name the view the host is shown,
@@ -132,7 +118,7 @@ export function useEngineView(
         latest.current.tap?.(tr);
         publish(tr);
         const notify = latest.current.onContentChange;
-        if (notify && isContentChange(tr)) notify(tr);
+        if (notify && isContentChange(tr)) notify(tr, contentChangeCause(tr));
       },
       onSelectionChange: (selection, current) =>
         latest.current.events?.onSelectionChange?.(selection, current),

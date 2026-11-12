@@ -8,7 +8,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { DecorationSet } from 'prosemirror-view';
-import type { ProoferAdapter, ProofingIssue, ProofingKind } from '../host/adapters.js';
+import type { ProoferAdapter, ProofingIssue, ProofingKind } from '../host/proofing-adapters.js';
 import { viewOnlyInline } from '../utils/view-only-decorations.js';
 import { proofedBlocks } from './proofing-text.js';
 import { proofingView } from './proofing-view.js';
