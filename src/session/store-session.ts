@@ -12,6 +12,7 @@ import { createDocumentSchema } from '../model/schema/document-schema.js';
 import type {
   DocumentSession,
   DocumentSessionOptions,
+  SessionConnection,
   SessionDocument,
   SessionStateContext,
   SessionStateUpdate,
@@ -82,6 +83,7 @@ export function createSessionStores(
   });
   const document = createValueStore<SessionDocument | null>(null);
   const conflicts = createValueStore<readonly MergeConflict[]>([]);
+  const connection = createValueStore<SessionConnection | null>(null);
   // The template a state is made in reads the loaded one until the document shows.
   let loaded: TemplateFile | null = null;
   const context: SessionStateContext = {
@@ -99,7 +101,7 @@ export function createSessionStores(
   const setLoaded = (template: TemplateFile) => {
     loaded = template;
   };
-  return { status, document, conflicts, context, current, setLoaded };
+  return { status, document, conflicts, connection, context, current, setLoaded };
 }
 
 export type SessionStores = ReturnType<typeof createSessionStores>;
@@ -170,12 +172,8 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     session: () => session,
     saving: () => saving,
   });
-  const follow = followSession({
-    host,
-    documentId,
-    document,
-    onLeave: () => void saving?.flush(),
-  });
+  const onLeave = () => void saving?.flush();
+  const follow = followSession({ host, documentId, document, onLeave });
 
   const load = async () => {
     const opened = await openStoredDocument(host, documentId, controller.signal);
@@ -223,6 +221,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     status,
     document,
     conflicts,
+    connection: stores.connection,
     ready: load(),
     update: (update) => commitState({ document, saving }, update),
     setTemplate: async (pin) => {
