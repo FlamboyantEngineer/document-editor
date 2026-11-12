@@ -10,6 +10,7 @@ import {
   proofingKey,
   type RegionChange,
   repairElementIds,
+  type ReviewChange,
   type Suggestion,
 } from '../../engine/index.js';
 import { isPaginationTransaction } from '../../pagination/index.js';
@@ -27,6 +28,12 @@ export interface DocumentEditorNotifications {
    * proofing marks, such as to save it.
    */
   readonly onContentChange?: ((tr: Transaction) => void) | undefined;
+  /**
+   * A change only anchored, resolved, reopened or removed comment threads, or named a suggestion's
+   * thread (`reviewChangeOf`), with the threads and suggestions it touched; it is a content
+   * change too, since anchors are stored with the document.
+   */
+  readonly onReviewChange?: ((change: ReviewChange, tr: Transaction) => void) | undefined;
   /** The pages are laid out for the first time, or the web layout shows: the editor is ready. */
   readonly onLayoutReady?: (() => void) | undefined;
   /** The document's suggestions changed: added, decided, edited or discussed. */

@@ -6,7 +6,14 @@ import type { RichTextEngineEvents } from '@flamboyantengineer/ui-components/ric
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { automationActor, proofingUpdate, suggestTransaction } from '../../engine/index.js';
+import {
+  automationActor,
+  isReviewOnlyChange,
+  proofingUpdate,
+  type ReviewChange,
+  reviewChangeOf,
+  suggestTransaction,
+} from '../../engine/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
 import { isContentChange } from './use-host-events.js';
 
@@ -16,6 +23,7 @@ export interface EnginePlumbingProps {
   readonly events?: Omit<RichTextEngineEvents, 'props'> | undefined;
   readonly onContentChange?:
     ((tr: Parameters<NonNullable<RichTextEngineEvents['onTransaction']>>[0]) => void) | undefined;
+  readonly onReviewChange?: ((change: ReviewChange, tr: Transaction) => void) | undefined;
 }
 
 type DispatchBody = NonNullable<RichTextEngineEvents['dispatchTransaction']>;
@@ -38,9 +46,12 @@ export function useDispatchBody(
         onStateChange(update);
         return;
       }
-      // An automation change is direct or a suggestion as its caller chose.
+      // An automation change is direct or a suggestion as its caller chose, and a review-only
+      // change, such as anchoring a comment, is never a suggestion.
       const next =
-        suggesting && !automationActor(tr) ? suggestTransaction(tr, view.state, { author }) : tr;
+        suggesting && !automationActor(tr) && !isReviewOnlyChange(tr)
+          ? suggestTransaction(tr, view.state, { author })
+          : tr;
       if (!next) return;
       if (body) body(next, view, commit);
       else if (next === tr) commit.applyDefault();
@@ -94,9 +105,13 @@ function createTransactionFeed() {
 
 // The caller's events, with the engine's view kept for the chrome that acts on it, and the feed of
 // its transactions.
+
+/** The host's notifications of changes, as the engine's view calls them. */
+export type ChangeNotifications = Pick<EnginePlumbingProps, 'onContentChange' | 'onReviewChange'>;
+
 export function useEngineView(
   events: EnginePlumbingProps['events'],
-  onContentChange: EnginePlumbingProps['onContentChange'],
+  notifications: ChangeNotifications,
   tap?: (tr: Parameters<NonNullable<RichTextEngineEvents['onTransaction']>>[0]) => void,
 ) {
   const [view, setView] = useState<EditorView | null>(null);
@@ -104,9 +119,10 @@ export function useEngineView(
   // The host's latest events, behind handlers that keep their identity: a new events object on
   // each of the host's renders would otherwise give the view new props, which redraws its
   // selection over a caret the browser has placed and not reported yet.
-  const latest = useRef({ events, onContentChange, tap });
+  const { onContentChange, onReviewChange } = notifications;
+  const latest = useRef({ events, onContentChange, onReviewChange, tap });
   useEffect(() => {
-    latest.current = { events, onContentChange, tap };
+    latest.current = { events, onContentChange, onReviewChange, tap };
   });
   const withView = useMemo<EngineViewEvents>(
     () => ({
@@ -114,8 +130,10 @@ export function useEngineView(
         latest.current.events?.onTransaction?.(tr, current);
         latest.current.tap?.(tr);
         publish(tr);
-        const notify = latest.current.onContentChange;
+        const { onContentChange: notify, onReviewChange: review } = latest.current;
         if (notify && isContentChange(tr)) notify(tr);
+        const change = review && reviewChangeOf(tr);
+        if (change) review(change, tr);
       },
       onSelectionChange: (selection, current) =>
         latest.current.events?.onSelectionChange?.(selection, current),

@@ -104,6 +104,20 @@ test.describe('full editor lab', () => {
     await expect(report).toContainText('2 suggestions');
   });
 
+  test('DOCE-EDITOR-6.1 tells the host a comment is a review change, not a suggestion', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const report = page.locator('output[aria-label="Host report"]');
+    await expect(report).toContainText('0 review changes');
+    await page.getByLabel('Suggesting').check();
+    await page.getByRole('button', { name: 'Comment on a sentence' }).click();
+    await expect(page.locator('output[aria-label="Agent report"]')).toContainText('Commented on');
+    await expect(report).toContainText('1 review changes');
+    await expect(report).toContainText('1 suggestions');
+  });
+
   test('DOCE-COLLAB-3.2 shows who wrote what while asked', async ({ lab, page }) => {
     await lab.open('full-editor');
     await content(page).locator('h1', { hasText: 'Power' }).click();

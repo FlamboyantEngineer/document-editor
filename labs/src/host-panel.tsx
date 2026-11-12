@@ -1,5 +1,5 @@
 // The document editor lab's host panel: what the editor tells its host (focus, the selection, the
-// writer's changes, the blocks its layouts measured), a key of the host's own (Ctrl+S saves), and
+// writer's changes and review-only changes, the blocks its layouts measured), a key of the host's own (Ctrl+S saves), and
 // the editor's handle taking the reader to a heading.
 
 import type { Command } from 'prosemirror-state';
@@ -22,6 +22,7 @@ export function useHostPanel() {
   const [firstLayout, setFirstLayout] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
   const [suggestions, setSuggestions] = useState(0);
+  const [reviews, setReviews] = useState(0);
   const [measured, setMeasured] = useState(0);
   const telemetry = useMemo<TelemetryAdapter>(
     () => ({
@@ -46,12 +47,13 @@ export function useHostPanel() {
       keymap: { 'Mod-s': save },
       onLayoutReady: () => setReady(true),
       onSuggestionsChange: (list) => setSuggestions(list.length),
+      onReviewChange: () => setReviews((count) => count + 1),
     };
   }, []);
   return {
     notifications,
     telemetry,
-    report: { focused, changes, caret, saved, firstLayout, ready, suggestions, measured },
+    report: { focused, changes, caret, saved, firstLayout, ready, suggestions, reviews, measured },
   };
 }
 
@@ -81,8 +83,8 @@ export function HostPanel({
         {report.focused ? 'Focused' : 'Not focused'} · {report.changes} changes · caret in{' '}
         {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
         {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
-        {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions · {report.measured}{' '}
-        blocks measured
+        {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions · {report.reviews}{' '}
+        review changes · {report.measured} blocks measured
       </output>
     </fieldset>
   );
