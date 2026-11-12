@@ -100,7 +100,9 @@ function Reader({ person }: { person: { id: string; name: string } }) {
           <p role="alert">{`The document did not open: ${error?.kind ?? 'unknown'}`}</p>
         )}
       >
-        {(props) => <DocumentEditor {...props} aria-label={`${person.name}'s document`} />}
+        {(props) => (
+          <DocumentEditor {...props} statusBar aria-label={`${person.name}'s document`} />
+        )}
       </DocumentSessionBoundary>
     </section>
   );
