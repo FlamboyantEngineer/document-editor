@@ -48,7 +48,7 @@ Verification: `src/engine/reference-places.test.ts`, `src/engine/references.test
 
 ### DOCE-REFERENCES-1.7 - Typing walks no reference
 
-`createReferences` shall walk the document's references only after a change that may change what one reads (`touchesReferences`): a change that only replaces inline text of a paragraph or a footnote, adding and removing no reference, walks none.
+`createReferences` shall walk the document's references only after a change that may change what one reads (`touchesReferences`): a change that only replaces inline text of a paragraph or a footnote, adding and removing no reference, walks none. Nor does a remote change (`isRemote`, `isRemoteTransaction` by default), which already carries the sender's updates.
 
 Implementation: `src/engine/reference-updates.ts`, `src/engine/references.ts`
 Verification: `src/engine/reference-places.test.ts`

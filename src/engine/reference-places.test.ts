@@ -17,6 +17,7 @@ import {
   referenceTargets,
   refreshReferences,
 } from './references.js';
+import { markRemote } from './transaction-kind.js';
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
 const paragraph = (value: string): StoredNode => ({ type: 'paragraph', content: [text(value)] });
@@ -159,6 +160,13 @@ describe('reference updates', () => {
     if (!reference) throw new Error('The paragraph cites the heading');
     expect(touchesReferences(state.tr.insertText('y', reference.from + 1))).toBe(true);
     expect(touchesReferences(state.tr.split(posOf(state, 'Other')))).toBe(true);
+  });
+
+  it('DOCE-REFERENCES-1.7 leaves a remote change to the sender, which brought its updates', () => {
+    let state = citing([paragraph('See .')]);
+    const before = textOf(state);
+    state = state.apply(markRemote(state.tr.insertText('Supply ', posOf(state, 'Power'))));
+    expect(textOf(state)).toBe(before.replace('Power', 'Supply Power'));
   });
 
   it('DOCE-REFERENCES-1.8 records its target and renders again when asked', () => {

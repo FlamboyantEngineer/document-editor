@@ -27,6 +27,7 @@ import {
 } from './reference-targets.js';
 import { touchesReferences } from './reference-updates.js';
 import { revealElement } from './reveal.js';
+import { isRemoteTransaction } from './transaction-kind.js';
 
 export type { ReferenceTarget } from './reference-targets.js';
 export { internalReferenceText, referenceTargets } from './reference-targets.js';
@@ -230,21 +231,28 @@ export interface ReferencesOptions {
   readonly template: () => TemplateFile;
   /** Takes the reader to an element by its id; `revealElement` by default. */
   readonly reveal?: ((view: EditorView, id: string) => void) | undefined;
+  /**
+   * Whether a change came from elsewhere, which already carries its references' updates;
+   * `isRemoteTransaction` by default.
+   */
+  readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
 }
 
 /**
- * Keeps internal references up to date after each change that may change one (`touchesReferences`),
- * out of the undo history, and follows
- * one to its target on a click in a read document, or a Ctrl or Cmd click in an edited one.
+ * Keeps internal references up to date after each local change that may change one
+ * (`touchesReferences`), out of the undo history, and follows one to its target on a click in a
+ * read document, or a Ctrl or Cmd click in an edited one.
  */
 export function createReferences({
   template,
   reveal = (view, id) => revealElement(view, id),
+  isRemote = isRemoteTransaction,
 }: ReferencesOptions): Plugin {
   return new Plugin({
     key: referencesKey,
     appendTransaction(transactions, _before, after) {
-      if (!transactions.some((tr) => !isReferenceUpdate(tr) && touchesReferences(tr))) return null;
+      const local = transactions.filter((tr) => !isRemote(tr) && !isReferenceUpdate(tr));
+      if (!local.some(touchesReferences)) return null;
       const tr = after.tr;
       if (!updateReferences(tr, template())) return null;
       return tr.setMeta(referencesKey, true).setMeta('addToHistory', false);
