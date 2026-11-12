@@ -1,16 +1,20 @@
 // Whether the documents external references cite are still there and as cited: the host resolves
 // each citation as it is now, and a reference whose document is gone is marked unavailable, one
-// whose document changed since it was cited is marked as having an update, which the writer takes.
+// the reader may not read as out of reach, and one whose document changed since it was cited as
+// having an update, which the writer takes. The host may ask for every citation again.
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { ReferenceSourceAdapter } from '../host/index.js';
 import { readReferenceBaseline, type ReferenceBaseline } from '../model/index.js';
-import { internalTargetId, listReferences, referenceAt } from './references.js';
+import { internalTargetId, listReferences, type ReferenceAt, referenceAt } from './references.js';
 
 /** Where an external reference stands against its document as it is now. */
-export type ReferenceStatus = 'current' | 'update' | 'unavailable';
+export type ReferenceStatus = 'current' | 'update' | 'unavailable' | 'no-access';
+
+/** A citation as the host resolved it: as it is now, null when gone, or out of the reader's reach. */
+type Resolved = ReferenceBaseline | null | 'no-access';
 
 /** What a citation names, as the host resolves it. */
 export interface CitationKey {
@@ -40,12 +44,19 @@ const changed = (cited: ReferenceBaseline, now: ReferenceBaseline) =>
   (cited.target?.numbering ?? null) !== (now.target?.numbering ?? null);
 
 interface StatusState {
-  /** Each citation as the host resolved it, or null when its document is gone. */
-  readonly resolved: ReadonlyMap<string, ReferenceBaseline | null>;
+  /** Each citation as the host resolved it. */
+  readonly resolved: ReadonlyMap<string, Resolved>;
   readonly decorations: DecorationSet;
 }
 
 const statusKey = new PluginKey<StatusState>('reference-status');
+
+// A citation's status against how the host resolved it.
+function statusOf(cited: ReferenceBaseline, now: Resolved): ReferenceStatus {
+  if (now === 'no-access') return 'no-access';
+  if (!now) return 'unavailable';
+  return changed(cited, now) ? 'update' : 'current';
+}
 
 /** The status of the external reference holding the selection, or null. */
 export function referenceStatusAt(state: EditorState): ReferenceStatus | null {
@@ -53,22 +64,15 @@ export function referenceStatusAt(state: EditorState): ReferenceStatus | null {
   const cited = reference ? citationOf(reference.mark) : null;
   const resolved = statusKey.getState(state)?.resolved;
   if (!cited || !resolved?.has(cited.key)) return null;
-  const now = resolved.get(cited.key);
-  if (!now) return 'unavailable';
-  return changed(cited.baseline, now) ? 'update' : 'current';
+  return statusOf(cited.baseline, resolved.get(cited.key) ?? null);
 }
 
-function decorate(doc: ProseMirrorNode, resolved: ReadonlyMap<string, ReferenceBaseline | null>) {
+function decorate(doc: ProseMirrorNode, resolved: ReadonlyMap<string, Resolved>) {
   const decorations: Decoration[] = [];
   for (const reference of listReferences(doc)) {
     const cited = citationOf(reference.mark);
     if (!cited || !resolved.has(cited.key)) continue;
-    const now = resolved.get(cited.key);
-    const status: ReferenceStatus = !now
-      ? 'unavailable'
-      : changed(cited.baseline, now)
-        ? 'update'
-        : 'current';
+    const status = statusOf(cited.baseline, resolved.get(cited.key) ?? null);
     if (status === 'current') continue;
     decorations.push(
       Decoration.inline(reference.from, reference.to, { 'data-reference-status': status }),
@@ -77,18 +81,28 @@ function decorate(doc: ProseMirrorNode, resolved: ReadonlyMap<string, ReferenceB
   return DecorationSet.create(doc, decorations);
 }
 
-/**
- * Takes the update of the external reference holding the selection: it records its document as
- * the host resolved it now, and reads as that document's label.
- */
-export const updateReference: Command = (state, dispatch) => {
+// The external reference holding the selection and its citation as it is now, when it changed.
+function updateAt(state: EditorState): { reference: ReferenceAt; now: ReferenceBaseline } | null {
   const reference = referenceAt(state);
   const cited = reference ? citationOf(reference.mark) : null;
   const now = cited ? statusKey.getState(state)?.resolved.get(cited.key) : null;
-  if (!reference || !cited || !now || !changed(cited.baseline, now)) return false;
+  if (!reference || !cited || !now || now === 'no-access') return null;
+  return changed(cited.baseline, now) ? { reference, now } : null;
+}
+
+/**
+ * Takes the update of the external reference holding the selection: it records its document as
+ * the host resolved it now, cites the target as the host names it now, and reads as that
+ * document's label.
+ */
+export const updateReference: Command = (state, dispatch) => {
+  const found = updateAt(state);
+  if (!found) return false;
+  const { reference, now } = found;
   if (dispatch) {
     const mark = reference.mark.type.create({
       ...reference.mark.attrs,
+      targetId: now.target?.id ?? now.documentId,
       referenceBaseline: JSON.stringify(now),
       docNumber: now.numbering || null,
       docTitle: now.title || null,
@@ -130,10 +144,14 @@ export function createReferenceStatus({
         decorations: decorate(state.doc, new Map()),
       }),
       apply(tr, value) {
-        const answered = tr.getMeta(statusKey) as
-          ReadonlyMap<string, ReferenceBaseline | null> | undefined;
-        if (!answered && !tr.docChanged) return value;
-        const resolved = answered ? new Map([...value.resolved, ...answered]) : value.resolved;
+        const meta = tr.getMeta(statusKey) as ReadonlyMap<string, Resolved> | 'refresh' | undefined;
+        if (!meta && !tr.docChanged) return value;
+        const resolved =
+          meta === 'refresh'
+            ? new Map<string, Resolved>()
+            : meta
+              ? new Map([...value.resolved, ...meta])
+              : value.resolved;
         return { resolved, decorations: decorate(tr.doc, resolved) };
       },
     },
@@ -170,7 +188,9 @@ export function createReferenceStatus({
       schedule();
       return {
         update(current, previous) {
-          if (!current.state.doc.eq(previous.doc)) schedule();
+          const asked = statusKey.getState(current.state)?.resolved.size === 0;
+          const before = statusKey.getState(previous)?.resolved.size ?? 0;
+          if (!current.state.doc.eq(previous.doc) || (asked && before > 0)) schedule();
         },
         destroy() {
           owner?.clearTimeout(timer);
@@ -182,8 +202,18 @@ export function createReferenceStatus({
   });
 }
 
+/**
+ * Asks the host for every citation again, as when the host knows its documents changed, and marks
+ * the references by its new answer.
+ */
+export const refreshReferenceStatus: Command = (state, dispatch) => {
+  if (!statusKey.getState(state)) return false;
+  dispatch?.(state.tr.setMeta(statusKey, 'refresh').setMeta('addToHistory', false));
+  return true;
+};
+
 /** Records how the host resolved citations, as the plugin does with the host's answer. */
-export function resolveCitations(answered: ReadonlyMap<string, ReferenceBaseline | null>): Command {
+export function resolveCitations(answered: ReadonlyMap<string, Resolved>): Command {
   return (state, dispatch) => {
     if (!statusKey.getState(state)) return false;
     dispatch?.(state.tr.setMeta(statusKey, answered).setMeta('addToHistory', false));

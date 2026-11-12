@@ -1,9 +1,14 @@
 import { Slice } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { findNode, parseMarkup } from '../../test/document-markup.js';
 import { createDocumentSchema, type IdentityAttribute } from '../model/index.js';
-import { clearCopiedIdentity, createElementIds } from './element-ids.js';
+import {
+  clearCopiedIdentity,
+  createElementIds,
+  ELEMENT_IDS_REPAIR,
+  repairElementIds,
+} from './element-ids.js';
 
 const ORIGIN: IdentityAttribute = { name: 'origin', dom: 'data-origin', onCopy: 'keep' };
 const REVIEW: IdentityAttribute = { name: 'review', dom: 'data-review', onCopy: 'clear' };
@@ -54,5 +59,32 @@ describe('clearCopiedIdentity', () => {
     expect(first.attrs).toMatchObject({ dataId: 'bbbb0001', dataAuthor: 'bea' });
     expect(second.attrs).toMatchObject({ dataId: 'aaaa0001', dataAuthor: 'ada' });
     expect(findNode(state.doc, 'paragraph')?.textContent).toBe('Original');
+  });
+});
+
+describe('createElementIds', () => {
+  it('DOCE-EDITING-1.1 gives an inserted inline atom an id, while typing walks nothing', () => {
+    const doc = parseMarkup('<p data-id="aaaa0001">Hi</p>');
+    const newId = vi.fn(() => 'bbbb0001');
+    let state = EditorState.create({ doc, plugins: [createElementIds({ newId })] });
+    state = state.applyTransaction(state.tr.insertText('!', 3)).state;
+    expect(newId).not.toHaveBeenCalled();
+    const mention = state.schema.nodes.mention?.create({ userId: 'u1', label: 'Ada' });
+    if (!mention) throw new Error('No mention type');
+    state = state.applyTransaction(state.tr.insert(1, mention)).state;
+    expect(findNode(state.doc, 'mention')?.attrs.dataId).toBe('bbbb0001');
+  });
+});
+
+describe('repairElementIds', () => {
+  it('DOCE-EDITING-1.4 attributes the repaired elements without a writer to the repair author', () => {
+    const doc = parseMarkup('<p>New</p><p data-au="ada">Old</p>');
+    const tr = repairElementIds(EditorState.create({ doc }), { author: 'system' });
+    expect(tr?.getMeta(ELEMENT_IDS_REPAIR)).toBe(true);
+    expect(tr?.getMeta('addToHistory')).toBe(false);
+    expect([tr?.doc.child(0).attrs.dataAuthor, tr?.doc.child(1).attrs.dataAuthor]).toEqual([
+      'system',
+      'ada',
+    ]);
   });
 });

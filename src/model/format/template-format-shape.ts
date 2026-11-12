@@ -12,6 +12,8 @@ export type SettingShape =
   | 'lineHeight'
   | 'weight'
   | 'content'
+  | 'numbering'
+  | 'bullet'
   | 'any'
   | { oneOf: readonly string[] }
   | { object: Readonly<Record<string, SettingShape>> }
@@ -39,7 +41,45 @@ const TEXT = {
   spaceAfter: 'length',
 } as const;
 
-const NUMBERING = { object: { format: 'text', prefix: 'text', suffix: 'text' } } as const;
+const NUMBERING_FIELDS = {
+  enabled: 'boolean',
+  format: 'numbering',
+  prefix: 'text',
+  suffix: 'text',
+} as const;
+const NUMBERING = { object: NUMBERING_FIELDS } as const;
+
+const LEADER = { object: { character: 'text', spacing: 'length' } } as const;
+const LEADER_CHARACTER = { object: { character: 'text' } } as const;
+
+const CONTENTS = {
+  object: {
+    title: { object: FONT },
+    entry: { object: FONT },
+    padding: sides,
+    spacing: sides,
+    leader: LEADER,
+    levels: {
+      list: {
+        object: {
+          indentation: 'length',
+          spaceBefore: 'length',
+          spaceAfter: 'length',
+          leader: LEADER,
+        },
+      },
+    },
+    kinds: {
+      record: {
+        object: {
+          title: 'text',
+          leader: LEADER_CHARACTER,
+          levels: { list: { object: { leader: LEADER_CHARACTER } } },
+        },
+      },
+    },
+  },
+} as const;
 
 const CAPTION = {
   object: {
@@ -72,11 +112,11 @@ export const STYLES_SHAPE: SettingShape = {
         ...TEXT,
         numbering: {
           object: {
-            format: 'text',
-            prefix: 'text',
-            suffix: 'text',
+            ...NUMBERING_FIELDS,
             levels: {
-              list: { object: { format: 'text', numberIndent: 'length', textIndent: 'length' } },
+              list: {
+                object: { format: 'numbering', numberIndent: 'length', textIndent: 'length' },
+              },
             },
           },
         },
@@ -92,8 +132,10 @@ export const STYLES_SHAPE: SettingShape = {
     heading6: HEADING,
     list: {
       object: {
-        bullet: 'text',
-        format: 'text',
+        bullet: 'bullet',
+        format: 'numbering',
+        prefix: 'text',
+        suffix: 'text',
         indentation: 'length',
         spaceBefore: 'length',
         spaceAfter: 'length',
@@ -112,20 +154,7 @@ export const STYLES_SHAPE: SettingShape = {
     figure: { object: { ...CAPTIONED, defaultWidth: 'length' } },
     codeBlock: { object: { ...CAPTIONED, ...TEXT, background: 'color' } },
     equation: { object: { ...CAPTIONED, wrapper: 'text' } },
-    contents: {
-      object: {
-        title: { object: FONT },
-        entry: { object: FONT },
-        padding: sides,
-        spacing: sides,
-        leader: 'text',
-        levels: {
-          list: {
-            object: { indentation: 'length', spaceBefore: 'length', spaceAfter: 'length' },
-          },
-        },
-      },
-    },
+    contents: CONTENTS,
     custom: { record: { object: TEXT } },
   },
 };

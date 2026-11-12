@@ -1,0 +1,62 @@
+{
+  "formatVersion": 1,
+  "id": "field-handbook",
+  "name": "Field handbook",
+  "parent": "field-report",
+  "styles": {
+    "paragraph": {
+      "numbering": {
+        "enabled": false,
+        "levels": [
+          null,
+          {
+            "textIndent": "48pt"
+          }
+        ]
+      }
+    },
+    "heading4": {
+      "numbering": {
+        "format": "1.1.1.1."
+      }
+    },
+    "contents": {
+      "levels": [
+        null,
+        {
+          "leader": {
+            "character": "-"
+          }
+        }
+      ],
+      "kinds": {
+        "toc": {
+          "title": "Handbook contents"
+        },
+        "equations": {
+          "title": "Equations"
+        }
+      }
+    },
+    "custom": {
+      "station-note": {
+        "color": "#0f766e"
+      },
+      "checklist": {
+        "size": "10pt",
+        "spaceBefore": "2pt"
+      }
+    }
+  },
+  "header": {
+    "inherit": true
+  },
+  "extensions": {
+    "fields": {
+      "visit-date": false,
+      "edition": {
+        "label": "Edition"
+      }
+    }
+  }
+}

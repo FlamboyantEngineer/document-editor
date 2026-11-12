@@ -6,10 +6,10 @@ A document is edited through the plugins `createDocumentEditing(schema, options)
 
 ### DOCE-EDITING-1.1 - Unique ids
 
-After a local change that adds or moves elements, every element of the content shall hold an id of eight hexadecimal digits that no earlier element holds (`assignElementIds`): an element without one, with one of another form, or with one an earlier element holds gets a fresh one. The parts a split element is laid out in shall share its id, and page chrome (sections, pages, headers, footers and footnote areas) shall get none.
+After a local change that adds or moves elements, every element of the content shall hold an id of eight hexadecimal digits that no earlier element holds (`assignElementIds`): an element without one, with one of another form, or with one an earlier element holds gets a fresh one. The parts a split element is laid out in shall share its id, and page chrome (sections, pages, headers, footers and footnote areas) shall get none. An inline atom, such as a mention or an equation, is an element too: a change that inserts one gives it an id, while a change that inserts only text gives none (DOCE-EDITING-1.3).
 
 Implementation: `src/engine/element-ids.ts`
-Verification: `src/engine/document-editing.test.ts`
+Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.test.ts`
 
 ### DOCE-EDITING-1.2 - Authorship
 
@@ -27,10 +27,10 @@ Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-1.4 - Repairing on opening
 
-`repairElementIds(state)` shall give a document with missing, invalid or repeated element ids valid ones (DOCE-EDITING-1.1) in one change kept out of the undo history and marked `ELEMENT_IDS_REPAIR`, and give null when every element has one. The header rows a later part of a split table repeats keep the first part's ids, in every assignment of ids. With `repairIds`, the document editor runs it on the document it opens with, and on each new document it is given, and tells the host through `onContentChange`.
+`repairElementIds(state)` shall give a document with missing, invalid or repeated element ids valid ones (DOCE-EDITING-1.1) in one change kept out of the undo history and marked `ELEMENT_IDS_REPAIR`, and give null when every element has one. The header rows a later part of a split table repeats keep the first part's ids, in every assignment of ids. `author` attributes the repaired elements without a writer to that writer, such as a system account. With `repairIds`, the document editor runs it on the document it opens with, and on each new document it is given, only while it is editable, so ids never change in reading mode, and tells the host through `onContentChange`; `repairIds: { author }` passes the author on. A host does not count the marked change as an edit of its own.
 
-Implementation: `src/engine/element-ids.ts`, `src/components/document-editor/use-host-events.ts`
-Verification: `src/engine/document-editing.test.ts`
+Implementation: `src/engine/element-ids.ts`, `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.test.ts`, `src/components/document-editor/document-editor.test.tsx`
 
 ### DOCE-EDITING-1.5 - Copies are new
 
@@ -57,9 +57,9 @@ Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-EDITING-2.3 - Enter
 
-Enter shall add a line in code, split a list item, add a paragraph after a selected block, lift an empty block out of its parent, or split the text block; a split paragraph's new half shall keep its level.
+Enter shall add a line in code, split a list item, add a paragraph after a selected block, lift an empty block out of its parent, or split the text block; a split paragraph's new half shall keep its level. A split at the start of a text block, or of a list item, shall keep the element's identity with its content and make the empty block before it the new element, with a fresh id by the writer (`keepIdentityWithContent`), so a referenced heading keeps its id; a block split by the pagination is left to it.
 
-Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`, `src/engine/split-identity.ts`
 Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-EDITING-2.4 - Across pages
@@ -99,7 +99,7 @@ Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-2.9 - Blocks stay in the body
 
-A command that adds a block (a table, a page break, an object or a script block) shall add it in the body, beside the top-level block holding the caret (`newBlockRange`); with the caret in a page header, footer or footnote area it shall not apply, so no block is ever added outside the pages.
+A command that adds a block (a table, a page break, an object or a script block) shall add it in the body, beside the top-level block holding the caret (`newBlockRange`); with the caret in a page header, footer or footnote area, or a page itself selected, it shall not apply, so no block is ever added outside the pages' content. `canInsertBlock(state)` says whether one can be added.
 
 Implementation: `src/engine/block-place.ts`, `src/engine/tables.ts`, `src/engine/editing-commands.ts`
 Verification: `src/engine/block-place.test.ts`

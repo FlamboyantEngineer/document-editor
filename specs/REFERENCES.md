@@ -13,7 +13,7 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-1.2 - Inserting a reference
 
-`insertReference(source)` shall insert a reference in place of the selection, or change the reference holding the selection: to a target of the document, as the template formats its kind (`internalReferenceText`, from `references.formats`, the label by default), or to a citation a host found, keeping what it records of the document cited. It is refused where a reference may not go (`canInsertReference`): outside text that takes marks, or in code.
+`insertReference(source)` shall insert a reference in place of the selection, or change the reference holding the selection: to a target of the document, as the template formats its kind (`internalReferenceText`, from `references.formats`, the label by default), or to a citation a host found, keeping what it records of the document cited. It is refused where a reference may not go (`canInsertReference`): outside body text (DOCE-REFERENCES-1.6), or in text that takes no marks. An internal reference records its target's number, title and label (`referenceBaseline`, DOCE-REFERENCES-1.8).
 
 Implementation: `src/engine/references.ts`
 Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
@@ -37,6 +37,34 @@ Verification: `src/engine/references.test.ts`
 `createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, and mark a reference whose document or target is gone `unavailable` and one whose document's revision, number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`); `updateReference` takes the update of the reference at the selection, recording the citation as it is now and reading as its label. The context menu offers it.
 
 Implementation: `src/engine/reference-status.ts`, `src/components/document-editor/element-entries.ts`
+Verification: `src/engine/references.test.ts`
+
+### DOCE-REFERENCES-1.6 - Where references go
+
+A reference shall go in body text only (`isReferencePlace`): a paragraph, also in a list, a body cell, a quote or a layout column, or a footnote. A heading, a header cell, code, a script's output and a page header or footer take none. `updateReferences` shall leave a reference outside body text as it reads, so a heading that cites itself never grows. `repairPastedReferences(slice, state)`, a paste filter for the clipboard, shall take the references off pasted text that lands where none may go, keeping the text; pasted internal references then read as the template formats them, or broken without their target.
+
+Implementation: `src/engine/reference-places.ts`, `src/engine/references.ts`
+Verification: `src/engine/reference-places.test.ts`, `src/engine/references.test.ts`
+
+### DOCE-REFERENCES-1.7 - Typing walks no reference
+
+`createReferences` shall walk the document's references only after a change that may change what one reads (`touchesReferences`): a change that only replaces inline text of a paragraph or a footnote, adding and removing no reference, walks none. Nor does a remote change (`isRemote`, `isRemoteTransaction` by default), which already carries the sender's updates.
+
+Implementation: `src/engine/reference-updates.ts`, `src/engine/references.ts`
+Verification: `src/engine/reference-places.test.ts`
+
+### DOCE-REFERENCES-1.8 - What an internal reference records
+
+An internal reference shall record its target as it last read, its number, title and label (`referenceBaseline`, read with `referenceBaselineOf`), when inserted and each time it follows its target. `refreshReferences(template)` shall render every internal reference again as the template formats it now, out of the undo history, such as after the template changed, and is refused when none changes.
+
+Implementation: `src/engine/references.ts`, `src/engine/reference-targets.ts`
+Verification: `src/engine/reference-places.test.ts`
+
+### DOCE-REFERENCES-1.9 - Citations out of reach and asked again
+
+A reference whose citation the host resolves as `no-access` (DOCE-HOST-1.9) shall be marked `no-access`, and takes no update. `refreshReferenceStatus` shall forget how the host resolved every citation and ask it again, as when the host knows its documents changed. `updateReference` shall cite the target as the host names it now (`targetId`), so a citation whose target moved follows it.
+
+Implementation: `src/engine/reference-status.ts`
 Verification: `src/engine/references.test.ts`
 
 ## DOCE-REFERENCES-2 - Abbreviations

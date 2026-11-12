@@ -17,8 +17,8 @@ import { readDomSelection } from '../utils/dom-selection.js';
 import { footnoteAnchor, restoreFootnoteSelection } from './footnote-selection.js';
 import { type DocumentLayoutOptions, layoutDocument, type PageMetric } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { remeasureOn, settleEdits } from './layout-triggers.js';
-import { createMeasureCache, type MeasureCache } from './measure-blocks.js';
+import { type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
+import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
 /** How an editor's pages are kept laid out. */
@@ -102,9 +102,14 @@ export function layoutStats(tr: Transaction): PaginationStats | null {
   return (tr.getMeta(statsKey) as PaginationStats | undefined) ?? null;
 }
 
-function frame(run: () => void): () => void {
-  const handle = requestAnimationFrame(run);
-  return () => cancelAnimationFrame(handle);
+// Runs on the next animation frame of the window the measuring view mounts in.
+function frameIn(container: HTMLElement): (run: () => void) => () => void {
+  const owner = container.ownerDocument.defaultView;
+  return (run) => {
+    if (!owner) return () => undefined;
+    const handle = owner.requestAnimationFrame(run);
+    return () => owner.cancelAnimationFrame(handle);
+  };
 }
 
 // Moves the measuring view onto the whole document by the smallest replacement, so the blocks
@@ -247,10 +252,17 @@ function layOutFrom(
   runner.passes = tr.docChanged ? runner.passes + 1 : 0;
 }
 
+// Forgets what a remeasure asks for: every block after a width change, otherwise the blocks of the
+// elements that changed size.
+function forget(cache: MeasureCache, measuring: EditorView | null, change: Remeasure): void {
+  if (change.width || !measuring) cache.clear();
+  else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
+}
+
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
 export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
-  const schedule = options.schedule ?? frame;
+  const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
   const counter = { cache, ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
@@ -300,8 +312,8 @@ export function createPagination(options: PaginationOptions): Pagination {
           joinDocumentPages(editor.state.doc, fragmentRules).doc,
         );
         const unwatch = edits.watch(editor);
-        const unlisten = remeasureOn(options.measureIn, () => {
-          cache.clear();
+        const unlisten = remeasureOn(options.measureIn, (change) => {
+          forget(cache, runner.measuring, change);
           request();
         });
         change();

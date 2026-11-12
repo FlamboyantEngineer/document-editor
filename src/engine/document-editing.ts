@@ -45,6 +45,7 @@ import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
 import { createScripts } from './scripts.js';
+import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
 import { includeAppended } from './transaction-kind.js';
@@ -163,14 +164,16 @@ export function documentKeys(
     'Mod-Alt-f': insertFootnote(),
     'Mod-Alt-t': insertTable({ rows: 3, columns: 3 }),
     'Shift-Enter': inFootnoteEntry,
-    Enter: chainCommands(
-      inFootnoteEntry,
-      newlineInCode,
-      listKey(splitListItem),
-      createParagraphNear,
-      deleteSelection,
-      liftEmptyBlock,
-      splitBlockKeepingLevel,
+    Enter: keepIdentityWithContent(
+      chainCommands(
+        inFootnoteEntry,
+        newlineInCode,
+        listKey(splitListItem),
+        createParagraphNear,
+        deleteSelection,
+        liftEmptyBlock,
+        splitBlockKeepingLevel,
+      ),
     ),
     Backspace: chainCommands(
       deleteSelection,
@@ -228,7 +231,7 @@ export function createDocumentEditing(
     ...(template
       ? [createCustomStyles({ template }), createTableWidth({ ...tableWidth(template), isRemote })]
       : []),
-    ...createTableEditing(),
+    ...createTableEditing({ isRemote }),
     gapCursor(),
     keymap(documentKeys(schema, template)),
     keymap(baseKeymap),
@@ -304,7 +307,7 @@ export function createDocumentEditingExtension<C = unknown>(
       {
         name: 'tables',
         priority: 850,
-        build: () => createTableEditing(),
+        build: () => createTableEditing({ isRemote }),
       },
       {
         name: 'gap-cursor',

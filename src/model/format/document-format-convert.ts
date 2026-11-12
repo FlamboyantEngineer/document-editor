@@ -17,13 +17,14 @@ import {
   type StoredSection,
   type StoredTypeMapping,
 } from './document-format.js';
+import type { TemplatePin } from './template-format.js';
 
 type Attrs = Record<string, unknown>;
 
 /** What a stored document is written with. */
 export interface DocumentWriteOptions {
-  /** The id of the template the document uses. */
-  template?: string | null | undefined;
+  /** The template the document uses, pinned at a revision. */
+  template?: TemplatePin | null | undefined;
   /** How split blocks are joined; a host adds rules for its own splittable types. */
   fragmentRules?: FragmentRules | undefined;
 }
@@ -285,6 +286,16 @@ function readNode(stored: unknown, path: string, context: ReadContext): ProseMir
   }
 }
 
+// A pin is absent, or an id with an optional revision.
+function checkTemplatePin(pin: unknown): void {
+  if (pin === null || pin === undefined) return;
+  const valid =
+    isRecord(pin) &&
+    typeof pin.id === 'string' &&
+    (pin.revision === null || pin.revision === undefined || typeof pin.revision === 'string');
+  if (!valid) throw formatError('template', 'must be an id with an optional revision');
+}
+
 /**
  * The editor nodes of stored content outside a section, such as a template's page header. Footnotes
  * in it are read as markers without entries. Content it cannot read throws a `DocumentFormatError`.
@@ -327,6 +338,7 @@ export function readDocumentFile(file: unknown, schema: Schema): ProseMirrorNode
   if (file.formatVersion !== DOCUMENT_FORMAT_VERSION) {
     throw formatError('formatVersion', `must be ${String(DOCUMENT_FORMAT_VERSION)}`);
   }
+  checkTemplatePin(file.template);
   if (!Array.isArray(file.sections)) throw formatError('sections', 'must be an array');
   const sections = file.sections.map((section, index) =>
     readSection(section, `sections[${String(index)}]`, schema),
