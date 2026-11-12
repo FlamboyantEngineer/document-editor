@@ -46,6 +46,13 @@ Verification: `src/engine/element-ids.test.ts`
 Implementation: `src/model/format/document-format-ids.ts`
 Verification: `src/model/format/document-format-ids.test.ts`
 
+### DOCE-EDITING-1.7 - An element lifecycle
+
+A host shall be able to build an element lifecycle of its own (states, stamping and gating) from the library's parts, as `docs/recipes/element-lifecycle.md` shows: the state declared as an identity attribute that a copy clears (DOCE-SCHEMA-2.3), a plugin stamping elements without a state, and the edit lock (DOCE-EDITING-4.1) refusing edits inside, and joins into, an element in a frozen state. The library holds no states or transitions.
+
+Implementation: `src/model/schema/element-attributes.ts`, `src/engine/edit-lock.ts`
+Verification: `test/element-lifecycle.test.ts`
+
 ## DOCE-EDITING-2 - Keys
 
 ### DOCE-EDITING-2.1 - Formatting and block types
@@ -115,7 +122,7 @@ Verification: `src/engine/block-place.test.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), word processor paste (510, DOCE-FORMAT-6.2), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), word processor paste (510, DOCE-FORMAT-6.2), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`
 Verification: `src/engine/document-editing.test.ts`
@@ -135,16 +142,30 @@ Verification: `src/engine/transaction-kind.test.ts`
 
 ### DOCE-EDITING-3.3 - No derived writes on remote changes
 
-A plugin that writes to the document in response to other changes (element ids, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
+A plugin that writes to the document in response to other changes (element ids, footnote numbering, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
 
-Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/document-editing.ts`
+Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/footnotes.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/two-state-collab.test.ts`
+
+### DOCE-EDITING-3.4 - Typing without walking the document
+
+A plugin whose state follows the whole document shall not walk it for a change that only types or deletes text (`isInlineTextOnly`, DOCE-EDITING-3.2): it maps what it holds through the change instead. Custom styles (DOCE-TEMPLATES-7.1) do so for every such change; sections (DOCE-SECTIONS-1.1) do so, and append no page regions, when the text is in the pages' content and its block holds text before and after the change, so a section placeholder still appears and goes as its block empties and fills.
+
+Implementation: `src/engine/custom-styles.ts`, `src/engine/document-sections.ts`
+Verification: `src/engine/hot-path.test.ts`
 
 ## DOCE-EDITING-4 - Locked positions
 
 ### DOCE-EDITING-4.1 - The edit lock
 
-`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records, that replaces or inserts at a position `isLocked(doc, pos)` reports locked: the first or last character a step replaces, or the point it inserts at. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
+`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records that is neither remote, derived nor a system change (DOCE-EDITING-3.2), when any of its steps changes a position `isLocked(doc, pos)` reports locked: any position of a range it replaces or marks, the inside of every block and inline node that range covers, the edges a structure change replaces around the content it keeps, the inside of a node it sets attributes or marks on, or the point it inserts at. A step that spans a locked block between two open ones is refused. A comment's highlight may be added to and removed from locked content. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, and system changes pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
 
 Implementation: `src/engine/edit-lock.ts`
 Verification: `src/engine/edit-lock.test.ts`
+
+### DOCE-EDITING-4.2 - Locked sections by default
+
+The editing (`createDocumentEditing`, `createDocumentEditingExtension`) shall install the edit lock whenever it is given the template, locking the sections the template, or the section itself, does not let the writer edit (`lockedTemplateSections`, DOCE-SECTIONS-4.3), together with the host's own lock given as `isLocked` (`anyLock`). Without the template or a lock it installs none. A host that locks positions passes its lock here rather than adding a second edit lock.
+
+Implementation: `src/engine/document-editing.ts`
+Verification: `src/engine/document-editing.test.ts`

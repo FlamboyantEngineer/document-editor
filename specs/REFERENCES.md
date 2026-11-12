@@ -71,10 +71,10 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-2.1 - Inserting and switching
 
-`insertAbbreviation(entry, display)` shall insert an abbreviation of a glossary entry in place of the selection, shown in full or short, and select it; `setAbbreviationDisplay(display)` switches the abbreviation selected between its forms, and `unlinkAbbreviation` turns it into plain text as it reads.
+`insertAbbreviation(entry, display)` shall insert an abbreviation of a glossary entry in place of the selection, shown in full or short, carrying the marks of the text it replaces, and select it; `setAbbreviationDisplay(display)` switches the abbreviation selected between its forms, and `unlinkAbbreviation` turns it into plain text as it reads, keeping its marks.
 
 Implementation: `src/engine/abbreviations.ts`
-Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
+Verification: `src/engine/references.test.ts`, `src/engine/abbreviation-health.test.ts`, `e2e/references.spec.ts`
 
 ### DOCE-REFERENCES-2.2 - Refreshing from the glossary
 
@@ -82,6 +82,13 @@ Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
 
 Implementation: `src/engine/abbreviations.ts`
 Verification: `src/engine/references.test.ts`
+
+### DOCE-REFERENCES-2.3 - Abbreviation issues
+
+`createAbbreviationHealth({ glossary, delay })` shall resolve the entries the document's abbreviations cite through the host's glossary a moment after each change that adds an entry it has not asked for (500 milliseconds by default), and mark an abbreviation whose entry the glossary no longer has `missing`, one whose entry is archived `archived`, and one that reads the same abbreviation, ignoring case, as another entry the document cites `duplicate` (`data-abbreviation-issue`, `abbreviationIssueAt`). `abbreviationIssues(doc, answer)` gives those issues from the glossary's answer, judging only the entries it was asked for.
+
+Implementation: `src/engine/abbreviation-health.ts`
+Verification: `src/engine/abbreviation-health.test.ts`
 
 ## DOCE-REFERENCES-3 - In the editor
 

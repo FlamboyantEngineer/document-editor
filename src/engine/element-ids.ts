@@ -7,6 +7,7 @@ import { Fragment, type Node as ProseMirrorNode, Slice } from 'prosemirror-model
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep, type Step } from 'prosemirror-transform';
 import { clearIdentityAttrs } from '../model/schema/element-attributes.js';
+import { markContributors } from './provenance.js';
 
 /** What an element id looks like: eight lower-case hexadecimal digits. */
 export const ELEMENT_ID_PATTERN = /^[a-f0-9]{8}$/;
@@ -132,24 +133,31 @@ function identify(walk: Walk, node: ProseMirrorNode, pos: number): void {
 const elementIdsKey = new PluginKey('element-ids');
 
 /**
- * Keeps the elements of a document identified after each local change. Changes that stay out of
- * the history, such as the pagination's, and changes from elsewhere are left as they are, and so
- * are changes that only edit text.
+ * Keeps the elements of a document identified after each local change, and the text it inserts
+ * marked as its writer's (`markContributors`). Changes that stay out of the history, such as the
+ * pagination's, and changes from elsewhere are left as they are, and changes that only edit text
+ * are given no ids.
  */
 export function createElementIds({
   author = () => null,
-  isRemote = () => false,
+  isRemote: remote,
   newId,
 }: ElementIdsOptions = {}): Plugin {
+  const isRemote = remote ?? (() => false);
+  const contributor = () => {
+    const id = author();
+    return id ? { author: id } : null;
+  };
   const isLocalEdit = (tr: Transaction) =>
     tr.docChanged && tr.getMeta('addToHistory') !== false && !isRemote(tr);
   return new Plugin({
     key: elementIdsKey,
     appendTransaction(transactions, _before, after) {
-      const edits = transactions.filter(isLocalEdit);
-      if (edits.every((tr) => tr.steps.every(isTextStep))) return null;
       const tr = after.tr;
-      return assignElementIds(tr, { author: author(), newId }) ? tr : null;
+      const marked = markContributors(tr, transactions, { contributor, isRemote: remote });
+      const edits = transactions.filter(isLocalEdit);
+      if (edits.every((each) => each.steps.every(isTextStep))) return marked ? tr : null;
+      return assignElementIds(tr, { author: author(), newId }) || marked ? tr : null;
     },
   });
 }
