@@ -46,8 +46,8 @@ function initialName(): RegressionDocumentName {
 const LAYOUT: DocumentLayout =
   new URLSearchParams(window.location.search).get('layout') === 'web' ? 'web' : 'page';
 
-// Whether the pages are a projection of the document (`projection`, DOCE-PAGINATION-7.17).
-const PROJECTION = new URLSearchParams(window.location.search).has('projection');
+// Whether the pages are a projection of the document (DOCE-PAGINATION-7.17), not `paginate`.
+const PROJECTION = !new URLSearchParams(window.location.search).has('paginate');
 
 // Whether the host draws quotes with a React view of its own (`hostViews`).
 const HOST = new URLSearchParams(window.location.search).has('hostViews');

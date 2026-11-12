@@ -6,7 +6,7 @@
 import type { Node } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { countTextWords, documentRegions, type RegionKind } from '../model/index.js';
-import { pageMap } from '../pagination/page-map.js';
+import { type PageMap, pageMap } from '../pagination/page-map.js';
 import { layoutPageAt } from './layout-page.js';
 
 /** A document's pages and words, as a status bar reports them. */
@@ -63,8 +63,14 @@ function wordsOf(block: Node): number {
 
 const BODY_REGIONS: ReadonlySet<RegionKind> = new Set(['content', 'footnotes']);
 
-/** The document's pages and words, and where the selection is among them. */
-export function documentStatistics(state: EditorState): DocumentStatistics {
+/**
+ * The document's pages and words, and where the selection is among them; the pages those of
+ * `pages`, the state's layout by default (`pageMap`).
+ */
+export function documentStatistics(
+  state: EditorState,
+  pages: PageMap = pageMap(state),
+): DocumentStatistics {
   const { doc, selection } = state;
   let words = 0;
   for (const region of documentRegions(doc, BODY_REGIONS)) {
@@ -72,10 +78,10 @@ export function documentStatistics(state: EditorState): DocumentStatistics {
       words += wordsOf(block);
     });
   }
-  const pages = pageMap(state).pages().length;
+  const count = pages.pages().length;
   const page = layoutPageAt(state, selection.head)?.number ?? 1;
   const selected = selection.empty
     ? 0
     : countTextWords(doc.textBetween(selection.from, selection.to, ' ', ' '));
-  return { pages: Math.max(pages, 1), page, words, selectedWords: selected > 0 ? selected : null };
+  return { pages: Math.max(count, 1), page, words, selectedWords: selected > 0 ? selected : null };
 }

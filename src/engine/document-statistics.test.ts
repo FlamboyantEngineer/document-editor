@@ -2,6 +2,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { createPageMap } from '../pagination/page-map.js';
 import { documentStatistics } from './document-statistics.js';
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
@@ -44,6 +45,13 @@ describe('document statistics', () => {
       selectedWords: null,
     });
     expect(documentStatistics(at(state, 'five')).page).toBe(2);
+  });
+
+  it('DOCE-EDITOR-5.2 counts the pages it is given, as a projection lays them out', () => {
+    const state = stateOf([paragraph(text('One'))]);
+    const laidOut = stateOf([paragraph(text('One'))], [paragraph(text('Two'))], [paragraph()]);
+    expect(documentStatistics(state).pages).toBe(1);
+    expect(documentStatistics(state, createPageMap(laidOut.doc)).pages).toBe(3);
   });
 
   it('DOCE-EDITOR-5.2 counts the selected words', () => {

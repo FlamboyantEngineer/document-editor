@@ -24,6 +24,7 @@ import {
   selectNextProofingIssue,
   setProofingLanguage,
 } from '../../engine/index.js';
+import { pageMap } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { LayoutToggle, PageJump } from './status-controls.js';
@@ -186,7 +187,9 @@ export function DocumentStatusBar({
   className,
 }: DocumentStatusBarProps) {
   const deferred = useDeferredValue(state);
-  const statistics = useMemo(() => documentStatistics(deferred), [deferred]);
+  // The pages a projection shows the state on change as it lays them out, the state unchanged.
+  const pages = pageMap(deferred);
+  const statistics = useMemo(() => documentStatistics(deferred, pages), [deferred, pages]);
   return (
     <StatusBar className={className} aria-label={labels.statusBar}>
       <span {...hooks.slot('status-start')}>

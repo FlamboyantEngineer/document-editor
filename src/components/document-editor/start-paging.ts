@@ -176,7 +176,12 @@ function startProjectionOf(
   );
   const projection = startProjection(setup, latest, { own: ownPlugins.current, pages, setPaged });
   active.current = projection;
-  refresh.current = () => projection.refresh({ remeasure: true });
+  // The pages were just measured with what the editor's effects refresh them for as it mounts, so
+  // only a later change measures them again.
+  queueMicrotask(() => {
+    if (active.current === projection)
+      refresh.current = () => projection.refresh({ remeasure: true });
+  });
   redraw.current = (key) => projection.redraw(key);
   return () => {
     refresh.current = null;
@@ -217,6 +222,8 @@ function startProjection(
       own,
     ),
     mountGhost: ghostWith(latest),
+    // The engine's own border resize runs on the pages, on the whole table.
+    resizeColumns: false,
     dispatch: (tr) => latest.current.onCanonical?.(tr),
     onProjection: (state) => {
       if (made) setPaged({ projection: made, state });

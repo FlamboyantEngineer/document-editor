@@ -104,12 +104,12 @@ test.describe('print equals the editor', () => {
   // Each case screenshots, prints and compares every page; CI runners are several times slower.
   test.describe.configure({ timeout: 120_000 });
 
-  test('DOCE-EDITOR-6.19 prints the print lab on the projection as the editor shows it', async ({
+  test('DOCE-EDITOR-6.19 prints the print lab as the editor shows it', async ({
     page,
     context,
   }) => {
     await page.setViewportSize(ROOMY);
-    await page.goto('print.html?projection');
+    await page.goto('print.html');
     await waitForLab(page);
     await expectPrintEqualsEditor(page, context, async () => {
       await page.getByRole('button', { name: 'Make a print preview' }).click();
@@ -118,12 +118,12 @@ test.describe('print equals the editor', () => {
   });
 
   for (const name of REGRESSION_NAMES) {
-    test(`DOCE-EDITOR-6.19 DOCE-LABS-4.1 prints regression document ${name} on the projection as the editor shows it`, async ({
+    test(`DOCE-EDITOR-6.19 DOCE-LABS-4.1 prints regression document ${name} as the editor shows it`, async ({
       page,
       context,
     }) => {
       await page.setViewportSize(ROOMY);
-      await page.goto(`regression.html?document=${name}&projection`);
+      await page.goto(`regression.html?document=${name}`);
       await waitForLab(page);
       await expectPrintEqualsEditor(page, context, async () => {
         const stylesheet = new URL('build/reference.css', page.url()).href;

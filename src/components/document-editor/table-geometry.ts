@@ -60,25 +60,88 @@ function columnRect(
   return shared;
 }
 
-/** Measures the table before `pos`, relative to `origin`; null when it is not drawn. */
-export function measureTable(view: EditorView, pos: number, origin: Rect): TableGeometry | null {
+// The table element a table is drawn in: the one the pointer was over while it is still drawn, as
+// a split table's part on a page, or the table's own.
+function tableElement(view: EditorView, pos: number, element: Element | null): Element | null {
+  if (element?.isConnected && view.dom.contains(element)) return element;
+  const dom = view.nodeDOM(pos);
+  if (!isElement(dom)) return null;
+  return dom.tagName === 'TABLE' ? dom : dom.querySelector('table');
+}
+
+// The index of the row of the table before `pos` that a drawn row stands for; null for none.
+function rowIndexOf(view: EditorView, pos: number, row: Element): number | null {
+  let at: number;
+  try {
+    at = view.posAtDOM(row, 0);
+  } catch {
+    return null;
+  }
+  const { doc } = view.state;
+  const depth = doc.resolve(pos + 1).depth;
+  const $at = doc.resolve(at);
+  return $at.depth > depth && $at.before(depth) === pos ? $at.index(depth) : null;
+}
+
+// The boxes of a table's rows, by index, from the rows a table element draws. A row it does not
+// draw, as one on another page, lies before it when a later row is drawn and after it otherwise,
+// so the gaps between drawn rows count every row of the table.
+function rowBoxes(
+  view: EditorView,
+  { pos, height, table }: { pos: number; height: number; table: Element },
+  origin: Rect,
+): Box[] | null {
+  const drawn = new Map<number, Box>();
+  for (const row of Array.from((table as HTMLTableElement).rows)) {
+    const index = rowIndexOf(view, pos, row);
+    if (index !== null && !drawn.has(index)) {
+      drawn.set(index, relative(row.getBoundingClientRect(), origin));
+    }
+  }
+  if (drawn.size === 0) return null;
+  const last = Math.max(...drawn.keys());
+  const box = relative(table.getBoundingClientRect(), origin);
+  return Array.from({ length: height }, (_, index) => {
+    const top = index < last ? -Infinity : Infinity;
+    return drawn.get(index) ?? { top, left: box.left, width: box.width, height: 0 };
+  });
+}
+
+/**
+ * Measures the table before `pos` where `element` draws it, or where it is drawn, relative to
+ * `origin`; null when it is not drawn.
+ */
+export function measureTable(
+  view: EditorView,
+  { pos, element }: { pos: number; element: Element | null },
+  origin: Rect,
+): TableGeometry | null {
   // A resize the observer reports after the editor is gone measures nothing.
   if (view.isDestroyed) return null;
   const node = view.state.doc.nodeAt(pos);
-  const dom = view.nodeDOM(pos);
-  if (node?.type.spec.tableRole !== 'table' || !isElement(dom)) return null;
-  const table = dom.tagName === 'TABLE' ? dom : dom.querySelector('table');
-  if (!table) return null;
+  const table = node?.type.spec.tableRole === 'table' ? tableElement(view, pos, element) : null;
+  if (!node || !table) return null;
   const map = TableMap.get(node);
-  const rowElements = Array.from((table as HTMLTableElement).rows);
-  const rows = rowElements.map((row) => relative(row.getBoundingClientRect(), origin));
+  const rows = rowBoxes(view, { pos, height: map.height, table }, origin);
   const columns: Box[] = [];
   for (let column = 0; column < map.width; column += 1) {
     const rect = columnRect(view, { node, start: pos + 1, map }, column);
     if (rect) columns.push(relative(rect, origin));
   }
-  if (rows.length !== map.height || columns.length !== map.width) return null;
+  if (!rows || columns.length !== map.width) return null;
   return { table: relative(table.getBoundingClientRect(), origin), rows, columns };
+}
+
+/** Whether a row's box is drawn, rather than standing for a row drawn elsewhere. */
+export const isDrawn = (box: Box): boolean => Number.isFinite(box.top);
+
+// Where the gap before row `gap` is drawn: at its row, or next to the nearest drawn row.
+function rowGapTop(rows: readonly Box[], gap: number, table: Box): number {
+  const before = rows[gap];
+  if (before && isDrawn(before)) return before.top;
+  if (before && before.top < 0) return rows.slice(gap).find(isDrawn)?.top ?? table.top;
+  const previous = rows.slice(0, gap).findLast(isDrawn);
+  return previous ? previous.top + previous.height : table.top;
 }
 
 /** The gap nearest a point along an axis: 0 before the first row or column, n after the last. */
@@ -97,13 +160,17 @@ export const gapTarget = (from: number, gap: number): number => (gap > from ? ga
 /** The line that marks a gap: across the table, at the edge between two rows or columns. */
 export function gapBox(geometry: TableGeometry, axis: TableAxis, gap: number): Box {
   const { table } = geometry;
-  const boxes = axis === 'row' ? geometry.rows : geometry.columns;
+  if (axis === 'row') {
+    return {
+      top: rowGapTop(geometry.rows, gap, table),
+      left: table.left,
+      width: table.width,
+      height: 0,
+    };
+  }
+  const boxes = geometry.columns;
   const before = boxes[gap];
   const last = boxes[boxes.length - 1];
-  if (axis === 'row') {
-    const top = before ? before.top : last ? last.top + last.height : table.top;
-    return { top, left: table.left, width: table.width, height: 0 };
-  }
   const left = before ? before.left : last ? last.left + last.width : table.left;
   return { top: table.top, left, width: 0, height: table.height };
 }

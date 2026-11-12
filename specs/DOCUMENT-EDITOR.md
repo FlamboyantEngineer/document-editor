@@ -203,7 +203,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-5.2 - Counting pages and words
 
-`documentStatistics(state)` shall return the pages the document is laid out on and the page holding the selection's head, both read from its layout (`pageMap`, DOCE-PAGINATION-7.7), the words of its sections' content and footnote areas (DOCE-SCHEMA-6.2) (`countTextWords`), leaving out page headers and footers and the header rows a later part of a split table repeats, and the words of a selection, or null for a caret or a selection holding no words, such as a selected object. Each block's count is kept for as long as the block, so a changed document is counted again only where it changed.
+`documentStatistics(state, pages?)` shall return the pages the document is laid out on and the page holding the selection's head, both read from its layout (`pageMap`, DOCE-PAGINATION-7.7), the count from `pages` when given, so the status bar follows each layout of a projection that leaves the state as it was, the words of its sections' content and footnote areas (DOCE-SCHEMA-6.2) (`countTextWords`), leaving out page headers and footers and the header rows a later part of a split table repeats, and the words of a selection, or null for a caret or a selection holding no words, such as a selected object. Each block's count is kept for as long as the block, so a changed document is counted again only where it changed.
 
 Implementation: `src/engine/document-statistics.ts`, `src/engine/layout-page.ts`
 Verification: `src/engine/document-statistics.test.ts`

@@ -104,7 +104,9 @@ describe('DocumentEditor', () => {
     expect(root).toHaveAttribute('data-layout-state', 'pending');
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     await waitFor(() => expect(root).toHaveAttribute('data-layout-state', 'settled'));
-    expect(handle.current?.layoutStats()).toMatchObject({ layouts: 1, blocksMeasured: 1 });
+    // The pages' regions made read-only as the editor mounts lay them out again, measuring nothing
+    // new.
+    expect(handle.current?.layoutStats()).toMatchObject({ layouts: 2, blocksMeasured: 1 });
   });
 
   it('DOCE-EDITOR-6.12 is settled at once in the web layout', async () => {

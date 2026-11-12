@@ -57,7 +57,7 @@ Verification: `src/engine/tables.test.ts`
 
 ### DOCE-TABLES-2.1 - Handles
 
-While the editor is editable and not suggesting, the table cell under the pointer shall show a grip beside its row (`de-table-handles__grip`, `data-axis="row"`) and one above its column (`data-axis="column"`), named by the row's or column's number. They stay while the pointer moves onto them, during a drag and while a grip's menu is open, and go when the pointer leaves the editor. The handles' layer (`de-table-handles`) covers the editor's body, and each grip publishes the box of its row or column, relative to the layer, as `--de-table-handles-top`, `--de-table-handles-left`, `--de-table-handles-width` and `--de-table-handles-height`.
+While the editor is editable and not suggesting, the table cell under the pointer shall show a grip beside its row (`de-table-handles__grip`, `data-axis="row"`) and one above its column (`data-axis="column"`), named by the row's or column's number. They stay while the pointer moves onto them, during a drag and while a grip's menu is open, and go when the pointer leaves the editor. On a table the pages split, each grip sits beside the row or column of the part under the pointer, and the rows other parts draw get none. The handles' layer (`de-table-handles`) covers the editor's body, and each grip publishes the box of its row or column, relative to the layer, as `--de-table-handles-top`, `--de-table-handles-left`, `--de-table-handles-width` and `--de-table-handles-height`.
 
 Implementation: `src/components/document-editor/table-handles.tsx`, `src/components/document-editor/use-table-target.ts`, `src/components/document-editor/table-geometry.ts`, `labs/reference/editor-chrome.css`
 Verification: `e2e/tables.spec.ts`

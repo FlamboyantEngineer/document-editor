@@ -3,9 +3,9 @@ import { expect, test, waitForLab } from './fixtures.js';
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
 
-// The full editor lab with its pages as a projection of the whole document.
+// The full editor lab, its pages a projection of the whole document as by default.
 async function openProjected(page: Page) {
-  await page.goto('full-editor.html?projection');
+  await page.goto('full-editor.html');
   await waitForLab(page);
   await expect(content(page).locator('.pm-page').first()).toBeVisible();
 }
@@ -72,7 +72,7 @@ test.describe('DocumentEditor on the projection', () => {
   test('DOCE-PAGINATION-7.17 DOCE-OBJECTS-3.3 paints code highlights on every page shown', async ({
     page,
   }) => {
-    await page.goto('regression.html?document=code-blocks&layout=page&projection');
+    await page.goto('regression.html?document=code-blocks&layout=page');
     await waitForLab(page);
     const pages = content(page).locator('.pm-page');
     await expect(pages.first()).toBeVisible();

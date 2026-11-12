@@ -8,8 +8,8 @@ import { expect, test, waitForLab } from './fixtures.js';
 // The pagination regression scenarios (specs/LABS.md DOCE-LABS-4): the regression set's documents
 // laid out in the regression lab, read from the pages it draws and edited at their fragment
 // boundaries. A scenario the editor does not pass yet is an expected failure naming its gap in the
-// port plan (`expectedFailure`); when the gap's work lands, the scenario passes, Playwright reports
-// the expected failure as passing unexpectedly, and its mark comes off.
+// port plan (`test.fail`, with the gap as an annotation); when the gap's work lands, the scenario
+// passes, Playwright reports the expected failure as passing unexpectedly, and its mark comes off.
 
 declare global {
   interface Window {
@@ -18,18 +18,12 @@ declare global {
   }
 }
 
-/** Marks a scenario as failing until the gap it names is closed. */
-function expectedFailure(gap: string, why: string) {
-  test.info().annotations.push({ type: 'gap', description: `${gap}: ${why}` });
-  test.fail(true, `${gap}: ${why}`);
-}
-
 async function openDocument(
   page: Page,
   name: RegressionDocumentName,
-  { layout = 'page', projection = false }: { layout?: string; projection?: boolean } = {},
+  { layout = 'page', projection = true }: { layout?: string; projection?: boolean } = {},
 ) {
-  const shown = projection ? '&projection' : '';
+  const shown = projection ? '' : '&paginate';
   await page.goto(`regression.html?document=${name}&layout=${layout}${shown}`);
   await waitForLab(page);
 }
@@ -395,27 +389,6 @@ const EDITS: readonly Pick<MatrixCell, 'edge' | 'key'>[] = [
   { edge: 'continuation-start', key: 'Backspace' },
 ];
 
-const PROJECTION = 'PG-40';
-// The cells that fail today, by block type, edge and key, with what goes wrong.
-const FAILING_CELLS: Readonly<Record<string, string>> = {
-  'oversized-blocks paragraph head-end Enter': `${PROJECTION} (PG-29): Enter at a head fragment's end leaves an empty paragraph`,
-  'oversized-blocks paragraph continuation-start Enter': `${PROJECTION} (PG-29): Enter at a continuation's start splits the fragments, not the paragraph`,
-  'oversized-blocks list_item head-end Enter': `${PROJECTION} (PG-29): Enter at a split item's head fragment adds an empty item`,
-  'long-ordered-list ordered_list head-end Delete': `${PROJECTION}: Delete at a split list's head end does not join the next item`,
-  'long-ordered-list ordered_list continuation-start Backspace': `${PROJECTION}: Backspace at a list continuation's start joins the wrong items`,
-  'long-bullet-list-with-nesting bullet_list continuation-start Enter': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
-  'long-bullet-list-with-nesting bullet_list head-end Delete': `${PROJECTION}: Delete at a nested list's head end does not join the next item`,
-  'table-long-repeated-header table continuation-start Enter': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
-  'table-long-single-header table continuation-start Enter': `${PROJECTION}: the continuation's first row is no row of the stored table`,
-  'long-bullet-list-with-nesting bullet_list continuation-start Backspace': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
-  'oversized-blocks list_item continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
-  'long-ordered-list ordered_list continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
-  'table-long-headerless table continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
-  'blockquotes blockquote continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
-  'code-blocks code_block head-end Delete': `${PROJECTION}: the line break between two code fragments cannot be deleted`,
-  'code-blocks code_block continuation-start Backspace': `${PROJECTION}: the line break between two code fragments cannot be deleted`,
-};
-
 async function press(page: Page, key: MatrixCell['key']) {
   if (key === 'type') await page.keyboard.type('ZQ');
   else await page.keyboard.press(key);
@@ -425,13 +398,9 @@ async function press(page: Page, key: MatrixCell['key']) {
 // The same key at a fragment boundary on the pages, then at the same place in the whole block.
 async function editAcross(
   page: Page,
-  {
-    block,
-    edit,
-    projection,
-  }: { block: (typeof BLOCKS)[number]; edit: (typeof EDITS)[number]; projection: boolean },
+  { block, edit }: { block: (typeof BLOCKS)[number]; edit: (typeof EDITS)[number] },
 ) {
-  await openDocument(page, block.document, { projection });
+  await openDocument(page, block.document);
   const caret = await page.evaluate(
     ([type, edge]) => window.regressionLab.caretAtFragment(type, edge),
     [block.type, edit.edge] as const,
@@ -451,9 +420,6 @@ async function editAcross(
   expect(withoutIds(paged)).toEqual(withoutIds(await storedOf(page)));
 }
 
-const cellOf = (block: (typeof BLOCKS)[number], edit: (typeof EDITS)[number]) =>
-  `${block.document} ${block.type} ${edit.edge} ${edit.key}`;
-
 const titleOf = (block: (typeof BLOCKS)[number], edit: (typeof EDITS)[number]) => {
   const where = edit.edge === 'head-end' ? "a head fragment's end" : "a continuation's start";
   return `${edit.key === 'type' ? 'types' : `presses ${edit.key}`} at ${where} of ${block.name} as in the whole block`;
@@ -462,47 +428,10 @@ const titleOf = (block: (typeof BLOCKS)[number], edit: (typeof EDITS)[number]) =
 test.describe('split-paragraph repagination matrix', () => {
   for (const block of BLOCKS) {
     for (const edit of EDITS) {
-      test(`DOCE-LABS-4.2 DOCE-EDITING-2.4 DOCE-PAGINATION-3.5 ${titleOf(block, edit)}`, async ({
+      test(`DOCE-LABS-4.2 DOCE-EDITING-2.4 DOCE-PAGINATION-3.5 DOCE-PAGINATION-7.17 ${titleOf(block, edit)}`, async ({
         page,
       }) => {
-        const fails = FAILING_CELLS[cellOf(block, edit)];
-        if (fails) expectedFailure(fails.split(' ')[0] ?? PROJECTION, fails);
-        await editAcross(page, { block, edit, projection: false });
-      });
-    }
-  }
-});
-
-// The failing cells the paged projection (PG-40) already passes, run on it while it is opt-in.
-const PASSING_ON_PROJECTION = new Set([
-  'oversized-blocks paragraph head-end Enter',
-  'oversized-blocks paragraph continuation-start Enter',
-  'oversized-blocks list_item head-end Enter',
-  'oversized-blocks list_item continuation-start Enter',
-  'long-ordered-list ordered_list head-end Delete',
-  'long-ordered-list ordered_list continuation-start Backspace',
-  'long-ordered-list ordered_list continuation-start Enter',
-  'long-bullet-list-with-nesting bullet_list head-end Delete',
-  'table-long-headerless table continuation-start Enter',
-  'code-blocks code_block continuation-start Backspace',
-  'blockquotes blockquote continuation-start Enter',
-  'long-bullet-list-with-nesting bullet_list continuation-start Enter',
-  'long-bullet-list-with-nesting bullet_list continuation-start Backspace',
-  'table-long-repeated-header table continuation-start type',
-  'table-long-repeated-header table continuation-start Enter',
-  'table-long-repeated-header table continuation-start Backspace',
-  'table-long-single-header table continuation-start Enter',
-  'code-blocks code_block head-end Delete',
-]);
-
-test.describe('split-paragraph repagination matrix on the projection', () => {
-  for (const block of BLOCKS) {
-    for (const edit of EDITS) {
-      if (!PASSING_ON_PROJECTION.has(cellOf(block, edit))) continue;
-      test(`DOCE-LABS-4.2 DOCE-PAGINATION-7.17 ${titleOf(block, edit)} on the projection`, async ({
-        page,
-      }) => {
-        await editAcross(page, { block, edit, projection: true });
+        await editAcross(page, { block, edit });
       });
     }
   }
@@ -514,7 +443,7 @@ test.describe('host views on the projection', () => {
   }) => {
     await openDocument(page, 'blockquotes', { projection: true });
     const plain = (await pagesOf(page)).length;
-    await page.goto('regression.html?document=blockquotes&layout=page&projection&hostViews');
+    await page.goto('regression.html?document=blockquotes&layout=page&hostViews');
     await waitForLab(page);
     await expect(page.locator('.pm-page blockquote[data-host-view]').first()).toBeVisible();
     // The ghost draws the host's view too, in the editor's measuring element.
