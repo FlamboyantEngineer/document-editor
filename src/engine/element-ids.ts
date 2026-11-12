@@ -6,6 +6,7 @@
 import { Fragment, type Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep, type Step } from 'prosemirror-transform';
+import { isStructureNode, regionKind } from '../model/index.js';
 import { clearIdentityAttrs } from '../model/schema/element-attributes.js';
 import { markContributors } from './provenance.js';
 
@@ -28,9 +29,12 @@ export interface ElementIdsOptions {
   newId?: (() => string) | undefined;
 }
 
-/** Page chrome: view content the pagination draws, which holds no stored elements. */
-const CHROME = new Set(['page_section', 'page', 'page_content']);
-const DRAWN = new Set(['page_header', 'page_footer', 'page_footnotes']);
+// The regions the pagination draws from the template and the footnotes, which hold no stored
+// elements; sections, pages and the content are structure around the elements.
+const isDrawnRegion = (node: ProseMirrorNode) => {
+  const kind = regionKind(node);
+  return kind !== null && kind !== 'content';
+};
 
 const isSplitPart = (node: ProseMirrorNode) =>
   node.attrs.splitPartIndex !== null && node.attrs.splitPartIndex !== undefined;
@@ -84,10 +88,10 @@ export function assignElementIds(
 ): boolean {
   const walk: Walk = { tr, seen: new Map(), author, newId, changed: false };
   tr.doc.descendants((node, pos, parent) => {
-    if (node.isText || DRAWN.has(node.type.name)) return false;
+    if (node.isText || isDrawnRegion(node)) return false;
     // The header rows a later part of a split table repeats are copies of the first part's.
     if (isRepeatedHeaderRow(node, parent)) return false;
-    if (!CHROME.has(node.type.name) && !isPlaceholder(node, parent)) identify(walk, node, pos);
+    if (!isStructureNode(node) && !isPlaceholder(node, parent)) identify(walk, node, pos);
     return true;
   });
   return walk.changed;

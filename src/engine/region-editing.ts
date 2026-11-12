@@ -7,7 +7,9 @@ import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { resolveSectionRegion } from '../model/format/template-format-resolve.js';
 import {
+  documentRegions,
   readTemplateContent,
+  type RegionKind,
   type StoredContent,
   type TemplateFile,
   writeStoredContent,
@@ -25,10 +27,7 @@ export interface RegionChange {
   readonly content: StoredContent;
 }
 
-const REGIONS: Readonly<Record<string, PageRegion>> = {
-  page_header: 'header',
-  page_footer: 'footer',
-};
+const PAGE_REGIONS: ReadonlySet<RegionKind> = new Set<PageRegion>(['header', 'footer']);
 
 /** The edits standing over the template's regions, by section and region. */
 export type RegionEdits = ReadonlyMap<string, Fragment>;
@@ -68,20 +67,11 @@ interface RegionAt {
 
 // Every page's header and footer, with its section's key.
 function regionsOf(doc: ProseMirrorNode): RegionAt[] {
-  const found: RegionAt[] = [];
-  doc.forEach((section, sectionOffset) => {
-    if (section.type.name !== 'page_section') return;
-    const name = (section.attrs.sectionName as string | null) ?? null;
-    section.forEach((page, pageOffset) => {
-      page.forEach((node, regionOffset) => {
-        const region = REGIONS[node.type.name];
-        if (!region) return;
-        const pos = sectionOffset + pageOffset + regionOffset + 2;
-        found.push({ pos, node, key: regionKey(name, region) });
-      });
-    });
-  });
-  return found;
+  return documentRegions(doc, PAGE_REGIONS).map(({ pos, node, kind, section }) => ({
+    pos,
+    node,
+    key: regionKey(section.name, kind === 'header' ? 'header' : 'footer'),
+  }));
 }
 
 // The regions a writer's change edited, by key, with their content now.

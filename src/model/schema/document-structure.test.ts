@@ -7,6 +7,7 @@ import {
   isSectionNode,
   isStructureNode,
   regionAt,
+  regionBeside,
   regionKind,
   sectionAt,
   sectionRegions,
@@ -122,5 +123,19 @@ describe('document structure', () => {
       expect(sectionAt(doc.resolve(1))?.name).toBe('Intro');
       expect(sectionAt(doc.resolve(0))).toBeNull();
     }
+  });
+
+  it('DOCE-SCHEMA-6.3 finds the region of a kind beside a position', () => {
+    const doc = paged();
+    const notes = regionBeside(doc.resolve(textPos(doc, 'Two') + 1), 'footnotes');
+    expect(notes && doc.nodeAt(notes.pos)).toBe(notes?.node);
+    const [, second] = documentRegions(doc, new Set(['footnotes']));
+    expect(notes?.pos).toBe(second?.pos);
+    const whole = canonical(doc);
+    const beside = regionBeside(whole.resolve(textPos(whole, 'Three') + 1), 'footer');
+    expect(beside?.node.textContent).toBe('Foot');
+    expect(beside?.section.name).toBe('Main');
+    expect(regionBeside(doc.resolve(1), 'footnotes')).toBeNull();
+    expect(regionBeside(doc.resolve(0), 'footnotes')).toBeNull();
   });
 });
