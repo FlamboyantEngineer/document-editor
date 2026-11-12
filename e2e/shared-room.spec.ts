@@ -16,12 +16,20 @@ async function typeAfter(page: Page, name: string, heading: string, value: strin
   await page.keyboard.type(value);
 }
 
+// A writer's document text, without the other writer's caret and its name label.
+const documentText = (page: Page, name: string) =>
+  editor(page, name).evaluate((root) => {
+    const copy = root.cloneNode(true) as Element;
+    for (const caret of copy.querySelectorAll('.de-presence-caret')) caret.remove();
+    return copy.textContent;
+  });
+
 // Both writers hold the same document: the same text, page for page.
 async function expectSameDocument(page: Page) {
   await expect(async () => {
     const [ada, grace] = await Promise.all([
-      editor(page, 'Ada').textContent(),
-      editor(page, 'Grace').textContent(),
+      documentText(page, 'Ada'),
+      documentText(page, 'Grace'),
     ]);
     expect(ada).toBe(grace);
   }).toPass();
