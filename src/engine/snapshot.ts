@@ -114,6 +114,13 @@ function pagesMarkup(
   return copy.outerHTML;
 }
 
+// The language the pages are shown in, the closest one around them, which picks their fonts'
+// fallbacks, hyphenation and quotes; none when nothing around them names one.
+function languageAttribute(view: EditorView): string {
+  const language = view.dom.closest('[lang]')?.getAttribute('lang');
+  return language ? ` lang="${escapeHtml(language)}"` : '';
+}
+
 // The text style the pages inherit in the editor, from the page it is on, so text the template
 // and stylesheets leave unstyled prints as it shows there rather than in the browser's default.
 function inheritedText(view: EditorView): string {
@@ -157,7 +164,7 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
   const styles = (options.styles ?? []).map((css) => `<style>${css}</style>`).join('');
   return [
     '<!doctype html>',
-    '<html><head><meta charset="utf-8">',
+    `<html${languageAttribute(view)}><head><meta charset="utf-8">`,
     `<title>${escapeHtml(options.title ?? '')}</title>`,
     `<style>${printRules(options.template, sizes)} :root { ${properties} }</style>`,
     links,

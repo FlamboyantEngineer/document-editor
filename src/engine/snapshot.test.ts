@@ -90,6 +90,7 @@ function parse(html: string) {
   const parsed = new DOMParser().parseFromString(html, 'text/html');
   return {
     body: document.importNode(parsed.body, true),
+    language: parsed.documentElement.lang,
     style: parsed.head.querySelector('style')?.textContent ?? '',
   };
 }
@@ -276,12 +277,14 @@ describe('documentSnapshot', () => {
     view.destroy();
   });
 
-  it('DOCE-EDITOR-6.19 prints with the text style the pages inherit in the editor', () => {
+  it('DOCE-EDITOR-6.19 prints with the text style and language the pages inherit in the editor', () => {
     const { view, template: sectioned } = sectionedView();
     const around = view.dom.parentElement;
     around?.style.setProperty('font-family', 'Georgia');
     around?.style.setProperty('color', 'rgb(1, 2, 3)');
+    around?.setAttribute('lang', 'fr');
     const snapshot = parse(documentSnapshot(view, { template: sectioned }));
+    expect(snapshot.language).toBe('fr');
     const root = snapshot.body.firstElementChild as HTMLElement | null;
     expect(root?.style.getPropertyValue('font-family')).toBe('Georgia');
     expect(root?.style.getPropertyValue('color')).toBe('rgb(1, 2, 3)');
