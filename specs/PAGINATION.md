@@ -252,7 +252,7 @@ Verification: `src/pagination/caret.test.ts`
 
 ### DOCE-PAGINATION-5.9 - Checking the drawn pages
 
-After each layout, the pages the editor drew shall be checked (`findPageOverflow`): a page whose content, footnotes or footer reach more than a pixel below its content box overflows, unless it holds a single block, which may be taller than a page by design. The pages that overflow are counted (`stats().overflowPages`), and once after each change, an overflow shall forget every measurement and lay the pages out again.
+After each layout, the pages the editor drew shall be checked (`findPageOverflow`): a page whose content, footnotes or footer reach more than a pixel below its content box overflows, unless it holds a single block, which may be taller than a page by design. A region or block drawn without a box, such as an empty region its styles hide, reaches nowhere, wherever the page is scrolled. The check runs once the editor shows the laid-out document, which a React-rendered editor draws after the dispatch. The pages that overflow are counted (`stats().overflowPages`), and once after each change, an overflow shall forget every measurement and lay the pages out again.
 
 Implementation: `src/pagination/layout-validation.ts`, `src/pagination/pagination.ts`, `src/pagination/pagination-stats.ts`
 Verification: `src/pagination/layout-validation.test.ts`, `src/pagination/pagination.test.ts`
@@ -277,6 +277,13 @@ Verification: `src/components/document-editor/document-editor.test.tsx`
 
 Implementation: `src/pagination/layout-triggers.ts`
 Verification: `src/pagination/layout-triggers.test.ts`
+
+### DOCE-PAGINATION-5.13 - The measuring view follows the document
+
+The hidden view that measures a whole document shall follow each new one by the smallest replacements (`followDocument`), node by node where the two pair up: a node whose attributes alone changed, such as a header numbered anew when a section gains a page, takes the new attributes and keeps its content, and within a node whose children no longer pair up, only the range that differs is replaced. Every block a change does not reach keeps its node, and with it its rendering and its cached measurement, even when a fresh join of the pages builds it anew.
+
+Implementation: `src/pagination/ghost-view.ts`
+Verification: `src/pagination/ghost-view.test.ts`
 
 ## DOCE-PAGINATION-6 - Projection
 

@@ -14,7 +14,7 @@ import {
   repaginate,
 } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
-import { caretPlace, keepCaretInPlace } from './caret.js';
+import { caretPlace } from './caret.js';
 import { footnoteAnchor, restoreFootnoteSelection } from './footnote-selection.js';
 import { followDocument } from './ghost-view.js';
 import {
@@ -33,7 +33,7 @@ import {
   remeasureOn,
   settleEdits,
 } from './layout-triggers.js';
-import { findPageOverflow } from './layout-validation.js';
+import { checkDraws } from './layout-validation.js';
 import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
@@ -100,6 +100,9 @@ const statsKey = new PluginKey<PaginationStats>('pagination-stats');
 // loading another.
 const LAYOUT_PASSES = 8;
 
+// Where the caret was on screen before each laid-out document was dispatched, until it is drawn.
+const drawing = new WeakMap<ProseMirrorNode, { readonly caret: number | null }>();
+
 // The pages each laid-out document was laid out as, in order.
 const laidOut = new WeakMap<ProseMirrorNode, readonly PageMetric[]>();
 
@@ -136,8 +139,6 @@ interface Runner {
   passes: number;
   /** Whether a change since the latest layout lays the pages out at once (`wantsLayoutNow`). */
   now: boolean;
-  /** Whether a layout since the latest change measured again for a page that overflowed. */
-  corrected: boolean;
 }
 
 // Lays the measuring view's document out on pages, with what each page's blocks take of it.
@@ -195,9 +196,8 @@ function stepOntoPages(
   laidOut.set(tr.doc, metrics);
   counter.layout(state.doc, tr.doc);
   tr.setMeta(statsKey, counter.stats());
-  const caret = tr.docChanged ? caretPlace(editor) : null;
+  drawing.set(tr.doc, { caret: tr.docChanged ? caretPlace(editor) : null });
   editor.dispatch(tr.setMeta(paginationKey, true).setMeta('addToHistory', false));
-  keepCaretInPlace(editor, caret);
   return tr;
 }
 
@@ -209,6 +209,7 @@ function paginationPlugin(
     readonly mount: (editor: EditorView) => () => void;
     readonly changed: () => void;
     readonly request: () => void;
+    readonly drawn: (view: EditorView, caret: number | null) => void;
   },
   fragmentRules: FragmentRules,
 ): Plugin<boolean> {
@@ -231,6 +232,10 @@ function paginationPlugin(
       return {
         update(view, previous) {
           runner.editor = view;
+          // A host that renders the editor through React draws a layout after the dispatch.
+          const laidOut = drawing.get(view.state.doc);
+          drawing.delete(view.state.doc);
+          if (laidOut) on.drawn(view, laidOut.caret);
           if (!paginationKey.getState(view.state)) return;
           if (view.state.doc.eq(previous.doc)) on.request();
           else on.changed();
@@ -252,7 +257,7 @@ function layOutFrom(
   { editor, measuring, runner }: { editor: EditorView; measuring: EditorView; runner: Runner },
   options: LayoutContext,
   counter: LayoutCounter,
-): boolean {
+): void {
   readDomSelection(editor);
   const whole = joinDocumentPages(editor.state.doc, options.fragmentRules).doc;
   if (runner.restart) {
@@ -261,22 +266,6 @@ function layOutFrom(
   } else followDocument(measuring, whole);
   const tr = stepOntoPages({ editor, measuring }, options, counter);
   runner.passes = tr.docChanged ? runner.passes + 1 : 0;
-  return checkOverflow(editor, { options, counter, runner });
-}
-
-// Checks the pages the editor drew (`findPageOverflow`), counting those drawn taller than they
-// are; once after each change, a page that overflows forgets every measurement, so the layout it
-// asks for measures again. Returns whether it asks for one.
-function checkOverflow(
-  editor: EditorView,
-  { options, counter, runner }: { options: LayoutContext; counter: LayoutCounter; runner: Runner },
-): boolean {
-  const overflow = findPageOverflow(editor, { scale: options.scale?.() });
-  counter.overflow(overflow.length);
-  if (!overflow.length || runner.corrected) return false;
-  runner.corrected = true;
-  counter.cache.clear();
-  return true;
 }
 
 // Forgets what a remeasure asks for, every block after a width change or loaded fonts, otherwise
@@ -304,6 +293,16 @@ function settleOrNow(
   request();
 }
 
+// Runs a layout; one that throws fails the pages' layout state, and throws on.
+function failOnThrow(readiness: { fail(): void }, run: () => void): void {
+  try {
+    run();
+  } catch (error) {
+    readiness.fail();
+    throw error;
+  }
+}
+
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
 export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
@@ -311,7 +310,8 @@ export function createPagination(options: PaginationOptions): Pagination {
   const cache = createMeasureCache();
   const counter = { cache, memory: createLayoutMemory(), ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
-  const runner: Runner = { ...unmounted, changed: true, passes: 0, corrected: false };
+  const draws = checkDraws({ scale: options.scale, cache, count: counter.overflow, request });
+  const runner: Runner = { ...unmounted, changed: true, passes: 0 };
   const context = { ...options, fragmentRules };
 
   const layOut = (): void => {
@@ -320,15 +320,10 @@ export function createPagination(options: PaginationOptions): Pagination {
     // A layout due as the editor goes, such as when the host remounts it, has nothing to lay out.
     if (!editor || !measuring || editor.isDestroyed || measuring.isDestroyed) return;
     if (editor.composing) return request();
-    if (runner.changed) Object.assign(runner, { passes: 0, corrected: false });
+    if (runner.changed) runner.passes = 0;
     else if (runner.passes >= LAYOUT_PASSES) return readiness.fail();
     runner.changed = false;
-    try {
-      if (layOutFrom({ editor, measuring, runner }, context, counter)) request();
-    } catch (error) {
-      readiness.fail();
-      throw error;
-    }
+    failOnThrow(readiness, () => layOutFrom({ editor, measuring, runner }, context, counter));
     readiness.laidOut(() => runner.cancel === null && !edits.waiting() && !ready.waiting());
   };
 
@@ -341,6 +336,7 @@ export function createPagination(options: PaginationOptions): Pagination {
   // A change, or the host asking for a layout, starts the count of layouts in a row over.
   const change = () => {
     runner.changed = true;
+    draws.changed();
     readiness.pending();
   };
   const refresh = ({ remeasure = false } = {}) => {
@@ -382,6 +378,7 @@ export function createPagination(options: PaginationOptions): Pagination {
         settleOrNow(runner, edits, request);
       },
       request,
+      drawn: draws.drawn,
     },
     fragmentRules,
   );

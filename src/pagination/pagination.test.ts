@@ -40,10 +40,17 @@ function stubLayout(height = 0) {
     getBoundingClientRect: () => new DOMRect(),
     getClientRects: (): DOMRect[] => [],
   });
+  const rect = (element: HTMLElement) =>
+    new DOMRect(0, 0, 100, element.tagName === 'P' ? height : 0);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement,
   ) {
-    return new DOMRect(0, 0, 100, this.tagName === 'P' ? height : 0);
+    return rect(this);
+  });
+  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return [rect(this)] as unknown as DOMRectList;
   });
 }
 

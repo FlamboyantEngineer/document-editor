@@ -15,14 +15,26 @@ function mount(texts: readonly string[]) {
   return new EditorView(document.createElement('div'), { state: EditorState.create({ doc }) });
 }
 
-// Draws each page 400 pixels tall and its last paragraph's foot at `foot`.
-function drawPages(foot: number) {
+const hidden = (element: Element) => element.classList.contains('pm-page-header');
+
+// Draws each page 400 pixels tall from `top`, its last paragraph's foot `foot` below that, and its
+// header without a box, as an empty region hidden by its styles is.
+function drawPages(foot: number, top = 0) {
+  const rect = (element: HTMLElement) => {
+    if (hidden(element)) return new DOMRect();
+    if (element.classList.contains('pm-page')) return new DOMRect(0, top, 300, 400);
+    const last = element.tagName === 'P' && !element.nextElementSibling;
+    return new DOMRect(0, top, 300, last ? foot : 100);
+  };
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement,
   ) {
-    if (this.classList.contains('pm-page')) return new DOMRect(0, 0, 300, 400);
-    const last = this.tagName === 'P' && !this.nextElementSibling;
-    return new DOMRect(0, 0, 300, last ? foot : 100);
+    return rect(this);
+  });
+  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return (hidden(this) ? [] : [rect(this)]) as unknown as DOMRectList;
   });
 }
 
@@ -34,6 +46,15 @@ describe('layout validation', () => {
     expect(findPageOverflow(view, { scale: 2 })).toEqual([{ index: 0, by: 25 }]);
     drawPages(400);
     expect(findPageOverflow(view)).toEqual([]);
+    view.destroy();
+  });
+
+  it('DOCE-PAGINATION-5.9 reads a page scrolled above the viewport, past regions drawn without a box', () => {
+    const view = mount(['One', 'Two']);
+    drawPages(400, -5000);
+    expect(findPageOverflow(view)).toEqual([]);
+    drawPages(430, -5000);
+    expect(findPageOverflow(view)).toEqual([{ index: 0, by: 30 }]);
     view.destroy();
   });
 
