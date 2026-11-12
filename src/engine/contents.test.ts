@@ -93,7 +93,7 @@ function viewOf(editable: boolean) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   const state = EditorState.create({
     doc,
     plugins: [createContents({ template: () => BASE_TEMPLATE })],

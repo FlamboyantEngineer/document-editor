@@ -30,7 +30,7 @@ function headingRule(content: StoredNode[] = DOCUMENT): Record<string, boolean> 
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
-  );
+  ).doc;
   const found: Record<string, boolean> = {};
   doc.descendants((node, pos) => {
     if (node.type.name === 'heading') found[node.textContent] = isStructuralHeading(doc, pos);

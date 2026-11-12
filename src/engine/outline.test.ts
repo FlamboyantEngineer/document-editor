@@ -89,7 +89,7 @@ describe('outline', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const state = EditorState.create({ doc });
     const catalog = catalogDocument(doc, BASE_TEMPLATE).toc ?? [];
     const outline = documentOutline(state, BASE_TEMPLATE);

@@ -43,7 +43,7 @@ function headingIn(container: StoredNode): boolean {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content: [container] }] },
     documentSchema,
-  );
+  ).doc;
   let structural: boolean | null = null;
   doc.descendants((node, pos) => {
     if (node.type.name === 'heading') structural = isStructuralHeading(doc, pos);
