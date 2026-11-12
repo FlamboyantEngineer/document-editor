@@ -107,6 +107,7 @@ export {
   repairElementIds,
 } from './element-ids.js';
 export * from './features.js';
+export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
 export {
   canInsertFootnote,
