@@ -103,8 +103,9 @@ export function checkDraws(options: {
 
 /**
  * Has the view that renders a projection check the pages each layout draws, a layout that left
- * them as they were too, and the pages a change draws (DOCE-PAGINATION-5.9), with the caret put
- * back where it was on screen before the layout (`caretBefore`, DOCE-PAGINATION-5.8).
+ * them as they were too (DOCE-PAGINATION-5.9), with the caret put back where it was on screen
+ * before the layout (`caretBefore`, DOCE-PAGINATION-5.8). A change drawn between layouts is not
+ * checked: reading every page's box on each keystroke would lay the document out each time.
  */
 export function checkDrawnPages(
   draws: () => DrawChecks,
@@ -126,8 +127,7 @@ export function checkDrawnPages(
       check(view);
       return {
         update(updated, previous) {
-          const laidOut = key.getState(updated.state) !== key.getState(previous);
-          if (laidOut || updated.state.doc !== previous.doc) check(updated);
+          if (key.getState(updated.state) !== key.getState(previous)) check(updated);
         },
       };
     },
