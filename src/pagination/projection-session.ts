@@ -195,6 +195,10 @@ export function layout(session: Session): void {
   const { view, ghost, pace } = session;
   if (view?.isDestroyed || ghost.isDestroyed) return;
   if (view?.composing) return requestLayout(session);
+  // The selection the browser shows and has not reported yet is the one the new pages keep
+  // (DOCE-EDITOR-1.4), not the one the layout would draw back over it.
+  readDom(session);
+  syncSelection(session);
   if (pace.changed) pace.passes = 0;
   else if (pace.passes >= LAYOUT_PASSES) return pace.readiness.fail();
   pace.changed = false;
