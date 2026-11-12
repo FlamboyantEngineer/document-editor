@@ -426,6 +426,15 @@
   margin: 0;
 }
 
+/* A list item's continuation that opens with another block holds an empty placeholder paragraph,
+   with no id, which takes no room on the page (DOCE-PAGINATION-4.3). */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  li[data-orphaned-list-continuation]
+  > p:first-child:not([data-id]) {
+  display: none;
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content table {
   width: 100%;
   margin: 0 0 var(--doc-paragraph-margin-bottom, 0);

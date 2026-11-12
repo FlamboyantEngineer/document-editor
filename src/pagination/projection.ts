@@ -19,7 +19,7 @@ import {
 } from 'prosemirror-state';
 import { columnResizing } from 'prosemirror-tables';
 import { type EditorProps, EditorView } from 'prosemirror-view';
-import { FRAGMENT_RULES, type FragmentRules, type LayoutRules } from '../model/index.js';
+import { FRAGMENT_RULES, type FragmentRules } from '../model/index.js';
 import { canonicalDecorations } from './canonical-decorations.js';
 import {
   canonicalKeys,
@@ -29,7 +29,11 @@ import {
   canonicalViewOf,
 } from './canonical-plugins.js';
 import { holdCellSelection } from './cell-drag.js';
-import { createLayoutMemory, type SectionPageHeight } from './layout-document.js';
+import {
+  createLayoutMemory,
+  type SectionLayoutRules,
+  type SectionPageHeight,
+} from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import {
   awaitReady,
@@ -67,7 +71,7 @@ export interface PagedProjectionOptions {
   /** The canonical state: the whole document, each section on one page with whole blocks. */
   readonly state: EditorState;
   readonly pageHeight: SectionPageHeight;
-  readonly rules?: LayoutRules | undefined;
+  readonly rules?: SectionLayoutRules | undefined;
   readonly fragmentRules?: FragmentRules | undefined;
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
   /** The node views the ghost renders with, as the projection does. */

@@ -6,7 +6,11 @@ export { canonicalDecorations } from './canonical-decorations.js';
 export type { CanonicalViewSource } from './canonical-view.js';
 export { canonicalView } from './canonical-view.js';
 export { FONT_TIMEOUT, loadTemplateFonts, templateFontFamilies } from './fonts.js';
-export type { DocumentLayoutOptions, SectionPageHeight } from './layout-document.js';
+export type {
+  DocumentLayoutOptions,
+  SectionLayoutRules,
+  SectionPageHeight,
+} from './layout-document.js';
 export type { PageMetric } from './layout-document.js';
 export { layoutDocument } from './layout-document.js';
 export { LAYOUT_NOW_META, layoutNow, wantsLayoutNow } from './layout-latency.js';

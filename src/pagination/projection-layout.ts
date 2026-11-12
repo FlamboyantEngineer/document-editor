@@ -6,17 +6,13 @@
 
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import {
-  type FragmentRules,
-  type LayoutRules,
-  projectDocument,
-  repaginate,
-} from '../model/index.js';
+import { type FragmentRules, projectDocument, repaginate } from '../model/index.js';
 import { followDocument } from './ghost-view.js';
 import {
   layoutDocument,
   type LayoutMemory,
   type PageMetric,
+  type SectionLayoutRules,
   type SectionPageHeight,
   type SectionReport,
 } from './layout-document.js';
@@ -40,7 +36,7 @@ export interface LayoutSource {
 /** How the pages are laid out. */
 export interface ProjectionLayoutOptions {
   readonly pageHeight: SectionPageHeight;
-  readonly rules?: LayoutRules | undefined;
+  readonly rules?: SectionLayoutRules | undefined;
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
   readonly fragmentRules: FragmentRules;
 }

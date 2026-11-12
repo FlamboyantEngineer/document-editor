@@ -57,6 +57,9 @@ export function storedElements(nodes: readonly StoredNode[]): number {
   );
 }
 
+const isPlaceholder = (node: ProseMirrorNode) =>
+  node.type.name === 'paragraph' && node.content.size === 0 && !node.attrs.dataId;
+
 const isContinuation = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
 
 // The first continuation of a type and where it starts.
@@ -75,6 +78,8 @@ function textEdge(doc: ProseMirrorNode, from: number, to: number, last: boolean)
   let at: number | null = null;
   doc.nodesBetween(from, to, (node, pos) => {
     if (!node.isTextblock) return true;
+    // A continuation's placeholder paragraph takes no room: the writer's caret cannot go there.
+    if (isPlaceholder(node)) return false;
     if (last) at = pos + node.nodeSize - 1;
     else at ??= pos + 1;
     return false;

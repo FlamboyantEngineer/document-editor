@@ -24,10 +24,14 @@ import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measu
  */
 export type SectionPageHeight = number | ((section: ProseMirrorNode, index: number) => number);
 
+/** The layout rules, the same for every section or by section, as a section's settings may ask. */
+export type SectionLayoutRules =
+  LayoutRules | ((section: ProseMirrorNode, index: number) => LayoutRules);
+
 /** How a whole document is laid out. */
 export interface DocumentLayoutOptions {
   pageHeight: SectionPageHeight;
-  rules?: LayoutRules | undefined;
+  rules?: SectionLayoutRules | undefined;
   /** Whether footnotes are numbered, and their entries shown, through the document or per page. */
   footnoteNumbering?: 'document' | 'page' | undefined;
   scale?: number | undefined;
@@ -146,7 +150,7 @@ function fillKey(fill: SectionFill, perPage: boolean): string {
 
 function layoutSection(
   fill: SectionFill,
-  options: DocumentLayoutOptions,
+  options: Omit<DocumentLayoutOptions, 'rules'> & { readonly rules?: LayoutRules | undefined },
   previous: SectionLayout | undefined,
 ): IncrementalResult {
   const perPage = options.footnoteNumbering === 'page';
@@ -190,11 +194,13 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
     const regionsHeight = regions.reduce((sum, pos) => sum + regionHeight(view, pos, ratio), 0);
     const before = measuredSoFar();
-    const blocks = measureChildBlocks(view, content, { scale, cache, rules: options.rules });
+    const rules =
+      typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
+    const blocks = measureChildBlocks(view, content, { scale, cache, rules });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnotes === null ? null : measureFootnotes(view, footnotes, { scale });
     const fill = { blocks, area, baseHeight: pageHeight - regionsHeight, shown };
-    const result = layoutSection(fill, options, memory?.sections[index]);
+    const result = layoutSection(fill, { ...options, rules }, memory?.sections[index]);
     const { pagesLaidOut, pages } = result;
     options.onSection?.({ blocksMeasured, pagesLaidOut, pages: pages.length });
     return result;
