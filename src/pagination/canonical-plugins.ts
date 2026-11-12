@@ -7,6 +7,7 @@
 import type { Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, type PluginView, type Transaction } from 'prosemirror-state';
 import type { EditorProps, EditorView } from 'prosemirror-view';
+import { canonicalClipboard } from './canonical-clipboard.js';
 import { canonicalView } from './canonical-view.js';
 import type { ProjectionMap } from './projection-map.js';
 
@@ -32,6 +33,7 @@ const DOM_EVENTS = [
   'contextmenu',
   'dragstart',
   'mouseup',
+  'dblclick',
 ] as const;
 
 type Props = EditorProps;
@@ -242,6 +244,7 @@ export function canonicalPlugins(source: CanonicalPluginsSource): Plugin {
       handleDoubleClick: clickOn(source, 'handleDoubleClick'),
       handleTripleClick: clickOn(source, 'handleTripleClick'),
       handleDOMEvents: domEvents(source),
+      ...canonicalClipboard(source),
     },
   });
 }

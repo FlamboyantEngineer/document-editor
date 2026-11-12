@@ -14,6 +14,7 @@ import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
 import type { PagedProjection } from '../../pagination/index.js';
+import type { EngineViewEvents } from './use-editor-engine.js';
 
 /** A projection the editor renders, with the projection state it renders now. */
 export interface PagedEditor {
@@ -67,6 +68,14 @@ function hostCommit(
   };
 }
 
+// The canonical view as a transaction's body sees it: on the host's state, which the transaction
+// was made on, as the engine's view holds the state before its own transactions.
+function onHostState(view: EditorView, host: EditorState): EditorView {
+  return new Proxy(view, {
+    get: (target, key) => (key === 'state' ? host : Reflect.get(target, key)),
+  });
+}
+
 // Where canonical transactions go and what they are shown with: the projection, the host's
 // latest state, and the engine's view as a view of the canonical state.
 interface PagedTarget {
@@ -83,7 +92,7 @@ interface PagedTarget {
  */
 export function useProjectionEvents(
   projection: PagedProjection | null,
-  events: EngineEvents,
+  events: EngineViewEvents,
 ): EngineEvents {
   const wrapped = useMemo<EngineEvents | null>(() => {
     if (!projection) return null;
@@ -93,7 +102,7 @@ export function useProjectionEvents(
     return {
       onMounted(view) {
         detach = projection.attach(view);
-        events.onMounted?.(view);
+        events.onMounted(view, canonical(view));
       },
       onUnmounted() {
         detach?.();
@@ -138,12 +147,12 @@ export function usePagedEditor(options: PagedEditorOptions) {
     return {
       targetRef,
       onCanonical(tr: Transaction) {
-        const { view } = targetRef.current;
+        const { view, host: held } = targetRef.current;
         if (!view) return;
         const { body, onStateChange, events } = latestRef.current;
         events.onTransaction?.(tr, view);
         const host = hostCommit(tr, { onStateChange, resync });
-        body(tr, view, host);
+        body(tr, held.doc === tr.before ? onHostState(view, held) : view, host);
         if (!host.committed()) resync();
       },
       onLayout(tr: Transaction) {
