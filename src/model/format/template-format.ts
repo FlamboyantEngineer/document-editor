@@ -73,6 +73,8 @@ export interface TextSettings extends FontSettings {
  * number. An empty format numbers nothing.
  */
 export interface NumberingSettings {
+  /** Whether the numbering shows; false keeps the format while numbering nothing. */
+  enabled?: boolean | null;
   format?: string | null;
   prefix?: string | null;
   suffix?: string | null;
@@ -94,17 +96,24 @@ export interface ParagraphLevelSettings {
 
 /** Paragraph settings. */
 export interface ParagraphSettings extends TextSettings {
-  numbering?: (NumberingSettings & { levels?: ParagraphLevelSettings[] | null }) | null;
+  numbering?: (NumberingSettings & { levels?: (ParagraphLevelSettings | null)[] | null }) | null;
   /** Indentation of every line, after the space a number takes. */
   indentation?: Length | null;
 }
 
+/** The markers a bulleted list may name; any other bullet is the text it shows. */
+export type BulletKeyword = 'disc' | 'circle' | 'square' | 'none';
+
 /** List settings. */
 export interface ListSettings {
-  /** The CSS list marker of a bulleted list, such as `disc`. */
+  /** A bulleted list's marker: a `BulletKeyword`, or up to 8 characters of text, such as `–`. */
   bullet?: string | null;
   /** The numbering format of a numbered list. */
   format?: string | null;
+  /** The text before a numbered list's number. */
+  prefix?: string | null;
+  /** The text after a numbered list's number and its separator. */
+  suffix?: string | null;
   indentation?: Length | null;
   spaceBefore?: Length | null;
   spaceAfter?: Length | null;
@@ -156,18 +165,42 @@ export interface EquationSettings extends CaptionedObjectSettings {
   wrapper?: string | null;
 }
 
-/** A generated list's settings, such as a table of contents. */
+/** The characters between a list entry and its page number. */
+export interface ContentsLeader {
+  /** The character repeated; empty for no leader. */
+  character?: string | null;
+  /** The space between the characters. */
+  spacing?: Length | null;
+}
+
+/** A list level's indentation, spacing and leader. */
+export interface ContentsLevelSettings {
+  indentation?: Length | null;
+  spaceBefore?: Length | null;
+  spaceAfter?: Length | null;
+  leader?: ContentsLeader | null;
+}
+
+/** One kind of list's own settings, over the lists' settings. */
+export interface ContentsKindSettings {
+  /** The title the list shows. */
+  title?: string | null;
+  leader?: Pick<ContentsLeader, 'character'> | null;
+  /** Each level's own leader, merged by index over the lists' levels. */
+  levels?: ({ leader?: Pick<ContentsLeader, 'character'> | null } | null)[] | null;
+}
+
+/** The settings of generated lists, such as a table of contents. */
 export interface ContentsSettings {
   title?: FontSettings | null;
   entry?: FontSettings | null;
   padding?: Sides<Length> | null;
   spacing?: Sides<Length> | null;
-  /** The character between an entry and its page number. */
-  leader?: string | null;
-  /** Each heading level's indentation and spacing. */
-  levels?:
-    | { indentation?: Length | null; spaceBefore?: Length | null; spaceAfter?: Length | null }[]
-    | null;
+  leader?: ContentsLeader | null;
+  /** Each level's indentation, spacing and leader, merged by index when inherited. */
+  levels?: (ContentsLevelSettings | null)[] | null;
+  /** Each kind of list's own settings, by its key (`toc`, `figures` and the host's kinds). */
+  kinds?: Record<string, ContentsKindSettings | null> | null;
 }
 
 /** The styles of a scope. */
@@ -186,7 +219,7 @@ export interface TemplateStyles {
   codeBlock?: CodeBlockSettings | null;
   equation?: EquationSettings | null;
   contents?: ContentsSettings | null;
-  /** Styles a writer applies by name, keyed by name. */
+  /** Styles a writer applies by name, keyed by a name `CUSTOM_STYLE_NAME` accepts. */
   custom?: Record<string, TextSettings> | null;
 }
 
@@ -279,6 +312,9 @@ export interface TemplateFile {
   changeBars?: ChangeBarSettings | null;
   /** The sections, in document order. A template's list replaces its parent's. */
   sections?: TemplateSection[] | null;
-  /** The host's own settings, keyed by the host's name for them, inherited like the rest. */
+  /**
+   * The host's own settings, keyed by the host's name for them, inherited like the rest. A keyed
+   * collection is a record, so a template overrides one entry; `extensionRecord` reads it.
+   */
   extensions?: Record<string, unknown> | null;
 }

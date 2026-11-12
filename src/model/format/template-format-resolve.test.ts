@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BASE_TEMPLATE,
+  extensionRecord,
   hasTemplateParentCycle,
   hasTemplateParentCycleAsync,
   mergeTemplateFiles,
+  missingTemplateSettings,
   resolveSectionRegion,
   resolveTemplateFile,
   resolveTemplateFileAsync,
@@ -91,11 +94,71 @@ describe('template inheritance', () => {
   it('DOCE-FORMAT-3.4 gives a section the template region unless it has its own', () => {
     const header = { content: [{ type: 'paragraph' }] };
     const own = { content: [] };
-    expect(resolveSectionRegion({ header }, { header: own }, 'header')).toBe(own);
+    expect(resolveSectionRegion({ header }, { header: own }, 'header')).toEqual(own);
     expect(resolveSectionRegion({ header }, { header: { ...own, inherit: true } }, 'header')).toBe(
       header,
     );
     expect(resolveSectionRegion({ header }, null, 'header')).toBe(header);
     expect(resolveSectionRegion({}, null, 'footer')).toBeNull();
+  });
+
+  it('DOCE-FORMAT-3.4 resolves a section region field by field over the template', () => {
+    const header = { content: [{ type: 'paragraph' }], height: '20mm', spacingToContent: '4mm' };
+    expect(resolveSectionRegion({ header }, { header: { height: '30mm' } }, 'header')).toEqual({
+      ...header,
+      height: '30mm',
+    });
+    expect(resolveSectionRegion({}, { footer: { spacingToContent: '2mm' } }, 'footer')).toEqual({
+      spacingToContent: '2mm',
+    });
+  });
+
+  it('DOCE-FORMAT-3.1 merges paragraph numbering levels by their place', () => {
+    const parent = template('parent', {
+      styles: { paragraph: { numbering: { levels: [{ format: '1.' }, { format: '1.1.' }] } } },
+    });
+    const child = template('child', {
+      styles: { paragraph: { numbering: { levels: [null, { textIndent: '40pt' }] } } },
+    });
+    expect(mergeTemplateFiles(parent, child).styles?.paragraph?.numbering?.levels).toEqual([
+      { format: '1.' },
+      { format: '1.1.', textIndent: '40pt' },
+    ]);
+  });
+});
+
+describe('template extensions and missing settings', () => {
+  it('DOCE-TEMPLATES-10.6 reads a keyed extension record, false removing an inherited entry', () => {
+    const parent = template('parent', {
+      extensions: { fields: { owner: { label: 'Owner' }, stage: { label: 'Stage' } } },
+    });
+    const child = template('child', {
+      extensions: { fields: { owner: null, stage: false, review: { label: 'Review' } } },
+    });
+    expect(extensionRecord(mergeTemplateFiles(parent, child), 'fields')).toEqual({
+      owner: { label: 'Owner' },
+      review: { label: 'Review' },
+    });
+    expect(extensionRecord(child, 'unknown')).toEqual({});
+    expect(extensionRecord(template('t', { extensions: { fields: [1] } }), 'fields')).toEqual({});
+  });
+
+  it('DOCE-TEMPLATES-10.7 lists the settings a template leaves unset that the base sets', () => {
+    const store = new Map([[BASE_TEMPLATE.id, BASE_TEMPLATE]]);
+    const resolved = resolveTemplateFile(template('full'), {
+      loadTemplate: (id) => store.get(id),
+      baseTemplateId: BASE_TEMPLATE.id,
+    });
+    expect(missingTemplateSettings(resolved)).toEqual([]);
+    const root = template('root', {
+      page: { size: 'A4', orientation: 'portrait' },
+      styles: { heading1: { size: '20pt' } },
+    });
+    const missing = missingTemplateSettings(root);
+    expect(missing).toContain('page.margins');
+    expect(missing).toContain('styles.heading1.font');
+    expect(missing).not.toContain('styles.heading1.size');
+    expect(missing).not.toContain('page.size');
+    expect(missingTemplateSettings(root, template('host', { page: { size: 'A5' } }))).toEqual([]);
   });
 });

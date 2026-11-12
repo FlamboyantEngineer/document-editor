@@ -3,6 +3,7 @@
 // one walk is driven by a synchronous or an asynchronous loader.
 
 import { cloneJson } from '../clone-json.js';
+import { BASE_TEMPLATE } from '../templates/base-template.js';
 import type { RegionSettings, TemplateFile, TemplateSection } from './template-format.js';
 
 type LooseRecord = Record<string, unknown>;
@@ -15,9 +16,18 @@ function isRegionKey(key: string): boolean {
   return key === 'header' || key === 'footer';
 }
 
+// Levels are kept by their place, so a template that sets one level keeps the others it inherits.
+function mergeLevels(parent: unknown[], child: unknown[]): unknown[] {
+  const length = Math.max(parent.length, child.length);
+  return Array.from({ length }, (_, index) => mergeValue(parent[index], child[index], ''));
+}
+
 function mergeValue(parent: unknown, child: unknown, key: string): unknown {
   if (child === null || child === undefined) return cloneJson(parent);
   if (isRegionKey(key) && isRecord(child) && child.inherit === true) return cloneJson(parent);
+  if (key === 'levels' && Array.isArray(parent) && Array.isArray(child)) {
+    return mergeLevels(parent, child);
+  }
   if (!isRecord(parent) || !isRecord(child)) return cloneJson(child);
   const merged: LooseRecord = {};
   for (const name of new Set([...Object.keys(parent), ...Object.keys(child)])) {
@@ -39,8 +49,9 @@ export function mergeTemplateSettings<T>(
 
 /**
  * A template over its parent, into a copy. A setting that is absent or null takes the parent's,
- * objects merge setting by setting, a list replaces the parent's list whole, a header or footer that
- * asks to inherit takes the parent's, and any other value is the template's own.
+ * objects merge setting by setting, a list replaces the parent's list whole except a list of levels,
+ * which merges level by level, a header or footer that asks to inherit takes the parent's, and any
+ * other value is the template's own.
  */
 export function mergeTemplateFiles(parent: TemplateFile | null, child: TemplateFile): TemplateFile {
   const merged = mergeValue(parent, child, '') as TemplateFile;
@@ -49,15 +60,59 @@ export function mergeTemplateFiles(parent: TemplateFile | null, child: TemplateF
   return merged;
 }
 
-/** A section's page header or footer: its own, or the template's when it has none or inherits. */
+/**
+ * A section's page header or footer: the template's when the section has none or inherits, else the
+ * section's settings over the template's, field by field, so a section that sets only a height
+ * keeps the template's content.
+ */
 export function resolveSectionRegion(
   template: Pick<TemplateFile, 'header' | 'footer'>,
   section: Pick<TemplateSection, 'header' | 'footer'> | null | undefined,
   region: 'header' | 'footer',
 ): RegionSettings | null {
   const own = section?.[region];
-  if (!own || own.inherit === true) return template[region] ?? null;
-  return own;
+  const inherited = template[region] ?? null;
+  if (!own || own.inherit === true) return inherited;
+  return mergeTemplateSettings(inherited, own);
+}
+
+/**
+ * The entries of a keyed collection a host keeps in `extensions`, after inheritance: an entry set
+ * to `false` removes the one inherited, as null inherits it.
+ */
+export function extensionRecord(
+  template: Pick<TemplateFile, 'extensions'>,
+  name: string,
+): Record<string, unknown> {
+  const record = template.extensions?.[name];
+  if (!isRecord(record)) return {};
+  return Object.fromEntries(Object.entries(record).filter(([, entry]) => entry !== false));
+}
+
+function missingPaths(reference: unknown, value: unknown, path: string): string[] {
+  if (value === null || value === undefined) return [path];
+  if (Array.isArray(reference) && Array.isArray(value)) {
+    return reference.flatMap((entry, index) =>
+      missingPaths(entry, value[index], `${path}[${String(index)}]`),
+    );
+  }
+  if (!isRecord(reference) || !isRecord(value)) return [];
+  return Object.entries(reference).flatMap(([key, entry]) =>
+    missingPaths(entry, value[key], path ? `${path}.${key}` : key),
+  );
+}
+
+/**
+ * The settings a resolved template leaves unset that a full template sets, by path, such as
+ * `styles.heading1.size`: those of the base template, or of the host's base. A template resolved
+ * over the base misses none; a root template (DOCE-TEMPLATES-5.7) lists what it should set.
+ */
+export function missingTemplateSettings(
+  template: TemplateFile,
+  base: TemplateFile = BASE_TEMPLATE,
+): string[] {
+  const { id: _id, name: _name, parent: _parent, sections: _sections, ...settings } = base;
+  return missingPaths(settings, template, '');
 }
 
 /** How a template's chain is resolved. */

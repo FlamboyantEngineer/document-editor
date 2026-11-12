@@ -66,10 +66,10 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-3.1 - One inheritance rule
 
-`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own. The merged template shall keep its own `id` and `parent`.
+`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, except a list of `levels` (paragraph numbering and contents levels), which merges level by level by its place, so a null level takes the parent's, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own. The merged template shall keep its own `id` and `parent`.
 
 Implementation: `src/model/format/template-format-resolve.ts`
-Verification: `src/model/format/template-format-resolve.test.ts`
+Verification: `src/model/format/template-format-resolve.test.ts`, `src/model/templates/template-contents.test.ts`
 
 ### DOCE-FORMAT-3.2 - Inherited chains
 
@@ -87,7 +87,7 @@ Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-FORMAT-3.4 - Section regions
 
-`resolveSectionRegion(template, section, region)` shall give a section its own page header or footer, or the template's when the section has none or asks to inherit.
+`resolveSectionRegion(template, section, region)` shall give a section the template's page header or footer when the section has none or asks to inherit, and otherwise the section's region settings over the template's, field by field, so a section that sets only a height keeps the template's content and one that sets empty content shows none.
 
 Implementation: `src/model/format/template-format-resolve.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`
