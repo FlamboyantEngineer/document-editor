@@ -15,6 +15,7 @@ import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
+import { canDecideSuggestions } from './save-status-item.js';
 import { useOpeningScripts } from './script-entries.js';
 import { TableHandles } from './table-handles.js';
 import {
@@ -182,7 +183,11 @@ export function EditorBody({
             {...props.comments}
             state={state}
             onStateChange={onStateChange}
-            canDecide={editable && !suggesting}
+            canDecide={canDecideSuggestions({
+              editable,
+              suggesting,
+              capabilities: props.capabilities,
+            })}
             startRef={startCommentRef}
           >
             {content}

@@ -16,6 +16,7 @@ import { DocumentToolbar } from './document-toolbar.js';
 import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
+import { canDecideSuggestions } from './save-status-item.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
@@ -122,6 +123,7 @@ export function BottomChrome({
           layout={layout}
           mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
           items={props.statusItems}
+          session={props.session}
           zoom={editorZoom(props)}
           onLayoutChange={props.onLayoutChange}
         />
@@ -131,7 +133,11 @@ export function BottomChrome({
           view={view}
           labels={context.labels}
           editable={editable}
-          canDecide={editable && !suggesting}
+          canDecide={canDecideSuggestions({
+            editable,
+            suggesting,
+            capabilities: props.capabilities,
+          })}
           startCommentRef={startCommentRef}
           openDialog={openDialog}
           linkedCode={Boolean(props.codeSource)}
