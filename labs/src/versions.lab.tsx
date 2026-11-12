@@ -101,7 +101,7 @@ async function saveVersions() {
 
 const initialState = () =>
   EditorState.create({
-    doc: readDocumentFile(THIRD, SCHEMA),
+    doc: readDocumentFile(THIRD, SCHEMA).doc,
     plugins: createDocumentEditing(SCHEMA, { template: () => TEMPLATE, author: () => 'ada' }),
   });
 
@@ -122,7 +122,7 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
     if (selected === null) return;
     let current = true;
     void HOST.versions?.load(DOCUMENT_ID, String(selected)).then((loaded) => {
-      if (current && loaded.ok) setPrevious(readDocumentFile(loaded.value, SCHEMA));
+      if (current && loaded.ok) setPrevious(readDocumentFile(loaded.value, SCHEMA).doc);
     });
     return () => {
       current = false;

@@ -25,7 +25,7 @@ const initial = () =>
         ],
       },
       documentSchema,
-    ),
+    ).doc,
     plugins: createDocumentEditing(documentSchema),
   });
 

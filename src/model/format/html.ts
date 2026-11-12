@@ -9,7 +9,7 @@ import {
   type Schema,
 } from 'prosemirror-model';
 import type { StoredContent } from './document-format.js';
-import { writeStoredContent } from './document-format-convert.js';
+import { writeStoredContent } from './document-format-write.js';
 
 /** The markup a document's content writes, as HTML text. */
 export function writeHtml(doc: ProseMirrorNode, owner: Document): string {

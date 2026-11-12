@@ -20,7 +20,7 @@ const image = (attrs: Record<string, unknown>): StoredNode => ({ type: 'image', 
 const paragraph = (...content: StoredNode[]): StoredNode => ({ type: 'paragraph', content });
 
 const read = (schema = documentSchema, ...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, schema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, schema).doc;
 
 describe('template images', () => {
   it('DOCE-SCHEMA-3.3 renders a template image by its asset, as of the time the host gives', () => {
