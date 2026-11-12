@@ -26,11 +26,6 @@ function expectedFailure(gap: string, why: string) {
 
 async function openDocument(page: Page, name: RegressionDocumentName, layout = 'page') {
   await page.goto(`regression.html?document=${name}&layout=${layout}`);
-  // CI runners are several times slower than a workstation, and the longest documents take longer
-  // than the usual wait to settle.
-  await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
-    timeout: 60_000,
-  });
   await waitForLab(page);
 }
 
@@ -428,8 +423,6 @@ async function press(page: Page, key: MatrixCell['key']) {
 }
 
 test.describe('split-paragraph repagination matrix', () => {
-  // Each cell opens its document twice and waits for two layouts, which takes a while on CI.
-  test.describe.configure({ timeout: 120_000 });
   for (const block of BLOCKS) {
     for (const edit of EDITS) {
       const cell = `${block.document} ${block.type} ${edit.edge} ${edit.key}`;
@@ -573,7 +566,6 @@ test.describe('table fragment stress', () => {
 });
 
 test.describe('code block stress', () => {
-  test.describe.configure({ timeout: 120_000 });
   test('DOCE-LABS-4.5 DOCE-PAGINATION-3.3 splits a long listing at line breaks, each line once and numbered on', async ({
     page,
   }) => {

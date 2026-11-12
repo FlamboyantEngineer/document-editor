@@ -7,6 +7,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
+import { isStructureNode } from '../model/schema/document-structure.js';
 import { automationActor } from './automation.js';
 import { isInPageRegion } from './block-place.js';
 import { isLocalEdit, isRemoteTransaction } from './transaction-kind.js';
@@ -46,22 +47,12 @@ function newPart(before: ProseMirrorNode, after: ProseMirrorNode): Inserted | nu
   return to > start ? { from: start, to } : null;
 }
 
-// The page structure the pagination lays out, which no writer inserts.
-const PAGE_STRUCTURE: ReadonlySet<string> = new Set([
-  'page_section',
-  'page',
-  'page_header',
-  'page_content',
-  'page_footnotes',
-  'page_footer',
-]);
-
 // Whether a step lays pages out rather than inserting the writer's content: a view following
 // another document, as the measuring view does, replaces whole pages.
 function laysOut(step: ReplaceStep): boolean {
   let pages = false;
   step.slice.content.descendants((node) => {
-    pages ||= PAGE_STRUCTURE.has(node.type.name);
+    pages ||= isStructureNode(node);
     return !pages && !node.isTextblock;
   });
   return pages;
