@@ -236,3 +236,19 @@ The generic templates in `test/fixtures/templates/` shall be valid, resolve over
 
 Implementation: `test/fixtures/templates/`
 Verification: `test/fixtures/templates/template-fixtures.test.ts`
+
+## DOCE-TEMPLATES-11 - Template pinning
+
+### DOCE-TEMPLATES-11.1 - Pinned revisions
+
+A stored document's `template` shall be a `TemplatePin`: the template's `id` and, optionally, the host's `revision` of it, so the document, and each of its saved versions, renders with the template it pinned until an explicit update moves it to a newer revision. `writeDocumentFile(doc, { template })` shall write the pin as given, and `readDocumentFile` shall refuse a pin that is not an id with an optional text revision with a `DocumentFormatError` at `template`.
+
+Implementation: `src/model/format/template-format.ts`, `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
+Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
+
+### DOCE-TEMPLATES-11.2 - Loading a pinned revision
+
+`templates.load(id, { revision, signal })` shall give that revision of the stored template, or the latest without one, and a `not-found` error for a revision the store does not hold. The in-memory host shall keep each template it is given again under the same id as its next revision.
+
+Implementation: `src/host/adapters.ts`, `src/host/memory-host.ts`
+Verification: `src/host/memory-host.test.ts`

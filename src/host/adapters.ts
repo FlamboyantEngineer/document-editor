@@ -90,8 +90,15 @@ export interface StoredTemplate extends SavedState {
   template: TemplateFile;
 }
 
+/** Which revision of a stored template to load. */
+export interface TemplateLoadOptions {
+  /** The revision a document pins (`DocumentFile.template.revision`); without one, the latest. */
+  revision?: string | undefined;
+  signal?: AbortSignal | undefined;
+}
+
 export interface TemplateSourceAdapter {
-  load(templateId: string, signal?: AbortSignal): Promise<HostResult<StoredTemplate>>;
+  load(templateId: string, options?: TemplateLoadOptions): Promise<HostResult<StoredTemplate>>;
 }
 
 /** An uploaded file the document references. */

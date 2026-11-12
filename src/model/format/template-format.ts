@@ -318,3 +318,13 @@ export interface TemplateFile {
    */
   extensions?: Record<string, unknown> | null;
 }
+
+/**
+ * The template a document uses, pinned at a revision (DOCE-TEMPLATES-11.1): the document renders
+ * with that revision until an explicit update moves it to a newer one.
+ */
+export interface TemplatePin {
+  id: string;
+  /** The host's revision of the template (`SavedState.revision`); none for its latest. */
+  revision?: string | null;
+}

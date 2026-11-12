@@ -5,6 +5,8 @@
 // Each node is `{ type, attrs?, content?, text?, marks? }`, as in ProseMirror's JSON, with the
 // stored names below. An attribute at its default is left out.
 
+import type { TemplatePin } from './template-format.js';
+
 /** The current document format version. */
 export const DOCUMENT_FORMAT_VERSION = 1;
 
@@ -38,8 +40,8 @@ export interface StoredSection {
 /** A stored document. */
 export interface DocumentFile {
   formatVersion: typeof DOCUMENT_FORMAT_VERSION;
-  /** The id of the template the document uses. */
-  template?: string | null;
+  /** The template the document uses. */
+  template?: TemplatePin | null;
   sections: StoredSection[];
 }
 

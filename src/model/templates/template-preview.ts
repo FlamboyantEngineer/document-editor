@@ -127,7 +127,7 @@ export function templatePreviewDocument(
   ];
   return {
     formatVersion: 1,
-    template: template.id,
+    template: { id: template.id },
     sections: [
       { name: null, content: main },
       ...(template.sections ?? []).map((scope) => section(scope, words)),
