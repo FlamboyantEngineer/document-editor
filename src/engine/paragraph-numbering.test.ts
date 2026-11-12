@@ -3,6 +3,7 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
+  BASE_TEMPLATE,
   parseNumberingStyle,
   readDocumentFile,
   type StoredNode,
@@ -60,6 +61,8 @@ describe('paragraph numbering', () => {
     );
     expect(numbersOf(doc)).toEqual(['1.', '2.']);
     expect(numbersOf(doc, { formatVersion: 1, id: 'none' })).toEqual([]);
+    // The base template keeps its paragraph format switched off.
+    expect(numbersOf(doc, BASE_TEMPLATE)).toEqual([]);
   });
 
   it('DOCE-NUMBERING-6.1 shows the number and level on the paragraph in the view', () => {

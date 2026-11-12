@@ -149,9 +149,9 @@ Verification: `src/model/numbering/numbering-text.test.ts`
 
 ### DOCE-NUMBERING-6.1 - Paragraphs numbered in the editor
 
-`createParagraphNumbering({ template })`, which the editing plugins install when given the template, shall number each top-level paragraph of the body that earns a number (DOCE-NUMBERING-3.3) in a section whose template scope numbers paragraphs (`numberedParagraphs`), in every view it runs in, so the measuring view measures the numbers too. A numbered paragraph shall carry its number as `data-paragraph-number` and its level as `data-paragraph-level`, with its level's indentation properties (DOCE-NUMBERING-3.4); paragraphs in lists, tables, columns and page regions shall not be numbered. The paragraphs shall be numbered again after every change of the document or of the template.
+`createParagraphNumbering({ template })`, which the editing plugins install when given the template, shall number each top-level paragraph of the body that earns a number (DOCE-NUMBERING-3.3) in a section whose template scope numbers paragraphs (`numberedParagraphs`), in every view it runs in, so the measuring view measures the numbers too. A numbered paragraph shall carry its number as `data-paragraph-number` and its level as `data-paragraph-level`, with its level's indentation properties (DOCE-NUMBERING-3.4); paragraphs in lists, tables, columns and page regions shall not be numbered. The paragraphs shall be numbered again after every change of the document or of the template. The base template keeps its paragraph format and levels switched off (`enabled: false`), so a template numbers paragraphs only when it switches them on.
 
-Implementation: `src/engine/paragraph-numbering.ts`, `src/engine/document-editing.ts`
+Implementation: `src/engine/paragraph-numbering.ts`, `src/engine/document-editing.ts`, `src/model/templates/base-template.ts`
 Verification: `src/engine/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-6.2 - Counting through the pages
