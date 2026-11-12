@@ -14,6 +14,7 @@ import {
   rejectSuggestion,
 } from './suggestion-decisions.js';
 import { suggestTransaction } from './suggestions.js';
+import { markSystemChange } from './transaction-kind.js';
 
 const paragraph = (value: string): StoredNode => ({
   type: 'paragraph',
@@ -182,6 +183,12 @@ describe('suggest mode', () => {
     const pos = positionOf(list, 'One') + 1;
     const split = inList.tr.split(pos, 2);
     expect(suggestTransaction(split, inList)).toBeNull();
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 leaves a system change as it is', () => {
+    const state = EditorState.create({ doc: read(paragraph('Alpha')) });
+    const tr = markSystemChange(state.tr.insertText('X', 1));
+    expect(suggestTransaction(tr, state, { author: 'writer' })).toBe(tr);
   });
 
   it('DOCE-SUGGESTIONS-1.5 undoes a suggestion rather than suggesting its undoing', () => {

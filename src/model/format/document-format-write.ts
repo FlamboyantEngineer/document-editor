@@ -17,14 +17,14 @@ import {
   type StoredSection,
   type StoredTypeMapping,
 } from './document-format.js';
-import type { RegionSettings } from './template-format.js';
+import type { RegionSettings, TemplatePin } from './template-format.js';
 
 type Attrs = Record<string, unknown>;
 
 /** What a stored document is written with. */
 export interface DocumentWriteOptions {
-  /** The id of the template the document uses. */
-  template?: string | null | undefined;
+  /** The template the document uses, pinned at a revision. */
+  template?: TemplatePin | null | undefined;
   /** How split blocks are joined; a host adds rules for its own splittable types. */
   fragmentRules?: FragmentRules | undefined;
 }

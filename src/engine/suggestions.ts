@@ -8,7 +8,9 @@ import { isHistoryTransaction } from 'prosemirror-history';
 import type { Fragment, Mark, MarkType, Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { type EditorState, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import { Mapping, ReplaceAroundStep, ReplaceStep, type Step } from 'prosemirror-transform';
+import { addMarkInOrder } from '../model/index.js';
 import { createElementId } from './element-ids.js';
+import { isSystemChange } from './transaction-kind.js';
 
 /** Marks a transaction a suggestion built or decided, which suggest mode leaves as it is. */
 export const suggestionsKey = new PluginKey('suggestions');
@@ -79,7 +81,7 @@ function suggestDeletion(suggesting: Suggesting, [from, to]: readonly [number, n
   const own = runs.filter((run) => suggestionOf(run.marks, insertion)?.attrs.dataAuthor === author);
   for (const run of runs) {
     if (own.includes(run) || suggestionOf(run.marks, deletion)) continue;
-    tr.addMark(run.from, run.to, markOf(suggesting, deletion, group));
+    addMarkInOrder(tr, run, markOf(suggesting, deletion, group));
   }
   for (const run of [...own].reverse()) tr.delete(run.from, run.to);
   return group;
@@ -90,7 +92,7 @@ function markInserted(suggesting: Suggesting, [from, to]: readonly [number, numb
   const { tr, insertion, deletion } = suggesting;
   tr.removeMark(from, to, deletion);
   tr.removeMark(from, to, insertion);
-  tr.addMark(from, to, markOf(suggesting, insertion, id));
+  addMarkInOrder(tr, { from, to }, markOf(suggesting, insertion, id));
 }
 
 // A slice's inline content, when it holds nothing else.
@@ -173,7 +175,7 @@ function suggestSplit(suggesting: Suggesting, pos: number, slice: Slice): number
     suggestionSplitKind: 'deletion',
     suggestionSplitId: id,
   });
-  tr.addMark(start + 1, end - 1, markOf(suggesting, suggesting.deletion, id));
+  addMarkInOrder(tr, { from: start + 1, to: end - 1 }, markOf(suggesting, suggesting.deletion, id));
   tr.insert(end, [leading, trailing]);
   markBlocksInserted(suggesting, [end, end + leading.nodeSize + trailing.nodeSize], id);
   return end + leading.nodeSize + 1;
@@ -284,7 +286,8 @@ export function suggestTransaction(
 ): Transaction | null {
   const { insertion, deletion } = state.schema.marks;
   if (!insertion || !deletion || !tr.docChanged) return tr;
-  if (tr.getMeta(suggestionsKey) || tr.getMeta('addToHistory') === false) return tr;
+  if (tr.getMeta(suggestionsKey) || tr.getMeta('addToHistory') === false || isSystemChange(tr))
+    return tr;
   // Undo and redo replay changes that were already suggestions, so they stay as they are.
   if (isHistoryTransaction(tr)) return tr;
   const out = state.tr.setMeta(suggestionsKey, 'suggest');
