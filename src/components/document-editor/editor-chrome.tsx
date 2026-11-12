@@ -16,6 +16,7 @@ import { DocumentToolbar } from './document-toolbar.js';
 import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
+import type { ShellFeatures } from './mode-controls.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
@@ -70,6 +71,11 @@ export function TopChrome({
     }),
     [linkedCode, symbols, glossary, custom, props.template, scripts, references, diagrams],
   );
+  const { onModeChange, modeReasons, onMarkupChange } = props;
+  const shell = useMemo<ShellFeatures>(
+    () => ({ onModeChange, modeReasons, onMarkupChange }),
+    [onModeChange, modeReasons, onMarkupChange],
+  );
   return (
     <>
       {props.menubar ? (
@@ -85,6 +91,9 @@ export function TopChrome({
             onLayoutChange: props.onLayoutChange,
             zoom: editorZoom(props),
             scriptRunner: props.scriptRunner,
+            glossary: props.glossary,
+            template: props.template,
+            shell,
           }}
         />
       ) : null}
@@ -95,6 +104,7 @@ export function TopChrome({
           options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
           templateStyle={templateStyle}
           features={features}
+          shell={shell}
         />
       ) : null}
       {props.find && finding ? (

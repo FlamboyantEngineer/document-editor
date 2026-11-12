@@ -131,17 +131,17 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.3 - The host's toolbar items
 
-`toolbar` given as options shall shape the toolbar. The editor's own controls are items with stable ids in groups (`TOOLBAR_GROUPS`: `history`, `block-style`, `marks`, `lists` and `insert`, with the ids of every item the editor can show in each, in order); each of the host's `items` joins the group it names, after its items, and an item naming no group or an unknown one joins a group of that name at the end. `arrange` then receives the groups and returns them reordered, without some items or regrouped. An item is a `button`, drawn as its icon named by its label or as its label, running its action and, given `isPressed`, a toggle pressed while that holds; a `menu`, a button opening its entries; or a `custom` control the host draws. Each receives the editor context, is disabled unless `isEnabled` holds (by default, while the writer can edit) and shows only while `isVisible` holds; groups are separated, an empty group is left out, and each group carries `data-group` and each item `data-item` with its id. `start` and `end` hold the host's own controls before and after the groups (`de-document-editor__toolbar-start`, `de-document-editor__toolbar-end`).
+`toolbar` given as options shall shape the toolbar. The editor's own controls are items with stable ids in groups (`TOOLBAR_GROUPS`: `history`, `block-style`, `marks`, `lists`, `insert`, `layout` and `mode`, with the ids of every item the editor can show in each, in order); each of the host's `items` joins the group it names, after its items, and an item naming no group or an unknown one joins a group of that name at the end. `arrange` then receives the groups and returns them reordered, without some items or regrouped. An item is a `button`, drawn as its icon named by its label or as its label, running its action and, given `isPressed`, a toggle pressed while that holds; a `menu`, a button opening its entries; or a `custom` control the host draws. Each receives the editor context, is disabled unless `isEnabled` holds (by default, while the writer can edit), saying why (DOCE-EDITOR-4.14), and shows only while `isVisible` holds; groups are separated, an empty group is left out, and each group carries `data-group` and each item `data-item` with its id. `start` and `end` hold the host's own controls before and after the groups (`de-document-editor__toolbar-start`, `de-document-editor__toolbar-end`).
 
 Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/toolbar-controls.tsx`, `src/components/document-editor/document-toolbar.tsx`, `labs/src/host-toolbar.tsx`
 Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/toolbar-items.test.ts`
 
 ### DOCE-EDITOR-4.4 - The editor context
 
-The editor shall hand its context, the engine's view, the state shown, whether the writer can edit and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
+The editor shall hand its context, the engine's view, the state shown, whether the writer can edit, the editing mode (`mode`: `edit`, `suggest`, `comment` while the document is read and its comments may be written, or `read`), whether changes are suggested, the markup, the layout, the zoom and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
 
 Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/mode-controls.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.5 - Inserting objects
 
@@ -180,7 +180,7 @@ Verification: `src/components/document-editor/script-language.test.ts`, `e2e/ful
 
 ### DOCE-EDITOR-4.10 - The menubar
 
-`menubar` shall show a menubar above the toolbar (`de-document-editor__menubar`, the base library's `Menubar` named by `menubar`) whose menus (`menubarMenus`) run the toolbar's own items: File, holding only the host's entries; Edit, with undo and redo, select all and, with `find`, find; View, with the page and web views while the host switches layouts and zooming in, out and to actual size while it zooms; Insert, with a table and the toolbar's insert items, a menu of them as a submenu; Format, with the marks, the text styles and the lists; and Tools, with the next proofing issue and, while the host runs scripts, running every script. A host given as options adds entries to a menu by its id, or a menu of its own (`items`), and arranges the menus (`arrange`); a menu without entries is left out.
+`menubar` shall show a menubar above the toolbar (`de-document-editor__menubar`, the base library's `Menubar` named by `menubar`) whose menus (`menubarMenus`) run the toolbar's own items: File, holding only the host's entries; Edit, with undo and redo, select all and, with `find`, find; View, with the page and web views while the host switches layouts and zooming in, out and to actual size while it zooms; Insert, with a table and the toolbar's insert items, a menu of them as a submenu; Format, with the marks, the text styles and the lists; and Tools, with the next proofing issue and the updates of DOCE-EDITOR-4.17. View also offers the mode and markup controls of DOCE-EDITOR-4.12 as submenus while the host offers them, and Format the layout menu of DOCE-EDITOR-4.13; an entry the toolbar would disable says why (DOCE-EDITOR-4.14). A host given as options adds entries to a menu by its id, or a menu of its own (`items`), and arranges the menus (`arrange`); a menu without entries is left out.
 
 Implementation: `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/document-menubar.tsx`, `labs/src/host-menubar.ts`
 Verification: `e2e/full-editor.spec.ts`
@@ -191,6 +191,48 @@ Verification: `e2e/full-editor.spec.ts`
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
 Verification: `e2e/document-panels.spec.ts`
+
+### DOCE-EDITOR-4.12 - Editing mode and markup
+
+With `onModeChange`, the toolbar's `mode` group (`data-item="mode"`, named by `editingModeControl`) and View's Mode submenu shall offer the editing modes, Editing, Suggesting, Commenting and Reading, the current one (DOCE-EDITOR-4.4) selected, telling the host the one picked; the host then sets `editable`, `suggesting` and its comments. A mode `modeReasons` gives a reason for is disabled, focusable, and shows the reason, unless it is the current one. With `onMarkupChange`, the `markup` item (`data-item="markup"`, named by `markup`) and View's Markup submenu shall offer one choice for suggestions and comparisons: No markup (`final`), Change bars (`simple`) and Inline (`all`), the current one selected and shown on the trigger; `original` shows as no markup. The host applies the choice to `markup` and to its comparison's `display`.
+
+Implementation: `src/components/document-editor/mode-controls.tsx`, `src/components/document-editor/editor-context.ts`, `src/components/document-editor/menubar-menus.ts`, `labs/src/full-editor.lab.tsx`
+Verification: `src/components/document-editor/mode-controls.test.tsx`, `e2e/full-editor.spec.ts`
+
+### DOCE-EDITOR-4.13 - The layout menu
+
+While the schema has layout sections, the toolbar's `layout` menu, and Format's submenu of it, shall offer the column presets (`DOCUMENT_LAYOUT_PRESETS`), the preset of the layout section holding the selection selected, setting it there or inserting a section of it outside one (`setLayoutPreset`), then adding a section below (`insertLayoutSectionBelow`), moving it up or down (`moveLayoutSection`) and removing it (`removeLayoutSection`), each disabled while it cannot run (DOCE-LAYOUT).
+
+Implementation: `src/components/document-editor/layout-items.ts`
+Verification: `src/components/document-editor/layout-items.test.ts`, `e2e/full-editor.spec.ts`
+
+### DOCE-EDITOR-4.14 - Disabled reasons
+
+A disabled toolbar button or menu entry shall stay focusable and say why it is disabled: a button in its tooltip after its label, a menu entry in its description. The reason is the item's `disabledReason`, or, by default, that the document is read (`reasonReading`) or the position locked (`reasonLocked`) (`unavailableReason`); an item without a reason is plainly disabled.
+
+Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/menubar-menus.ts`
+Verification: `src/components/document-editor/toolbar-items.test.ts`, `e2e/full-editor.spec.ts`
+
+### DOCE-EDITOR-4.15 - Toolbar overflow and attached groups
+
+`toolbar`'s `overflow` shall choose what a toolbar too wide for its row does: `wrap` onto more rows (the default) or `scroll` along one row with the base library's scroll buttons, published by the toolbar row as `data-overflow`. A group with `attached` joins its controls into one segmented run.
+
+Implementation: `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/toolbar-items.ts`
+Verification: `e2e/full-editor.spec.ts`
+
+### DOCE-EDITOR-4.16 - The host's dialogs
+
+`dialogs` shall register the host's own dialogs by name, each a component given the view, the editor's labels, closing and the data it was opened with (`HostDialogProps`); the editor context's `openDialog({ kind: 'host', name, data })` opens one while the writer can edit. `EditorModal`, the editor's own dialog, is exported for them: it stays open until closed and hands focus back to the document.
+
+Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/dialog-parts.tsx`, `labs/src/host-dialogs.tsx`
+Verification: `e2e/full-editor.spec.ts`
+
+### DOCE-EDITOR-4.17 - Updates from the Tools menu
+
+The Tools menu shall offer updating every reference, rendering the internal ones again as the template formats them (`refreshReferences`) and asking the host for every citation again (`refreshReferenceStatus`); with the host's `glossary`, updating every abbreviation from its entries now (`refreshAbbreviations`); and, with a `scriptRunner`, running every script. Each is disabled while the document is read, saying why, and running scripts, whose output no suggestion tracks, also while changes are suggested.
+
+Implementation: `src/components/document-editor/tools-entries.ts`
+Verification: `src/components/document-editor/tools-entries.test.ts`
 
 ## DOCE-EDITOR-5 - Status bar
 

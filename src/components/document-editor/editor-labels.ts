@@ -3,9 +3,10 @@
 
 import type { ProofingKind } from '../../host/index.js';
 import { DEFAULT_OBJECT_LABELS, type ObjectLabels } from './object-labels.js';
+import { DEFAULT_SHELL_LABELS, type ShellLabels } from './shell-labels.js';
 
 /** The text of the editor's toolbar, menus and handles. */
-export interface DocumentEditorLabels extends ObjectLabels {
+export interface DocumentEditorLabels extends ObjectLabels, ShellLabels {
   readonly toolbar: string;
   readonly undo: string;
   readonly redo: string;
@@ -178,4 +179,5 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   },
   nextIssue: 'Go to the next issue',
   ...DEFAULT_OBJECT_LABELS,
+  ...DEFAULT_SHELL_LABELS,
 };

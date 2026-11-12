@@ -10,6 +10,7 @@ export type {
   ContextMenuPlacement,
   ContextMenuProvider,
   ContextTarget,
+  DialogProps,
   DocumentComparison,
   DocumentContextMenuOptions,
   DocumentEditorDebug,
@@ -23,12 +24,14 @@ export type {
   DocumentMenubarOptions,
   DocumentToolbarOptions,
   EditorContext,
+  HostDialogProps,
   ObjectDialog,
   ToolbarButtonItem,
   ToolbarCustomItem,
   ToolbarGroup,
   ToolbarItem,
   ToolbarMenuItem,
+  ToolbarOverflow,
 } from './document-editor/index.js';
 export type { ChangeBar } from './document-editor/index.js';
 export {
@@ -39,6 +42,7 @@ export {
   DocumentEditor,
   EDITOR_COUNTS,
   EDITOR_MEASURES,
+  EditorModal,
   isContentChange,
   menubarMenus,
   TOOLBAR_GROUPS,
