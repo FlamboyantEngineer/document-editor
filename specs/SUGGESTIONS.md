@@ -46,6 +46,13 @@ Suggest mode shall add suggested insertions and deletions in canonical order (DO
 Implementation: `src/engine/suggestions.ts`, `src/model/schema/mark-order.ts`
 Verification: `src/model/schema/mark-order.test.ts`
 
+### DOCE-SUGGESTIONS-1.7 - Replacing by deleting, then typing
+
+Text typed beside the same writer's suggested deletion, as after Backspace or Delete, shall join that deletion's suggestion, so deleting then typing gives one replacement.
+
+Implementation: `src/engine/suggestions.ts`
+Verification: `src/engine/suggestions.test.ts`
+
 ## DOCE-SUGGESTIONS-2 - Deciding suggestions
 
 ### DOCE-SUGGESTIONS-2.1 - One suggestion
@@ -57,7 +64,7 @@ Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-2.2 - Every suggestion
 
-`acceptAllSuggestions` and `rejectAllSuggestions` shall decide every suggestion, blocks included: accepting removes blocks suggested for deletion and keeps inserted ones, rejecting removes inserted blocks and keeps the others. `decideSuggestions(tr, decision, ids)` shall do the same on a transaction.
+`acceptAllSuggestions` and `rejectAllSuggestions` shall decide every suggestion, blocks included: accepting removes blocks suggested for deletion and keeps inserted ones, rejecting removes inserted blocks and keeps the others. `decideSuggestions(tr, decision, { ids })` shall do the same on a transaction.
 
 Implementation: `src/engine/suggestion-decisions.ts`
 Verification: `src/engine/suggestions.test.ts`
@@ -67,6 +74,34 @@ Verification: `src/engine/suggestions.test.ts`
 A suggestion's marks shall be stored with their id and writer, and read back unchanged.
 
 Implementation: `src/model/schema/marks.ts`, `src/model/format/document-format.ts`
+Verification: `src/engine/suggestions.test.ts`
+
+### DOCE-SUGGESTIONS-2.4 - Parts grouped by thread
+
+A suggestion's parts discussed in the same comment thread (`commentId`) shall be one suggestion, whatever their ids, named by the first part's id. A part with no id of its own shall belong to its thread's suggestion, named by the thread's id, and parts of different threads shall stay apart. Deciding the suggestion shall decide every part.
+
+Implementation: `src/engine/suggestion-decisions.ts`
+Verification: `src/engine/suggestions.test.ts`
+
+### DOCE-SUGGESTIONS-2.5 - The writer of an unattributed suggestion
+
+`suggestionAuthor(suggestion, threadAuthor)` shall give the suggestion's writer, or, when it records none, the writer of the thread it is discussed in. `decideSuggestions` shall take the same fallback as its `threadAuthor` option.
+
+Implementation: `src/engine/suggestion-decisions.ts`
+Verification: `src/engine/suggestions.test.ts`
+
+### DOCE-SUGGESTIONS-2.6 - The decision report
+
+`decideSuggestions` shall return what it decided, or null when the document did not change: the decision, the suggestions decided, as they were before, and the other suggestions the decision removed, such as those inside a rejected insertion, each with the decided suggestion it depended on. The transaction shall carry the same report, read with `suggestionDecisionOf(tr)`, so a comment store records the decision on every path.
+
+Implementation: `src/engine/suggestion-decisions.ts`
+Verification: `src/engine/suggestions.test.ts`
+
+### DOCE-SUGGESTIONS-2.7 - Accepted text keeps its writer
+
+Accepting an insertion shall mark its text, where no contributor is named, as its writer's (the contributor mark), so authorship outlives the suggestion.
+
+Implementation: `src/engine/suggestion-decisions.ts`
 Verification: `src/engine/suggestions.test.ts`
 
 ## DOCE-SUGGESTIONS-3 - Suggesting in the editor

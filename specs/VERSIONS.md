@@ -46,6 +46,34 @@ Asked to (`compareVersions(older, newer, { suggestions: 'accepted' })`, or a com
 Implementation: `src/engine/version-compare.ts`, `src/engine/version-changes.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/engine/version-compare.test.ts`
 
+### DOCE-VERSIONS-1.7 - Containers
+
+A block both versions hold whose containers changed (wrapped in or taken out of a list, a table or a quote, moved between them, or in a container whose kind or attributes changed, such as a list's kind or a cell's span) shall be marked `structureChanged`. With its text unchanged it shall be `formatting`; with its text changed, a `modification` whose `formatChanged` is set.
+
+Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
+Verification: `src/engine/version-compare.test.ts`
+
+### DOCE-VERSIONS-1.8 - Blocks without ids
+
+A block without an element id that the older version does not hold alike shall be paired with the block without an id of the older version whose words it is likest, when at least half of their words are shared, and compared with it as one block. A block of the same kind shall win a tie, and each older block shall pair once.
+
+Implementation: `src/engine/version-pairing.ts`, `src/engine/version-compare.ts`
+Verification: `src/engine/version-compare.test.ts`
+
+### DOCE-VERSIONS-1.9 - Links and references
+
+A block whose links point elsewhere, or whose references cite something else, shall be a `modification` whose `targets` names `link`, `reference` or both, even when its text and formatting are unchanged. A link's or a reference's target shall not count as formatting, and a reference's status (broken, its baseline and its label) shall not count as a target.
+
+Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
+Verification: `src/engine/version-compare.test.ts`
+
+### DOCE-VERSIONS-1.10 - Generated values
+
+Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a footnote's number, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`), a block whose only change is in such values shall be a `modification` marked `generated`.
+
+Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
+Verification: `src/engine/version-compare.test.ts`
+
 ## DOCE-VERSIONS-2 - Showing changes
 
 ### DOCE-VERSIONS-2.1 - Decorations
