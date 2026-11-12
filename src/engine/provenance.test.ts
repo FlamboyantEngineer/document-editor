@@ -1,7 +1,8 @@
 import type { Node } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { parseMarkup } from '../../test/document-markup.js';
+import { documentSchema, parseMarkup } from '../../test/document-markup.js';
+import { documentAuthors } from './authorship.js';
 import { automationKey } from './automation.js';
 import { createElementIds } from './element-ids.js';
 import { markRemote } from './transaction-kind.js';
@@ -51,11 +52,44 @@ describe('contributor marks', () => {
     expect(runs(typeAfterAgent('ada', automated))).toEqual(['Hi :-', 'there!:agent/s1']);
   });
 
-  it('DOCE-COLLAB-3.3 marks pasted blocks as the paster', () => {
-    const doc = parseMarkup('<p data-id="aaaa0001">One</p>');
+  it('DOCE-COLLAB-3.3 marks a person typing in another person block, and not in their own', () => {
+    const doc = parseMarkup(
+      '<p data-id="aaaa0001" data-au="ada">One</p><p data-id="aaaa0002" data-au="bea">Two</p>',
+    );
+    let state = EditorState.create({ doc, plugins: [createElementIds({ author: () => 'bea' })] });
+    state = state.applyTransaction(state.tr.insertText('!', 4)).state;
+    state = state.applyTransaction(state.tr.insertText('?', state.doc.content.size - 1)).state;
+    expect(runs(state.doc)).toEqual(['One:-', '!:bea/null', 'Two?:-']);
+    expect(documentAuthors(state.doc).map(({ id, characters }) => [id, characters])).toEqual([
+      ['bea', 5],
+      ['ada', 3],
+    ]);
+  });
+
+  it('DOCE-COLLAB-3.3 marks only the new text of a change that rewrites a whole text block', () => {
+    const doc = parseMarkup('<p data-id="aaaa0001" data-au="ada">Hi</p>');
     const state = EditorState.create({ doc, plugins: [createElementIds({ author: () => 'bea' })] });
-    const pasted = parseMarkup('<p>Two</p>').content;
-    const next = state.applyTransaction(state.tr.insert(doc.content.size, pasted)).state;
-    expect(runs(next.doc)).toEqual(['One:-', 'Two:bea/null']);
+    const rewritten = state.tr.replaceWith(1, 3, state.schema.text('Hi!'));
+    expect(runs(state.applyTransaction(rewritten).state.doc)).toEqual(['Hi:-', '!:bea/null']);
+  });
+
+  it('DOCE-COLLAB-3.3 leaves a change that lays pages out unmarked', () => {
+    const page = (text: string) =>
+      documentSchema.node('doc', null, [
+        documentSchema.node('page_section', null, [
+          documentSchema.node('page', null, [
+            documentSchema.node('page_header', null, [documentSchema.node('paragraph')]),
+            documentSchema.node('page_content', null, [
+              documentSchema.node('paragraph', null, documentSchema.text(text)),
+            ]),
+            documentSchema.node('page_footnotes'),
+            documentSchema.node('page_footer', null, [documentSchema.node('paragraph')]),
+          ]),
+        ]),
+      ]);
+    const doc = page('One');
+    const state = EditorState.create({ doc, plugins: [createElementIds({ author: () => 'bea' })] });
+    const laidOut = state.tr.replaceWith(0, doc.content.size, page('One more').content);
+    expect(runs(state.applyTransaction(laidOut).state.doc).join()).not.toContain('bea');
   });
 });
