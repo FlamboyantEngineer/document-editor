@@ -1,9 +1,6 @@
 export type {
   AssetAdapter,
   CodeSourceAdapter,
-  CommentEntry,
-  CommentStoreAdapter,
-  CommentThread,
   CompletionAdapter,
   DocumentSave,
   DocumentStoreAdapter,
@@ -22,7 +19,6 @@ export type {
   HostError,
   HostResult,
   IdentityAdapter,
-  NewCommentThread,
   PermissionsAdapter,
   ProoferAdapter,
   ProofingIssue,
@@ -55,6 +51,17 @@ export {
   READ_ONLY_CAPABILITIES,
   resolveEditingMode,
 } from './capabilities.js';
+export type {
+  CommentActivity,
+  CommentChange,
+  CommentDecision,
+  CommentEntry,
+  CommentStoreAdapter,
+  CommentTarget,
+  CommentTargetRange,
+  CommentThread,
+  NewCommentThread,
+} from './comment-adapters.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHostOptions } from './memory-host.js';

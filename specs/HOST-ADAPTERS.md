@@ -34,7 +34,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.5 - Comment store
 
-The host's `comments` adapter shall keep each document's comment threads: `list`, `create` with the id the editor chose, the text it quotes, its opening comment and its suggestion, `reply`, `setState` to `open` or `resolved`, and `remove`. It shall attribute each comment to the reader, with the time it was posted, and return the thread as it is after the change.
+The host's `comments` adapter shall keep each document's comment threads: `list`, `create` with the id the editor chose, the text it quotes, its opening comment and its suggestion, `reply`, `setState` to `open` or `resolved`, and `remove`. It shall attribute each comment to the reader, with the time it was posted, and return the thread as it is after the change. A thread record may also carry its scope (`text`, the default, or `document` for a thread about the whole document with no anchor), its portable target (`CommentTarget`: ranges by element id and offsets, and the quote), who started it, when it was started, last changed and resolved and by whom, what its suggestion does (`change`), how that suggestion was decided (`decision`: accept or reject, the suggestion, who, when, and the suggestion whose decision took it along), whether the editor started it for a suggestion (`automatic`), and its thread-level reactions; a store keeps what it is given and returns it unchanged.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -69,7 +69,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.10 - Changing comments and following them
 
-A comment store may let the reader change the text of their own comment (`edit`), recording when, delete their own reply (`removeEntry`), and add or take back a reaction to a comment (`react`), each returning the thread as it is after; and tell a subscriber a document's threads whenever they change, by anyone, until it unsubscribes (`subscribe`).
+A comment store may let the reader change the text of their own comment (`edit`), recording when, delete their own reply (`removeEntry`), and add or take back a reaction to a comment (`react`), each returning the thread as it is after; react to a thread as a whole (`react` without `entryId`), record how a thread's suggestion was decided by the reader and resolve the thread (`decide`), change a thread's quote, target or change (`update`), cancel a pending reply or retry a failed one (`settleEntry`), tell others the reader is writing in a thread (`setTyping`) and tell a subscriber what others are doing in a document's threads (`subscribeActivity`); and tell a subscriber a document's threads whenever they change, by anyone, until it unsubscribes (`subscribe`).
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
