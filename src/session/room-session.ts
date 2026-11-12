@@ -36,7 +36,7 @@ async function readRoom(
   const doc = binding.content() ?? options.schema.topNodeType.createAndFill();
   if (!doc) throw new Error('The schema cannot make an empty document.');
   const create = options.createState ?? defaultState(options.schema);
-  const state = create(doc, { ...options.stores.context, room: { plugins: [binding.plugin] } });
+  const state = create(doc, { ...options.stores.context, room: { plugins: binding.plugins } });
   const document: SessionDocument = {
     state,
     template: template.value.template,
