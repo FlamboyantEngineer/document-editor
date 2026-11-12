@@ -1,7 +1,9 @@
 // Shows a document's changes from an older version (the document editor's `compare`): the
 // in-memory host keeps every saved version, the history lists them, and picking one compares the
 // document with it, block by block by element id. Changes show as change bars in the template's
-// colors, or with the words and blocks that changed marked in place.
+// colors, or with the words and blocks that changed marked in place. Two versions picked and
+// compared show the newer, read-only, with its changes since the older; a comparison scoped to a
+// heading shows only the changes in its section, with their counts, the rest dimmed.
 
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import {
@@ -15,6 +17,7 @@ import { createRoot } from 'react-dom/client';
 import { type ChangeBar, DocumentEditor } from '../../src/components/index.js';
 import {
   createDocumentEditing,
+  versionChangeCounts,
   type VersionChangeDisplay,
   versionChanges,
 } from '../../src/engine/index.js';
@@ -28,7 +31,7 @@ import {
   resolveTemplateFile,
   type StoredNode,
 } from '../../src/model/index.js';
-import { heading, text } from './lab-document.js';
+import { text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
@@ -45,9 +48,26 @@ const line = (id: string, value: StoredNode[] | string): StoredNode => ({
   content: typeof value === 'string' ? [text(value)] : value,
 });
 
-const file = (...content: StoredNode[]): DocumentFile => ({
+const heading = (id: string, value: string): StoredNode => ({
+  type: 'heading',
+  attrs: { id, level: 1 },
+  content: [text(value)],
+});
+
+// Every version ends with a retention section, whose rule the newest version changes.
+const file = (retention: string, ...content: StoredNode[]): DocumentFile => ({
   formatVersion: 1,
-  sections: [{ name: null, content: [heading(1, 'Scope'), ...content] }],
+  sections: [
+    {
+      name: null,
+      content: [
+        heading('h0000001', 'Scope'),
+        ...content,
+        heading('h0000002', 'Retention'),
+        line('a0000007', retention),
+      ],
+    },
+  ],
 });
 
 // A paragraph of several lines, of which the newest version changes the last.
@@ -55,6 +75,7 @@ const RECORD =
   'Each fault record holds the time it was detected, the unit that detected it, the operating state at that time, the readings that led to it and the action the system took in response, so that the record alone explains what happened.';
 
 const FIRST = file(
+  'Records are kept.',
   line('a0000001', 'The system shall report each fault within one second of detecting it.'),
   line('a0000002', 'Reports go to the operator console and to the log.'),
   line('a0000003', 'The log keeps every report for ninety days.'),
@@ -63,6 +84,7 @@ const FIRST = file(
 );
 
 const SECOND = file(
+  'Records are kept.',
   line('a0000001', 'The system shall report each fault within two seconds of detecting it.'),
   line('a0000002', [
     text('Reports go to the '),
@@ -75,6 +97,7 @@ const SECOND = file(
 );
 
 const THIRD = file(
+  'Records are kept for a year.',
   line('a0000001', 'The system shall report each fault within two seconds of detecting it.'),
   line('a0000003', 'The log keeps each report for ninety days.'),
   line('a0000002', [
@@ -99,11 +122,28 @@ async function saveVersions() {
   return listed?.ok ? listed.value : [];
 }
 
-const initialState = () =>
+const stateOf = (content: DocumentFile) =>
   EditorState.create({
-    doc: readDocumentFile(THIRD, SCHEMA).doc,
+    doc: readDocumentFile(content, SCHEMA).doc,
     plugins: createDocumentEditing(SCHEMA, { template: () => TEMPLATE, author: () => 'ada' }),
   });
+
+const SCOPES = [
+  { id: '', label: 'Whole document' },
+  { id: 'h0000001', label: 'Scope' },
+  { id: 'h0000002', label: 'Retention' },
+];
+
+async function loadVersion(key: Key) {
+  const loaded = await HOST.versions?.load(DOCUMENT_ID, String(key));
+  return loaded?.ok ? loaded.value : null;
+}
+
+// Two versions compared: the newer, shown read-only, and the older it is compared with.
+interface VersionPair {
+  readonly newer: EditorState;
+  readonly older: ProseMirrorNode;
+}
 
 const toHistory = (version: DocumentVersion): VersionHistoryVersion => ({
   id: version.revision,
@@ -112,23 +152,58 @@ const toHistory = (version: DocumentVersion): VersionHistoryVersion => ({
   person: { name: 'Ada Lovelace' },
 });
 
-function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
-  const [state, setState] = useState(initialState);
-  const [selected, setSelected] = useState<Key | null>(null);
+function countsText(state: EditorState): string {
+  const counts = versionChangeCounts(state);
+  return [
+    `${String(counts.insertion)} inserted`,
+    `${String(counts.deletion)} deleted`,
+    `${String(counts.modification)} modified`,
+    `${String(counts.formatting)} formatted`,
+    `${String(counts.move)} moved`,
+  ].join(', ');
+}
+
+// The picked versions, last picked last, at most two: a third replaces the first.
+function nextSelection(selected: readonly Key[], keys: Set<Key>): Key[] {
+  const kept = selected.filter((key) => keys.has(key));
+  const added = [...keys].filter((key) => !selected.includes(key));
+  return [...kept, ...added].slice(-2);
+}
+
+function useComparedVersion(selected: readonly Key[]) {
   const [previous, setPrevious] = useState<ProseMirrorNode | null>(null);
-  const [display, setDisplay] = useState<VersionChangeDisplay>('markup');
-  const [bars, setBars] = useState<readonly ChangeBar[]>([]);
+  const last = selected.at(-1) ?? null;
   useEffect(() => {
-    if (selected === null) return;
+    if (last === null) return;
     let current = true;
-    void HOST.versions?.load(DOCUMENT_ID, String(selected)).then((loaded) => {
-      if (current && loaded.ok) setPrevious(readDocumentFile(loaded.value, SCHEMA).doc);
+    void loadVersion(last).then((content) => {
+      if (current && content) setPrevious(readDocumentFile(content, SCHEMA).doc);
     });
     return () => {
       current = false;
     };
-  }, [selected]);
-  const changes = versionChanges(state);
+  }, [last]);
+  return last === null ? null : previous;
+}
+
+function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
+  const [edited, setEdited] = useState(() => stateOf(THIRD));
+  const [pair, setPair] = useState<VersionPair | null>(null);
+  const [selected, setSelected] = useState<readonly Key[]>([]);
+  const [display, setDisplay] = useState<VersionChangeDisplay>('markup');
+  const [scope, setScope] = useState('');
+  const [bars, setBars] = useState<readonly ChangeBar[]>([]);
+  const previous = useComparedVersion(selected);
+  const state = pair?.newer ?? edited;
+  const shown = pair ? pair.older : previous;
+  const compareTwo = async ([older, newer]: [Key, Key]) => {
+    const [olderContent, newerContent] = await Promise.all([
+      loadVersion(older),
+      loadVersion(newer),
+    ]);
+    if (!olderContent || !newerContent) return;
+    setPair({ newer: stateOf(newerContent), older: readDocumentFile(olderContent, SCHEMA).doc });
+  };
   return (
     <div className="lab-layout">
       <div>
@@ -146,16 +221,39 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
               {value === 'markup' ? 'Marked text' : 'Change bars'}
             </label>
           ))}
+          <label>
+            Compare within{' '}
+            <select value={scope} onChange={(event) => setScope(event.target.value)}>
+              {SCOPES.map(({ id, label }) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
           <output aria-label="Changes">
-            {previous ? `${String(changes.length)} changes` : 'Pick a version to compare with'}
+            {shown
+              ? `${String(versionChanges(state).length)} changes`
+              : 'Pick a version to compare with'}
           </output>
+          <output aria-label="Counts">{shown ? countsText(state) : ''}</output>
+          <output aria-label="Showing">{pair ? 'Two versions' : 'The document'}</output>
           <output aria-label="Bars reported">{`${String(bars.length)} bars`}</output>
         </fieldset>
         <DocumentEditor
           state={state}
-          onStateChange={setState}
+          onStateChange={
+            pair
+              ? (update) =>
+                  setPair({
+                    ...pair,
+                    newer: typeof update === 'function' ? update(pair.newer) : update,
+                  })
+              : setEdited
+          }
           template={TEMPLATE}
-          compare={previous ? { previous, display } : null}
+          editable={!pair}
+          compare={shown ? { previous: shown, display, scope: scope ? [scope] : undefined } : null}
           onChangeBarsChange={setBars}
           aria-label="Sample document"
         />
@@ -165,13 +263,13 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
           aria-label="Versions"
           versions={versions.map(toHistory)}
           currentKey={versions[0]?.revision ?? null}
-          selectedKeys={selected === null ? [] : [selected]}
+          selectedKeys={selected}
           showFilters={false}
           onSelectionChange={(keys) => {
-            const next = [...keys].find((key) => key !== selected) ?? null;
-            setSelected(next);
-            if (next === null) setPrevious(null);
+            setSelected(nextSelection(selected, keys));
+            setPair(null);
           }}
+          onCompare={(keys) => void compareTwo(keys)}
         />
       </aside>
     </div>

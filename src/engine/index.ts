@@ -64,6 +64,14 @@ export {
   createCommentDraft,
   startCommentDraft,
 } from './comment-draft.js';
+export type { AnchoredThread, ResolvedTarget, ThreadReconcileReport } from './comment-targets.js';
+export {
+  anchorThreads,
+  describeCommentTarget,
+  reanchorThread,
+  reconcileThreads,
+  resolveCommentTarget,
+} from './comment-targets.js';
 export type { AnchorOptions, CommentAnchor, CommentRange, CommentState } from './comments.js';
 export {
   addCommentAnchor,
@@ -207,6 +215,8 @@ export {
   commitCaptionEditing,
   editCaption,
 } from './object-views.js';
+export type { OutlineOptions } from './outline.js';
+export { headingSectionSpan } from './outline.js';
 export type { NumberedParagraph, ParagraphNumberingOptions } from './paragraph-numbering.js';
 export {
   createParagraphNumbering,
@@ -224,8 +234,22 @@ export {
   createSectionFootnoteNumbers,
   sectionFootnoteNumbersKey,
 } from './section-footnote-numbers.js';
+export type { ShortcutId, ShortcutOverrides, ShortcutTable } from './shortcuts.js';
+export {
+  createShortcuts,
+  DEFAULT_SHORTCUTS,
+  formatShortcut,
+  matchesShortcut,
+  resolveShortcuts,
+  shortcutLabel,
+  shortcutsKey,
+  shortcutsOf,
+} from './shortcuts.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';
 export type { TableEditingOptions } from './tables.js';
 export { createVariableTokens, variableTokensKey } from './variable-tokens.js';
+export { versionChangeCounts } from './version-changes.js';
+export type { CompareOptions, VersionChangeTarget } from './version-compare.js';
+export type { VersionChangeCounts } from './version-scope.js';

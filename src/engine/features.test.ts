@@ -31,8 +31,8 @@ const EDITING_KEYS = [
 ];
 // Column resizing, cell selection, the table pointer and the table keys.
 const TABLE_KEYS = ['table-column-resize', 'selectingCells', 'table-pointer', 'plugin'];
-// The gap cursor, the document's keys and the base keymap.
-const LAST_KEYS = ['plugin', 'plugin', 'plugin'];
+// The gap cursor, the document's keys with its shortcut table, and the base keymap.
+const LAST_KEYS = ['plugin', 'document-shortcuts', 'plugin'];
 
 describe('plugin order', () => {
   it('DOCE-FORMAT-7.3 runs the editing plugins in the recorded key order', () => {

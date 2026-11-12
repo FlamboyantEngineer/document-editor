@@ -1,5 +1,4 @@
 export type {
-  AssetAdapter,
   CodeSourceAdapter,
   CompletionAdapter,
   DocumentSave,
@@ -20,18 +19,12 @@ export type {
   HostResult,
   IdentityAdapter,
   PermissionsAdapter,
-  ProoferAdapter,
-  ProofingIssue,
-  ProofingKind,
-  ProofingLanguage,
-  ProofingText,
   ReferenceSourceAdapter,
   ResolvedCode,
   SavedState,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptVocabularyEntry,
-  StoredAsset,
   StoredDocument,
   StoredTemplate,
   TelemetryAdapter,
@@ -40,7 +33,14 @@ export type {
   VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
-export type { AssetSearchPage, DiagramAdapter, FoundAsset, StoredDiagram } from './adapters.js';
+export type {
+  AssetAdapter,
+  AssetSearchPage,
+  DiagramAdapter,
+  FoundAsset,
+  StoredAsset,
+  StoredDiagram,
+} from './asset-adapters.js';
 export type {
   ConnectionAccess,
   EditingMode,
@@ -66,9 +66,17 @@ export type {
 } from './comment-adapters.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
-export type { MemoryHostOptions } from './memory-host.js';
+export type { MemoryHost, MemoryHostOptions } from './memory-host.js';
 export { createMemoryHost } from './memory-host.js';
+export type { MemoryHostControls, MemoryRequest } from './memory-session.js';
 export type { MentionsAdapter, MentionTarget, MentionTextRun } from './mention-adapters.js';
+export type {
+  ProoferAdapter,
+  ProofingIssue,
+  ProofingKind,
+  ProofingLanguage,
+  ProofingText,
+} from './proofing-adapters.js';
 export type {
   CollaborationAdapter,
   DocumentDraft,

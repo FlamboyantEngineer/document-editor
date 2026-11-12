@@ -50,7 +50,7 @@ Verification: `src/model/contents/document-catalog.test.ts`
 
 ### DOCE-CONTENTS-2.1 - Listing entries
 
-`createContents({ template, kinds, labels })` shall give a plugin and a `toc_block` node view that draws each list from the catalog of the kind its `tocType` names: its title, then one entry per node of its kind down to its depth, with the number, the text, a leader and the page, or its empty text when there is nothing to list. A kind marked `after`, as the table of contents is, shall list only the nodes after the list. The lists shall follow every change to the document.
+`createContents({ template, kinds, labels })` shall give a plugin and a `toc_block` node view that draws each list from the catalog of the kind its `tocType` names: its title, then one entry per node of its kind down to its depth, with the number, the text, a leader and the page, or its empty text when there is nothing to list. The page shall be the one the layout shows the entry on (`pageMap`), and follow each layout. A kind marked `after`, as the table of contents is, shall list only the nodes after the list. The lists shall follow every change to the document.
 
 Implementation: `src/engine/contents.ts`, `labs/src/contents.lab.ts`
 Verification: `e2e/contents.spec.ts`

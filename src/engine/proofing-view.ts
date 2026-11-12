@@ -5,7 +5,7 @@
 
 import type { PluginView } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import type { ProofingText } from '../host/adapters.js';
+import type { ProofingText } from '../host/proofing-adapters.js';
 import { readDomSelection } from '../utils/dom-selection.js';
 import {
   proofingKey,

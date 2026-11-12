@@ -159,6 +159,30 @@ describe('projection view', () => {
     expect(inSync(projection)).toBe(true);
   });
 
+  it('DOCE-PAGINATION-7.11 shows on the pages what the canonical plugins append to input', () => {
+    // Appends a full stop after each edit that does not end with one.
+    const stop = new Plugin({
+      appendTransaction(transactions, _before, after) {
+        if (!transactions.some((tr) => tr.docChanged) || after.doc.textContent.endsWith('.'))
+          return null;
+        return after.tr.insertText('.', positionOf(after.doc, 'five') + 'five'.length);
+      },
+    });
+    const { projection } = mount({ state: canonicalState([stop]) });
+    const { view } = projection;
+    view.dispatch(view.state.tr.insertText('New ', positionOf(view.state.doc, 'Gamma')));
+    expect(textOf(projection.state.doc)).toMatch(/New Gamma three.*five\.$/);
+    expect(textOf(view.state.doc)).toBe(textOf(projection.state.doc));
+    expect(inSync(projection)).toBe(true);
+    projection.run((state, dispatch) => {
+      dispatch?.(state.tr.insertText('!', positionOf(state.doc, 'Alpha')));
+      return true;
+    });
+    expect(textOf(view.state.doc)).toBe(textOf(projection.state.doc));
+    expect(inSync(projection)).toBe(true);
+    expect(projection.stats()).toMatchObject({ refused: 0, relaid: 0 });
+  });
+
   it('DOCE-PAGINATION-7.11 runs keys and commands on the canonical state, with the selection mirrored', () => {
     const { projection } = mount({ keys: { 'Mod-z': undo } });
     const { view } = projection;

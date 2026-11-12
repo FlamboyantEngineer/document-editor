@@ -2,9 +2,13 @@ import type { DocumentFile, StoredContent } from '../model/format/document-forma
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import type { ReferenceBaseline } from '../model/reference-format.js';
+import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
 import type { CommentStoreAdapter } from './comment-adapters.js';
+import type { ProoferAdapter } from './proofing-adapters.js';
 import type { CollaborationAdapter, DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
+
+export type * from './asset-adapters.js';
 
 /** A failure the host reports for a request it could not complete. */
 export interface HostError {
@@ -142,79 +146,6 @@ export interface TemplateSourceAdapter {
    * function is called.
    */
   subscribe?(templateId: string, onSaved: (state: SavedState) => void): () => void;
-}
-
-/** An uploaded file the document references. */
-export interface StoredAsset {
-  id: string;
-  /** URL the editor renders the asset from. */
-  url: string;
-  name: string;
-  mediaType: string;
-  /**
-   * The stored snapshot of the asset a document names with its id, such as a figure's; defaults to
-   * the asset's id.
-   */
-  snapshotId?: string | undefined;
-}
-
-/** An asset a search finds, with what placing it starts from when the host knows it. */
-export interface FoundAsset extends StoredAsset {
-  /** The address of a small preview; defaults to `url`. */
-  thumbnailUrl?: string | undefined;
-  /** A description the alternative text starts from. */
-  alt?: string | undefined;
-  /** The asset's own size in pixels. */
-  width?: number | undefined;
-  height?: number | undefined;
-}
-
-/** One page of the assets a search finds; a `cursor` means another page follows. */
-export interface AssetSearchPage {
-  items: readonly FoundAsset[];
-  cursor?: string | undefined;
-}
-
-export interface AssetAdapter {
-  upload(file: File, signal?: AbortSignal): Promise<HostResult<StoredAsset>>;
-  /**
-   * The images among the host's assets that match a query, the empty query browsing them, or with
-   * `cursor` the page after the one that returned it. Without it the editor offers no asset
-   * browser, only uploads and addresses.
-   */
-  search?(
-    query: string,
-    options: { readonly signal: AbortSignal; readonly cursor?: string | undefined },
-  ): Promise<HostResult<AssetSearchPage>>;
-  /**
-   * URL for an asset id stored in a document, at the snapshot it names when given, as of the time
-   * the document shows its assets as of (`asOf`, null or absent for now), such as an earlier
-   * version's.
-   */
-  resolveUrl(assetId: string, snapshotId?: string, at?: { readonly asOf: string | null }): string;
-}
-
-/** A diagram a figure shows: the stored asset holding its drawing and source, and its size. */
-export interface StoredDiagram {
-  /** The asset's id; the figure renders it through `assets.resolveUrl`. */
-  assetId: string;
-  /** The stored snapshot the figure names; defaults to the asset's id. */
-  snapshotId?: string | undefined;
-  /** The drawing's own size in pixels, which a new figure takes. */
-  width?: number | undefined;
-  height?: number | undefined;
-}
-
-/** The host's diagram editor, which draws and stores the diagrams figures show. */
-export interface DiagramAdapter {
-  /**
-   * Opens the host's editor on a diagram, or on a new one when null, and resolves with the diagram
-   * it stored, or null when the writer cancels. The editor aborts `signal` when its dialog closes.
-   */
-  edit(
-    diagram: StoredDiagram | null,
-    signal: AbortSignal,
-  ): Promise<HostResult<StoredDiagram | null>>;
 }
 
 /** Font faces the host serves itself, which a template's text styles name by family. */
@@ -376,57 +307,6 @@ export interface TelemetryAdapter {
   count?:
     | ((name: string, value: number, attributes?: Readonly<Record<string, string>>) => void)
     | undefined;
-}
-
-/** What a proofing issue is about. */
-export type ProofingKind = 'spelling' | 'grammar' | 'style';
-
-/** An issue a proofer found in a text, by the offsets of its characters there. */
-export interface ProofingIssue {
-  /** The offset of the issue's first character in the text checked. */
-  readonly from: number;
-  /** The offset just past its last character. */
-  readonly to: number;
-  readonly kind: ProofingKind;
-  /** The issue in words, for the reader. */
-  readonly message?: string | undefined;
-  /** Text to put in place of the issue's, best first. */
-  readonly suggestions: readonly string[];
-  /** The proofer's rule that found it, which the reader may turn off. */
-  readonly rule?: { readonly id: string; readonly description?: string | undefined } | undefined;
-  /** The proofer's finer category, such as `punctuation` or `repeated-word`. */
-  readonly category?: string | undefined;
-}
-
-/** A language a proofer checks, by its BCP 47 tag. */
-export interface ProofingLanguage {
-  readonly id: string;
-  readonly label: string;
-}
-
-/** A text to check: a block's text, with each object in it, and code, as spaces. */
-export interface ProofingText {
-  readonly text: string;
-  /** The language to check it in: the block's own, or the document's. */
-  readonly language?: string | null | undefined;
-}
-
-/**
- * The host's text proofer, such as a spelling and grammar checker. `check` resolves to each text's
- * issues, in the order of the texts; a check that fails, or that the editor aborts because the
- * document changed, marks nothing.
- */
-export interface ProoferAdapter {
-  check(
-    texts: readonly ProofingText[],
-    options: { readonly signal: AbortSignal },
-  ): Promise<readonly (readonly ProofingIssue[])[]>;
-  /** Adds a word to the reader's dictionary, when the proofer keeps one. */
-  addWord?: ((word: string) => Promise<void> | void) | undefined;
-  /** Turns a rule off for the reader, when the proofer keeps their choice. */
-  ignoreRule?: ((ruleId: string) => Promise<void> | void) | undefined;
-  /** The languages it checks, which the reader may pick from. */
-  languages?: readonly ProofingLanguage[] | undefined;
 }
 
 /**

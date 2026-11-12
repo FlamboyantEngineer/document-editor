@@ -137,6 +137,9 @@ export function createPageNodesExtension(options?: DocumentSchemaOptions): RichT
         spec: pageRegion('page-content', {
           content: '(block | layout)*',
           defining: true,
+          // The first block type the content allows is no text block, so a gap cursor between two
+          // objects would otherwise never be valid there.
+          allowGapCursor: true,
           attrs: { editable: { default: null } },
         }),
         order: order.page_content,

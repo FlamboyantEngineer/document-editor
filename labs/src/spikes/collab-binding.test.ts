@@ -199,7 +199,7 @@ describe('collab binding spike', () => {
       // As through a room server: each person's updates reach the room in the order they were made,
       // and the room's updates reach each person in the room's order, both after random delays and
       // interleaved at random. (Delivered out of causal order, Yjs 14 can leave updates pending: see
-      // yjs-pending.test.ts.)
+      // src/collab/yjs-pending.test.ts.)
       const room = new Y.Doc();
       const toRoom = docs.map(() => [] as Uint8Array[]);
       const fromRoom = docs.map(() => [] as Uint8Array[]);

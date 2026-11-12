@@ -7,7 +7,6 @@ import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-t
 import type { Node, NodeSpec } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
-import { EditorView } from 'prosemirror-view';
 import {
   createDocumentSchema,
   type DocumentFile,
@@ -23,7 +22,7 @@ import {
   type SplitBlock,
   type StoredNode,
 } from '../../src/model/index.js';
-import { createPagination, isPaginationTransaction } from '../../src/pagination/index.js';
+import { showOnPages } from './lab-pages.js';
 
 const SENTENCES = [
   'The survey covered every room on the ground floor and two on the first.',
@@ -265,27 +264,23 @@ function reportPages(tr: Transaction): void {
   const { dataset } = document.documentElement;
   const before = joinDocumentPages(tr.before, FRAGMENTS).doc;
   dataset.labJoinsWhole = String(sameContent(joinDocumentPages(tr.doc, FRAGMENTS).doc, before));
-  dataset.labReady = 'true';
 }
 
 function render(): void {
   const measureIn = document.querySelector<HTMLElement>('.lab-measure');
-  const pagesRoot = document.querySelector('.lab-pages');
-  if (!measureIn || !pagesRoot) return;
+  const mount = document.querySelector<HTMLElement>('.lab-pages');
+  if (!measureIn || !mount) return;
   const pageHeight = Number.parseFloat(getComputedStyle(measureIn).getPropertyValue('--lab-page'));
-  const pagination = createPagination({
-    measureIn,
-    pageHeight,
-    rules: RULES,
-    fragmentRules: FRAGMENTS,
-  });
-  const editor: EditorView = new EditorView(pagesRoot, {
-    state: EditorState.create({ doc: sampleDocument(), plugins: [pagination.plugin] }),
-    dispatchTransaction(tr: Transaction) {
-      editor.updateState(editor.state.apply(tr));
-      if (isPaginationTransaction(tr)) reportPages(tr);
+  showOnPages(
+    { mount, measureIn },
+    {
+      state: EditorState.create({ doc: sampleDocument() }),
+      pageHeight,
+      rules: RULES,
+      fragmentRules: FRAGMENTS,
+      onLayout: reportPages,
     },
-  });
+  );
 }
 
 render();

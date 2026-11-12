@@ -24,6 +24,7 @@ import type {
   StartComment,
   StartCommentOptions,
 } from '../document-comments/document-comments.js';
+import type { FindBarMode } from './document-find-bar.js';
 import type { LayoutProgress } from './use-document-layout.js';
 
 /** Where `openThread` takes the reader within a thread. */
@@ -62,6 +63,11 @@ export interface DocumentEditorHandle {
    * otherwise.
    */
   startComment(options?: StartCommentOptions): boolean;
+  /**
+   * Opens the find bar at its find box, or at its replacement with `replace`, seeded with the
+   * selected text, while the editor has a find bar (`find`); false otherwise.
+   */
+  openFind(mode?: FindBarMode): boolean;
   /**
    * The document as its pages show it now, as a standalone HTML document a host prints or turns
    * into a PDF (`documentSnapshot`); null before the editor is mounted.
@@ -146,9 +152,11 @@ export function useEditorHandle(
     openThreadRef,
     template,
     layout,
+    openFind,
   }: CommentRefs & {
     template: TemplateFile;
     layout: LayoutProgress;
+    openFind: ((mode?: FindBarMode) => void) | null;
   },
 ) {
   useImperativeHandle(
@@ -171,6 +179,10 @@ export function useEditorHandle(
         start?.(options);
         return Boolean(start);
       },
+      openFind(mode) {
+        openFind?.(mode);
+        return Boolean(openFind);
+      },
       run(command) {
         if (!view) return false;
         const ran = command(view.state, view.dispatch, view);
@@ -186,6 +198,6 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
     }),
-    [view, startCommentRef, openThreadRef, template, layout],
+    [view, startCommentRef, openThreadRef, template, layout, openFind],
   );
 }
