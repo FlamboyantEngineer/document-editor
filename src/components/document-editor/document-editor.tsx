@@ -342,8 +342,7 @@ function useEditorLayout(
  */
 export function DocumentEditor(given: DocumentEditorProps) {
   const props = useActiveProps(given);
-  const { state, template, layout = 'page', editable = true } = props;
-  const { className } = props;
+  const { state, template, layout = 'page', editable = true, className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);

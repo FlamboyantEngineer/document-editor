@@ -130,3 +130,24 @@ The editor shall offer accepting and rejecting suggestions, in the comments marg
 
 Implementation: `src/components/document-editor/save-status-item.tsx`, `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/editor-body.tsx`
 Verification: `src/components/document-editor/save-status-item.test.tsx`
+
+### DOCE-SESSION-9.4 - Load progress
+
+`SessionLoading` shall show the base library's `LoadingOverlay` while the session opens its document, naming the phase it is in (`connecting`, `loading` or `syncing`, by `DEFAULT_SESSION_LOADING_LABELS` or the host's `labels`), after the host's `delay` when given, and nothing once the document is ready or failed. It is meant as a `DocumentSessionBoundary` fallback.
+
+Implementation: `src/components/document-session/save-status.tsx`
+Verification: `src/components/document-session/save-status.test.tsx`, `e2e/session.spec.ts`
+
+### DOCE-SESSION-9.5 - Load telemetry
+
+`useSessionTelemetry(session, telemetry)` shall measure through the host's telemetry how long each load phase took (`SESSION_MEASURES.connecting`, `loading`, `syncing`) and the whole load once the document is ready (`SESSION_MEASURES.load`), each attributed with the session's `mode`. A session already open when the hook starts, or whose load failed, gives no whole-load measure.
+
+Implementation: `src/components/document-session/save-status.tsx`
+Verification: `src/components/document-session/save-status.test.tsx`
+
+### DOCE-SESSION-9.6 - Unsaved-changes guard
+
+`useSessionGuard(session, label)` shall register the session's unsaved changes (`status.dirty`) with the nearest base library `UnsavedChangesGuard`, named by `label`: leaving while the document is dirty asks the reader to save or stay, Save saves the session, and a save that leaves changes unsaved keeps the reader where they are.
+
+Implementation: `src/components/document-session/save-status.tsx`
+Verification: `src/components/document-session/save-status.test.tsx`, `e2e/session.spec.ts`
