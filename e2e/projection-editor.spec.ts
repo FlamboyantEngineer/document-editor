@@ -68,4 +68,31 @@ test.describe('DocumentEditor on the projection', () => {
     await page.keyboard.type(' plan');
     await expect(content(page).locator('h1 ins', { hasText: 'plan' })).toHaveCount(1);
   });
+
+  test('DOCE-PAGINATION-7.17 DOCE-OBJECTS-3.3 paints code highlights on every page shown', async ({
+    page,
+  }) => {
+    await page.goto('regression.html?document=code-blocks&layout=page&projection');
+    await waitForLab(page);
+    const pages = content(page).locator('.pm-page');
+    await expect(pages.first()).toBeVisible();
+    // The text of a kind's ranges painted on a page the editor shows, not the measuring view.
+    const painted = (index: number, name: string) =>
+      pages
+        .nth(index)
+        .evaluate(
+          (shown, highlight) =>
+            [...(CSS.highlights.get(highlight) ?? [])]
+              .filter((range) => range instanceof Range && shown.contains(range.startContainer))
+              .map((range) => String(range)),
+          name,
+        );
+    await expect.poll(() => painted(0, 'de-code-keyword')).toContain('const');
+    // A listing split across pages is painted on its last page too.
+    const last = (await pages.count()) - 1;
+    expect(last).toBeGreaterThan(0);
+    await expect
+      .poll(async () => (await painted(last, 'de-code-number')).length)
+      .toBeGreaterThan(0);
+  });
 });

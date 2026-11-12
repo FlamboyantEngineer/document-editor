@@ -77,10 +77,13 @@ function offered(
 const handled = (view: EditorView, source: CanonicalPluginsSource, offer: Offer) =>
   offered(view, source, { ...offer, input: true });
 
-// The canonical plugins' views, started on the canonical view and updated as its state changes.
+// The canonical plugins' views, started on the canonical view and updated as its state changes
+// and as the pages change under it, as a layout redraws them, so a view that paints the DOM, such
+// as code highlighting, paints the pages shown.
 function pluginViews(view: EditorView, source: CanonicalPluginsSource): PluginView {
   const canonical = canonicalViewOf(view, source);
   let shown = source.canonical();
+  let pages = view.state.doc;
   const start = (state: EditorState) =>
     state.plugins.flatMap((plugin) => (plugin.spec.view ? [plugin.spec.view(canonical)] : []));
   let views = start(shown);
@@ -88,9 +91,11 @@ function pluginViews(view: EditorView, source: CanonicalPluginsSource): PluginVi
     for (const started of views) started.destroy?.();
   };
   return {
-    update() {
+    update(updated) {
       const now = source.canonical();
-      if (now === shown) return;
+      const redrawn = updated.state.doc !== pages;
+      pages = updated.state.doc;
+      if (now === shown && !redrawn) return;
       const previous = shown;
       shown = now;
       if (now.plugins === previous.plugins) {
