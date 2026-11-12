@@ -12,11 +12,13 @@ import {
   createAuthorship,
   createChangeLines,
   createDocumentSections,
+  createDynamicTemplates,
   createRegionEditing,
   createSearch,
   createVersionChanges,
   documentSectionsKey,
   proofingKey,
+  refreshDynamicTemplates,
   refreshVersionChanges,
   type RegionChange,
   searchKey,
@@ -51,6 +53,7 @@ function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
   return [
     createPageDebug({ shown: () => latest.current.debug ?? {} }),
     createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
+    createDynamicTemplates({ value: (key) => latest.current.variables?.value(key) }),
     createSearch(),
     createAuthorship(),
     createRegionEditing({
@@ -152,9 +155,10 @@ const restyleSections = (state: EditorState) =>
 // A state compared with the older version again, out of the history.
 const recompare = (state: EditorState) => state.apply(refreshVersionChanges(state.tr));
 
-// A state showing the variables' values again, out of the history.
+// A state showing the variables' values again, in the text and the template blocks, out of the
+// history.
 const revalue = (state: EditorState) =>
-  state.apply(state.tr.setMeta(pageVariablesKey, true).setMeta('addToHistory', false));
+  state.apply(refreshDynamicTemplates(state.tr.setMeta(pageVariablesKey, true)));
 
 // The host's variables shown again, and the pages measured again, whenever the host says they
 // changed, and when it hands in other variables.

@@ -85,6 +85,18 @@ export {
 } from './document-sections.js';
 export type { DocumentStatistics } from './document-statistics.js';
 export { documentStatistics } from './document-statistics.js';
+export type {
+  DynamicTemplatesOptions,
+  TemplateBlockTarget,
+  TemplateValue,
+} from './dynamic-templates.js';
+export {
+  createDynamicTemplates,
+  dynamicTemplatesKey,
+  refreshDynamicTemplates,
+  renderTemplateBlock,
+  templateBlockKeys,
+} from './dynamic-templates.js';
 export type { EditLockOptions } from './edit-lock.js';
 export { createEditLock, editLockKey, isLockedIn, isPositionLocked } from './edit-lock.js';
 export {
