@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="History: a document's named versions, grouped, viewed with their pinned template, compared, restored and returned from."
+    />
+    <title>History · Labs</title>
+    <style>
+      .lab-layout {
+        grid-template-columns: minmax(0, 1fr) 320px;
+      }
+    </style>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/history.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>History</h1>
+      <p>
+        The history lists the document's saved versions, the automatic ones folded under the named
+        version after them. Save and name a version, pick one to view it in place of the document
+        with the template it pins, pick two and compare them, rename or restore one, and return to
+        the document with the markup and comments you had before.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>

@@ -15,14 +15,17 @@ import {
   suggestTransaction,
 } from '../../engine/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
-import { isContentChange } from './use-host-events.js';
+import {
+  contentChangeCause,
+  type DocumentEditorNotifications,
+  isContentChange,
+} from './use-host-events.js';
 
 /** What the plumbing reads of the editor's props. */
 export interface EnginePlumbingProps {
   readonly onStateChange: (update: (state: EditorState) => EditorState) => void;
   readonly events?: Omit<RichTextEngineEvents, 'props'> | undefined;
-  readonly onContentChange?:
-    ((tr: Parameters<NonNullable<RichTextEngineEvents['onTransaction']>>[0]) => void) | undefined;
+  readonly onContentChange?: DocumentEditorNotifications['onContentChange'];
   readonly onReviewChange?: ((change: ReviewChange, tr: Transaction) => void) | undefined;
 }
 
@@ -131,7 +134,7 @@ export function useEngineView(
         latest.current.tap?.(tr);
         publish(tr);
         const { onContentChange: notify, onReviewChange: review } = latest.current;
-        if (notify && isContentChange(tr)) notify(tr);
+        if (notify && isContentChange(tr)) notify(tr, contentChangeCause(tr));
         const change = review && reviewChangeOf(tr);
         if (change) review(change, tr);
       },

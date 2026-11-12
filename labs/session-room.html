@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Session in a room: two readers open one document in its shared room on an in-process room server."
+    />
+    <title>Session in a room · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/session-room.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Session in a room</h1>
+      <p>
+        Two readers open the same document in its shared room, on a room server in this page. What
+        one types reaches the other, and the room stores it. Take a reader offline to keep their
+        changes until they come back online.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>

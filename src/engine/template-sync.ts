@@ -6,7 +6,7 @@
 // line keeps the output of each script the template still has.
 
 import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
-import type { Command } from 'prosemirror-state';
+import type { Command, Transaction } from 'prosemirror-state';
 import {
   type DocumentSection,
   documentSections,
@@ -20,7 +20,7 @@ import {
   type TemplateFile,
 } from '../model/index.js';
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
-import { joinedTransaction, sectionOf } from './document-sections.js';
+import { sectionOf } from './document-sections.js';
 import type { EditLockOptions } from './edit-lock.js';
 
 /** How a document's section drifted from its template. */
@@ -170,7 +170,7 @@ export function syncTemplateSections(
     const drift = templateSectionDrift(state.doc, template, options);
     if (drift.length === 0) return false;
     if (!dispatch) return true;
-    const tr = joinedTransaction(state);
+    const { tr } = state;
     const stale = new Set(drift.filter((each) => each.kind === 'stale').map((each) => each.name));
     const unexpected = new Set(
       drift.filter((each) => each.kind === 'unexpected').map((each) => each.name),
@@ -199,7 +199,7 @@ export function syncTemplateSections(
 
 // Adds a required section after the last section the template places before it.
 function insertMissing(
-  tr: ReturnType<typeof joinedTransaction>,
+  tr: Transaction,
   { template, options }: { template: TemplateFile; options: TemplateContentOptions },
   name: string,
 ) {

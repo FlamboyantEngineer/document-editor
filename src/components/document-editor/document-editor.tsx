@@ -27,6 +27,7 @@ import type {
   AssetAdapter,
   CodeSourceAdapter,
   DiagramAdapter,
+  EditingMode,
   FeedbackAdapter,
   FontsAdapter,
   GlossaryAdapter,
@@ -45,13 +46,16 @@ import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
+import type { HostDialogProps } from './dialog-parts.js';
+import { useFindBar } from './document-find-bar.js';
 import { EditorBody } from './editor-body.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
 import {
-  createEditorContext,
   DocumentEditorContext,
+  type DocumentMarkup,
   type EditorContext,
   type ObjectDialog,
+  useShownContext,
 } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
@@ -62,11 +66,12 @@ import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
 import { useLayoutTap } from './use-editor-telemetry.js';
-import { type DocumentEditorNotifications, useElementIdRepair } from './use-host-events.js';
+import {
+  type DocumentEditorNotifications,
+  useActiveProps,
+  useElementIdRepair,
+} from './use-host-events.js';
 import { usePagedEditor, usePagedView } from './use-paged-projection.js';
-
-/** How suggestions show in the document. */
-export type DocumentMarkup = 'all' | 'simple' | 'final' | 'original';
 
 /** How the editor repairs the element ids of the documents it is given. */
 export interface DocumentEditorIdRepair {
@@ -100,6 +105,12 @@ export interface DocumentEditorProps
   layout?: DocumentLayout | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
   editable?: boolean | undefined;
+  /**
+   * Whether the editor is shown. A hidden editor, such as one in a background tab, keeps showing
+   * the state it last showed, so it lays out, measures and proofs nothing, and shows the latest
+   * state once it is active again. Defaults to true.
+   */
+  active?: boolean | undefined;
   /** Whether an editable document takes changes as suggestions (`suggestTransaction`). */
   suggesting?: boolean | undefined;
   /** The writer suggestions are attributed to. */
@@ -147,6 +158,18 @@ export interface DocumentEditorProps
    * with a bar beside each changed block), `final` (as if accepted) or `original` (as if rejected).
    */
   markup?: DocumentMarkup | undefined;
+  /**
+   * Lets the reader choose how suggestions show: the toolbar's and the View menu's markup control,
+   * offering no markup (`final`), change bars (`simple`) and inline markup (`all`).
+   */
+  onMarkupChange?: ((markup: DocumentMarkup) => void) | undefined;
+  /**
+   * Lets the writer switch the editing mode: the toolbar's and the View menu's mode control offer
+   * editing, suggesting, commenting and reading. The host then sets `editable` and `suggesting`.
+   */
+  onModeChange?: ((mode: EditingMode) => void) | undefined;
+  /** Why a mode is unavailable, by mode: the mode control offers it disabled with the reason. */
+  modeReasons?: Readonly<Partial<Record<EditingMode, string>>> | undefined;
   /** The host's telemetry, which the editor reports its layout times to. */
   telemetry?: TelemetryAdapter | undefined;
   /**
@@ -210,6 +233,11 @@ export interface DocumentEditorProps
   symbols?: readonly CharacterGridCategory[] | undefined;
   /** The languages a code block's language menu offers, in place of the editor's own. */
   codeLanguages?: readonly string[] | undefined;
+  /**
+   * The host's own dialogs by name, opened through the editor context's
+   * `openDialog({ kind: 'host', name, data })`, each typically an `EditorModal`.
+   */
+  dialogs?: Readonly<Record<string, ComponentType<HostDialogProps>>> | undefined;
   /** The text of the editor's menus and table handles, beside the defaults. */
   labels?: Partial<DocumentEditorLabels> | undefined;
   /** Chrome inside the editor's engine, such as a toolbar reading its state. */
@@ -317,7 +345,8 @@ function useEditorLayout(
  * its toolbar above the document and its status bar below it, and scrolls the document itself,
  * with overlay scrollbars.
  */
-export function DocumentEditor(props: DocumentEditorProps) {
+export function DocumentEditor(given: DocumentEditorProps) {
+  const props = useActiveProps(given);
   const { state, template, layout = 'page', editable = true } = props;
   const { className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
@@ -337,18 +366,15 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const startCommentRef = useRef<(() => void) | null>(null);
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress });
+  const find = useFindBar(root, view, Boolean(props.find));
+  const openFind = find.open;
+  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress, openFind });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
-  const context = useMemo(
-    () => createEditorContext(view, state, { editable, labels, openDialog: setDialog }),
-    [view, state, editable, labels],
-  );
+  const context = useShownContext(props, { view, labels, openDialog: setDialog });
   useLayoutEffect(() => {
     editorContext.current = context;
   }, [context]);
-  const [finding, setFinding] = useState(false);
-  const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
   const chrome = { props, context, view, templateStyle, startCommentRef, openFind };
   const body = (
     <EditorBody
@@ -358,7 +384,6 @@ export function DocumentEditor(props: DocumentEditorProps) {
       paged={progress.paged}
       labels={labels}
       startCommentRef={startCommentRef}
-      onFind={openFind}
       onDialog={editable ? setDialog : null}
     />
   );
@@ -374,7 +399,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
-        <TopChrome {...chrome} finding={finding} onFindClose={() => setFinding(false)} />
+        <TopChrome {...chrome} findRequest={find.request} onFindClose={find.close} />
         <Workspace panels={props.panels}>
           {props.scrollable ? (
             <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
@@ -398,4 +423,4 @@ export function DocumentEditor(props: DocumentEditorProps) {
 }
 
 // What another component reaches the editor by.
-export { type EditorContext, useDocumentEditor } from './editor-context.js';
+export { type DocumentMarkup, type EditorContext, useDocumentEditor } from './editor-context.js';

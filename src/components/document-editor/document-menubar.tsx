@@ -32,9 +32,10 @@ export function DocumentMenubar({
 }) {
   const { labels, state } = context;
   const shortcuts = shortcutsOf(state);
+  const { shell } = menus;
   const groups = useMemo(
-    () => builtInToolbarGroups(state.schema, labels, { templateStyle, features, shortcuts }),
-    [state.schema, labels, templateStyle, features, shortcuts],
+    () => builtInToolbarGroups(state.schema, labels, { templateStyle, features, shortcuts, shell }),
+    [state.schema, labels, templateStyle, features, shortcuts, shell],
   );
   return (
     <Menubar {...hooks.slot('menubar')} aria-label={labels.menubar} size="sm">

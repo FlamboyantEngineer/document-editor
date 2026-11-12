@@ -5,7 +5,7 @@
 import { MathPreview } from '@flamboyantengineer/ui-components/math-preview';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { EditorView } from 'prosemirror-view';
-import { useState } from 'react';
+import { type ComponentType, useState } from 'react';
 import {
   captionedAt,
   insertMath,
@@ -24,7 +24,14 @@ import type {
 } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { AbbreviationDialog } from './abbreviation-dialog.js';
-import { applying, type DialogProps, EditorModal, selectedNode, titleOf } from './dialog-parts.js';
+import {
+  applying,
+  type DialogProps,
+  EditorModal,
+  type HostDialogProps,
+  selectedNode,
+  titleOf,
+} from './dialog-parts.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { FigureDialog } from './figure-dialog.js';
@@ -52,6 +59,8 @@ export interface ObjectDialogsProps {
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
   /** The template references are formatted by. */
   readonly template: TemplateFile;
+  /** The host's own dialogs by name, which `openDialog({ kind: 'host', name })` opens. */
+  readonly dialogs?: Readonly<Record<string, ComponentType<HostDialogProps>>> | undefined;
   readonly onClose: () => void;
 }
 
@@ -167,13 +176,42 @@ function CaptionDialog({ view, labels, onClose }: DialogProps) {
   );
 }
 
+type HostedKind = 'abbreviation' | 'script' | 'linked-code' | 'host';
+
+// The dialogs that need what the host provides: its glossary, its script runner, its code source,
+// or its own registered dialogs. None while the host does not provide it.
+function HostedDialog({
+  dialog,
+  shared,
+  hosted,
+}: {
+  dialog: Extract<ObjectDialog, { kind: HostedKind }>;
+  shared: DialogProps;
+  hosted: Omit<ObjectDialogsProps, 'dialog' | 'view' | 'labels' | 'assets' | 'onClose'>;
+}) {
+  const { glossary, scriptRunner, codeSource } = hosted;
+  switch (dialog.kind) {
+    case 'abbreviation':
+      return glossary ? <AbbreviationDialog {...shared} glossary={glossary} /> : null;
+    case 'script':
+      return scriptRunner ? (
+        <ScriptDialog {...shared} runner={scriptRunner} template={hosted.template} />
+      ) : null;
+    case 'linked-code':
+      return codeSource ? <LinkedCodeDialog {...shared} codeSource={codeSource} /> : null;
+    case 'host': {
+      const Dialog = hosted.dialogs?.[dialog.name];
+      return Dialog ? <Dialog {...shared} data={dialog.data} /> : null;
+    }
+  }
+}
+
 /** The editor's dialog that is open, for the view's selection. */
 export function ObjectDialogs({
   dialog,
   view,
   labels,
   assets,
-  codeSource,
   onClose,
   ...hosted
 }: ObjectDialogsProps) {
@@ -202,15 +240,12 @@ export function ObjectDialogs({
           reference={dialog.reference}
         />
       );
-    case 'abbreviation':
-      return hosted.glossary ? <AbbreviationDialog {...shared} glossary={hosted.glossary} /> : null;
-    case 'script':
-      return hosted.scriptRunner ? (
-        <ScriptDialog {...shared} runner={hosted.scriptRunner} template={hosted.template} />
-      ) : null;
     case 'caption':
       return <CaptionDialog {...shared} />;
+    case 'abbreviation':
+    case 'script':
     case 'linked-code':
-      return codeSource ? <LinkedCodeDialog {...shared} codeSource={codeSource} /> : null;
+    case 'host':
+      return <HostedDialog dialog={dialog} shared={shared} hosted={hosted} />;
   }
 }

@@ -9,7 +9,7 @@ import { reactKeys } from '@handlewithcare/react-prosemirror';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin, PluginKey } from 'prosemirror-state';
 import type { RefObject } from 'react';
-import { proofingKey, searchKey } from '../../engine/index.js';
+import { proofingKey, searchKey, searchPaneKey } from '../../engine/index.js';
 import {
   createLayoutRules,
   findTemplateSection,
@@ -48,7 +48,7 @@ function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
 
 // The plugins the measuring view runs: the editor's, with the layout's own plugins once. Proofing
 // and search are left out: their marks take no room, and the hidden view would do their work again.
-const UNMEASURED = new Set<PluginKey>([proofingKey, searchKey]);
+const UNMEASURED = new Set<PluginKey>([proofingKey, searchKey, searchPaneKey]);
 
 function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
   const measured = (plugin: Plugin) => !UNMEASURED.has(plugin.spec.key as PluginKey);
