@@ -4,7 +4,7 @@
 import type { EditorView } from 'prosemirror-view';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { forgetMeasurement, type MeasureCache } from './measure-blocks.js';
-import type { PaginationOptions } from './pagination.js';
+import type { PagedProjectionOptions } from './projection.js';
 
 /**
  * Holds an edit's layout until the writer pauses for `settle` milliseconds, at most four times as
@@ -12,7 +12,7 @@ import type { PaginationOptions } from './pagination.js';
  * lands in the middle of a drag; then asks for it.
  */
 export function settleEdits(
-  options: Pick<PaginationOptions, 'measureIn' | 'settle'>,
+  options: Pick<PagedProjectionOptions, 'measureIn' | 'settle'>,
   request: () => void,
 ) {
   const settle = options.settle ?? 150;

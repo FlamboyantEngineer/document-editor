@@ -1,7 +1,8 @@
 // Keeps a document editor's state in its layout. Each section is shown in its template section's
-// scope, and its changes from an older version, when there is one, are shown on it. On pages, a pagination measures the document in a hidden view inside the editor and lays
-// it out after every change, each section on pages of its own size; in the web layout each section
-// is one page, so leaving the pages joins them back.
+// scope, and its changes from an older version, when there is one, are shown on it. On pages, a
+// projection measures the document in a hidden view inside the editor and lays it out after every
+// change, each section on pages of its own size; in the web layout each section is one page, so
+// leaving the pages joins them back.
 
 import type {
   RichTextNodeViewProps,
