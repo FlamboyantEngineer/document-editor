@@ -6,6 +6,7 @@
 
 import type { Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, type PluginView, type Transaction } from 'prosemirror-state';
+import { tableEditingKey } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
 import { canonicalClipboard } from './canonical-clipboard.js';
 import { canonicalView } from './canonical-view.js';
@@ -21,8 +22,12 @@ export interface CanonicalPluginsSource {
   prepare(): void;
 }
 
-// The DOM events handed to the canonical plugins; a press is the projection's.
+// The DOM events handed to the canonical plugins. A press starts the projection's own cell drag
+// first, so the canonical cell drag (`tableEditing`) does not take it.
 const DOM_EVENTS = [
+  'mousedown',
+  'mousemove',
+  'mouseleave',
   'beforeinput',
   'compositionstart',
   'compositionend',
@@ -146,7 +151,9 @@ function domEvents(source: CanonicalPluginsSource): NonNullable<Props['handleDOM
       name,
       (view: EditorView, event: Event) =>
         offered(view, source, {
-          has: (plugin) => Boolean(plugin.props.handleDOMEvents?.[name]),
+          has: (plugin) =>
+            Boolean(plugin.props.handleDOMEvents?.[name]) &&
+            !(name === 'mousedown' && plugin.spec.key === tableEditingKey),
           handle(plugin, canonical) {
             const handler = plugin.props.handleDOMEvents?.[name] as
               ((view: EditorView, event: Event) => boolean | undefined) | undefined;

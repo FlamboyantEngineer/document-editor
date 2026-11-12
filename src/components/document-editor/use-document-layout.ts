@@ -311,6 +311,9 @@ export function useDocumentLayout(
     };
   }, []);
 
+  // A projection's pages hold nodes of the document's schema, so a document of another schema, as
+  // a host opening another document may hand in, starts them over.
+  const schema = options.projection ? options.state.schema : null;
   useEffect(() => {
     const element = measureIn.current;
     if (layout !== 'page' || !element) {
@@ -323,7 +326,7 @@ export function useDocumentLayout(
       refs: { refresh, redraw, active, ownPlugins, paginationPlugin },
       setPaged,
     });
-  }, [layout, measureIn, repeatHeaders, footnoteNumbering, options.projection]);
+  }, [layout, measureIn, repeatHeaders, footnoteNumbering, options.projection, schema]);
 
   useLayoutPlugins(options, [ownPlugins, paginationPlugin]);
 

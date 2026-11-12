@@ -14,6 +14,8 @@ import { tableLineCount } from '../../engine/index.js';
  */
 export interface TableTarget {
   readonly table: number;
+  /** The table element the pointer was over: on pages, the part of a split table drawn there. */
+  readonly element: Element | null;
   readonly id: string | null;
   readonly part: number | null;
   readonly row: number;
@@ -34,6 +36,7 @@ const isSameTarget = (left: TableTarget | null, right: TableTarget | null) =>
   (left !== null &&
     right !== null &&
     left.table === right.table &&
+    left.element === right.element &&
     left.id === right.id &&
     left.part === right.part &&
     left.row === right.row &&
@@ -54,7 +57,13 @@ function cellTarget(view: EditorView, element: Element): TableTarget | null {
   const start = $cell.start(-1);
   const table = $cell.node(-1);
   const rect = TableMap.get(table).findCell($cell.pos - start);
-  return { table: start - 1, ...identity(table), row: rect.top, column: rect.left };
+  return {
+    table: start - 1,
+    element: cell.closest('table'),
+    ...identity(table),
+    row: rect.top,
+    column: rect.left,
+  };
 }
 
 function identity(table: ProseMirrorNode): Pick<TableTarget, 'id' | 'part'> {

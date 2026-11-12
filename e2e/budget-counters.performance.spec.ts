@@ -11,15 +11,10 @@ import { expect, test } from './fixtures.js';
 // The counter budgets (specs/LABS.md DOCE-LABS-2.5): the budgets counted in layouts, sections,
 // blocks and elements rather than time, which do not depend on the machine, held on every pull
 // request. A budget the editor does not meet yet is an expected failure naming its gap in the port
-// plan; when the gap's work lands, the budget is met and its mark comes off.
+// plan (`test.fail`, with the gap as an annotation); when the gap's work lands, the budget is met
+// and its mark comes off.
 
 test.describe.configure({ timeout: 180_000 });
-
-/** Marks a budget as missed until the gap it names is closed. */
-function expectedMiss(gap: string, why: string) {
-  test.info().annotations.push({ type: 'gap', description: `${gap}: ${why}` });
-  test.fail(true, `${gap}: ${why}`);
-}
 
 function expectMeets(budget: Budget, value: number) {
   expect(budget.meets(value), `${budget.metric}: ${String(value)}, target ${budget.target}`).toBe(
@@ -67,7 +62,6 @@ test.describe('counter budgets', () => {
     lab,
     page,
   }) => {
-    expectedMiss('PG-40', 'a keystroke restyles elements in proportion to the pages shown');
     expectMeets(BUDGETS.styleScope, await measureStyleScope(lab, page));
   });
 });

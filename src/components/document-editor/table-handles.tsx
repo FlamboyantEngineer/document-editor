@@ -34,6 +34,7 @@ import {
   type Box,
   boxProperties,
   gapBox,
+  isDrawn,
   measureTable,
   type TableGeometry,
 } from './table-geometry.js';
@@ -75,7 +76,11 @@ function useTableGeometry(
     const measure = () =>
       setGeometry(
         view && layer && target
-          ? measureTable(view, target.table, layer.getBoundingClientRect())
+          ? measureTable(
+              view,
+              { pos: target.table, element: target.element },
+              layer.getBoundingClientRect(),
+            )
           : null,
       );
     measure();
@@ -116,7 +121,9 @@ function gripBox(geometry: TableGeometry, line: TableLine): Box | null {
   const { table } = geometry;
   if (line.axis === 'row') {
     const row = geometry.rows[line.index];
-    return row ? { top: row.top, left: table.left, width: 0, height: row.height } : null;
+    return row && isDrawn(row)
+      ? { top: row.top, left: table.left, width: 0, height: row.height }
+      : null;
   }
   const column = geometry.columns[line.index];
   return column ? { top: table.top, left: column.left, width: column.width, height: 0 } : null;

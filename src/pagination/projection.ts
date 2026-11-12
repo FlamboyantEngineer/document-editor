@@ -86,6 +86,12 @@ export interface PagedProjectionOptions {
   /** Plugins that change what the document renders, run on the projection and the ghost. */
   readonly plugins?: readonly Plugin[] | undefined;
   /**
+   * Whether the pages resize a table's columns by its borders, setting the column of the whole
+   * table (`columnResizing`); true by default. A host whose canonical plugins resize columns
+   * themselves, run through the pages (DOCE-PAGINATION-7.15), turns it off.
+   */
+  readonly resizeColumns?: boolean | undefined;
+  /**
    * Plugins only the ghost runs, beside `plugins`: the canonical state's plugins that change what
    * takes room, such as changes marked in place, whose decorations the projection draws already.
    */
@@ -238,7 +244,7 @@ function projectionState(options: PagedProjectionOptions, session: () => Session
         map: () => session().map,
       }),
       canonicalDecorations(source),
-      columnResizing({ View: null }),
+      ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
       ...(options.plugins ?? []),
     ],
   });
@@ -324,7 +330,8 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     },
     receive: (tr) => receive(live, tr),
     update(state, tr) {
-      if (state === live.canonical) return;
+      // A projection gone keeps what it last showed, as a renderer may still hold it.
+      if (state === live.canonical || live.ghost.view.isDestroyed) return;
       const replugged = state.plugins !== live.canonical.plugins;
       live.canonical = state;
       if (replugged) replug(live);

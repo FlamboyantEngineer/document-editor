@@ -198,9 +198,12 @@ export function layout(session: Session): void {
   if (view?.isDestroyed || ghost.view.isDestroyed) return;
   if (view?.composing) return requestLayout(session);
   // The selection the browser shows and has not reported yet is the one the new pages keep
-  // (DOCE-EDITOR-1.4), not the one the layout would draw back over it.
-  readDom(session);
-  syncSelection(session);
+  // (DOCE-EDITOR-1.4), not the one the layout would draw back over it; but pages that do not show
+  // the canonical document yet, as when a change could not be mirrored, hold no selection of it.
+  if (session.shown === session.canonical.doc) {
+    readDom(session);
+    syncSelection(session);
+  }
   if (pace.changed) pace.passes = 0;
   else if (pace.passes >= LAYOUT_PASSES) return pace.readiness.fail();
   pace.changed = false;
@@ -295,6 +298,9 @@ function routeInput(session: Session, tr: Transaction): void {
  * state, or an edit, which is routed to the canonical state.
  */
 export function receive(session: Session, tr: Transaction): void {
+  // A transaction made on pages the projection no longer holds, as a view still drawing the pages
+  // of a document it has since replaced makes, is no edit of them.
+  if (tr.before !== session.projection.doc) return;
   quietly(session, () => {
     const own = Boolean(tr.getMeta(PROJECTION_META));
     if (!own && tr.docChanged) return routeInput(session, tr);

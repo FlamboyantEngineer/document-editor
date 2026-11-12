@@ -98,8 +98,8 @@ export interface DocumentEditorProps
   layout?: DocumentLayout | undefined;
   /**
    * Shows the pages as a projection of `state`, which stays the whole document with each section
-   * on one page, rather than paginating `state` itself (DOCE-PAGINATION-7.17). Experimental: it
-   * becomes the only way once it covers every part of the editor.
+   * on one page (DOCE-PAGINATION-7.17). Defaults to true; false paginates `state` itself, which
+   * goes once nothing needs it.
    */
   projection?: boolean | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
@@ -300,6 +300,7 @@ function useEditorLayout(
     compare: props.compare ?? null,
     debug: debugParts(props.debug),
     onLayoutStateChange: setLayoutState,
+    projection: props.projection ?? true,
     onCanonical: paging.onCanonical,
     onLayout: paging.onLayout,
     wrapGhost: (shown) => (
