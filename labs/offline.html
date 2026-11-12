@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Offline and drafts: unsaved changes kept as a draft through reloads and offered on the next open."
+    />
+    <title>Offline and drafts · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/offline.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Offline and drafts</h1>
+      <p>
+        The document opens from the in-memory store, which starts over on each reload, and saves
+        only when asked. Type, then reload the page as a crash would: the session keeps the unsaved
+        content as a draft in this tab's session storage and offers it on the next open, to restore
+        or discard.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>
