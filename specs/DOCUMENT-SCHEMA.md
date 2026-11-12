@@ -135,3 +135,12 @@ Verification: `src/model/reference-format.test.ts`
 
 Implementation: `src/model/reference-format.ts`
 Verification: `src/model/reference-format.test.ts`
+
+## DOCE-SCHEMA-5 - Mark order
+
+### DOCE-SCHEMA-5.1 - Canonical order of overlapping marks
+
+Marks of a type that does not exclude itself (`overlapsItself`: comment highlights, suggested insertions and suggested deletions) may sit on one run several times, and ProseMirror keeps them in the order they were added. They shall have one canonical order instead, so two people who add the same marks in another order hold equal documents (`doc.eq`): a run's marks are sorted by type rank, and marks of one such type by `dataId`, then `commentId`, then their other attributes (`compareMarks`). `orderMarks` shall put a mark set in that order, returning the same array when it already is; `orderDocumentMarks` shall put every run of a document in that order and join the runs that then match, returning the same node when nothing changed; `addMarkInOrder(tr, from, to, mark)` shall add a mark so the runs it covers stay in that order, and add a mark of any other type as `addMark` does. Every engine command that adds such a mark adds it with `addMarkInOrder`, and a collaboration binding builds mark sets with `orderMarks` rather than normalizing documents.
+
+Implementation: `src/model/schema/mark-order.ts`
+Verification: `src/model/schema/mark-order.test.ts`
