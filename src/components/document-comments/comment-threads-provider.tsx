@@ -4,6 +4,7 @@
 
 import { type ReactNode, useMemo } from 'react';
 import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
+import { CommentFocusProvider } from './comment-focus.js';
 import { DEFAULT_COMMENTS_LABELS } from './comments-labels.js';
 import type { DocumentCommentsOptions } from './document-comments.js';
 import {
@@ -36,7 +37,11 @@ export function CommentThreadsProvider({
   useDecisionRecords(threads, transactions);
   const { store, documentId } = options;
   const shared = useMemo(() => ({ store, documentId, threads }), [store, documentId, threads]);
-  return <SharedCommentThreadsContext value={shared}>{children}</SharedCommentThreadsContext>;
+  return (
+    <SharedCommentThreadsContext value={shared}>
+      <CommentFocusProvider>{children}</CommentFocusProvider>
+    </SharedCommentThreadsContext>
+  );
 }
 
 /** Its children inside a provider of the store's threads, unless one around them keeps them. */

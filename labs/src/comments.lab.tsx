@@ -2,18 +2,24 @@
 // host's comment store, anchored to the text they quote, and suggestions with Accept, Reject and a
 // thread of their own. Reading, the margin shows the threads without composers or decisions. The
 // reader edits and deletes their own comments, reacts to any, shows resolved threads to reopen
-// them, and opens a thread through the editor's handle.
+// them, and opens a thread through the editor's handle. The margin filters to the reader's own
+// threads, reads comments as Markdown, keeps to an audience and shows mentions without cards. The
+// threads may live in the comments panel alone, and the handle opens a thread at a comment with a
+// reply started, or starts a thread with its text. Mentions may name a group or an assistant, and
+// each comment's menu may offer the host's own copy-link action.
 
 import { EditorState } from 'prosemirror-state';
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
+  type CommentActionTarget,
+  type CommentsAudience,
   DocumentCommentsPanel,
   DocumentEditor,
   type DocumentEditorHandle,
 } from '../../src/components/index.js';
 import { assignElementIds, createDocumentEditing } from '../../src/engine/index.js';
-import { createMemoryHost } from '../../src/host/index.js';
+import { createMemoryHost, type MentionsAdapter } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -117,13 +123,58 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// The people, a group and an assistant comments may mention, in the default token format.
+const MENTIONS: MentionsAdapter = {
+  find: (query) =>
+    Promise.resolve(
+      [
+        { kind: 'person', id: 'grace', name: 'Grace Hopper' },
+        { kind: 'person', id: 'ada', name: 'Ada Lovelace' },
+        { kind: 'group', id: 'reviewers', name: 'Reviewers', count: 2 },
+        { kind: 'assistant', id: 'helper', name: 'Helper', description: 'Answers questions' },
+      ].filter((each) => each.name.toLowerCase().includes(query.toLowerCase())),
+    ),
+  includes: (target) => target.kind === 'group' && target.id === 'reviewers',
+};
+
+// Copies a link to a comment, as a host's own action in its menu; the lab notes what it copied.
+const linkAction = ({ thread, entry, index }: CommentActionTarget) => [
+  {
+    id: 'copy-link',
+    label: index === 0 ? 'Copy link to thread' : 'Copy link to comment',
+    onAction: () => {
+      document.documentElement.dataset.labCopied = `${thread.id}/${entry.id}`;
+    },
+  },
+];
+
+// Whether the reader wrote in a thread, as an audience that hides the threads they did not.
+const onlyMine: CommentsAudience = (thread, me) =>
+  thread.entries.some((entry) => entry.author === me);
+
 function Lab() {
   const [state, setState] = useState(initialState);
   const [reading, setReading] = useState(false);
   const [resolved, setResolved] = useState(false);
   const [panel, setPanel] = useState(false);
+  const [pane, setPane] = useState(false);
+  const [groups, setGroups] = useState(false);
+  const [actions, setActions] = useState(false);
+  const [mine, setMine] = useState(false);
+  const [markdown, setMarkdown] = useState(false);
+  const [audience, setAudience] = useState(false);
+  const [plainChips, setPlainChips] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
   const comments = HOST.comments;
+  const review = {
+    format: markdown ? ('markdown-inline' as const) : ('plain' as const),
+    audience: audience ? onlyMine : undefined,
+    mentionCard: plainChips ? null : undefined,
+    placement: pane ? ('pane' as const) : ('margin' as const),
+    mentions: groups ? MENTIONS : undefined,
+    commentActions: actions ? linkAction : undefined,
+  };
+  const filter = mine ? 'mine' : resolved ? 'all' : 'open';
   return (
     <div>
       <fieldset>
@@ -155,8 +206,85 @@ function Lab() {
           />{' '}
           Comments panel
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="mine"
+            checked={mine}
+            onChange={(event) => setMine(event.currentTarget.checked)}
+          />{' '}
+          Mine only
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="markdown"
+            checked={markdown}
+            onChange={(event) => setMarkdown(event.currentTarget.checked)}
+          />{' '}
+          Markdown comments
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="audience"
+            checked={audience}
+            onChange={(event) => setAudience(event.currentTarget.checked)}
+          />{' '}
+          Threads I wrote in only
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="plain-chips"
+            checked={plainChips}
+            onChange={(event) => setPlainChips(event.currentTarget.checked)}
+          />{' '}
+          Mentions without cards
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="pane"
+            checked={pane}
+            onChange={(event) => setPane(event.currentTarget.checked)}
+          />{' '}
+          Comments in the pane only
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="groups"
+            checked={groups}
+            onChange={(event) => setGroups(event.currentTarget.checked)}
+          />{' '}
+          Groups and assistants in mentions
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="actions"
+            checked={actions}
+            onChange={(event) => setActions(event.currentTarget.checked)}
+          />{' '}
+          Copy-link action
+        </label>
         <button type="button" onClick={() => handle.current?.openThread('c0ffee01')}>
           Open the first thread
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            handle.current?.openThread('c0ffee01', { entryId: 'e1', reply: 'From the detection.' })
+          }
+        >
+          Answer the first comment
+        </button>
+        <button
+          type="button"
+          onClick={() => handle.current?.startComment({ text: 'Please confirm this.' })}
+        >
+          Ask to confirm the selection
         </button>
       </fieldset>
       <DocumentEditor
@@ -172,7 +300,8 @@ function Lab() {
             documentId: 'lab',
             identity: HOST.identity,
             canComment: !reading,
-            showResolved: resolved,
+            ...review,
+            filter,
           }
         }
         events={{
@@ -182,13 +311,14 @@ function Lab() {
           },
         }}
       >
-        {panel && comments ? (
+        {(panel || pane) && comments ? (
           <aside className="lab-panels">
             <DocumentCommentsPanel
               store={comments}
               documentId="lab"
               identity={HOST.identity}
               canComment={!reading}
+              {...review}
             />
           </aside>
         ) : null}
