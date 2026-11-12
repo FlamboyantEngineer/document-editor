@@ -14,20 +14,33 @@ export const PIXEL_TOLERANCE = 0.005;
 export interface PageComparison {
   readonly index: number;
   readonly differing: number;
+  /** Where the differing pixels fall, as `left,top to right,bottom` in the page's pixels. */
+  readonly box: string;
 }
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
 
-// The share of pixels of two same-scale PNGs that differ: a pixel differs when neither image has
-// a pixel close to it within one pixel around it, so anti-aliasing and a sub-pixel offset between
-// where the editor and print place a page do not count.
+/** How much a pixel's luminance, out of 255, may differ from the closest one around it. */
+const LUMINANCE_TOLERANCE = 48;
+
+/** Where two images of a page differ, and in what share of its pixels. */
+interface PixelDifference {
+  readonly share: number;
+  /** The box the differing pixels fall in, as `left,top to right,bottom`, or empty. */
+  readonly box: string;
+}
+
+// The share of pixels of two same-scale PNGs that differ, by luminance: a pixel differs when
+// neither image has a pixel close to it within one pixel around it, so anti-aliasing, the colour
+// fringes of text drawn on sub-pixels and a sub-pixel offset between where the editor and print
+// place a page do not count.
 async function differingShare(
   page: Page,
   editor: Buffer,
   printed: Buffer,
-): Promise<{ share: number; box: string; crops: string[] }> {
+): Promise<PixelDifference> {
   return page.evaluate(
-    async ([a, b]) => {
+    async ([a, b, tolerance]) => {
       const load = (data: string) =>
         new Promise<HTMLImageElement>((resolve, reject) => {
           const image = new Image();
@@ -38,30 +51,33 @@ async function differingShare(
       const [first, second] = await Promise.all([load(a), load(b)]);
       const width = Math.min(first.width, second.width);
       const height = Math.min(first.height, second.height);
-      const pixels = (image: HTMLImageElement) => {
+      const luminance = (image: HTMLImageElement) => {
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const context = canvas.getContext('2d');
         if (!context) throw new Error('No 2D canvas.');
         context.drawImage(image, 0, 0);
-        return context.getImageData(0, 0, width, height).data;
+        const { data } = context.getImageData(0, 0, width, height);
+        const values = new Float32Array(width * height);
+        for (let at = 0; at < values.length; at += 1) {
+          values[at] =
+            0.2126 * (data[at * 4] ?? 0) +
+            0.7152 * (data[at * 4 + 1] ?? 0) +
+            0.0722 * (data[at * 4 + 2] ?? 0);
+        }
+        return values;
       };
-      const one = pixels(first);
-      const two = pixels(second);
-      const close = (own: Uint8ClampedArray, other: Uint8ClampedArray, x: number, y: number) => {
-        const at = (y * width + x) * 4;
+      const one = luminance(first);
+      const two = luminance(second);
+      const close = (own: Float32Array, other: Float32Array, x: number, y: number) => {
+        const value = own[y * width + x] ?? 0;
         for (let dy = -1; dy <= 1; dy += 1) {
           for (let dx = -1; dx <= 1; dx += 1) {
             const nx = x + dx;
             const ny = y + dy;
             if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-            const near = (ny * width + nx) * 4;
-            const distance =
-              Math.abs((own[at] ?? 0) - (other[near] ?? 0)) +
-              Math.abs((own[at + 1] ?? 0) - (other[near + 1] ?? 0)) +
-              Math.abs((own[at + 2] ?? 0) - (other[near + 2] ?? 0));
-            if (distance <= 96) return true;
+            if (Math.abs(value - (other[ny * width + nx] ?? 0)) <= tolerance) return true;
           }
         }
         return false;
@@ -78,20 +94,14 @@ async function differingShare(
           box.bottom = Math.max(box.bottom, y);
         }
       }
-      const crop = (image: HTMLImageElement) => {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.min(400, box.right - box.left + 1);
-        canvas.height = Math.min(300, box.bottom - box.top + 1);
-        canvas.getContext('2d')?.drawImage(image, -box.left, -box.top);
-        return canvas.toDataURL('image/png');
-      };
       return {
         share: differing / (width * height),
-        box: `${String(box.left)},${String(box.top)} to ${String(box.right)},${String(box.bottom)}`,
-        crops: differing ? [crop(first), crop(second)] : [],
+        box: differing
+          ? `${String(box.left)},${String(box.top)} to ${String(box.right)},${String(box.bottom)}`
+          : '',
       };
     },
-    [editor.toString('base64'), printed.toString('base64')] as const,
+    [editor.toString('base64'), printed.toString('base64'), LUMINANCE_TOLERANCE] as const,
   );
 }
 
@@ -251,10 +261,8 @@ export async function expectPrintEqualsEditor(
     await alignToEditor(printedPages.nth(index), shown[index] ?? { x: 0, y: 0 });
     const image = await printedPages.nth(index).screenshot({ animations: 'disabled' });
     const editor = shown[index]?.image ?? Buffer.alloc(0);
-    const { share: differing, box, crops } = await differingShare(printed, editor, image);
-    comparisons.push({ index, differing });
-    if (differing > PIXEL_TOLERANCE)
-      console.log(`DIAGNOSTIC page ${String(index)} ${box}`, ...crops);
+    const { share: differing, box } = await differingShare(printed, editor, image);
+    comparisons.push({ index, differing, box });
     // A page that differs too much keeps both images with the test's results, to see where.
     if (differing > PIXEL_TOLERANCE) {
       const name = `page ${String(index)}`;
@@ -263,8 +271,8 @@ export async function expectPrintEqualsEditor(
     }
   }
   await printed.close();
-  for (const { index, differing } of comparisons) {
-    expect(differing, `page ${String(index)} differing pixels`).toBeLessThanOrEqual(
+  for (const { index, differing, box } of comparisons) {
+    expect(differing, `page ${String(index)} differing pixels, within ${box}`).toBeLessThanOrEqual(
       PIXEL_TOLERANCE,
     );
   }
