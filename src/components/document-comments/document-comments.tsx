@@ -61,7 +61,9 @@ export type {
   ThreadTarget,
 } from './comment-focus.js';
 export { EditorCommentThreads } from './comment-threads-provider.js';
+export { DocumentCommentsPanel } from './comments-panel.js';
 export type { ThreadPermissionPolicy, ThreadPermissions } from './thread-permissions.js';
+export { SharedCommentThreadsContext } from './use-comment-threads.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
 export interface DocumentCommentsOptions {

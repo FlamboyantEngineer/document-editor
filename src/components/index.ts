@@ -78,12 +78,17 @@ export {
 } from './document-editor/index.js';
 export type {
   BuiltInPane,
+  DocumentContributorsProps,
   DocumentOutlineProps,
   DocumentPane,
   DocumentPanelsLabels,
   DocumentPropertiesProps,
   DocumentSearchPaneProps,
   DocumentSidePanelProps,
+  PropertiesSection,
+  PropertiesSectionExtension,
+  PropertiesSectionId,
+  RevealPaneOptions,
 } from './document-panels/index.js';
 export type {
   DocumentHistoryBannerProps,
@@ -93,6 +98,7 @@ export type {
 } from './document-panels/index.js';
 export {
   DEFAULT_PANELS_LABELS,
+  DocumentContributors,
   DocumentOutline,
   DocumentProperties,
   DocumentSearchPane,
