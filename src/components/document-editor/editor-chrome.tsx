@@ -17,7 +17,7 @@ import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
-import { canDecideSuggestions } from './save-status-item.js';
+import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
@@ -150,11 +150,7 @@ export function BottomChrome({
           view={view}
           labels={context.labels}
           editable={editable}
-          canDecide={canDecideSuggestions({
-            editable,
-            suggesting,
-            capabilities: props.capabilities,
-          })}
+          suggestionPolicy={editorSuggestionPolicy(props)}
           startCommentRef={startCommentRef}
           openDialog={openDialog}
           linkedCode={Boolean(props.codeSource)}

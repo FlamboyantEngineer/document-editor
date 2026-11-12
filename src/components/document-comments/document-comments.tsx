@@ -22,7 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { Suggestion } from '../../engine/index.js';
+import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter, MentionsAdapter } from '../../host/index.js';
 import {
   type AnchorTarget,
@@ -132,7 +132,7 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   state: EditorState;
   onStateChange: (update: RichTextStateUpdate) => void;
   /** Whether the reader may accept and reject suggestions. */
-  canDecide: boolean;
+  suggestionPolicy: SuggestionPolicy;
   /** Receives the way to start a thread on the selected text while the reader may comment. */
   startRef?: RefObject<StartComment | null> | undefined;
   /** Receives the way to take the reader to a thread. */
@@ -276,12 +276,11 @@ function PaneComments(props: DocumentCommentsProps) {
 }
 
 function CommentsMargin(props: DocumentCommentsProps) {
-  const { state, canDecide, children, canComment = true } = props;
+  const { state, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
   const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
-  const { decide } = props;
   const { context, filter, opened } = useCardContext(props, { comments, canComment, labels });
   const { run, startThread } = useCommentControls({
     ...props,
@@ -314,10 +313,11 @@ function CommentsMargin(props: DocumentCommentsProps) {
     if (caret !== null) setActive(caret);
   }
   const byKey = new Map(items.map((item) => [item.key, item]));
-  const decisions = (suggestion: Suggestion) =>
-    canDecide
-      ? (decide?.(suggestion, context.me) ?? { accept: true, reject: true })
-      : { accept: false, reject: false };
+  // Unattributed suggestions are their thread's writer's (DOCE-SUGGESTIONS-2.5).
+  const policy = {
+    ...props.suggestionPolicy,
+    threadAuthor: (thread: string) => comments.threads.get(thread)?.entries[0]?.author,
+  };
   return (
     <AnnotationLayer
       ref={setLayer}
@@ -338,7 +338,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
               {renderCommentCard(item, {
                 context,
                 isActive,
-                canDecide: decisions,
+                policy,
                 run,
                 startThread: () => startThread(),
               })}

@@ -9,7 +9,11 @@
       "content": [
         {
           "type": "blockquote",
-          "attrs": { "id": "blockquote-1", "author": "author-1", "aiSession": "session-1" },
+          "attrs": {
+            "id": "blockquote-1",
+            "author": "author-1",
+            "aiSession": "session-1"
+          },
           "content": [
             {
               "type": "paragraph",
@@ -20,9 +24,22 @@
                 "aiSession": "session-1",
                 "suggestionKind": "sample-suggestionSplitKind",
                 "suggestionId": "sample-suggestionSplitId",
+                "suggestionFormat": {
+                  "id": "sample-suggestionFormat",
+                  "author": "sample-dataAuthor",
+                  "type": "paragraph",
+                  "attrs": {
+                    "level": 2
+                  }
+                },
                 "level": 3
               },
-              "content": [{ "type": "text", "text": "Quoted text" }]
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Quoted text"
+                }
+              ]
             }
           ]
         }
