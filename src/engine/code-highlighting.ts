@@ -193,3 +193,84 @@ export function paintCodeHighlights(view: EditorView): { update: () => void; des
     },
   };
 }
+
+// A part of a text node a token covers.
+interface TokenPart {
+  readonly text: Text;
+  readonly from: number;
+  readonly to: number;
+  readonly kind: string;
+}
+
+// The parts of text nodes under `root` that a painted range covers.
+function partsOf(root: Node, range: AbstractRange, kind: string): TokenPart[] {
+  const owner = root.ownerDocument;
+  if (!owner || !root.contains(range.startContainer)) return [];
+  const live = owner.createRange();
+  live.setStart(range.startContainer, range.startOffset);
+  live.setEnd(range.endContainer, range.endOffset);
+  return textsOf(root)
+    .filter((text): text is Text => text instanceof Text && live.intersectsNode(text))
+    .map((text) => ({
+      text,
+      from: text === live.startContainer ? live.startOffset : 0,
+      to: text === live.endContainer ? live.endOffset : text.length,
+      kind,
+    }))
+    .filter(({ from, to }) => to > from);
+}
+
+// The child indexes from `root` down to `node`.
+function pathOf(root: Node, node: Node): number[] {
+  const path: number[] = [];
+  for (let at: Node | null = node; at && at !== root; at = at.parentNode) {
+    path.unshift(Array.prototype.indexOf.call(at.parentNode?.childNodes ?? [], at));
+  }
+  return path;
+}
+
+const nodeAt = (root: Node, path: readonly number[]): Node | undefined =>
+  path.reduce<Node | undefined>((node, index) => node?.childNodes[index], root);
+
+// The painted parts of the view's text, as the text nodes of `copy` at the same places.
+function copiedParts(view: EditorView, copy: Node, registry: Highlights['registry']) {
+  const prefix = codeHighlightName('');
+  const parts = new Map<Text, TokenPart[]>();
+  const painted = [...registry].filter(([name]) => name.startsWith(prefix));
+  for (const [name, ranges] of painted) {
+    const found = [...ranges].flatMap((range) =>
+      partsOf(view.dom, range, name.slice(prefix.length)),
+    );
+    for (const part of found) {
+      const target = nodeAt(copy, pathOf(view.dom, part.text));
+      if (target instanceof Text) parts.set(target, [...(parts.get(target) ?? []), part]);
+    }
+  }
+  return parts;
+}
+
+// Wraps each part of a text node in a token element, from its end, so a split leaves the offsets
+// before it as they were.
+function wrapParts(text: Text, parts: readonly TokenPart[]): void {
+  for (const { from, to, kind } of parts.toSorted((a, b) => b.from - a.from)) {
+    const token = text.splitText(from);
+    token.splitText(to - from);
+    const element = text.ownerDocument.createElement('span');
+    for (const [name, value] of Object.entries(codeTokenAttrs(kind))) {
+      element.setAttribute(name, value);
+    }
+    token.replaceWith(element);
+    element.append(token);
+  }
+}
+
+/**
+ * Draws the code highlights painted in a view (`paintCodeHighlights`) into `copy`, a deep clone of
+ * the view's DOM made since, as linked code's token elements (`codeTokenAttrs`), so markup that
+ * leaves the window, as a printed snapshot does, shows the code's colours.
+ */
+export function copyCodeHighlights(view: EditorView, copy: Node): void {
+  const registry = highlightsOf(view)?.registry;
+  if (!registry) return;
+  for (const [text, parts] of copiedParts(view, copy, registry)) wrapParts(text, parts);
+}

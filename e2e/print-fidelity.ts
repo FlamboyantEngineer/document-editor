@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type BrowserContext, expect, type Page } from '@playwright/test';
+import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 
 /** The share of a page's pixels that may differ between the editor and print. */
 export const PIXEL_TOLERANCE = 0.005;
@@ -21,7 +21,11 @@ const content = (page: Page) => page.locator('.de-document-editor__content');
 // The share of pixels of two same-scale PNGs that differ: a pixel differs when neither image has
 // a pixel close to it within one pixel around it, so anti-aliasing and a sub-pixel offset between
 // where the editor and print place a page do not count.
-async function differingShare(page: Page, editor: Buffer, printed: Buffer): Promise<number> {
+async function differingShare(
+  page: Page,
+  editor: Buffer,
+  printed: Buffer,
+): Promise<{ share: number; box: string; crops: string[] }> {
   return page.evaluate(
     async ([a, b]) => {
       const load = (data: string) =>
@@ -63,12 +67,29 @@ async function differingShare(page: Page, editor: Buffer, printed: Buffer): Prom
         return false;
       };
       let differing = 0;
+      const box = { left: width, top: height, right: 0, bottom: 0 };
       for (let y = 0; y < height; y += 1) {
         for (let x = 0; x < width; x += 1) {
-          if (!close(one, two, x, y) || !close(two, one, x, y)) differing += 1;
+          if (close(one, two, x, y) && close(two, one, x, y)) continue;
+          differing += 1;
+          box.left = Math.min(box.left, x);
+          box.top = Math.min(box.top, y);
+          box.right = Math.max(box.right, x);
+          box.bottom = Math.max(box.bottom, y);
         }
       }
-      return differing / (width * height);
+      const crop = (image: HTMLImageElement) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(400, box.right - box.left + 1);
+        canvas.height = Math.min(300, box.bottom - box.top + 1);
+        canvas.getContext('2d')?.drawImage(image, -box.left, -box.top);
+        return canvas.toDataURL('image/png');
+      };
+      return {
+        share: differing / (width * height),
+        box: `${String(box.left)},${String(box.top)} to ${String(box.right)},${String(box.bottom)}`,
+        crops: differing ? [crop(first), crop(second)] : [],
+      };
     },
     [editor.toString('base64'), printed.toString('base64')] as const,
   );
@@ -203,8 +224,17 @@ export async function expectPrintEqualsEditor(
   const comparisons: PageComparison[] = [];
   for (let index = 0; index < count; index += 1) {
     const image = await printedPages.nth(index).screenshot({ animations: 'disabled' });
-    const differing = await differingShare(printed, shown[index]?.image ?? Buffer.alloc(0), image);
+    const editor = shown[index]?.image ?? Buffer.alloc(0);
+    const { share: differing, box, crops } = await differingShare(printed, editor, image);
     comparisons.push({ index, differing });
+    if (differing > PIXEL_TOLERANCE)
+      console.log(`DIAGNOSTIC page ${String(index)} ${box}`, ...crops);
+    // A page that differs too much keeps both images with the test's results, to see where.
+    if (differing > PIXEL_TOLERANCE) {
+      const name = `page ${String(index)}`;
+      await test.info().attach(`${name} in the editor`, { body: editor, contentType: 'image/png' });
+      await test.info().attach(`${name} in print`, { body: image, contentType: 'image/png' });
+    }
   }
   await printed.close();
   for (const { index, differing } of comparisons) {

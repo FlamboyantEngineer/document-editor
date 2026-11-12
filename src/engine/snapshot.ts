@@ -10,6 +10,7 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
+import { copyCodeHighlights } from './code-highlighting.js';
 import {
   applySuggestionMarkup,
   editorMarkup,
@@ -91,13 +92,15 @@ function printRules(template: TemplateFile, sizes: readonly string[]): string {
 }
 
 // The document's pages as markup, without the editing state or view-only decorations, with the
-// suggestions the markup shows, each section marked with its sheet.
+// code highlights the view paints and the suggestions the markup shows, each section marked with
+// its sheet.
 function pagesMarkup(
   view: EditorView,
   sections: readonly number[],
   markup: SnapshotMarkup,
 ): string {
   const copy = view.dom.cloneNode(true) as HTMLElement;
+  copyCodeHighlights(view, copy);
   for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
   removeViewOnlyDecorations(copy, view);
   applySuggestionMarkup(copy, markup);

@@ -2,7 +2,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { codeHighlightName, highlightCode } from './code-highlighting.js';
+import { codeHighlightName, copyCodeHighlights, highlightCode } from './code-highlighting.js';
 import { setCodeLanguage } from './object-commands.js';
 import { createObjectViews, type LineNumbers } from './object-views.js';
 
@@ -99,5 +99,18 @@ describe('code highlighting', () => {
     shown.dispatch(shown.state.tr.insert(0, nodes.paragraph?.create() ?? []));
     expect([...(highlights.get(codeHighlightName('keyword')) ?? [])]).toEqual(before);
     expect(painted('keyword')).toEqual(['const']);
+  });
+
+  it('DOCE-EDITOR-6.19 draws the painted highlights into a copy of the view as token elements', () => {
+    const shown = viewOfCode('typescript');
+    const copy = shown.dom.cloneNode(true) as HTMLElement;
+    copyCodeHighlights(shown, copy);
+    const code = copy.querySelector('pre:not(.linked-code-block pre) code');
+    expect(tokens(code, 'keyword')).toEqual(['const']);
+    expect(tokens(code, 'number')).toEqual(['4']);
+    expect(code?.textContent).toBe('const size = 4;');
+    expect(
+      shown.dom.querySelectorAll('pre:not(.linked-code-block pre) .de-code-token'),
+    ).toHaveLength(0);
   });
 });

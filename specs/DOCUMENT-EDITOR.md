@@ -333,7 +333,7 @@ Verification: `src/engine/snapshot.test.ts`
 
 A snapshot of a document compared with an older version (`compare`, DOCE-VERSIONS-2.3) shall print what the editor shows of the comparison: the deleted text in place, the words and blocks marked by their kind of change, and the change bars beside the changed blocks and lines (DOCE-VERSIONS-3.2, DOCE-VERSIONS-3.4).
 
-Implementation: `src/engine/snapshot.ts`, `src/engine/print-view.ts`, `labs/src/print.lab.tsx`
+Implementation: `src/engine/snapshot.ts`, `src/engine/print-view.ts`, `src/engine/code-highlighting.ts`, `labs/src/print.lab.tsx`
 Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 
 ### DOCE-EDITOR-6.18 - Print overrides
@@ -345,10 +345,10 @@ Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 
 ### DOCE-EDITOR-6.19 - Print equals the editor
 
-A snapshot shall print the pages as the editor shows them, with the editor's stylesheet and without its view-only decorations, including on a projection (DOCE-PAGINATION-7.17): its root shall take the text style the pages inherit around the editor (font, size, weight, style, line height, letter spacing and colour), so text the template and stylesheets leave unstyled prints as it shows. For the print lab and every document of the regression set on the projection, the PDF of the snapshot shall have one sheet per page the editor shows, of the page's size, holding every word the page shows; and each page as print lays out the snapshot shall differ from the editor's page in at most 0.5% of its pixels, a pixel counting only when neither image has one close to it within a pixel around it.
+A snapshot shall print the pages as the editor shows them, with the editor's stylesheet and without its view-only decorations, including on a projection (DOCE-PAGINATION-7.17): its root shall take the text style the pages inherit around the editor (font, size, weight, style, line height, letter spacing and colour), so text the template and stylesheets leave unstyled prints as it shows; and the code highlights the view paints, which live in the window and not in the markup, shall be drawn into the snapshot as linked code's token elements (`de-code-token` with `data-token`). For the print lab and every document of the regression set on the projection, the PDF of the snapshot shall have one sheet per page the editor shows, of the page's size, holding every word the page shows; and each page as print lays out the snapshot shall differ from the editor's page in at most 0.5% of its pixels, a pixel counting only when neither image has one close to it within a pixel around it.
 
-Implementation: `src/engine/snapshot.ts`, `src/engine/print-view.ts`, `labs/src/print.lab.tsx`, `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`
-Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
+Implementation: `src/engine/snapshot.ts`, `src/engine/print-view.ts`, `src/engine/code-highlighting.ts`, `labs/src/print.lab.tsx`, `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-probe.ts`
+Verification: `src/engine/snapshot.test.ts`, `src/engine/code-highlighting.test.ts`, `e2e/print.spec.ts`
 
 ## Hooks
 
