@@ -50,6 +50,7 @@ import {
 import { caretKey, listCommentItems, renderCommentCard } from './comment-items.js';
 import { useCommentMentions } from './comment-mentions.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
+import type { ThreadPermissionPolicy } from './thread-permissions.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
 
@@ -60,6 +61,7 @@ export type {
   ThreadTarget,
 } from './comment-focus.js';
 export { EditorCommentThreads } from './comment-threads-provider.js';
+export type { ThreadPermissionPolicy, ThreadPermissions } from './thread-permissions.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
 export interface DocumentCommentsOptions {
@@ -71,6 +73,11 @@ export interface DocumentCommentsOptions {
   identity: IdentityAdapter;
   /** Whether the reader may start and answer threads. Defaults to true. */
   canComment?: boolean | undefined;
+  /**
+   * What the reader may do in each thread (reply, resolve, react, edit and delete their own), of
+   * what `canComment` allows; everything by default.
+   */
+  threadPermissions?: ThreadPermissionPolicy | undefined;
   /** The text the margin shows, beside the defaults. */
   labels?: Partial<DocumentCommentsLabels> | undefined;
   /**
@@ -197,7 +204,7 @@ function useCardContext(
 ): { context: CardContext; filter: ThreadFilter; opened: OpenedComment | null } {
   const mentions = useCommentMentions(props.identity, props.mentions);
   const me = props.identity.currentPerson().id;
-  const { format, mentionCard, audience, commentActions } = props;
+  const { format, mentionCard, audience, commentActions, threadPermissions } = props;
   const host = props.mentions;
   const listed = useMemo(
     () => ({
@@ -218,6 +225,7 @@ function useCardContext(
     format,
     mentionCard,
     commentActions,
+    threadPermissions,
     documentId: props.documentId,
     me,
     scope: 'margin',
