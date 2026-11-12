@@ -65,14 +65,23 @@ export function continuesFragment(
   return sameSplitElement(previous, next, rules);
 }
 
-/** Gives the node at `pos` its rule's whole attributes, so a fragment becomes a whole block. */
-export function makeWhole(tr: Transform, pos: number, rules: FragmentRules = FRAGMENT_RULES): void {
-  const node = tr.doc.nodeAt(pos);
-  const rule = node ? ruleFor(rules, node.type.name) : undefined;
-  if (!node || !rule) return;
+// Gives the node at `pos` its rule's whole attributes.
+function wholeAttrs(
+  tr: Transform,
+  { pos, node }: { readonly pos: number; readonly node: ProseMirrorNode },
+  rules: FragmentRules,
+): void {
+  const rule = ruleFor(rules, node.type.name);
+  if (!rule) return;
   for (const [name, value] of Object.entries(rule.whole)) {
     if ((node.attrs[name] ?? null) !== value) tr.setNodeAttribute(pos, name, value);
   }
+}
+
+/** Gives the node at `pos` its rule's whole attributes, so a fragment becomes a whole block. */
+export function makeWhole(tr: Transform, pos: number, rules: FragmentRules = FRAGMENT_RULES): void {
+  const node = tr.doc.nodeAt(pos);
+  if (node) wholeAttrs(tr, { pos, node }, rules);
 }
 
 /** Joins the fragment that starts at `pos` into the block that ends there, by its type's rule. */
@@ -101,17 +110,15 @@ export function joinBlocks(
   { from, blocks }: BlockRun,
   rules: FragmentRules = FRAGMENT_RULES,
 ): void {
-  let start = from;
+  // Where the next block starts, carried through the steps each block takes, so no block is looked
+  // up again among its siblings.
+  let next = from;
   let previous: ProseMirrorNode | undefined;
   for (const block of blocks) {
-    const last = previous ? tr.doc.nodeAt(start) : null;
-    const boundary = last ? start + last.nodeSize : start;
-    if (previous && continuesFragment(previous, block, rules)) {
-      joinAt(tr, boundary, rules);
-    } else {
-      start = boundary;
-      makeWhole(tr, start, rules);
-    }
+    const steps = tr.steps.length;
+    if (previous && continuesFragment(previous, block, rules)) joinAt(tr, next, rules);
+    else wholeAttrs(tr, { pos: next, node: block }, rules);
+    next = tr.mapping.slice(steps).map(next + block.nodeSize);
     previous = block;
   }
 }

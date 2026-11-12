@@ -25,6 +25,11 @@ export type DocumentDraft =
       state: Uint8Array;
       /** The local changes the room had not confirmed, encoded as one update, or null for none. */
       unconfirmed: Uint8Array | null;
+      /**
+       * The last state the room had confirmed all of, encoded as one update, or null when none is
+       * known: after a new generation, what `state` holds beyond it is merged into the new one.
+       */
+      confirmed: Uint8Array | null;
       savedAt: string;
     };
 

@@ -3,8 +3,8 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { FRAGMENT_RULES } from '../model/index.js';
-import { createPageMap, pageMap } from './page-map.js';
-import { createPagination } from './pagination.js';
+import { createPageMap, pageMap, showOnPages } from './page-map.js';
+import { createProjectionMap } from './projection-map.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -126,6 +126,34 @@ describe('page map', () => {
     expect(map.pageOf('missing')).toBeNull();
   });
 
+  it('DOCE-PAGINATION-7.18 maps through the positions a projection keeps, joining no pages', () => {
+    const kept = createProjectionMap(paged);
+    const map = createPageMap(paged, FRAGMENT_RULES, kept);
+    expect(map.canonical).toBe(kept.canonical);
+    const across = positionOf(kept.canonical, 'across');
+    expect(map.pageAt(across)?.number).toBe(2);
+    expect(map.toProjection(across)).toBe(kept.toProjection(across));
+    const other = createPageMap(
+      paged.type.create(paged.attrs, paged.content),
+      FRAGMENT_RULES,
+      kept,
+    );
+    expect(other.canonical).not.toBe(kept.canonical);
+    expect(other.canonical.eq(kept.canonical)).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-7.18 keeps the pages a document was shown on with its positions', () => {
+    const kept = createProjectionMap(paged);
+    const state = EditorState.create({ doc: kept.canonical });
+    showOnPages(state.doc, { pages: paged, rules: FRAGMENT_RULES, positions: kept });
+    showOnPages(state.doc, {
+      pages: paged.type.create(paged.attrs, paged.content),
+      rules: FRAGMENT_RULES,
+    });
+    expect(pageMap(state).projection).toBe(paged);
+    expect(pageMap(state).canonical).toBe(kept.canonical);
+  });
+
   it('DOCE-PAGINATION-7.8 maps text exactly between the projection and the canonical document', () => {
     const map = createPageMap(paged);
     const { canonical } = map;
@@ -158,19 +186,9 @@ describe('page map', () => {
     expect(map.toCanonical(repeated)).toBe(positionOf(canonical, 'Name') + 2);
   });
 
-  it("DOCE-PAGINATION-7.7 reads a state's page map once per document, by its pagination's rules", () => {
+  it("DOCE-PAGINATION-7.7 reads a state's page map once per document", () => {
     const state = EditorState.create({ doc: paged });
     expect(pageMap(state)).toBe(pageMap(state));
     expect(pageMap(state).canonical.child(0).child(0).child(1).childCount).toBe(3);
-    const { paragraph: _joined, ...rules } = FRAGMENT_RULES;
-    const pagination = createPagination({
-      measureIn: document.createElement('div'),
-      pageHeight: 100,
-      fragmentRules: rules,
-    });
-    const paginated = EditorState.create({ doc: paged, plugins: [pagination.plugin] });
-    const map = pageMap(paginated);
-    expect(map).not.toBe(pageMap(state));
-    expect(map.canonical.child(0).child(0).child(1).childCount).toBe(4);
   });
 });
