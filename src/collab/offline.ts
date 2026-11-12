@@ -18,6 +18,9 @@ import { writeDocumentFile } from '../model/format/document-format-write.js';
 import { type MergeConflict, mergeDocuments } from '../session/merge.js';
 import { resolveMergeConflict } from '../session/merge-conflicts.js';
 import { readRoomDocument, type RoomReadOptions, yjsToDocument } from './convert.js';
+import { CONTENT_TYPE, readContent } from './delta.js';
+import { diffNodes } from './diff.js';
+import { getCollabSync } from './sync.js';
 
 /** A room-mode draft as the adapter keeps it. */
 export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
@@ -122,9 +125,15 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
 
   const onUpdate = () => schedule();
   doc.on('update', onUpdate);
+  // What the document holds already, such as changes made before keeping started.
+  schedule();
   const stopState = connection.subscribe((state) => {
-    // The room confirmed every local change: what the document holds now is the base to keep.
-    if (unconfirmedBefore && !state.hasUnconfirmedChanges) schedule();
+    // The room confirmed every local change: what the document holds now is the base to keep,
+    // taken at once, since the reader may go offline and edit before the draft is kept.
+    if (unconfirmedBefore && !state.hasUnconfirmedChanges) {
+      confirmed = Y.encodeStateAsUpdate(doc);
+      schedule();
+    }
     unconfirmedBefore = state.hasUnconfirmedChanges;
   });
   const stopLifecycle = options.lifecycle?.subscribe((event) => {
@@ -183,6 +192,23 @@ export function mergeRoomDraft(
   const read = readDocumentFile(content, options.schema, { unknown: 'keep' });
   const transaction = replaceDocumentContent(state, read.doc);
   return { transaction: transaction.docChanged ? transaction : null, leftovers: merge.conflicts };
+}
+
+/**
+ * Sends a change the session made to a room's document, from `from` to `to`: through the editor
+ * when one is bound, which sends its changes itself, or else written into the shared document as
+ * one local change the connection sends, and which the editor takes once it binds.
+ */
+export function sendRoomDocument(doc: Y.Doc, { from, to }: { from: EditorState; to: EditorState }) {
+  if (getCollabSync(to)?.bound) return;
+  const type = doc.get(CONTENT_TYPE);
+  const held = readContent(to.schema, type);
+  const base = held && !held.eq(from.doc) ? held : from.doc;
+  if (base.eq(to.doc)) return;
+  const change = diffNodes(base, to.doc);
+  doc.transact(() => {
+    type.applyDelta(change as never);
+  });
 }
 
 // A shared document holding a draft's state and unconfirmed changes.
