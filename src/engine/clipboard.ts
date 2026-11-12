@@ -10,6 +10,8 @@ import type { EditorView } from 'prosemirror-view';
 import { cleanWordHtml, isWordHtml, type TemplateFile } from '../model/index.js';
 import { copyPastedSlice } from './clipboard-copies.js';
 import { copiedText, parsePastedText } from './clipboard-text.js';
+import { flattenFootnotePaste } from './footnote-paste.js';
+import { repairPastedReferences } from './reference-places.js';
 
 /**
  * Fits a pasted slice to where it lands, given the state with the selection at that place; returns
@@ -17,9 +19,13 @@ import { copiedText, parsePastedText } from './clipboard-text.js';
  */
 export type PasteFilter = (slice: Slice, state: EditorState) => Slice;
 
+// The library's own filters: footnote entries take one run of text and markers land only where a
+// footnote may be cited (DOCE-FOOTNOTES-1.6), and references only where one may go (D13).
+const libraryFilters: readonly PasteFilter[] = [flattenFootnotePaste, repairPastedReferences];
+
 /** What the clipboard depends on. */
 export interface ClipboardOptions {
-  /** Filters run, in order, on every pasted and dropped slice. */
+  /** Filters run, in order, on every pasted and dropped slice, after the library's own. */
   readonly filters?: readonly PasteFilter[] | undefined;
   /** The resolved template, which numbers the headings copied text carries. */
   readonly template?: (() => TemplateFile) | undefined;
@@ -72,7 +78,10 @@ export function createClipboard({ filters = [], template }: ClipboardOptions = {
         const moved = Boolean(view.dragging && dropped && dropMoves(view, dropped));
         const state = dropped ? stateAtDrop(view, dropped) : view.state;
         const pasted = moved ? slice : copyPastedSlice(slice);
-        return filters.reduce((current, filter) => filter(current, state), pasted);
+        return [...libraryFilters, ...filters].reduce(
+          (current, filter) => filter(current, state),
+          pasted,
+        );
       },
     },
   });

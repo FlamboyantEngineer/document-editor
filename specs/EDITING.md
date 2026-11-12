@@ -146,7 +146,7 @@ Verification: `src/engine/edit-lock.test.ts`
 
 ### DOCE-EDITING-5.1 - One paste pipeline
 
-`createClipboard({ filters, template })` shall run every paste and every drop through one pipeline. A paste, or a drop of content from elsewhere or of content dragged within the document with the platform's copy modifier held, becomes a copy (DOCE-EDITING-5.2); content dragged within the document without it is moved, and keeps what it is. Then the filters run in order on every pasted and dropped slice, each given the state with the selection where the slice lands, and each returns the slice to paste. Word processor HTML is cleaned first (DOCE-FORMAT-6.2). The editing extension installs the clipboard with the template and its `pasteFilters` option.
+`createClipboard({ filters, template })` shall run every paste and every drop through one pipeline. A paste, or a drop of content from elsewhere or of content dragged within the document with the platform's copy modifier held, becomes a copy (DOCE-EDITING-5.2); content dragged within the document without it is moved, and keeps what it is. Then filters run in order on every pasted and dropped slice, each given the state with the selection where the slice lands, and each returns the slice to paste: the library's own first, which fit footnote markers and entries (`flattenFootnotePaste`, DOCE-FOOTNOTES-1.6) and references (`repairPastedReferences`, DOCE-REFERENCES-1.6) to where they land, then the given `filters`. Word processor HTML is cleaned first (DOCE-FORMAT-6.2). The editing extension installs the clipboard with the template and its `pasteFilters` option.
 
 Implementation: `src/engine/clipboard.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/clipboard.test.ts`

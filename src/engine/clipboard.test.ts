@@ -4,11 +4,13 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
+import { caretAt, footnoteParts, footnoteState, note } from '../../test/footnote-fixtures.js';
 import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
 import { copiedText } from './clipboard-text.js';
 import { createContents } from './contents.js';
 import { createElementIds } from './element-ids.js';
+import { createFootnotes } from './footnotes.js';
 
 installEditorDom();
 
@@ -92,6 +94,20 @@ describe('the paste pipeline', () => {
     pasteHtml(view, '<p>Pasted</p>');
     expect(seen).toEqual(['first:Target', 'second:Target']);
     expect(blocks(view.state.doc)).toEqual(['paragraph:PastedTarget']);
+    view.destroy();
+  });
+
+  it('DOCE-EDITING-5.1 fits what is pasted into a footnote entry to the entry, as its filter does', () => {
+    const start = caretAt(footnoteState([paragraph(text('Body'), note('n1', 'Entry'))]), 'Entry');
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({
+        doc: start.doc,
+        selection: start.selection,
+        plugins: [createFootnotes(), createClipboard()],
+      }),
+    });
+    pasteHtml(view, '<h2>One</h2><p>Two</p>');
+    expect(footnoteParts(view.state)).toEqual(['marker:n1', 'entry:n1:One TwoEntry']);
     view.destroy();
   });
 
