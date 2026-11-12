@@ -63,7 +63,7 @@ describe('stored-format golden files', () => {
   it.each(fixtures)(
     'DOCE-FORMAT-7.2 reads $name and writes it back unchanged',
     ({ file }: { file: DocumentFile }) => {
-      const doc = readDocumentFile(file, documentSchema);
+      const doc = readDocumentFile(file, documentSchema).doc;
       expect(writeDocumentFile(doc, { template: file.template ?? null })).toEqual(file);
     },
   );
@@ -96,10 +96,10 @@ describe('stored-format golden files', () => {
     if (!paragraph) throw new Error('no paragraph golden file');
     const golden = JSON.stringify(paragraph.file);
     const renamed = (from: string, to: string) => JSON.parse(golden.replace(from, to)) as unknown;
-    expect(() =>
-      readDocumentFile(renamed('"type":"paragraph"', '"type":"para"'), documentSchema),
+    expect(
+      () => readDocumentFile(renamed('"type":"paragraph"', '"type":"para"'), documentSchema).doc,
     ).toThrow(/unknown node para/);
-    expect(() => readDocumentFile(renamed('"style":', '"className":'), documentSchema)).toThrow(
+    expect(() => readDocumentFile(renamed('"style":', '"className":'), documentSchema).doc).toThrow(
       /className/,
     );
   });

@@ -62,7 +62,7 @@ function render(): void {
   const pagination = createPagination({ measureIn, pageHeight: () => bodyHeight(TEMPLATE) });
   const schema = createDocumentSchema();
   const loaded = EditorState.create({
-    doc: readDocumentFile(SAMPLE, schema),
+    doc: readDocumentFile(SAMPLE, schema).doc,
     plugins: [
       pagination.plugin,
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),

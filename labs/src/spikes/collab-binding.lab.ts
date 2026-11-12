@@ -152,7 +152,7 @@ async function load(size: string): Promise<void> {
     await open.room.close();
   }
   const file = (SIZES[size] ?? SIZES.sample)?.() ?? SAMPLE;
-  const doc = readDocumentFile(file, schema);
+  const doc = readDocumentFile(file, schema).doc;
   const started = performance.now();
   const seed = documentToUpdate(doc);
   output(document.body, 'seed').value =

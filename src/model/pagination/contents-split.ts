@@ -49,7 +49,6 @@ export function splitContents(block: LayoutBlock, fitting: number): SplitBlock |
           node.marks,
         ),
         height: Math.max(1, block.height - next.top),
-        leadLineHeight: null,
         breakBefore: true,
         measurement: {
           rows: rows

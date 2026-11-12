@@ -1,5 +1,6 @@
 // The inline image, including an image a template places from its own files, which renders in a
-// wrapper that aligns it.
+// wrapper that aligns it. A template image is stored by its asset and snapshot, never by an
+// address: the host's `assetPreviewUrl` gives the address it shows, as of `assetsAsOf`.
 
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { nodes as basicNodes } from 'prosemirror-schema-basic';
@@ -56,7 +57,8 @@ function readImageAttrs(dom: HTMLImageElement, options: ResolvedSchemaOptions) {
   const height = readTemplateSize(dom, 'height');
   const wrapper = dom.closest('[data-template-asset-image-wrapper]');
   return {
-    src: dom.getAttribute('src') || '',
+    // A template image's address is only a preview of its asset, so it is not kept.
+    src: file.fileId ? '' : dom.getAttribute('src') || '',
     alt: dom.getAttribute('alt') || null,
     title: readTooltip(dom, options) || null,
     templateAssetImage:
@@ -121,14 +123,26 @@ function templateImageSize(node: ProseMirrorNode) {
   };
 }
 
-/** A template image, in a wrapper that aligns it. */
-function renderTemplateImage(node: ProseMirrorNode, attrs: DomAttributes) {
+/**
+ * A template image, in a wrapper that aligns it, at the address the host previews its asset at;
+ * without one, the wrapper says the image was not found.
+ */
+function renderTemplateImage(
+  node: ProseMirrorNode,
+  { src: _stored, ...attrs }: DomAttributes,
+  options: ResolvedSchemaOptions,
+) {
   const { templateFileId, templateSnapshotId, templateImageName, templateImageMimeType } =
     node.attrs;
   const size = templateImageSize(node);
   const alignment = parseTemplateAssetImageAlignment(node.attrs.templateImageAlignment);
   const fileId = String(templateFileId || '');
+  const snapshotId = String(templateSnapshotId || '');
+  const src = fileId
+    ? options.assetPreviewUrl(fileId, snapshotId, { asOf: options.assetsAsOf() })
+    : '';
   const imageAttrs: DomAttributes = {
+    ...(src ? { src } : {}),
     ...attrs,
     'data-template-asset-image': 'true',
     'data-template-file-id': fileId,
@@ -145,14 +159,15 @@ function renderTemplateImage(node: ProseMirrorNode, attrs: DomAttributes) {
     decoding: 'async',
     style: `width: ${size.width}px; height: ${size.height}px; object-fit: contain;`,
   };
-  if (templateSnapshotId) imageAttrs['data-snapshot-id'] = String(templateSnapshotId);
+  if (snapshotId) imageAttrs['data-snapshot-id'] = snapshotId;
   if (templateImageName) imageAttrs['data-template-image-name'] = String(templateImageName);
   if (templateImageMimeType) {
     imageAttrs['data-template-image-mime-type'] = String(templateImageMimeType);
   }
-  const wrapper = {
+  const wrapper: DomAttributes = {
     'data-template-asset-image-wrapper': 'true',
     'data-template-image-alignment': alignment,
+    ...(src ? {} : { 'data-image-missing': 'true' }),
     style: `display: block; text-align: ${alignment}; line-height: 0;`,
   };
   return ['span', wrapper, ['img', imageAttrs]] as const;
@@ -162,23 +177,32 @@ function renderTemplateImage(node: ProseMirrorNode, attrs: DomAttributes) {
 export function createImageNode(options: ResolvedSchemaOptions): NodeSpec {
   return {
     ...basicNodes.image,
-    attrs: { ...basicNodes.image.attrs, ...templateImageAttrs },
+    // A template image has no address of its own, so `src` may be empty.
+    attrs: {
+      ...basicNodes.image.attrs,
+      src: { default: '', validate: 'string' },
+      ...templateImageAttrs,
+    },
     // Above the default priority, so a template image's wrapper parses before its inner image.
-    parseDOM: ['span[data-template-asset-image-wrapper]', 'img[src]'].map((tag) => ({
+    parseDOM: [
+      'span[data-template-asset-image-wrapper]',
+      'img[src]',
+      'img[data-template-file-id]',
+    ].map((tag) => ({
       tag,
       priority: 60,
       getAttrs(element: HTMLElement) {
         const image =
           element.tagName.toLowerCase() === 'img'
             ? (element as HTMLImageElement)
-            : element.querySelector<HTMLImageElement>('img[src]');
+            : element.querySelector<HTMLImageElement>('img[src], img[data-template-file-id]');
         return image ? readImageAttrs(image, options) : false;
       },
     })),
     toDOM(node: ProseMirrorNode) {
       const attrs = plainImageAttrs(node, options);
       if (!node.attrs.templateAssetImage && !node.attrs.templateFileId) return ['img', attrs];
-      return renderTemplateImage(node, attrs) as unknown as ReturnType<
+      return renderTemplateImage(node, attrs, options) as unknown as ReturnType<
         NonNullable<NodeSpec['toDOM']>
       >;
     },

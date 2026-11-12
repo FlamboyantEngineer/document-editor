@@ -40,7 +40,7 @@ function stateOf(content: StoredNode[], template: () => TemplateFile = () => TEM
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createReferences({ template })] });
 }
 

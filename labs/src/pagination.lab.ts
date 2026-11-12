@@ -177,7 +177,7 @@ function render(): void {
   const pagination = createPagination({ measureIn, pageHeight: PAGE_HEIGHT });
   const editor: EditorView = new EditorView(pagesRoot, {
     state: EditorState.create({
-      doc: readDocumentFile(SAMPLE, createDocumentSchema()),
+      doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc,
       plugins: [
         pagination.plugin,
         history(),

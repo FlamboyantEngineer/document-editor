@@ -11,7 +11,15 @@ import {
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { customStyleAt } from '../../engine/index.js';
-import { countWords, findTemplateSection, type TemplateFile } from '../../model/index.js';
+import {
+  countWords,
+  documentSections,
+  findTemplateSection,
+  isStructureNode,
+  sectionAt,
+  type TemplateFile,
+} from '../../model/index.js';
+import { pageMap } from '../../pagination/index.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
 import { DEFAULT_PANELS_LABELS, type DocumentPanelsLabels } from './panel-labels.js';
 
@@ -34,33 +42,28 @@ interface Described {
 // The section and the block the caret is in.
 function caretNodes(state: EditorState) {
   const { $head } = state.selection;
-  let section: ProseMirrorNode | null = null;
   let block: ProseMirrorNode | null = null;
-  for (let depth = $head.depth; depth > 0; depth -= 1) {
+  for (let depth = $head.depth; depth > 0 && !block; depth -= 1) {
     const node = $head.node(depth);
-    if (node.type.name === 'page_section') section = node;
-    else if (!block && node.isBlock && node.attrs.dataId !== undefined) block = node;
+    if (!isStructureNode(node) && node.isBlock && node.attrs.dataId !== undefined) block = node;
   }
-  return { section, block };
+  return { section: sectionAt($head)?.node ?? null, block };
 }
 
 const text = (value: unknown, none: string) =>
   value === null || value === undefined || value === '' ? none : String(value);
 
 function DocumentRows({ context, template, labels }: Described) {
-  const { state, view } = context;
-  let sections = 0;
-  state.doc.forEach((node) => {
-    if (node.type.name === 'page_section') sections += 1;
-  });
-  const pages = view ? view.dom.querySelectorAll('.pm-page').length : null;
+  const { state } = context;
+  const sections = documentSections(state.doc).length;
+  const pages = pageMap(state).pages().length;
   return (
     <PropertySection id="document" title={labels.document}>
       <PropertyRow label={labels.template}>
         {text(template?.name ?? template?.id, labels.none)}
       </PropertyRow>
       <PropertyRow label={labels.sections}>{sections}</PropertyRow>
-      <PropertyRow label={labels.pages}>{text(pages, labels.none)}</PropertyRow>
+      <PropertyRow label={labels.pages}>{pages}</PropertyRow>
       <PropertyRow label={labels.words}>{countWords(state.doc)}</PropertyRow>
     </PropertySection>
   );
