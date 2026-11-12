@@ -225,6 +225,14 @@ export default tseslint.config(
     },
   },
   {
+    // Pagination measures in the window its views mount in, never the global one (PG-38).
+    files: ['src/pagination/**/*.ts', 'src/utils/**/*.ts'],
+    ignores: ['src/**/*.test.ts'],
+    rules: {
+      'no-restricted-globals': ['error', ...STORAGE_GLOBALS, ...OWNER_WINDOW_GLOBALS],
+    },
+  },
+  {
     files: ['src/components/**/*.{ts,tsx}'],
     ignores: ['src/**/*.test.{ts,tsx}'],
     rules: {

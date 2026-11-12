@@ -10,7 +10,10 @@ import type { PaginationOptions } from './pagination.js';
  * long after the first edit, and until no pointer button is down on the editor, so a layout never
  * lands in the middle of a drag; then asks for it.
  */
-export function settleEdits(options: PaginationOptions, request: () => void) {
+export function settleEdits(
+  options: Pick<PaginationOptions, 'measureIn' | 'settle'>,
+  request: () => void,
+) {
   const settle = options.settle ?? 150;
   const owner = options.measureIn.ownerDocument.defaultView;
   const edits = { first: 0, last: 0, timer: null as number | null, pressed: false };
@@ -69,28 +72,70 @@ export function settleEdits(options: PaginationOptions, request: () => void) {
   };
 }
 
+/** What the measuring view's content asks to measure again, gathered over a frame. */
+export interface Remeasure {
+  /** The elements that changed size, such as an image that loaded; their blocks measure again. */
+  readonly targets: readonly Node[];
+  /** Whether the content's width changed, so every block measures again. */
+  readonly width: boolean;
+}
+
 /**
  * Measures again, once a frame, when the measuring view's content changes size after it was drawn:
- * math typeset or an image loaded.
+ * math typeset or an image loaded or failed, naming the elements it came from, or the container's
+ * width changed.
  */
-export function remeasureOn(container: HTMLElement, remeasure: () => void): () => void {
+export function remeasureOn(
+  container: HTMLElement,
+  remeasure: (change: Remeasure) => void,
+): () => void {
   const owner = container.ownerDocument.defaultView;
-  let due = false;
-  const listener = () => {
-    if (due || !owner) return;
-    due = true;
+  const due = { frame: false, targets: [] as Node[], width: false };
+  const flush = () => {
+    if (due.frame || !owner) return;
+    due.frame = true;
     owner.requestAnimationFrame(() => {
-      due = false;
-      remeasure();
+      const change = { targets: due.targets, width: due.width };
+      Object.assign(due, { frame: false, targets: [], width: false });
+      remeasure(change);
     });
   };
-  const onLoad = (event: Event) => {
-    if ((event.target as Element | null)?.tagName === 'IMG') listener();
+  const listener = (event: Event) => {
+    if (owner && event.target instanceof owner.Node) due.targets.push(event.target);
+    flush();
   };
+  const onImage = (event: Event) => {
+    if ((event.target as Element | null)?.tagName === 'IMG') listener(event);
+  };
+  let width = container.getBoundingClientRect().width;
+  const Observer = owner?.ResizeObserver;
+  const observer = Observer
+    ? new Observer(() => {
+        const next = container.getBoundingClientRect().width;
+        if (Math.abs(next - width) < 0.5) return;
+        width = next;
+        due.width = true;
+        flush();
+      })
+    : null;
+  observer?.observe(container);
   container.addEventListener(REMEASURE_EVENT, listener);
-  container.addEventListener('load', onLoad, true);
+  container.addEventListener('load', onImage, true);
+  container.addEventListener('error', onImage, true);
   return () => {
+    observer?.disconnect();
     container.removeEventListener(REMEASURE_EVENT, listener);
-    container.removeEventListener('load', onLoad, true);
+    container.removeEventListener('load', onImage, true);
+    container.removeEventListener('error', onImage, true);
+  };
+}
+
+/** Runs on the next animation frame of the window an element is in: a layout's default schedule. */
+export function frameIn(container: HTMLElement): (run: () => void) => () => void {
+  const owner = container.ownerDocument.defaultView;
+  return (run) => {
+    if (!owner) return () => undefined;
+    const handle = owner.requestAnimationFrame(run);
+    return () => owner.cancelAnimationFrame(handle);
   };
 }

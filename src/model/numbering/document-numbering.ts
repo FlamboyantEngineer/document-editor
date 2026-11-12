@@ -73,10 +73,10 @@ export function resolveParagraphNumberingConfig(
   settings: ParagraphSettings | null | undefined,
 ): ParagraphNumberingConfig {
   const numbering = settings?.numbering;
-  const format = numbering?.format?.trim();
+  const format = numbering?.enabled === false ? '' : numbering?.format?.trim();
   return {
     styleConfig: format ? parseNumberingStyle(format) : buildDisabledNumberingStyle(),
-    levels: numbering?.levels ?? undefined,
+    levels: numbering?.levels?.map((level) => level ?? {}),
     prefix: numbering?.prefix ?? '',
     suffix: numbering?.suffix ?? '',
   };

@@ -1,6 +1,6 @@
-// Splits a block that holds other blocks (a list, a list item or a quote) at a child boundary, or
-// through the child that crosses the page's foot when that child splits itself. The editor measures
-// where each child sits; this module only decides, so it reads no DOM.
+// Splits a block that holds other blocks (a list, a list item, a quote or a script block's output)
+// at a child boundary, or through the child that crosses the page's foot when that child splits
+// itself. The editor measures where each child sits; this module only decides, so it reads no DOM.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
@@ -17,11 +17,22 @@ export interface ChildLayout {
 /** What the editor measured a container's layout from: one layout per child, in order. */
 export interface ContainerMeasurement {
   readonly children: readonly ChildLayout[];
+  /**
+   * The height the container takes beyond its children's span, such as its padding, which each of
+   * its fragments takes again; 0 by default.
+   */
+  readonly overhead?: number | undefined;
 }
 
 /** Whether a layout block carries a container measurement. */
 export function isContainerMeasurement(value: unknown): value is ContainerMeasurement {
   return Array.isArray((value as Partial<ContainerMeasurement> | null)?.children);
+}
+
+/** The height a measured container takes beyond its children's span. */
+export function containerOverhead(measurement: ContainerMeasurement): number {
+  const overhead = measurement.overhead ?? 0;
+  return Number.isFinite(overhead) ? Math.max(0, overhead) : 0;
 }
 
 type ChildSplit = (block: LayoutBlock, height: number, context: SplitContext) => SplitBlock | null;
@@ -111,9 +122,10 @@ function splitChildren(request: SplitRequest, splitChild: ChildSplit): ChildrenS
   if (!isContainerMeasurement(block.measurement)) return null;
   const layouts = block.measurement.children;
   if (layouts.length !== children.length) return null;
-  const index = layouts.findIndex((layout) => layout.bottom > fitting);
+  const room = fitting - containerOverhead(block.measurement);
+  const index = layouts.findIndex((layout) => layout.bottom > room);
   if (index < 0) return null;
-  const through = splitThroughChild(request, index, splitChild);
+  const through = splitThroughChild({ ...request, fitting: room }, index, splitChild);
   if (through || index === 0) return through;
   return {
     index,
@@ -143,7 +155,10 @@ function fragments(
   const { block } = request;
   const { node } = block;
   const part = partIndex(node);
-  const headHeight = split.headLayouts.at(-1)?.bottom ?? 0;
+  const overhead = isContainerMeasurement(block.measurement)
+    ? containerOverhead(block.measurement)
+    : 0;
+  const headHeight = (split.headLayouts.at(-1)?.bottom ?? 0) + overhead;
   return {
     head: {
       ...block,
@@ -153,7 +168,7 @@ function fragments(
         node.marks,
       ),
       height: Math.max(1, headHeight),
-      measurement: { children: split.headLayouts },
+      measurement: { children: split.headLayouts, overhead },
     },
     tail: [
       {
@@ -164,16 +179,18 @@ function fragments(
           node.marks,
         ),
         height: Math.max(1, split.tailHeight),
-        leadLineHeight: null,
         breakBefore: true,
-        measurement: { children: split.tailLayouts },
+        measurement: { children: split.tailLayouts, overhead },
       },
     ],
   };
 }
 
-/** Splits a measured quote between or through its children. */
-export function splitBlockquote(
+/**
+ * Splits a measured block of blocks, such as a quote or a script block's output, between or through
+ * its children.
+ */
+export function splitContainer(
   block: LayoutBlock,
   fitting: number,
   context: SplitContext,

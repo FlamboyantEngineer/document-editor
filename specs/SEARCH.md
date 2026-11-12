@@ -6,10 +6,10 @@ Finding and replacing text in a document: a plugin keeps the reader's query and 
 
 ### DOCE-SEARCH-1.1 - Matches
 
-`createSearch()` shall keep a query (`setSearch(query, { caseSensitive, wholeWord })`, out of the history) and its matches in every text block of the document, page headers and footers left out, ignoring case unless asked and matching whole words only when asked; each match is marked by a decoration carrying `data-search-match`, `current` for the current match and `match` otherwise. The first current match is the first at or after the selection, and the matches follow every change. An empty query clears them.
+`createSearch()` shall keep a query (`setSearch(query, { caseSensitive, wholeWord })`, out of the history) and its matches in every text block of the document, page headers and footers left out, an inline atom read as its text (`leafText`) and matched whole, ignoring case unless asked and matching whole words only when asked; each match is marked by a decoration carrying `data-search-match`, `current` for the current match and `match` otherwise. The first current match is the first at or after the selection, and the matches follow every change. An empty query clears them.
 
 Implementation: `src/engine/search.ts`
-Verification: `src/engine/search.test.ts`
+Verification: `src/engine/search.test.ts`, `src/engine/host-domain-recipe.test.ts`
 
 ### DOCE-SEARCH-1.2 - Moving between matches
 

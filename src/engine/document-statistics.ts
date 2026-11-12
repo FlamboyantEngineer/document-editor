@@ -5,7 +5,9 @@
 
 import type { Node } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
-import { countTextWords } from '../model/index.js';
+import { countTextWords, documentRegions, type RegionKind } from '../model/index.js';
+import { pageMap } from '../pagination/page-map.js';
+import { layoutPageAt } from './layout-page.js';
 
 /** A document's pages and words, as a status bar reports them. */
 export interface DocumentStatistics {
@@ -59,39 +61,19 @@ function wordsOf(block: Node): number {
   return words;
 }
 
-// The regions of a page that hold the document's own text: its body and its footnotes.
-const BODY_REGIONS = new Set(['page_content', 'page_footnotes']);
-
-// Each page's body and footnote area, with the position just inside it, in document order.
-function pageBodies(doc: Node, visit: (body: Node, pos: number, page: number) => void) {
-  let page = 0;
-  doc.forEach((section, sectionOffset) => {
-    if (section.type.name !== 'page_section') return;
-    section.forEach((pageNode, pageOffset) => {
-      if (pageNode.type.name !== 'page') return;
-      page += 1;
-      const pagePos = sectionOffset + 1 + pageOffset;
-      pageNode.forEach((region, regionOffset) => {
-        if (BODY_REGIONS.has(region.type.name)) {
-          visit(region, pagePos + 1 + regionOffset + 1, page);
-        }
-      });
-    });
-  });
-  return page;
-}
+const BODY_REGIONS: ReadonlySet<RegionKind> = new Set(['content', 'footnotes']);
 
 /** The document's pages and words, and where the selection is among them. */
 export function documentStatistics(state: EditorState): DocumentStatistics {
   const { doc, selection } = state;
   let words = 0;
-  let page = 1;
-  const pages = pageBodies(doc, (body, start, index) => {
-    if (selection.head >= start && selection.head <= start + body.content.size) page = index;
-    body.forEach((block) => {
+  for (const region of documentRegions(doc, BODY_REGIONS)) {
+    region.node.forEach((block) => {
       words += wordsOf(block);
     });
-  });
+  }
+  const pages = pageMap(state).pages().length;
+  const page = layoutPageAt(state, selection.head)?.number ?? 1;
   const selected = selection.empty
     ? 0
     : countTextWords(doc.textBetween(selection.from, selection.to, ' ', ' '));

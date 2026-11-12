@@ -25,9 +25,8 @@ export {
   writeDocumentFile,
   writeStoredContent,
 } from './format/document-format-convert.js';
-export type { DocxOptions } from './format/docx.js';
-export { writeDocx } from './format/docx.js';
-export { cleanWordHtml, isWordHtml, readHtml, writeHtml } from './format/html.js';
+export { type DocxOptions, writeDocx } from './format/docx.js';
+export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './format/html.js';
 export type { MarkdownOptions } from './format/markdown.js';
 export { writeMarkdown } from './format/markdown.js';
 export type * from './format/template-format.js';
@@ -50,6 +49,7 @@ export {
   isTemplateLength,
   validateTemplateFile,
 } from './format/template-format-validate.js';
+export * from './format/template-format-validate.js';
 export type { ZipEntry } from './format/zip.js';
 export { crc32, writeZip } from './format/zip.js';
 export type { AbbreviationReferenceAttrs, GlossaryEntry } from './glossary.js';
@@ -114,13 +114,7 @@ export {
   paragraphNumberingIndentationStyle,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
-export type { ChildLayout, ContainerMeasurement } from './pagination/container-split.js';
-export {
-  isContainerMeasurement,
-  splitBlockquote,
-  splitList,
-  splitListItem,
-} from './pagination/container-split.js';
+export * from './pagination/container-split.js';
 export * from './pagination/contents-split.js';
 export type { BlockRun, FragmentRule, FragmentRules } from './pagination/fragments.js';
 export {
@@ -132,11 +126,13 @@ export {
   joinFragments,
   makeWhole,
 } from './pagination/fragments.js';
+export { splitLayoutSection } from './pagination/layout-section-split.js';
 export type {
   LayoutBlock,
   LayoutRule,
   LayoutRuleOptions,
   LayoutRules,
+  MeasureInput,
   PageHeight,
   PageLayoutOptions,
   SplitBlock,
@@ -211,6 +207,7 @@ export {
   createDocumentSchema,
   createDocumentSchemaExtensions,
 } from './schema/document-schema.js';
+export * from './schema/document-structure.js';
 export type { DomAttributes } from './schema/dom-attributes.js';
 export {
   appendContributorAttrs,
@@ -259,22 +256,11 @@ export {
 } from './schema/object-layout.js';
 export type { DocumentSchemaOptions, ResolvedSchemaOptions } from './schema/schema-options.js';
 export { resolveSchemaOptions } from './schema/schema-options.js';
-export type {
-  SignatureMatrix,
-  SignaturePath,
-  SignatureVector,
-  SignatureVectorParseResult,
-} from './signature-vector.js';
-export {
-  normalizeSignatureVector,
-  parseSignatureVector,
-  SIGNATURE_VECTOR_LIMITS,
-  validateSignaturePathData,
-} from './signature-vector.js';
+export * from './signature-vector.js';
 export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export { setPageRegions } from './templates/page-regions.js';
-export { CONTENTS_TOKENS, readTemplateContent } from './templates/template-content.js';
+export * from './templates/template-content.js';
 export * from './templates/template-css-values.js';
 export * from './templates/template-numbering.js';
 export * from './templates/template-preview.js';
@@ -300,3 +286,4 @@ export {
   sectionRestartsNumbering,
 } from './templates/template-scopes.js';
 export { findTemplateSection, requiredTemplateSections } from './templates/template-sections.js';
+export * from './templates/template-settings.js';

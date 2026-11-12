@@ -118,4 +118,37 @@ describe('split block fragments', () => {
     });
     expect(joined?.childCount).toBe(2);
   });
+
+  it('DOCE-PAGINATION-1.8 joins script block and layout section fragments column by column', () => {
+    const script = (part: number, text: string) =>
+      node('script_block', { dataId: 's1', script: 'run()', splitPartIndex: part }, [
+        paragraph({ dataId: `sp${String(part)}` }, text),
+      ]);
+    const [output] = joinFragments([script(0, 'Head'), script(1, 'Tail')]);
+    expect(output?.childCount).toBe(2);
+    expect(output?.attrs).toMatchObject({ script: 'run()', splitPartIndex: null });
+    const column = (id: string, content: Node[]) => node('layout_column', { dataId: id }, content);
+    const empty = () => node('paragraph');
+    const section = (part: number, columns: Node[]) =>
+      node('layout_section', { dataId: 'ls1', splitPartIndex: part }, columns);
+    const head = section(0, [
+      column('c1', [
+        paragraph({ dataId: 'a' }, 'A'),
+        paragraph({ dataId: 'b', splitPartIndex: 0 }, 'B1 '),
+      ]),
+      column('c2', [empty()]),
+    ]);
+    const tail = section(1, [
+      column('c1', [paragraph({ dataId: 'b', splitPartIndex: 1 }, 'B2')]),
+      column('c2', [paragraph({ dataId: 'c' }, 'C')]),
+    ]);
+    const [joined] = joinFragments([head, tail]);
+    expect(joined?.attrs.splitPartIndex).toBeNull();
+    expect(joined?.childCount).toBe(2);
+    expect(joined?.child(0).childCount).toBe(2);
+    expect(joined?.child(0).lastChild?.textContent).toBe('B1 B2');
+    expect(joined?.child(0).lastChild?.attrs.splitPartIndex).toBeNull();
+    expect(joined?.child(1).textContent).toBe('C');
+    expect(joined?.child(1).childCount).toBe(1);
+  });
 });

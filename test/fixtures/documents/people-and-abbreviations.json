@@ -1,6 +1,8 @@
 {
   "formatVersion": 1,
-  "template": "regression-base",
+  "template": {
+    "id": "regression-base"
+  },
   "sections": [
     {
       "name": "body",

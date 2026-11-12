@@ -1,0 +1,689 @@
+{
+  "formatVersion": 1,
+  "id": "field-report",
+  "name": "Field report",
+  "parent": "base",
+  "page": {
+    "size": "A4",
+    "orientation": "portrait",
+    "margins": {
+      "top": "25mm",
+      "right": "20mm",
+      "bottom": "25mm",
+      "left": "20mm"
+    }
+  },
+  "styles": {
+    "paragraph": {
+      "font": "Georgia",
+      "size": "11pt",
+      "weight": 400,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "justify",
+      "spaceBefore": "0pt",
+      "spaceAfter": "6pt",
+      "indentation": "0pt",
+      "numbering": {
+        "enabled": true,
+        "format": "1.",
+        "prefix": "",
+        "suffix": "",
+        "levels": [
+          {
+            "format": "1.",
+            "numberIndent": "0pt",
+            "textIndent": "24pt"
+          },
+          {
+            "format": "1.a)",
+            "numberIndent": "12pt",
+            "textIndent": "40pt"
+          }
+        ]
+      }
+    },
+    "title": {
+      "font": "Georgia",
+      "size": "24pt",
+      "weight": 700,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "center",
+      "spaceBefore": "0pt",
+      "spaceAfter": "18pt"
+    },
+    "heading1": {
+      "font": "Georgia",
+      "size": "18pt",
+      "weight": 700,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "left",
+      "spaceBefore": "12pt",
+      "spaceAfter": "6pt",
+      "numbering": {
+        "enabled": true,
+        "format": "1.",
+        "prefix": "",
+        "suffix": ""
+      }
+    },
+    "heading2": {
+      "font": "Georgia",
+      "size": "15pt",
+      "weight": 700,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "left",
+      "spaceBefore": "12pt",
+      "spaceAfter": "6pt",
+      "numbering": {
+        "enabled": true,
+        "format": "1.1.",
+        "prefix": "",
+        "suffix": ""
+      }
+    },
+    "heading3": {
+      "font": "Georgia",
+      "size": "13pt",
+      "weight": 700,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "left",
+      "spaceBefore": "12pt",
+      "spaceAfter": "6pt",
+      "numbering": {
+        "enabled": true,
+        "format": "1.1.1.",
+        "prefix": "",
+        "suffix": ""
+      }
+    },
+    "heading4": {
+      "font": "Georgia",
+      "size": "12pt",
+      "weight": 700,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "left",
+      "spaceBefore": "12pt",
+      "spaceAfter": "6pt",
+      "numbering": {
+        "enabled": true,
+        "format": "",
+        "prefix": "",
+        "suffix": ""
+      }
+    },
+    "heading5": {
+      "font": "Georgia",
+      "size": "11pt",
+      "weight": 700,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "left",
+      "spaceBefore": "12pt",
+      "spaceAfter": "6pt",
+      "numbering": {
+        "enabled": true,
+        "format": "",
+        "prefix": "",
+        "suffix": ""
+      }
+    },
+    "heading6": {
+      "font": "Georgia",
+      "size": "11pt",
+      "weight": 700,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.4,
+      "alignment": "left",
+      "spaceBefore": "12pt",
+      "spaceAfter": "6pt",
+      "numbering": {
+        "enabled": true,
+        "format": "",
+        "prefix": "",
+        "suffix": ""
+      }
+    },
+    "list": {
+      "bullet": "–",
+      "format": "a)",
+      "prefix": "(",
+      "suffix": "",
+      "indentation": "18pt",
+      "spaceBefore": "0pt",
+      "spaceAfter": "4pt"
+    },
+    "table": {
+      "numbering": {
+        "enabled": true,
+        "format": "1.1.",
+        "prefix": "Table ",
+        "suffix": ""
+      },
+      "caption": {
+        "placement": "above",
+        "alignment": "center",
+        "continuedSuffix": " (continued)",
+        "label": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "color": "#1f2937"
+        },
+        "text": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 400,
+          "italic": true,
+          "underline": false,
+          "color": "#1f2937"
+        }
+      },
+      "border": {
+        "width": "1px",
+        "color": "#475569"
+      },
+      "cellPadding": "6px",
+      "header": {
+        "background": "#e2e8f0",
+        "color": "#0f172a",
+        "weight": 700
+      },
+      "rows": {
+        "odd": "#ffffff",
+        "even": "#f1f5f9"
+      },
+      "repeatHeader": true
+    },
+    "figure": {
+      "numbering": {
+        "enabled": true,
+        "format": "1.1.",
+        "prefix": "Figure ",
+        "suffix": ""
+      },
+      "caption": {
+        "placement": "below",
+        "alignment": "center",
+        "continuedSuffix": " (continued)",
+        "label": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "color": "#1f2937"
+        },
+        "text": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 400,
+          "italic": true,
+          "underline": false,
+          "color": "#1f2937"
+        }
+      },
+      "defaultWidth": "120mm"
+    },
+    "codeBlock": {
+      "font": "Courier New",
+      "size": "9pt",
+      "weight": 400,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.2,
+      "alignment": "left",
+      "spaceBefore": "0pt",
+      "spaceAfter": "6pt",
+      "background": "#f8fafc",
+      "numbering": {
+        "enabled": true,
+        "format": "1.",
+        "prefix": "Listing ",
+        "suffix": ""
+      },
+      "caption": {
+        "placement": "above",
+        "alignment": "left",
+        "continuedSuffix": " (continued)",
+        "label": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "color": "#1f2937"
+        },
+        "text": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 400,
+          "italic": true,
+          "underline": false,
+          "color": "#1f2937"
+        }
+      }
+    },
+    "equation": {
+      "numbering": {
+        "enabled": true,
+        "format": "1.1.",
+        "prefix": "",
+        "suffix": ""
+      },
+      "wrapper": "()",
+      "caption": {
+        "placement": "below",
+        "alignment": "right",
+        "continuedSuffix": "",
+        "label": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "color": "#1f2937"
+        },
+        "text": {
+          "font": "Georgia",
+          "size": "10pt",
+          "weight": 400,
+          "italic": true,
+          "underline": false,
+          "color": "#1f2937"
+        }
+      }
+    },
+    "contents": {
+      "title": {
+        "font": "Georgia",
+        "size": "16pt",
+        "weight": 700,
+        "italic": false,
+        "underline": false,
+        "color": "#1f2937"
+      },
+      "entry": {
+        "font": "Georgia",
+        "size": "11pt",
+        "weight": 400,
+        "italic": false,
+        "underline": false,
+        "color": "#1f2937"
+      },
+      "padding": {
+        "top": "0pt",
+        "right": "0pt",
+        "bottom": "6pt",
+        "left": "0pt"
+      },
+      "spacing": {
+        "top": "6pt",
+        "right": "0pt",
+        "bottom": "12pt",
+        "left": "0pt"
+      },
+      "leader": {
+        "character": ".",
+        "spacing": "2pt"
+      },
+      "levels": [
+        {
+          "indentation": "0pt",
+          "spaceBefore": "6pt",
+          "spaceAfter": "2pt",
+          "leader": {
+            "character": ".",
+            "spacing": "2pt"
+          }
+        },
+        {
+          "indentation": "12pt",
+          "spaceBefore": "0pt",
+          "spaceAfter": "2pt"
+        },
+        {
+          "indentation": "24pt",
+          "spaceBefore": "0pt",
+          "spaceAfter": "0pt",
+          "leader": {
+            "character": "·",
+            "spacing": "1pt"
+          }
+        }
+      ],
+      "kinds": {
+        "toc": {
+          "title": "Contents"
+        },
+        "figures": {
+          "title": "Figures",
+          "leader": {
+            "character": "_"
+          }
+        },
+        "tables": {
+          "title": "Tables",
+          "levels": [
+            {
+              "leader": {
+                "character": ""
+              }
+            }
+          ]
+        }
+      }
+    },
+    "custom": {
+      "lead": {
+        "font": "Georgia",
+        "size": "13pt",
+        "weight": 400,
+        "italic": true,
+        "underline": false,
+        "color": "#1f2937",
+        "lineHeight": 1.4,
+        "alignment": "left",
+        "spaceBefore": "0pt",
+        "spaceAfter": "12pt"
+      },
+      "station-note": {
+        "font": "Georgia",
+        "size": "9pt",
+        "weight": 400,
+        "italic": false,
+        "underline": false,
+        "color": "#475569",
+        "lineHeight": 1.4,
+        "alignment": "left",
+        "spaceBefore": "0pt",
+        "spaceAfter": "6pt"
+      }
+    }
+  },
+  "header": {
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Field report, page "
+          },
+          {
+            "type": "variable",
+            "attrs": {
+              "key": "page.current"
+            }
+          }
+        ]
+      }
+    ],
+    "height": "12mm",
+    "spacingToContent": "6mm",
+    "inherit": false
+  },
+  "footer": {
+    "content": [
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "variable",
+            "attrs": {
+              "key": "page.current"
+            }
+          },
+          {
+            "type": "text",
+            "text": " of "
+          },
+          {
+            "type": "variable",
+            "attrs": {
+              "key": "page.total"
+            }
+          }
+        ]
+      }
+    ],
+    "height": "10mm",
+    "spacingToContent": "4mm"
+  },
+  "footnotes": {
+    "numbering": "document",
+    "suffix": ".",
+    "separator": {
+      "enabled": true,
+      "thickness": "0.5pt",
+      "color": "#64748b"
+    },
+    "spacingToContent": "10pt",
+    "entrySpacing": "4pt",
+    "marker": {
+      "font": "Georgia",
+      "size": "8pt",
+      "weight": 400,
+      "italic": true,
+      "underline": false,
+      "color": "#1f2937"
+    },
+    "text": {
+      "font": "Georgia",
+      "size": "9pt",
+      "weight": 400,
+      "italic": false,
+      "underline": false,
+      "color": "#1f2937",
+      "lineHeight": 1.3,
+      "alignment": "left",
+      "spaceBefore": "0pt",
+      "spaceAfter": "2pt"
+    }
+  },
+  "references": {
+    "formats": {
+      "internal-figure": "Figure {{ref.numbering}}",
+      "internal-table": "Table {{ref.numbering}}"
+    },
+    "links": {
+      "internal-figure": true,
+      "internal-table": false
+    }
+  },
+  "changeBars": {
+    "insertions": {
+      "enabled": true,
+      "color": "#15803d"
+    },
+    "deletions": {
+      "enabled": true,
+      "color": "#b91c1c"
+    },
+    "modifications": {
+      "enabled": true,
+      "color": "#1d4ed8"
+    },
+    "formatting": {
+      "enabled": false,
+      "color": "#a21caf"
+    },
+    "side": "left",
+    "offset": "8px",
+    "width": "3px"
+  },
+  "sections": [
+    {
+      "name": "cover",
+      "label": "Cover",
+      "required": true,
+      "editable": false,
+      "insertable": false,
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Field report"
+            }
+          ]
+        }
+      ],
+      "restartNumbering": false,
+      "page": {
+        "size": "A4",
+        "orientation": "portrait",
+        "margins": {
+          "top": "40mm",
+          "right": "20mm",
+          "bottom": "40mm",
+          "left": "20mm"
+        }
+      },
+      "header": {
+        "inherit": false,
+        "content": []
+      },
+      "footer": {
+        "inherit": false,
+        "content": []
+      }
+    },
+    {
+      "name": "summary",
+      "label": "Summary",
+      "required": true,
+      "editable": true,
+      "insertable": false,
+      "placeholder": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Summarise the visit."
+            }
+          ]
+        }
+      ],
+      "styles": {
+        "custom": {
+          "lead": {
+            "size": "14pt"
+          }
+        }
+      },
+      "changeBars": {
+        "side": "right"
+      }
+    },
+    {
+      "name": "findings",
+      "label": "Findings",
+      "required": true,
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 1
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Findings"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "appendix",
+      "label": "Appendix",
+      "required": false,
+      "insertable": true,
+      "restartNumbering": true,
+      "page": {
+        "orientation": "landscape"
+      },
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "A.",
+            "prefix": "Appendix "
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "A.1."
+          }
+        }
+      },
+      "header": {
+        "height": "8mm"
+      },
+      "footer": {
+        "inherit": true
+      },
+      "footnotes": {
+        "suffix": ")",
+        "separator": {
+          "enabled": false
+        },
+        "spacingToContent": "8pt",
+        "entrySpacing": "2pt",
+        "marker": {
+          "italic": false
+        },
+        "text": {
+          "size": "8pt"
+        }
+      },
+      "changeBars": {
+        "insertions": {
+          "enabled": false
+        },
+        "offset": "6px",
+        "width": "2px"
+      }
+    }
+  ],
+  "extensions": {
+    "fields": {
+      "site": {
+        "label": "Site",
+        "required": true
+      },
+      "visit-date": {
+        "label": "Visit date"
+      }
+    },
+    "layout": {
+      "density": "comfortable"
+    }
+  }
+}

@@ -16,6 +16,10 @@ const COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const TEMPLATE_ID = /^[A-Za-z0-9_-]+$/;
 const SECTION_NAME = /^[a-z0-9_]+$/;
 const NAME_MAX_LENGTH = 120;
+// One to six levels, each a counter character and the separators after it.
+const NUMBERING_FORMAT = /^(?:[1aAiI][.\-:_/ )]*){0,6}$/;
+const BULLET_KEYWORDS: readonly string[] = ['disc', 'circle', 'square', 'none'];
+const BULLET_MAX_LENGTH = 8;
 // Control characters, line and paragraph separators, and bidi and zero-width formatting.
 const NAME_DISALLOWED =
   // eslint-disable-next-line no-control-regex -- matches control characters on purpose
@@ -46,6 +50,33 @@ export function isTemplateLength(value: unknown): boolean {
   return typeof value === 'string' && LENGTH.test(value);
 }
 
+/**
+ * Whether a value is a numbering format: up to six levels, each `1`, `a`, `A`, `i` or `I` and the
+ * separators after it (`.`, `-`, `:`, `_`, `/`, `)` and space). Empty numbers nothing.
+ */
+export function isNumberingFormat(value: unknown): boolean {
+  return typeof value === 'string' && NUMBERING_FORMAT.test(value);
+}
+
+/** Whether a bullet is a marker keyword (`BulletKeyword`) rather than the text it shows. */
+export function isBulletKeyword(value: unknown): boolean {
+  return typeof value === 'string' && BULLET_KEYWORDS.includes(value);
+}
+
+/** Whether a value is a bullet: a marker keyword, or up to 8 characters of plain text. */
+export function isTemplateBullet(value: unknown): boolean {
+  if (isBulletKeyword(value)) return true;
+  return (
+    typeof value === 'string' &&
+    value.trim() !== '' &&
+    [...value].length <= BULLET_MAX_LENGTH &&
+    !NAME_DISALLOWED.test(value)
+  );
+}
+
+/** What a custom style's name may be: a letter, then letters, digits, `_` or `-`, 16 at most. */
+export const CUSTOM_STYLE_NAME = /^[a-z][a-z0-9_-]{0,15}$/i;
+
 /** Whether a value is a hex color. */
 export function isTemplateColor(value: unknown): boolean {
   return typeof value === 'string' && COLOR.test(value);
@@ -60,6 +91,11 @@ const LEAF_CHECKS: Readonly<Record<string, [(value: unknown) => boolean, string]
     (value) => typeof value === 'number' && Number.isFinite(value) && value > 0,
     'must be a positive number',
   ],
+  numbering: [
+    isNumberingFormat,
+    'must be a numbering format: up to six of 1, a, A, i or I, each with its separators',
+  ],
+  bullet: [isTemplateBullet, 'must be disc, circle, square, none or up to 8 characters of text'],
   weight: [
     (value) => Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 1000,
     'must be a font weight from 1 to 1000',
@@ -164,6 +200,17 @@ function referenceErrors(template: LooseRecord, referenceTypes: readonly string[
   return errors;
 }
 
+// The names of the custom styles of a scope's styles.
+function customStyleErrors(styles: unknown, at: string): string[] {
+  const custom = isRecord(styles) && isRecord(styles.custom) ? styles.custom : {};
+  return Object.keys(custom)
+    .filter((name) => !CUSTOM_STYLE_NAME.test(name))
+    .map(
+      (name) =>
+        `${at}.styles.custom.${name} must be named with a letter, then letters, digits, underscores or hyphens, 16 at most`,
+    );
+}
+
 function sectionErrors(template: LooseRecord): string[] {
   const sections = Array.isArray(template.sections) ? template.sections : [];
   const names = new Set<string>();
@@ -178,6 +225,7 @@ function sectionErrors(template: LooseRecord): string[] {
     } else {
       names.add(name);
     }
+    if (isRecord(section)) errors.push(...customStyleErrors(section.styles, at));
   });
   return errors;
 }
@@ -198,6 +246,7 @@ export function validateTemplateFile(
     ...identityErrors(template),
     ...walk.errors,
     ...referenceErrors(template, options.referenceTypes),
+    ...customStyleErrors(template.styles, 'template'),
     ...sectionErrors(template),
   ];
 }
