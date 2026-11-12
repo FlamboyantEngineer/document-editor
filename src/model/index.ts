@@ -116,8 +116,9 @@ export {
 } from './numbering/paragraph-numbering.js';
 export type { ChildLayout, ContainerMeasurement } from './pagination/container-split.js';
 export {
+  containerOverhead,
   isContainerMeasurement,
-  splitBlockquote,
+  splitContainer,
   splitList,
   splitListItem,
 } from './pagination/container-split.js';
@@ -132,11 +133,13 @@ export {
   joinFragments,
   makeWhole,
 } from './pagination/fragments.js';
+export { splitLayoutSection } from './pagination/layout-section-split.js';
 export type {
   LayoutBlock,
   LayoutRule,
   LayoutRuleOptions,
   LayoutRules,
+  MeasureInput,
   PageHeight,
   PageLayoutOptions,
   SplitBlock,
