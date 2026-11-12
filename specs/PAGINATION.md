@@ -321,8 +321,36 @@ Verification: `src/pagination/page-map.test.ts`, `e2e/pagination.spec.ts`
 
 `toCanonical(pos)` and `toProjection(pos)` shall map a position between the paged document (the projection) and its canonical whole document (`canonical`) through the page transform's steps, so every position in the content's text maps exactly both ways. A projection position at the end of a textblock shall keep to the text before it unless `assoc` says otherwise; a canonical position where a page break falls inside a block shall map after the break, or before it with `assoc` -1. Positions the transform moves or drops shall be found again at the same offset: inside a footnote entry, in the entry of the same footnote, and inside a header row a table continuation repeats, in the canonical table's row. A position found in neither shall map to null.
 
-Implementation: `src/pagination/page-map.ts`, `src/pagination/page-map-redirects.ts`
+Implementation: `src/pagination/page-map.ts`, `src/pagination/page-positions.ts`
 Verification: `src/pagination/page-map.test.ts`
+
+### DOCE-PAGINATION-7.9 - Positions kept exact between layouts
+
+The projection map (`ProjectionMap`) shall map positions between a projection and its canonical document as DOCE-PAGINATION-7.8 does, and stay exact as both change between layouts. An edit made on both documents shall extend it by the projection step inverted and the canonical step, paired as mirrors, so positions inside newly inserted content map across. A canonical step mirrored onto the projection shall be placed by its ends; a replacement inside one textblock whose range crosses a page break shall be mirrored page by page, so the pages between keep their footnotes, header and footer; and an edit to a header row a split table repeats shall be made on every copy. On generated documents and layouts, every character shall map both ways, and keep doing so through generated edits made on either side and mirrored onto the other.
+
+Implementation: `src/pagination/projection-map.ts`, `src/pagination/projection-steps.ts`, `src/pagination/page-positions.ts`
+Verification: `src/pagination/projection-map.test.ts`
+
+### DOCE-PAGINATION-7.10 - The paged projection
+
+`createProjectionView({ mount, measureIn, state, pageHeight })` shall show a canonical state, the whole document with each section on one page and whole blocks, on pages: a read-only projection view mounted in `mount` shows the paged document, and a hidden ghost view in `measureIn` renders the canonical document, with the same `nodeViews` and `plugins`, to measure it. After an edit, once the writer pauses (`settle`, as DOCE-PAGINATION-7.1) and never during composition, the pages shall be laid out from the ghost and the projection stepped onto them, with the canonical selection on the side of a page break nearest the projection's. The projection's document shall change only by a layout or by a canonical change mirrored onto it: any other change is input (DOCE-PAGINATION-7.11), or is refused and drawn again when a step does not map onto the canonical state or, taken as the browser made it, would cross a region of a page. Its pages shall always join into the canonical document. `stats()` shall count the layouts (`layouts`), the refused changes (`refused`) and the canonical changes that could not be mirrored and laid the pages out at once (`relaid`); `onLayout` shall be told of each layout.
+
+Implementation: `src/pagination/projection-view.ts`, `src/pagination/projection-layout.ts`, `src/pagination/ghost-view.ts`, `labs/src/spikes/spike-projection.lab.tsx`
+Verification: `src/pagination/projection-view.test.ts`, `e2e/spike-projection.spec.ts`
+
+### DOCE-PAGINATION-7.11 - Input on the pages
+
+Input on the projection shall run on the canonical state, which holds the undo history. Enter, Backspace, Delete, paste and the commands given as `keys` shall run as commands on the canonical state (`run`), with the projection's selection mirrored there first; Backspace and Delete delete one character where the browser would. Changes the browser makes in the DOM (typing, composition, spellcheck replacements) shall be mapped step by step onto the canonical state and paired with their mirror, so the writer's DOM is not drawn again under them; a selection that only followed such an edit follows it on the canonical state too. An arrow key at a page break inside a split block shall move the caret a character on the canonical text. A cell selection dragged across the parts of a split table shall select cells of the canonical table and be drawn on every part (`selectedCell`), and a column resized on one part shall set the canonical table's column, so every part follows. Each canonical transaction input makes shall go to `dispatch`, or be applied when there is none.
+
+Implementation: `src/pagination/projection-input.ts`, `src/pagination/selection-mirror.ts`, `src/pagination/cell-drag.ts`, `src/pagination/projection-view.ts`
+Verification: `src/pagination/projection-view.test.ts`, `e2e/spike-projection.spec.ts`
+
+### DOCE-PAGINATION-7.12 - Canonical changes reach the pages
+
+`update(state, tr)` shall show a new canonical state on the projection at once: by the steps of `tr` when it made the state from the document shown, otherwise, as for a state the host replaced or a remote change, by the smallest replacement between the two documents; a state whose document is the one shown changes only the selection. A change that cannot be mirrored shall lay the pages out at once. The pages are laid out again once the writer pauses.
+
+Implementation: `src/pagination/projection-mirror.ts`, `src/pagination/projection-view.ts`
+Verification: `src/pagination/projection-view.test.ts`
 
 ## DOCE-PAGINATION-8 - Page headers and footers
 
