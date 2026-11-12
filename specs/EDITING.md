@@ -36,9 +36,9 @@ Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-2.1 - Formatting and block types
 
-`Mod-b`, `Mod-i`, `Mod-u`, `Mod-Shift-s`, `Mod-.`, `Mod-,` and `Mod-Alt-i` shall toggle bold, italic, underline, strikethrough, superscript, subscript and code. `Mod-Shift-1` to `Mod-Shift-6` shall make the selected blocks headings of that level and `Mod-Shift-0` paragraphs. `Mod-\` shall clear character formatting and turn headings back into paragraphs; links, comments and suggestions stay.
+`Mod-b`, `Mod-i`, `Mod-u`, `Mod-Shift-s`, `Mod-.`, `Mod-,` and `Mod-Alt-i` shall toggle bold, italic, underline, strikethrough, superscript, subscript and code. `Mod-Shift-1` to `Mod-Shift-6` shall make the selected blocks headings of that level and `Mod-Shift-0` paragraphs (`setTextblockType`, which the toolbar and menubar run too); a block whose type changes keeps its identity: its element id, its author and the parts it is split into; its look, such as a custom style, is the new type's. `Mod-\` shall clear character formatting and turn headings back into paragraphs; links, comments and suggestions stay.
 
-Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`, `src/engine/block-type.ts`
 Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-2.2 - Lists
@@ -89,6 +89,13 @@ A footnote entry shall stay one paragraph of text: Enter and Shift+Enter add not
 
 Implementation: `src/engine/document-editing.ts`, `src/model/schema/footnote-nodes.ts`
 Verification: `src/engine/document-editing.test.ts`
+
+### DOCE-EDITING-2.9 - Blocks stay in the body
+
+A command that adds a block (a table, a page break, an object or a script block) shall add it in the body, beside the top-level block holding the caret (`newBlockRange`); with the caret in a page header, footer or footnote area it shall not apply, so no block is ever added outside the pages.
+
+Implementation: `src/engine/block-place.ts`, `src/engine/tables.ts`, `src/engine/editing-commands.ts`
+Verification: `src/engine/block-place.test.ts`
 
 ## DOCE-EDITING-3 - Installing editing
 

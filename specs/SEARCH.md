@@ -36,10 +36,10 @@ Verification: `src/engine/search.test.ts`
 
 ### DOCE-SEARCH-2.1 - Finding in the editor
 
-With `find`, Mod-F in the document shall open the base library's `FindBar` below the toolbar (`de-document-editor__find`, named by the `find` label), its box focused: it searches as the reader types, counts the matches and shows the current one, steps through them with Enter and Shift+Enter, offers matching case and whole words, and, while the writer can edit, Replace and Replace all. Closing it clears the matches and returns focus to the document. The editor installs the search plugin itself; its hidden measuring view does not search.
+With `find`, Mod-F in the document shall open the base library's `FindBar` below the toolbar (`de-document-editor__find`, named by the `find` label), its box focused: it searches as the reader types, counts the matches and shows the current one, steps through them with Enter and Shift+Enter, offers matching case and whole words, and, while the writer can edit, Replace and Replace all. Its box is focused when it opens and never takes focus back afterwards, so the writer can go on typing in the document. Its query and options are the search plugin's, so it shows the same search as a search pane (DOCE-SEARCH-3.2) or a host that set one. Closing it clears the matches and returns focus to the document. The editor installs the search plugin itself; its hidden measuring view does not search.
 
-Implementation: `src/components/document-editor/document-find-bar.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `labs/reference/editor-chrome.css`
-Verification: `e2e/search.spec.ts`
+Implementation: `src/components/document-editor/document-find-bar.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `src/utils/search-options.ts`, `labs/reference/editor-chrome.css`
+Verification: `src/components/document-editor/document-find-bar.test.tsx`, `e2e/search.spec.ts`
 
 ## DOCE-SEARCH-3 - The search pane
 
@@ -52,9 +52,9 @@ Verification: `src/engine/search.test.ts`
 
 ### DOCE-SEARCH-3.2 - The pane
 
-`DocumentSearchPane`, inside an editor or given its context, shall search the document as the base library's `SearchPane`: the query with matching case and whole words, the results with their heading as label, the current one selected in the document as the reader steps or picks one, and, while the writer can edit, Replace, disabled on a locked match, and Replace all; closing it clears the search.
+`DocumentSearchPane`, inside an editor or given its context, shall search the document as the base library's `SearchPane`: the query with matching case and whole words, the results with their heading as label, the current one selected in the document as the reader steps or picks one, and, while the writer can edit, Replace, disabled on a locked match, and Replace all; closing it clears the search. Its query and options are the search plugin's, the same search the find bar shows.
 
-Implementation: `src/components/document-panels/document-search-pane.tsx`
+Implementation: `src/components/document-panels/document-search-pane.tsx`, `src/utils/search-options.ts`
 Verification: `e2e/document-panels.spec.ts`
 
 ## Hooks

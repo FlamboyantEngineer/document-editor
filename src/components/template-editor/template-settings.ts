@@ -38,6 +38,8 @@ export interface TemplateSetting {
   readonly keywords?: readonly string[];
   /** A short caption under the field. */
   readonly hint?: string;
+  /** Whether only the document's settings may set it, never a section's. */
+  readonly documentOnly?: boolean;
 }
 
 /** A section of the template editor: its settings, below a scope of the template. */
@@ -223,11 +225,14 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Footnotes',
     scope: ['footnotes'],
     settings: [
-      setting(
-        'numbering',
-        'Numbering',
-        select(['document', 'Through the document'], ['page', 'On each page']),
-      ),
+      {
+        ...setting(
+          'numbering',
+          'Numbering',
+          select(['document', 'Through the document'], ['page', 'On each page']),
+        ),
+        documentOnly: true,
+      },
       setting('separator.enabled', 'Separator line', boolean),
       setting('separator.color', 'Separator colour', color),
       setting('spacingToContent', 'Space above', length),
@@ -298,14 +303,13 @@ function withValue(target: Settings, path: readonly string[], value: unknown): S
 }
 
 /**
- * A template with a setting changed: null, undefined or an empty string inherits it from the
- * parent again.
+ * A template with a setting changed: null or undefined inherits it from the parent again, and an
+ * empty string is the template's own empty value.
  */
 export function withSetting(
   template: TemplateFile,
   path: readonly string[],
   value: unknown,
 ): TemplateFile {
-  const own = value === '' ? null : value;
-  return withValue(template as unknown as Settings, path, own) as unknown as TemplateFile;
+  return withValue(template as unknown as Settings, path, value) as unknown as TemplateFile;
 }

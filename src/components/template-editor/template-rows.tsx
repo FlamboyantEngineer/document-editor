@@ -37,6 +37,7 @@ export function rows(
         onChange={(value) => target.set(path, value)}
         inheritedLabel={labels.inherited}
         inheritedFrom={target.source}
+        useInheritedLabel={labels.useInherited}
         fonts={props.fonts ?? DEFAULT_FONTS}
         isDisabled={props.isDisabled}
       />

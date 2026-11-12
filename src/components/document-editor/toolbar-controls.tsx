@@ -22,7 +22,7 @@ import {
 import { GridSizePicker } from '@flamboyantengineer/ui-components/grid-size-picker';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
-import { setBlockType, toggleMark } from 'prosemirror-commands';
+import { toggleMark } from 'prosemirror-commands';
 import { redo, undo } from 'prosemirror-history';
 import type { MarkType, NodeType, Schema } from 'prosemirror-model';
 import { liftListItem } from 'prosemirror-schema-list';
@@ -33,6 +33,7 @@ import {
   insertPageBreak,
   insertTable,
   setCustomStyle,
+  setTextblockType,
   wrapInListAndJoin,
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -134,7 +135,7 @@ function BlockStyleSelect({
             id: 'paragraph',
             label: labels.paragraph,
             shortcut: 'Ctrl+Shift+0',
-            command: setBlockType(paragraph),
+            command: setTextblockType(paragraph),
           },
         ]
       : []),
@@ -143,7 +144,7 @@ function BlockStyleSelect({
           id: `heading-${String(level)}`,
           label: labels.heading(level),
           shortcut: `Ctrl+Shift+${String(level)}`,
-          command: setBlockType(heading, { level }),
+          command: setTextblockType(heading, { level }),
         }))
       : []),
     ...customStyles.map((name) => ({
