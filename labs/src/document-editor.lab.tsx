@@ -92,6 +92,8 @@ function initialState(): EditorState {
         template: () => TEMPLATE,
         author: () => 'lab',
         isLocked: isLockedParagraph,
+        // A host's remapping: strikethrough moves from Mod-Shift-S.
+        shortcuts: { strikethrough: 'Mod-Shift-x' },
       }),
     ],
   });

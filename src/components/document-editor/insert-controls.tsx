@@ -38,6 +38,9 @@ import {
   setFigure,
   setLink,
   setLinkedCode,
+  shortcutLabel,
+  shortcutsOf,
+  type ShortcutTable,
 } from '../../engine/index.js';
 import { DEFAULT_CONTENTS_KINDS, type TemplateFile } from '../../model/index.js';
 import type { EditorContext } from './editor-context.js';
@@ -138,7 +141,10 @@ function codeEntries(context: EditorContext, linkedCode: boolean): MenuEntry[] {
   const { labels } = context;
   const linked = setLinkedCode({ url: '', code: '' });
   return [
-    entry(context, { id: 'code-block', label: labels.codeBlock }, insertCodeBlock()),
+    {
+      ...entry(context, { id: 'code-block', label: labels.codeBlock }, insertCodeBlock()),
+      shortcut: shortcutLabel(shortcutsOf(context.state), 'code-block'),
+    },
     ...(linkedCode
       ? [
           {
@@ -192,7 +198,11 @@ const sectionItem = (labels: DocumentEditorLabels, features: InsertFeatures): To
 });
 
 // The items for what the host provides: abbreviations from its glossary and scripts it runs.
-function hostItems(labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem[] {
+function hostItems(
+  labels: DocumentEditorLabels,
+  features: InsertFeatures,
+  shortcuts: ShortcutTable,
+): ToolbarItem[] {
   return [
     ...(features.glossary
       ? [
@@ -216,6 +226,7 @@ function hostItems(labels: DocumentEditorLabels, features: InsertFeatures): Tool
             id: 'script',
             label: labels.script,
             icon: TerminalGlyph,
+            shortcut: shortcutLabel(shortcuts, 'script'),
             run: (context: EditorContext) => context.openDialog({ kind: 'script' }),
             isEnabled: (context: EditorContext) =>
               can(context, insertScriptBlock('')) && !scriptBlockAt(context.state),
@@ -226,14 +237,18 @@ function hostItems(labels: DocumentEditorLabels, features: InsertFeatures): Tool
 }
 
 /** The insert group's items after the table and the page break. */
-export function insertItems(labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem[] {
+export function insertItems(
+  labels: DocumentEditorLabels,
+  features: InsertFeatures,
+  shortcuts: ShortcutTable,
+): ToolbarItem[] {
   return [
     {
       kind: 'button',
       id: 'footnote',
       label: labels.footnote,
       icon: FootnoteGlyph,
-      shortcut: 'Ctrl+Alt+F',
+      shortcut: shortcutLabel(shortcuts, 'footnote'),
       run: (context) => context.run(insertFootnote()),
       isEnabled: (context) => can(context, insertFootnote()),
     },
@@ -277,7 +292,7 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
         {
           id: 'internal-reference',
           label: labels.internalReference,
-          shortcut: 'Ctrl+K',
+          shortcut: shortcutLabel(shortcuts, 'reference'),
           onAction: () => context.openDialog({ kind: 'reference', reference: 'internal' }),
         },
         ...(features.references
@@ -291,7 +306,7 @@ export function insertItems(labels: DocumentEditorLabels, features: InsertFeatur
           : []),
       ],
     },
-    ...hostItems(labels, features),
+    ...hostItems(labels, features, shortcuts),
     sectionItem(labels, features),
     {
       kind: 'custom',
