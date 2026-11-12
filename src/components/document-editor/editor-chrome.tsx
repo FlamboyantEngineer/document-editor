@@ -2,8 +2,9 @@
 // and the context menu below it, and Ctrl+wheel or Cmd+wheel stepping the zoom.
 
 import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
+import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type RefObject, useEffect, useMemo } from 'react';
+import { memo, type RefObject, useEffect, useMemo } from 'react';
 import { customStyleNames } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
@@ -18,7 +19,7 @@ import {
   ZOOM_LEVELS,
 } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
-import type { EditorContext, ObjectDialog } from './editor-context.js';
+import { DocumentEditorContext, type EditorContext, type ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
@@ -43,10 +44,49 @@ export interface ChromeProps {
   startCommentRef: RefObject<(() => void) | null>;
   /** Opens the find bar at a box, while the editor has one. */
   openFind?: ((mode?: FindBarMode) => void) | null | undefined;
+  /**
+   * The pages' state while they are a projection of the editor's state, so the chrome follows each
+   * layout as well as each state, such as the status bar's page count.
+   */
+  pages?: EditorState | null | undefined;
 }
 
+/** What the chrome above the document reads. */
+export type TopChromeProps = ChromeProps & {
+  findRequest: FindRequest | null;
+  onFindClose: () => void;
+};
+
+/** What the chrome below the document reads. */
+export type BottomChromeProps = ChromeProps & { openDialog: (dialog: ObjectDialog) => void };
+
+/**
+ * The chrome above the document as it follows the editor: given the editor's values deferred
+ * (`useDeferredValue`), it draws each state in a render after the one that draws the document,
+ * which React may interrupt, and its controls read the editor's context as it draws them
+ * (DOCE-EDITOR-1.7).
+ */
+export const FollowingTopChrome = memo(function FollowingTopChrome(chrome: TopChromeProps) {
+  return (
+    <DocumentEditorContext value={chrome.context}>
+      <TopChrome {...chrome} />
+    </DocumentEditorContext>
+  );
+});
+
+/** The chrome below the document as it follows the editor, as `FollowingTopChrome`. */
+export const FollowingBottomChrome = memo(function FollowingBottomChrome(
+  chrome: BottomChromeProps,
+) {
+  return (
+    <DocumentEditorContext value={chrome.context}>
+      <BottomChrome {...chrome} />
+    </DocumentEditorContext>
+  );
+});
+
 /** The toolbar and the find bar above the document. */
-export function TopChrome({
+function TopChrome({
   props,
   context,
   templateStyle,
@@ -54,10 +94,7 @@ export function TopChrome({
   onFindClose,
   view,
   openFind = null,
-}: ChromeProps & {
-  findRequest: FindRequest | null;
-  onFindClose: () => void;
-}) {
+}: TopChromeProps) {
   const linkedCode = Boolean(props.codeSource);
   const glossary = Boolean(props.glossary);
   const scripts = Boolean(props.scriptRunner);
@@ -126,15 +163,9 @@ export function TopChrome({
   );
 }
 
-/** The status bar below the document, and the context menu. */
-export function BottomChrome({
-  props,
-  context,
-  view,
-  startCommentRef,
-  openDialog,
-}: ChromeProps & { openDialog: (dialog: ObjectDialog) => void }) {
-  const { layout = 'page', editable = true } = props;
+/** The status bar below the document. */
+function BottomChrome({ props, context }: BottomChromeProps) {
+  const { layout = 'page' } = props;
   return (
     <>
       {props.statusBar ? (
@@ -148,21 +179,36 @@ export function BottomChrome({
           onLayoutChange={props.onLayoutChange}
         />
       ) : null}
-      {props.contextMenu === false ? null : (
-        <DocumentContextMenu
-          view={view}
-          labels={context.labels}
-          editable={editable}
-          suggestionPolicy={editorSuggestionPolicy(props)}
-          startCommentRef={startCommentRef}
-          openDialog={openDialog}
-          linkedCode={Boolean(props.codeSource)}
-          codeLanguages={props.codeLanguages}
-          scriptRunner={props.scriptRunner}
-          options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
-        />
-      )}
     </>
+  );
+}
+
+/**
+ * The editor's context menu, on the editor's latest props rather than after them as the rest of the
+ * chrome: it acts on the input that opens it (DOCE-EDITOR-1.7).
+ */
+export function EditorContextMenu({
+  props,
+  context,
+  view,
+  startCommentRef,
+  openDialog,
+}: BottomChromeProps) {
+  const { editable = true } = props;
+  if (props.contextMenu === false) return null;
+  return (
+    <DocumentContextMenu
+      view={view}
+      labels={context.labels}
+      editable={editable}
+      suggestionPolicy={editorSuggestionPolicy(props)}
+      startCommentRef={startCommentRef}
+      openDialog={openDialog}
+      linkedCode={Boolean(props.codeSource)}
+      codeLanguages={props.codeLanguages}
+      scriptRunner={props.scriptRunner}
+      options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
+    />
   );
 }
 

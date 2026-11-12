@@ -2,7 +2,7 @@ import type { Node } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { FRAGMENT_RULES } from '../model/index.js';
+import { FRAGMENT_RULES, joinFragments } from '../model/index.js';
 import { createPageMap, pageMap, showOnPages } from './page-map.js';
 import { createProjectionMap } from './projection-map.js';
 
@@ -140,6 +140,35 @@ describe('page map', () => {
     );
     expect(other.canonical).not.toBe(kept.canonical);
     expect(other.canonical.eq(kept.canonical)).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-7.18 joins pages in pairs into the blocks a join in order gives', () => {
+    const parts = (count: number) =>
+      Array.from({ length: count }, (_, index) =>
+        paragraph({ dataId: 'long', splitPartIndex: index }, `Part${String(index)} `),
+      );
+    const split = parts(5);
+    const rows = [0, 1, 2].map((part) =>
+      table(part, row('table_header', 'Name'), row('table_cell', `Row${String(part)}`)),
+    );
+    const blocks = [
+      [paragraph({ dataId: 'a' }, 'Lead'), split[0]],
+      [split[1]],
+      [split[2], rows[0]],
+      [rows[1]],
+      [rows[2], split[3]],
+      [split[4], paragraph({ dataId: 'z' }, 'End')],
+    ].map((on) => on.filter((block): block is Node => Boolean(block)));
+    const doc = create('doc', null, [section('Body', ...blocks.map((on) => page(on)))]);
+    const map = createPageMap(doc);
+    const content = map.canonical.child(0).child(0).child(1);
+    const expected = joinFragments(blocks.flat());
+    expect(content.childCount).toBe(expected.length);
+    expected.forEach((block, index) => expect(content.child(index).eq(block)).toBe(true));
+    for (const text of ['Lead', 'Part3', 'Row1', 'End']) {
+      const at = positionOf(doc, text);
+      expect(textAt(map.canonical, map.toCanonical(at))).toBe(text.slice(0, 4));
+    }
   });
 
   it('DOCE-PAGINATION-7.18 keeps the pages a document was shown on with its positions', () => {

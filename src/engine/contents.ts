@@ -22,6 +22,7 @@ import {
   type TemplateFile,
 } from '../model/index.js';
 import { type PageMap, pageMap } from '../pagination/page-map.js';
+import { hasContents } from './contents-presence.js';
 
 /** A list's title, and what it shows when it lists nothing. */
 export interface ContentsLabels {
@@ -121,9 +122,21 @@ function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog, kinds: Kinds):
   return DecorationSet.create(doc, decorations);
 }
 
+// The plugin state of a document, its catalog and rows made once read, and no rows to draw in a
+// document that holds no list, so a keystroke does not count the whole document (DOCE-CONTENTS-2.7).
 function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): ContentsState {
-  const catalog = catalogDocument(doc, template, kinds.all);
-  return { catalog, decorations: decorate(doc, catalog, kinds) };
+  let catalog: DocumentCatalog | null = null;
+  let decorations: DecorationSet | null = null;
+  const catalogued = () => (catalog ??= catalogDocument(doc, template, kinds.all));
+  return {
+    get catalog() {
+      return catalogued();
+    },
+    get decorations() {
+      decorations ??= hasContents(doc) ? decorate(doc, catalogued(), kinds) : DecorationSet.empty;
+      return decorations;
+    },
+  };
 }
 
 // The rows a plugin state draws, each entry on the page the layout shows it on, once for each
@@ -131,6 +144,7 @@ function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): Co
 const onLayout = new WeakMap<ContentsState, { map: PageMap; set: DecorationSet }>();
 
 function pagedDecorations(state: EditorState, value: ContentsState, kinds: Kinds): DecorationSet {
+  if (!hasContents(state.doc)) return DecorationSet.empty;
   const map = pageMap(state);
   const cached = onLayout.get(value);
   if (cached?.map === map) return cached.set;

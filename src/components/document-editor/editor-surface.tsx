@@ -9,8 +9,14 @@ import type { LayoutState } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentBanners } from './banners.js';
 import type { DocumentEditorProps } from './document-editor.js';
-import type { FindRequest } from './document-find-bar.js';
-import { BottomChrome, type ChromeProps, TopChrome } from './editor-chrome.js';
+import {
+  type BottomChromeProps,
+  type ChromeProps,
+  EditorContextMenu,
+  FollowingBottomChrome,
+  FollowingTopChrome,
+  type TopChromeProps,
+} from './editor-chrome.js';
 import type { ObjectDialog } from './editor-context.js';
 import { DocumentOverview, type DocumentOverviewOptions } from './editor-overview.js';
 
@@ -21,9 +27,9 @@ const NO_OVERVIEW_OPTIONS: DocumentOverviewOptions = {};
 /** What the surface shows around the document. */
 export interface EditorSurfaceProps {
   readonly chrome: ChromeProps;
+  /** The chrome's values as it follows the editor, deferred (DOCE-EDITOR-1.7). */
+  readonly following: { readonly top: TopChromeProps; readonly bottom: BottomChromeProps };
   readonly root: RefObject<HTMLElement | null>;
-  readonly findRequest: FindRequest | null;
-  readonly onFindClose: () => void;
   readonly openDialog: (dialog: ObjectDialog) => void;
   /** The template's font families that did not load. */
   readonly missingFonts: readonly string[];
@@ -85,9 +91,8 @@ function SurfaceContent({
 /** The chrome, the banners and the document, in its frame while the editor scrolls it. */
 export function EditorSurface({
   chrome,
+  following,
   root,
-  findRequest,
-  onFindClose,
   openDialog,
   missingFonts,
   layoutState,
@@ -103,7 +108,7 @@ export function EditorSurface({
   );
   return (
     <Announcer>
-      <TopChrome {...chrome} findRequest={findRequest} onFindClose={onFindClose} />
+      <FollowingTopChrome {...following.top} />
       <DocumentBanners
         root={root}
         view={view}
@@ -140,7 +145,8 @@ export function EditorSurface({
           content
         )}
       </Workspace>
-      <BottomChrome {...chrome} openDialog={openDialog} />
+      <FollowingBottomChrome {...following.bottom} />
+      <EditorContextMenu {...chrome} openDialog={openDialog} />
     </Announcer>
   );
 }

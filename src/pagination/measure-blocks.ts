@@ -15,6 +15,7 @@ import type {
   TextMeasure,
   TextMeasurement,
 } from '../model/index.js';
+import { childElement, elementOf } from './block-elements.js';
 
 /** Measured blocks kept by node, so a block that has not changed is not measured again. */
 export interface MeasureCache {
@@ -166,11 +167,6 @@ interface Measuring {
   readonly scale: number;
   readonly placement: Placement;
   readonly rules: LayoutRules | undefined;
-}
-
-function elementOf(view: EditorView, pos: number): HTMLElement | null {
-  const dom = view.nodeDOM(pos);
-  return dom && dom.nodeType === 1 ? (dom as HTMLElement) : null;
 }
 
 function px(value: string): number {
@@ -331,9 +327,16 @@ export function measureBlock(
   options: MeasureOptions = {},
 ): LayoutBlock | null {
   const node = view.state.doc.nodeAt(pos);
-  if (!node) return null;
-  const element = elementOf(view, pos);
-  if (!element) return null;
+  const element = node ? elementOf(view, pos) : null;
+  return node && element ? measureDrawn(view, { node, pos, element }, options) : null;
+}
+
+// A block drawn as an element, measured or taken from the cache.
+function measureDrawn(
+  view: EditorView,
+  { node, pos, element }: { node: ProseMirrorNode; pos: number; element: HTMLElement },
+  options: MeasureOptions,
+): LayoutBlock {
   const cached = cachedBlock(options.cache, node, { pos, element });
   if (cached) return cached;
   const scale = options.scale && options.scale > 0 ? options.scale : 1;
@@ -363,9 +366,11 @@ export function measureChildBlocks(
 ): LayoutBlock[] {
   const parent = view.state.doc.nodeAt(pos);
   const blocks: LayoutBlock[] = [];
-  parent?.forEach((_child, offset) => {
-    const block = measureBlock(view, pos + 1 + offset, options);
-    if (block) blocks.push(block);
+  let element: HTMLElement | null = null;
+  parent?.forEach((node, offset) => {
+    const at = pos + 1 + offset;
+    element = childElement(view, element, { node, pos: at });
+    if (element) blocks.push(measureDrawn(view, { node, pos: at, element }, options));
   });
   return blocks;
 }

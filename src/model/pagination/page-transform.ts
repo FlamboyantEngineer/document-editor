@@ -75,8 +75,13 @@ export function joinSectionPages(
   const section = tr.doc.nodeAt(sectionPos);
   if (section?.type.name !== 'page_section') return;
   const last = Math.min(to ?? section.childCount - 1, section.childCount - 1);
-  for (let index = last; index > from; index -= 1) {
-    if (!mergeIntoPrevious(tr, sectionPos, index)) return;
+  // Pages join in pairs, round after round, so each block is copied into a joined page a number of
+  // times that grows with the log of the pages rather than with the pages. Within a round the later
+  // pairs join first, so the earlier pages stay put.
+  for (let count = last - from + 1; count > 1; count = Math.ceil(count / 2)) {
+    for (let offset = count % 2 === 0 ? count - 1 : count - 2; offset >= 1; offset -= 2) {
+      if (!mergeIntoPrevious(tr, sectionPos, from + offset)) return;
+    }
   }
   const page = pageAt(tr, sectionPos, from);
   const contentPos = page ? regionStarts(page.page, page.pos).get('page_content') : undefined;

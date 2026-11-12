@@ -16,6 +16,7 @@ import {
   type ReactNode,
   type Ref,
   type RefObject,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -391,7 +392,11 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useLayoutEffect(() => {
     editorContext.current = context;
   }, [context]);
-  const chrome = { props, context, view, templateStyle, startCommentRef, openFind };
+  const pages = progress.paged?.state ?? null;
+  const chrome = { props, context, view, templateStyle, startCommentRef, openFind, pages };
+  // The chrome follows each state after the pages show it (DOCE-EDITOR-1.7).
+  const top = useDeferredValue({ ...chrome, findRequest: find.request, onFindClose: find.close });
+  const bottom = useDeferredValue({ ...chrome, openDialog: setDialog });
   const body = (
     <EditorBody
       props={props}
@@ -417,9 +422,8 @@ export function DocumentEditor(given: DocumentEditorProps) {
         ) : null}
         <EditorSurface
           chrome={chrome}
+          following={{ top, bottom }}
           root={root}
-          findRequest={find.request}
-          onFindClose={find.close}
           openDialog={setDialog}
           missingFonts={missingFonts}
           layoutState={layoutState}

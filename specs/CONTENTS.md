@@ -90,6 +90,13 @@ A kind may give each entry's row an element id (`anchor`), so links to it resolv
 Implementation: `src/model/contents/document-catalog.ts`, `src/engine/contents.ts`
 Verification: `src/engine/contents.test.ts`
 
+### DOCE-CONTENTS-2.7 - Contents on each keystroke
+
+The contents plugin shall catalog a document only once its catalog or its lists' rows are read, and a document that holds no list of contents (`toc_block`) shall draw no rows and catalog nothing for its decorations, so typing in a long document without a list does not count the whole document on each keystroke. Whether a document holds a list shall be found again only below the nodes an edit replaced.
+
+Implementation: `src/engine/contents.ts`, `src/engine/contents-presence.ts`
+Verification: `src/engine/contents.test.ts`
+
 ## Hooks
 
 | Hook                  | Kind      | Values                                                                               | Description                                     |

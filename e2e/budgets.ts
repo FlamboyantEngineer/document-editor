@@ -147,12 +147,15 @@ export async function openScale(lab: LabFixture, page: Page, size: number) {
 const stats = (page: Page) =>
   page.evaluate(() => window.stressLab.layoutStats()) as Promise<PaginationStats>;
 
-// Waits for the pages to settle after a change: a moment for the change to reach the editor, then
-// its layout state.
+// Waits for the pages to settle after a change: a moment for the change to reach the editor, its
+// layout state, then an idle moment and a frame for the chrome, which follows the document a render
+// later (DOCE-EDITOR-1.7), to draw it.
 const settle = (page: Page) =>
   page.evaluate(async () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
-    return window.stressLab.whenSettled();
+    await window.stressLab.whenSettled();
+    await new Promise((resolve) => requestIdleCallback(resolve, { timeout: 1000 }));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
   });
 
 function difference(after: PaginationStats, before: PaginationStats): PaginationStats {
