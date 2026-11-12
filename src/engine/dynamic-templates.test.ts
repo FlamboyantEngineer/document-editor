@@ -19,7 +19,7 @@ function viewOf(content: StoredNode[], value: (key: string) => string | null) {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
-  );
+  ).doc;
   return new EditorView(document.createElement('div'), {
     state: EditorState.create({ doc, plugins: [createDynamicTemplates({ value })] }),
   });
@@ -78,7 +78,7 @@ describe('template blocks', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const keys: string[][] = [];
     doc.descendants((node) => {
       if (node.type.name === 'dynamic_template') keys.push(templateBlockKeys(node));

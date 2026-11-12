@@ -39,7 +39,7 @@ const TEMPLATE: TemplateFile = {
 };
 
 function documentOf(...sections: { name: string | null; content: StoredNode[] }[]) {
-  return readDocumentFile({ formatVersion: 1, sections }, documentSchema);
+  return readDocumentFile({ formatVersion: 1, sections }, documentSchema).doc;
 }
 
 const numbersOf = (doc: ReturnType<typeof documentOf>, template = TEMPLATE) =>
