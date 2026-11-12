@@ -63,6 +63,14 @@ function pattern(query: string, { caseSensitive, wholeWord }: SearchOptions): Re
   return new RegExp(body, caseSensitive ? 'gu' : 'giu');
 }
 
+// The text a child of a text block reads as: its text, an inline atom's text (`leafText`) such as
+// a value it shows, or one object character for another node, which a match then covers whole.
+function readText(child: ProseMirrorNode): string {
+  if (child.isText) return child.text ?? '';
+  const leafText = child.type.spec.leafText?.(child);
+  return leafText || '￼';
+}
+
 // Each match of a pattern in the document's text blocks.
 function findMatches(doc: ProseMirrorNode, regexp: RegExp | null): SearchMatch[] {
   if (!regexp) return [];
@@ -73,9 +81,11 @@ function findMatches(doc: ProseMirrorNode, regexp: RegExp | null): SearchMatch[]
     let text = '';
     const positions: number[] = [];
     node.forEach((child, offset) => {
-      const length = child.isText ? (child.text?.length ?? 0) : 1;
-      text += child.isText ? (child.text ?? '') : '￼';
-      for (let index = 0; index < length; index += 1) positions.push(pos + 1 + offset + index);
+      const read = readText(child);
+      text += read;
+      for (let index = 0; index < read.length; index += 1) {
+        positions.push(pos + 1 + offset + (child.isText ? index : 0));
+      }
     });
     for (const match of text.matchAll(regexp)) {
       const first = positions[match.index];

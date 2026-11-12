@@ -22,12 +22,14 @@ Verification: `src/model/schema/document-schema.test.ts`
 
 Every node type, a host's included, shall carry the element attributes (DOCE-SCHEMA-2). A host extension's `refineNode` and `refineMark` shall run after the built-in refinements, so a host adds attributes, parse rules or output of its own to a built-in type, such as an attribute of tables, and its refinement sees the element attributes.
 
-Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/document-schema.ts`
-Verification: `src/model/schema/document-schema.test.ts`
+A host's domain nodes follow one recipe. A refinement of a built-in type keeps what the host knows of its content, such as the source and snapshot a table was filled from, as attributes of its own. An inline atom that shows a value, such as one value of an enumerated set, gives its text as `leafText`, and search (DOCE-SEARCH-1.1), proofing (DOCE-PROOFING-1.1) and the catalog (DOCE-CONTENTS-1.1) read it as that text. A host type and a host attribute are stored under the names its extension gives them, so those names are the host's stored contract.
+
+Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/document-schema.ts`, `src/engine/search.ts`, `src/engine/proofing-text.ts`
+Verification: `src/model/schema/document-schema.test.ts`, `src/engine/host-domain-recipe.test.ts`
 
 ### DOCE-SCHEMA-1.4 - Host presentation
 
-`DocumentSchemaOptions` shall hold the host's choices for the rendered output: `tooltipAttribute`, the attribute a tooltip text is written to and read from before `title` (default `title`); `mentionClass`, the class of a rendered mention (default `de-mention`); `headerPlaceholder` and `footerPlaceholder`, the text a page header or footer holds until its template sets one; `assetPreviewUrl(fileAssetId, snapshotId)`, the address a stored asset is previewed at (default none); and `referenceTypes`, the host's own external reference types, whose references write their format key (DOCE-SCHEMA-4.1).
+`DocumentSchemaOptions` shall hold the host's choices for the rendered output: `tooltipAttribute`, the attribute a tooltip text is written to and read from before `title` (default `title`); `mentionClass`, the class of a rendered mention (default `de-mention`); `headerPlaceholder` and `footerPlaceholder`, the text a page header or footer holds until its template sets one; `assetPreviewUrl(fileAssetId, snapshotId, { asOf })`, the address a stored asset is previewed at (default none), as of `assetsAsOf()`, the time the document shows its assets as of (default null, now); and `referenceTypes`, the host's own external reference types, whose references write their format key (DOCE-SCHEMA-4.1).
 
 Implementation: `src/model/schema/schema-options.ts`, `src/model/schema/marks.ts`, `src/model/schema/inline-atom-nodes.ts`, `src/model/schema/reference-mark.ts`
 Verification: `src/model/schema/document-schema.test.ts`, `src/model/schema/page-nodes.test.ts`, `src/model/schema/figure-nodes.test.ts`, `src/model/schema/marks.test.ts`
