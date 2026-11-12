@@ -44,6 +44,7 @@ import {
   wrapInListAndJoin,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
+import { createEmbeds } from './embeds.js';
 import { createFootnotes, insertFootnote } from './footnotes.js';
 import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
@@ -230,11 +231,12 @@ const tableWidth = (template: () => TemplateFile) => ({
 const numbersInOrder = (template: (() => TemplateFile) | undefined) => () =>
   !template || resolveFootnoteSettings(template(), null).numbering !== 'page';
 
-// The object plugins, which take no options: math, object views and scripts.
+// The object plugins, which take no options: math, object views, scripts and embeds.
 const OBJECT_PLUGINS: readonly RichTextPluginContribution[] = [
   { name: 'math-views', priority: 500, build: () => [createMathViews()] },
   { name: 'object-views', priority: 505, build: () => [createObjectViews()] },
   { name: 'scripts', priority: 512, build: () => [createScripts()] },
+  { name: 'embeds', priority: 513, build: () => [createEmbeds()] },
 ];
 
 // Numbered paragraphs, when given the template, after the custom styles.

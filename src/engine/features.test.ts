@@ -26,6 +26,7 @@ const EDITING_KEYS = [
   'object-views',
   'clipboard',
   'scripts',
+  'embeds',
 ];
 // Column resizing, cell selection, the table pointer and the table keys.
 const TABLE_KEYS = ['table-column-resize', 'selectingCells', 'table-pointer', 'plugin'];

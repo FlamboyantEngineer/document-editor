@@ -15,6 +15,7 @@ import {
   createDynamicTemplates,
   createRegionEditing,
   createSearch,
+  createSectionFootnoteNumbers,
   createVersionChanges,
   documentSectionsKey,
   proofingKey,
@@ -22,6 +23,7 @@ import {
   refreshVersionChanges,
   type RegionChange,
   searchKey,
+  sectionFootnoteNumbersKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
 import type { VariablesAdapter } from '../../host/index.js';
@@ -54,6 +56,11 @@ function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
     createPageDebug({ shown: () => latest.current.debug ?? {} }),
     createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
     createDynamicTemplates({ value: (key) => latest.current.variables?.value(key) }),
+    createSectionFootnoteNumbers({
+      enabled: () =>
+        latest.current.layout === 'web' &&
+        resolveFootnoteSettings(latest.current.template, null).numbering === 'page',
+    }),
     createSearch(),
     createAuthorship(),
     createRegionEditing({
@@ -150,7 +157,12 @@ function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
 
 // A state with its sections shown in the template again, out of the history.
 const restyleSections = (state: EditorState) =>
-  state.apply(state.tr.setMeta(documentSectionsKey, true).setMeta('addToHistory', false));
+  state.apply(
+    state.tr
+      .setMeta(documentSectionsKey, true)
+      .setMeta(sectionFootnoteNumbersKey, true)
+      .setMeta('addToHistory', false),
+  );
 
 // A state compared with the older version again, out of the history.
 const recompare = (state: EditorState) => state.apply(refreshVersionChanges(state.tr));
@@ -178,11 +190,11 @@ function useHostVariables(options: DocumentLayoutOptions, refresh: RefObject<(()
   }, [variables, refresh]);
 }
 
-// A state with each section's pages joined into one, out of the history.
+// A state with each section's pages joined into one and its footnotes numbered for it, out of the
+// history.
 function joinPages(state: EditorState): EditorState {
   const join = joinDocumentPages(state.doc);
-  if (!join.steps.length) return state;
-  const tr = state.tr;
+  const tr = state.tr.setMeta(sectionFootnoteNumbersKey, true);
   for (const step of join.steps) tr.step(step);
   return state.apply(tr.setMeta('addToHistory', false));
 }

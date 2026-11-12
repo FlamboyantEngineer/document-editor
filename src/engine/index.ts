@@ -134,7 +134,31 @@ export {
   repairElementIds,
 } from './element-ids.js';
 export { clearCopiedIdentity } from './element-ids.js';
+export type { EmbedStatus, EmbedStatusOptions } from './embed-status.js';
+export {
+  applyEmbedUpdate,
+  createEmbedStatus,
+  embedSourceKey,
+  embedStatus,
+  embedStatusAt,
+  pasteEmbedsOfKinds,
+  refreshEmbedStatus,
+  resolveEmbeds,
+  updateEmbed,
+} from './embed-status.js';
+export type { EmbedAt } from './embeds.js';
+export {
+  createEmbedNode,
+  createEmbeds,
+  embedAt,
+  embedsKey,
+  insertEmbed,
+  listEmbeds,
+  touchesEmbed,
+  unwrapPastedEmbeds,
+} from './embeds.js';
 export * from './features.js';
+export type { FootnoteNumbering } from './footnote-model.js';
 export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
 export {
@@ -193,6 +217,11 @@ export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
 export { revealRange, selectionAddress } from './reveal.js';
+export type { SectionFootnoteNumbersOptions } from './section-footnote-numbers.js';
+export {
+  createSectionFootnoteNumbers,
+  sectionFootnoteNumbersKey,
+} from './section-footnote-numbers.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

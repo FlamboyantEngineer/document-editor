@@ -55,6 +55,15 @@ Verification: `src/engine/footnote-marks.test.ts`
 Implementation: `src/engine/footnote-paste.ts`
 Verification: `src/engine/footnote-paste.test.ts`
 
+## DOCE-FOOTNOTES-2 - Numbering in a layout without pages
+
+### DOCE-FOOTNOTES-2.1 - Numbers in each section
+
+`numberFootnotes(tr, { restartEach: 'section' })` shall number the footnotes from 1 in each section, in marker order, reading the sections through the document structure (`documentSections`), never pages. `createSectionFootnoteNumbers({ enabled })` shall number them so after each change that is not only typing, and after a transaction with `sectionFootnoteNumbersKey` meta, out of the undo history, while `enabled` says so. `DocumentEditor` shall enable it in the web layout of a template that numbers footnotes on each page, where each section is one page and no pagination numbers them, and number them again when it enters the web layout or the template changes; on pages the pagination numbers them on each page.
+
+Implementation: `src/engine/footnote-model.ts`, `src/engine/section-footnote-numbers.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/engine/footnotes.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+
 ## Hooks
 
 | Hook               | Kind      | Values            | Description                                                                  |

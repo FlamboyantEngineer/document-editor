@@ -1055,6 +1055,30 @@
   }
 }
 
+/* An embed: the host's content, marked on the screen as locked; changed, gone or out of reach. */
+.de-embed {
+  position: relative;
+  outline: 1px solid #94a3b8;
+  outline-offset: 2px;
+}
+
+.de-embed[data-embed-status='update'] {
+  outline-color: #b45309;
+}
+
+.de-embed[data-embed-status='unavailable'],
+.de-embed[data-embed-status='no-access'] {
+  outline-color: #b91c1c;
+  opacity: 0.7;
+}
+
+@media print {
+  .de-embed {
+    outline: none;
+    opacity: 1;
+  }
+}
+
 /* A reference whose document is gone, or has changed since it was cited. */
 [data-reference-status='unavailable'] {
   text-decoration: line-through;

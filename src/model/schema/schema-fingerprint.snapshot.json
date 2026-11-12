@@ -934,6 +934,29 @@
         "defaults": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\"></span>",
         "filled": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></span>"
       }
+    },
+    {
+      "name": "embed",
+      "ordinal": 40,
+      "group": "block",
+      "content": "(paragraph | heading | bullet_list | ordered_list | table | figure | math_display | code_block | horizontal_rule)+",
+      "marks": null,
+      "flags": { "isolating": true },
+      "attrs": {
+        "kind": { "default": "", "validate": "string" },
+        "source": { "default": "", "validate": "string" },
+        "snapshot": { "default": null },
+        "label": { "default": "", "validate": "string" },
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [{ "tag": "div[data-embed-kind]", "getAttrs": "function" }],
+      "toDOM": {
+        "defaults": "<div class=\"de-embed\" data-embed-kind=\"\" data-embed-source=\"\" data-embed-label=\"\"></div>",
+        "filled": "<div class=\"de-embed\" data-embed-kind=\"sample-kind\" data-embed-source=\"sample-source\" data-embed-label=\"sample-label\" data-embed-snapshot=\"sample-snapshot\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
+      }
     }
   ],
   "marks": [
