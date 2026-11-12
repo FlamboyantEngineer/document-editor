@@ -170,6 +170,13 @@ A shared room shall hold the canonical whole-document state in the top-level typ
 Implementation: `docs/collaboration.md`
 Verification: `test/shared-room-rules.test.ts`
 
+### DOCE-COLLAB-6.2 - Seeds and server reads
+
+`documentToYjs(file, { schema })` shall give the Yjs update that builds a room holding a stored document, its content in `content` and its format version and template pin in `meta`, each element without its own valid id given one as the editor gives it on opening (`newId`, random by default); `writeRoomDocument` shall write the same into a Yjs document that holds no document yet and refuse one that does. `yjsToDocument(update, { schema })` and `readRoomDocument` shall give back the stored document a room holds, or `null` for a room without one, and refuse a room of another format version. Both shall run without a DOM, and every document of the regression set shall come back as the editor opens it.
+
+Implementation: `src/collab/convert.ts`
+Verification: `src/collab/convert.test.ts`
+
 ## Hooks
 
 | Hook                       | Kind      | Values                                                                           | Description                                                   |
