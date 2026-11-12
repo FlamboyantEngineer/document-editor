@@ -32,6 +32,13 @@ The browser reports a click's or a key's new caret a moment after it moves. Befo
 Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/pagination/pagination.ts`, `src/engine/proofing.ts`
 Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`, `e2e/references.spec.ts`
 
+### DOCE-EDITOR-1.5 - A hidden editor
+
+While `active` is false, such as for an editor in a background tab, the editor shall keep showing the state it last showed while active, so it lays out, measures and proofs no change it is given; once active again it shall show the latest state. `active` defaults to true.
+
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`
+
 ## DOCE-EDITOR-2 - Layouts in the browser
 
 ### DOCE-EDITOR-2.1 - Editing on pages
@@ -261,10 +268,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.1 - Notifications
 
-The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`).
+The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids.
 
-Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/document-editor.test.tsx`
 
 ### DOCE-EDITOR-6.2 - The host's keys
 

@@ -24,6 +24,7 @@ export type {
   DocumentMenubarOptions,
   DocumentToolbarOptions,
   EditorContext,
+  FindBarMode,
   HostDialogProps,
   ObjectDialog,
   ToolbarButtonItem,
@@ -34,8 +35,10 @@ export type {
   ToolbarOverflow,
 } from './document-editor/index.js';
 export type { ChangeBar } from './document-editor/index.js';
+export type { ContentChangeCause } from './document-editor/index.js';
 export {
   CODE_LANGUAGES,
+  contentChangeCause,
   CONTEXT_MENU_GROUPS,
   DEFAULT_EDITOR_LABELS,
   DEFAULT_SYMBOLS,
@@ -65,6 +68,15 @@ export {
   DocumentSearchPane,
   DocumentSidePanel,
 } from './document-panels/index.js';
+export type {
+  DocumentSessionBoundaryProps,
+  DocumentSessionEditorProps,
+} from './document-session/index.js';
+export {
+  DocumentSessionBoundary,
+  useDocumentSession,
+  useSessionValue,
+} from './document-session/index.js';
 export type {
   SettingKind,
   TemplateEditorLabels,

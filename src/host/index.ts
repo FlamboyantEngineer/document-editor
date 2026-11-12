@@ -19,11 +19,6 @@ export type {
   HostResult,
   IdentityAdapter,
   PermissionsAdapter,
-  ProoferAdapter,
-  ProofingIssue,
-  ProofingKind,
-  ProofingLanguage,
-  ProofingText,
   ReferenceSourceAdapter,
   ResolvedCode,
   SavedState,
@@ -71,8 +66,16 @@ export type {
 } from './comment-adapters.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
-export type { MemoryHostOptions } from './memory-host.js';
+export type { MemoryHost, MemoryHostOptions } from './memory-host.js';
 export { createMemoryHost } from './memory-host.js';
+export type { MemoryHostControls, MemoryRequest } from './memory-session.js';
+export type {
+  ProoferAdapter,
+  ProofingIssue,
+  ProofingKind,
+  ProofingLanguage,
+  ProofingText,
+} from './proofing-adapters.js';
 export type {
   CollaborationAdapter,
   DocumentDraft,
