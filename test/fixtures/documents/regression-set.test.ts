@@ -1,8 +1,8 @@
 // @vitest-environment node
 // The regression set: generic stored documents and the templates they use, read from disk. Each
 // document must read and write back to the same bytes, use a template of the set and only its
-// sections, and give each element id it holds as a unique 8-digit hexadecimal string. Empty
-// paragraphs and a locked section's template content carry none.
+// sections, and give each element id it holds as a unique 8-digit hexadecimal string. A
+// locked section's template content carries none.
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

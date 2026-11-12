@@ -8,7 +8,7 @@ Generic stored documents (`DocumentFile`, [FORMAT.md](../../../specs/FORMAT.md))
 
 - Write new text. Never copy a host application's documents, names or terms; `npm run check:references` scans these files.
 - Store each file as the writer writes it: attributes at their default left out, adjacent text with the same marks joined, attributes and marks in schema order, formatted by Prettier. The round-trip test fails on anything else.
-- Give each element an id of 8 lower-case hexadecimal digits, unique within its document. Empty paragraphs and a locked section's template content may go without one.
+- Give each element an id of 8 lower-case hexadecimal digits, unique within its document. A locked section's template content goes without one.
 - Add a line below for each new document.
 
 ## Templates
@@ -33,7 +33,7 @@ Generic stored documents (`DocumentFile`, [FORMAT.md](../../../specs/FORMAT.md))
 | `comments-and-suggestions`          | `regression-base`           | Open and resolved comments, insertions, deletions, overlapping marks and a paragraph split by a suggestion.                |
 | `contents-lists`                    | `regression-base`           | Lists of contents, figures and tables, with depth and reference filters, and the entries they list.                        |
 | `cross-references`                  | `regression-base`           | References to a heading, figure, table, code block and equation, and a broken reference.                                   |
-| `empty-sections`                    | `regression-mixed-geometry` | Every section holds one empty paragraph.                                                                                   |
+| `empty-sections`                    | `regression-mixed-geometry` | Every section is empty, stored with no content.                                                                            |
 | `figures`                           | `regression-base`           | Image and diagram figures in every layout, with and without captions, sizes and stored assets.                             |
 | `footnote-heavy`                    | `regression-footnotes`      | Thirty paragraphs with two or three footnotes each, some long and some formatted.                                          |
 | `footnotes-in-structures`           | `regression-base`           | Footnotes in lists, table cells and quotes, and an empty footnote.                                                         |

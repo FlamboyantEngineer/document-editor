@@ -4,27 +4,15 @@
   "sections": [
     {
       "name": "cover",
-      "content": [
-        {
-          "type": "paragraph"
-        }
-      ]
+      "content": []
     },
     {
       "name": "body",
-      "content": [
-        {
-          "type": "paragraph"
-        }
-      ]
+      "content": []
     },
     {
       "name": "appendix",
-      "content": [
-        {
-          "type": "paragraph"
-        }
-      ]
+      "content": []
     }
   ]
 }
