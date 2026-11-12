@@ -99,10 +99,14 @@ test.describe('performance', () => {
     expect(growth).toBeGreaterThan(0);
   });
 
-  test('DOCE-LABS-2.3 answers keystrokes on 40 and 300 pages', async ({ lab, page }) => {
+  test('DOCE-LABS-2.3 answers keystrokes on 40 and 300 pages, and beside 500 threads', async ({
+    lab,
+    page,
+  }) => {
     for (const [size, budget] of [
       [SIZE.pages40, BUDGETS.latency40],
       [SIZE.pages300, BUDGETS.latency300],
+      [SIZE.review300, BUDGETS.latencyReview300],
     ] as const) {
       await openScale(lab, page, size);
       await caretAtEnd(page, 3);

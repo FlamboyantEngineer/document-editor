@@ -1,6 +1,7 @@
 // The scale lab's documents: plain text blocks in large numbers, the same on every load, so the
 // performance harness measures the editor at the sizes its budgets name rather than the content.
 
+import type { CommentThread } from '../../../src/host/index.js';
 import type { DocumentFile, StoredNode } from '../../../src/model/index.js';
 
 const WORDS = (
@@ -54,4 +55,59 @@ export function sectionsDocument(sections: number, count: number): DocumentFile 
       content: blocks(count, index * count),
     })),
   };
+}
+
+// A paragraph whose first three words carry a comment thread's anchor.
+function anchored(node: StoredNode, thread: string): StoredNode {
+  const [first] = node.content ?? [];
+  const text = first?.text ?? '';
+  const cut = text.split(' ', 3).join(' ').length;
+  return {
+    ...node,
+    content: [
+      {
+        type: 'text',
+        text: text.slice(0, cut),
+        marks: [{ type: 'comment', attrs: { thread, state: 'open' } }],
+      },
+      { type: 'text', text: text.slice(cut) },
+    ],
+  };
+}
+
+/**
+ * One section of `count` blocks with `threads` open comment threads spread evenly over its
+ * paragraphs, and the threads themselves, each with one comment.
+ */
+export function reviewDocument(
+  count: number,
+  threads: number,
+): { file: DocumentFile; threads: CommentThread[] } {
+  const content = blocks(count);
+  const paragraphs = content.flatMap((node, index) => (node.type === 'paragraph' ? [index] : []));
+  const step = Math.max(1, Math.floor(paragraphs.length / threads));
+  const stored: CommentThread[] = [];
+  for (let at = 0; at < paragraphs.length && stored.length < threads; at += step) {
+    const index = paragraphs[at] ?? 0;
+    const id = `thread-${String(stored.length + 1).padStart(4, '0')}`;
+    const node = content[index];
+    if (!node) continue;
+    const marked = anchored(node, id);
+    content[index] = marked;
+    stored.push({
+      id,
+      state: 'open',
+      quote: marked.content?.[0]?.text ?? '',
+      suggestion: null,
+      entries: [
+        {
+          id: `${id}-1`,
+          author: 'reviewer',
+          text: `Check paragraph ${String(index + 1)}.`,
+          createdAt: '2026-01-05T09:30:00Z',
+        },
+      ],
+    });
+  }
+  return { file: { formatVersion: 1, sections: [{ name: null, content }] }, threads: stored };
 }

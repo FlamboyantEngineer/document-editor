@@ -99,6 +99,12 @@ export const BUDGETS = {
     target: '≤ 32',
     meets: atMost(32),
   },
+  latencyReview300: {
+    bar: 'Keystroke latency',
+    metric: 'p95 input to paint, 300 pages beside 500 comment threads (ms)',
+    target: '≤ 32',
+    meets: atMost(32),
+  },
   loadMedian: {
     bar: 'Load, 24 pages',
     metric: 'whenSettled median (ms)',
@@ -122,6 +128,7 @@ export const SIZE = {
   single5000: 4,
   sections25: 5,
   remote1600: 6,
+  review300: 7,
 } as const;
 
 export const pages = (page: Page) => page.locator('.de-document-editor__content .pm-page');
