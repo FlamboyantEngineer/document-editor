@@ -17,6 +17,7 @@ import {
   type StoredSection,
   type StoredTypeMapping,
 } from './document-format.js';
+import type { RegionSettings } from './template-format.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -133,6 +134,22 @@ const isPlaceholder = (content: StoredContent) =>
   !content[0].content?.length &&
   !Object.keys(content[0].attrs ?? {}).length;
 
+// A section's stored settings, each left out at its default; content outside any section has none.
+function writeSection(section: ProseMirrorNode | null, content: StoredContent): StoredSection {
+  const { dataId, sectionName, editable, pageHeader, pageFooter } = section?.attrs ?? {};
+  return {
+    ...(typeof dataId === 'string' && dataId ? { id: dataId } : {}),
+    name: typeof sectionName === 'string' && sectionName ? sectionName : null,
+    ...(editable === false ? { editable: false } : {}),
+    ...(isRecord(pageHeader) ? { header: cloneJson(pageHeader) } : {}),
+    ...(isRecord(pageFooter) ? { footer: cloneJson(pageFooter) } : {}),
+    content,
+  };
+}
+
+const isRecord = (value: unknown): value is RegionSettings =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
 /**
  * The stored form of an editor document: its sections' content in order, with every block split
  * across pages joined whole, and the content outside any section as unnamed sections.
@@ -143,10 +160,14 @@ export function writeDocumentFile(
 ): DocumentFile {
   const sections: StoredSection[] = [];
   let loose: ProseMirrorNode[] = [];
-  const write = (blocks: ProseMirrorNode[], name: string | null, footnotes = new Map()) => {
+  const write = (
+    blocks: ProseMirrorNode[],
+    section: ProseMirrorNode | null,
+    footnotes = new Map(),
+  ) => {
     const context: WriteContext = { footnotes };
     const content = joinFragments(blocks, fragmentRules).map((block) => writeNode(block, context));
-    sections.push({ name, content: isPlaceholder(content) ? [] : content });
+    sections.push(writeSection(section, isPlaceholder(content) ? [] : content));
   };
   doc.forEach((child) => {
     if (child.type.name !== 'page_section') {
@@ -157,7 +178,7 @@ export function writeDocumentFile(
     loose = [];
     const footnotes = new Map<string, ProseMirrorNode>();
     const blocks = sectionContent(child, footnotes);
-    write(blocks, (child.attrs.sectionName as string | null) || null, footnotes);
+    write(blocks, child, footnotes);
   });
   if (loose.length) write(loose, null);
   return { formatVersion: DOCUMENT_FORMAT_VERSION, template, sections };

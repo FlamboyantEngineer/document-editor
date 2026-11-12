@@ -60,7 +60,7 @@
       "parseDOM": [{ "tag": "div.pm-section", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<div class=\"pm-section\" data-pm-section=\"true\"></div>",
-        "filled": "<div class=\"pm-section\" data-pm-section=\"true\" data-section-name=\"sample-sectionName\" data-section-editable=\"false\" contenteditable=\"false\" data-section-css-vars=\"sample-sectionCssVars\" data-page-header=\"sample-pageHeader\" data-page-footer=\"sample-pageFooter\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
+        "filled": "<div class=\"pm-section\" data-pm-section=\"true\" data-section-name=\"sample-sectionName\" data-section-editable=\"false\" contenteditable=\"false\" data-section-css-vars=\"sample-sectionCssVars\" data-page-header=\"&quot;sample-pageHeader&quot;\" data-page-footer=\"&quot;sample-pageFooter&quot;\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
       }
     },
     {

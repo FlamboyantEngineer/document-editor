@@ -6,7 +6,7 @@ The library stores documents and templates in formats of its own, as JSON a host
 
 ### DOCE-FORMAT-1.1 - Stored document
 
-A stored document (`DocumentFile`) shall hold `formatVersion` 1, the id of the `template` it uses, and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
+A stored document (`DocumentFile`) shall hold `formatVersion` 1, the id of the `template` it uses, and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), its own settings (DOCE-FORMAT-1.6) and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-write.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
@@ -38,6 +38,13 @@ With `unknown: 'drop'`, `readDocumentFile` shall leave out each node it cannot r
 
 Implementation: `src/model/format/document-format-convert.ts`, `src/model/format/document-format-write.ts`, `src/model/schema/kept-nodes.ts`
 Verification: `src/model/format/document-format-convert.test.ts`
+
+### DOCE-FORMAT-1.6 - Section settings
+
+A stored section shall keep its own `id`, `editable: false` when a writer may not edit its content, and its own page `header` and `footer`, each a region (`RegionSettings`: its content, height, spacing and `inherit`) over its template section's, as `resolveSectionRegion` reads it. `readDocumentFile` shall put them on the section (`dataId`, `editable`, `pageHeader`, `pageFooter`) and `writeDocumentFile` write them back, each left out when unset. A setting of the wrong kind shall not be read: it throws under the default policy and is left out and listed under a lenient one (DOCE-FORMAT-1.5).
+
+Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`, `src/model/format/document-format-write.ts`, `src/model/schema/page-nodes.ts`
+Verification: `src/model/format/document-format.test.ts`
 
 ## DOCE-FORMAT-2 - Templates
 

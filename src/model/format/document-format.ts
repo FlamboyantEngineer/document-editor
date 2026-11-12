@@ -5,6 +5,8 @@
 // Each node is `{ type, attrs?, content?, text?, marks? }`, as in ProseMirror's JSON, with the
 // stored names below. An attribute at its default is left out.
 
+import type { RegionSettings } from './template-format.js';
+
 /** The current document format version. */
 export const DOCUMENT_FORMAT_VERSION = 1;
 
@@ -30,8 +32,16 @@ export type StoredContent = StoredNode[];
 
 /** A section of a stored document. */
 export interface StoredSection {
+  /** The section's own id, kept as it is stored. */
+  id?: string | null;
   /** The template section it is, by name; none for content outside the template's sections. */
   name?: string | null;
+  /** False when a writer may not edit the section's content. */
+  editable?: boolean | null;
+  /** The section's own page header, over its template section's (`resolveSectionRegion`). */
+  header?: RegionSettings | null;
+  /** The section's own page footer, over its template section's. */
+  footer?: RegionSettings | null;
   content: StoredContent;
 }
 

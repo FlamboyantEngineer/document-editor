@@ -311,8 +311,28 @@ function readSection(stored: unknown, at: Located): ProseMirrorNode | null {
     node('page_footnotes', context.footnotes),
     node('page_footer'),
   ]);
-  const name = typeof stored.name === 'string' && stored.name ? stored.name : null;
-  return schemaNode(schema, 'page_section').create({ sectionName: name }, [page]);
+  return schemaNode(schema, 'page_section').create(readSectionAttrs(stored, at), [page]);
+}
+
+// A section's settings as its node's attributes; under a lenient policy, a setting of the wrong
+// kind is left out and listed.
+function readSectionAttrs(stored: Attrs, at: Located): Attrs {
+  const setting = (key: string, valid: (value: unknown) => boolean) => {
+    const value = stored[key];
+    if (value === undefined || value === null) return null;
+    if (valid(value)) return value;
+    report({ ...at, path: `${at.path}.${key}` }, `${key} has the wrong kind of value`);
+    return null;
+  };
+  const region = (value: unknown) =>
+    isRecord(value) && (value.content === undefined || Array.isArray(value.content));
+  return {
+    dataId: setting('id', (value) => typeof value === 'string'),
+    sectionName: setting('name', (value) => typeof value === 'string') || null,
+    editable: setting('editable', (value) => typeof value === 'boolean') ?? true,
+    pageHeader: cloneJson(setting('header', region)),
+    pageFooter: cloneJson(setting('footer', region)),
+  };
 }
 
 /**

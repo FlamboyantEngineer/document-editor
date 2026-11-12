@@ -164,3 +164,47 @@ describe('stored document format', () => {
     );
   });
 });
+
+describe('stored sections', () => {
+  const header = { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Draft' }] }] };
+  const file: DocumentFile = {
+    formatVersion: 1,
+    template: 'report',
+    sections: [
+      {
+        id: 'section-1',
+        name: 'summary',
+        editable: false,
+        header,
+        footer: { inherit: true },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Locked' }] }],
+      },
+      { id: 'section-2', name: 'body', content: [] },
+    ],
+  };
+
+  it('DOCE-FORMAT-1.6 keeps a section id, whether it is editable and its own header and footer', () => {
+    const doc = readDocumentFile(file, documentSchema).doc;
+    expect(doc.firstChild?.attrs).toMatchObject({
+      dataId: 'section-1',
+      sectionName: 'summary',
+      editable: false,
+      pageHeader: header,
+      pageFooter: { inherit: true },
+    });
+    expect(writeDocumentFile(doc, { template: 'report' })).toEqual(file);
+  });
+
+  it('DOCE-FORMAT-1.6 refuses a section setting of the wrong kind, or leaves it out when lenient', () => {
+    const wrong = { formatVersion: 1, sections: [{ editable: 'no', header: [], content: [] }] };
+    expect(() => readDocumentFile(wrong, documentSchema)).toThrow(
+      'sections[0].editable: editable has the wrong kind of value',
+    );
+    const { doc, problems } = readDocumentFile(wrong, documentSchema, { unknown: 'drop' });
+    expect(problems.map((problem) => problem.path)).toEqual([
+      'sections[0].editable',
+      'sections[0].header',
+    ]);
+    expect(writeDocumentFile(doc).sections).toEqual([{ name: null, content: [] }]);
+  });
+});

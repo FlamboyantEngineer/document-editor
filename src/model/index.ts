@@ -17,6 +17,7 @@ export {
   STORED_NODE_TYPES,
 } from './format/document-format.js';
 export * from './format/document-format-convert.js';
+export * from './format/document-format-ids.js';
 export * from './format/document-format-write.js';
 export type { DocxOptions } from './format/docx.js';
 export { writeDocx } from './format/docx.js';
