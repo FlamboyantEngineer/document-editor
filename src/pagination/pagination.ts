@@ -199,9 +199,12 @@ function paginationPlugin(
     readonly changed: () => void;
     readonly request: () => void;
   },
+  fragmentRules: FragmentRules,
 ): Plugin<boolean> {
   return new Plugin<boolean>({
     key: paginationKey,
+    // The rules its pages join by, for the page map of the document it keeps paged (`pageMap`).
+    fragmentRules,
     state: {
       init: () => true,
       apply: (tr, due) => (isPaginationTransaction(tr) ? false : due || tr.docChanged),
@@ -285,34 +288,38 @@ export function createPagination(options: PaginationOptions): Pagination {
     readiness.pending();
   };
 
-  const plugin = paginationPlugin(runner, {
-    // The cached measurements read the measuring view they were taken in: a new one, as when the
-    // host remounts the editor, measures again.
-    mount(editor) {
-      cache.clear();
-      runner.measuring = measuringView(
-        options,
-        joinDocumentPages(editor.state.doc, fragmentRules).doc,
-      );
-      const unwatch = edits.watch(editor);
-      const unlisten = remeasureOn(options.measureIn, () => {
+  const plugin = paginationPlugin(
+    runner,
+    {
+      // The cached measurements read the measuring view they were taken in: a new one, as when the
+      // host remounts the editor, measures again.
+      mount(editor) {
         cache.clear();
+        runner.measuring = measuringView(
+          options,
+          joinDocumentPages(editor.state.doc, fragmentRules).doc,
+        );
+        const unwatch = edits.watch(editor);
+        const unlisten = remeasureOn(options.measureIn, () => {
+          cache.clear();
+          request();
+        });
+        change();
         request();
-      });
-      change();
-      request();
-      return () => {
-        unwatch();
-        unlisten();
-        readiness.destroy();
-      };
+        return () => {
+          unwatch();
+          unlisten();
+          readiness.destroy();
+        };
+      },
+      changed() {
+        change();
+        edits.request();
+      },
+      request,
     },
-    changed() {
-      change();
-      edits.request();
-    },
-    request,
-  });
+    fragmentRules,
+  );
 
   return {
     plugin,

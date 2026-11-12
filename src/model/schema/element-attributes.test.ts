@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode, parseMarkup, roundTrip } from '../../../test/document-markup.js';
-import { normalizeParagraphLevel } from '../index.js';
+import { createDocumentSchema, type IdentityAttribute, normalizeParagraphLevel } from '../index.js';
+import {
+  clearIdentityAttrs,
+  identityAttributesOf,
+  pickIdentityAttrs,
+} from './element-attributes.js';
+
+const REVIEW_STATE: IdentityAttribute = {
+  name: 'reviewState',
+  dom: 'data-review-state',
+  scope: ['paragraph', 'heading'],
+  onCopy: 'clear',
+};
+const ORIGIN: IdentityAttribute = { name: 'origin', dom: 'data-origin', onCopy: 'keep' };
 
 describe('element attributes', () => {
   it('DOCE-SCHEMA-2.1 gives every node type but text an id, its author and its split part', () => {
@@ -41,5 +54,72 @@ describe('element attributes', () => {
       '<p data-paragraph-level="6">Deep</p>',
     );
     expect(roundTrip('<p data-paragraph-level="1">Top</p>')).toBe('<p>Top</p>');
+  });
+
+  it('DOCE-SCHEMA-2.3 declares the built-in identity attributes on every node type but text', () => {
+    const names = (type: string) =>
+      identityAttributesOf(documentSchema.nodes[type] ?? documentSchema.topNodeType).map(
+        (attribute) => attribute.name,
+      );
+    expect(names('table')).toEqual(['dataId', 'dataAuthor', 'dataAiSession', 'splitPartIndex']);
+    expect(names('heading')).toEqual([
+      'dataId',
+      'dataAuthor',
+      'dataAiSession',
+      'splitPartIndex',
+      'suggestionSplitKind',
+      'suggestionSplitId',
+    ]);
+    expect(
+      identityAttributesOf(documentSchema.nodes.paragraph ?? documentSchema.topNodeType).every(
+        (attribute) => attribute.onCopy === 'clear',
+      ),
+    ).toBe(true);
+  });
+
+  it('DOCE-SCHEMA-2.3 gives the types in scope a host identity attribute, read and written', () => {
+    const schema = { identityAttributes: [REVIEW_STATE, ORIGIN] };
+    const html = '<p data-review-state="done" data-origin="import">Text</p>';
+    expect(roundTrip(html, { schema })).toBe(html);
+    const built = createDocumentSchema({ schema });
+    expect(built.nodes.paragraph?.spec.attrs).toHaveProperty('reviewState');
+    expect(built.nodes.table?.spec.attrs).not.toHaveProperty('reviewState');
+    expect(built.nodes.table?.spec.attrs).toHaveProperty('origin');
+    expect(roundTrip('<p data-review-state="">Text</p>', { schema })).toBe('<p>Text</p>');
+  });
+
+  it('DOCE-SCHEMA-2.3 refuses a host identity attribute named as a built-in one', () => {
+    const clash: IdentityAttribute = { name: 'dataId', dom: 'data-other', onCopy: 'keep' };
+    expect(() => createDocumentSchema({ schema: { identityAttributes: [clash] } })).toThrow(
+      'dataId',
+    );
+  });
+
+  it('DOCE-SCHEMA-2.3 picks and clears identity attributes as a copy does', () => {
+    const built = createDocumentSchema({ schema: { identityAttributes: [REVIEW_STATE, ORIGIN] } });
+    const type = built.nodes.paragraph;
+    if (!type) throw new Error('No paragraph type');
+    const attrs = {
+      ...type.create().attrs,
+      dataId: 'aaaa0001',
+      dataAuthor: 'ada',
+      reviewState: 'done',
+      origin: 'import',
+      paragraphLevel: 3,
+    };
+    expect(pickIdentityAttrs(type, attrs)).toMatchObject({
+      dataId: 'aaaa0001',
+      dataAuthor: 'ada',
+      reviewState: 'done',
+      origin: 'import',
+    });
+    expect(pickIdentityAttrs(type, attrs)).not.toHaveProperty('paragraphLevel');
+    expect(clearIdentityAttrs(type, attrs)).toMatchObject({
+      dataId: null,
+      dataAuthor: null,
+      reviewState: null,
+      origin: 'import',
+      paragraphLevel: 3,
+    });
   });
 });
