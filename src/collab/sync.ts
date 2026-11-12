@@ -34,6 +34,8 @@ export interface CollabSync {
   readonly origin: object;
   /** The origin of changes the binding makes for the editor, such as derived writes. */
   readonly derivedOrigin: object;
+  /** Whether an editor view is bound, so the editor's changes reach the shared document. */
+  readonly bound: boolean;
   /** Applies the changes from the shared document that wait for the scheduler, at once. */
   flush(): void;
 }
@@ -101,7 +103,16 @@ export function createCollabSync({
       };
     },
   });
-  syncs.set(plugin, { doc, type, origin, derivedOrigin, flush: () => binding?.flush() });
+  syncs.set(plugin, {
+    doc,
+    type,
+    origin,
+    derivedOrigin,
+    get bound() {
+      return binding !== null;
+    },
+    flush: () => binding?.flush(),
+  });
   return plugin;
 }
 
