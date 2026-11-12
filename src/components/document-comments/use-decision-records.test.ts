@@ -10,6 +10,7 @@ const suggestion = (id: string, thread: string | null): Suggestion => ({
   to: 2,
   inserted: 'x',
   deleted: '',
+  formatted: false,
 });
 
 describe('threadDecisions', () => {

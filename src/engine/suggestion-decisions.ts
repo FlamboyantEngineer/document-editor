@@ -4,6 +4,7 @@
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, PluginKey, type Transaction } from 'prosemirror-state';
+import { decideFormatting, formatPartsOf } from './suggested-formatting.js';
 import { suggestionsKey } from './suggestions.js';
 
 /** One suggestion: the text it inserts and deletes, and who suggested it. */
@@ -16,6 +17,8 @@ export interface Suggestion {
   readonly to: number;
   readonly inserted: string;
   readonly deleted: string;
+  /** Whether it changes formatting: text marks, or a block's type or attributes. */
+  readonly formatted: boolean;
 }
 
 // One part of a suggestion where it occurs: a mark on a run of inline content, or a block.
@@ -28,6 +31,7 @@ interface Piece {
   readonly to: number;
   readonly inserted: string;
   readonly deleted: string;
+  readonly formatted?: boolean;
 }
 
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
@@ -49,6 +53,11 @@ function piecesOf(doc: ProseMirrorNode): Piece[] {
       const author = kind === 'insertion' ? text(node.attrs.dataAuthor) : null;
       const range = { from: pos, to: pos + node.nodeSize, inserted: '', deleted: '' };
       pieces.push({ key: `id:${block}`, dataId: block, thread: null, author, ...range });
+    }
+    for (const part of formatPartsOf(node)) {
+      const key = keyOf(part.dataId, part.thread);
+      const range = { from: pos, to: pos + node.nodeSize, inserted: '', deleted: '' };
+      if (key) pieces.push({ key, ...part, ...range, formatted: true });
     }
     if (!node.isInline) return true;
     for (const mark of node.marks) {
@@ -101,6 +110,7 @@ interface Collecting {
   to: number;
   inserted: string;
   deleted: string;
+  formatted: boolean;
   keys: Set<string>;
 }
 
@@ -128,6 +138,7 @@ function indexSuggestions(doc: ProseMirrorNode): SuggestionIndex {
       to: piece.to,
       inserted: '',
       deleted: '',
+      formatted: false,
       keys: new Set<string>(),
     };
     entry.id ??= piece.dataId;
@@ -138,6 +149,7 @@ function indexSuggestions(doc: ProseMirrorNode): SuggestionIndex {
     entry.to = Math.max(entry.to, piece.to);
     entry.inserted += piece.inserted;
     entry.deleted += piece.deleted;
+    entry.formatted ||= Boolean(piece.formatted);
     entry.keys.add(piece.key);
     groups.set(root, entry);
   }
@@ -146,8 +158,8 @@ function indexSuggestions(doc: ProseMirrorNode): SuggestionIndex {
   const keysOf = new Map<string, ReadonlySet<string>>();
   for (const entry of groups.values()) {
     const id = entry.id ?? entry.firstThreadId ?? '';
-    const { author, thread, from, to, inserted, deleted } = entry;
-    suggestions.push({ id, author, thread, from, to, inserted, deleted });
+    const { author, thread, from, to, inserted, deleted, formatted } = entry;
+    suggestions.push({ id, author, thread, from, to, inserted, deleted, formatted });
     for (const key of entry.keys) ofKey.set(key, id);
     keysOf.set(id, entry.keys);
   }
@@ -281,6 +293,10 @@ export function decideSuggestions(
         suggestionSplitId: null,
       });
     }
+    decideFormatting(tr, pos, {
+      reject: decision === 'reject',
+      chosen: (dataId, thread) => chosenOf(keyOf(dataId, thread)) !== null,
+    });
     if (!node.isInline) return true;
     for (const mark of node.marks) {
       const id = chosenOf(markKey(mark));

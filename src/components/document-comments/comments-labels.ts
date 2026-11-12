@@ -18,6 +18,8 @@ export interface DocumentCommentsLabels {
   split: string;
   /** Names text a suggestion adds or deletes that is only spaces, tabs and line breaks. */
   whitespace: (text: string) => string;
+  /** Describes a suggestion that only changes formatting. */
+  format: string;
   /** Names a suggestion's Accept and Reject. */
   decide: string;
   /** Names a writer the host does not know. */
@@ -75,6 +77,7 @@ export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   replace: 'Replace',
   split: 'Split the paragraph',
   whitespace: nameWhitespace,
+  format: 'Change the formatting',
   decide: 'Decide',
   someone: 'Someone',
   failed: 'The comment could not be saved.',

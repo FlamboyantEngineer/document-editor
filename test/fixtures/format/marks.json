@@ -10,12 +10,60 @@
         {
           "type": "paragraph",
           "content": [
-            { "type": "text", "text": "bold text", "marks": [{ "type": "bold" }] },
-            { "type": "text", "text": "italic text", "marks": [{ "type": "italic" }] },
-            { "type": "text", "text": "underline text", "marks": [{ "type": "underline" }] },
-            { "type": "text", "text": "strike text", "marks": [{ "type": "strike" }] },
-            { "type": "text", "text": "superscript text", "marks": [{ "type": "superscript" }] },
-            { "type": "text", "text": "subscript text", "marks": [{ "type": "subscript" }] },
+            {
+              "type": "text",
+              "text": "bold text",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "italic text",
+              "marks": [
+                {
+                  "type": "italic"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "underline text",
+              "marks": [
+                {
+                  "type": "underline"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "strike text",
+              "marks": [
+                {
+                  "type": "strike"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "superscript text",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "subscript text",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
             {
               "type": "text",
               "text": "code text",
@@ -53,7 +101,10 @@
               "marks": [
                 {
                   "type": "contributor",
-                  "attrs": { "author": "sample-dataAuthor", "aiSession": "sample-dataAiSession" }
+                  "attrs": {
+                    "author": "sample-dataAuthor",
+                    "aiSession": "sample-dataAiSession"
+                  }
                 }
               ]
             },
@@ -95,6 +146,21 @@
                     "id": "sample-dataId",
                     "author": "sample-dataAuthor",
                     "thread": "sample-commentId"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "format change text",
+              "marks": [
+                {
+                  "type": "formatChange",
+                  "attrs": {
+                    "id": "sample-dataId",
+                    "author": "sample-dataAuthor",
+                    "thread": "sample-commentId",
+                    "before": [{ "type": "bold" }]
                   }
                 }
               ]

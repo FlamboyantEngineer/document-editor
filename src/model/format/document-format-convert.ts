@@ -23,6 +23,7 @@ import {
   type StoredTypeMapping,
   type StoredTypeSpec,
 } from './document-format.js';
+import { readFormatRecords } from './format-records.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -99,7 +100,10 @@ function readAttrs(stored: unknown, target: ReadTarget, at: Located): Attrs {
     else
       attrs[name] = name === 'referenceBaseline' && isRecord(value) ? JSON.stringify(value) : value;
   }
-  return attrs;
+  return readFormatRecords(attrs, at.context.schema, {
+    readMark: (each) => readMark(each, at),
+    readAttrs: (type, stored) => readAttrs(stored, { type, mappings: STORED_NODE_TYPES }, at),
+  });
 }
 
 type Read = ProseMirrorNode | null;
