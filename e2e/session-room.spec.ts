@@ -4,6 +4,11 @@ import { expect, test } from './fixtures.js';
 const status = (page: Page, name: string) => page.getByLabel(`${name}'s status`);
 const editor = (page: Page, name: string) =>
   page.getByRole('textbox', { name: `${name}'s document` });
+// A reader's connection item in their editor's status bar (DOCE-SESSION-9.7).
+const connectionItem = (page: Page, name: string) =>
+  page
+    .getByRole('region', { name })
+    .locator('.de-document-editor__status-item[data-status="connection"]');
 const SENTENCE = 'The system shall report each fault within one second.';
 // A reader's paragraph, compared whole so a change sent twice shows (DOCE-COLLAB-4.1).
 const paragraph = (page: Page, name: string) =>
@@ -39,7 +44,7 @@ test.describe('session in a room lab', () => {
     await expect(status(page, 'Ada')).toHaveText('ready · saved');
   });
 
-  test('DOCE-SESSION-3.3 DOCE-SESSION-3.8 keeps an offline reader’s changes until they come back', async ({
+  test('DOCE-SESSION-3.3 DOCE-SESSION-3.8 DOCE-SESSION-9.7 keeps an offline reader’s changes until they come back', async ({
     lab,
     page,
   }) => {
@@ -49,11 +54,14 @@ test.describe('session in a room lab', () => {
     await ada.getByRole('button', { name: 'Go offline' }).click();
     await expect(status(page, 'Ada')).toHaveText('ready · offline');
     await expect(page.getByLabel("Ada's connection")).toHaveText('offline');
+    await expect(connectionItem(page, 'Ada')).toHaveText('Offline');
+    await expect(connectionItem(page, 'Grace')).toHaveText('Connected');
     await typeAtEnd(page, 'Ada', ' Later.');
     await expect(editor(page, 'Ada')).toContainText('Later.');
     await expect(editor(page, 'Grace')).not.toContainText('Later.');
     await ada.getByRole('button', { name: 'Go online' }).click();
     await expect(page.getByLabel("Ada's connection")).toHaveText('synced');
+    await expect(connectionItem(page, 'Ada')).toHaveText('Connected');
     await expect.poll(() => textOf(page, 'Grace')).toBe(`${SENTENCE} Later.`);
     await expect.poll(() => textOf(page, 'Ada')).toBe(`${SENTENCE} Later.`);
     await expect(status(page, 'Ada')).toHaveText('ready · saved');
