@@ -22,6 +22,7 @@ const EDITING_KEYS = [
   'element-ids',
   'footnotes',
   'comment-draft',
+  'comment-anchors',
   'math-views',
   'object-views',
   'clipboard',

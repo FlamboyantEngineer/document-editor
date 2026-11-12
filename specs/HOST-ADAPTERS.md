@@ -55,7 +55,7 @@ Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-HOST-1.8 - Assets and linked code
 
-The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from (`resolveUrl(assetId, snapshotId, { asOf })`, as of the time the document shows its assets as of, null for now). The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
+The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from (`resolveUrl(assetId, snapshotId, { asOf })`, as of the time the document shows its assets as of, null for now). Its optional `search(query, { signal, cursor })` shall find the images among the host's assets, the empty query browsing them, a page at a time (`{ items, cursor }`), each with its name, URL and, when known, a thumbnail URL, alternative text and size; without it the editor offers no asset browser. The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -101,6 +101,13 @@ The host's optional `fonts` adapter shall load the faces of the font families a 
 
 Implementation: `src/host/adapters.ts`, `src/pagination/fonts.ts`
 Verification: `src/pagination/fonts.test.ts`
+
+### DOCE-HOST-1.15 - Diagrams
+
+The host's optional `diagrams` adapter shall open its own diagram editor on a figure's diagram (`edit(diagram, signal)`), or on a new one when given null, and resolve with the diagram it stored: the asset holding its drawing, the snapshot the figure names and its size in pixels, or null when the writer cancels. The editor aborts the signal when its dialog closes. Without it the editor offers no diagrams (DOCE-OBJECTS-1.4).
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/components/document-editor/figure-dialog.test.tsx`
 
 ## DOCE-HOST-2 - Capabilities
 

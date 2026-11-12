@@ -63,6 +63,8 @@ export interface InsertFeatures {
   readonly references?: boolean | undefined;
   /** Whether the host runs scripts, which the script button then inserts. */
   readonly scripts?: boolean | undefined;
+  /** Whether the host draws diagrams, which the figure menu then offers beside images. */
+  readonly diagrams?: boolean | undefined;
 }
 
 // Whether a command can run, while the writer can edit there.
@@ -156,6 +158,32 @@ function codeEntries(context: EditorContext, linkedCode: boolean): MenuEntry[] {
         ]
       : []),
   ];
+}
+
+// The figure item: a button for an image, or a menu of an image and a diagram while the host draws
+// diagrams.
+function figureItem(labels: DocumentEditorLabels, features: InsertFeatures): ToolbarItem {
+  const isEnabled = (context: EditorContext) => can(context, setFigure({ src: 'about:blank' }));
+  const common = { id: 'figure', label: labels.figure, icon: ImageGlyph };
+  if (!features.diagrams) {
+    return {
+      ...common,
+      kind: 'button',
+      run: (context) => context.openDialog({ kind: 'figure' }),
+      isEnabled,
+    };
+  }
+  return {
+    ...common,
+    kind: 'menu',
+    isEnabled,
+    entries: (context) =>
+      (['image', 'diagram'] as const).map((figureType) => ({
+        id: `${figureType}-figure`,
+        label: figureType === 'image' ? labels.imageFigure : labels.diagramFigure,
+        onAction: () => context.openDialog({ kind: 'figure', figureType }),
+      })),
+  };
 }
 
 function mathEntries(context: EditorContext): MenuEntry[] {
@@ -266,14 +294,7 @@ export function insertItems(
       icon: FormulaGlyph,
       entries: mathEntries,
     },
-    {
-      kind: 'button',
-      id: 'figure',
-      label: labels.figure,
-      icon: ImageGlyph,
-      run: (context) => context.openDialog({ kind: 'figure' }),
-      isEnabled: (context) => can(context, setFigure({ src: 'about:blank' })),
-    },
+    figureItem(labels, features),
     {
       kind: 'menu',
       id: 'contents',
