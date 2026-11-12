@@ -232,9 +232,10 @@ function changeOf(suggestion: Suggestion): InlineTextDiffSegment[] {
 // Who suggested the change, and what it does.
 function summaryOf(suggestion: Suggestion, context: CardContext) {
   const { labels, comments } = context;
-  const author = suggestion.author
-    ? (comments.people.get(suggestion.author)?.name ?? suggestion.author)
-    : labels.someone;
+  // Until the host names its author, a suggestion says someone made it, never showing an id.
+  const author =
+    (suggestion.author ? comments.people.get(suggestion.author)?.name : undefined) ??
+    labels.someone;
   const split = suggestion.inserted !== '' && suggestion.inserted === suggestion.deleted;
   const action = split
     ? labels.split

@@ -81,6 +81,7 @@ export const TOOLBAR_GROUPS = {
     'contents',
     'reference',
     'abbreviation',
+    'script',
     'section',
     'symbol',
   ],

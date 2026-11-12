@@ -27,7 +27,7 @@ Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.4 - Figures
 
-`setFigure(source)` shall insert a figure where a new block goes, selected, with its type (an image by default), its source (an asset's id and snapshot, or a URL), alternative text, caption and size, or change the figure selected, keeping what the source leaves out. `setObjectLayout(layout)` aligns the figure or table selected: left, centred, right or across the page (`fit`).
+`insertFigure(source)` shall insert a new figure where a new block goes, after the figure selected when one is, selected, with its type (an image by default), its source (an asset's id and snapshot, or a URL), alternative text, caption and size, so figures inserted in turn follow one another. `setFigure(source)` shall change the figure selected, keeping what the source leaves out, or else insert one. `setObjectLayout(layout)` aligns the figure or table selected: left, centred, right or across the page (`fit`).
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`

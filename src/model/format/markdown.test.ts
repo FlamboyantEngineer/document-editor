@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../../test/document-markup.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
+import { readDocumentFile, writeDocumentFile } from './document-format-convert.js';
 import { writeMarkdown } from './markdown.js';
 
 const text = (value: string, ...marks: string[]): StoredNode => ({
@@ -29,7 +31,7 @@ const FILE: DocumentFile = {
           text(' 5 V'),
           { type: 'footnote', attrs: { id: 'n1' }, content: [text('At the connector.')] },
           text(' and '),
-          { type: 'math', content: [text('E=mc^2')] },
+          { type: 'math', attrs: { source: 'E=mc^2' } },
           text('.'),
         ),
         {
@@ -56,6 +58,23 @@ const FILE: DocumentFile = {
     },
   ],
 };
+
+// A document with inline and display math, as the editor stores it.
+function storedMath(): DocumentFile {
+  const stored: DocumentFile = {
+    formatVersion: 1,
+    sections: [
+      {
+        name: null,
+        content: [
+          { type: 'paragraph', content: [text('So '), { type: 'math', attrs: { source: 'a^2' } }] },
+          { type: 'mathBlock', attrs: { source: 'b_1' } },
+        ],
+      },
+    ],
+  };
+  return writeDocumentFile(readDocumentFile(stored, documentSchema));
+}
 
 describe('writeMarkdown', () => {
   it('DOCE-FORMAT-4.1 writes headings, formats, lists, code, tables, figures and footnotes', () => {
@@ -86,6 +105,12 @@ describe('writeMarkdown', () => {
         '',
       ].join('\n'),
     );
+  });
+
+  it('DOCE-FORMAT-4.1 writes the source of the math a stored document holds', () => {
+    const markdown = writeMarkdown(storedMath());
+    expect(markdown).toContain('So $a^2$');
+    expect(markdown).toContain('$$\nb_1\n$$');
   });
 
   it('DOCE-FORMAT-4.2 writes the suggestions rejected when asked, escaping what reads as Markdown', () => {

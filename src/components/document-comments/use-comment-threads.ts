@@ -46,22 +46,30 @@ export interface CommentThreadsOptions {
   identity: IdentityAdapter;
   /** The message a failed change shows when the store gives none. */
   failed: string;
+  /** Other people to name beside the threads' authors, such as the authors of suggestions. */
+  authors?: readonly string[] | undefined;
 }
+
+const NO_AUTHORS: readonly string[] = [];
 
 function valueOf<T>(result: HostResult<T>, failed: string): T {
   if (result.ok) return result.value;
   throw new Error(result.error.message ?? failed);
 }
 
-// Each author's name and picture, looked up once for every id the threads name.
-function usePeople(identity: IdentityAdapter, threads: ReadonlyMap<string, CommentThread>) {
+// Each author's name and picture, looked up once for every id the threads and `others` name.
+function usePeople(
+  identity: IdentityAdapter,
+  threads: ReadonlyMap<string, CommentThread>,
+  others: readonly string[],
+) {
   const [people, setPeople] = useState<ReadonlyMap<string, AvatarIdentity>>(new Map());
   const authors = useMemo(() => {
-    const ids = new Set<string>();
+    const ids = new Set<string>(others);
     for (const thread of threads.values())
       for (const entry of thread.entries) ids.add(entry.author);
     return [...ids].sort();
-  }, [threads]);
+  }, [threads, others]);
   const missing = authors.filter((id) => !people.has(id));
   const key = missing.join('\n');
   useEffect(() => {
@@ -89,6 +97,7 @@ export function useCommentThreads({
   documentId,
   identity,
   failed,
+  authors = NO_AUTHORS,
 }: CommentThreadsOptions): CommentThreads {
   const [threads, setThreads] = useState<ReadonlyMap<string, CommentThread>>(new Map());
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +128,7 @@ export function useCommentThreads({
     },
     [failed],
   );
-  const people = usePeople(identity, threads);
+  const people = usePeople(identity, threads, authors);
   return useMemo(
     () => ({
       threads,

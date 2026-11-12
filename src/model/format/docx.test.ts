@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../../test/document-markup.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
+import { readDocumentFile, writeDocumentFile } from './document-format-convert.js';
 import { writeDocx } from './docx.js';
 import { crc32, writeZip } from './zip.js';
 
@@ -46,7 +48,30 @@ describe('writeZip', () => {
   });
 });
 
+// A document with inline and display math, as the editor stores it.
+function storedMath(): DocumentFile {
+  const stored: DocumentFile = {
+    formatVersion: 1,
+    sections: [
+      {
+        name: null,
+        content: [
+          { type: 'paragraph', content: [text('So '), { type: 'math', attrs: { source: 'a^2' } }] },
+          { type: 'mathBlock', attrs: { source: 'b_1' } },
+        ],
+      },
+    ],
+  };
+  return writeDocumentFile(readDocumentFile(stored, documentSchema));
+}
+
 describe('writeDocx', () => {
+  it('DOCE-FORMAT-5.2 writes the source of the math a stored document holds', () => {
+    const document = readStored(writeDocx(storedMath())).get('word/document.xml') ?? '';
+    expect(document).toContain('a^2');
+    expect(document).toContain('b_1');
+  });
+
   it('DOCE-FORMAT-5.2 writes headings, formats, lists, tables, links and footnotes', () => {
     const file: DocumentFile = {
       formatVersion: 1,

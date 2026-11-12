@@ -8,6 +8,7 @@ import {
   insertCharacter,
   insertCodeBlock,
   insertContents,
+  insertFigure,
   insertMath,
   linkAt,
   setCodeLanguage,
@@ -122,6 +123,20 @@ describe('object commands', () => {
     expect(figure().attrs).toMatchObject({ width: 200, height: 100, alt: 'A' });
     state = run(state, setObjectLayout('center'));
     expect(figure().attrs.objectLayout).toBe('center');
+  });
+
+  it('DOCE-OBJECTS-1.4 inserts figures one after another, never over the one selected', () => {
+    let state = run(
+      atStart(stateOf(paragraph(''))),
+      insertFigure({ src: 'https://example.com/a.png' }),
+    );
+    state = run(state, insertFigure({ src: 'https://example.com/b.png' }));
+    const sources: unknown[] = [];
+    state.doc.descendants((node) => {
+      if (node.type.name === 'figure') sources.push(node.attrs.src);
+    });
+    expect(sources).toEqual(['https://example.com/a.png', 'https://example.com/b.png']);
+    expect((state.selection as NodeSelection).node.attrs.src).toBe('https://example.com/b.png');
   });
 
   it('DOCE-OBJECTS-1.5 inserts a list of contents, sets its depth, and types a symbol', () => {

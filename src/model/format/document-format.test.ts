@@ -56,6 +56,18 @@ describe('stored document format', () => {
     expect(writeDocumentFile(doc, { template: 'report' })).toEqual(FILE);
   });
 
+  it('DOCE-FORMAT-1.1 writes an empty section back empty', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      template: null,
+      sections: [
+        { name: 'intro', content: [] },
+        { name: 'body', content: [{ type: 'paragraph', attrs: { id: '0000abcd' } }] },
+      ],
+    };
+    expect(writeDocumentFile(readDocumentFile(file, documentSchema))).toEqual(file);
+  });
+
   it('DOCE-FORMAT-1.2 lays each stored section out on one page for the editor', () => {
     const doc = readDocumentFile(FILE, documentSchema);
     const section = doc.firstChild;

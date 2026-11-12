@@ -42,7 +42,8 @@ export interface EditorBodyProps {
 }
 
 // The body's view props: pasted figures, the host's keys before the editor's own (comment,
-// reference, find), and the events that read the DOM selection first.
+// reference, find), secondary clicks left to the context menu, and the events that read the DOM
+// selection first.
 function useBodyViewProps({
   props,
   labels,
@@ -76,6 +77,9 @@ function useBodyViewProps({
         onFind();
         return true;
       },
+      // A secondary click belongs to the context menu, which selects what it opens on: left to the
+      // engine, its release would select the clicked object again and take focus from the menu.
+      handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => event.button === 2,
       handleDOMEvents: {
         ...READ_SELECTION_FIRST,
         ...(host.focus ? { focus: host.focus } : {}),

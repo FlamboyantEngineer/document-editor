@@ -6,7 +6,7 @@ The library stores documents and templates in formats of its own, as JSON a host
 
 ### DOCE-FORMAT-1.1 - Stored document
 
-A stored document (`DocumentFile`) shall hold `formatVersion` 1, the id of the `template` it uses, and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged.
+A stored document (`DocumentFile`) shall hold `formatVersion` 1, the id of the `template` it uses, and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`
@@ -96,7 +96,7 @@ Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-FORMAT-4.1 - Writing Markdown
 
-`writeMarkdown(file)` shall write a stored document as Markdown with GitHub's tables, strikethrough and footnotes: headings, paragraphs and their formats, links, lists, quotes, fenced code with its language, linked code, inline and display math between dollar signs, tables with their caption, figures as images with their caption, rules, and footnotes as numbered definitions at the end; underline, superscript and subscript as HTML; page breaks and lists of contents left out.
+`writeMarkdown(file)` shall write a stored document as Markdown with GitHub's tables, strikethrough and footnotes: headings, paragraphs and their formats, links, lists, quotes, fenced code with its language, linked code, inline and display math, its stored `source`, between dollar signs, tables with their caption, figures as images with their caption, rules, and footnotes as numbered definitions at the end; underline, superscript and subscript as HTML; page breaks and lists of contents left out.
 
 Implementation: `src/model/format/markdown.ts`
 Verification: `src/model/format/markdown.test.ts`
@@ -119,7 +119,7 @@ Verification: `src/model/format/docx.test.ts`
 
 ### DOCE-FORMAT-5.2 - Writing a word processing document
 
-`writeDocx(file, { template, suggestions })` shall write a stored document as an Office Open XML word processing document: headings in the heading styles, paragraphs and their formats, links, lists led by their bullets or numbers, quotes, code, math as its source, tables with their caption and header row, page breaks, rules, figures as their alternative text and caption, and footnotes, in the template's page size, orientation and margins, its suggestions accepted or, when asked, rejected.
+`writeDocx(file, { template, suggestions })` shall write a stored document as an Office Open XML word processing document: headings in the heading styles, paragraphs and their formats, links, lists led by their bullets or numbers, quotes, code, math as its stored `source`, tables with their caption and header row, page breaks, rules, figures as their alternative text and caption, and footnotes, in the template's page size, orientation and margins, its suggestions accepted or, when asked, rejected.
 
 Implementation: `src/model/format/docx.ts`
 Verification: `src/model/format/docx.test.ts`

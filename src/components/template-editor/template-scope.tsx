@@ -8,6 +8,7 @@ import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { SettingRow } from './setting-row.js';
+import { NameField } from './style-sections.js';
 import { settingAt, type TemplateSetting, withSetting } from './template-settings.js';
 
 /** The scope's text. */
@@ -21,9 +22,16 @@ export interface TemplateScopeLabels {
   readonly inherited: (value: string, source?: string) => string;
 }
 
+const NAME_SETTING: TemplateSetting = {
+  id: 'name',
+  path: ['name'],
+  label: 'Name',
+  kind: { type: 'text' },
+};
+
 /** The settings of a section only. */
 export const SECTION_SETTINGS: readonly TemplateSetting[] = [
-  { id: 'name', path: ['name'], label: 'Name', kind: { type: 'text' } },
+  NAME_SETTING,
   { id: 'label', path: ['label'], label: 'Label', kind: { type: 'text' } },
   { id: 'required', path: ['required'], label: 'Every document has it', kind: { type: 'boolean' } },
   { id: 'editable', path: ['editable'], label: 'Writers may edit it', kind: { type: 'boolean' } },
@@ -138,6 +146,28 @@ export function ScopePicker({
   );
 }
 
+/**
+ * A section name as a template writes one, lower-case letters, digits and underscores, from what
+ * was typed: other characters become underscores. Empty when nothing is left.
+ */
+export function sectionNameOf(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+// Renames the section at an index, unless the name is empty or another section has it.
+function renameSection(template: TemplateFile, index: number, text: string) {
+  const name = sectionNameOf(text);
+  const sections = template.sections ?? [];
+  const section = sections[index];
+  if (!section || !name || name === section.name) return null;
+  if (sections.some((other, at) => at !== index && other.name === name)) return null;
+  return withSection(template, index, { ...section, name });
+}
+
 /** A section's own rows: its name, label and flags. */
 export function SectionRows({
   template,
@@ -157,7 +187,19 @@ export function SectionRows({
   const own = section as unknown as TemplateFile;
   return (
     <PropertySection id="section" title={labels.section} defaultExpanded>
-      {SECTION_SETTINGS.map((setting) => (
+      <PropertyRow label={NAME_SETTING.label}>
+        <NameField
+          key={section.name}
+          name={section.name}
+          label={NAME_SETTING.label}
+          isDisabled={Boolean(isDisabled)}
+          onCommit={(text) => {
+            const renamed = renameSection(template, index, text);
+            if (renamed) onChange(renamed);
+          }}
+        />
+      </PropertyRow>
+      {SECTION_SETTINGS.filter((setting) => setting !== NAME_SETTING).map((setting) => (
         <SettingRow
           key={setting.id}
           setting={setting}
@@ -165,8 +207,7 @@ export function SectionRows({
           inherited={undefined}
           onChange={(value) => {
             const next = withSetting(own, setting.path, value) as unknown as TemplateSection;
-            // A section keeps a name: clearing it keeps the one it had.
-            onChange(withSection(template, index, { ...next, name: next.name || section.name }));
+            onChange(withSection(template, index, next));
           }}
           inheritedLabel={labels.inherited}
           isDisabled={isDisabled}
