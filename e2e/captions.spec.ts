@@ -46,6 +46,30 @@ test.describe('captions', () => {
     await expect(firstTable(page)).toHaveAttribute('data-caption-enabled', 'false');
   });
 
+  test('DOCE-OBJECTS-2.3 edits a caption in place on a double click', async ({ page }) => {
+    const caption = firstTable(page).locator('caption');
+    const field = page
+      .locator('.de-object-editors__field[data-kind="caption"]')
+      .getByRole('textbox', { name: 'Caption' });
+    await caption.dblclick();
+    await expect(field).toBeFocused();
+    await expect(field).toHaveValue('Scope limits');
+    await expect(firstTable(page)).toHaveAttribute('data-caption-editing', 'true');
+    // Select all stays in the field.
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.type('Scope timing limits');
+    await page.keyboard.press('Enter');
+    await expect(field).toHaveCount(0);
+    await expect(caption).toHaveText('Scope timing limits');
+    await expect(firstTable(page)).not.toHaveAttribute('data-caption-editing');
+    // Escape leaves it as it was.
+    await caption.dblclick();
+    await page.keyboard.type(' draft');
+    await page.keyboard.press('Escape');
+    await expect(field).toHaveCount(0);
+    await expect(caption).toHaveText('Scope timing limits');
+  });
+
   test('DOCE-TABLES-3.1 aligns a cell from the context menu', async ({ page }) => {
     const cell = firstTable(page).locator('td', { hasText: '25 ms' });
     await cell.click({ button: 'right' });
