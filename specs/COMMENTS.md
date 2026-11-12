@@ -188,6 +188,13 @@ Every decision on suggestions the reader makes in the editor, from a suggestion'
 Implementation: `src/components/document-comments/use-decision-records.ts`, `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/editor-scope.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/use-decision-records.test.ts`
 
+### DOCE-COMMENTS-2.20 - Threads in a shared room
+
+In room mode, `createRoomCommentStore({ doc, identity })` from `./collab` shall keep the threads in the shared document's `comments` type (decision D29), which a commenter may write while the rest is refused to them, and tell each subscriber every change, by anyone. Each thread's own fields, each comment and each reaction is one attribute of that type, keyed by a JSON array: `["thread", thread]` holds the thread's fields without its comments and reactions, `["entry", thread, comment]` a comment without its reactions, and `["reaction", thread, comment, emoji, person]` a reaction, with an empty comment id for one to the whole thread; so replies, reactions and edits that writers make at once to one thread all stay. It attributes changes to the reader, refuses changing another person's comment and starting a thread twice, records decisions, and removes a thread with its comments and reactions.
+
+Implementation: `src/collab/comment-store.ts`
+Verification: `src/collab/comment-store.test.ts`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text
