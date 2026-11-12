@@ -12,7 +12,7 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { createPageVariables } from '../pagination/index.js';
-import { viewOnlyInline } from '../utils/view-only-decorations.js';
+import { viewOnlyInline, viewOnlyWidget } from '../utils/view-only-decorations.js';
 import { createSearch, setSearch } from './search.js';
 import { documentSnapshot } from './snapshot.js';
 
@@ -171,6 +171,91 @@ describe('documentSnapshot', () => {
     expect(root).toHaveAttribute('data-layout', 'page');
     expect(root).not.toHaveAttribute('data-debug');
     expect(root).not.toHaveAttribute('data-layout-state');
+    view.destroy();
+  });
+
+  // The sectioned view with "Body" suggested for insertion and "More" for deletion.
+  function suggestedView(rootData: Record<string, string> = {}) {
+    const sectioned = sectionedView(rootData);
+    const { view } = sectioned;
+    const ranges: Record<string, [number, number]> = {};
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text) ranges[node.text] = [pos, pos + node.text.length];
+    });
+    const [bodyFrom = 0, bodyTo = 0] = ranges.Body ?? [];
+    const [moreFrom = 0] = ranges['More body'] ?? [];
+    const { insertion, deletion } = documentSchema.marks;
+    if (!insertion || !deletion) throw new Error('The schema has no suggestion marks.');
+    const tr = view.state.tr
+      .addMark(bodyFrom, bodyTo, insertion.create({ dataId: 's1' }))
+      .addMark(moreFrom, moreFrom + 'More '.length, deletion.create({ dataId: 's2' }));
+    view.dispatch(tr);
+    return sectioned;
+  }
+
+  const texts = (body: Element) =>
+    [...body.querySelectorAll('p')].map((paragraph) => paragraph.textContent);
+
+  it('DOCE-EDITOR-6.16 prints suggestions with all their markup, as if accepted or as if rejected', () => {
+    const { view, template: sectioned } = suggestedView({ markup: 'all' });
+    const all = parse(documentSnapshot(view, { template: sectioned }));
+    expect(all.body.firstElementChild).toHaveAttribute('data-markup', 'all');
+    expect(all.body.querySelector('ins[data-id="s1"]')).toHaveTextContent('Body');
+    expect(all.body.querySelector('del[data-id="s2"]')).toHaveTextContent('More');
+
+    const final = parse(documentSnapshot(view, { template: sectioned, markup: 'final' }));
+    expect(final.body.firstElementChild).toHaveAttribute('data-markup', 'final');
+    expect(final.body.querySelector('ins, del')).toBeNull();
+    expect(texts(final.body)).toEqual(['Body', 'Appendix', 'body', 'Letter']);
+
+    const original = parse(documentSnapshot(view, { template: sectioned, markup: 'original' }));
+    expect(original.body.querySelector('ins, del')).toBeNull();
+    expect(texts(original.body)).toEqual(['', 'Appendix', 'More body', 'Letter']);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-6.16 takes the editor markup by default, its simple markup as if accepted', () => {
+    const { view, template: sectioned } = suggestedView({ markup: 'simple' });
+    const snapshot = parse(documentSnapshot(view, { template: sectioned }));
+    expect(snapshot.body.firstElementChild).toHaveAttribute('data-markup', 'final');
+    expect(texts(snapshot.body)).toEqual(['Body', 'Appendix', 'body', 'Letter']);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-6.15 DOCE-EDITOR-6.17 keeps content widgets and leaves out view-only ones', () => {
+    const { view, template: sectioned } = sectionedView();
+    const widget = (className: string) => () => {
+      const element = document.createElement('span');
+      element.className = className;
+      element.textContent = className;
+      return element;
+    };
+    const widgets = new Plugin({
+      props: {
+        decorations: (state) =>
+          DecorationSet.create(state.doc, [
+            Decoration.widget(3, widget('lost-words')),
+            viewOnlyWidget(3, widget('hint')),
+          ]),
+      },
+    });
+    view.updateState(view.state.reconfigure({ plugins: [widgets] }));
+    expect(view.dom.querySelector('.hint')).not.toBeNull();
+    const snapshot = parse(documentSnapshot(view, { template: sectioned }));
+    expect(snapshot.body.querySelector('.lost-words')).toHaveTextContent('lost-words');
+    expect(snapshot.body.querySelector('.hint')).toBeNull();
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-6.18 marks the snapshot as print, in the light scheme, with no sheet after the last page', () => {
+    const { view, template: sectioned } = sectionedView({ print: 'false' });
+    const snapshot = parse(documentSnapshot(view, { template: sectioned }));
+    expect(snapshot.body.firstElementChild).toHaveAttribute('data-print', 'true');
+    expect(snapshot.style).toContain(':root { color-scheme: light; }');
+    expect(snapshot.style).toContain('print-color-adjust: exact');
+    expect(snapshot.style).toContain(
+      '.pm-section:last-child > .pm-page:last-child { break-after: auto; }',
+    );
     view.destroy();
   });
 });

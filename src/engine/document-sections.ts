@@ -26,6 +26,7 @@ import {
   templateProperties,
   type TemplateSection,
 } from '../model/index.js';
+import { viewOnlyWidget } from '../utils/view-only-decorations.js';
 import { editsRegions, regionEdits } from './region-editing.js';
 import { isRemoteTransaction } from './transaction-kind.js';
 
@@ -82,7 +83,7 @@ function placeholderOf(
     .map((node) => node.textContent)
     .join(' ');
   const at = pos + 3 + (section.firstChild?.firstChild?.nodeSize ?? 0) + 1;
-  return Decoration.widget(
+  return viewOnlyWidget(
     at,
     (view) => {
       const hint = view.dom.ownerDocument.createElement('span');

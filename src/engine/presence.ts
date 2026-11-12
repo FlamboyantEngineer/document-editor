@@ -5,8 +5,8 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
-import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
-import { viewOnlyInline } from '../utils/view-only-decorations.js';
+import { DecorationSet, type EditorView } from 'prosemirror-view';
+import { viewOnlyInline, viewOnlyWidget } from '../utils/view-only-decorations.js';
 
 /** Another person in the document, with their selection. */
 export interface Peer {
@@ -107,7 +107,7 @@ function decorate(doc: ProseMirrorNode, peers: readonly PlacedPeer[]): Decoratio
         : [];
     return [
       ...selection,
-      Decoration.widget(head, caret(peer, stack), {
+      viewOnlyWidget(head, caret(peer, stack), {
         key: `presence-${peer.id}-${String(stack)}`,
         side: 1,
         peer,

@@ -10,8 +10,9 @@ import {
   TextSelection,
   type Transaction,
 } from 'prosemirror-state';
-import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { DecorationSet, type EditorView } from 'prosemirror-view';
 import type { CompletionAdapter } from '../host/index.js';
+import { viewOnlyWidget } from '../utils/view-only-decorations.js';
 
 /** The text offered after the caret, at a position. */
 export interface InlineCompletion {
@@ -153,7 +154,7 @@ export function createInlineCompletion(options: InlineCompletionOptions): Plugin
       decorations(state) {
         const offered = completionKey.getState(state);
         if (!offered) return null;
-        const widget = Decoration.widget(
+        const widget = viewOnlyWidget(
           offered.pos,
           (view) => {
             const ghost = view.dom.ownerDocument.createElement('span');
