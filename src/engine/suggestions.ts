@@ -219,8 +219,13 @@ function suggestReplace(
     const map = tr.mapping.slice(before);
     if (!inline.size) return backward || from === to ? map.map(from, -1) : map.map(to, 1);
     const at = map.map(to, 1);
+    // Typing beside the writer's own deletion, as after Backspace, replaces what it deletes.
+    const group =
+      id ??
+      adjacentId(suggesting, at, suggesting.insertion) ??
+      adjacentId(suggesting, at, suggesting.deletion) ??
+      suggesting.newId();
     tr.insert(at, inline);
-    const group = id ?? adjacentId(suggesting, at, suggesting.insertion) ?? suggesting.newId();
     markInserted(suggesting, [at, at + inline.size], group);
     return at + inline.size;
   }
