@@ -4,17 +4,17 @@ The library's own ProseMirror ↔ Yjs binding works on Yjs 14 (`@y/y` 14.0.0-rc.
 
 Everything is in `labs/src/spikes/collab-*` on `claude/spike-collab`:
 
-| File                         | What it is                                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `collab-convert.ts`          | DOM-free ProseMirror node ↔ Yjs delta conversion; `documentToUpdate` (room seeds), `updateToDocument`. |
-| `collab-binding.ts`          | `bindState`: the sync, per-person `Y.UndoManager`, remote marking and derived writes.                  |
-| `collab-awareness.ts`        | `publishCaret` and `readPeers`: selections as Yjs relative positions, handed to the presence plugin.   |
-| `collab-room.ts`             | A collaboration-tools room server and its clients in one process, paired by queued microtasks.         |
-| `collab-binding.test.ts`     | Sync, concurrency, undo, carets, derived writes, and generated edits from 3 people through a room.     |
-| `yjs-pending.test.ts`        | The Yjs 14 pending-update behaviour below, pinned on 31 updates.                                       |
-| `collab-measure.ts`          | The measurements (`npx tsx labs/src/spikes/collab-measure-run.ts`).                                    |
-| `collab-binding.lab.ts`      | The lab (`labs/collab-binding.html`): two editors, undo, carets, an offline switch, timings.           |
-| `e2e/collab-binding.spec.ts` | The lab's browser tests.                                                                               |
+| File                             | What it is                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `collab-convert.ts`              | DOM-free ProseMirror node ↔ Yjs delta conversion; `documentToUpdate` (room seeds), `updateToDocument`. |
+| `collab-binding.ts`              | `bindState`: the sync, per-person `Y.UndoManager`, remote marking and derived writes.                  |
+| `collab-awareness.ts`            | `publishCaret` and `readPeers`: selections as Yjs relative positions, handed to the presence plugin.   |
+| `collab-room.ts`                 | A collaboration-tools room server and its clients in one process, paired by queued microtasks.         |
+| `collab-binding.test.ts`         | Sync, concurrency, undo, carets, derived writes, and generated edits from 3 people through a room.     |
+| `src/collab/yjs-pending.test.ts` | The Yjs 14 pending-update behaviour below, pinned on 31 updates.                                       |
+| `collab-measure.ts`              | The measurements (`npx tsx labs/src/spikes/collab-measure-run.ts`).                                    |
+| `collab-binding.lab.ts`          | The lab (`labs/collab-binding.html`): two editors, undo, carets, an offline switch, timings.           |
+| `e2e/collab-binding.spec.ts`     | The lab's browser tests.                                                                               |
 
 ## How the binding works
 
@@ -48,7 +48,7 @@ In Chromium, in the lab through the in-process room at 150 chapters: both provid
 ## Findings
 
 1. **Yjs 14 needs no fork.** The binding uses only public API: `Y.Type`, `applyDelta`, `toDelta`, `observeDeep` with `deltaDeep`, `UndoManager`, relative positions and `getPathTo`, plus `lib0/delta` (`create`, `diff`, `clone`, `apply`). `lib0` must be an optional peer next to `@y/y`, at the version `@y/y` uses.
-2. **Yjs 14 can leave complete updates pending.** Updates from three people delivered to a fourth out of causal order can stay pending after all have arrived; the same updates in another order, or the same order applied twice, integrate. Seen on rc.23 and rc.29, minimised to 31 updates in `yjs-pending.test.ts`. Through a room server it does not happen, since updates arrive in the room's order and collaboration-tools refuses incomplete ones (COLLAB-SERVER-7.3); the generated-edit test uses that topology and passes on 100 seeds. It matters for room-mode offline (RT-36): replay the cached state, then the unconfirmed update, in order. Worth reporting upstream with the fixture.
+2. **Yjs 14 can leave complete updates pending.** Updates from three people delivered to a fourth out of causal order can stay pending after all have arrived; the same updates in another order, or the same order applied twice, integrate. Seen on rc.23 and rc.29, minimised to 31 updates in `src/collab/yjs-pending.test.ts`. Through a room server it does not happen, since updates arrive in the room's order and collaboration-tools refuses incomplete ones (COLLAB-SERVER-7.3); the generated-edit test uses that topology and passes on 100 seeds. It matters for room-mode offline (RT-36): replay the cached state, then the unconfirmed update, in order. Worth reporting upstream with the fixture.
 3. **Marks that do not exclude themselves have no canonical order.** ProseMirror keeps comment highlights and suggestion marks in the order they were added, so the person who added one and the people who receive it hold the same content with marks in another order, and runs that are not joined. `doc.eq` then reports a difference. W4.3 should give such marks a canonical order (by attributes) where they are added, or normalize in the binding.
 4. **Element ids must be in the seed.** On a document without ids, the first local edit assigned ids to every block, a 1 MB update. A room must be seeded from a document that has its ids (`assignElementIds`, then `documentToYjs`); the derived-write path stays for genuinely new blocks.
 5. **RT-10 confirmed.** `createDocumentEditing({ history: false })` still binds `Mod-z` to `prosemirror-history`'s undo. The lab puts its own keymap first; W4.3 needs injectable undo and redo commands.
