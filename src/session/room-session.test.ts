@@ -2,6 +2,7 @@ import type { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSessionRooms, type SessionRooms } from '../../test/session-rooms.js';
+import { undoCommand } from '../engine/undo-commands.js';
 import { FULL_CAPABILITIES } from '../host/capabilities.js';
 import { createMemoryHost, type MemoryHostOptions } from '../host/memory-host.js';
 import type { DocumentFile } from '../model/format/document-format.js';
@@ -114,6 +115,22 @@ describe('createDocumentSession in room mode', () => {
     mount(grace);
     view.dispatch(view.state.tr.insertText('Well, ', 1));
     await vi.waitFor(() => expect(textOf(shown(grace).state)).toBe('Well, Hello'));
+  });
+
+  it('DOCE-COLLAB-6.3 undoes only the reader’s own change in a room', async () => {
+    roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const adaView = mount(ada);
+    const graceView = mount(grace);
+    adaView.dispatch(adaView.state.tr.insertText('Well, ', 1));
+    await vi.waitFor(() => expect(textOf(shown(grace).state)).toBe('Well, Hello'));
+    graceView.dispatch(graceView.state.tr.insertText('!', graceView.state.doc.content.size - 3));
+    await vi.waitFor(() => expect(textOf(shown(ada).state)).toBe('Well, Hello!'));
+    expect(undoCommand(adaView.state, adaView.dispatch, adaView)).toBe(true);
+    await vi.waitFor(() => expect(textOf(shown(grace).state)).toBe('Hello!'));
+    expect(textOf(adaView.state)).toBe('Hello!');
   });
 
   it('DOCE-SESSION-3.3 follows the room’s status and waits for it to store changes', async () => {
