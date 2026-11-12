@@ -34,6 +34,8 @@ export const CONTENTS_LABELS: Readonly<
   tables: { title: 'Table of Tables', empty: 'No tables found.' },
   codeBlocks: { title: 'Table of Code Blocks', empty: 'No code listings found.' },
   equations: { title: 'Table of Equations', empty: 'No equations found.' },
+  references: { title: 'References', empty: 'No references found.' },
+  abbreviations: { title: 'Abbreviations', empty: 'No abbreviations found.' },
 };
 
 /** The labels of a kind of list that neither the defaults nor the host label. */
