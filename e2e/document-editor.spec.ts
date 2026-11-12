@@ -168,8 +168,22 @@ test.describe('document editor lab', () => {
     await selectText(page, 'operator console');
     await openMenuAt(page, 'operator console');
     await item(page, 'Comment').click();
+    // The right-click kept the selection, so the thread is on exactly the selected text.
     await expect(
       content(page).locator('mark[data-comment-id]', { hasText: 'operator console' }),
+    ).toHaveText('operator console');
+  });
+
+  test('DOCE-EDITOR-3.3 starts a comment on the caret block from the menu without a selection', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await openMenuAt(page, 'ninety days');
+    await expect(item(page, 'Comment')).toBeEnabled();
+    await item(page, 'Comment').click();
+    await expect(
+      content(page).locator('mark[data-comment-id]', { hasText: 'ninety days' }),
     ).toHaveCount(1);
   });
 

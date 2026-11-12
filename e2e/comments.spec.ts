@@ -300,4 +300,28 @@ test.describe('comments lab', () => {
     );
     await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveText('From the detection.');
   });
+
+  test('DOCE-COMMENTS-4.10 DOCE-COMMENTS-4.11 mentions a group and copies a link from a comment’s menu', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Groups and assistants in mentions').check();
+    await page.getByLabel('Copy-link action').check();
+    const thread = card(page, 'Is one second measured');
+    await thread.getByRole('textbox', { name: 'Reply' }).click();
+    await page.keyboard.type('Over to @Rev');
+    await page.getByRole('option', { name: /Reviewers/ }).click();
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    const reply = thread.getByRole('article').last();
+    await expect(reply).toContainText('Reviewers');
+    await expect(reply).not.toContainText('@group[');
+    const first = thread.getByRole('article').first();
+    await first.hover();
+    await first.getByRole('button', { name: /actions|more/i }).click();
+    await page.getByRole('menuitem', { name: 'Copy link to thread' }).click();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.labCopied))
+      .toBe('c0ffee01/e1');
+  });
 });

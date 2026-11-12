@@ -5,7 +5,7 @@
 import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
 
 /** Where to take the reader: a thread, and optionally one of its comments and a reply to start. */
-export interface CommentTarget {
+export interface ThreadTarget {
   readonly threadId: string;
   /** The comment to point the reader at. */
   readonly entryId?: string | undefined;
@@ -14,7 +14,7 @@ export interface CommentTarget {
 }
 
 /** The opened comment, numbered so opening the same one again shows it again. */
-export interface OpenedComment extends CommentTarget {
+export interface OpenedComment extends ThreadTarget {
   readonly sequence: number;
 }
 
@@ -28,12 +28,12 @@ export interface StartCommentOptions {
 export type StartComment = (options?: StartCommentOptions) => void;
 
 /** Takes the reader to a thread; false when the threads hold no such thread. */
-export type OpenComment = (target: CommentTarget) => boolean;
+export type OpenComment = (target: ThreadTarget) => boolean;
 
 /** The comment the reader was taken to, and how to take them to another. */
 export interface CommentFocus {
   readonly opened: OpenedComment | null;
-  open(target: CommentTarget): void;
+  open(target: ThreadTarget): void;
   /** The text the thread being started begins with. */
   readonly newText: string | null;
   setNewText(text: string | null): void;

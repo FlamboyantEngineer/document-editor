@@ -19,19 +19,22 @@ export interface ThreadFilter {
   readonly audience?: CommentsAudience | undefined;
   /** Splits a comment's text into text and mentions. */
   readonly parse: (text: string) => readonly CommentTextSegment[];
+  /** Whether a mentioned group, or another target, includes the reader. */
+  readonly includes?:
+    ((target: { kind: string; id: string }, personId: string) => boolean) | undefined;
   /** A thread the reader was taken to, which shows whatever the filter keeps. */
   readonly revealed?: string | null | undefined;
 }
 
-/** Whether a thread's comments mention the reader by name. */
-function isMentioned(thread: CommentThread, { me, parse }: ThreadFilter): boolean {
+/** Whether a thread's comments mention the reader, by name or through a group that includes them. */
+function isMentioned(thread: CommentThread, { me, parse, includes }: ThreadFilter): boolean {
   return thread.entries.some((entry) =>
-    parse(entry.text).some(
-      (segment) =>
-        segment.kind === 'mention' &&
-        (segment.mentionKind ?? 'person') === 'person' &&
-        segment.id === me,
-    ),
+    parse(entry.text).some((segment) => {
+      if (segment.kind !== 'mention') return false;
+      const kind = segment.mentionKind ?? 'person';
+      if (kind === 'person') return segment.id === me;
+      return includes?.({ kind, id: segment.id }, me) ?? false;
+    }),
   );
 }
 

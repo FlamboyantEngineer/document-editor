@@ -14,6 +14,7 @@ import {
   CommentThreadReply,
 } from '@flamboyantengineer/ui-components/comment-thread';
 import { ChatBubblePlusGlyph } from '@flamboyantengineer/ui-components/core';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
 import { UserCard } from '@flamboyantengineer/ui-components/user-card';
 import type { ReactNode } from 'react';
@@ -30,7 +31,14 @@ export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments
 export const hooks = createHooks('document-comments', ['margin', 'card']);
 
 /** What a mention's chip names: a person, a group, or another kind the host mentions. */
-export type MentionTarget = Parameters<NonNullable<CommentTextProps['renderCard']>>[0];
+export type MentionCardTarget = Parameters<NonNullable<CommentTextProps['renderCard']>>[0];
+
+/** The comment a menu action is for: the thread's opening comment (`index` 0) or a reply. */
+export interface CommentActionTarget {
+  readonly thread: StoredThread;
+  readonly entry: CommentEntry;
+  readonly index: number;
+}
 
 /** What every card reads: the threads, the reader and the labels. */
 export interface CardContext {
@@ -49,7 +57,9 @@ export interface CardContext {
    * The card a mention's chip opens; by default a `UserCard` with the name and the picture the
    * identity gives, and none with null.
    */
-  readonly mentionCard?: ((target: MentionTarget) => ReactNode) | null | undefined;
+  readonly mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
+  /** The host's own actions in a comment's menu, before Edit and Delete. */
+  readonly commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
   /** Where the cards show, which keeps their comments' element ids apart. */
   readonly scope: 'margin' | 'panel';
   /** The comment the reader was taken to, which its thread points at. */
@@ -188,6 +198,7 @@ export function renderEntries({
         text={entry.text}
         isEdited={Boolean(entry.editedAt)}
         reactions={<Reactions thread={thread} entry={entry} context={context} />}
+        actions={context.commentActions?.({ thread, entry, index })}
         {...entryActions(thread, { entry, index }, { context, onRemove })}
       >
         <CommentText

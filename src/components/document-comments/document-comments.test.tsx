@@ -247,4 +247,29 @@ describe('DocumentComments', () => {
       },
     );
   });
+
+  it('DOCE-COMMENTS-4.11 offers the host’s own actions in a comment’s menu', async () => {
+    const user = userEvent.setup();
+    const copied: string[] = [];
+    render(
+      <Harness
+        host={host()}
+        options={{
+          commentActions: ({ thread, entry, index }) => [
+            {
+              id: 'copy-link',
+              label: index === 0 ? 'Copy link to thread' : 'Copy link',
+              onAction: () => copied.push(`${thread.id}/${entry.id}`),
+            },
+          ],
+        }}
+      />,
+    );
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const comment = (await within(margin).findByText('Is blue right?')).closest('article');
+    if (!(comment instanceof HTMLElement)) throw new Error('The comment should show.');
+    await user.click(within(comment).getByRole('button', { name: /actions|more/i }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Copy link to thread' }));
+    expect(copied).toEqual(['open/open-1']);
+  });
 });

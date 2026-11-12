@@ -73,7 +73,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.3 - Suggestions and comments
 
-On a suggestion, while the editor may decide suggestions (editable and not suggesting), the menu shall first offer to accept or reject it. With comments, while the reader may comment, it shall offer Comment, which starts a thread on the selected text as the comments margin does, disabled without a selection.
+On a suggestion, while the editor may decide suggestions (editable and not suggesting), the menu shall first offer to accept or reject it. With comments, while the reader may comment, it shall offer Comment, which starts a thread as Mod-Alt-M does (DOCE-COMMENTS-2.6): on the selected text, which the right-click that opened the menu keeps, or, without a selection, on the text block holding the caret.
 
 Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-comments/document-comments.tsx`
 Verification: `e2e/document-editor.spec.ts`

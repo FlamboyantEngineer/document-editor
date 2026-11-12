@@ -82,14 +82,20 @@ function usePanelFilter(props: DocumentCommentsPanelProps) {
 // What every card of the panel reads.
 function usePanelCards(props: DocumentCommentsPanelProps, comments: CommentThreads) {
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
-  const mentions = useCommentMentions(props.identity);
+  const mentions = useCommentMentions(props.identity, props.mentions);
   const me = props.identity.currentPerson().id;
   const { audience } = props;
   const focus = useCommentFocus();
   const revealed = focus.opened?.threadId;
   const base = useMemo(
-    () => ({ me, audience, parse: mentions.parse, revealed }),
-    [me, audience, mentions, revealed],
+    () => ({
+      me,
+      audience,
+      parse: mentions.parse,
+      includes: props.mentions?.includes?.bind(props.mentions),
+      revealed,
+    }),
+    [me, audience, mentions, revealed, props.mentions],
   );
   const card: CardContext = {
     comments,
@@ -100,6 +106,7 @@ function usePanelCards(props: DocumentCommentsPanelProps, comments: CommentThrea
     mentions,
     format: props.format,
     mentionCard: props.mentionCard,
+    commentActions: props.commentActions,
     scope: 'panel',
     opened: focus.opened,
     newText: focus.newText,

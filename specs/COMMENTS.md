@@ -325,6 +325,20 @@ Verification: `src/components/document-comments/comment-focus.test.tsx`, `e2e/co
 Implementation: `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/comment-focus.test.tsx`
 
+### DOCE-COMMENTS-4.10 - Group and assistant mentions
+
+Given a `mentions` adapter (DOCE-HOST-1.21), every composer's `@` shall list the people, groups and assistants it finds, each kind drawn as the base library draws it (a group with its size), write a pick in the host's token format, and show the mentions of stored text, read in that format, as chips of their kind. A thread that mentions a group the adapter says includes the reader counts as the reader's own (DOCE-COMMENTS-4.2).
+
+Implementation: `src/components/document-comments/comment-mentions.ts`, `src/components/document-comments/comment-filters.ts`, `src/host/mention-adapters.ts`
+Verification: `src/components/document-comments/comment-mentions.test.tsx`
+
+### DOCE-COMMENTS-4.11 - The host's comment actions
+
+Given `commentActions(target)`, each comment's menu, in the margin and the panel, shall offer the host's actions for it before Edit and Delete, as the base library's menu entries; the opening comment's (`index` 0) stand for the whole thread.
+
+Implementation: `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`
+
 ## Hooks
 
 | Hook                            | Kind      | Values | Description                                                |

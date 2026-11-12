@@ -10,6 +10,7 @@ import {
 } from '@flamboyantengineer/ui-components/annotation-layer';
 import type { CommentTextFormat } from '@flamboyantengineer/ui-components/comment-thread';
 import type { Key } from '@flamboyantengineer/ui-components/core';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState } from 'prosemirror-state';
 import {
@@ -22,7 +23,7 @@ import {
   useState,
 } from 'react';
 import type { Suggestion } from '../../engine/index.js';
-import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
+import type { CommentStoreAdapter, IdentityAdapter, MentionsAdapter } from '../../host/index.js';
 import {
   type AnchorTarget,
   isSameMeasurement,
@@ -32,10 +33,11 @@ import {
 } from './anchor-rects.js';
 import {
   type CardContext,
+  type CommentActionTarget,
   DEFAULT_COMMENTS_LABELS,
   type DocumentCommentsLabels,
   hooks,
-  type MentionTarget,
+  type MentionCardTarget,
 } from './comment-cards.js';
 import { useCommentControls } from './comment-controls.js';
 import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
@@ -52,10 +54,10 @@ import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-t
 import { useSuggestionThreads } from './use-suggestion-threads.js';
 
 export type {
-  CommentTarget,
   OpenComment,
   StartComment,
   StartCommentOptions,
+  ThreadTarget,
 } from './comment-focus.js';
 export { EditorCommentThreads } from './comment-threads-provider.js';
 
@@ -76,6 +78,11 @@ export interface DocumentCommentsOptions {
    * read or reopen, or the reader's own open ones, which they wrote or which mention them.
    */
   filter?: CommentsFilter | undefined;
+  /**
+   * What comments may mention: people, groups and assistants, in the host's token format. Without
+   * it, comments mention the people `identity` finds.
+   */
+  mentions?: MentionsAdapter | undefined;
   /** Whether the reader is among the people a thread is for; threads they are not are hidden. */
   audience?: CommentsAudience | undefined;
   /** How comments read: as plain text (the default) or as inline Markdown (`markdown-inline`). */
@@ -84,7 +91,12 @@ export interface DocumentCommentsOptions {
    * The card a mention's chip opens; by default a `UserCard` with the name and the picture the
    * identity gives, and none with null.
    */
-  mentionCard?: ((target: MentionTarget) => ReactNode) | null | undefined;
+  mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
+  /**
+   * The host's own actions in each comment's menu, before Edit and Delete, such as copying a link
+   * to it; the opening comment's (`index` 0) act on the whole thread.
+   */
+  commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
   /**
    * Shows a card for each thread and suggestion (`cards`, the default), or a marker for each that
    * opens its card (`markers`), which leaves the document more room.
@@ -183,12 +195,19 @@ function useCardContext(
   props: DocumentCommentsProps,
   shared: Pick<CardContext, 'comments' | 'canComment' | 'labels'>,
 ): { context: CardContext; filter: ThreadFilter; opened: OpenedComment | null } {
-  const mentions = useCommentMentions(props.identity);
+  const mentions = useCommentMentions(props.identity, props.mentions);
   const me = props.identity.currentPerson().id;
-  const { format, mentionCard, audience } = props;
+  const { format, mentionCard, audience, commentActions } = props;
+  const host = props.mentions;
   const listed = useMemo(
-    () => ({ filter: props.filter ?? 'open', me, audience, parse: mentions.parse }),
-    [props.filter, me, audience, mentions],
+    () => ({
+      filter: props.filter ?? 'open',
+      me,
+      audience,
+      parse: mentions.parse,
+      includes: host?.includes?.bind(host),
+    }),
+    [props.filter, me, audience, mentions, host],
   );
   const focus = useCommentFocus();
   const revealed = focus.opened?.threadId;
@@ -198,6 +217,7 @@ function useCardContext(
     mentions,
     format,
     mentionCard,
+    commentActions,
     documentId: props.documentId,
     me,
     scope: 'margin',

@@ -109,6 +109,13 @@ The host's optional `diagrams` adapter shall open its own diagram editor on a fi
 Implementation: `src/host/adapters.ts`
 Verification: `src/components/document-editor/figure-dialog.test.tsx`
 
+### DOCE-HOST-1.21 - Mentions
+
+The editor's comments may take a `mentions` adapter (`MentionsAdapter`), which shall find the people, groups, assistants and kinds of the host's own a comment can mention (`find(query, signal)`, each a `MentionTarget` with its kind, id, name and, optionally, picture, second line and group size), may write a target into a comment's text in the host's token format (`serialize`) and read it back (`parse`), and may say whether a group includes a person (`includes`), so a thread mentioning the group counts as theirs (DOCE-COMMENTS-4.10). Without it comments mention the people the identity adapter finds, as `@[Name](id)`.
+
+Implementation: `src/host/mention-adapters.ts`
+Verification: `src/components/document-comments/comment-mentions.test.tsx`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
