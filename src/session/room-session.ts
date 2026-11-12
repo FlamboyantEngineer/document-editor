@@ -14,7 +14,8 @@ import type {
 } from './document-session.js';
 import type { DraftOffer } from './drafts.js';
 import { loadPinnedTemplate } from './open-document.js';
-import { type OpenedRoom, openRoom, whenKept } from './room-open.js';
+import { createRoomDrafts } from './room-drafts.js';
+import { type OpenedRoom, openRoom, type RoomDraft, whenKept } from './room-open.js';
 import { roomRefusal, roomSavePhase } from './room-status.js';
 import { editingModeOf, followSession, withCapabilities } from './session-follow.js';
 import {
@@ -25,13 +26,8 @@ import {
 } from './store-session.js';
 import { createValueStore } from './value-store.js';
 
-// Room mode opens on its draft by itself, so it offers none to restore, and the room merges every
-// writer's changes, so no conflict is left to settle.
-const NO_DRAFT_OFFER: Pick<
-  DocumentSession,
-  'draft' | 'restoreDraft' | 'discardDraft' | 'resolveConflict'
-> = {
-  resolveConflict: () => Promise.resolve(),
+// Room mode opens on its draft by itself, so it offers none to restore.
+const NO_DRAFT_OFFER: Pick<DocumentSession, 'draft' | 'restoreDraft' | 'discardDraft'> = {
   draft: createValueStore<DraftOffer | null>(null),
   restoreDraft: () => Promise.resolve(false),
   discardDraft: () => undefined,
@@ -80,6 +76,58 @@ function followConnection(connection: RoomConnection, { status, document }: Sess
   return connection.subscribe(show);
 }
 
+// What a room session runs on: its stores, its drafts and the room it is connected to now.
+interface RoomRun {
+  options: DocumentSessionOptions & { schema: Schema };
+  signal: AbortSignal;
+  stores: SessionStores;
+  drafts: ReturnType<typeof createRoomDrafts>;
+  follow: ReturnType<typeof followSession>;
+  showPin: (pin: TemplatePin | null) => Promise<boolean>;
+  current: { room: OpenedRoom | null; stops: (() => void)[] };
+}
+
+// Leaves the room the session is connected to.
+function leaveRoom({ drafts, current }: RoomRun) {
+  drafts.stop();
+  for (const stop of current.stops.splice(0)) stop();
+  current.room?.connection.close();
+  current.room = null;
+}
+
+// Opens the room; on a draft of an older generation, again without it, merging it in
+// (DOCE-SESSION-6.10).
+async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<boolean> {
+  const { options, signal, stores, current } = run;
+  const { host, documentId, schema } = options;
+  const { status, document } = stores;
+  const syncing = () => status.set({ ...status.get(), load: 'syncing' });
+  const skipDraft = merged !== null;
+  const opened = await openRoom(host, { documentId, schema, signal, skipDraft }, syncing);
+  const read = opened.ok ? await readRoom(opened.value, { ...options, stores, signal }) : opened;
+  if (signal.aborted || !opened.ok || !read.ok) {
+    if (opened.ok) opened.value.connection.close();
+    if (!signal.aborted) {
+      status.set({ ...status.get(), load: 'failed', error: read.ok ? null : read.error });
+    }
+    return false;
+  }
+  const room = opened.value;
+  current.room = room;
+  document.set(read.value.document);
+  current.stops.push(followConnection(room.connection, stores));
+  current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
+  const reopen = (draft: RoomDraft) => {
+    leaveRoom(run);
+    void loadRoom(run, draft);
+  };
+  current.stops.push(run.drafts.follow(room, reopen));
+  run.follow.followTemplate(read.value.document.pin, read.value.saved);
+  await run.drafts.start(room, merged);
+  status.set({ ...status.get(), load: 'ready' });
+  return true;
+}
+
 /** Opens a document in its shared room (DOCE-SESSION-3.2 to 3.6). */
 export function createRoomSession(options: DocumentSessionOptions): DocumentSession {
   const { host, documentId } = options;
@@ -88,15 +136,16 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
   const { signal } = controller;
   const stores = createSessionStores(options, 'connecting');
   const { status, document } = stores;
-  let room: OpenedRoom | null = null;
-  const stops: (() => void)[] = [];
-  const flush = () => (room ? whenKept(room.connection) : Promise.resolve(true));
+  const flush = () => {
+    const opened = run.current.room;
+    return opened ? whenKept(opened.connection) : Promise.resolve(true);
+  };
   const follow = followSession({
     host,
     documentId,
     document,
     onLeave: () => void flush(),
-    connection: () => room?.connection.state().access ?? 'pending',
+    connection: () => run.current.room?.connection.state().access ?? 'pending',
   });
   const showPin = async (pin: TemplatePin | null) => {
     const changed = await changeTemplate({ host, signal }, stores, pin);
@@ -104,35 +153,21 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     return changed !== null;
   };
 
-  const load = async () => {
-    const syncing = () => status.set({ ...status.get(), load: 'syncing' });
-    const opened = await openRoom(host, { documentId, schema, signal }, syncing);
-    const read = opened.ok
-      ? await readRoom(opened.value, { ...options, schema, stores, signal })
-      : opened;
-    if (signal.aborted) {
-      if (opened.ok) opened.value.connection.close();
-      return false;
-    }
-    if (!opened.ok || !read.ok) {
-      if (opened.ok) opened.value.connection.close();
-      status.set({ ...status.get(), load: 'failed', error: read.ok ? null : read.error });
-      return false;
-    }
-    room = opened.value;
-    document.set(read.value.document);
-    stops.push(followConnection(room.connection, stores));
-    stops.push(room.binding.followPin((pin) => void showPin(pin)));
-    follow.followTemplate(read.value.document.pin, read.value.saved);
-    status.set({ ...status.get(), load: 'ready' });
-    return true;
+  const run: RoomRun = {
+    options: { ...options, schema },
+    signal,
+    stores,
+    drafts: createRoomDrafts({ host, documentId, schema, stores }),
+    follow,
+    showPin,
+    current: { room: null, stops: [] },
   };
-
+  const room = () => run.current.room;
   const close = () => {
     controller.abort();
     follow.stop();
-    for (const stop of stops.splice(0)) stop();
-    room?.connection.close();
+    run.drafts.close();
+    leaveRoom(run);
   };
   options.signal?.addEventListener('abort', close, { once: true });
 
@@ -141,9 +176,10 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     mode: 'room',
     status,
     document,
-    // A shared room merges every writer's changes itself: nothing is left to settle.
+    // A shared room merges every writer's changes itself; what is left to settle are a draft's
+    // blocks a new generation of the room changed too (DOCE-SESSION-6.10).
     conflicts: stores.conflicts,
-    ready: load(),
+    ready: loadRoom(run),
     update: (update) => {
       const shown = document.get();
       if (!shown) return;
@@ -151,17 +187,19 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
       if (state !== shown.state) document.set({ ...shown, state });
     },
     setTemplate: async (pin) => {
-      if (!room || document.get()?.editingMode !== 'edit') return false;
+      const opened = room();
+      if (!opened || document.get()?.editingMode !== 'edit') return false;
       const shown = await showPin(pin);
-      if (shown) room.binding.setPin(pin);
+      if (shown) opened.binding.setPin(pin);
       return shown;
     },
     save: async () => {
       await flush();
     },
     flush,
-    hasUnsavedChanges: () => room?.connection.state().hasUnconfirmedChanges ?? false,
+    hasUnsavedChanges: () => room()?.connection.state().hasUnconfirmedChanges ?? false,
     ...NO_DRAFT_OFFER,
+    resolveConflict: (id, choice) => run.drafts.resolve(room(), id, choice),
     close,
   };
 }

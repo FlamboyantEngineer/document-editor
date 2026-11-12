@@ -10,15 +10,16 @@ import { failure, loadCapabilities } from './open-document.js';
 import type { RoomBinding } from './room-binding.js';
 import { roomRefusal } from './room-status.js';
 
-type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
+/** A room-mode draft as the drafts adapter keeps it. */
+export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
 
 /** A document's room, connected and bound, and what the reader may do there. */
 export interface OpenedRoom {
   connection: RoomConnection;
   binding: RoomBinding;
   capabilities: EditorCapabilities;
-  /** Whether the session opened on a draft, without waiting for the room's first sync. */
-  fromDraft: boolean;
+  /** The draft the session opened on, without waiting for the room's first sync, or null. */
+  draft: RoomDraft | null;
 }
 
 const ABORTED = failure('unavailable', 'The session was closed.');
@@ -48,16 +49,23 @@ async function firstSync(connection: RoomConnection, signal: AbortSignal) {
 
 /**
  * Connects the document's room and binds its shared document once it synced, or at once when the
- * reader has a room draft to start from. `onConnected` runs when the connection is made.
+ * reader has a room draft to start from, unless `skipDraft`. `onConnected` runs when the connection
+ * is made.
  */
 export async function openRoom(
   host: EditorHost,
-  { documentId, schema, signal }: { documentId: string; schema: Schema; signal: AbortSignal },
+  {
+    documentId,
+    schema,
+    signal,
+    skipDraft = false,
+  }: { documentId: string; schema: Schema; signal: AbortSignal; skipDraft?: boolean },
   onConnected: () => void,
 ): Promise<HostResult<OpenedRoom>> {
   const collaboration = host.collaboration;
   if (!collaboration) return { ok: false, error: failure('unavailable', 'No shared rooms.') };
-  const draft = await roomDraft(host, documentId);
+  // A draft of another generation is merged in once the room synced (DOCE-SESSION-6.10).
+  const draft = skipDraft ? undefined : await roomDraft(host, documentId);
   const [connected, capabilities, { bindRoom }] = await Promise.all([
     collaboration.connect(documentId, { signal, draft }),
     loadCapabilities(host, documentId),
@@ -74,7 +82,7 @@ export async function openRoom(
   }
   const isRemoteOrigin = (origin: unknown) => connection.isRemoteOrigin(origin);
   const binding = bindRoom(connection.doc, schema, isRemoteOrigin);
-  return { ok: true, value: { connection, binding, capabilities, fromDraft: Boolean(draft) } };
+  return { ok: true, value: { connection, binding, capabilities, draft: draft ?? null } };
 }
 
 /**
