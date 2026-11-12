@@ -1,7 +1,8 @@
-// The positions the page transform moves or drops, found again. Joining a section's pages moves
-// every page's footnote entries onto the last page and drops the header rows a table continuation
-// repeats, so positions inside them map nowhere through its steps. They are found again by footnote
-// id and by row, at the same offset into the entry or the row.
+// Positions between a paged projection and its canonical whole document, through the mappings of
+// the page transform that joins one into the other. Joining a section's pages moves every page's
+// footnote entries onto the last page and drops the header rows a table continuation repeats, so
+// positions inside them map nowhere through its steps. They are found again by footnote id and by
+// row, at the same offset into the entry or the row.
 
 import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import type { Mapping } from 'prosemirror-transform';
@@ -70,8 +71,7 @@ function rowStartAround(doc: ProseMirrorNode, pos: number, row: number): number 
   return null;
 }
 
-/** What a redirect reads: the position, the document it maps into, and the forward mapping. */
-export interface Redirect {
+interface Redirect {
   readonly $pos: ResolvedPos;
   readonly to: ProseMirrorNode;
   readonly direction: MapDirection;
@@ -79,12 +79,10 @@ export interface Redirect {
   readonly forward: Mapping;
 }
 
-/**
- * A position the page transform moved or dropped, found again: in the footnote entry of the same
- * id, or, from the projection, in the canonical header row a continuation repeats. Null when it is
- * in neither.
- */
-export function redirectPosition({ $pos, to, direction, forward }: Redirect): number | null {
+// A position the page transform moved or dropped, found again: in the footnote entry of the same
+// id, or, from the projection, in the canonical header row a continuation repeats. Null when it is
+// in neither.
+function redirectPosition({ $pos, to, direction, forward }: Redirect): number | null {
   const entry = footnoteEntryAt($pos);
   if (entry) {
     const start = findFootnoteEntry(to, entry.id);
@@ -98,4 +96,35 @@ export function redirectPosition({ $pos, to, direction, forward }: Redirect): nu
   if (body.deletedAcross) return null;
   const start = rowStartAround(to, body.pos, header.row);
   return start === null ? null : start + header.offset;
+}
+
+/** Two documents and the mappings between them: projection to canonical, and back. */
+export interface PagePositions {
+  readonly projection: ProseMirrorNode;
+  readonly canonical: ProseMirrorNode;
+  readonly forward: Mapping;
+  readonly backward: Mapping;
+}
+
+/**
+ * A position mapped from one document to the other, found again by footnote id or table row when
+ * the mapping deleted it; null when it maps nowhere.
+ */
+export function mapPosition(
+  positions: PagePositions,
+  at: { readonly pos: number; readonly assoc: -1 | 1 },
+  direction: MapDirection,
+): number | null {
+  const { projection, canonical, forward, backward } = positions;
+  const toCanonical = direction === 'toCanonical';
+  const result = (toCanonical ? forward : backward).mapResult(at.pos, at.assoc);
+  if (!result.deletedAcross) return result.pos;
+  const [from, to] = toCanonical ? [projection, canonical] : [canonical, projection];
+  return redirectPosition({ $pos: from.resolve(at.pos), to, direction, forward });
+}
+
+/** -1 at the end of a textblock, so the position keeps to the text before it; otherwise 1. */
+export function textSide(doc: ProseMirrorNode, pos: number): -1 | 1 {
+  const $pos = doc.resolve(pos);
+  return $pos.parent.isTextblock && $pos.parentOffset === $pos.parent.content.size ? -1 : 1;
 }
