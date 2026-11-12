@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { DocumentFile } from '../model/index.js';
-import type { CommentThread } from './adapters.js';
 import { FULL_CAPABILITIES } from './capabilities.js';
+import type { CommentThread } from './comment-adapters.js';
 import { createMemoryHost } from './memory-host.js';
 
 const CONTENT: DocumentFile = {
@@ -114,6 +114,9 @@ describe('createMemoryHost', () => {
         entries: [
           { id: 'comment-1', author: 'p1', text: 'Why?', createdAt: '2026-01-02T03:04:05.000Z' },
         ],
+        author: 'p1',
+        createdAt: '2026-01-02T03:04:05.000Z',
+        updatedAt: '2026-01-02T03:04:05.000Z',
       },
     });
     await comments.reply('doc', 't1', 'Because.');
@@ -123,6 +126,79 @@ describe('createMemoryHost', () => {
       value: [{ state: 'resolved', entries: [{ text: 'Why?' }, { text: 'Because.' }] }],
     });
     await expect(comments.list('other')).resolves.toEqual({ ok: true, value: [] });
+  });
+
+  it('DOCE-HOST-1.5 keeps a thread record as given and stamps who resolved it', async () => {
+    const { comments } = createMemoryHost({
+      person: { id: 'p1', name: 'Ada' },
+      comments: { now: () => new Date('2026-01-02T03:04:05Z') },
+    });
+    if (!comments) throw new Error('The host should keep comments.');
+    const target = { ranges: [{ element: 'p-1', start: 2, end: 6, text: 'blue' }], quote: 'blue' };
+    await comments.create('doc', { id: 't1', quote: 'blue', text: 'Why?', target });
+    await comments.create('doc', { id: 'd1', quote: '', text: 'Overall fine', scope: 'document' });
+    await comments.create('doc', {
+      id: 's1',
+      quote: 'red',
+      text: '',
+      suggestion: 'sug-1',
+      change: { kind: 'insert', inserted: 'red' },
+      automatic: true,
+    });
+    await comments.setState('doc', 't1', 'resolved');
+    const listed = await comments.list('doc');
+    expect(listed).toMatchObject({
+      value: [
+        { id: 't1', target, resolvedBy: 'p1', resolvedAt: '2026-01-02T03:04:05.000Z' },
+        { id: 'd1', scope: 'document' },
+        { id: 's1', entries: [], automatic: true, change: { kind: 'insert', inserted: 'red' } },
+      ],
+    });
+    await comments.setState('doc', 't1', 'open');
+    await expect(comments.list('doc')).resolves.toMatchObject({
+      value: [{ id: 't1', resolvedBy: undefined, resolvedAt: undefined }, {}, {}],
+    });
+  });
+
+  it('DOCE-HOST-1.10 records a decision, updates a thread and reacts to a thread', async () => {
+    const { comments } = createMemoryHost({
+      person: { id: 'p1', name: 'Ada' },
+      comments: { now: () => new Date('2026-01-02T03:04:05Z') },
+    });
+    if (!comments?.decide || !comments.update || !comments.react) {
+      throw new Error('The memory store should decide, update and react.');
+    }
+    await comments.create('doc', { id: 's1', quote: 'red', text: '', suggestion: 'sug-1' });
+    await comments.update('doc', 's1', {
+      quote: 'reds',
+      change: { kind: 'insert', inserted: 'reds' },
+    });
+    await comments.react('doc', { threadId: 's1', emoji: '👍', reacted: true });
+    const decided = await comments.decide('doc', {
+      threadId: 's1',
+      suggestion: 'sug-2',
+      decision: 'reject',
+      dependsOn: 'sug-1',
+    });
+    expect(decided).toMatchObject({
+      ok: true,
+      value: {
+        state: 'resolved',
+        quote: 'reds',
+        change: { inserted: 'reds' },
+        reactions: { '👍': ['p1'] },
+        decision: {
+          decision: 'reject',
+          suggestion: 'sug-2',
+          dependsOn: 'sug-1',
+          by: 'p1',
+          at: '2026-01-02T03:04:05.000Z',
+        },
+      },
+    });
+    await expect(
+      comments.decide('doc', { threadId: 'missing', suggestion: 'x', decision: 'accept' }),
+    ).resolves.toMatchObject({ ok: false, error: { kind: 'not-found' } });
   });
 
   it('DOCE-HOST-3.4 refuses a duplicate thread and reports a missing one', async () => {
