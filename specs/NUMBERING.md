@@ -156,7 +156,7 @@ Verification: `src/engine/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-6.2 - Counting through the pages
 
-The counters (DOCE-NUMBERING-3.2) shall run through the document in order, across its pages, at the level of each paragraph's displayed depth under the last heading (DOCE-NUMBERING-3.1). A later part of a paragraph or heading the pages split shall neither advance nor show a number. Each heading other than the title shall start the counters again, and so shall a section that restarts numbering (`sectionRestartsNumbering`).
+The counters (DOCE-NUMBERING-3.2) shall run through the document in order, across its pages, at the level of each paragraph's displayed depth under the last heading (DOCE-NUMBERING-3.1). A paragraph or heading the pages split is one element of the document and counts once. Each heading other than the title shall start the counters again, and so shall a section that restarts numbering (`sectionRestartsNumbering`).
 
 Implementation: `src/engine/paragraph-numbering.ts`
 Verification: `src/engine/paragraph-numbering.test.ts`

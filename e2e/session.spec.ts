@@ -84,3 +84,50 @@ test.describe('session lab', () => {
     await expect(status(page)).toHaveText('ready · saved');
   });
 });
+
+test.describe('session status UI', () => {
+  const saveItem = (page: Page) =>
+    page.locator('.de-document-editor__status-item[data-status="save"]');
+
+  test('DOCE-SESSION-9.1 shows the save status and retries a failed save', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await page.getByRole('button', { name: 'Fail next save' }).click();
+    await typeAtEnd(page, ' Again.');
+    await expect(status(page)).toHaveText('ready · error · unavailable');
+    await saveItem(page).getByRole('button', { name: 'Retry' }).click();
+    await expect(status(page)).toHaveText('ready · saved');
+    await expect(saveItem(page)).toContainText(/saved/i);
+  });
+
+  test('DOCE-SESSION-9.4 DOCE-SESSION-9.5 shows load progress and measures the load', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await page.getByLabel('Latency').selectOption('1500');
+    await page.getByRole('button', { name: 'Reopen' }).click();
+    await expect(page.getByText('Loading the document')).toBeVisible();
+    await expect(editor(page)).toBeVisible();
+    await expect(page.getByLabel('Load measures')).toHaveText(
+      'document-session.loading, document-session.load',
+    );
+  });
+
+  test('DOCE-SESSION-9.6 asks before leaving unsaved changes and saves them', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('session');
+    await page.getByLabel('Latency').selectOption('1500');
+    await typeAtEnd(page, ' Kept.');
+    await page.getByRole('button', { name: 'Leave' }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('Sample document');
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByLabel('Left')).toHaveText('Left the document');
+    await expect(status(page)).toHaveText('ready · saved');
+  });
+});

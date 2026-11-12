@@ -9,3 +9,11 @@ export {
 } from './document-session.js';
 export type { MergeConflictsLabels, MergeConflictsProps } from './merge-conflicts.js';
 export { MergeConflicts } from './merge-conflicts.js';
+export type { SessionLoadingLabels, SessionLoadingProps } from './save-status.js';
+export {
+  DEFAULT_SESSION_LOADING_LABELS,
+  SESSION_MEASURES,
+  SessionLoading,
+  useSessionGuard,
+  useSessionTelemetry,
+} from './save-status.js';
