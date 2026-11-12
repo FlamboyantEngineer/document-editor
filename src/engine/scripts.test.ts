@@ -40,7 +40,7 @@ function viewWith(scriptText: string) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   return new EditorView(document.createElement('div'), {
     state: EditorState.create({
       doc,

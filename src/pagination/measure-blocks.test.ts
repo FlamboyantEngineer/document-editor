@@ -34,7 +34,7 @@ describe('measured block cache', () => {
     const doc = readDocumentFile(
       { formatVersion: 1, sections: [{ content: [paragraph('One'), paragraph('Two')] }] },
       documentSchema,
-    );
+    ).doc;
     const view = new EditorView(document.createElement('div'), {
       state: EditorState.create({ doc }),
     });

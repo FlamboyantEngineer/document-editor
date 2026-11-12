@@ -891,6 +891,46 @@
         "defaults": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"\" data-refresh-policy=\"manual\"><div class=\"script-output\"></div></section>",
         "filled": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"sample-script\" data-refresh-policy=\"manual\" data-rendered-at=\"sample-renderedAt\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><div class=\"script-output\"></div></section>"
       }
+    },
+    {
+      "name": "kept_block",
+      "ordinal": 38,
+      "group": "block",
+      "content": null,
+      "marks": null,
+      "flags": { "inline": false, "atom": true, "selectable": true },
+      "attrs": {
+        "stored": { "default": null },
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [],
+      "toDOM": {
+        "defaults": "<div class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\"></div>",
+        "filled": "<div class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
+      }
+    },
+    {
+      "name": "kept_inline",
+      "ordinal": 39,
+      "group": "inline",
+      "content": null,
+      "marks": null,
+      "flags": { "inline": true, "atom": true, "selectable": true },
+      "attrs": {
+        "stored": { "default": null },
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [],
+      "toDOM": {
+        "defaults": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\"></span>",
+        "filled": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></span>"
+      }
     }
   ],
   "marks": [

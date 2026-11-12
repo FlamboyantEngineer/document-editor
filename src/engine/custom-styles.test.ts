@@ -30,7 +30,7 @@ function stateAt(value: string) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   let pos = -1;
   doc.descendants((node, at) => {
     if (node.isText && node.text === value) pos = at;

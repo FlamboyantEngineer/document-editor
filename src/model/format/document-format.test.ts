@@ -52,7 +52,7 @@ const FILE: DocumentFile = {
 
 describe('stored document format', () => {
   it('DOCE-FORMAT-1.1 reads a stored document and writes it back unchanged', () => {
-    const doc = readDocumentFile(FILE, documentSchema);
+    const doc = readDocumentFile(FILE, documentSchema).doc;
     expect(writeDocumentFile(doc, { template: 'report' })).toEqual(FILE);
   });
 
@@ -65,11 +65,11 @@ describe('stored document format', () => {
         { name: 'body', content: [{ type: 'paragraph', attrs: { id: '0000abcd' } }] },
       ],
     };
-    expect(writeDocumentFile(readDocumentFile(file, documentSchema))).toEqual(file);
+    expect(writeDocumentFile(readDocumentFile(file, documentSchema).doc)).toEqual(file);
   });
 
   it('DOCE-FORMAT-1.2 lays each stored section out on one page for the editor', () => {
-    const doc = readDocumentFile(FILE, documentSchema);
+    const doc = readDocumentFile(FILE, documentSchema).doc;
     const section = doc.firstChild;
     expect(section?.type.name).toBe('page_section');
     expect(section?.attrs.sectionName).toBe('introduction');
@@ -118,7 +118,7 @@ describe('stored document format', () => {
   });
 
   it('DOCE-FORMAT-1.3 stores a block split across pages as one whole block', () => {
-    const doc = readDocumentFile(FILE, documentSchema);
+    const doc = readDocumentFile(FILE, documentSchema).doc;
     const section = doc.child(0);
     const page = section.child(0);
     const [header, , footnotes, footer] = page.content.content;
@@ -144,7 +144,7 @@ describe('stored document format', () => {
   });
 
   it('DOCE-FORMAT-1.4 names where a stored document cannot be read', () => {
-    const read = (file: unknown) => () => readDocumentFile(file, documentSchema);
+    const read = (file: unknown) => () => readDocumentFile(file, documentSchema).doc;
     expect(read({ ...FILE, formatVersion: 2 })).toThrow('formatVersion: must be 1');
     let failure: unknown;
     try {

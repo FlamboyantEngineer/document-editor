@@ -39,7 +39,7 @@ const FILE: DocumentFile = {
 };
 
 function initialState(file: DocumentFile = FILE): EditorState {
-  return EditorState.create({ doc: readDocumentFile(file, schema) });
+  return EditorState.create({ doc: readDocumentFile(file, schema).doc });
 }
 
 /** Two bindings on two Yjs documents that exchange updates by hand. */

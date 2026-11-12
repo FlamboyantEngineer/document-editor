@@ -34,7 +34,7 @@ describe('server-safe entry points', () => {
           ],
         },
         schema,
-      );
+      ).doc;
     const [older, newer] = [read('Alpha'), read('Alpha beta')];
     expect(compareVersions(older, newer).map(({ kind, id }) => [kind, id])).toEqual([
       ['modification', 'a0000001'],

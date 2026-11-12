@@ -38,7 +38,7 @@ const TEMPLATE: TemplateFile = {
 };
 
 const read = (...sections: { name: string | null; content: StoredNode[] }[]) =>
-  readDocumentFile({ formatVersion: 1, sections }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections }, documentSchema).doc;
 
 // Each section as its name and its blocks' text.
 const outline = (doc: Node) =>

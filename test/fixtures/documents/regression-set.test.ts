@@ -72,7 +72,7 @@ describe('regression set', () => {
   it.each(documents)(
     'DOCE-FORMAT-1.1 reads $name and writes it back to the same bytes',
     async ({ text, file }) => {
-      const doc = readDocumentFile(file, documentSchema);
+      const doc = readDocumentFile(file, documentSchema).doc;
       expect(await committedJson(writeDocumentFile(doc, { template: file.template }))).toBe(text);
     },
   );

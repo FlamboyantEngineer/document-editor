@@ -23,7 +23,7 @@ function stateOf(...content: StoredNode[]) {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createFootnotes()] });
 }
 

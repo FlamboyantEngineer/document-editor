@@ -8,12 +8,12 @@ The library stores documents and templates in formats of its own, as JSON a host
 
 A stored document (`DocumentFile`) shall hold `formatVersion` 1, the id of the `template` it uses, and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
 
-Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
+Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-write.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
 
 ### DOCE-FORMAT-1.2 - Read for the editor
 
-`readDocumentFile(file, schema)` shall build the editor's document: each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
+`readDocumentFile(file, schema, options)` shall give `{ doc, problems }`: the editor's document, each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
 
 Implementation: `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`
@@ -22,15 +22,22 @@ Verification: `src/model/format/document-format.test.ts`
 
 `writeDocumentFile(doc, { template, fragmentRules })` shall store each block split across pages as one whole block (DOCE-PAGINATION-1). It shall leave out pages, page headers and footers, a section's generated styles and copies of its template regions, the part an element is of a split one, continued markers, the entry range a table of contents' part shows, rendered text such as a variable's value, and other layout state.
 
-Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
+Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-write.ts`
 Verification: `src/model/format/document-format.test.ts`
 
 ### DOCE-FORMAT-1.4 - Unreadable documents
 
-A stored document that is not an object, has another `formatVersion`, or holds a node, mark or attribute the schema does not know, or content its type does not allow, shall not be read: `readDocumentFile` shall throw a `DocumentFormatError` (`isDocumentFormatError`) whose `path` names the first problem, such as `sections[0].content[2]`.
+A stored document that is not an object, has another `formatVersion`, or holds a node, mark or attribute the schema does not know, or content its type does not allow, shall not be read under the default policy (`unknown: 'throw'`): `readDocumentFile` shall throw a `DocumentFormatError` (`isDocumentFormatError`) whose `path` names the first problem, such as `sections[0].content[2]`.
 
 Implementation: `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`
+
+### DOCE-FORMAT-1.5 - Lenient reading
+
+With `unknown: 'drop'`, `readDocumentFile` shall leave out each node it cannot read, with its content, each mark and attribute the schema does not know, and each child or mark its parent does not allow, filling a parent that then needs content, and list each in `problems` as `{ path, message, kept: false }`. With `unknown: 'keep'`, it shall do the same, except that a node the schema does not know, or one whose content or marks its type does not allow, shall be kept whole as a kept block or inline node (`kept_block`, `kept_inline`), shown as an empty placeholder that cannot be edited and written back by `writeDocumentFile` exactly as it was stored, and listed with `kept: true`; a block a section does not allow, such as a lone list item, is left out. Under either policy a file that is not an object, has another `formatVersion` or has no `sections` list shall still throw. Kept nodes are never stored by their own names.
+
+Implementation: `src/model/format/document-format-convert.ts`, `src/model/format/document-format-write.ts`, `src/model/schema/kept-nodes.ts`
+Verification: `src/model/format/document-format-convert.test.ts`
 
 ## DOCE-FORMAT-2 - Templates
 

@@ -22,7 +22,7 @@ const table = (...rows: StoredNode[]): StoredNode => ({
   content: rows,
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 const grid = () =>
   read(

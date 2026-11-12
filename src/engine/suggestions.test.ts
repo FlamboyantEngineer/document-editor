@@ -20,7 +20,7 @@ const paragraph = (value: string): StoredNode => ({
   content: [{ type: 'text', text: value }],
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 function positionOf(doc: Node, value: string): number {
   let found = -1;
@@ -237,7 +237,7 @@ describe('deciding suggestions', () => {
     expect(first?.content?.find((child) => child.text === 'delta')?.marks).toEqual([
       { type: 'insertion', attrs: { id: '00000001', author: 'writer' } },
     ]);
-    const again = file ? readDocumentFile(file, documentSchema) : null;
+    const again = file ? readDocumentFile(file, documentSchema).doc : null;
     expect(again && state?.doc.eq(again)).toBe(true);
   });
 });

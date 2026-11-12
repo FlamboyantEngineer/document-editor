@@ -225,7 +225,7 @@ function render(): void {
   const copies = Math.max(1, Number(params.get('copies') ?? 1) || 1);
   const mode = params.get('mode') === 'current' ? 'current' : 'spike';
   document.documentElement.dataset.labMode = mode;
-  const doc = readDocumentFile(sample(copies), createDocumentSchema());
+  const doc = readDocumentFile(sample(copies), createDocumentSchema()).doc;
   const latencies: number[] = [];
   const longTasks: number[] = [];
   timeKeys(latencies);

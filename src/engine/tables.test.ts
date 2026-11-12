@@ -15,7 +15,7 @@ const cell = (value: string, attrs: Record<string, unknown> = {}): StoredNode =>
 const row = (...cells: StoredNode[]): StoredNode => ({ type: 'tableRow', content: cells });
 const table = (...rows: StoredNode[]): StoredNode => ({ type: 'table', content: rows });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 const grid = () =>
   read(table(row(cell('A1'), cell('B1'), cell('C1')), row(cell('A2'), cell('B2'), cell('C2'))));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { writeDocumentFile } from './document-format-convert.js';
+import { writeDocumentFile } from './document-format-write.js';
 import { cleanWordHtml, isWordHtml, readHtml, writeHtml } from './html.js';
 
 const WORD = [
