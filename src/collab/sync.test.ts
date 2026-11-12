@@ -1,7 +1,7 @@
 import * as Y from '@y/y';
 import type { Node } from 'prosemirror-model';
 import { Plugin, TextSelection } from 'prosemirror-state';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   type HeadlessEditor,
   headlessEditor,
@@ -216,6 +216,20 @@ describe('collab sync', () => {
 });
 
 describe('collab sync coalescing', () => {
+  it('DOCE-COLLAB-4.4 schedules with the platform’s queueMicrotask called on its own', async () => {
+    const platform = globalThis.queueMicrotask.bind(globalThis);
+    // As browsers do, refuse a call with another receiver than the global object.
+    vi.stubGlobal('queueMicrotask', function (this: unknown, run: () => void) {
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      platform(run);
+    });
+    const { a, b, sync } = pair();
+    typeAtEnd(a, 1, ' Scheduled.');
+    sync();
+    await settle();
+    expect(textOf(b.state.doc)).toMatch(/Scheduled\./);
+  });
+
   it('DOCE-COLLAB-4.4 brings a burst of shared changes in one transaction', () => {
     const { a, b, sync } = pair({ manual: true });
     for (const word of [' one', ' two', ' three']) {

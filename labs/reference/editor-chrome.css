@@ -287,6 +287,12 @@
   text-decoration-color: #1a7f37;
 }
 
+/* The issue the proofing status just revealed, flashed for a moment. */
+.de-document-editor [data-proofing-flash] {
+  background: rgb(255 212 59 / 60%);
+  transition: background 0.4s;
+}
+
 /* The proofing status in the status bar: a quiet button that selects the next issue. */
 .de-document-editor__proofing-status {
   min-height: 0;
@@ -412,9 +418,30 @@
   );
 }
 
+/* An idle or away person's caret and selection fade. */
+.de-presence-caret[data-presence-status],
+.de-presence-selection[data-presence-status] {
+  opacity: 0.5;
+}
+
 /* The other people's avatars in the status bar. */
 .de-document-editor__presence {
   display: inline-flex;
+}
+
+/* The shared room's connection in the status bar: a warning while it locks the document. */
+.de-connection-status {
+  color: var(--ref-text-muted, #59636e);
+}
+
+.de-connection-status[data-phase='offline'],
+.de-connection-status[data-phase='connecting'] {
+  color: #9a6700;
+}
+
+.de-connection-status[data-locked] {
+  color: var(--ref-danger, #d1242f);
+  font-weight: 600;
 }
 
 /* The find bar below the toolbar, and the matches it finds: the current one stronger. The search
@@ -688,4 +715,44 @@
 
 .de-merge-conflicts__conflict {
   max-width: 120ch;
+}
+
+/* The banner region between the chrome and the document. */
+.de-document-editor__banners {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ref-border, #d0d7de);
+}
+
+/* The host's lead before the pages, and the placeholder standing in for them until they are laid out. */
+.de-document-editor__lead {
+  padding: 16px 24px 0;
+}
+
+.de-document-editor__placeholder {
+  padding: 24px;
+  color: var(--ref-text-muted, #59636e);
+}
+
+.de-document-editor__placeholder ~ .de-document-editor__body {
+  visibility: hidden;
+}
+
+/* The scroll overview over the frame's track, in the overview layers' colours. */
+.de-document-editor {
+  --de-overview-search: #bf8700;
+  --de-overview-proofing: #cf222e;
+  --de-overview-changes: #0969da;
+  --de-overview-unread: #8250df;
+}
+
+.de-document-editor__overview {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 6px;
+  pointer-events: none;
 }

@@ -7,6 +7,13 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { DecorationSet, type EditorView } from 'prosemirror-view';
 import { viewOnlyInline, viewOnlyWidget } from '../utils/view-only-decorations.js';
+import { addressResolver, type PresenceRange } from './presence-address.js';
+
+/**
+ * Whether a person is working in the document: `active`, `idle` after a while without input, or
+ * `away` while the document is hidden from them.
+ */
+export type PresenceStatus = 'active' | 'idle' | 'away';
 
 /** Another person in the document, with their selection. */
 export interface Peer {
@@ -20,6 +27,13 @@ export interface Peer {
   /** Their selection; none for a person in the document without one, who has no caret. */
   readonly anchor?: number | null | undefined;
   readonly head?: number | null | undefined;
+  /**
+   * Their selection by element address, for hosts that share selections without a shared Yjs
+   * document; turned into `anchor` and `head` when the peers are set.
+   */
+  readonly at?: PresenceRange | null | undefined;
+  /** Whether they are working in the document; active when not given. */
+  readonly status?: PresenceStatus | undefined;
 }
 
 /** A person as the editor shows them: with the colour slot no other person has, while it can. */
@@ -69,6 +83,7 @@ function peerAttrs(peer: PlacedPeer): Record<string, string> {
   return {
     'data-presence-peer': peer.id,
     'data-presence-slot': String(peer.slot),
+    ...(peer.status && peer.status !== 'active' ? { 'data-presence-status': peer.status } : {}),
     ...(peer.color ? { style: `--de-presence-color: ${peer.color}` } : {}),
   };
 }
@@ -117,6 +132,17 @@ function decorate(doc: ProseMirrorNode, peers: readonly PlacedPeer[]): Decoratio
   return DecorationSet.create(doc, decorations);
 }
 
+// The peers given by address with their selections as positions in the document.
+function resolvePeers(doc: ProseMirrorNode, peers: readonly Peer[]): readonly Peer[] {
+  if (!peers.some((peer) => peer.at)) return peers;
+  const resolve = addressResolver(doc);
+  return peers.map((peer) => {
+    if (!peer.at) return peer;
+    const head = resolve(peer.at.head);
+    return { ...peer, head, anchor: head === null ? null : (resolve(peer.at.anchor) ?? head) };
+  });
+}
+
 function mapPeers(peers: readonly PlacedPeer[], tr: Transaction): PlacedPeer[] {
   const map = (pos: number | null | undefined) =>
     pos === null || pos === undefined ? pos : tr.mapping.map(pos);
@@ -132,7 +158,7 @@ export function createPresence(): Plugin<PresenceState> {
       apply(tr, value) {
         const given = tr.getMeta(presenceKey) as readonly Peer[] | undefined;
         if (given) {
-          const peers = placePeers(given);
+          const peers = placePeers(resolvePeers(tr.doc, given));
           return { peers, decorations: decorate(tr.doc, peers) };
         }
         if (!tr.docChanged || value.peers.length === 0) return value;
