@@ -25,7 +25,7 @@ function twoPages() {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content: text('Body') }] },
     documentSchema,
-  );
+  ).doc;
   const section = doc.firstChild?.copy(doc.firstChild.content.append(doc.firstChild.content));
   return section ? doc.copy(doc.content.replaceChild(0, section)) : doc;
 }

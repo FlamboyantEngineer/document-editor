@@ -1,6 +1,6 @@
 # Recipe: an element lifecycle
 
-A host that moves each element of a document through states of its own, such as `draft`, `review` and `approved`, builds the lifecycle from three library parts. The library holds no states, transitions or workflow: those are the host's. This recipe is checked by `test/element-lifecycle.test.ts` (DOCE-EDITING-1.6).
+A host that moves each element of a document through states of its own, such as `draft`, `review` and `approved`, builds the lifecycle from three library parts. The library holds no states, transitions or workflow: those are the host's. This recipe is checked by `test/element-lifecycle.test.ts` (DOCE-EDITING-1.7).
 
 ## 1. Declare the state as an identity attribute
 

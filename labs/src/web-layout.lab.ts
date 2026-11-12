@@ -110,7 +110,7 @@ function render(): void {
       doc: readDocumentFile(
         { formatVersion: 1, sections: [{ name: null, content: SAMPLE }] },
         createDocumentSchema(),
-      ),
+      ).doc,
       plugins: [createLayoutSections({ keepWrapped: true })],
     }),
     editable: authoring,

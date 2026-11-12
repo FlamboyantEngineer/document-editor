@@ -57,7 +57,7 @@ const SOURCE =
   '<p data-id="aaaa0002" data-review-state="draft">Open</p>';
 
 describe('the element lifecycle recipe', () => {
-  it('DOCE-EDITING-1.6 stamps new elements and clears the state of a pasted copy', () => {
+  it('DOCE-EDITING-1.7 stamps new elements and clears the state of a pasted copy', () => {
     let state = open(SOURCE);
     const end = state.doc.content.size;
     state = apply(state, state.tr.insert(end, schema.node('paragraph', null, schema.text('New'))));
@@ -68,7 +68,7 @@ describe('the element lifecycle recipe', () => {
     expect(states(state)).toEqual(['Fixed:approved', 'Open:draft', 'New:draft', 'Fixed:draft']);
   });
 
-  it('DOCE-EDITING-1.6 refuses edits inside a frozen element and merges into it', () => {
+  it('DOCE-EDITING-1.7 refuses edits inside a frozen element and merges into it', () => {
     let state = open(SOURCE);
     const before = state.doc;
     state = apply(state, state.tr.insertText('!', 2));
