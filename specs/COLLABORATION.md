@@ -38,8 +38,8 @@ Verification: `src/engine/presence.test.ts`
 
 `markRemote(tr)` shall mark a change the host applies from elsewhere (`isRemoteTransaction`) and keep it out of the undo history. A remote change is never turned into a suggestion, never refused by the edit lock, and never aborts a running proofing check.
 
-Implementation: `src/engine/presence.ts`, `src/engine/proofing.ts`
-Verification: `src/engine/presence.test.ts`
+Implementation: `src/engine/transaction-kind.ts`, `src/engine/proofing.ts`
+Verification: `src/engine/transaction-kind.test.ts`
 
 ## DOCE-COLLAB-3 - Authorship
 
