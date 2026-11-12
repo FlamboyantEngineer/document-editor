@@ -9,7 +9,7 @@ The library stores documents and templates in formats of its own, as JSON a host
 A stored document (`DocumentFile`) shall hold `formatVersion` 1, the id of the `template` it uses, and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
-Verification: `src/model/format/document-format.test.ts`
+Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
 
 ### DOCE-FORMAT-1.2 - Read for the editor
 

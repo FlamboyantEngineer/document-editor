@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "5a129508"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "An icon "
+            },
+            {
+              "type": "image",
+              "attrs": {
+                "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                "alt": "leaf"
+              }
+            },
+            {
+              "type": "text",
+              "text": " in a sentence."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "5d1299c1"
+          },
+          "content": [
+            {
+              "type": "image",
+              "attrs": {
+                "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+                "alt": "sun",
+                "title": "Sunny",
+                "width": 16,
+                "height": 16
+              }
+            },
+            {
+              "type": "text",
+              "text": " A sized image at the start."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

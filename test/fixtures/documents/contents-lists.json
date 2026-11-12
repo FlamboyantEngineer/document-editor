@@ -1,0 +1,142 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "contents",
+          "attrs": {
+            "id": "70293b5a"
+          }
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "depth": 2,
+            "id": "6f2939c7"
+          }
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "kind": "figures",
+            "id": "6e293834"
+          }
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "kind": "tables",
+            "id": "6d2936a1"
+          }
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "depth": 3,
+            "referenceFilter": "internal-heading",
+            "id": "6c29350e"
+          }
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "6b29337b"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "First"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "6a2931e8"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "First child"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 3,
+            "id": "69293055"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Deep"
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "A",
+            "caption": "Captioned figure",
+            "id": "68292ec2"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Captioned table",
+            "id": "f9e8864b"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "f8e884b8"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "fbe88971"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "fae887de"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "fee88e2a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Second"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

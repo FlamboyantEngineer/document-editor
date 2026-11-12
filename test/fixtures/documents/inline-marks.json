@@ -1,0 +1,245 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "2ded5be2"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Inline formats"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "2ced5a4f"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Bold",
+              "marks": [
+                {
+                  "type": "bold"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " "
+            },
+            {
+              "type": "text",
+              "text": "italic",
+              "marks": [
+                {
+                  "type": "italic"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " "
+            },
+            {
+              "type": "text",
+              "text": "underlined",
+              "marks": [
+                {
+                  "type": "underline"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " "
+            },
+            {
+              "type": "text",
+              "text": "struck",
+              "marks": [
+                {
+                  "type": "strike"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " and "
+            },
+            {
+              "type": "text",
+              "text": "all at once",
+              "marks": [
+                {
+                  "type": "italic"
+                },
+                {
+                  "type": "bold"
+                },
+                {
+                  "type": "strike"
+                },
+                {
+                  "type": "underline"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "2bed58bc"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Water is H"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "subscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "O and the area is 4 m"
+            },
+            {
+              "type": "text",
+              "text": "2",
+              "marks": [
+                {
+                  "type": "superscript"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "; run "
+            },
+            {
+              "type": "text",
+              "text": "npm test",
+              "marks": [
+                {
+                  "type": "code"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " to check."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "2aed5729"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Read the "
+            },
+            {
+              "type": "text",
+              "text": "station guide",
+              "marks": [
+                {
+                  "type": "link",
+                  "attrs": {
+                    "href": "https://example.com/guide"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " or the "
+            },
+            {
+              "type": "text",
+              "text": "archive",
+              "marks": [
+                {
+                  "type": "link",
+                  "attrs": {
+                    "href": "https://example.com/archive",
+                    "title": "Archive",
+                    "target": "_blank"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "29ed5596"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Bold link",
+              "marks": [
+                {
+                  "type": "link",
+                  "attrs": {
+                    "href": "https://example.com/"
+                  }
+                },
+                {
+                  "type": "bold"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": " inside a sentence with "
+            },
+            {
+              "type": "text",
+              "text": "code and italic",
+              "marks": [
+                {
+                  "type": "italic"
+                },
+                {
+                  "type": "code"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

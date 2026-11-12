@@ -1,0 +1,58 @@
+{
+  "formatVersion": 1,
+  "template": "regression-locked",
+  "sections": [
+    {
+      "name": "notice",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "style": "note"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "This notice is part of the template and cannot be edited."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "summary",
+      "content": []
+    },
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "c7236b09"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Fog signals sounded in groups of two when visibility dropped. The station records temperature, pressure and humidity each minute."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sign_off",
+      "content": [
+        {
+          "type": "paragraph",
+          "content": [
+            {
+              "type": "text",
+              "text": "Signed for the team."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

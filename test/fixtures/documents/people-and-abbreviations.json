@@ -1,0 +1,134 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "b0381307"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Assigned to "
+            },
+            {
+              "type": "mention",
+              "attrs": {
+                "person": "person-01",
+                "label": "Alex Doe"
+              }
+            },
+            {
+              "type": "text",
+              "text": " and "
+            },
+            {
+              "type": "mention",
+              "attrs": {
+                "person": "person-02",
+                "label": "Sam Roe"
+              }
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "b138149a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Measured by the "
+            },
+            {
+              "type": "abbreviation",
+              "attrs": {
+                "entry": "abbr-01",
+                "abbreviation": "AWS",
+                "expansion": "automatic weather station"
+              }
+            },
+            {
+              "type": "text",
+              "text": ", then the "
+            },
+            {
+              "type": "abbreviation",
+              "attrs": {
+                "entry": "abbr-01",
+                "display": "short",
+                "abbreviation": "AWS",
+                "expansion": "automatic weather station"
+              }
+            },
+            {
+              "type": "text",
+              "text": "."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "b238162d"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Signed: "
+            },
+            {
+              "type": "signature",
+              "attrs": {
+                "person": "person-01",
+                "label": "Alex Doe",
+                "vector": {
+                  "viewBox": {
+                    "width": 200,
+                    "height": 60
+                  },
+                  "paths": [
+                    {
+                      "d": "M10 40 C 40 10, 60 10, 90 40 S 150 70, 190 30",
+                      "fill": false,
+                      "strokeWidth": 2
+                    }
+                  ]
+                },
+                "revision": "sig-rev-1"
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "ab380b28"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Unsigned: "
+            },
+            {
+              "type": "signature",
+              "attrs": {
+                "person": "person-02",
+                "label": "Sam Roe"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

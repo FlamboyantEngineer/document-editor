@@ -1,0 +1,357 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "d7aeefd7"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Merged cells"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "border": "table-border-1px",
+            "caption": "Merged and styled cells",
+            "captionId": "cap-0001",
+            "id": "7768326b"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "d4aeeb1e"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "rowspan": 2,
+                    "id": "d9aef2fd"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "d8aef16a"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Group"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "colspan": 2,
+                    "align": "center",
+                    "id": "d3aee98b"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "d2aee7f8"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Period"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "6e63a712"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "colwidth": [120],
+                    "id": "ceaee1ac"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "d5aeecb1"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Morning"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "colwidth": [140],
+                    "id": "6f63a8a5"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "cfaee33f"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Evening"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "7763b53d"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "verticalAlign": "top",
+                    "rowHeight": 48,
+                    "id": "6c63a3ec"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "6d63a57f"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "North"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "align": "right",
+                    "color": "#1f2937",
+                    "id": "6a63a0c6"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "6b63a259"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "12"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "align": "right",
+                    "background": "#fef3c7",
+                    "id": "68639da0"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "69639f33"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "9"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "7665f241"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "colspan": 3,
+                    "background": "#e0f2fe",
+                    "id": "7565f0ae"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "7663b3aa"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "South spans"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "6d65e416"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "7465ef1b"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "7365ed88"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "East"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "rowspan": 2,
+                    "verticalAlign": "bottom",
+                    "id": "7a65f88d"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "7965f6fa"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Two rows"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "7865f567"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "7765f3d4"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "3"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "7c683a4a"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "7b6838b7"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "6e65e5a9"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "West"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "7d683bdd"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "7a683724"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "4"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

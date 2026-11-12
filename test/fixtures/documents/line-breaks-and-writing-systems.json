@@ -1,0 +1,100 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "c247484a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "First line"
+            },
+            {
+              "type": "lineBreak"
+            },
+            {
+              "type": "text",
+              "text": "second line"
+            },
+            {
+              "type": "lineBreak"
+            },
+            {
+              "type": "lineBreak"
+            },
+            {
+              "type": "text",
+              "text": "after a blank line"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "c14746b7"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Accents: café, naïve, Ångström, façade."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "c0474524"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Right to left: مرحبا بالعالم — שלום עולם."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "bf474391"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "East Asian: 雨量は毎朝記録します。气象站。"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "be4741fe"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Combining: é and symbols ✓ ★ → ≤ ≥ ± °C."
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "bd47406b"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Non-breaking space and a soft­hyphen and a zero​width space."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

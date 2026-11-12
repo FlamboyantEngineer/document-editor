@@ -1,0 +1,317 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "b5949bef"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Nested lists"
+            }
+          ]
+        },
+        {
+          "type": "bulletList",
+          "attrs": {
+            "id": "1ff4425c"
+          },
+          "content": [
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "b7949f15"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "b6949d82"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Prepare the beds"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "1bf43c10"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "b0949410"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Plant in order"
+                    }
+                  ]
+                },
+                {
+                  "type": "orderedList",
+                  "attrs": {
+                    "id": "1ef440c9"
+                  },
+                  "content": [
+                    {
+                      "type": "listItem",
+                      "attrs": {
+                        "id": "b2949736"
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "attrs": {
+                            "id": "b19495a3"
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Beans"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "listItem",
+                      "attrs": {
+                        "id": "aff15375"
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "attrs": {
+                            "id": "b39498c9"
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Lettuce"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "bulletList",
+                          "attrs": {
+                            "id": "b0f15508"
+                          },
+                          "content": [
+                            {
+                              "type": "listItem",
+                              "attrs": {
+                                "id": "bd94a887"
+                              },
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "attrs": {
+                                    "id": "bc94a6f4"
+                                  },
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "Butterhead"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "listItem",
+                              "attrs": {
+                                "id": "b1f1569b"
+                              },
+                              "content": [
+                                {
+                                  "type": "paragraph",
+                                  "attrs": {
+                                    "id": "b7f1600d"
+                                  },
+                                  "content": [
+                                    {
+                                      "type": "text",
+                                      "text": "Romaine"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "orderedList",
+                                  "attrs": {
+                                    "start": 4,
+                                    "id": "b2f1582e"
+                                  },
+                                  "content": [
+                                    {
+                                      "type": "listItem",
+                                      "attrs": {
+                                        "id": "b5f15ce7"
+                                      },
+                                      "content": [
+                                        {
+                                          "type": "paragraph",
+                                          "attrs": {
+                                            "id": "b6f15e7a"
+                                          },
+                                          "content": [
+                                            {
+                                              "type": "text",
+                                              "text": "Fourth"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "listItem",
+                                      "attrs": {
+                                        "id": "b3f159c1"
+                                      },
+                                      "content": [
+                                        {
+                                          "type": "paragraph",
+                                          "attrs": {
+                                            "id": "b4f15b54"
+                                          },
+                                          "content": [
+                                            {
+                                              "type": "text",
+                                              "text": "Fifth"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "listItem",
+                      "attrs": {
+                        "id": "1df43f36"
+                      },
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "attrs": {
+                            "id": "aef151e2"
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Radishes"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "22f44715"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "1cf43da3"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Water every evening"
+                    }
+                  ]
+                },
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "21f44582"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "A second paragraph in the same item."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "orderedList",
+          "attrs": {
+            "start": 7,
+            "id": "22f685ac"
+          },
+          "content": [
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "25f44bce"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "20f443ef"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "A list starting at seven"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "23f6873f"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "26f44d61"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Eight"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "template": "regression-mixed-geometry",
+  "sections": [
+    {
+      "name": "cover",
+      "content": []
+    },
+    {
+      "name": "body",
+      "content": []
+    },
+    {
+      "name": "appendix",
+      "content": []
+    }
+  ]
+}

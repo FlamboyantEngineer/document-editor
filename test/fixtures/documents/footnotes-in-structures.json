@@ -1,0 +1,258 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "87f28af2"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Footnotes in lists and tables"
+            }
+          ]
+        },
+        {
+          "type": "bulletList",
+          "attrs": {
+            "id": "90f2991d"
+          },
+          "content": [
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "83f284a6"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "84f28639"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Item with a note"
+                    },
+                    {
+                      "type": "footnote",
+                      "attrs": {
+                        "id": "fn-86f2895f",
+                        "elementId": "85f287cc"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Note in a list."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "listItem",
+              "attrs": {
+                "id": "81f28180"
+              },
+              "content": [
+                {
+                  "type": "paragraph",
+                  "attrs": {
+                    "id": "82f28313"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Plain item"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Notes in cells",
+            "id": "ddce582a"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "c3d06dd3"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "c4d06f66"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "8ff2978a"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Cell"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "c2d06c40"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "c5d070f9"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Note"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "dece59bd"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "c7d0741f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "c6d0728c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Rainfall"
+                        },
+                        {
+                          "type": "footnote",
+                          "attrs": {
+                            "id": "fn-c8d075b2",
+                            "elementId": "c9d07745"
+                          },
+                          "content": [
+                            {
+                              "type": "text",
+                              "text": "Measured at the gate."
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "cdd07d91"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ccd07bfe"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Value"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "blockquote",
+          "attrs": {
+            "id": "d9ce51de"
+          },
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "id": "dace5371"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Quoted"
+                },
+                {
+                  "type": "footnote",
+                  "attrs": {
+                    "id": "fn-dcce5697",
+                    "elementId": "dbce5504"
+                  },
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": "Note in a quote."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "d7ce4eb8"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "An empty note"
+            },
+            {
+              "type": "footnote",
+              "attrs": {
+                "id": "fn-empty",
+                "elementId": "d8ce504b"
+              }
+            },
+            {
+              "type": "text",
+              "text": " after this text."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

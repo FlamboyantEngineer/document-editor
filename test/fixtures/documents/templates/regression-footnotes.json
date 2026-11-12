@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "id": "regression-footnotes",
+  "name": "Footnotes per page",
+  "parent": "regression-base",
+  "page": {
+    "size": "US Letter"
+  },
+  "footnotes": {
+    "numbering": "page",
+    "suffix": ".",
+    "spacingToContent": "8pt",
+    "entrySpacing": "2pt",
+    "text": {
+      "size": "8pt",
+      "lineHeight": 1.2
+    }
+  },
+  "sections": [
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true
+    }
+  ]
+}

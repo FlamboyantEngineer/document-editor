@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "template": "regression-base",
+  "sections": [
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "6ba58acf"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Linked code"
+            }
+          ]
+        },
+        {
+          "type": "linkedCode",
+          "attrs": {
+            "url": "https://example.com/repo/blob/main/src/station.ts",
+            "language": "typescript",
+            "code": "export const interval = 60;\n",
+            "startLine": 12,
+            "id": "6ca58c62"
+          }
+        },
+        {
+          "type": "linkedCode",
+          "attrs": {
+            "url": "https://example.com/repo/blob/main/README.md",
+            "code": "line 1: reading = sensor.read(0)\nline 2: reading = sensor.read(1)\nline 3: reading = sensor.read(2)\nline 4: reading = sensor.read(3)\nline 5: reading = sensor.read(4)",
+            "id": "6da58df5"
+          }
+        }
+      ]
+    }
+  ]
+}

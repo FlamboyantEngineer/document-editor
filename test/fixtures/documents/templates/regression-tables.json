@@ -1,0 +1,26 @@
+{
+  "formatVersion": 1,
+  "id": "regression-tables",
+  "name": "Table header repetition",
+  "parent": "regression-base",
+  "sections": [
+    {
+      "name": "repeated",
+      "label": "Repeated header",
+      "styles": {
+        "table": {
+          "repeatHeader": true
+        }
+      }
+    },
+    {
+      "name": "single",
+      "label": "Header on first page only",
+      "styles": {
+        "table": {
+          "repeatHeader": false
+        }
+      }
+    }
+  ]
+}
