@@ -496,25 +496,27 @@
  * counter content, then a later part's continued suffix. Figures and code place their caption
  * above or below as the template says.
  */
-.de-document-editor__content
+:where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
   table:not([data-split-part-index], [data-caption-enabled='false']),
-.de-document-editor__content
+:where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
   table[data-split-part-index='0']:not([data-caption-enabled='false']) {
   counter-increment: table;
 }
 
 /* A table inside a cell or a list item is part of what holds it: it is not counted. */
-.de-document-editor__content .pm-page-content :is(td, th, li) table {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content :is(td, th, li) table {
   counter-increment: none;
 }
 
-.de-document-editor__content .pm-page-content figure {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content figure {
   counter-increment: figure;
 }
 
-.de-document-editor__content .pm-page-content pre:not([data-code-block-continued='true']) {
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  pre:not([data-code-block-continued='true']) {
   counter-increment: codeblock;
 }
 
@@ -1225,4 +1227,24 @@
   outline: 1px dashed #0ea5e9;
   background: rgb(255 255 255 / 0.92);
   pointer-events: none;
+}
+
+/*
+ * Numbered paragraphs (DOCE-NUMBERING-6): the number before the text, the paragraph indented by its
+ * level, and the number and text at the level's positions when it sets them.
+ */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  p[data-paragraph-number] {
+  margin-inline-start: var(--doc-paragraph-text-indent, var(--doc-paragraph-indentation, 0));
+  text-indent: calc(
+    var(--doc-paragraph-number-indent, var(--doc-paragraph-text-indent, 0)) -
+      var(--doc-paragraph-text-indent, 0)
+  );
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  p[data-paragraph-number]::before {
+  content: attr(data-paragraph-number) ' ';
 }

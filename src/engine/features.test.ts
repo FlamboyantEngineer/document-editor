@@ -50,6 +50,7 @@ describe('plugin order', () => {
       'edit-lock',
       ...rest,
       'custom-styles',
+      'paragraph-numbering',
       'variable-tokens',
       'table-width',
       ...TABLE_KEYS,

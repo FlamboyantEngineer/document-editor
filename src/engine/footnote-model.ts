@@ -3,7 +3,7 @@
 
 import type { Fragment, Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
-import { regionBeside, regionKind } from '../model/index.js';
+import { documentSections, regionBeside, regionKind } from '../model/index.js';
 
 /** Where a footnote is, its marker in the text and its entry. */
 export interface FootnoteAt {
@@ -92,9 +92,28 @@ export function markerRanks(doc: ProseMirrorNode): Map<string, number> {
   return ranks;
 }
 
-/** Numbers every footnote marker and entry in document order; returns whether any changed. */
-export function numberFootnotes(tr: Transaction): boolean {
-  const ranks = markerRanks(tr.doc);
+/** How footnotes are numbered: through the document, or from 1 again in each section. */
+export interface FootnoteNumbering {
+  /** Starts the count again at each section, as in the web layout, where a section is one page. */
+  readonly restartEach?: 'section' | undefined;
+}
+
+// Each footnote's rank: in document order, or within its section.
+function numberingRanks(doc: ProseMirrorNode, restartEach: 'section' | undefined) {
+  if (restartEach !== 'section') return markerRanks(doc);
+  const ranks = new Map<string, number>();
+  for (const section of documentSections(doc)) {
+    for (const [id, rank] of markerRanks(section.node)) if (!ranks.has(id)) ranks.set(id, rank);
+  }
+  return ranks;
+}
+
+/**
+ * Numbers every footnote marker and entry in document order, or within each section; returns
+ * whether any changed.
+ */
+export function numberFootnotes(tr: Transaction, { restartEach }: FootnoteNumbering = {}): boolean {
+  const ranks = numberingRanks(tr.doc, restartEach);
   let changed = false;
   tr.doc.descendants((node, pos) => {
     const name = node.type.name;

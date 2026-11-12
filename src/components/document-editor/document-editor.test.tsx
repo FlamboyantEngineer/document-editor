@@ -191,6 +191,43 @@ describe('DocumentEditor', () => {
     unmount();
     expect(listeners.size).toBe(0);
   });
+
+  it('DOCE-FOOTNOTES-2.1 numbers footnotes in each section in the web layout', async () => {
+    const note = (id: string): StoredNode => ({
+      type: 'footnote',
+      attrs: { id },
+      content: [{ type: 'text', text: id }],
+    });
+    const section = (...ids: string[]) => ({
+      name: null,
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Text' }, ...ids.map(note)] }],
+    });
+    const file = { formatVersion: 1 as const, sections: [section('a', 'b'), section('c')] };
+    const template: TemplateFile = { ...TEMPLATE, footnotes: { numbering: 'page' } };
+    function Web() {
+      const [state, setState] = useState(() =>
+        EditorState.create({
+          doc: readDocumentFile(file, documentSchema).doc,
+          plugins: createDocumentEditing(documentSchema, { template: () => template }),
+        }),
+      );
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={template}
+          layout="web"
+          aria-label="Report"
+        />
+      );
+    }
+    const { container } = render(<Web />);
+    const markers = () =>
+      [...container.querySelectorAll('[data-footnote-number]')]
+        .filter((element) => element.closest('.pm-page-content'))
+        .map((element) => element.getAttribute('data-footnote-number'));
+    await waitFor(() => expect(markers()).toEqual(['1', '2', '1']));
+  });
 });
 
 describe('DocumentEditor host layout rules', () => {

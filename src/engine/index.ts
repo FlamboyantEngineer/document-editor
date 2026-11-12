@@ -98,6 +98,18 @@ export {
 } from './document-sections.js';
 export type { DocumentStatistics } from './document-statistics.js';
 export { documentStatistics } from './document-statistics.js';
+export type {
+  DynamicTemplatesOptions,
+  TemplateBlockTarget,
+  TemplateValue,
+} from './dynamic-templates.js';
+export {
+  createDynamicTemplates,
+  dynamicTemplatesKey,
+  refreshDynamicTemplates,
+  renderTemplateBlock,
+  templateBlockKeys,
+} from './dynamic-templates.js';
 export type { EditLockOptions } from './edit-lock.js';
 export { createEditLock, editLockKey, isLockedIn, isPositionLocked } from './edit-lock.js';
 export {
@@ -146,6 +158,7 @@ export {
   unwrapPastedEmbeds,
 } from './embeds.js';
 export * from './features.js';
+export type { FootnoteNumbering } from './footnote-model.js';
 export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
 export {
@@ -192,11 +205,23 @@ export {
   commitCaptionEditing,
   editCaption,
 } from './object-views.js';
+export type { NumberedParagraph, ParagraphNumberingOptions } from './paragraph-numbering.js';
+export {
+  createParagraphNumbering,
+  numberedParagraphs,
+  paragraphNumberingKey,
+  paragraphNumberText,
+} from './paragraph-numbering.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
 export { revealRange, selectionAddress } from './reveal.js';
+export type { SectionFootnoteNumbersOptions } from './section-footnote-numbers.js';
+export {
+  createSectionFootnoteNumbers,
+  sectionFootnoteNumbersKey,
+} from './section-footnote-numbers.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

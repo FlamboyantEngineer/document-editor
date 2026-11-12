@@ -300,6 +300,7 @@ describe('the editing extension', () => {
       'scripts',
       'embeds',
       'custom-styles',
+      'paragraph-numbering',
       'variable-tokens',
       'table-width',
       'tables',

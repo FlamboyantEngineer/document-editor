@@ -1,4 +1,4 @@
-import { TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -11,7 +11,9 @@ import {
   runCommand,
   text,
 } from '../../test/footnote-fixtures.js';
+import { readDocumentFile } from '../model/index.js';
 import { documentKeys } from './document-editing.js';
+import { numberFootnotes } from './footnote-model.js';
 import {
   canInsertFootnote,
   createFootnotes,
@@ -22,6 +24,10 @@ import {
   insertFootnote,
   listFootnotes,
 } from './footnotes.js';
+import {
+  createSectionFootnoteNumbers,
+  sectionFootnoteNumbersKey,
+} from './section-footnote-numbers.js';
 
 describe('footnotes', () => {
   it('DOCE-FOOTNOTES-1.1 inserts a marker and an entry in marker order, with the caret in the entry', () => {
@@ -141,5 +147,40 @@ describe('footnotes', () => {
     expect(editFootnote('none')(state)).toBe(false);
     expect(goToFootnoteMarker('none')(state)).toBe(false);
     expect(deleteFootnote('none')(state)).toBe(false);
+  });
+
+  it('DOCE-FOOTNOTES-2.1 numbers footnotes from 1 in each section, when enabled', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [paragraph(text('One'), note('a', 'A'), text(' two'), note('b', 'B'))],
+          },
+          { name: null, content: [paragraph(text('Three'), note('c', 'C'))] },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let enabled = true;
+    let state = EditorState.create({
+      doc,
+      plugins: [createSectionFootnoteNumbers({ enabled: () => enabled })],
+    });
+    state = state.apply(state.tr.setMeta(sectionFootnoteNumbersKey, true));
+    expect(footnoteParts(state, 'number')).toEqual([
+      'marker:1',
+      'marker:2',
+      'entry:1:A',
+      'entry:2:B',
+      'marker:1',
+      'entry:1:C',
+    ]);
+    // Switched off, as on pages, it leaves the numbers to others: here, document order.
+    enabled = false;
+    const tr = state.tr;
+    expect(numberFootnotes(tr)).toBe(true);
+    expect(footnoteParts(state.apply(tr), 'number').slice(4)).toEqual(['marker:3', 'entry:3:C']);
   });
 });

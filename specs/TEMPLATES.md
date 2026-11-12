@@ -22,7 +22,7 @@ Verification: `src/model/templates/template-css-values.test.ts`
 
 ### DOCE-TEMPLATES-2.1 - Base template
 
-`BASE_TEMPLATE` shall be a valid template that sets every page and style setting a document needs: portrait A4 pages with 25.4mm margins, paragraph, title and heading styles, numbering for headings, paragraphs and captioned objects, and list, table, figure, code block, equation, contents, footnote and change bar settings. A host stores it, or a base of its own, as the base template every template inherits (DOCE-FORMAT-3.2).
+`BASE_TEMPLATE` shall be a valid template that sets every page and style setting a document needs: portrait A4 pages with 25.4mm margins, paragraph, title and heading styles, numbering for headings and captioned objects, paragraph numbering defined but switched off (`enabled: false`), and list, table, figure, code block, equation, contents, footnote and change bar settings. A host stores it, or a base of its own, as the base template every template inherits (DOCE-FORMAT-3.2).
 
 Implementation: `src/model/templates/base-template.ts`
 Verification: `src/model/templates/template-scopes.test.ts`
@@ -192,6 +192,29 @@ Verification: `src/model/templates/template-preview.test.ts`, `e2e/template-edit
 
 Implementation: `src/engine/variable-tokens.ts`
 Verification: `src/engine/variable-tokens.test.ts`
+
+## DOCE-TEMPLATES-9 - Template blocks
+
+### DOCE-TEMPLATES-9.1 - Rendering a template block
+
+`createDynamicTemplates({ value })` shall render each template block (`dynamic_template`) from its markup, with each `{{key}}` token in its text replaced by the variable's value (`value`, and `date.current` as page variables write it), in every view it runs in, as a block the writer cannot edit inside. It shall render it again when its markup changes, and, after `refreshDynamicTemplates(tr)`, outside the undo history, when a value it tracks changes, giving the block a measure key (`data-de-measure-key`) of its markup and values so the pages measure it again. Rendering shall never change the document. `DocumentEditor` shall install it with the host's `variables` adapter and refresh it when the adapter says a value changed (DOCE-PAGINATION-8.4).
+
+Implementation: `src/engine/dynamic-templates.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/engine/dynamic-templates.test.ts`
+
+### DOCE-TEMPLATES-9.2 - Safe markup
+
+A template block's markup shall be read in an inert document and then as the schema reads markup (`renderTemplateBlock`), so only the document's own nodes and attributes render and no script, handler or frame in it runs or loads; values shall be inserted as text, never as markup.
+
+Implementation: `src/engine/dynamic-templates.ts`
+Verification: `src/engine/dynamic-templates.test.ts`
+
+### DOCE-TEMPLATES-9.3 - Tracked keys
+
+A template block shall track the keys it names (`trackedKeys`, separated by commas or spaces), else the keys of the tokens in its markup (`templateBlockKeys`).
+
+Implementation: `src/engine/dynamic-templates.ts`
+Verification: `src/engine/dynamic-templates.test.ts`
 
 ## DOCE-TEMPLATES-10 - Template settings
 

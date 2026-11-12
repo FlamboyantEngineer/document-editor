@@ -58,6 +58,7 @@ export const BASE_TEMPLATE: Readonly<TemplateFile> = Object.freeze<TemplateFile>
       italic: false,
       underline: false,
       numbering: {
+        enabled: false,
         format: '1.',
         prefix: '',
         suffix: '',

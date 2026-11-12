@@ -49,6 +49,7 @@ import { createFootnotes, insertFootnote } from './footnotes.js';
 import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
+import { createParagraphNumbering } from './paragraph-numbering.js';
 import { createScripts } from './scripts.js';
 import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
@@ -238,6 +239,14 @@ const OBJECT_PLUGINS: readonly RichTextPluginContribution[] = [
   { name: 'embeds', priority: 513, build: () => [createEmbeds()] },
 ];
 
+// Numbered paragraphs, when given the template, after the custom styles.
+const paragraphNumberingPlugin = (template: (() => TemplateFile) | undefined) => ({
+  name: 'paragraph-numbering',
+  priority: 516,
+  when: () => Boolean(template),
+  build: () => (template ? [createParagraphNumbering({ template })] : []),
+});
+
 // Typed `{{key}}` tokens becoming variables, before the table and key handling.
 const VARIABLE_TOKENS_PLUGIN = {
   name: 'variable-tokens',
@@ -285,6 +294,7 @@ export function createDocumentEditingExtension<C = unknown>(
         when: () => Boolean(template),
         build: () => (template ? [createCustomStyles({ template })] : []),
       },
+      paragraphNumberingPlugin(template),
       VARIABLE_TOKENS_PLUGIN,
       {
         name: 'table-width',
