@@ -174,7 +174,7 @@ Verification: `src/engine/clipboard.test.ts`
 
 ### DOCE-EDITING-5.4 - Copied text
 
-The plain text a copy writes shall be one line for each block the selection touches, with the numbers the reader sees and the document's text does not hold: a heading copied from its start is led by its number as the template numbers it, the first block of a list item by its number (`3.`) or bullet (`•`), indented by a tab for each list around its list, and a list of contents is copied as its rows, each `number text`, then a tab standing for the leader and the page where the list shows pages. Content dragged out as a node writes the default text.
+The plain text a copy writes shall be the text alone for a selection within one block, such as a word, and otherwise one line for each block the selection touches, with the numbers the reader sees and the document's text does not hold: a heading copied from its start is led by its number as the template numbers it, the first block of a list item by its number (`3.`) or bullet (`•`), indented by a tab for each list around its list, and a list of contents is copied as its rows, each `number text`, then a tab standing for the leader and the page where the list shows pages. Content dragged out as a node writes the default text.
 
 Implementation: `src/engine/clipboard-text.ts`, `src/engine/contents.ts`
 Verification: `src/engine/clipboard.test.ts`

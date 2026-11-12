@@ -234,10 +234,11 @@ describe('copied text', () => {
     expect(copiedText(state).split('\n')[0]).toBe('Scope');
   });
 
-  it('DOCE-EDITING-5.4 leaves the number off a block copied from its middle', () => {
+  it('DOCE-EDITING-5.4 leaves the number off a block copied from its middle, or from within it', () => {
     expect(copiedText(select(at(doc, 'Scope', 2), at(doc, 'Body', 4)), { template })).toBe(
       'ope\nBody',
     );
+    expect(copiedText(select(at(doc, 'Third'), at(doc, 'Third', 5)), { template })).toBe('Third');
   });
 
   it('DOCE-EDITING-5.4 copies a list of contents as its rows, leaders as a tab', () => {

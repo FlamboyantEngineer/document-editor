@@ -56,12 +56,16 @@ export interface CopiedTextOptions {
 }
 
 /**
- * The plain text of the selection (DOCE-EDITING-5.4): one line for each block, each heading and
- * list item that starts in it led by its number or bullet, and a list of contents as its rows,
- * each `number text<tab>page`.
+ * The plain text of the selection (DOCE-EDITING-5.4): within one block, its text; else one line for
+ * each block, each heading and list item that starts in it led by its number or bullet, and a list
+ * of contents as its rows, each `number text<tab>page`.
  */
 export function copiedText(state: EditorState, options: CopiedTextOptions = {}): string {
-  const { from, to } = state.selection;
+  const { from, to, $from, $to } = state.selection;
+  // Text copied from within one block, such as a word, is only that text.
+  if ($from.sameParent($to) && $from.parent.isTextblock) {
+    return $from.parent.textBetween($from.parentOffset, $to.parentOffset, '');
+  }
   const headings = headingNumbers(state, options.template);
   const lines: string[] = [];
   state.doc.nodesBetween(from, to, (node, pos) => {
