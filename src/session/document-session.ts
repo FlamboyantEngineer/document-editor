@@ -3,6 +3,7 @@
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { EditorState, Plugin } from 'prosemirror-state';
+import type { ConnectionGate, ConnectionPhase } from '../collab/connection.js';
 import type { EditorHost, SavedState } from '../host/adapters.js';
 import type { EditingMode, EditorCapabilities } from '../host/capabilities.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
@@ -74,6 +75,12 @@ export interface SessionDocument {
   readonly editingMode: EditingMode;
 }
 
+/** A room connection's phase, and what the reader may do in it (`connectionGate`). */
+export interface SessionConnection {
+  readonly phase: ConnectionPhase;
+  readonly gate: ConnectionGate;
+}
+
 /** One open document. */
 export interface DocumentSession {
   readonly documentId: string;
@@ -100,6 +107,11 @@ export interface DocumentSession {
    * them before the document saves again; empty when there are none.
    */
   readonly conflicts: ValueStore<readonly MergeConflict[]>;
+  /**
+   * In room mode, where the room connection is and what it lets the reader do, for a connection
+   * status; always null in store mode (DOCE-SESSION-3.8).
+   */
+  readonly connection: ValueStore<SessionConnection | null>;
   /** Commits an editor state: the editor's `onStateChange`. */
   update(update: SessionStateUpdate): void;
   /** Pins another template, or another revision of it, which is then a change to save. */

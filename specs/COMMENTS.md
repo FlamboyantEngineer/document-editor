@@ -295,6 +295,13 @@ In the comments lab, opening a thread shall draw its anchor's text with `data-co
 Implementation: `src/engine/comment-anchors.ts`, `src/components/document-comments/anchor-rects.ts`, `labs/src/comments.lab.tsx`
 Verification: `e2e/comments.spec.ts`
 
+### DOCE-COMMENTS-3.7 - Typing beside many threads
+
+In the scale lab's document of about 300 pages beside 500 open threads, typing shall cost about what it costs on the same pages with no comments: a card is drawn again only when what it shows changes (its thread, its suggestion's text, whether it is active, or where it sits), never because the document changed elsewhere, and the cards' context and callbacks stay the same from one state to the next. The keystroke time is a budget of DOCE-LABS-2.3. The check runs alone, after the lab tests and before the other timing tests (the `review-scale` Playwright project), so its load slows none of them.
+
+Implementation: `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/document-comments.tsx`, `labs/src/stress-scale.lab.tsx`, `labs/src/stress/scale-documents.ts`, `playwright.config.ts`
+Verification: `e2e/review-scale.performance.spec.ts`, `e2e/performance.spec.ts`
+
 ## DOCE-COMMENTS-4 - Reviewing
 
 ### DOCE-COMMENTS-4.1 - Suggestions in the comments panel
@@ -341,10 +348,10 @@ Verification: `src/components/document-comments/comments-panel.test.tsx`
 
 ### DOCE-COMMENTS-4.7 - Threads in the pane alone
 
-With `placement: 'pane'`, the editor shall show no margin, leaving the document its whole width, and a comments panel given the same placement shall hold the threads alone: Mod-Alt-M, the context menu's Comment and the handle's `startComment()` start a thread whose composer shows in the panel, and the panel offers Comment on a selection.
+With `placement: 'pane'`, the editor shall show no margin, leaving the document its whole width, and a comments panel given the same placement shall hold the threads alone: Mod-Alt-M, the context menu's Comment and the handle's `startComment()` start a thread whose composer shows in the panel, and the panel offers Comment on a selection. In an editor whose side panel holds the comments pane (DOCE-EDITOR-8.3), starting a thread so, or opening one (`openThread`), reveals that pane, expanding its panel, without moving focus from the composer.
 
-Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`
-Verification: `src/components/document-comments/comment-focus.test.tsx`, `e2e/comments.spec.ts`
+Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-comments/comment-focus.test.tsx`, `src/components/document-panels/document-side-panel.test.tsx`, `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-4.8 - Opening a thread at a comment
 

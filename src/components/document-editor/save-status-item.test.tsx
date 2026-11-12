@@ -8,7 +8,9 @@ import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing, type ShortcutOverrides } from '../../engine/index.js';
 import { createMemoryHost, type EditorCapabilities, FULL_CAPABILITIES } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
+import type { SessionConnection } from '../../session/document-session.js';
 import type { SessionStatus } from '../../session/status.js';
+import { createValueStore } from '../../session/value-store.js';
 import { DocumentEditor } from './document-editor.js';
 import type { EditorSession } from './save-status-item.js';
 
@@ -113,6 +115,33 @@ describe('SaveStatusItem', () => {
     expect(within(item).getByText(/saved/i)).toBeInTheDocument();
     setStatus({ save: 'offline' });
     expect(within(item).getByText(/offline/i)).toBeInTheDocument();
+  });
+
+  it('DOCE-SESSION-9.7 shows where the room connection is, before the save status', () => {
+    const { session } = stubSession();
+    const connection = createValueStore<SessionConnection | null>({
+      phase: 'connecting',
+      gate: { editable: false, locked: false },
+    });
+    const { container } = render(<Harness session={{ ...session, connection }} />);
+    const items = [...container.querySelectorAll('.de-document-editor__status-item')];
+    const ids = items.map((element) => element.getAttribute('data-status'));
+    expect(ids.indexOf('connection')).toBe(ids.indexOf('save') - 1);
+    const item = items[ids.indexOf('connection')];
+    if (!(item instanceof HTMLElement)) throw new Error('The connection item should show.');
+    expect(item).toHaveTextContent('Connecting…');
+    act(() => connection.set({ phase: 'offline', gate: { editable: true, locked: false } }));
+    expect(item).toHaveTextContent('Offline');
+    act(() => connection.set(null));
+    expect(item).toBeEmptyDOMElement();
+  });
+
+  it('DOCE-SESSION-9.7 shows no connection item in store mode', () => {
+    const { session } = stubSession();
+    const { container } = render(<Harness session={session} />);
+    expect(
+      container.querySelector('.de-document-editor__status-item[data-status="connection"]'),
+    ).not.toBeInTheDocument();
   });
 
   it('DOCE-SESSION-9.1 shows no save item without a session', () => {

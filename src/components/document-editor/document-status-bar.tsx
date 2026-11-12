@@ -1,6 +1,7 @@
 // The editor's status bar: the page in view, the words of the document or the selection, the
 // proofing issues when the document is proofed, the other people in it, whether the writer is
-// editing, suggesting, commenting or reading, and where the session's changes stand at its start;
+// editing, suggesting, commenting or reading, where the session's room connection is and where its
+// changes stand at its start;
 // the layout switch and the zoom at its end. The host rearranges the items and adds its own.
 
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
@@ -8,7 +9,7 @@ import { ZoomControl } from '@flamboyantengineer/ui-components/zoom-control';
 import type { ReactNode } from 'react';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { type EditorSession, SaveStatusItem } from './save-status-item.js';
+import { ConnectionStatusItem, type EditorSession, SaveStatusItem } from './save-status-item.js';
 import { LayoutToggle } from './status-controls.js';
 import {
   DocumentModeStatus,
@@ -59,6 +60,7 @@ export const STATUS_BAR_ITEMS = [
   'proofing',
   'presence',
   'mode',
+  'connection',
   'save',
   'layout',
   'zoom',
@@ -102,6 +104,10 @@ function editorItems({
     { id: 'presence', side: 'start', content: <DocumentPresence /> },
     { id: 'mode', side: 'start', content: <DocumentModeStatus /> },
   ];
+  if (session?.connection) {
+    const content = <ConnectionStatusItem connection={session.connection} />;
+    items.push({ id: 'connection', side: 'start', content });
+  }
   if (session)
     items.push({ id: 'save', side: 'start', content: <SaveStatusItem session={session} /> });
   if (onLayoutChange) {

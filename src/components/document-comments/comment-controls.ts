@@ -3,6 +3,7 @@
 
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Command, EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect } from 'react';
 import {
   canStartComment,
@@ -18,6 +19,11 @@ import { recordDecision } from './use-decision-records.js';
 export interface CommentControlsOptions {
   readonly state: EditorState;
   readonly onStateChange: (update: RichTextStateUpdate) => void;
+  /**
+   * The editor's view: commands go through its dispatch, so the host hears of them and the edit
+   * lock applies; without it they change the state directly.
+   */
+  readonly view?: EditorView | null | undefined;
   readonly canComment: boolean;
   readonly comments: CommentThreads;
   /** Receives the way to start a thread while the reader may comment. */
@@ -26,15 +32,17 @@ export interface CommentControlsOptions {
   readonly openRef?: RefObject<OpenComment | null> | undefined;
   /** Called with the key of the card of a thread just started. */
   readonly onStart?: ((key: string) => void) | undefined;
+  /** Hears of a thread the reader is taken to. */
+  readonly onOpen?: (() => void) | undefined;
 }
 
 /**
- * Runs a command on the latest state the caller holds. A command that decides suggestions has its
- * decision recorded on their threads, read from a run on the state shown, since the caller applies
- * it later and outside the editor's transactions.
+ * Runs a command through the view's dispatch, else on the latest state the caller holds. A command
+ * that decides suggestions has its decision recorded on their threads, read from a run on the
+ * state shown, since the caller may apply it later and outside the editor's transactions.
  */
 function useRunCommand(
-  onStateChange: (update: RichTextStateUpdate) => void,
+  { onStateChange, view }: Pick<CommentControlsOptions, 'onStateChange' | 'view'>,
   { state, comments }: { state: EditorState; comments: CommentThreads },
 ) {
   return (command: Command) => {
@@ -42,6 +50,10 @@ function useRunCommand(
       const report = suggestionDecisionOf(tr);
       if (report) recordDecision(comments, report);
     });
+    if (view) {
+      command(view.state, view.dispatch, view);
+      return;
+    }
     onStateChange((current) => {
       let next = current;
       command(current, (tr) => {
@@ -56,7 +68,7 @@ function useRunCommand(
 export function useCommentControls(options: CommentControlsOptions) {
   const { state, canComment, comments, startRef, openRef, onStart } = options;
   const focus = useCommentFocus();
-  const run = useRunCommand(options.onStateChange, { state, comments });
+  const run = useRunCommand(options, { state, comments });
   // A thread starts as a draft on the selection, or the caret's block, until the store keeps it.
   const startThread: StartComment = (start) => {
     if (!canStartComment(state)) return;
@@ -68,6 +80,7 @@ export function useCommentControls(options: CommentControlsOptions) {
   const open: OpenComment = (target) => {
     if (!comments.threads.has(target.threadId)) return false;
     focus.open(target);
+    options.onOpen?.();
     return true;
   };
   useEffect(() => {

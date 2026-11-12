@@ -4,10 +4,23 @@ import { expect, test } from './fixtures.js';
 const status = (page: Page, name: string) => page.getByLabel(`${name}'s status`);
 const editor = (page: Page, name: string) =>
   page.getByRole('textbox', { name: `${name}'s document` });
+// A reader's connection item in their editor's status bar (DOCE-SESSION-9.7).
+const connectionItem = (page: Page, name: string) =>
+  page
+    .getByRole('region', { name })
+    .locator('.de-document-editor__status-item[data-status="connection"]');
 const SENTENCE = 'The system shall report each fault within one second.';
 // A reader's paragraph, compared whole so a change sent twice shows (DOCE-COLLAB-4.1).
 const paragraph = (page: Page, name: string) =>
   editor(page, name).locator('p', { hasText: 'report each fault' });
+
+// A reader's paragraph text without the other people's caret labels (DOCE-SESSION-3.9).
+const textOf = (page: Page, name: string) =>
+  paragraph(page, name).evaluate((element) => {
+    const copy = element.cloneNode(true) as HTMLElement;
+    for (const caret of copy.querySelectorAll('.de-presence-caret')) caret.remove();
+    return copy.textContent;
+  });
 
 // Types at the end of a reader's paragraph, placing the caret by clicking past its text.
 async function typeAtEnd(page: Page, name: string, value: string) {
@@ -26,12 +39,12 @@ test.describe('session in a room lab', () => {
     await expect(status(page, 'Ada')).toHaveText(/^ready · /);
     await expect(status(page, 'Grace')).toHaveText(/^ready · /);
     await typeAtEnd(page, 'Ada', ' Always.');
-    await expect(paragraph(page, 'Grace')).toHaveText(`${SENTENCE} Always.`);
-    await expect(paragraph(page, 'Ada')).toHaveText(`${SENTENCE} Always.`);
+    await expect.poll(() => textOf(page, 'Grace')).toBe(`${SENTENCE} Always.`);
+    await expect.poll(() => textOf(page, 'Ada')).toBe(`${SENTENCE} Always.`);
     await expect(status(page, 'Ada')).toHaveText('ready · saved');
   });
 
-  test('DOCE-SESSION-3.3 keeps an offline reader’s changes until they come back', async ({
+  test('DOCE-SESSION-3.3 DOCE-SESSION-3.8 DOCE-SESSION-9.7 keeps an offline reader’s changes until they come back', async ({
     lab,
     page,
   }) => {
@@ -40,12 +53,17 @@ test.describe('session in a room lab', () => {
     const ada = page.getByRole('region', { name: 'Ada' });
     await ada.getByRole('button', { name: 'Go offline' }).click();
     await expect(status(page, 'Ada')).toHaveText('ready · offline');
+    await expect(page.getByLabel("Ada's connection")).toHaveText('offline');
+    await expect(connectionItem(page, 'Ada')).toHaveText('Offline');
+    await expect(connectionItem(page, 'Grace')).toHaveText('Connected');
     await typeAtEnd(page, 'Ada', ' Later.');
     await expect(editor(page, 'Ada')).toContainText('Later.');
     await expect(editor(page, 'Grace')).not.toContainText('Later.');
     await ada.getByRole('button', { name: 'Go online' }).click();
-    await expect(paragraph(page, 'Grace')).toHaveText(`${SENTENCE} Later.`);
-    await expect(paragraph(page, 'Ada')).toHaveText(`${SENTENCE} Later.`);
+    await expect(page.getByLabel("Ada's connection")).toHaveText('synced');
+    await expect(connectionItem(page, 'Ada')).toHaveText('Connected');
+    await expect.poll(() => textOf(page, 'Grace')).toBe(`${SENTENCE} Later.`);
+    await expect.poll(() => textOf(page, 'Ada')).toBe(`${SENTENCE} Later.`);
     await expect(status(page, 'Ada')).toHaveText('ready · saved');
   });
 });

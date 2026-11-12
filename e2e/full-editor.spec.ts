@@ -117,6 +117,20 @@ test.describe('full editor lab', () => {
     await expect(page.locator('output[aria-label="Agent report"]')).toContainText('Commented on');
     await expect(report).toContainText('1 review changes');
     await expect(report).toContainText('1 suggestions');
+    // A thread started in the margin is a review change too.
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.keyboard.press('ControlOrMeta+Alt+m');
+    const composer = margin(page).getByRole('textbox', { name: 'Add a comment' });
+    await expect(composer).toBeFocused();
+    await page.keyboard.type('Which timing?');
+    await margin(page)
+      .getByRole('group', { name: 'Comment thread' })
+      .filter({ has: page.getByRole('textbox', { name: 'Add a comment' }) })
+      .getByRole('button', { name: 'Comment' })
+      .click();
+    await expect(content(page).locator('h1 mark[data-comment-id]')).toHaveText('Timing');
+    await expect(report).toContainText('2 review changes');
+    await expect(report).toContainText('1 suggestions');
   });
 
   test('DOCE-COLLAB-3.2 shows who wrote what while asked', async ({ lab, page }) => {

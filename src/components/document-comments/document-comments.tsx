@@ -13,15 +13,8 @@ import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState } from 'prosemirror-state';
-import {
-  type CSSProperties,
-  type ReactNode,
-  type RefObject,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { EditorView } from 'prosemirror-view';
+import { type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter, MentionsAdapter } from '../../host/index.js';
 import {
@@ -47,9 +40,10 @@ import {
   type StartComment,
   useCommentFocus,
 } from './comment-focus.js';
-import { caretKey, listCommentItems, renderCommentCard } from './comment-items.js';
+import { caretKey, listCommentItems } from './comment-items.js';
 import { useCommentMentions } from './comment-mentions.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
+import { MarginCard, useStableCallbacks } from './margin-card.js';
 import type { ThreadPermissionPolicy } from './thread-permissions.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
@@ -139,6 +133,10 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   startRef?: RefObject<StartComment | null> | undefined;
   /** Receives the way to take the reader to a thread. */
   openRef?: RefObject<OpenComment | null> | undefined;
+  /** The editor's view, which the comments' changes go through (`useCommentControls`). */
+  view?: EditorView | null | undefined;
+  /** With pane placement, shows the pane holding the comments, for a thread started or opened. */
+  onReveal?: (() => void) | undefined;
   /** The document's content. */
   children: ReactNode;
 }
@@ -221,38 +219,42 @@ function useCardContext(
   const focus = useCommentFocus();
   const revealed = focus.opened?.threadId;
   const filter = useMemo(() => ({ ...listed, revealed }), [listed, revealed]);
-  const context: CardContext = {
-    ...shared,
-    mentions,
-    format,
-    mentionCard,
-    commentActions,
-    threadPermissions,
-    documentId: props.documentId,
-    me,
-    scope: 'margin',
-    opened: focus.opened,
-    newText: focus.newText,
-  };
-  return { context, filter, opened: focus.opened };
-}
-
-// A card beside its anchor's page, whatever the page's size and orientation.
-function PlacedCard({
-  offset = 0,
-  children,
-}: {
-  offset?: number | undefined;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      {...hooks.slot('card')}
-      style={{ '--de-comment-offset': `${String(offset)}px` } as CSSProperties}
-    >
-      {children}
-    </div>
+  const { comments, canComment, labels } = shared;
+  const { documentId } = props;
+  const { opened, newText } = focus;
+  // The same context while the document changes, so the cards it reaches are not drawn again.
+  const context = useMemo<CardContext>(
+    () => ({
+      comments,
+      canComment,
+      labels,
+      mentions,
+      format,
+      mentionCard,
+      commentActions,
+      threadPermissions,
+      documentId,
+      me,
+      scope: 'margin',
+      opened,
+      newText,
+    }),
+    [
+      comments,
+      canComment,
+      labels,
+      mentions,
+      format,
+      mentionCard,
+      commentActions,
+      threadPermissions,
+      documentId,
+      me,
+      opened,
+      newText,
+    ],
   );
+  return { context, filter, opened };
 }
 
 /**
@@ -273,7 +275,14 @@ export function DocumentComments(props: DocumentCommentsProps) {
 // The document alone, its threads shown in the comments panel, which the editor still reaches.
 function PaneComments(props: DocumentCommentsProps) {
   const comments = useProvidedCommentThreads(props);
-  useCommentControls({ ...props, canComment: props.canComment ?? true, comments });
+  const { onReveal } = props;
+  useCommentControls({
+    ...props,
+    canComment: props.canComment ?? true,
+    comments,
+    onStart: onReveal,
+    onOpen: onReveal,
+  });
   return props.children;
 }
 
@@ -316,10 +325,20 @@ function CommentsMargin(props: DocumentCommentsProps) {
   }
   const byKey = new Map(items.map((item) => [item.key, item]));
   // Unattributed suggestions are their thread's writer's (DOCE-SUGGESTIONS-2.5).
-  const policy = {
-    ...props.suggestionPolicy,
-    threadAuthor: (thread: string) => comments.threads.get(thread)?.entries[0]?.author,
-  };
+  // A new policy only when what it says or the threads change, the editor building a new one on
+  // each render, so the suggestion cards are drawn again only then.
+  const { me, canDecide, canWithdraw, decide } = props.suggestionPolicy;
+  const policy = useMemo(
+    () => ({
+      me,
+      canDecide,
+      canWithdraw,
+      decide,
+      threadAuthor: (thread: string) => comments.threads.get(thread)?.entries[0]?.author,
+    }),
+    [me, canDecide, canWithdraw, decide, comments.threads],
+  );
+  const commands = useStableCallbacks({ run, startThread: () => startThread() });
   return (
     <AnnotationLayer
       ref={setLayer}
@@ -336,15 +355,11 @@ function CommentsMargin(props: DocumentCommentsProps) {
         renderCard={(annotation, { isActive }) => {
           const item = byKey.get(String(annotation.id));
           return item ? (
-            <PlacedCard offset={offsets.get(item.key)}>
-              {renderCommentCard(item, {
-                context,
-                isActive,
-                policy,
-                run,
-                startThread: () => startThread(),
-              })}
-            </PlacedCard>
+            <MarginCard
+              item={item}
+              offset={offsets.get(item.key)}
+              actions={{ context, isActive, policy, ...commands }}
+            />
           ) : null;
         }}
       />

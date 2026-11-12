@@ -58,6 +58,11 @@ function StatusLine({ session, name }: { session: DocumentSession; name: string 
   );
 }
 
+function ConnectionLine({ session, name }: { session: DocumentSession; name: string }) {
+  const connection = useSessionValue(session.connection);
+  return <output aria-label={`${name}'s connection`}>{connection?.phase ?? 'none'}</output>;
+}
+
 function Connection({ person }: { person: string }) {
   const [online, setOnline] = useState(true);
   return (
@@ -86,7 +91,8 @@ function Reader({ person }: { person: { id: string; name: string } }) {
   return (
     <section aria-label={person.name}>
       <h2>{person.name}</h2>
-      <Connection person={person.id} /> <StatusLine session={session} name={person.name} />
+      <Connection person={person.id} /> <StatusLine session={session} name={person.name} />{' '}
+      <ConnectionLine session={session} name={person.name} />
       <DocumentSessionBoundary
         session={session}
         fallback={<p>Opening the document…</p>}
@@ -94,7 +100,9 @@ function Reader({ person }: { person: { id: string; name: string } }) {
           <p role="alert">{`The document did not open: ${error?.kind ?? 'unknown'}`}</p>
         )}
       >
-        {(props) => <DocumentEditor {...props} aria-label={`${person.name}'s document`} />}
+        {(props) => (
+          <DocumentEditor {...props} statusBar aria-label={`${person.name}'s document`} />
+        )}
       </DocumentSessionBoundary>
     </section>
   );

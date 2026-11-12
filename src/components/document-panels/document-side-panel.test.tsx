@@ -1,5 +1,5 @@
 import { PropertyRow } from '@flamboyantengineer/ui-components/property-panel';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
 import { createRef, type Ref, useState } from 'react';
@@ -67,10 +67,12 @@ function Harness({
   panel,
   handleRef,
   comments = true,
+  placement,
 }: {
   panel: Omit<DocumentSidePanelProps, 'position'>;
   handleRef?: Ref<DocumentEditorHandle>;
   comments?: boolean;
+  placement?: 'margin' | 'pane';
 }) {
   const [state, setState] = useState(initial);
   const [memory] = useState(host);
@@ -84,7 +86,7 @@ function Harness({
       handleRef={handleRef}
       comments={
         comments && memory.comments
-          ? { store: memory.comments, documentId: 'doc', identity: memory.identity }
+          ? { store: memory.comments, documentId: 'doc', identity: memory.identity, placement }
           : undefined
       }
       panels={{ end: <DocumentSidePanel position="end" template={TEMPLATE} {...panel} /> }}
@@ -183,6 +185,28 @@ describe('DocumentSidePanel', () => {
     unmount();
     render(<Harness comments={false} panel={{ panes: ['comments', 'properties'] }} />);
     expect(within(details()).queryByRole('tab', { name: /Comments/ })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-4.7 reveals the comments pane for a thread started or opened there', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    render(
+      <Harness
+        handleRef={handle}
+        placement="pane"
+        panel={{ panes: ['properties', 'comments'], defaultExpanded: false }}
+      />,
+    );
+    expect(within(details()).queryByRole('tab', { name: /Comments/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(handle.current?.startComment()).toBe(true));
+    const tab = await within(details()).findByRole('tab', { name: /Comments/ });
+    await waitFor(() => expect(tab).toHaveAttribute('aria-selected', 'true'));
+    expect(await within(details()).findByRole('textbox', { name: /comment/i })).toBeVisible();
+    await userEvent.setup().click(within(details()).getByRole('tab', { name: 'Properties' }));
+    await waitFor(() => expect(tab).toHaveAttribute('aria-selected', 'false'));
+    act(() => {
+      expect(handle.current?.openThread('one')).toBe(true);
+    });
+    await waitFor(() => expect(tab).toHaveAttribute('aria-selected', 'true'));
   });
 
   it('DOCE-EDITOR-8.4 adds the host rows, actions and sections to the properties', async () => {
