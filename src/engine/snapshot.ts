@@ -10,7 +10,13 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
-import { isViewStateAttribute, removeViewOnlyDecorations } from './print-view.js';
+import {
+  applySuggestionMarkup,
+  editorMarkup,
+  isViewStateAttribute,
+  removeViewOnlyDecorations,
+  type SnapshotMarkup,
+} from './print-view.js';
 
 /** What a snapshot holds beside the pages. */
 export interface SnapshotOptions {
@@ -22,13 +28,15 @@ export interface SnapshotOptions {
   readonly styles?: readonly string[] | undefined;
   /** The stylesheets that style the pages, by address, linked in order. */
   readonly stylesheets?: readonly string[] | undefined;
+  /** How suggestions show; by default as the editor shows them, its simple markup as `final`. */
+  readonly markup?: SnapshotMarkup | undefined;
 }
 
-// The editing state a snapshot leaves out: attributes and the elements only an editor draws. A
-// widget inside a variable is content, not editing state: it shows the variable's value.
+// The editing state a snapshot leaves out: attributes and the elements only an editor draws.
+// Widgets are content, such as a variable's value or a comparison's deleted text, unless they
+// are view-only.
 const EDITING_ATTRIBUTES = ['contenteditable', 'spellcheck', 'draggable', 'tabindex'];
-const EDITING_ELEMENTS = '.ProseMirror-widget, .ProseMirror-gapcursor, .ProseMirror-separator';
-const VALUE_HOLDER = '[data-template-variable]';
+const EDITING_ELEMENTS = '.ProseMirror-gapcursor, .ProseMirror-separator';
 const ROOT_CLASS = 'de-document-editor';
 const SHEET_ATTRIBUTE = 'data-print-sheet';
 
@@ -68,17 +76,21 @@ function printRules(template: TemplateFile, sizes: readonly string[]): string {
     '.pm-page { break-after: page; }',
     '.pm-section:last-child > .pm-page:last-child { break-after: auto; }',
     '@media print { body.de-snapshot { margin: 0; } .de-snapshot :is(.pm-section, .pm-page) { margin: 0 !important; gap: 0 !important; } }',
+    ':root { color-scheme: light; } .de-snapshot, .de-snapshot * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }',
   ].join(' ');
 }
 
-// The document's pages as markup, without the editing state or view-only decorations, each
-// section marked with its sheet.
-function pagesMarkup(view: EditorView, sections: readonly number[]): string {
+// The document's pages as markup, without the editing state or view-only decorations, with the
+// suggestions the markup shows, each section marked with its sheet.
+function pagesMarkup(
+  view: EditorView,
+  sections: readonly number[],
+  markup: SnapshotMarkup,
+): string {
   const copy = view.dom.cloneNode(true) as HTMLElement;
-  for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) {
-    if (!element.parentElement?.closest(VALUE_HOLDER)) element.remove();
-  }
+  for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
   removeViewOnlyDecorations(copy, view);
+  applySuggestionMarkup(copy, markup);
   for (const [index, element] of copy.querySelectorAll(':scope > .pm-section').entries()) {
     element.setAttribute(SHEET_ATTRIBUTE, String(sections[index] ?? 0));
   }
@@ -90,14 +102,17 @@ function pagesMarkup(view: EditorView, sections: readonly number[]): string {
 }
 
 // The editor root's hooks around the pages, so stylesheets scoped to the editor style them too,
-// without the ones that describe the view; the snapshot is read, never edited.
-function rootMarkup(view: EditorView, pages: string): string {
+// without the ones that describe the view; the snapshot is read, never edited, shows the markup
+// it was made with, and is marked as print (`data-print`) for a stylesheet's print overrides.
+function rootMarkup(view: EditorView, pages: string, markup: SnapshotMarkup): string {
   const root = view.dom.closest(`.${ROOT_CLASS}`);
   const data = [...(root?.attributes ?? [])]
     .filter(({ name }) => name.startsWith('data-') && !isViewStateAttribute(name))
+    .filter(({ name }) => name !== 'data-markup' && name !== 'data-print')
     .map(({ name, value }) => ` ${name}="${escapeHtml(value)}"`)
     .join('');
-  return `<div class="${ROOT_CLASS}" data-mode="reading"${data}>${pages}</div>`;
+  const hooks = `data-mode="reading" data-markup="${markup}" data-print="true"`;
+  return `<div class="${ROOT_CLASS}" ${hooks}${data}>${pages}</div>`;
 }
 
 /**
@@ -106,6 +121,7 @@ function rootMarkup(view: EditorView, pages: string): string {
  */
 export function documentSnapshot(view: EditorView, options: SnapshotOptions): string {
   const { sizes, sections } = sectionSheets(view, options.template);
+  const markup = options.markup ?? editorMarkup(view);
   const properties = Object.entries(templateProperties(options.template))
     .map(([name, value]) => `${name}: ${value};`)
     .join(' ');
@@ -121,7 +137,7 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
     links,
     styles,
     '</head><body class="de-snapshot">',
-    rootMarkup(view, pagesMarkup(view, sections)),
+    rootMarkup(view, pagesMarkup(view, sections, markup), markup),
     '</body></html>',
   ].join('');
 }

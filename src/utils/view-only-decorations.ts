@@ -1,10 +1,11 @@
 // Decorations drawn for the person working in the editor, such as search matches, proofing issues,
-// other people's selections and layout debugging, are view-only: a printed snapshot leaves them
-// out. They are made through these helpers, which mark each one with one common hook, the
-// `data-de-view-only` attribute, and record in the decoration's spec the attributes and classes
-// it adds, so the snapshot takes them off again without knowing the features that drew them.
+// other people's selections and carets, placeholders, offered completions and layout debugging,
+// are view-only: a printed snapshot leaves them out. They are made through these helpers, which
+// mark each one with one common hook, the `data-de-view-only` attribute, and record in an inline
+// or node decoration's spec the attributes and classes it adds, so the snapshot takes them off
+// again without knowing the features that drew them.
 
-import { Decoration, type DecorationAttrs } from 'prosemirror-view';
+import { Decoration, type DecorationAttrs, type EditorView } from 'prosemirror-view';
 
 /** The hook every view-only decoration puts on the element it draws or decorates. */
 export const VIEW_ONLY_ATTRIBUTE = 'data-de-view-only';
@@ -53,6 +54,20 @@ export function viewOnlyNode(
   spec?: object,
 ): Decoration {
   return Decoration.node(from, to, marked(attrs), viewOnlySpec(attrs, spec));
+}
+
+/** A widget only the editor's view shows: its element carries the hook. */
+export function viewOnlyWidget(
+  pos: number,
+  toDOM: (view: EditorView, getPos: () => number | undefined) => HTMLElement,
+  spec?: Parameters<typeof Decoration.widget>[2],
+): Decoration {
+  const draw = (view: EditorView, getPos: () => number | undefined) => {
+    const element = toDOM(view, getPos);
+    element.setAttribute(VIEW_ONLY_ATTRIBUTE, 'true');
+    return element;
+  };
+  return Decoration.widget(pos, draw, spec);
 }
 
 /** The hooks a decoration adds when it is view-only, or null. */

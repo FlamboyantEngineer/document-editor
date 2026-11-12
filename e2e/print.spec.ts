@@ -58,3 +58,36 @@ test.describe('print', () => {
     await printed.close();
   });
 });
+
+test.describe('print a comparison', () => {
+  test('DOCE-EDITOR-6.17 prints the deleted text and change bars of a comparison', async ({
+    lab,
+    page,
+    context,
+  }) => {
+    await lab.open('print');
+    await content(page).locator('h1', { hasText: 'Scope' }).click();
+    await page.keyboard.press('End');
+    for (let index = 0; index < 3; index += 1) await page.keyboard.press('Backspace');
+    await page.keyboard.type('ale');
+    await page.getByRole('checkbox', { name: 'Compare with the document as it opened' }).check();
+    await expect(content(page).locator('del[data-diff-change="deletion"]')).toHaveText('Scope');
+    await expect(content(page).locator('.de-change-lines__line').first()).toBeAttached();
+
+    await page.getByRole('button', { name: 'Make a print preview' }).click();
+    const snapshot = (await page.getByTitle('Print preview').getAttribute('srcdoc')) ?? '';
+    const printed = await context.newPage();
+    await printed.emulateMedia({ media: 'print' });
+    await printed.setContent(snapshot, { waitUntil: 'load' });
+    await expect(printed.locator('del[data-diff-change="deletion"]')).toHaveText('Scope');
+    const bar = printed.locator('.de-change-lines__line').first();
+    await expect(bar).toBeAttached();
+    const look = await bar.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, adjust: style.printColorAdjust };
+    });
+    expect(look.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(look.adjust).toBe('exact');
+    await printed.close();
+  });
+});

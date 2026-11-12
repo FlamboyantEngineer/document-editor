@@ -1,6 +1,6 @@
 // What a printed snapshot leaves out of the editor's view: the view-only decorations
-// (`src/utils/view-only-decorations.ts`) and the editor root's data attributes that describe the
-// view rather than the document.
+// (`src/utils/view-only-decorations.ts`), the editor root's data attributes that describe the
+// view rather than the document, and the suggestions its markup does not show.
 
 import type { DecorationSet, EditorView } from 'prosemirror-view';
 import { VIEW_ONLY_ATTRIBUTE, viewOnlyHooksOf } from '../utils/view-only-decorations.js';
@@ -32,14 +32,48 @@ function viewOnlyHooks(view: EditorView) {
   return { attributes, classes };
 }
 
+/** How a snapshot shows suggestions: all their markup, as if accepted, or as if rejected. */
+export type SnapshotMarkup = 'all' | 'final' | 'original';
+
+// The markup a snapshot takes from the editor's: its simple markup prints as if accepted.
+const EDITOR_MARKUP: Readonly<Record<string, SnapshotMarkup>> = {
+  all: 'all',
+  simple: 'final',
+  final: 'final',
+  original: 'original',
+};
+
+/** The markup a snapshot of the view shows by default: the editor's own. */
+export function editorMarkup(view: EditorView): SnapshotMarkup {
+  const root = view.dom.closest('[data-markup]');
+  return EDITOR_MARKUP[root?.getAttribute('data-markup') ?? ''] ?? 'all';
+}
+
 /**
- * Takes the view's view-only decorations off a copy of its markup: their attributes and classes
- * from each element that carries the hook, and the wrapper an inline one drew once nothing else
- * is left on it.
+ * Shows a copy of the view's markup with its suggestions as the markup says: as if accepted, the
+ * suggested deletions gone and the insertions plain text; as if rejected, the other way round.
+ */
+export function applySuggestionMarkup(copy: Element, markup: SnapshotMarkup): void {
+  if (markup === 'all') return;
+  const [kept, dropped] = markup === 'final' ? ['ins', 'del'] : ['del', 'ins'];
+  for (const element of copy.querySelectorAll(`${dropped}[data-id]`)) element.remove();
+  for (const element of copy.querySelectorAll(`${kept}[data-id]`)) {
+    element.replaceWith(...element.childNodes);
+  }
+}
+
+/**
+ * Takes the view's view-only decorations off a copy of its markup: a widget whole; an inline or
+ * node decoration's attributes and classes from each element that carries the hook, and the
+ * wrapper an inline one drew once nothing else is left on it.
  */
 export function removeViewOnlyDecorations(copy: Element, view: EditorView): void {
   const { attributes, classes } = viewOnlyHooks(view);
   for (const element of copy.querySelectorAll(`[${VIEW_ONLY_ATTRIBUTE}]`)) {
+    if (element.classList.contains('ProseMirror-widget')) {
+      element.remove();
+      continue;
+    }
     element.removeAttribute(VIEW_ONLY_ATTRIBUTE);
     for (const name of attributes) element.removeAttribute(name);
     for (const name of classes) element.classList.remove(name);

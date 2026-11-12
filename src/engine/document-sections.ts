@@ -34,6 +34,7 @@ import {
   templateProperties,
   type TemplateSection,
 } from '../model/index.js';
+import { viewOnlyWidget } from '../utils/view-only-decorations.js';
 import { editsRegions, regionEdits } from './region-editing.js';
 import { isInlineTextOnly, isRemoteTransaction } from './transaction-kind.js';
 
@@ -91,7 +92,7 @@ function placeholderOf(section: DocumentSection, template: TemplateSection): Dec
     .join(' ');
   const at = content.pos + 2;
   const { pos } = section;
-  return Decoration.widget(
+  return viewOnlyWidget(
     at,
     (view) => {
       const hint = view.dom.ownerDocument.createElement('span');

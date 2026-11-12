@@ -275,7 +275,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.9 - Snapshots for printing
 
-The handle's `exportSnapshot({ title, styles, stylesheets })` shall give the document as its pages show it now as a standalone HTML document (`documentSnapshot`), for a host to print or turn into a PDF: the laid-out pages without the editor's editing attributes and widgets, the template's custom properties, a print page of the template's size for each page, and the host's stylesheets, linked or inlined. The values a page's variables show (DOCE-PAGINATION-8.2, DOCE-PAGINATION-8.3: page numbers, page totals, dates and the host's values) shall stay. The pages shall sit in an element with the editor's root hook class and data attributes, in reading mode (`data-mode="reading"`), so stylesheets scoped to the editor style the snapshot too.
+The handle's `exportSnapshot({ title, styles, stylesheets, markup })` shall give the document as its pages show it now as a standalone HTML document (`documentSnapshot`), for a host to print or turn into a PDF: the laid-out pages without the editor's editing attributes and view-only decorations (DOCE-EDITOR-6.15), the template's custom properties, a print page of the template's size for each page, and the host's stylesheets, linked or inlined. The values a page's variables show (DOCE-PAGINATION-8.2, DOCE-PAGINATION-8.3: page numbers, page totals, dates and the host's values) shall stay. The pages shall sit in an element with the editor's root hook class and data attributes, in reading mode (`data-mode="reading"`), so stylesheets scoped to the editor style the snapshot too.
 
 Implementation: `src/engine/snapshot.ts`, `src/components/document-editor/editor-handle.ts`
 Verification: `src/engine/snapshot.test.ts`, `e2e/full-editor.spec.ts`
@@ -317,9 +317,30 @@ Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 
 ### DOCE-EDITOR-6.15 - View-only decorations
 
-A decoration drawn only for the person working in the editor (search matches, proofing issues, other people's selections and the layout debugging) shall be made view-only (`viewOnlyInline`, `viewOnlyNode`), which puts the common hook `data-de-view-only` on the element it draws or decorates and records in its spec the attributes and classes it adds. A snapshot shall take those attributes, classes and the hook off every element carrying it, unwrap an inline decoration's wrapper left with no attributes, and keep the decorations that are not view-only. It shall also leave out the editor root's data attributes that describe the view rather than the document (`data-suggesting`, `data-scrollable`, `data-layout-state`, `data-debug`, `data-debug-blocks`, `data-debug-measure`). Widgets stay left out, apart from the values variables show (DOCE-EDITOR-6.9).
+A decoration drawn only for the person working in the editor (search matches, proofing issues, other people's selections and carets, an empty section's placeholder, an offered completion and the layout debugging) shall be made view-only (`viewOnlyInline`, `viewOnlyNode`, `viewOnlyWidget`), which puts the common hook `data-de-view-only` on the element it draws or decorates and, for an inline or node decoration, records in its spec the attributes and classes it adds. A snapshot shall leave out a view-only widget whole, take the recorded attributes, classes and the hook off every other element carrying it, unwrap an inline decoration's wrapper left with no attributes, and keep the decorations that are not view-only. It shall also leave out the editor root's data attributes that describe the view rather than the document (`data-suggesting`, `data-scrollable`, `data-layout-state`, `data-debug`, `data-debug-blocks`, `data-debug-measure`). Every other widget is content and shall stay, such as a variable's value or a comparison's deleted text (DOCE-EDITOR-6.17).
 
-Implementation: `src/engine/print-view.ts`, `src/utils/view-only-decorations.ts`, `src/engine/search.ts`, `src/engine/proofing.ts`, `src/engine/presence.ts`, `src/pagination/page-debug.ts`
+Implementation: `src/engine/print-view.ts`, `src/utils/view-only-decorations.ts`, `src/engine/search.ts`, `src/engine/proofing.ts`, `src/engine/presence.ts`, `src/engine/inline-completion.ts`, `src/engine/document-sections.ts`, `src/pagination/page-debug.ts`
+Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.16 - Suggestions in print
+
+A snapshot's `markup` shall say how its suggestions print: `all`, every suggested insertion and deletion with its markup; `final`, as if accepted, the suggested deletions left out and the insertions as plain text; or `original`, as if rejected, the other way round. Without it, a snapshot shall print as the editor shows suggestions, its `simple` markup as `final`. The snapshot root's `data-markup` shall carry the markup printed.
+
+Implementation: `src/engine/print-view.ts`, `src/engine/snapshot.ts`, `labs/src/print.lab.tsx`
+Verification: `src/engine/snapshot.test.ts`
+
+### DOCE-EDITOR-6.17 - Comparisons in print
+
+A snapshot of a document compared with an older version (`compare`, DOCE-VERSIONS-2.3) shall print what the editor shows of the comparison: the deleted text in place, the words and blocks marked by their kind of change, and the change bars beside the changed blocks and lines (DOCE-VERSIONS-3.2, DOCE-VERSIONS-3.4).
+
+Implementation: `src/engine/snapshot.ts`, `src/engine/print-view.ts`, `labs/src/print.lab.tsx`
+Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.18 - Print overrides
+
+A snapshot shall carry `data-print="true"` on its root for a stylesheet's print overrides, print in the light colour scheme with its colours and backgrounds kept exactly (`print-color-adjust: exact`), so change bars and highlights print, and add no sheet after its last page.
+
+Implementation: `src/engine/snapshot.ts`
 Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 
 ## Hooks
@@ -376,3 +397,4 @@ Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 | `data-debug-height`                     | attribute |                                                        | On a block while debugging: its measured height, in CSS pixels.                         |
 | `data-de-view-only`                     | attribute | `true`                                                 | On an element a view-only decoration draws or decorates; a snapshot leaves it out.      |
 | `data-print-sheet`                      | attribute |                                                        | In a snapshot, on a section: the index of the sheet size it prints on.                  |
+| `data-print`                            | attribute | `true`                                                 | On a snapshot's root: the snapshot prints, for a stylesheet's print overrides.          |
