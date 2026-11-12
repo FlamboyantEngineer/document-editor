@@ -1,5 +1,18 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type {
+  AbbreviationHealthOptions,
+  AbbreviationIssue,
+  AbbreviationIssueKind,
+  GlossaryAnswer,
+  ResolvedGlossaryEntry,
+} from './abbreviation-health.js';
+export {
+  abbreviationIssueAt,
+  abbreviationIssues,
+  createAbbreviationHealth,
+  recordGlossaryEntries,
+} from './abbreviation-health.js';
 export type { AbbreviationDisplay, AbbreviationEntry } from './abbreviations.js';
 export {
   abbreviationAt,
@@ -160,6 +173,7 @@ export { isReferencePlace, repairPastedReferences } from './reference-places.js'
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
+export { revealRange, selectionAddress } from './reveal.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

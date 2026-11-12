@@ -13,14 +13,23 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import {
+  documentRegions,
   findTemplateSection,
+  isSectionNode,
   MAX_PARAGRAPH_LEVEL,
   normalizeParagraphLevel,
+  regionAt,
+  type RegionKind,
+  regionKind,
   resolveParagraphNumberingConfig,
+  sectionAt,
+  sectionRegions,
   type TemplateFile,
   templateScopeStyles,
 } from '../model/index.js';
 import { isBodyParent, topLevelBlockEnd } from './block-place.js';
+
+const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
 
 /** Wraps the selection in a list, joined with a list of the same kind just before or after it. */
 export function wrapInListAndJoin(listType: NodeType): Command {
@@ -47,18 +56,9 @@ export const deleteEmptyListItem: Command = (state, dispatch) => {
   return true;
 };
 
-// The section name of the page section holding a position, if any.
-function sectionNameAt($pos: ResolvedPos): string | null {
-  for (let depth = 1; depth <= $pos.depth; depth += 1) {
-    const node = $pos.node(depth);
-    if (node.type.name === 'page_section') return node.attrs.sectionName as string | null;
-  }
-  return null;
-}
-
 // Whether the template numbers paragraphs where a position is.
 function numbersParagraphs(template: TemplateFile, $pos: ResolvedPos): boolean {
-  const section = findTemplateSection(template, sectionNameAt($pos));
+  const section = findTemplateSection(template, sectionAt($pos)?.name ?? null);
   const { paragraph } = templateScopeStyles(template, section);
   return (resolveParagraphNumberingConfig(paragraph).styleConfig?.levels.length ?? 0) > 0;
 }
@@ -118,25 +118,20 @@ export const splitBlockKeepingLevel: Command = (state, dispatch, view) => {
 /** The first and last positions inside the text blocks of each page's content, in order. */
 function bodyTextblocks(doc: ProseMirrorNode): { pos: number; node: ProseMirrorNode }[] {
   const blocks: { pos: number; node: ProseMirrorNode }[] = [];
-  doc.descendants((node, pos) => {
-    const name = node.type.name;
-    if (node.isInline || name === 'page_header' || name === 'page_footer') return false;
-    if (name === 'page_footnotes') return false;
-    if (node.isTextblock) {
-      blocks.push({ pos, node });
-      return false;
-    }
-    return true;
-  });
+  for (const content of documentRegions(doc, CONTENT)) {
+    content.node.descendants((node, pos) => {
+      if (node.isInline) return false;
+      if (node.isTextblock) blocks.push({ pos: content.pos + 1 + pos, node });
+      return !node.isTextblock;
+    });
+  }
   return blocks;
 }
 
 // The page content holding a position, as its depth, or -1 outside one.
 function pageContentDepth($pos: ResolvedPos): number {
-  for (let depth = $pos.depth; depth > 0; depth -= 1) {
-    if ($pos.node(depth).type.name === 'page_content') return depth;
-  }
-  return -1;
+  const region = regionAt($pos);
+  return region?.kind === 'content' ? region.depth : -1;
 }
 
 // Whether a text block is the first (-1) or last (1) of its page content, at every depth.
@@ -154,19 +149,15 @@ interface Placed {
   readonly pos: number;
 }
 
-// The page content of the page before (-1) or after (1) the one at a depth, in the same section.
-function neighbourContent($pos: ResolvedPos, contentDepth: number, direction: -1 | 1) {
-  const sectionDepth = contentDepth - 2;
-  const section = $pos.node(sectionDepth);
-  const index = $pos.index(sectionDepth) + direction;
-  if (index < 0 || index >= section.childCount) return null;
-  let pos = $pos.start(sectionDepth);
-  for (let child = 0; child < index; child += 1) pos += section.child(child).nodeSize;
-  let found: Placed | null = null;
-  section.child(index).forEach((region, offset) => {
-    if (region.type.name === 'page_content') found = { node: region, pos: pos + 1 + offset };
-  });
-  return found as Placed | null;
+// The page content of the page before (-1) or after (1) the one holding a position, in the same
+// section; null where the section has none, as on its first or last page.
+function neighbourContent($pos: ResolvedPos, direction: -1 | 1): Placed | null {
+  const section = sectionAt($pos);
+  if (!section) return null;
+  const at = regionAt($pos)?.pos;
+  const contents = sectionRegions(section, CONTENT);
+  const here = contents.findIndex((region) => region.pos === at);
+  return here < 0 ? null : (contents[here + direction] ?? null);
 }
 
 // The text block at the edge of a page content that faces the caret, through its last (-1) or
@@ -205,7 +196,7 @@ export function joinAcrossPages(direction: -1 | 1): Command {
     const depth = pageContentDepth($from);
     if ($from.parentOffset !== edge || depth < 0 || !atPageEdge($from, depth, direction))
       return false;
-    const content = neighbourContent($from, depth, direction);
+    const content = neighbourContent($from, direction);
     const facing = content ? facingBlock(content, direction) : null;
     if (facing && dispatch) dispatch(joinFacing(state.tr, facing, direction).scrollIntoView());
     return true;
@@ -237,7 +228,7 @@ export const selectBody: Command = (state, dispatch) => {
   const blocks = bodyTextblocks(state.doc);
   const first = blocks[0];
   const last = blocks[blocks.length - 1];
-  if (!first || !last || !state.doc.firstChild || state.doc.firstChild.type.name !== 'page_section')
+  if (!first || !last || !state.doc.firstChild || !isSectionNode(state.doc.firstChild))
     return false;
   if (dispatch) {
     const to = last.pos + 1 + last.node.content.size;
@@ -301,7 +292,7 @@ export const insertPageBreak: Command = (state, dispatch) => {
   if (!pageBreak || !paragraph) return false;
   const { $from, empty } = state.selection;
   // In a text block on its own on the page, the break goes at the caret, splitting the block.
-  const onPage = $from.depth >= 1 && $from.node($from.depth - 1).type.name === 'page_content';
+  const onPage = $from.depth >= 1 && regionKind($from.node($from.depth - 1)) === 'content';
   if (empty && onPage && $from.parent.isTextblock) {
     if (dispatch) {
       const tr = state.tr;

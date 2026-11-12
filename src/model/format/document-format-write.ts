@@ -16,6 +16,7 @@ import {
   type StoredNode,
   type StoredSection,
   type StoredTypeMapping,
+  type StoredTypeSpec,
 } from './document-format.js';
 import type { RegionSettings, TemplatePin } from './template-format.js';
 
@@ -49,12 +50,13 @@ function storedValue(name: string, value: unknown): unknown {
 
 function writeAttrs(
   attrs: Attrs,
-  defaults: Record<string, { default?: unknown }>,
+  spec: StoredTypeSpec,
   mapping: StoredTypeMapping | undefined,
 ): Attrs | undefined {
   const stored: Attrs = {};
+  const defaults = (spec.attrs ?? {}) as Record<string, { default?: unknown } | undefined>;
   for (const [name, value] of Object.entries(attrs)) {
-    const storedName = storedAttrName(mapping, name);
+    const storedName = storedAttrName(mapping, name, spec);
     if (!storedName || sameValue(value, defaults[name]?.default)) continue;
     stored[storedName] = storedValue(name, value);
   }
@@ -63,7 +65,7 @@ function writeAttrs(
 
 function writeMark(mark: Mark): StoredMark {
   const mapping = STORED_MARK_TYPES[mark.type.name];
-  const attrs = writeAttrs(mark.attrs, mark.type.spec.attrs ?? {}, mapping);
+  const attrs = writeAttrs(mark.attrs, mark.type.spec, mapping);
   return { type: mapping?.type ?? mark.type.name, ...(attrs ? { attrs } : {}) };
 }
 
@@ -89,7 +91,7 @@ function writeNode(node: ProseMirrorNode, context: WriteContext): StoredNode {
 function writeElement(node: ProseMirrorNode, context: WriteContext): StoredNode {
   const name = node.type.name;
   const mapping = STORED_NODE_TYPES[name];
-  const attrs = writeAttrs(node.attrs, node.type.spec.attrs ?? {}, mapping);
+  const attrs = writeAttrs(node.attrs, node.type.spec as StoredTypeSpec, mapping);
   const stored: StoredNode = { type: mapping?.type ?? name, ...(attrs ? { attrs } : {}) };
   if (MATH_TYPES.has(name)) {
     stored.attrs = { ...stored.attrs, source: node.textContent };

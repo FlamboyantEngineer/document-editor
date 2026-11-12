@@ -121,8 +121,10 @@ const signature: NodeSpec = {
   group: 'inline',
   atom: true,
   selectable: false,
-  // Dragging a signature to another place would move an approval silently.
+  // Dragging a signature to another place would move an approval silently, and a pasted copy
+  // would show an approval nobody gave there (DOCE-EDITING-5.2).
   draggable: false,
+  pastable: false,
   attrs: {
     userId: { default: '' },
     displayName: { default: '' },

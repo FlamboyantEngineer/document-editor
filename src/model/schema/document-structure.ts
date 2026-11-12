@@ -122,3 +122,22 @@ export function regionAt($pos: ResolvedPos): RegionAt | null {
   }
   return null;
 }
+
+/**
+ * The region of a kind beside a position: on the same page in a paged document, in the same
+ * section in the canonical one; null outside every section or page.
+ */
+export function regionBeside($pos: ResolvedPos, kind: RegionKind): DocumentRegion | null {
+  const section = sectionAt($pos);
+  if (!section) return null;
+  const paged = $pos.depth >= 2 && $pos.node(2).type.name === PAGE;
+  if (!paged && section.node.firstChild?.type.name === PAGE) return null;
+  const depth = paged ? 2 : 1;
+  const container = $pos.node(depth);
+  let found: DocumentRegion | null = null;
+  container.forEach((node, offset) => {
+    if (!found && regionKind(node) === kind)
+      found = { kind, node, pos: $pos.start(depth) + offset, section };
+  });
+  return found;
+}

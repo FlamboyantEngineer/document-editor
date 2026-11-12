@@ -7,6 +7,7 @@
 import { Fragment, type Node as ProseMirrorNode, NodeRange } from 'prosemirror-model';
 import type { Transform } from 'prosemirror-transform';
 import { LAYOUT_SECTION_NODE } from '../schema/block-layout-nodes.js';
+import { documentSections, type RegionKind, sectionRegions } from '../schema/document-structure.js';
 
 /** The preset of a section the wrapping creates. */
 export const WRAPPING_LAYOUT_PRESET = 'single';
@@ -22,23 +23,19 @@ interface Run {
   to: number;
 }
 
+const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
+
 // The containers whose blocks belong in sections: each editable section's page content, or the
 // document itself when it has no sections.
 function containersOf(doc: ProseMirrorNode): Container[] {
   const containers: Container[] = [];
-  let sections = false;
-  doc.forEach((section, offset) => {
-    if (section.type.name !== 'page_section') return;
-    sections = true;
-    if (section.attrs.editable === false) return;
-    section.forEach((page, pageOffset) => {
-      page.forEach((region, regionOffset) => {
-        if (region.type.name !== 'page_content') return;
-        containers.push({ node: region, start: offset + pageOffset + regionOffset + 3 });
-      });
-    });
-  });
-  return sections ? containers : [{ node: doc, start: 0 }];
+  const sections = documentSections(doc);
+  for (const section of sections) {
+    if (section.node.attrs.editable === false) continue;
+    for (const region of sectionRegions(section, CONTENT))
+      containers.push({ node: region.node, start: region.pos + 1 });
+  }
+  return sections.length ? containers : [{ node: doc, start: 0 }];
 }
 
 function looseRuns(containers: readonly Container[]): Run[] {

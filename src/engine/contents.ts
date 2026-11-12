@@ -11,6 +11,7 @@ import {
   type NodeViewConstructor,
 } from 'prosemirror-view';
 import {
+  abbreviationTargetId,
   catalogDocument,
   type CatalogEntry,
   type ContentsKind,
@@ -56,9 +57,11 @@ export interface ContentsOptions {
 }
 
 /** A list of contents' rows, as its block's decoration hands them to its view. */
-interface ContentsRows {
+export interface ContentsRows {
   readonly entries: readonly CatalogEntry[];
   readonly empty: boolean;
+  /** Whether the entries show their page numbers. */
+  readonly showPage: boolean;
 }
 
 /** What a contents plugin keeps: the catalog, and the rows each list block shows. */
@@ -91,7 +94,11 @@ function rowsOf(
   );
   const start = Number(node.attrs.entryStart) || 0;
   const end = Number.isInteger(node.attrs.entryEnd) ? Number(node.attrs.entryEnd) : listed.length;
-  return { entries: listed.slice(start, end), empty: listed.length === 0 };
+  return {
+    entries: listed.slice(start, end),
+    empty: listed.length === 0,
+    showPage: kinds.all[key]?.showPage !== false,
+  };
 }
 
 function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog, kinds: Kinds): DecorationSet {
@@ -142,7 +149,7 @@ function rowsIn(decorations: readonly Decoration[]): ContentsRows {
     const rows = (decoration.spec as { contents?: ContentsRows }).contents;
     if (rows) return rows;
   }
-  return { entries: [], empty: true };
+  return { entries: [], empty: true, showPage: false };
 }
 
 function span(className: string, text: string): HTMLSpanElement {
@@ -169,6 +176,7 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
   row.dataset.level = String(entry.level || 1);
   row.setAttribute('role', 'link');
   row.tabIndex = -1;
+  if (entry.anchor) row.id = entry.anchor;
   if (entry.number) row.append(span('de-contents__number', entry.number));
   row.append(span('de-contents__text', entry.text));
   const character = drawing.leaders[(entry.level || 1) - 1] ?? null;
@@ -213,9 +221,31 @@ function goTo(view: EditorView, entry: CatalogEntry) {
   view.focus();
 }
 
+/**
+ * Follows an abbreviation to its entry in a list of abbreviations, on a click in a read document
+ * or a Ctrl or Cmd click in an edited one; false when no list shows its entry.
+ */
+function followAnchor(view: EditorView, node: ProseMirrorNode, event: MouseEvent): boolean {
+  if (node.type.name !== 'abbreviation_reference') return false;
+  if (view.editable && !event.ctrlKey && !event.metaKey) return false;
+  const target = view.dom.ownerDocument.getElementById(
+    abbreviationTargetId(String(node.attrs.entryId)),
+  );
+  if (!target || !view.dom.contains(target)) return false;
+  event.preventDefault();
+  target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  return true;
+}
+
 /** The catalog a contents plugin keeps in a state, or null without one. */
 export function contentsCatalog(state: EditorState): DocumentCatalog | null {
   return contentsKey.getState(state)?.catalog ?? null;
+}
+
+/** The rows the list of contents at a position shows; none without a contents plugin. */
+export function contentsRowsAt(state: EditorState, pos: number): ContentsRows {
+  const size = state.doc.nodeAt(pos)?.nodeSize ?? 0;
+  return rowsIn(contentsKey.getState(state)?.decorations.find(pos, pos + size) ?? []);
 }
 
 /**
@@ -292,6 +322,7 @@ export function createContents({
     props: {
       decorations: (state) => contentsKey.getState(state)?.decorations ?? null,
       nodeViews: { toc_block: view },
+      handleClickOn: (...[editor, , node, , event]) => followAnchor(editor, node, event),
     },
   });
 }

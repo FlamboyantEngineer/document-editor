@@ -8,6 +8,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   AllSelection,
+  type EditorState,
   NodeSelection,
   Plugin,
   type Selection,
@@ -15,7 +16,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
-import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { ProjectionMap } from './projection-map.js';
 
 // The projection position of a canonical one nearest `near`, where a page break gives two.
@@ -106,11 +107,10 @@ export function cellSelectionDecorations(source: CellSelectionSource): Plugin {
  * canonical caret; null when the caret is not at such a break.
  */
 export function selectionAcrossBreak(
-  view: EditorView,
+  state: EditorState,
   map: ProjectionMap,
   move: { readonly direction: -1 | 1; readonly extend: boolean },
 ): Transaction | null {
-  const { state } = view;
   const { direction, extend } = move;
   if (!extend && !state.selection.empty) return null;
   const { head } = state.selection;

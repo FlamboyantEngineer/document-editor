@@ -14,6 +14,7 @@ import {
   TextSelection,
   type Transaction,
 } from 'prosemirror-state';
+import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import {
   findTemplateSection,
@@ -28,7 +29,7 @@ import {
 } from '../model/index.js';
 import { viewOnlyWidget } from '../utils/view-only-decorations.js';
 import { editsRegions, regionEdits } from './region-editing.js';
-import { isRemoteTransaction } from './transaction-kind.js';
+import { isInlineTextOnly, isRemoteTransaction } from './transaction-kind.js';
 
 /** How a document's sections are shown. */
 export interface DocumentSectionsOptions {
@@ -96,6 +97,27 @@ function placeholderOf(
   );
 }
 
+const REGION_TYPES = new Set(['page_header', 'page_footer']);
+
+/**
+ * Whether a change only types or deletes text in the pages' content, in blocks that hold text
+ * before and after it: it changes no section, no page region and no section placeholder, so the
+ * plugin skips its walk over the document.
+ */
+function isBodyTyping(tr: Transaction): boolean {
+  if (!isInlineTextOnly(tr)) return false;
+  return tr.steps.every((step, index) => {
+    const doc = tr.docs[index];
+    if (!doc || !(step instanceof ReplaceStep)) return false;
+    const $from = doc.resolve(step.from);
+    for (let depth = $from.depth; depth > 0; depth -= 1)
+      if (REGION_TYPES.has($from.node(depth).type.name)) return false;
+    const before = $from.parent.content.size;
+    const after = before - (step.to - step.from) + step.slice.size;
+    return before > 0 && after > 0;
+  });
+}
+
 /**
  * Shows each named section in its template section's scope, in every view it runs in, and keeps
  * each page's header and footer its section's (`setPageRegions`), outside the history. After the
@@ -109,12 +131,16 @@ export function createDocumentSections({
     key: documentSectionsKey,
     state: {
       init: (_config, state) => decorate(state.doc, template()),
-      apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(documentSectionsKey) ? decorate(tr.doc, template()) : value,
+      apply: (tr, value) => {
+        if (tr.getMeta(documentSectionsKey)) return decorate(tr.doc, template());
+        if (!tr.docChanged) return value;
+        return isBodyTyping(tr) ? value.map(tr.mapping, tr.doc) : decorate(tr.doc, template());
+      },
     },
     appendTransaction(transactions, _before, after) {
       const asked = (tr: Transaction) =>
-        Boolean(tr.getMeta(documentSectionsKey)) || (tr.docChanged && !isRemote(tr));
+        Boolean(tr.getMeta(documentSectionsKey)) ||
+        (tr.docChanged && !isRemote(tr) && !isBodyTyping(tr));
       if (!transactions.some(asked)) return null;
       const tr = setPageRegions(after.tr, template(), {
         editable: editsRegions(after),

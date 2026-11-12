@@ -25,3 +25,22 @@ describe('script nodes', () => {
     expect(findNode(back, 'script_block')?.attrs.script).toBe('count');
   });
 });
+
+describe('script provenance and signatures', () => {
+  const provenance = { source: 'catalog/count', revision: 'r2', inputs: 'k1' };
+  const signatures = [{ person: 'person-1', label: 'Sam Lee', revision: 'r2' }];
+  const markup = `<section class="script-block" data-block-type="scripted-content" data-script="count" data-provenance='${JSON.stringify(provenance)}' data-signatures='${JSON.stringify(signatures)}'><div class="script-output"><p>Ran</p></div></section>`;
+
+  it('DOCE-SCHEMA-3.9 keeps where a script output came from and the signatures it carries', () => {
+    const block = findNode(parseMarkup(markup), 'script_block');
+    expect(block?.attrs).toMatchObject({ provenance, signatures });
+    expect(roundTrip(markup)).toContain('data-signatures=');
+  });
+
+  it('DOCE-SCHEMA-3.9 stores them as provenance and signatures, and reads none from bad markup', () => {
+    const stored = writeDocumentFile(parseMarkup(markup)).sections[0]?.content[0];
+    expect(stored?.attrs).toMatchObject({ provenance, signatures });
+    const bad = markup.replace(/data-provenance='[^']*'/, "data-provenance='[1]'");
+    expect(findNode(parseMarkup(bad), 'script_block')?.attrs.provenance).toBeNull();
+  });
+});
