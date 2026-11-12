@@ -4,12 +4,12 @@ import type { Command, EditorState } from 'prosemirror-state';
 import type { ReactNode } from 'react';
 import {
   clearCommentDraft,
+  commentAnchors,
   commentDraft,
   commitCommentDraft,
   createElementId,
   decideWithPolicy,
   linkSuggestionThread,
-  listCommentAnchors,
   listSuggestions,
   removeCommentAnchor,
   selectedText,
@@ -59,7 +59,7 @@ export interface CommentItemsOptions {
 
 function threadItems(state: EditorState, { threads, showResolved }: CommentItemsOptions) {
   const items: CommentItem[] = [];
-  for (const anchor of listCommentAnchors(state.doc)) {
+  for (const anchor of commentAnchors(state)) {
     const thread = threads.get(anchor.thread);
     if (!thread || (thread.state !== 'open' && !showResolved)) continue;
     const key = `comment:${anchor.thread}`;

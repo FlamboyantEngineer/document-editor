@@ -3,12 +3,18 @@ import type { TemplateFile } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import type { ReferenceBaseline } from '../model/reference-format.js';
 import type { EditorCapabilities } from './capabilities.js';
+import type { CollaborationAdapter, DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
 
 /** A failure the host reports for a request it could not complete. */
 export interface HostError {
   kind: 'not-found' | 'denied' | 'conflict' | 'unavailable';
   /** Text the editor may show the reader. */
   message?: string | undefined;
+  /**
+   * For a document save refused as `conflict`, the document as it is stored now, which the editor
+   * merges its changes into. Without it, the editor loads the document again.
+   */
+  current?: StoredDocument | undefined;
 }
 
 /** The outcome of a host request: a value, or the reason there is none (TS12). */
@@ -34,6 +40,14 @@ export interface IdentityAdapter {
 export interface PermissionsAdapter {
   /** What the reader may do with the document. */
   capabilities(documentId: string): Promise<EditorCapabilities>;
+  /**
+   * Calls `onCapabilities` with what the reader may do whenever that changes, such as when their
+   * role changes, until the returned function is called.
+   */
+  subscribe?(
+    documentId: string,
+    onCapabilities: (capabilities: EditorCapabilities) => void,
+  ): () => void;
 }
 
 /**
@@ -61,6 +75,11 @@ export interface DocumentStoreAdapter {
   load(documentId: string, signal?: AbortSignal): Promise<HostResult<StoredDocument>>;
   /** Saves new content and returns the new saved state. */
   save(documentId: string, save: DocumentSave): Promise<HostResult<SavedState>>;
+  /**
+   * Calls `onSaved` with a document's saved state whenever it is saved, by the reader or anyone
+   * else, until the returned function is called. The editor loads the content it lacks.
+   */
+  subscribe?(documentId: string, onSaved: (state: SavedState) => void): () => void;
 }
 
 /** A saved version of a document. */
@@ -83,6 +102,24 @@ export interface VersionStoreAdapter {
     revision: string,
     signal?: AbortSignal,
   ): Promise<HostResult<DocumentFile>>;
+  /** Saves `content` as a new version, named by `label` or null, and returns it. */
+  create?(
+    documentId: string,
+    version: { content: DocumentFile; label: string | null },
+  ): Promise<HostResult<DocumentVersion>>;
+  /** Names a version, or takes its name away with null, and returns it. */
+  rename?(
+    documentId: string,
+    revision: string,
+    label: string | null,
+  ): Promise<HostResult<DocumentVersion>>;
+  /**
+   * Makes a version's content the document's current content, as a new saved state, which it
+   * returns. Without it, the editor restores a version by editing the document to its content.
+   */
+  restore?(documentId: string, revision: string): Promise<HostResult<SavedState>>;
+  /** Calls `onChange` whenever the document's versions change, until the returned function is called. */
+  subscribe?(documentId: string, onChange: () => void): () => void;
 }
 
 /** A stored template, in the stored format, before the chain it inherits is resolved. */
@@ -99,6 +136,11 @@ export interface TemplateLoadOptions {
 
 export interface TemplateSourceAdapter {
   load(templateId: string, options?: TemplateLoadOptions): Promise<HostResult<StoredTemplate>>;
+  /**
+   * Calls `onSaved` with a template's latest saved state whenever it is saved, until the returned
+   * function is called.
+   */
+  subscribe?(templateId: string, onSaved: (state: SavedState) => void): () => void;
 }
 
 /** An uploaded file the document references. */
@@ -115,14 +157,63 @@ export interface StoredAsset {
   snapshotId?: string | undefined;
 }
 
+/** An asset a search finds, with what placing it starts from when the host knows it. */
+export interface FoundAsset extends StoredAsset {
+  /** The address of a small preview; defaults to `url`. */
+  thumbnailUrl?: string | undefined;
+  /** A description the alternative text starts from. */
+  alt?: string | undefined;
+  /** The asset's own size in pixels. */
+  width?: number | undefined;
+  height?: number | undefined;
+}
+
+/** One page of the assets a search finds; a `cursor` means another page follows. */
+export interface AssetSearchPage {
+  items: readonly FoundAsset[];
+  cursor?: string | undefined;
+}
+
 export interface AssetAdapter {
   upload(file: File, signal?: AbortSignal): Promise<HostResult<StoredAsset>>;
+  /**
+   * The images among the host's assets that match a query, the empty query browsing them, or with
+   * `cursor` the page after the one that returned it. Without it the editor offers no asset
+   * browser, only uploads and addresses.
+   */
+  search?(
+    query: string,
+    options: { readonly signal: AbortSignal; readonly cursor?: string | undefined },
+  ): Promise<HostResult<AssetSearchPage>>;
   /**
    * URL for an asset id stored in a document, at the snapshot it names when given, as of the time
    * the document shows its assets as of (`asOf`, null or absent for now), such as an earlier
    * version's.
    */
   resolveUrl(assetId: string, snapshotId?: string, at?: { readonly asOf: string | null }): string;
+}
+
+/** A diagram a figure shows: the stored asset holding its drawing and source, and its size. */
+export interface StoredDiagram {
+  /** The asset's id; the figure renders it through `assets.resolveUrl`. */
+  assetId: string;
+  /** The stored snapshot the figure names; defaults to the asset's id. */
+  snapshotId?: string | undefined;
+  /** The drawing's own size in pixels, which a new figure takes. */
+  width?: number | undefined;
+  height?: number | undefined;
+}
+
+/** The host's diagram editor, which draws and stores the diagrams figures show. */
+export interface DiagramAdapter {
+  /**
+   * Opens the host's editor on a diagram, or on a new one when null, and resolves with the diagram
+   * it stored, or null when the writer cancels. The editor aborts `signal` when its dialog closes.
+   */
+  edit(
+    diagram: StoredDiagram | null,
+    signal: AbortSignal,
+  ): Promise<HostResult<StoredDiagram | null>>;
 }
 
 /** Font faces the host serves itself, which a template's text styles name by family. */
@@ -430,6 +521,7 @@ export interface EditorHost {
   documents: DocumentStoreAdapter;
   templates?: TemplateSourceAdapter | undefined;
   assets?: AssetAdapter | undefined;
+  diagrams?: DiagramAdapter | undefined;
   fonts?: FontsAdapter | undefined;
   codeSource?: CodeSourceAdapter | undefined;
   references?: ReferenceSourceAdapter | undefined;
@@ -442,4 +534,7 @@ export interface EditorHost {
   telemetry?: TelemetryAdapter | undefined;
   proofer?: ProoferAdapter | undefined;
   variables?: VariablesAdapter | undefined;
+  drafts?: DraftsAdapter | undefined;
+  collaboration?: CollaborationAdapter | undefined;
+  lifecycle?: LifecycleAdapter | undefined;
 }

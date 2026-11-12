@@ -17,6 +17,7 @@ import {
 import type {
   AssetAdapter,
   CodeSourceAdapter,
+  DiagramAdapter,
   GlossaryAdapter,
   ReferenceSourceAdapter,
   ScriptRunnerAdapter,
@@ -39,6 +40,8 @@ export interface ObjectDialogsProps {
   readonly labels: DocumentEditorLabels;
   /** Stores uploaded figures; without it a figure is inserted by address. */
   readonly assets?: AssetAdapter | undefined;
+  /** Draws the diagrams figures show; without it there are no diagrams. */
+  readonly diagrams?: DiagramAdapter | undefined;
   /** Resolves linked code; without it there is no linked code dialog. */
   readonly codeSource?: CodeSourceAdapter | undefined;
   /** Finds citations of other documents for the reference dialog. */
@@ -180,7 +183,14 @@ export function ObjectDialogs({
     case 'math':
       return <MathDialog {...shared} display={dialog.display} />;
     case 'figure':
-      return <FigureDialog {...shared} assets={assets} />;
+      return (
+        <FigureDialog
+          {...shared}
+          assets={assets}
+          diagrams={hosted.diagrams}
+          figureType={dialog.figureType}
+        />
+      );
     case 'link':
       return <LinkDialog {...shared} />;
     case 'reference':

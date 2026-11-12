@@ -31,6 +31,7 @@ export type {
   ProofingText,
   ReferenceSourceAdapter,
   ResolvedCode,
+  SavedState,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptVocabularyEntry,
@@ -43,6 +44,7 @@ export type {
   VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
+export type { AssetSearchPage, DiagramAdapter, FoundAsset, StoredDiagram } from './adapters.js';
 export type {
   ConnectionAccess,
   EditingMode,
@@ -59,5 +61,15 @@ export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHostOptions } from './memory-host.js';
 export { createMemoryHost } from './memory-host.js';
+export type {
+  CollaborationAdapter,
+  DocumentDraft,
+  DraftsAdapter,
+  LifecycleAdapter,
+  LifecycleEvent,
+  RoomConnection,
+  RoomConnectOptions,
+  RoomState,
+} from './session-adapters.js';
 export type { WordListProoferOptions } from './word-list-proofer.js';
 export { createWordListProofer } from './word-list-proofer.js';
