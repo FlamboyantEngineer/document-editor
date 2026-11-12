@@ -263,4 +263,26 @@ describe('DocumentComments', () => {
     expect(await within(margin).findByText('From the panel')).toBeInTheDocument();
     expect(list).toHaveBeenCalledTimes(1);
   });
+
+  it('DOCE-COMMENTS-2.19 records a decision on the thread of the suggestion in the store', async () => {
+    const user = userEvent.setup();
+    const store = host();
+    render(<Harness host={store} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('epsilon')).closest('[role="listitem"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show.');
+    await user.click(within(card).getByText('epsilon'));
+    await user.type(within(card).getByRole('textbox', { name: 'Add a comment' }), 'Hmm');
+    await user.click(within(card).getByRole('button', { name: 'Comment' }));
+    await within(card).findByText('Hmm');
+    await user.click(within(card).getByRole('button', { name: 'Reject' }));
+    await waitFor(async () => {
+      const listed = await store.comments?.list('doc');
+      const decided = listed?.ok ? listed.value.find((each) => each.suggestion === 's1') : null;
+      expect(decided).toMatchObject({
+        state: 'resolved',
+        decision: { decision: 'reject', suggestion: 's1', by: 'ada' },
+      });
+    });
+  });
 });
