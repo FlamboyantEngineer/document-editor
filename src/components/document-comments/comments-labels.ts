@@ -39,6 +39,11 @@ export interface DocumentCommentsLabels {
   noComments: string;
   /** Takes the reader to a thread's text. */
   showInDocument: string;
+  /** Says the reader's reply is being posted. */
+  posting: string;
+  /** Says someone is writing a reply, or one is being written for the reader. */
+  typing: (name: string) => string;
+  replying: (name: string) => string;
 }
 
 /** The labels of the comments margin unless the host gives its own. */
@@ -64,4 +69,7 @@ export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   filterMine: 'Mine',
   noComments: 'No comments.',
   showInDocument: 'Show in document',
+  posting: 'Posting your reply…',
+  typing: (name) => `${name} is typing…`,
+  replying: (name) => `${name} is replying…`,
 };

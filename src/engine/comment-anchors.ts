@@ -33,8 +33,6 @@ interface IndexedRange extends CommentRange {
 /** The anchors by thread, each with its stretches in reading order. */
 type AnchorIndex = ReadonlyMap<string, readonly IndexedRange[]>;
 
-const anchorsKey = new PluginKey<AnchorIndex>('comment-anchors');
-
 // How many text blocks a change may touch before the index is built again from the document.
 const rescanLimit = 64;
 
@@ -136,12 +134,72 @@ function updateIndex(index: AnchorIndex, tr: Transaction): AnchorIndex {
   return next;
 }
 
-const listed = new WeakMap<AnchorIndex, CommentAnchor[]>();
+// The marked anchors, and the anchors placed by threads' targets where no mark anchors them.
+interface AnchorsState {
+  readonly marks: AnchorIndex;
+  readonly placed: AnchorIndex;
+}
 
-function listOf(index: AnchorIndex): CommentAnchor[] {
-  const known = listed.get(index);
+const anchorsKey = new PluginKey<AnchorsState>('comment-anchors');
+
+/** A thread's anchor placed by its target: its state and its ranges. */
+export interface PlacedAnchor {
+  readonly state: CommentState;
+  readonly ranges: readonly CommentRange[];
+}
+
+// The placed anchors after a change: mapped, their text read again, and those a mark now anchors
+// or the change emptied dropped.
+function updatePlaced(placed: AnchorIndex, marks: AnchorIndex, tr: Transaction): AnchorIndex {
+  const next = new Map<string, IndexedRange[]>();
+  for (const [thread, ranges] of placed) {
+    if (marks.has(thread)) continue;
+    const kept = ranges
+      .map((range) => ({
+        ...range,
+        from: tr.mapping.map(range.from, 1),
+        to: tr.mapping.map(range.to, -1),
+      }))
+      .filter((range) => range.from < range.to)
+      .map((range) => ({ ...range, text: tr.doc.textBetween(range.from, range.to, ' ', ' ') }));
+    if (kept.length > 0) next.set(thread, kept);
+  }
+  return next;
+}
+
+/**
+ * Places the anchors of threads that no mark anchors, as a shared room's commenters keep them, by
+ * thread; they are drawn and listed like marked anchors and follow the text, but are not stored.
+ */
+export function placeCommentAnchors(
+  tr: Transaction,
+  anchors: ReadonlyMap<string, PlacedAnchor>,
+): Transaction {
+  const placed = new Map<string, IndexedRange[]>();
+  for (const [thread, { state, ranges }] of anchors) {
+    const sorted = ranges
+      .filter(({ from, to }) => from < to)
+      .map(({ from, to }) => ({ from, to, state, text: tr.doc.textBetween(from, to, ' ', ' ') }))
+      .sort((a, b) => a.from - b.from);
+    if (sorted.length > 0) placed.set(thread, sorted);
+  }
+  return tr.setMeta(anchorsKey, placed);
+}
+
+function applyAnchors(tr: Transaction, value: AnchorsState): AnchorsState {
+  const placed = tr.getMeta(anchorsKey) as AnchorIndex | undefined;
+  if (!tr.docChanged) return placed ? { ...value, placed } : value;
+  const marks = updateIndex(value.marks, tr);
+  return { marks, placed: updatePlaced(placed ?? value.placed, marks, tr) };
+}
+
+const listed = new WeakMap<AnchorsState, CommentAnchor[]>();
+
+function listOf(value: AnchorsState): CommentAnchor[] {
+  const known = listed.get(value);
   if (known) return known;
-  const anchors = [...index].map(([thread, ranges]) => ({
+  const placed = [...value.placed].filter(([thread]) => !value.marks.has(thread));
+  const anchors = [...value.marks, ...placed].map(([thread, ranges]) => ({
     thread,
     state: ranges[0]?.state ?? 'open',
     from: ranges[0]?.from ?? 0,
@@ -150,18 +208,32 @@ function listOf(index: AnchorIndex): CommentAnchor[] {
     text: ranges.map((range) => range.text).join(' '),
   }));
   anchors.sort(compareAnchors);
-  listed.set(index, anchors);
+  listed.set(value, anchors);
   return anchors;
 }
 
 /**
  * The comment anchors of an editor's document in reading order, one per thread, as
- * `listCommentAnchors` gives them: from the index when the editor keeps one, else by walking the
- * document.
+ * `listCommentAnchors` gives them, with the placed anchors: from the index when the editor keeps
+ * one, else by walking the document.
  */
 export function commentAnchors(state: EditorState): CommentAnchor[] {
-  const index = anchorsKey.getState(state);
-  return index ? listOf(index) : listCommentAnchors(state.doc);
+  const value = anchorsKey.getState(state);
+  return value ? listOf(value) : listCommentAnchors(state.doc);
+}
+
+// The placed anchors drawn as stored anchors are, marked as placed.
+function placedDecorations(placed: AnchorIndex): Decoration[] {
+  return [...placed].flatMap(([thread, ranges]) =>
+    ranges.map(({ from, to, state }) =>
+      Decoration.inline(from, to, {
+        nodeName: 'mark',
+        'data-comment-id': thread,
+        'data-comment-state': state,
+        'data-comment-placed': 'true',
+      }),
+    ),
+  );
 }
 
 /**
@@ -180,27 +252,27 @@ export function activeCommentThread(state: EditorState): string | null {
 }
 
 /**
- * Keeps the index of a document's comment anchors, and draws the anchor holding the caret with
- * `data-comment-active`.
+ * Keeps the index of a document's comment anchors and the placed anchors, draws the placed ones,
+ * and draws the anchor holding the caret with `data-comment-active`.
  */
-export function createCommentAnchors(): Plugin<AnchorIndex> {
-  return new Plugin<AnchorIndex>({
+export function createCommentAnchors(): Plugin<AnchorsState> {
+  return new Plugin<AnchorsState>({
     key: anchorsKey,
     state: {
-      init: (_config, state) => buildIndex(state.doc),
-      apply: (tr, index) => (tr.docChanged ? updateIndex(index, tr) : index),
+      init: (_config, state) => ({ marks: buildIndex(state.doc), placed: new Map() }),
+      apply: applyAnchors,
     },
     props: {
       decorations(state) {
+        const value = anchorsKey.getState(state);
         const thread = activeCommentThread(state);
         const anchor = thread && commentAnchors(state).find((each) => each.thread === thread);
-        if (!anchor) return null;
-        return DecorationSet.create(
-          state.doc,
-          anchor.ranges.map(({ from, to }) =>
-            Decoration.inline(from, to, { 'data-comment-active': 'true' }),
-          ),
+        const active = (anchor ? anchor.ranges : []).map(({ from, to }) =>
+          Decoration.inline(from, to, { 'data-comment-active': 'true' }),
         );
+        const placed = value ? placedDecorations(value.placed) : [];
+        if (active.length === 0 && placed.length === 0) return null;
+        return DecorationSet.create(state.doc, [...placed, ...active]);
       },
     },
   });

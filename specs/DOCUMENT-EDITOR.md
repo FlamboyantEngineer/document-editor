@@ -32,6 +32,13 @@ The browser reports a click's or a key's new caret a moment after it moves. Befo
 Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/pagination/pagination.ts`, `src/engine/proofing.ts`
 Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`, `e2e/references.spec.ts`
 
+### DOCE-EDITOR-1.5 - A hidden editor
+
+While `active` is false, such as for an editor in a background tab, the editor shall keep showing the state it last showed while active, so it lays out, measures and proofs no change it is given; once active again it shall show the latest state. `active` defaults to true.
+
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`
+
 ## DOCE-EDITOR-2 - Layouts in the browser
 
 ### DOCE-EDITOR-2.1 - Editing on pages
@@ -219,17 +226,17 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.1 - Notifications
 
-The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`).
+The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids.
 
-Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/document-editor.test.tsx`
 
 ### DOCE-EDITOR-6.2 - The host's keys
 
-`keymap` shall bind the host's own keys, which run before the editor's.
+`keymap` shall bind the host's own keys, which run before the editor's. The editor's own shortcuts shall come from one table (`DEFAULT_SHORTCUTS`): each action's keys by its id, in ProseMirror's key notation, Mod being Ctrl, or Cmd on a Mac. The document's actions are undo (Mod-z), redo (Mod-y, Mod-Shift-z), select all (Mod-a), bold, italic, underline, strikethrough and code (Mod-b, Mod-i, Mod-u, Mod-Shift-s, Mod-Alt-i), superscript (Mod-. and Mod-;), subscript (Mod-, and Mod-'), clearing formatting (Mod-\\, Mod-Space), the paragraph and headings 1 to 6 (Mod-Shift-0 to Mod-Shift-6), bulleted and numbered lists (Mod-Shift-8, Mod-Shift-7), a page break (Mod-Alt-Enter), a code block (Mod-Alt-c), a footnote (Mod-Alt-f), a table (Mod-Alt-t) and writing math (Mod-Alt-l, DOCE-OBJECTS-1.8); the editor's are the script dialog while the host runs scripts (Mod-Alt-s), the reference dialog (Mod-k), starting a comment (Mod-Alt-m) and finding (Mod-f); the table also lists replacing (`replace`, Mod-h) for the find bar. The editing's `shortcuts` option remaps any of them by id: the keys given replace the library's, and none (`null` or an empty list) leaves the action unbound (`resolveShortcuts`). The document's keymap binds the table's keys (`documentKeys`) and holds the table (`shortcutsOf(state)`); the editor's own keys, the toolbar's tooltips and the menus' entries read it there, showing an action's first key in the base library's notation (`shortcutLabel`, `formatShortcut`), and `matchesShortcut` tells whether a key press is one of an action's keys. Enter at a gap cursor between two objects adds a paragraph there.
 
-Implementation: `src/components/document-editor/use-host-events.ts`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/engine/shortcuts.ts`, `src/engine/document-editing.ts`, `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/engine/shortcuts.test.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.3 - The handle
 
@@ -240,7 +247,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.4 - Zoom
 
-`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last. The pages measure unscaled, so the zoom never changes them.
+`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel or Cmd+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last. The pages measure unscaled, so the zoom never changes them.
 
 Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `src/components/document-editor/menubar-menus.ts`, `labs/reference/editor-chrome.css`
 Verification: `src/components/document-editor/menubar-menus.test.ts`, `e2e/document-editor.spec.ts`
@@ -363,7 +370,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`
 
 The editor's handle shall reveal a pane by its id (`revealPane(paneId, { focus })`): the first side panel inside the editor that holds it selects it and expands, as its tab and launcher would, and focus moves into the pane, on its first focusable element or the pane itself, once it shows, unless `focus` is false. It returns false when no panel holds the pane.
 
-Implementation: `src/components/document-panels/document-panels.ts`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/editor-scope.tsx`, `labs/src/host-panes.tsx`
+Implementation: `src/components/document-panels/document-panels.ts`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/editor-scope.tsx`, `src/components/document-editor/use-host-reach.ts`, `labs/src/host-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
 
 ### DOCE-EDITOR-8.3 - The comments pane

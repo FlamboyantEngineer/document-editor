@@ -2,28 +2,58 @@
 // with its kind (`data-diff-change`) for a change bar beside it, the words of a block whose text
 // changed marked by the kind of change on their line (`data-diff-line`), for a bar beside each line
 // that changed, and, in markup, the words a block gained and lost, and the blocks it lost, in place.
+// The baseline may be the document as opened; a document equal to it shows no change without a
+// comparison. A comparison scoped to some blocks and headed sections shows only the changes inside
+// them and marks the blocks outside. A transaction that only follows the layout (out of the history,
+// derived, or typing outside the scope) maps the changes rather than comparing again.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import {
+  isDerivedTransaction,
+  isInlineTextOnly,
+  isRemoteTransaction,
+  isSystemChange,
+} from './transaction-kind.js';
 import { type CompareSuggestions, compareVersions, type VersionChange } from './version-compare.js';
+import {
+  countVersionChanges,
+  isInVersionScope,
+  mapVersionChange,
+  mapVersionSpan,
+  outsideScopeDecorations,
+  resolveVersionScope,
+  type VersionChangeCounts,
+  type VersionSpan,
+} from './version-scope.js';
 
 /** How changes show: change bars only, or bars with the changed text marked in place. */
 export type VersionChangeDisplay = 'bars' | 'markup';
 
 /** The older version a document is compared with, and how its changes show. */
 export interface VersionChangesOptions {
-  /** The older version, or null to show no changes. Read again on `refreshVersionChanges`. */
-  previous: () => ProseMirrorNode | null;
+  /**
+   * The older version, `opened` for the document as it was when the plugin started, or null to
+   * show no changes. Read again on `refreshVersionChanges`.
+   */
+  previous: () => ProseMirrorNode | 'opened' | null;
   /** How changes show. Defaults to markup. */
   display?: (() => VersionChangeDisplay) | undefined;
   /** How the versions' suggestions count. Defaults to rejected. */
   suggestions?: (() => CompareSuggestions) | undefined;
+  /**
+   * The element ids the comparison covers: a heading covers its headed section. Null or empty
+   * covers the whole document.
+   */
+  scope?: (() => readonly string[] | null) | undefined;
 }
 
 interface VersionChangesState {
+  readonly opened: ProseMirrorNode;
   readonly previous: ProseMirrorNode | null;
   readonly display: VersionChangeDisplay;
+  readonly scope: readonly VersionSpan[] | null;
   readonly changes: readonly VersionChange[];
   readonly decorations: DecorationSet;
 }
@@ -39,6 +69,11 @@ export function refreshVersionChanges(tr: Transaction): Transaction {
 /** The changes a state shows, in the document's order; none without an older version. */
 export function versionChanges(state: EditorState): readonly VersionChange[] {
   return versionChangesKey.getState(state)?.changes ?? [];
+}
+
+/** How many changes of each kind a state shows. */
+export function versionChangeCounts(state: EditorState): VersionChangeCounts {
+  return countVersionChanges(versionChanges(state));
 }
 
 const CHANGE_ATTR = 'data-diff-change';
@@ -211,16 +246,55 @@ export function versionChangeDecorations(
   return DecorationSet.create(doc, decorations);
 }
 
-function compute(options: VersionChangesOptions, doc: ProseMirrorNode): VersionChangesState {
-  const previous = options.previous();
+function compute(
+  options: VersionChangesOptions,
+  { doc, opened }: { doc: ProseMirrorNode; opened: ProseMirrorNode },
+): VersionChangesState {
+  const asked = options.previous();
+  const previous = asked === 'opened' ? opened : asked;
   const display = options.display?.() ?? 'markup';
-  if (!previous) return { previous, display, changes: [], decorations: DecorationSet.empty };
-  const changes = compareVersions(previous, doc, { suggestions: options.suggestions?.() });
+  const ids = options.scope?.() ?? [];
+  const scope = ids.length ? resolveVersionScope(doc, ids) : null;
+  const base = { opened, previous, display, scope };
+  // A document equal to the older version, as one just opened is, needs no comparison.
+  if (!previous || previous === doc || previous.eq(doc)) {
+    const decorations = scope
+      ? DecorationSet.create(doc, outsideScopeDecorations(doc, scope))
+      : DecorationSet.empty;
+    return { ...base, changes: [], decorations };
+  }
+  const all = compareVersions(previous, doc, { suggestions: options.suggestions?.() });
+  const changes = scope ? all.filter((change) => isInVersionScope(change, scope)) : all;
+  const decorations = versionChangeDecorations(doc, changes, display);
   return {
-    previous,
-    display,
+    ...base,
     changes,
-    decorations: versionChangeDecorations(doc, changes, display),
+    decorations: scope ? decorations.add(doc, outsideScopeDecorations(doc, scope)) : decorations,
+  };
+}
+
+// Whether a transaction only follows the layout or types outside the scope, so the changes shown
+// stay as they were, mapped: a remote change or a system change is always compared again.
+function followsOnly(tr: Transaction, scope: readonly VersionSpan[] | null): boolean {
+  if (isRemoteTransaction(tr) || isSystemChange(tr)) return false;
+  if (tr.getMeta('addToHistory') === false || isDerivedTransaction(tr)) return true;
+  if (!scope || !isInlineTextOnly(tr)) return false;
+  let outside = true;
+  tr.mapping.maps.forEach((map, index) => {
+    const before = scope.map((span) => mapVersionSpan(span, tr.mapping.slice(0, index)));
+    map.forEach((from, to) => {
+      outside &&= !before.some((span) => from <= span.to && to >= span.from);
+    });
+  });
+  return outside;
+}
+
+function mapState(value: VersionChangesState, tr: Transaction): VersionChangesState {
+  return {
+    ...value,
+    scope: value.scope?.map((span) => mapVersionSpan(span, tr.mapping)) ?? null,
+    changes: value.changes.map((change) => mapVersionChange(change, tr.mapping)),
+    decorations: value.decorations.map(tr.mapping, tr.doc),
   };
 }
 
@@ -232,9 +306,14 @@ export function createVersionChanges(options: VersionChangesOptions): Plugin<Ver
   return new Plugin<VersionChangesState>({
     key: versionChangesKey,
     state: {
-      init: (_, state) => compute(options, state.doc),
-      apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(versionChangesKey) ? compute(options, tr.doc) : value,
+      init: (_, state) => compute(options, { doc: state.doc, opened: state.doc }),
+      apply: (tr, value) => {
+        if (tr.getMeta(versionChangesKey))
+          return compute(options, { doc: tr.doc, opened: value.opened });
+        if (!tr.docChanged) return value;
+        if (followsOnly(tr, value.scope)) return mapState(value, tr);
+        return compute(options, { doc: tr.doc, opened: value.opened });
+      },
     },
     props: {
       decorations: (state) => versionChangesKey.getState(state)?.decorations ?? null,

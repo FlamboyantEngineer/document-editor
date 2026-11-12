@@ -9,12 +9,15 @@ import {
   createDocumentEditing,
   ELEMENT_ID_PATTERN,
   ELEMENT_IDS_REPAIR,
+  markRemote,
+  repairElementIds,
 } from '../../engine/index.js';
 import type { VariablesAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
 import type { DocumentLayout } from './use-document-layout.js';
+import { contentChangeCause } from './use-host-events.js';
 
 const TEMPLATE: TemplateFile = {
   formatVersion: 1,
@@ -118,6 +121,42 @@ describe('DocumentEditor', () => {
     );
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     expect(handle.current?.layoutStats()).toBeNull();
+  });
+
+  it('DOCE-EDITOR-1.5 keeps the state it last showed while inactive', () => {
+    const typed = (state: EditorState, text: string) => state.apply(state.tr.insertText(text, 1));
+    const first = initial();
+    const shown = (state: EditorState, active: boolean) => (
+      <DocumentEditor
+        state={state}
+        onStateChange={() => undefined}
+        template={TEMPLATE}
+        layout="web"
+        active={active}
+        aria-label="Report"
+      />
+    );
+    const { rerender } = render(shown(first, false));
+    const document = screen.getByRole('textbox', { name: 'Report' });
+    expect(document).toHaveTextContent('Hello');
+    rerender(shown(typed(first, 'Say '), false));
+    expect(document).toHaveTextContent(/^Hello$/);
+    rerender(shown(typed(first, 'Say '), true));
+    expect(document).toHaveTextContent('Say Hello');
+  });
+
+  it('DOCE-EDITOR-6.1 tells the host whether a change was remote or a repair', () => {
+    const state = initial();
+    expect(contentChangeCause(state.tr.insertText('A', 1))).toEqual({
+      remote: false,
+      repair: false,
+    });
+    expect(contentChangeCause(markRemote(state.tr.insertText('A', 1)))).toEqual({
+      remote: true,
+      repair: false,
+    });
+    const repair = repairElementIds(state);
+    expect(repair && contentChangeCause(repair)).toEqual({ remote: false, repair: true });
   });
 
   it('DOCE-EDITING-1.4 repairs ids only while editable, by the repair author', async () => {

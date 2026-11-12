@@ -1,6 +1,6 @@
 # Collaboration
 
-The editor shows the other people in a document and takes in their changes; the sync itself, such as a shared document of a collaboration library, stays in the host. The host hands the editor each person's selection and marks the changes it applies from elsewhere as remote, so the editor's own features leave them alone.
+The editor shows the other people in a document and takes in their changes. The `./collab` entry keeps the editor's state in sync with a shared Yjs document (DOCE-COLLAB-4); the provider that keeps that document, such as a collaboration-tools room client, stays in the host. The host hands the editor each person's selection and marks the changes it applies from elsewhere as remote, so the editor's own features leave them alone.
 
 ## DOCE-COLLAB-1 - Presence
 
@@ -41,6 +41,13 @@ Verification: `src/engine/presence.test.ts`
 Implementation: `src/engine/transaction-kind.ts`, `src/engine/proofing.ts`
 Verification: `src/engine/transaction-kind.test.ts`
 
+### DOCE-COLLAB-2.2 - Derived writes in the binding
+
+A change a plugin appends to one the sync plugin applies from the shared document (DOCE-COLLAB-4) shall reach the shared document as the editor's own change, under the plugin's derived origin (`getCollabSync(state).derivedOrigin`), which the editor's undo manager does not track, so nobody's undo takes it back. The library's own plugins append none to a remote change (DOCE-EDITING-3.3), so an editor that receives one sends nothing back.
+
+Implementation: `src/collab/sync-binding.ts`
+Verification: `src/collab/sync.test.ts`
+
 ## DOCE-COLLAB-3 - Authorship
 
 ### DOCE-COLLAB-3.1 - Who wrote what
@@ -70,6 +77,52 @@ Verification: `src/engine/provenance.test.ts`
 
 Implementation: `src/components/document-panels/document-contributors.tsx`, `src/components/document-panels/built-in-panes.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+
+## DOCE-COLLAB-4 - Sync
+
+The `./collab` entry binds the editor state to a shared Yjs document (`@y/y` 14, an optional peer dependency) with the library's own binding (decisions D6, D30); it needs no forked binding and no room server package.
+
+### DOCE-COLLAB-4.1 - Keeping in sync
+
+`createCollabSync({ doc })` shall give a plugin that keeps the editor's document and the shared document's `content` type the same, both ways. Each local change goes to the shared document as one delta, from the nodes it changed, when the editor's plugin views update; each change of the shared document comes back as steps on the nodes it changed, so the selection and positions held elsewhere map through it. The plugin runs as a plugin view, so it binds the canonical state of the paged layout, whose plugin views run on a view of that state (DOCE-PAGINATION-7.15), as it binds any editor view. Marks that may overlap themselves come back in canonical order (DOCE-SCHEMA-5.1).
+
+Implementation: `src/collab/sync.ts`, `src/collab/sync-binding.ts`, `src/collab/delta.ts`, `src/collab/diff.ts`, `src/collab/replay.ts`
+Verification: `src/collab/sync.test.ts`
+
+### DOCE-COLLAB-4.2 - Joining a shared document
+
+When the plugin binds, a shared document that holds content shall replace the editor's document. An empty one shall take the editor's document, with every element given an id first (`assignElementIds`, which the editor takes as a system change), so the first edit does not send ids for the whole document; a host seeds rooms from documents with ids for the same reason.
+
+Implementation: `src/collab/sync-binding.ts`
+Verification: `src/collab/sync.test.ts`
+
+### DOCE-COLLAB-4.3 - Where a change came from
+
+A transaction that brings changes from the shared document shall stay out of the history and carry what it brings (`readCollabChange(tr)`: its kind and the Yjs origins of its changes). Changes of an origin the host's `isRemoteOrigin` takes as another person's, every origin by default, are `remote` and marked so (`markRemote`); changes of the host's other origins, such as a restored draft, are `system` changes (`markSystemChange`); changes of the editor's own undo manager (a `Y.UndoManager` that tracks `getCollabSync(state).origin`) are `undo`, neither remote nor system. A batch that holds a remote change is remote.
+
+Implementation: `src/collab/sync.ts`, `src/collab/sync-binding.ts`
+Verification: `src/collab/sync.test.ts`
+
+### DOCE-COLLAB-4.4 - One render per burst
+
+Changes from the shared document shall reach the editor together, in one transaction, when the plugin's `schedule` runs (at the end of the current task by default), so a burst of updates is drawn once; `getCollabSync(state).flush()` brings them at once, and an undo comes at once. Local changes made before they arrive, whether sent or not yet sent because the view updates late, shall be moved after them, keeping the selection on the text it was on; a local step that no longer applies after them is dropped.
+
+Implementation: `src/collab/sync-binding.ts`, `src/collab/rebase.ts`
+Verification: `src/collab/sync.test.ts`
+
+### DOCE-COLLAB-4.5 - Convergence
+
+Two to five editors that edit at random, with their updates reaching a shared room and the room's reaching them late and interleaved, shall end with the room's document: typing and deletions in body text, table cells and footnotes, deletions across blocks, splits and joins, page breaks, footnotes, block types, marks that overlap, each person's undo and redo, and editors whose changes from the room or whose view updates come late.
+
+Implementation: `src/collab/sync-binding.ts`
+Verification: `src/collab/sync-convergence.test.ts`
+
+### DOCE-COLLAB-4.6 - Updates out of causal order
+
+The binding relies on the shared document integrating each update it receives. Yjs 14 (rc.23 and rc.29) can leave complete updates pending when they arrive out of causal order; the fixture pins it, and fails once Yjs integrates them. Through a room server it does not happen, since each person's updates reach the room in the order they were made, the room's reach each person in the room's order, and collaboration-tools refuses incomplete updates; replaying offline updates must keep that order (the cached state, then the unconfirmed update).
+
+Implementation: `src/collab/sync-binding.ts`
+Verification: `src/collab/yjs-pending.test.ts`
 
 ## DOCE-COLLAB-6 - Shared rooms
 

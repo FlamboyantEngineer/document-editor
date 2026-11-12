@@ -386,6 +386,18 @@ test.describe('document editor lab', () => {
     expect(caret).toBe('Power');
   });
 
+  test('DOCE-EDITOR-6.2 binds the keys of the host remapping the shortcut table', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await selectText(page, 'Normal operation');
+    await page.keyboard.press('ControlOrMeta+Shift+x');
+    await expect(content(page).locator('s')).toContainText('ormal operatio');
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(content(page).locator('s strong, strong s')).toContainText('ormal operatio');
+  });
+
   test('DOCE-EDITOR-6.4 zooms the pages from the status bar and with Ctrl+wheel', async ({
     lab,
     page,
