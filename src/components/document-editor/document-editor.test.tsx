@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
-import { readDocumentFile, type TemplateFile } from '../../model/index.js';
+import type { VariablesAdapter } from '../../host/index.js';
+import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
 import type { DocumentLayout } from './use-document-layout.js';
@@ -111,5 +112,51 @@ describe('DocumentEditor', () => {
     );
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     expect(handle.current?.layoutStats()).toBeNull();
+  });
+
+  it('DOCE-HOST-1.12 DOCE-PAGINATION-8.4 shows the host variables and page numbers', async () => {
+    const variable = (key: string): StoredNode => ({ type: 'variable', attrs: { key } });
+    const line = (...content: StoredNode[]) => ({ content: [{ type: 'paragraph', content }] });
+    const template: TemplateFile = {
+      ...TEMPLATE,
+      header: line(variable('document.name')),
+      footer: line(
+        { type: 'text', text: 'Page ' },
+        variable('page.current'),
+        { type: 'text', text: ' of ' },
+        variable('page.total'),
+      ),
+    };
+    let name = 'Interface notes';
+    const listeners = new Set<() => void>();
+    const variables: VariablesAdapter = {
+      value: (key) => (key === 'document.name' ? name : null),
+      subscribe: (onChange) => {
+        listeners.add(onChange);
+        return () => listeners.delete(onChange);
+      },
+    };
+    function Shown() {
+      const [state, setState] = useState(initial);
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={template}
+          variables={variables}
+          aria-label="Report"
+        />
+      );
+    }
+    const { container, unmount } = render(<Shown />);
+    const header = () => container.querySelector('.de-document-editor__content .pm-page-header');
+    const footer = () => container.querySelector('.de-document-editor__content .pm-page-footer');
+    await waitFor(() => expect(header()).toHaveTextContent('Interface notes'));
+    expect(footer()).toHaveTextContent('Page 1 of 1');
+    name = 'Timing notes';
+    for (const listener of listeners) listener();
+    await waitFor(() => expect(header()).toHaveTextContent('Timing notes'));
+    unmount();
+    expect(listeners.size).toBe(0);
   });
 });

@@ -348,6 +348,18 @@ export interface ProoferAdapter {
 }
 
 /**
+ * The values of the variables the host knows, such as `document.name`, for the editor to show in
+ * page headers and footers and in the text. The editor gives `page.current`, `page.total` and
+ * `date.current` itself.
+ */
+export interface VariablesAdapter {
+  /** A variable's text; null or undefined shows none. */
+  value(key: string): string | null | undefined;
+  /** Calls `onChange` whenever a value may have changed, until the returned function is called. */
+  subscribe?(onChange: () => void): () => void;
+}
+
+/**
  * Everything the editor needs from its host. Identity, permissions and the document store are
  * required; the rest are optional and leave their features off when absent.
  */
@@ -366,4 +378,5 @@ export interface EditorHost {
   feedback?: FeedbackAdapter | undefined;
   telemetry?: TelemetryAdapter | undefined;
   proofer?: ProoferAdapter | undefined;
+  variables?: VariablesAdapter | undefined;
 }
