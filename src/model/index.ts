@@ -116,7 +116,6 @@ export {
 } from './numbering/paragraph-numbering.js';
 export type { ChildLayout, ContainerMeasurement } from './pagination/container-split.js';
 export {
-  containerOverhead,
   isContainerMeasurement,
   splitContainer,
   splitList,
