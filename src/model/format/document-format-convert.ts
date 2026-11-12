@@ -20,6 +20,7 @@ import {
   STORED_MARK_TYPES,
   STORED_NODE_TYPES,
   type StoredTypeMapping,
+  type StoredTypeSpec,
 } from './document-format.js';
 
 type Attrs = Record<string, unknown>;
@@ -78,7 +79,7 @@ function report({ context, path }: Located, message: string, kept = false): void
 }
 
 interface ReadTarget {
-  type: { name: string; spec: { attrs?: Record<string, unknown> } };
+  type: { name: string; spec: StoredTypeSpec };
   mappings: Readonly<Record<string, StoredTypeMapping>>;
 }
 
@@ -90,10 +91,9 @@ function readAttrs(stored: unknown, target: ReadTarget, at: Located): Attrs {
   }
   const { type } = target;
   const mapping = target.mappings[type.name];
-  const names = Object.keys(type.spec.attrs ?? {});
   const attrs: Attrs = {};
   for (const [storedName, value] of Object.entries(stored)) {
-    const name = schemaAttrName(mapping, storedName, names);
+    const name = schemaAttrName(mapping, storedName, type.spec);
     if (!name) report(at, `unknown attribute ${storedName}`);
     else
       attrs[name] = name === 'referenceBaseline' && isRecord(value) ? JSON.stringify(value) : value;
