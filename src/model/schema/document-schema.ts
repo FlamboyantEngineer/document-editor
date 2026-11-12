@@ -12,6 +12,7 @@ import { blockLayoutNodesExtension } from './block-layout-nodes.js';
 import { codeNodesExtension } from './code-nodes.js';
 import { coreNodesExtension } from './core-nodes.js';
 import { createElementAttributesExtension } from './element-attributes.js';
+import { embedNodesExtension } from './embed-nodes.js';
 import { createFigureNodesExtension } from './figure-nodes.js';
 import { createFootnoteNodesExtension } from './footnote-nodes.js';
 import { createInlineAtomNodesExtension } from './inline-atom-nodes.js';
@@ -55,6 +56,7 @@ export function createDocumentSchemaExtensions(
     createInlineAtomNodesExtension(options),
     scriptNodesExtension,
     keptNodesExtension,
+    embedNodesExtension,
     createMarksExtension(options),
     createElementAttributesExtension(options?.identityAttributes),
   ];

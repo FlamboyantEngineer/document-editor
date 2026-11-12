@@ -122,7 +122,7 @@ Verification: `src/engine/block-place.test.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), embeds (513, DOCE-EMBEDS-2.1), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`
 Verification: `src/engine/document-editing.test.ts`
@@ -174,10 +174,10 @@ Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-5.1 - One paste pipeline
 
-`createClipboard({ filters, template })` shall run every paste and every drop through one pipeline. A paste, or a drop of content from elsewhere or of content dragged within the document with the platform's copy modifier held, becomes a copy (DOCE-EDITING-5.2); content dragged within the document without it is moved, and keeps what it is. Then filters run in order on every pasted and dropped slice, each given the state with the selection where the slice lands, and each returns the slice to paste: the library's own first, which fit footnote markers and entries (`flattenFootnotePaste`, DOCE-FOOTNOTES-1.6) and references (`repairPastedReferences`, DOCE-REFERENCES-1.6) to where they land, then the given `filters`. Word processor HTML is cleaned first (DOCE-FORMAT-6.2). The editing extension installs the clipboard with the template and its `pasteFilters` option.
+`createClipboard({ filters, template })` shall run every paste and every drop through one pipeline. A paste, or a drop of content from elsewhere or of content dragged within the document with the platform's copy modifier held, becomes a copy (DOCE-EDITING-5.2); content dragged within the document without it is moved, and keeps what it is. Then filters run in order on every pasted and dropped slice, each given the state with the selection where the slice lands, and each returns the slice to paste: the library's own first, which fit footnote markers and entries (`flattenFootnotePaste`, DOCE-FOOTNOTES-1.6) and references (`repairPastedReferences`, DOCE-REFERENCES-1.6) to where they land and bring in a copy of part of an embed as its content (`unwrapPastedEmbeds`, DOCE-EMBEDS-2.2), then the given `filters`. Word processor HTML is cleaned first (DOCE-FORMAT-6.2). The editing extension installs the clipboard with the template and its `pasteFilters` option.
 
 Implementation: `src/engine/clipboard.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/clipboard.test.ts`
+Verification: `src/engine/clipboard.test.ts`, `src/engine/embeds.test.ts`
 
 ### DOCE-EDITING-5.2 - Pasted copies
 

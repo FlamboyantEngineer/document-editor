@@ -122,6 +122,29 @@ export {
   repairElementIds,
 } from './element-ids.js';
 export { clearCopiedIdentity } from './element-ids.js';
+export type { EmbedStatus, EmbedStatusOptions } from './embed-status.js';
+export {
+  applyEmbedUpdate,
+  createEmbedStatus,
+  embedSourceKey,
+  embedStatus,
+  embedStatusAt,
+  pasteEmbedsOfKinds,
+  refreshEmbedStatus,
+  resolveEmbeds,
+  updateEmbed,
+} from './embed-status.js';
+export type { EmbedAt } from './embeds.js';
+export {
+  createEmbedNode,
+  createEmbeds,
+  embedAt,
+  embedsKey,
+  insertEmbed,
+  listEmbeds,
+  touchesEmbed,
+  unwrapPastedEmbeds,
+} from './embeds.js';
 export * from './features.js';
 export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
