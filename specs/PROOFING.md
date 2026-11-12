@@ -6,10 +6,10 @@ A host's text proofers, such as a spelling and grammar checker and an abbreviati
 
 ### DOCE-PROOFING-1.1 - What is checked
 
-The plugin shall check the text of each textblock of the document, its pages' bodies and footnote areas, as one text per block: each object in a block, and text in code or deleted by a suggestion, reads as spaces, so offsets in the text stay those of the block's characters. Page headers and footers, code blocks and display math are left out, and so is a block holding only spaces.
+The plugin shall check the text of each textblock of the document, its pages' bodies and footnote areas, as one text per block: each object in a block, and text in code or deleted by a suggestion, reads as spaces, and an inline atom with text of its own (`leafText`) reads as that text, so each character of the text maps to the block's character or atom it reads. An issue wholly in an atom's text is not shown. Page headers and footers, code blocks and display math are left out, and so is a block holding only spaces.
 
-Implementation: `src/engine/proofing.ts`
-Verification: `src/engine/proofing.test.ts`
+Implementation: `src/engine/proofing.ts`, `src/engine/proofing-text.ts`
+Verification: `src/engine/proofing.test.ts`, `src/engine/host-domain-recipe.test.ts`
 
 ### DOCE-PROOFING-1.2 - Results and marks
 
