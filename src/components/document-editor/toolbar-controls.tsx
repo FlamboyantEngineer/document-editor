@@ -35,6 +35,8 @@ import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { commandItem, listItems, markItems } from './format-items.js';
 import { type InsertFeatures, insertItems, linkItem } from './insert-controls.js';
+import { layoutItem } from './layout-items.js';
+import { type ShellFeatures, shellItems } from './mode-controls.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { ToolbarGroup } from './toolbar-items.js';
 
@@ -157,6 +159,31 @@ function TableButton({ context }: { context: EditorContext }) {
   );
 }
 
+// Undo and redo.
+const historyGroup = (labels: DocumentEditorLabels, shortcuts: ShortcutTable): ToolbarGroup => ({
+  id: 'history',
+  items: [
+    commandItem(
+      {
+        id: 'undo',
+        label: labels.undo,
+        icon: UndoGlyph,
+        shortcut: shortcutLabel(shortcuts, 'undo'),
+      },
+      undoCommand,
+    ),
+    commandItem(
+      {
+        id: 'redo',
+        label: labels.redo,
+        icon: RedoGlyph,
+        shortcut: shortcutLabel(shortcuts, 'redo'),
+      },
+      redoCommand,
+    ),
+  ],
+});
+
 /** The editor's own toolbar groups, by `TOOLBAR_GROUPS`. */
 export function builtInToolbarGroups(
   schema: Schema,
@@ -165,37 +192,18 @@ export function builtInToolbarGroups(
     templateStyle,
     features = { linkedCode: false, symbols: DEFAULT_SYMBOLS, glossary: false },
     shortcuts = DEFAULT_SHORTCUTS,
+    shell = {},
   }: {
     readonly templateStyle: Readonly<Record<string, string>>;
     readonly features?: InsertFeatures | undefined;
     /** The shortcut table the items show their keys from. */
     readonly shortcuts?: ShortcutTable | undefined;
+    /** What the mode and markup controls change, while the host offers them. */
+    readonly shell?: ShellFeatures | undefined;
   },
 ): ToolbarGroup[] {
   return [
-    {
-      id: 'history',
-      items: [
-        commandItem(
-          {
-            id: 'undo',
-            label: labels.undo,
-            icon: UndoGlyph,
-            shortcut: shortcutLabel(shortcuts, 'undo'),
-          },
-          undoCommand,
-        ),
-        commandItem(
-          {
-            id: 'redo',
-            label: labels.redo,
-            icon: RedoGlyph,
-            shortcut: shortcutLabel(shortcuts, 'redo'),
-          },
-          redoCommand,
-        ),
-      ],
-    },
+    historyGroup(labels, shortcuts),
     {
       id: 'block-style',
       items: [
@@ -234,5 +242,7 @@ export function builtInToolbarGroups(
         ...insertItems(labels, features, shortcuts),
       ],
     },
+    { id: 'layout', items: [layoutItem(labels)] },
+    { id: 'mode', items: shellItems(shell) },
   ];
 }

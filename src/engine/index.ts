@@ -128,7 +128,6 @@ export {
   deleteEmptyListItem,
   FORMATTING_MARKS,
   insertPageBreak,
-  joinAcrossPages,
   selectBody,
   splitBlockKeepingLevel,
   wrapInListAndJoin,

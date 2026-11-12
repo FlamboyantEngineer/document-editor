@@ -69,9 +69,6 @@ function sectionNumbering(template: TemplateFile, section: ProseMirrorNode) {
   return { config: numbers ? config : null, restarts: sectionRestartsNumbering(scope) };
 }
 
-// A later part of a paragraph the pages split continues the first one's number.
-const isContinuation = (node: ProseMirrorNode) => Number(node.attrs.splitPartIndex ?? 0) > 0;
-
 /**
  * Every numbered paragraph of a document, in order: the top-level paragraphs of the body, with
  * text, in sections whose template numbers paragraphs.
@@ -89,11 +86,11 @@ export function numberedParagraphs(
     section.descendants((node, offset) => {
       const name = node.type.name;
       if (name === 'page' || name === 'page_content') return true;
-      if (name === 'heading' && !node.attrs.docTitle && !isContinuation(node)) {
+      if (name === 'heading' && !node.attrs.docTitle) {
         counting.counters = [];
         counting.headingDepth = Number(node.attrs.level) || 1;
       }
-      if (name !== 'paragraph' || !config || isContinuation(node)) return false;
+      if (name !== 'paragraph' || !config) return false;
       if (!hasParagraphNumberingContent(node)) return false;
       const level = normalizeParagraphLevel(node.attrs.paragraphLevel);
       const levelStyle = resolveParagraphLevelStyle(config, level, counting.headingDepth);

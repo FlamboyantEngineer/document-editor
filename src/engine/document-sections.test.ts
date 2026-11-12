@@ -181,23 +181,13 @@ describe('section commands', () => {
     expect(run(stateAt(required, 'Two'), joinDocumentSectionBackward(TEMPLATE))).toBeNull();
   });
 
-  it('DOCE-SECTIONS-2.4 works on a section laid out on several pages', () => {
-    const block = (value: string) =>
-      documentSchema.node('paragraph', null, documentSchema.text(value));
-    const pageOf = (blocks: Node[]) =>
-      documentSchema.node('page', null, [
-        documentSchema.node('page_header'),
-        documentSchema.node('page_content', null, blocks),
-        documentSchema.node('page_footnotes'),
-        documentSchema.node('page_footer'),
-      ]);
-    const paged = documentSchema.node('doc', null, [
-      documentSchema.node('page_section', null, [
-        pageOf([block('One'), block('Two')]),
-        pageOf([block('Three')]),
-      ]),
-    ]);
-    const next = run(stateAt(paged, 'One'), insertDocumentSection(TEMPLATE, 'appendix'));
+  it('DOCE-SECTIONS-2.4 works on the whole document, a section being one page of whole blocks', () => {
+    const doc = read({
+      name: null,
+      content: [paragraph('One'), paragraph('Two'), paragraph('Three')],
+    });
+    expect(doc.child(0).childCount).toBe(1);
+    const next = run(stateAt(doc, 'One'), insertDocumentSection(TEMPLATE, 'appendix'));
     expect(next && outline(next.doc)).toEqual(['-:One', 'appendix:Two,Three']);
   });
 });

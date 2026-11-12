@@ -124,7 +124,7 @@ export interface CatalogEntry {
   /** A heading's text, or an object's caption. */
   readonly text: string;
   readonly pos: number;
-  /** The page it is on, counted through the document from 1. */
+  /** The page it is on, counting each section as one page; the layout's page comes from `pageMap`. */
   readonly page: number;
   /** The element id its row carries (`ContentsKind.anchor`), when its kind gives one. */
   readonly anchor?: string | undefined;
@@ -175,10 +175,6 @@ const zeroObjects = (): Record<NumberedObjectKind, number> => ({
   codeBlock: 0,
   equation: 0,
 });
-
-// A later part of a split block, which its first part already counted.
-const isContinuation = (node: ProseMirrorNode) =>
-  Number(node.attrs.splitPartIndex) > 0 || node.attrs.codeBlockContinued === true;
 
 const headingLevel = (node: ProseMirrorNode) =>
   Math.min(6, Math.max(1, Number(node.attrs.level) || 1));
@@ -276,7 +272,6 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
 
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
   content.descendants((node, offset) => {
-    if (isContinuation(node)) return !node.isTextblock;
     const isHeading = node.type.name === 'heading';
     // The title and a heading set in a list, a table or a quote are neither numbered nor listed.
     if (!isHeading || isStructuralHeading(counting.doc, start + offset)) {
@@ -298,8 +293,8 @@ const listsInline = (doc: ProseMirrorNode, kinds: Readonly<Record<string, Conten
 
 /**
  * Each kind of list's entries in a document under a resolved template, numbered as its stylesheet
- * numbers them: each section by its own scope, restarting where the section does. The parts a
- * split block continues on are not listed again.
+ * numbers them: each section by its own scope, restarting where the section does. Each entry's
+ * page counts a section as one page: the layout knows where its pages break (`pageMap`).
  */
 export function catalogDocument(
   doc: ProseMirrorNode,
@@ -323,7 +318,6 @@ export function catalogDocument(
       counting.headings = [0, 0, 0, 0, 0, 0];
       counting.objects = zeroObjects();
     }
-    // Each content region of a paged document is a page's.
     for (const content of sectionRegions(section, CONTENT)) {
       counting.page += 1;
       countBlocks(content.node, content.pos + 1, counting);
