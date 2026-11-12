@@ -7,6 +7,7 @@ import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';
 import { CONTENT_TYPE, readContent } from '../collab/delta.js';
 import { createCollabSync } from '../collab/sync.js';
+import { createCollabUndo } from '../collab/undo.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 
 const META_TYPE = 'meta';
@@ -16,8 +17,8 @@ const TEMPLATE_ATTR = 'template';
 export interface RoomBinding {
   /** The document the room holds, or null while it holds none. */
   content(): ProseMirrorNode | null;
-  /** The plugin that keeps the editor and the room the same. */
-  readonly plugin: Plugin;
+  /** The plugins that keep the editor and the room the same, with the writer's own undo. */
+  readonly plugins: readonly Plugin[];
   /** The template the room's document pins, or null for the base template. */
   pin(): TemplatePin | null;
   setPin(pin: TemplatePin | null): void;
@@ -41,7 +42,7 @@ export function bindRoom(
   const origin = { session: 'template' };
   return {
     content: () => readContent(schema, doc.get(CONTENT_TYPE)),
-    plugin: createCollabSync({ doc, isRemoteOrigin }),
+    plugins: [createCollabSync({ doc, isRemoteOrigin }), createCollabUndo()],
     pin: () => asPin(meta.getAttr(TEMPLATE_ATTR)),
     setPin: (pin) => {
       doc.transact(() => {
