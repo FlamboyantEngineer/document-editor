@@ -24,7 +24,7 @@ import { activityRows } from './comment-activity-rows.js';
 import type { OpenedComment } from './comment-focus.js';
 import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
-import { resolveThreadPermissions,type ThreadPermissionPolicy } from './thread-permissions.js';
+import { resolveThreadPermissions, type ThreadPermissionPolicy } from './thread-permissions.js';
 import type { CommentThreads } from './use-comment-threads.js';
 
 export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments-labels.js';
