@@ -431,7 +431,7 @@ Verification: `src/pagination/projection-view.test.ts`
 
 ### DOCE-PAGINATION-7.15 - The canonical plugins run through the pages
 
-The canonical state's plugins shall run on the canonical view of the view that renders the projection (DOCE-PAGINATION-7.14), as they would on a view of their own. Their plugin views shall start with it and be updated with each new canonical state, and what they dispatch shall reach the canonical state and the pages at once. Their key handlers shall run after an arrow key's move across a page break and the host's `keys`, and before Enter, Backspace and Delete; their paste handlers before the projection's paste. Their text input, click, double- and triple-click handlers shall take canonical positions, and their handlers of DOM events other than a press shall see those events. Input that a canonical plugin takes shall have the projection's selection mirrored onto the canonical state first, and input no canonical plugin takes shall cost nothing more, so typing keeps its budget (DOCE-PAGINATION-7.10). A press stays the projection's: it places the caret on the pages, or starts a cell drag across them.
+The canonical state's plugins shall run on the canonical view of the view that renders the projection (DOCE-PAGINATION-7.14), as they would on a view of their own. Their plugin views shall start with it and be updated with each new canonical state, and what they dispatch shall reach the canonical state and the pages at once. Their key handlers shall run after an arrow key's move across a page break and the host's `keys`, and before Enter, Backspace and Delete; their paste handlers before the projection's paste. Their text input, click, double- and triple-click handlers shall take canonical positions, and their handlers of DOM events other than a press shall see those events. Input that a canonical plugin takes shall have the projection's selection mirrored onto the canonical state first, and input no canonical plugin takes shall cost nothing more, so typing keeps its budget (DOCE-PAGINATION-7.10). A press stays the projection's: it places the caret on the pages, or starts a cell drag across them. The canonical plugins' node views shall draw their nodes on the pages, with canonical positions, including those of plugins the canonical state gains after the projection is made.
 
 Implementation: `src/pagination/canonical-plugins.ts`, `src/pagination/projection.ts`, `src/pagination/projection-input.ts`
 Verification: `src/pagination/projection-view.test.ts`
@@ -442,6 +442,13 @@ A projection shall tell how its layouts go as a pagination does. `layoutState()`
 
 Implementation: `src/pagination/projection.ts`, `src/pagination/projection-session.ts`, `src/pagination/projection-layout.ts`
 Verification: `src/pagination/projection-view.test.ts`
+
+### DOCE-PAGINATION-7.17 - DocumentEditor on the projection
+
+With `projection` (experimental), DocumentEditor shall keep `state` as the whole document, each section on one page, and render a paged projection of it (DOCE-PAGINATION-7.10) measured by a ghost view. Input on the pages shall become canonical transactions that pass through the editor's dispatch body (suggestions, proofing) to `onStateChange`; a transaction the host does not commit, or one made on a state the host no longer holds, shall be taken back off the pages. Each state the host commits shall be shown on the pages (DOCE-PAGINATION-7.12). The toolbar, menus, dialogs, table handles, the host's events and the editor's own view props shall see the canonical view (DOCE-PAGINATION-7.14), and layouts shall be told as the pagination's are (DOCE-PAGINATION-7.16). Without `projection`, the editor keeps the paged state of DOCE-PAGINATION-7.1.
+
+Implementation: `src/components/document-editor/use-paged-projection.ts`, `src/components/document-editor/start-paging.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `e2e/projection-editor.spec.ts`
 
 ## DOCE-PAGINATION-8 - Page headers and footers
 

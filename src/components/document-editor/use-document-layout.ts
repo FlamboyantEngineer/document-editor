@@ -5,8 +5,8 @@
 
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { EditorState, Plugin, PluginKey } from 'prosemirror-state';
-import { type RefObject, useEffect, useMemo, useRef } from 'react';
+import type { EditorState, Plugin, Transaction } from 'prosemirror-state';
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type CompareSuggestions,
   createAuthorship,
@@ -18,38 +18,31 @@ import {
   createSectionFootnoteNumbers,
   createVersionChanges,
   documentSectionsKey,
-  proofingKey,
   refreshDynamicTemplates,
   refreshVersionChanges,
   type RegionChange,
-  searchKey,
   sectionFootnoteNumbersKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
 import type { FontsAdapter, VariablesAdapter } from '../../host/index.js';
 import {
-  createLayoutRules,
-  findTemplateSection,
-  FRAGMENT_RULES,
   type FragmentRules,
   joinDocumentPages,
   type LayoutRules,
   resolveFootnoteSettings,
   type TemplateFile,
-  templatePageMetrics,
 } from '../../model/index.js';
 import {
   createPageDebug,
   createPageVariables,
-  createPagination,
   type LayoutState,
-  loadTemplateFonts,
   pageDebugKey,
   type PageDebugParts,
   pageVariablesKey,
-  type Pagination,
   type PaginationStats,
 } from '../../pagination/index.js';
+import { fragmentRulesOf, type LayoutRunner, startPaging } from './start-paging.js';
+import type { PagedEditor } from './use-paged-projection.js';
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
 export type DocumentLayout = 'page' | 'web';
@@ -138,6 +131,15 @@ export interface DocumentLayoutOptions {
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /** The host's variables, shown in the headers, footers and text (`createPageVariables`). */
   readonly variables?: VariablesAdapter | undefined;
+  /**
+   * Shows the pages as a projection of the state, which stays the whole document
+   * (DOCE-PAGINATION-7.17), rather than paginating the state itself.
+   */
+  readonly projection?: boolean | undefined;
+  /** Takes each canonical transaction input on the projection's pages makes. */
+  readonly onCanonical?: ((tr: Transaction) => void) | undefined;
+  /** Told of each layout of the projection's pages. */
+  readonly onLayout?: ((tr: Transaction) => void) | undefined;
 }
 
 /** An older version to show a document's changes from, as change bars or marked in place. */
@@ -147,25 +149,6 @@ export interface DocumentComparison {
   readonly display?: VersionChangeDisplay | undefined;
   /** Whether the document's suggestions count as rejected (the default) or as accepted. */
   readonly suggestions?: CompareSuggestions | undefined;
-}
-
-// The height inside the page margins of a section's template scope.
-function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
-  const scope = findTemplateSection(template, section.attrs.sectionName as string | null);
-  const { height, margins } = templatePageMetrics(template, scope);
-  return height - margins.top - margins.bottom;
-}
-
-// The plugins the measuring view runs: the editor's, with the layout's own plugins once. Proofing
-// and search are left out: their marks take no room, and the hidden view would do their work again.
-const UNMEASURED = new Set<PluginKey>([proofingKey, searchKey]);
-
-function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
-  const measured = (plugin: Plugin) => !UNMEASURED.has(plugin.spec.key as PluginKey);
-  return [
-    ...plugins.filter((plugin) => !own.includes(plugin) && measured(plugin)),
-    ...own.filter(measured),
-  ];
 }
 
 // A state with its sections shown in the template again, out of the history.
@@ -201,11 +184,6 @@ function useHostVariables(options: DocumentLayoutOptions, refresh: RefObject<(()
     show();
     return variables?.subscribe?.(show);
   }, [variables, refresh]);
-}
-
-// The rules the pages' fragments join by: the library's, with the host's over them.
-function fragmentRulesOf(options: DocumentLayoutOptions): FragmentRules {
-  return { ...FRAGMENT_RULES, ...options.fragmentRules };
 }
 
 // A state with each section's pages joined into one and its footnotes numbered for it, out of the
@@ -244,7 +222,7 @@ export interface LayoutProgress {
 }
 
 // What the active pagination tells of its pages; with none, in the web layout, they are settled.
-function useLayoutProgress(active: RefObject<Pagination | null>): LayoutProgress {
+function useLayoutProgress(active: RefObject<LayoutRunner | null>): LayoutProgress {
   return useMemo(
     () => ({
       whenSettled: () => active.current?.whenSettled() ?? Promise.resolve('settled'),
@@ -262,7 +240,7 @@ function useLayoutProgress(active: RefObject<Pagination | null>): LayoutProgress
 export function useDocumentLayout(
   measureIn: RefObject<HTMLDivElement | null>,
   options: DocumentLayoutOptions,
-): LayoutProgress {
+): LayoutProgress & { readonly paged: PagedEditor | null } {
   const { layout, template } = options;
   // The template's settings that change how the pages are laid out: the pagination starts over
   // when they do.
@@ -275,7 +253,8 @@ export function useDocumentLayout(
   const refresh = useRef<(() => void) | null>(null);
   const ownPlugins = useRef<readonly Plugin[]>([]);
   const paginationPlugin = useRef<Plugin | null>(null);
-  const active = useRef<Pagination | null>(null);
+  const active = useRef<LayoutRunner | null>(null);
+  const [paged, setPaged] = useState<PagedEditor | null>(null);
 
   useEffect(() => {
     const own = layoutOwnPlugins(latest);
@@ -299,35 +278,12 @@ export function useDocumentLayout(
       latest.current.onLayoutStateChange?.('settled');
       return undefined;
     }
-    const pagination = createPagination({
-      measureIn: element,
-      pageHeight: (section) => bodyHeight(latest.current.template, section),
-      plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
-      rules: { ...createLayoutRules({ repeatTableHeader }), ...latest.current.layoutRules },
-      fragmentRules: fragmentRulesOf(latest.current),
-      footnoteNumbering,
-      ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
-      onLayoutStateChange: (state) => latest.current.onLayoutStateChange?.(state),
+    return startPaging(element, latest, {
+      settings: { repeatTableHeader, footnoteNumbering },
+      refs: { refresh, active, ownPlugins, paginationPlugin },
+      setPaged,
     });
-    latest.current.onLayoutStateChange?.(pagination.layoutState());
-    refresh.current = () => {
-      pagination.refresh({ remeasure: true });
-    };
-    active.current = pagination;
-    paginationPlugin.current = pagination.plugin;
-    const { onStateChange } = latest.current;
-    onStateChange((state) => state.reconfigure({ plugins: [...state.plugins, pagination.plugin] }));
-    return () => {
-      refresh.current = null;
-      active.current = null;
-      paginationPlugin.current = null;
-      onStateChange((state) =>
-        state.reconfigure({
-          plugins: state.plugins.filter((plugin) => plugin !== pagination.plugin),
-        }),
-      );
-    };
-  }, [layout, measureIn, repeatTableHeader, footnoteNumbering]);
+  }, [layout, measureIn, repeatTableHeader, footnoteNumbering, options.projection]);
 
   useLayoutPlugins(options, [ownPlugins, paginationPlugin]);
 
@@ -344,5 +300,6 @@ export function useDocumentLayout(
   useHostVariables(options, refresh);
   useLayoutDebug(options.debug, options.onStateChange);
   useRegionsEditable(Boolean(options.onRegionChange), options.onStateChange);
-  return useLayoutProgress(active);
+  const progress = useLayoutProgress(active);
+  return useMemo(() => ({ ...progress, paged }), [progress, paged]);
 }

@@ -40,7 +40,8 @@ type Handler = (plugin: Plugin, view: EditorView) => boolean | void | undefined;
 // Each projection view as its canonical view.
 const canonicalViews = new WeakMap<EditorView, EditorView>();
 
-function viewOf(view: EditorView, source: CanonicalPluginsSource): EditorView {
+/** The canonical view of a projection view, the same one each time (`canonicalView`). */
+export function canonicalViewOf(view: EditorView, source: CanonicalPluginsSource): EditorView {
   let canonical = canonicalViews.get(view);
   if (!canonical) {
     canonical = canonicalView(view, source);
@@ -66,7 +67,7 @@ function offered(
   const takers = source.canonical().plugins.filter(has);
   if (takers.length === 0) return false;
   if (input) source.prepare();
-  const canonical = viewOf(view, source);
+  const canonical = canonicalViewOf(view, source);
   return takers.some((plugin) => handle(plugin, canonical) === true);
 }
 
@@ -76,7 +77,7 @@ const handled = (view: EditorView, source: CanonicalPluginsSource, offer: Offer)
 
 // The canonical plugins' views, started on the canonical view and updated as its state changes.
 function pluginViews(view: EditorView, source: CanonicalPluginsSource): PluginView {
-  const canonical = viewOf(view, source);
+  const canonical = canonicalViewOf(view, source);
   let shown = source.canonical();
   const start = (state: EditorState) =>
     state.plugins.flatMap((plugin) => (plugin.spec.view ? [plugin.spec.view(canonical)] : []));
@@ -169,6 +170,63 @@ export function canonicalPaste(source: CanonicalPluginsSource) {
     });
 }
 
+type NodeViews = NonNullable<Props['nodeViews']>;
+type NodeViewConstructor = NodeViews[string];
+
+// Each canonical node view as drawn on a projection's pages, the same one each time.
+const drawnNodeViews = new WeakMap<
+  CanonicalPluginsSource,
+  WeakMap<NodeViewConstructor, NodeViewConstructor>
+>();
+
+// A canonical node view drawn on the pages: it sees the canonical view, and its node's canonical
+// position.
+function onPages(make: NodeViewConstructor, source: CanonicalPluginsSource): NodeViewConstructor {
+  let drawnBy = drawnNodeViews.get(source);
+  if (!drawnBy) {
+    drawnBy = new WeakMap();
+    drawnNodeViews.set(source, drawnBy);
+  }
+  let drawn = drawnBy.get(make);
+  if (!drawn) {
+    drawn = (node, view, ...[getPos, ...rest]) => {
+      const canonicalPos = () => {
+        const pos = getPos();
+        return pos === undefined ? undefined : (source.map().toCanonical(pos, 1) ?? undefined);
+      };
+      return make(node, canonicalViewOf(view, source), canonicalPos, ...rest);
+    };
+    drawnBy.set(make, drawn);
+  }
+  return drawn;
+}
+
+// The canonical plugins' node views, drawn on the pages.
+function canonicalNodeViews(source: CanonicalPluginsSource): NodeViews {
+  const views: Record<string, NodeViewConstructor> = {};
+  for (const plugin of source.canonical().plugins) {
+    for (const [name, make] of Object.entries(plugin.props.nodeViews ?? {})) {
+      views[name] ??= onPages(make, source);
+    }
+  }
+  return views;
+}
+
+// The canonical plugins' node views, read from the plugins the canonical state has as the view
+// builds its node views, which is only once the projection holds it.
+function lazyNodeViews(source: CanonicalPluginsSource): NodeViews {
+  const current = () => canonicalNodeViews(source);
+  return new Proxy<NodeViews>(
+    {},
+    {
+      ownKeys: () => Reflect.ownKeys(current()),
+      getOwnPropertyDescriptor: (_target, key) => Reflect.getOwnPropertyDescriptor(current(), key),
+      get: (_target, key) => Reflect.get(current(), key),
+      has: (_target, key) => Reflect.has(current(), key),
+    },
+  );
+}
+
 /**
  * A projection plugin that runs the canonical plugins' views on the canonical view, and hands
  * them text input, clicks and DOM events; keys and paste go through `canonicalKeys` and
@@ -178,6 +236,7 @@ export function canonicalPlugins(source: CanonicalPluginsSource): Plugin {
   return new Plugin({
     view: (view) => pluginViews(view, source),
     props: {
+      nodeViews: lazyNodeViews(source),
       handleTextInput: textInput(source),
       handleClick: clickOn(source, 'handleClick'),
       handleDoubleClick: clickOn(source, 'handleDoubleClick'),

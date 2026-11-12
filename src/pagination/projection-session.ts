@@ -63,6 +63,8 @@ export interface Session {
   /** The view that renders the projection, once one is attached; its DOM is read before input. */
   view: EditorView | null;
   cancelLayout: (() => void) | null;
+  /** Above 0 while transactions may not go through the view (`quietly`). */
+  quiet: number;
 }
 
 /** Takes a canonical transaction: applied, and handed to the host's `dispatch`. */
@@ -77,9 +79,42 @@ function setProjection(session: Session, state: EditorState): void {
   session.options.onProjection(state);
 }
 
-/** Moves the projection by a transaction of its own: a layout's or a mirror's. */
+// The view that renders the projection, when a transaction may go through it now: not while it
+// dispatches one, nor while the host hands in a state, as it renders.
+function dispatcher(session: Session): EditorView | null {
+  const { view } = session;
+  return view && !view.isDestroyed && session.quiet === 0 ? view : null;
+}
+
+/**
+ * Moves the projection by a transaction of its own: a layout's or a mirror's. It goes through the
+ * attached view when it can, so a view whose host renders through React state shows it before the
+ * next key, as for the view's own transactions.
+ */
 export function take(session: Session, tr: Transaction): void {
-  setProjection(session, session.projection.apply(tr.setMeta(PROJECTION_META, true)));
+  tr.setMeta(PROJECTION_META, true);
+  const view = dispatcher(session);
+  if (view) view.dispatch(tr);
+  else setProjection(session, session.projection.apply(tr));
+}
+
+/**
+ * Has the view build its node views again once the canonical state's plugins change, as the
+ * canonical plugins' node views are read through the projection's (DOCE-PAGINATION-7.15).
+ */
+export function replug(session: Session): void {
+  const { projection } = session;
+  setProjection(session, projection.reconfigure({ plugins: projection.plugins }));
+}
+
+/** Runs a step while transactions may not go through the view, as it dispatches or renders. */
+export function quietly(session: Session, run: () => void): void {
+  session.quiet += 1;
+  try {
+    run();
+  } finally {
+    session.quiet -= 1;
+  }
 }
 
 // Draws the projection's state again over a DOM change it did not take.
@@ -231,11 +266,13 @@ function routeInput(session: Session, tr: Transaction): void {
  * state, or an edit, which is routed to the canonical state.
  */
 export function receive(session: Session, tr: Transaction): void {
-  const own = Boolean(tr.getMeta(PROJECTION_META));
-  if (!own && tr.docChanged) return routeInput(session, tr);
-  const before = session.projection.selection;
-  setProjection(session, session.projection.apply(tr));
-  if (!own && !session.projection.selection.eq(before)) syncSelection(session);
+  quietly(session, () => {
+    const own = Boolean(tr.getMeta(PROJECTION_META));
+    if (!own && tr.docChanged) return routeInput(session, tr);
+    const before = session.projection.selection;
+    setProjection(session, session.projection.apply(tr));
+    if (!own && !session.projection.selection.eq(before)) syncSelection(session);
+  });
 }
 
 /** Moves the caret a character across a page break inside a split block; false elsewhere. */
@@ -245,6 +282,9 @@ export function moveAcrossBreak(
 ): boolean {
   readDom(session);
   const moved = selectionAcrossBreak(session.projection, session.map, move);
-  if (moved) receive(session, moved);
-  return Boolean(moved);
+  if (!moved) return false;
+  const view = dispatcher(session);
+  if (view) view.dispatch(moved);
+  else receive(session, moved);
+  return true;
 }

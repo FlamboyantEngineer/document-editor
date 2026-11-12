@@ -13,7 +13,12 @@ import {
   repaginate,
 } from '../model/index.js';
 import { followDocument } from './ghost-view.js';
-import { layoutDocument, type PageMetric, type SectionPageHeight } from './layout-document.js';
+import {
+  layoutDocument,
+  type PageMetric,
+  type SectionPageHeight,
+  type SectionReport,
+} from './layout-document.js';
 import type { MeasureCache } from './measure-blocks.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { projectionSelection } from './selection-mirror.js';
@@ -26,7 +31,7 @@ export interface LayoutSource {
   readonly canonical: EditorState;
   readonly cache: MeasureCache;
   /** Told of each section laid out, by how many of its blocks were measured again. */
-  readonly onSection?: ((section: { readonly blocksMeasured: number }) => void) | undefined;
+  readonly onSection?: ((section: SectionReport) => void) | undefined;
 }
 
 /** How the pages are laid out. */

@@ -27,6 +27,12 @@ import {
   type useEngineView,
 } from './use-editor-engine.js';
 import { useHostViewProps } from './use-host-events.js';
+import {
+  canonicalViewProps,
+  type PagedEditor,
+  projectionDispatch,
+  useProjectionEvents,
+} from './use-paged-projection.js';
 
 // The body's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['body', 'content']);
@@ -39,6 +45,10 @@ export interface EditorBodyProps {
   /** Opens one of the editor's dialogs, while the writer can edit. */
   onDialog: ((dialog: ObjectDialog) => void) | null;
   engine: ReturnType<typeof useEngineView>;
+  /** The view the chrome acts on: the engine's, or its canonical view over a projection. */
+  view: EditorView | null;
+  /** The projection the engine renders in page layout, when the pages are one. */
+  paged: PagedEditor | null;
   labels: DocumentEditorLabels;
   startCommentRef: RefObject<(() => void) | null>;
 }
@@ -52,7 +62,7 @@ function useBodyViewProps({
   startCommentRef,
   onFind,
   onDialog,
-}: Omit<EditorBodyProps, 'engine'>) {
+}: Omit<EditorBodyProps, 'engine' | 'view' | 'paged'>) {
   const { editable = true, assets, feedback } = props;
   const host = useHostViewProps(props);
   return useMemo(
@@ -99,19 +109,60 @@ function useBodyViewProps({
   );
 }
 
+// The projection takes each of its states itself (`projectionDispatch`), so a commit the engine
+// makes has nothing more to do.
+const keepProjection = () => undefined;
+
+// What the engine renders and how it commits: the host's state through the editor's dispatch body,
+// or, while the pages are a projection, the projection's state, every transaction going to it.
+function useEngineProps(
+  props: DocumentEditorProps,
+  {
+    engine,
+    paged,
+    viewProps,
+  }: {
+    engine: EditorBodyProps['engine'];
+    paged: PagedEditor | null;
+    viewProps: ReturnType<typeof useBodyViewProps>;
+  },
+) {
+  const { editable = true, suggesting = false, author = null } = props;
+  const dispatchBody = useDispatchBody(props, editable && suggesting, author);
+  const projection = paged?.projection ?? null;
+  const events = useProjectionEvents(projection, engine.events);
+  const shownProps = useMemo(
+    () => canonicalViewProps(viewProps, projection),
+    [viewProps, projection],
+  );
+  const dispatchTransaction = useMemo(
+    () => (projection ? projectionDispatch(projection) : dispatchBody),
+    [projection, dispatchBody],
+  );
+  return {
+    ...events,
+    dispatchTransaction,
+    state: paged ? paged.state : props.state,
+    onStateChange: paged ? keepProjection : props.onStateChange,
+    props: shownProps,
+  };
+}
+
 /** The document in its engine, with the comments margin, the caller's chrome and the table handles. */
 export function EditorBody({
   props,
   engine,
+  view,
+  paged,
   labels,
   startCommentRef,
   onFind,
   onDialog,
 }: EditorBodyProps) {
-  const { state, onStateChange, editable = true, suggesting = false, author = null } = props;
+  const { state, onStateChange, editable = true, suggesting = false } = props;
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onFind, onDialog });
-  const dispatchTransaction = useDispatchBody(props, editable && suggesting, author);
-  useOpeningScripts(engine.view, props.scriptRunner);
+  const engineProps = useEngineProps(props, { engine, paged, viewProps });
+  useOpeningScripts(view, props.scriptRunner);
   const content = (
     <RichTextEngineContent
       {...hooks.slot('content')}
@@ -124,15 +175,8 @@ export function EditorBody({
   );
   return (
     <div {...hooks.slot('body')}>
-      <SelectionFirst view={engine.view} state={state} />
-      <RichTextEngineHost
-        {...engine.events}
-        dispatchTransaction={dispatchTransaction}
-        state={state}
-        onStateChange={onStateChange}
-        nodeViews={props.nodeViews}
-        props={viewProps}
-      >
+      <SelectionFirst view={engine.view} state={engineProps.state} />
+      <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>
         {props.comments ? (
           <DocumentComments
             {...props.comments}
@@ -148,10 +192,8 @@ export function EditorBody({
         )}
         {props.children}
       </RichTextEngineHost>
-      {editable && !suggesting ? (
-        <TableHandles view={engine.view} state={state} labels={labels} />
-      ) : null}
-      {editable ? <ObjectEditors view={engine.view} state={state} labels={labels} /> : null}
+      {editable && !suggesting ? <TableHandles view={view} state={state} labels={labels} /> : null}
+      {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
     </div>
   );
 }

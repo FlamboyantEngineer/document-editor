@@ -20,6 +20,7 @@ import {
   canonicalPaste,
   canonicalPlugins,
   type CanonicalPluginsSource,
+  canonicalViewOf,
 } from './canonical-plugins.js';
 import { holdCellSelection } from './cell-drag.js';
 import type { SectionPageHeight } from './layout-document.js';
@@ -35,7 +36,9 @@ import {
   markChanged,
   moveAcrossBreak,
   prepare,
+  quietly,
   receive,
+  replug,
   requestLayout,
   runCommand,
   send,
@@ -59,6 +62,11 @@ export interface PagedProjectionOptions {
   readonly nodeViews?: EditorProps['nodeViews'];
   /** Plugins that change what the document renders, run on the projection and the ghost. */
   readonly plugins?: readonly Plugin[] | undefined;
+  /**
+   * Plugins only the ghost runs, beside `plugins`: the canonical state's plugins that change what
+   * takes room, such as changes marked in place, whose decorations the projection draws already.
+   */
+  readonly ghostPlugins?: readonly Plugin[] | undefined;
   /** Commands on the canonical state by key, beside Enter, Backspace and Delete. */
   readonly keys?: Readonly<Record<string, Command>> | undefined;
   /**
@@ -105,6 +113,13 @@ export interface PagedProjection {
   update(state: EditorState, tr?: Transaction): void;
   /** Runs a command on the canonical state, with the projection's selection mirrored there first. */
   run(command: Command): boolean;
+  /** Takes a transaction of the canonical state as it stands, and shows it on the pages at once. */
+  dispatch(tr: Transaction): void;
+  /**
+   * A view that renders the projection, as a view of the canonical state (`canonicalView`), the
+   * same one the canonical plugins run on.
+   */
+  canonicalView(view: EditorView): EditorView;
   /** Lays the pages out now. */
   layout(): void;
   /**
@@ -166,15 +181,20 @@ function inputPlugin(session: () => Session, source: CanonicalPluginsSource): Pl
   });
 }
 
-// The projection's first state: the canonical document, with the plugins that route input to the
-// canonical state and draw what it draws, and the host's.
-function projectionState(options: PagedProjectionOptions, session: () => Session): EditorState {
-  const source: CanonicalPluginsSource = {
+// What the canonical plugins run on: the session's canonical state, map and dispatch.
+function sourceOf(session: () => Session): CanonicalPluginsSource {
+  return {
     canonical: () => session().canonical,
     map: () => session().map,
     dispatch: (tr) => dispatchCanonical(session(), tr),
     prepare: () => prepare(session()),
   };
+}
+
+// The projection's first state: the canonical document, with the plugins that route input to the
+// canonical state and draw what it draws, and the host's.
+function projectionState(options: PagedProjectionOptions, session: () => Session): EditorState {
+  const source = sourceOf(session);
   return EditorState.create({
     doc: options.state.doc,
     plugins: [
@@ -197,7 +217,10 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
   const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
   const ghost = new EditorView(options.measureIn, {
-    state: EditorState.create({ doc: options.state.doc, plugins: [...(options.plugins ?? [])] }),
+    state: EditorState.create({
+      doc: options.state.doc,
+      plugins: [...(options.plugins ?? []), ...(options.ghostPlugins ?? [])],
+    }),
     editable: () => false,
     nodeViews: options.nodeViews ?? {},
   });
@@ -222,6 +245,7 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     map: createProjectionMap(options.state.doc, rules),
     view: null,
     cancelLayout: null,
+    quiet: 0,
   };
 }
 
@@ -266,10 +290,14 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     receive: (tr) => receive(live, tr),
     update(state, tr) {
       if (state === live.canonical) return;
+      const replugged = state.plugins !== live.canonical.plugins;
       live.canonical = state;
-      showCanonical(live, tr ?? null);
+      if (replugged) replug(live);
+      quietly(live, () => showCanonical(live, tr ?? null));
     },
     run: (command) => runCommand(live, command),
+    dispatch: (tr) => dispatchCanonical(live, tr),
+    canonicalView: (view) => canonicalViewOf(view, sourceOf(session)),
     layout: () => layout(live),
     refresh({ remeasure = false } = {}) {
       if (remeasure) {

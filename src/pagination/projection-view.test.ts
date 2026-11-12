@@ -252,6 +252,25 @@ describe('projection view', () => {
     expect(seen.at(-1)).toBe(projection.state);
   });
 
+  it('DOCE-PAGINATION-7.15 draws the node views of plugins the canonical state gains', () => {
+    const { projection } = mount();
+    const drawn = new Plugin({
+      props: {
+        nodeViews: {
+          paragraph: () => {
+            const dom = document.createElement('p');
+            dom.className = 'drawn';
+            return { dom, contentDOM: dom };
+          },
+        },
+      },
+    });
+    const { state } = projection;
+    projection.update(state.reconfigure({ plugins: [...state.plugins, drawn] }));
+    expect(projection.view.dom.querySelectorAll('p.drawn')).toHaveLength(TEXTS.length);
+    expect(inSync(projection)).toBe(true);
+  });
+
   it('DOCE-PAGINATION-7.16 tells how its layouts go, as a pagination does', async () => {
     const laid: Transaction[] = [];
     const states: string[] = [];
