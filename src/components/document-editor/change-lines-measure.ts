@@ -1,7 +1,9 @@
 // Measures the lines of the blocks whose text changed, as the view shows them, and gives each line
 // that changed the strongest kind of change on it: a line holds the words marked on it
 // (`data-diff-line`), and a block whose formatting changed too marks its other lines as formatted.
+// A kind the template's change bars leave out never counts, so it never hides a shown one.
 
+import type { ResolvedPos } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect } from 'react';
@@ -16,6 +18,7 @@ import {
   strongerChange,
   versionChanges,
 } from '../../engine/index.js';
+import { findTemplateSection, type TemplateFile } from '../../model/index.js';
 
 interface Band {
   top: number;
@@ -90,12 +93,47 @@ const kindOf = (marked: Element): ChangeLineKind =>
     ? 'deletion'
     : (marked.getAttribute('data-diff-line') as ChangeLineKind);
 
-// The kind of change on each line: the strongest marked on it, at least the block's own.
-function lineKinds(block: HTMLElement, bands: readonly Band[]): (ChangeLineKind | null)[] {
-  const base = block.getAttribute('data-diff-lines') === 'formatting' ? 'formatting' : null;
-  const kinds: (ChangeLineKind | null)[] = bands.map(() => base);
+// The change bar setting of each kind of line.
+const SETTINGS = {
+  modification: 'modifications',
+  insertion: 'insertions',
+  deletion: 'deletions',
+  formatting: 'formatting',
+} as const;
+
+/** Which kinds of change show a bar: by default every kind. */
+export type ShownChange = (kind: ChangeLineKind) => boolean;
+
+const SHOW_ALL: ShownChange = () => true;
+
+/**
+ * The kinds of change the template shows bars for where a position is: a kind shows unless the
+ * position's section, or else the template, turns it off.
+ */
+export function shownChangesAt(template: TemplateFile, $pos: ResolvedPos): ShownChange {
+  let name: string | null = null;
+  for (let depth = $pos.depth; depth > 0 && name === null; depth -= 1) {
+    const node = $pos.node(depth);
+    if (node.type.name === 'page_section') name = (node.attrs.sectionName as string | null) ?? '';
+  }
+  const own = findTemplateSection(template, name)?.changeBars;
+  return (kind) => {
+    const setting = SETTINGS[kind];
+    const enabled = own?.[setting]?.enabled ?? template.changeBars?.[setting]?.enabled;
+    return enabled !== false;
+  };
+}
+
+// The kind of change on each line: the strongest shown kind marked on it, at least the block's own.
+function lineKinds(
+  block: HTMLElement,
+  bands: readonly Band[],
+  shown: ShownChange,
+): (ChangeLineKind | null)[] {
+  const formatted = block.getAttribute('data-diff-lines') === 'formatting' && shown('formatting');
+  const kinds: (ChangeLineKind | null)[] = bands.map(() => (formatted ? 'formatting' : null));
   const mark = (index: number, kind: ChangeLineKind) => {
-    kinds[index] = strongerChange(kinds[index] ?? null, kind);
+    if (shown(kind)) kinds[index] = strongerChange(kinds[index] ?? null, kind);
   };
   const marked = [...block.querySelectorAll(MARKED)].filter((element) => !isDrawn(element));
   for (const element of marked) {
@@ -109,10 +147,16 @@ function lineKinds(block: HTMLElement, bands: readonly Band[]): (ChangeLineKind 
   return kinds;
 }
 
-/** Measures one block's changed lines, from its top, unscaled by the zoom `scale`. */
-export function measureBlockLines(block: HTMLElement, scale: number): ChangeLine[] {
+/**
+ * Measures one block's changed lines, from its top, unscaled by the zoom `scale`; a line whose
+ * changes are all of kinds not `shown` has none.
+ */
+export function measureBlockLines(
+  block: HTMLElement,
+  { scale, shown = SHOW_ALL }: { readonly scale: number; readonly shown?: ShownChange | undefined },
+): ChangeLine[] {
   const bands = lineBands(block);
-  const kinds = lineKinds(block, bands);
+  const kinds = lineKinds(block, bands, shown);
   const top = block.getBoundingClientRect().top;
   return bands.flatMap((band, index) => {
     const kind = kinds[index];
@@ -122,27 +166,39 @@ export function measureBlockLines(block: HTMLElement, scale: number): ChangeLine
 }
 
 /** Measures the changed lines of every block whose text changed, by the block's position. */
-export function measureChangeLines(view: EditorView, scale: number): ChangeLines {
+export function measureChangeLines(
+  view: EditorView,
+  { scale, template }: { readonly scale: number; readonly template?: TemplateFile | undefined },
+): ChangeLines {
   const lines = new Map<number, readonly ChangeLine[]>();
+  const { doc } = view.state;
   for (const block of view.dom.querySelectorAll<HTMLElement>('[data-diff-lines]')) {
     const pos = view.posAtDOM(block, 0) - 1;
-    if (view.state.doc.nodeAt(pos)?.isTextblock) lines.set(pos, measureBlockLines(block, scale));
+    if (!doc.nodeAt(pos)?.isTextblock) continue;
+    const shown = template ? shownChangesAt(template, doc.resolve(pos)) : SHOW_ALL;
+    lines.set(pos, measureBlockLines(block, { scale, shown }));
   }
   return lines;
 }
 
 /** Measures the changed lines after each render while the document shows changes, and draws them. */
-export function useChangeLines(view: EditorView | null, state: EditorState, zoom: number) {
+export function useChangeLines(
+  view: EditorView | null,
+  state: EditorState,
+  { zoom, template }: { readonly zoom: number; readonly template?: TemplateFile | undefined },
+) {
   const changes = versionChanges(state);
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner || !drawsChangeLines(view.state)) return undefined;
     const frame = owner.requestAnimationFrame(() => {
       if (view.isDestroyed) return;
-      const lines = changes.length ? measureChangeLines(view, zoom / 100) : new Map();
+      const lines = changes.length
+        ? measureChangeLines(view, { scale: zoom / 100, template })
+        : new Map();
       if (changeLinesKeyOf(lines) === changeLinesKeyOf(changeLinesOf(view.state))) return;
       view.dispatch(setChangeLines(view.state.tr, lines));
     });
     return () => owner.cancelAnimationFrame(frame);
-  }, [view, state, changes, zoom]);
+  }, [view, state, changes, zoom, template]);
 }

@@ -59,10 +59,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.1 - Opening the menu
 
-A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it. `contextMenu={false}` leaves the browser's menu.
+A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. The menu shall stay open once the button is released, on an object as on text. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it. `contextMenu={false}` leaves the browser's menu.
 Once the menu closes, the document takes focus back when nothing else has it.
-Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`
+Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-3.2 - Clipboard and formatting
 
@@ -131,10 +131,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.3 - The host's toolbar items
 
-`toolbar` given as options shall shape the toolbar. The editor's own controls are items with stable ids in groups (`TOOLBAR_GROUPS`: `history`, `block-style`, `marks`, `lists` and `insert`, with the item ids `TOOLBAR_GROUPS` lists); each of the host's `items` joins the group it names, after its items, and an item naming no group or an unknown one joins a group of that name at the end. `arrange` then receives the groups and returns them reordered, without some items or regrouped. An item is a `button`, drawn as its icon named by its label or as its label, running its action and, given `isPressed`, a toggle pressed while that holds; a `menu`, a button opening its entries; or a `custom` control the host draws. Each receives the editor context, is disabled unless `isEnabled` holds (by default, while the writer can edit) and shows only while `isVisible` holds; groups are separated, an empty group is left out, and each group carries `data-group` and each item `data-item` with its id. `start` and `end` hold the host's own controls before and after the groups (`de-document-editor__toolbar-start`, `de-document-editor__toolbar-end`).
+`toolbar` given as options shall shape the toolbar. The editor's own controls are items with stable ids in groups (`TOOLBAR_GROUPS`: `history`, `block-style`, `marks`, `lists` and `insert`, with the ids of every item the editor can show in each, in order); each of the host's `items` joins the group it names, after its items, and an item naming no group or an unknown one joins a group of that name at the end. `arrange` then receives the groups and returns them reordered, without some items or regrouped. An item is a `button`, drawn as its icon named by its label or as its label, running its action and, given `isPressed`, a toggle pressed while that holds; a `menu`, a button opening its entries; or a `custom` control the host draws. Each receives the editor context, is disabled unless `isEnabled` holds (by default, while the writer can edit) and shows only while `isVisible` holds; groups are separated, an empty group is left out, and each group carries `data-group` and each item `data-item` with its id. `start` and `end` hold the host's own controls before and after the groups (`de-document-editor__toolbar-start`, `de-document-editor__toolbar-end`).
 
 Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/toolbar-controls.tsx`, `src/components/document-editor/document-toolbar.tsx`, `labs/src/host-toolbar.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/toolbar-items.test.ts`
 
 ### DOCE-EDITOR-4.4 - The editor context
 
@@ -152,10 +152,10 @@ Verification: `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-4.6 - Pasting and dropping images
 
-With the host's `assets`, images pasted or dropped into an editable document shall be uploaded and inserted as figures where they were pasted or dropped; an upload that fails inserts nothing and says so through the host's `feedback`.
+With the host's `assets`, images pasted or dropped into an editable document shall be uploaded and inserted as figures where they were pasted or dropped, each its own figure after the one before, in order (`insertFigure`); an upload that fails inserts nothing and says so through the host's `feedback`.
 
 Implementation: `src/components/document-editor/figure-paste.ts`
-Verification: `e2e/objects.spec.ts`
+Verification: `src/components/document-editor/figure-paste.test.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-4.7 - Adding sections
 
@@ -240,10 +240,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.4 - Zoom
 
-`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over `ZOOM_LEVELS`, and Ctrl+wheel over the editor steps to the next level up or down. The pages measure unscaled, so the zoom never changes them.
+`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last. The pages measure unscaled, so the zoom never changes them.
 
-Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `labs/reference/editor-chrome.css`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `src/components/document-editor/menubar-menus.ts`, `labs/reference/editor-chrome.css`
+Verification: `src/components/document-editor/menubar-menus.test.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.5 - Showing suggestions
 
@@ -275,10 +275,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.9 - Snapshots for printing
 
-The handle's `exportSnapshot({ title, styles, stylesheets })` shall give the document as its pages show it now as a standalone HTML document (`documentSnapshot`), for a host to print or turn into a PDF: the laid-out pages without the editor's editing attributes and widgets, the template's custom properties, a print page of the template's size for each page, and the host's stylesheets, linked or inlined.
+The handle's `exportSnapshot({ title, styles, stylesheets })` shall give the document as its pages show it now as a standalone HTML document (`documentSnapshot`), for a host to print or turn into a PDF: the laid-out pages without the editor's editing attributes and widgets, the template's custom properties, a print page of the template's size for each page, and the host's stylesheets, linked or inlined. The values a page's variables show (DOCE-PAGINATION-8.2, DOCE-PAGINATION-8.3: page numbers, page totals, dates and the host's values) shall stay. The pages shall sit in an element with the editor's root hook class and data attributes, in reading mode (`data-mode="reading"`), so stylesheets scoped to the editor style the snapshot too.
 
 Implementation: `src/engine/snapshot.ts`, `src/components/document-editor/editor-handle.ts`
-Verification: `e2e/full-editor.spec.ts`
+Verification: `src/engine/snapshot.test.ts`, `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-6.10 - Suggestions
 

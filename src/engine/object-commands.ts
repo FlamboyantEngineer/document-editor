@@ -186,29 +186,42 @@ export interface FigureSource {
   readonly height?: number | null | undefined;
 }
 
-/** Inserts a figure where a new block goes, or changes the figure selected; it is selected after. */
-export function setFigure(source: FigureSource): Command {
+// A figure source's attributes, leaving out those it does not give.
+function figureAttrs(source: FigureSource) {
+  return Object.fromEntries(
+    Object.entries({
+      figureType: source.figureType ?? 'image',
+      src: source.src,
+      fileAssetId: source.fileAssetId,
+      snapshotId: source.snapshotId,
+      alt: source.alt,
+      caption: source.caption,
+      width: source.width,
+      height: source.height,
+    }).filter(([, value]) => value !== undefined),
+  );
+}
+
+/**
+ * Inserts a new figure where a new block goes, after the figure selected when one is; it is
+ * selected after, so several inserted in turn follow one another.
+ */
+export function insertFigure(source: FigureSource): Command {
   return (state, dispatch) => {
     const type = state.schema.nodes.figure;
     if (!type) return false;
-    const attrs = Object.fromEntries(
-      Object.entries({
-        figureType: source.figureType ?? 'image',
-        src: source.src,
-        fileAssetId: source.fileAssetId,
-        snapshotId: source.snapshotId,
-        alt: source.alt,
-        caption: source.caption,
-        width: source.width,
-        height: source.height,
-      }).filter(([, value]) => value !== undefined),
-    );
+    const attrs = figureAttrs(source);
+    return insertBlock(type.createAndFill(attrs) ?? type.create(attrs), 'select')(state, dispatch);
+  };
+}
+
+/** Changes the figure selected, or else inserts one (`insertFigure`); it is selected after. */
+export function setFigure(source: FigureSource): Command {
+  return (state, dispatch, view) => {
     const found = nodeAtSelection(state, ['figure']);
-    if (!found) {
-      const node = type.createAndFill(attrs) ?? type.create(attrs);
-      return insertBlock(node, 'select')(state, dispatch);
-    }
-    dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...attrs }));
+    if (!found) return insertFigure(source)(state, dispatch, view);
+    const attrs = { ...found.node.attrs, ...figureAttrs(source) };
+    dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, attrs));
     return true;
   };
 }

@@ -4,7 +4,12 @@
 // or rejected. Figures are written as their alternative text and caption.
 
 import { PAGE_SIZE_DIMENSIONS } from '../templates/template-css-values.js';
-import type { DocumentFile, StoredMark, StoredNode } from './document-format.js';
+import {
+  type DocumentFile,
+  type StoredMark,
+  storedMathSource,
+  type StoredNode,
+} from './document-format.js';
 import type { TemplateFile } from './template-format.js';
 import { writeZip } from './zip.js';
 
@@ -64,7 +69,7 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'lineBreak':
       return '<w:r><w:br/></w:r>';
     case 'math':
-      return run(inlineText(node.content), '<w:i/>');
+      return run(storedMathSource(node), '<w:i/>');
     case 'footnote': {
       writing.footnotes.push(inlines(node.content, writing));
       const id = String(writing.footnotes.length);
@@ -167,7 +172,7 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
     ),
   codeBlock: (node) => code(inlineText(node.content)),
   linkedCode: (node) => code(text(node.attrs?.code)),
-  mathBlock: (node) => paragraph(run(inlineText(node.content), '<w:i/>'), '<w:jc w:val="center"/>'),
+  mathBlock: (node) => paragraph(run(storedMathSource(node), '<w:i/>'), '<w:jc w:val="center"/>'),
   table: tableOf,
   figure: (node) => {
     const { alt, caption } = node.attrs ?? {};

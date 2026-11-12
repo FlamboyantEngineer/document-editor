@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="The canonical whole document takes every edit; a read-only paged projection shows it and routes input to it."
+    />
+    <title>Spike: paged projection · Labs</title>
+    <style>
+      body {
+        font:
+          16px/1.5 Georgia,
+          serif;
+      }
+      :root {
+        --lab-width: 480px;
+      }
+      .lab-measure {
+        position: absolute;
+        left: -10000px;
+        top: 0;
+      }
+      /* The page, not only its content, takes the width, so its footnote area wraps to it too. */
+      .lab-measure,
+      .lab-pages .pm-page {
+        width: var(--lab-width);
+      }
+      .lab-pages .pm-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+      }
+      .lab-pages .pm-page {
+        display: flex;
+        flex-direction: column;
+        box-sizing: content-box;
+        height: 360px;
+        padding: 32px;
+        background: #fff;
+        color: #1d2129;
+        box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+      }
+      .lab-pages .pm-page-content {
+        flex: 1;
+      }
+      .pm-page-footnotes {
+        border-top: 1px solid #c4c8cf;
+        padding-top: 6px;
+        font-size: 13px;
+        line-height: 18px;
+      }
+      .pm-footnote-entry {
+        margin: 0 0 4px;
+      }
+      .pm-footnote-entry-number {
+        margin-right: 6px;
+      }
+      .footnote-reference {
+        font-size: 11px;
+        line-height: 0;
+      }
+      .ProseMirror {
+        outline: none;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .selectedCell {
+        background: #cfe1ff;
+      }
+      .lab-pages table {
+        table-layout: fixed;
+      }
+      .column-resize-handle {
+        position: absolute;
+        right: -2px;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: #6b9bf2;
+        pointer-events: none;
+      }
+      .lab-pages td,
+      .lab-pages th {
+        position: relative;
+      }
+      .resize-cursor {
+        cursor: col-resize;
+      }
+      .pm-page-header,
+      .pm-page-footer,
+      .pm-page-footnotes:empty {
+        display: none;
+      }
+      .pm-page-content > :first-child {
+        margin-top: 0;
+      }
+      .pm-page-content > :last-child {
+        margin-bottom: 0;
+      }
+      button {
+        margin: 0 0 16px;
+        padding: 6px 12px;
+        font: inherit;
+      }
+      p,
+      pre,
+      ul,
+      ol,
+      blockquote,
+      table {
+        margin: 0 0 12px;
+      }
+      h1,
+      h2 {
+        margin: 16px 0 8px;
+        line-height: 1.2;
+      }
+      pre {
+        padding: 8px;
+        background: #f3f4f6;
+        font: 14px/20px monospace;
+        white-space: pre-wrap;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      td,
+      th {
+        border: 1px solid #c4c8cf;
+        padding: 4px 8px;
+      }
+      td > p,
+      th > p {
+        margin: 0;
+      }
+    </style>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/spike-projection.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Spike: paged projection</h1>
+      <p>
+        The pages below are a read-only projection of the canonical whole document, which takes
+        every edit and keeps the undo history. Keys, typing, paste and composition on the pages run
+        on the canonical document and are mirrored back; a hidden ghost view measures it, and the
+        pages are laid out again once you pause.
+      </p>
+      <div class="lab-measure" aria-hidden="true"></div>
+      <div class="lab-pages"></div>
+    </main>
+  </body>
+</html>
