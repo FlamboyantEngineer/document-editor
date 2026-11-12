@@ -142,6 +142,14 @@ function sectionContent(section: ProseMirrorNode, footnotes: Map<string, ProseMi
   return blocks;
 }
 
+// Whether a section's content is only the paragraph an empty section is read with (`readSection`),
+// as yet unwritten and without attributes, so an empty section stays empty when written again.
+const isPlaceholder = (content: StoredContent) =>
+  content.length === 1 &&
+  content[0]?.type === 'paragraph' &&
+  !content[0].content?.length &&
+  !Object.keys(content[0].attrs ?? {}).length;
+
 /**
  * The stored form of an editor document: its sections' content in order, with every block split
  * across pages joined whole, and the content outside any section as unnamed sections.
@@ -155,7 +163,7 @@ export function writeDocumentFile(
   const write = (blocks: ProseMirrorNode[], name: string | null, footnotes = new Map()) => {
     const context: WriteContext = { footnotes };
     const content = joinFragments(blocks, fragmentRules).map((block) => writeNode(block, context));
-    sections.push({ name, content });
+    sections.push({ name, content: isPlaceholder(content) ? [] : content });
   };
   doc.forEach((child) => {
     if (child.type.name !== 'page_section') {

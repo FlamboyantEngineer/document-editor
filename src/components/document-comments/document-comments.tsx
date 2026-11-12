@@ -24,6 +24,7 @@ import {
 import {
   canStartComment,
   createElementId,
+  listSuggestions,
   startCommentDraft,
   type Suggestion,
 } from '../../engine/index.js';
@@ -194,6 +195,19 @@ function caretKey(items: readonly CommentItem[], state: EditorState): string | n
   return (inside ?? items.find((item) => item.kind === 'draft'))?.key ?? null;
 }
 
+// The people who made the document's suggestions, the same list while they stay the same.
+function useSuggestionAuthors(state: EditorState): readonly string[] {
+  const doc = state.doc;
+  const key = useMemo(
+    () =>
+      [...new Set(listSuggestions(doc).flatMap(({ author }) => (author ? [author] : [])))]
+        .sort()
+        .join('\n'),
+    [doc],
+  );
+  return useMemo(() => (key ? key.split('\n') : []), [key]);
+}
+
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread
  * and each suggestion level with its text, and, while text is selected, a button that starts a
@@ -202,7 +216,8 @@ function caretKey(items: readonly CommentItem[], state: EditorState): string | n
 export function DocumentComments(props: DocumentCommentsProps) {
   const { state, onStateChange, canDecide, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
-  const comments = useCommentThreads({ ...props, failed: labels.failed });
+  const authors = useSuggestionAuthors(state);
+  const comments = useCommentThreads({ ...props, failed: labels.failed, authors });
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const run = useRunCommand(onStateChange);

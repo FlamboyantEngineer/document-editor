@@ -17,9 +17,12 @@ export interface SnapshotOptions {
   readonly stylesheets?: readonly string[] | undefined;
 }
 
-// The editing state a snapshot leaves out: attributes and the elements only an editor draws.
+// The editing state a snapshot leaves out: attributes and the elements only an editor draws. A
+// widget inside a variable is content, not editing state: it shows the variable's value.
 const EDITING_ATTRIBUTES = ['contenteditable', 'spellcheck', 'draggable', 'tabindex'];
 const EDITING_ELEMENTS = '.ProseMirror-widget, .ProseMirror-gapcursor, .ProseMirror-separator';
+const VALUE_HOLDER = '[data-template-variable]';
+const ROOT_CLASS = 'de-document-editor';
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -27,12 +30,25 @@ const escapeHtml = (value: string) =>
 // The document's pages as markup, without the editing state.
 function pagesMarkup(view: EditorView): string {
   const copy = view.dom.cloneNode(true) as HTMLElement;
-  for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
+  for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) {
+    if (!element.parentElement?.closest(VALUE_HOLDER)) element.remove();
+  }
   for (const element of [copy, ...copy.querySelectorAll('*')]) {
     for (const name of EDITING_ATTRIBUTES) element.removeAttribute(name);
   }
   copy.classList.remove('ProseMirror-focused');
   return copy.outerHTML;
+}
+
+// The editor root's hooks around the pages, so stylesheets scoped to the editor style them too;
+// the snapshot is read, never edited.
+function rootMarkup(view: EditorView, pages: string): string {
+  const root = view.dom.closest(`.${ROOT_CLASS}`);
+  const data = [...(root?.attributes ?? [])]
+    .filter(({ name }) => name.startsWith('data-') && name !== 'data-mode')
+    .map(({ name, value }) => ` ${name}="${escapeHtml(value)}"`)
+    .join('');
+  return `<div class="${ROOT_CLASS}" data-mode="reading"${data}>${pages}</div>`;
 }
 
 /**
@@ -56,7 +72,7 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
     links,
     styles,
     '</head><body class="de-snapshot">',
-    pagesMarkup(view),
+    rootMarkup(view, pagesMarkup(view)),
     '</body></html>',
   ].join('');
 }

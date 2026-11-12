@@ -71,10 +71,10 @@ Verification: `e2e/versions.spec.ts`
 
 ### DOCE-VERSIONS-2.4 - Changed lines
 
-`createChangeLines()` shall draw, inside each block it is given lines for (`setChangeLines`), a bar for each line (`de-change-lines__line`) with its kind (`data-diff-line`) and its top and height from the block's top (`--de-change-line-top`, `--de-change-line-height`), and keep the lines where their blocks go until they are set again. Changes on one line merge into the strongest (`strongerChange`): a modification, then an insertion, a deletion and a formatting change. The document editor shall install it, and, while the document shows changes, measure the lines of each block whose text changed after each render: a line takes the strongest change marked on it, a deleted block's text the deletion, blocks deleted before or after a block whose text does not show its first or last line, and every line of a block whose formatting changed too at least the formatting; each line reaches halfway to the next, so the bars of successive lines meet.
+`createChangeLines()` shall draw, inside each block it is given lines for (`setChangeLines`), a bar for each line (`de-change-lines__line`) with its kind (`data-diff-line`) and its top and height from the block's top (`--de-change-line-top`, `--de-change-line-height`), and keep the lines where their blocks go until they are set again. Changes on one line merge into the strongest (`strongerChange`): a modification, then an insertion, a deletion and a formatting change. The document editor shall install it, and, while the document shows changes, measure the lines of each block whose text changed after each render: a line takes the strongest change marked on it, a deleted block's text the deletion, blocks deleted before or after a block whose text does not show its first or last line, and every line of a block whose formatting changed too at least the formatting; each line reaches halfway to the next, so the bars of successive lines meet. A kind of change the template's change bars turn off where the block is (its section's setting, or else the template's) shall not count, so it never hides a shown kind on the same line.
 
 Implementation: `src/engine/change-lines.ts`, `src/components/document-editor/change-lines-measure.ts`
-Verification: `src/engine/change-lines.test.ts`, `e2e/versions.spec.ts`
+Verification: `src/engine/change-lines.test.ts`, `src/components/document-editor/change-lines-measure.test.ts`, `e2e/versions.spec.ts`
 
 ## DOCE-VERSIONS-3 - Versions in the browser
 

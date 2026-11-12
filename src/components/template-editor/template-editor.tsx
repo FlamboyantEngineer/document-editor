@@ -66,6 +66,8 @@ export interface TemplateEditorLabels extends TemplateScopeLabels {
   readonly customStyle: string;
   readonly addCustomStyle: string;
   readonly deleteCustomStyle: string;
+  /** Takes a row's own value away, so it inherits again. */
+  readonly useInherited: string;
 }
 
 /** The template editor's English text. */
@@ -108,6 +110,7 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   customStyle: 'Custom styles',
   addCustomStyle: 'Add a style',
   deleteCustomStyle: 'Delete the style',
+  useInherited: 'Use the inherited value',
   inherited: (value, source) =>
     source ? `Inherited from ${source}: ${value}` : `Inherited: ${value}`,
   scope: 'Settings of',
@@ -150,7 +153,7 @@ function Identity({ props, labels }: { props: TemplateEditorProps; labels: Templ
           density="compact"
           tracksChanges={false}
           value={template.name ?? ''}
-          onChange={(name) => onChange(withSetting(template, ['name'], name))}
+          onChange={(name) => onChange(withSetting(template, ['name'], name || null))}
         />
       </PropertyRow>
       {parentOptions ? (
@@ -202,13 +205,15 @@ function targetOf(
 }
 
 /**
- * A template with a region edited on the pages written into it: into the section's own region
- * while the section has its own content for it, and into the document's otherwise.
+ * A template with a region edited on the pages written into it, where the section's pages take the
+ * region from (`resolveSectionRegion`): into the section's own region while it has one that does
+ * not inherit, and into the document's otherwise.
  */
 export function withRegionChange(template: TemplateFile, change: RegionChange): TemplateFile {
   const index = template.sections?.findIndex((section) => section.name === change.section) ?? -1;
   const section = index >= 0 ? template.sections?.[index] : undefined;
-  if (section && section[change.region]?.content) {
+  const own = section?.[change.region];
+  if (section && own && own.inherit !== true) {
     const own = withSetting(
       section as unknown as TemplateFile,
       [change.region, 'content'],
@@ -262,7 +267,13 @@ export function TemplateEditor(props: TemplateEditorProps) {
       {sections.map((section) => (
         <Fragment key={section.id}>
           <PropertySection id={section.id} title={section.title}>
-            {rows(context, section.scope, section.settings)}
+            {rows(
+              context,
+              section.scope,
+              scope === null
+                ? section.settings
+                : section.settings.filter((setting) => !setting.documentOnly),
+            )}
             {section.id === 'page' ? <MarginsRow context={context} /> : null}
           </PropertySection>
           {section.id === 'page' ? (
