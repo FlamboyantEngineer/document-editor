@@ -10,6 +10,11 @@ export type {
   SessionStateUpdate,
 } from './document-session.js';
 export { createDocumentSession } from './document-session.js';
+export type { DraftOffer } from './drafts.js';
+export type { DocumentMerge, MergeConflict, MergeInput } from './merge.js';
+export { mergeDocuments } from './merge.js';
+export type { MergeChoice } from './merge-conflicts.js';
+export { canKeepBoth, resolveMergeConflict } from './merge-conflicts.js';
 export type {
   SessionLoadPhase,
   SessionSavePhase,

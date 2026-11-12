@@ -57,7 +57,7 @@ Verification: `src/session/document-session.test.ts`, `src/components/document-s
 
 ### DOCE-SESSION-2.2 - Saving
 
-`save()` shall write the document in the stored format with its template pin and save it against the revision it was edited from, one save at a time, the save status going `saving` and then `saved`. A change made during a save stays to save. A refused save, such as a `conflict`, shall set the status to `error` with the host's error and keep the change to save again.
+`save()` shall write the document in the stored format with its template pin and save it against the revision it was edited from, one save at a time, the save status going `saving` and then `saved`. A change made during a save stays to save. A refused save shall set the status to `error` with the host's error and keep the change to save again; a save refused as `conflict` is then merged (DOCE-SESSION-4).
 
 Implementation: `src/session/store-saving.ts`
 Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
@@ -134,6 +134,31 @@ Verification: `src/session/room-session.test.ts`
 Implementation: `src/collab/room-connection.ts`
 Verification: `src/session/room-session.test.ts`
 
+## DOCE-SESSION-4 - Merging another writer's saves
+
+In store mode two readers can edit the same stored document. When a save is refused as `conflict`, or the store tells of a save made elsewhere (DOCE-SESSION-7), the session merges the reader's unsaved changes into the stored document (D28) rather than asking the reader to choose a whole document.
+
+### DOCE-SESSION-4.1 - Three-way merge by element id
+
+`mergeDocuments({ base, mine, theirs })` shall merge two stored documents edited from the same base by element id: a block only one side changed, inserted or deleted takes that side's change; a container both sides changed, such as a section, a list or a table, merges its own settings and then its children the same way; blocks either side inserted are placed after the block before them on that side; and the order follows the side that moved blocks, the reader's when both did. The template pin merges the same way, the reader's winning when both changed it. When a save conflicts (`HostError.current`, or the stored document loaded again when the host gives none), the session shall show the merged document, take the stored document as its new baseline and save the merge against it, with no prompt when no block conflicts. The caret and the blocks that did not change stay as they were (DOCE-SESSION-7.2).
+
+Implementation: `src/session/merge.ts`, `src/session/store-refresh.ts`, `src/session/store-saving.ts`
+Verification: `src/session/merge.test.ts`, `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
+
+### DOCE-SESSION-4.2 - Conflicts
+
+A block both sides changed differently, or one side deleted while the other changed it, shall be a conflict (`MergeConflict`: its id, the reader's version and the stored one, null for a deletion). The merged document shows the reader's version, or the changed one over a deletion. While conflicts remain, the session's `conflicts` store lists them, its status is `error` with a `conflict` error, and it does not save, so `flush()` resolves false. `resolveConflict(id, choice)` settles one: `mine` keeps the reader's block as it is now, `theirs` puts the stored one in its place, a deletion on the chosen side removing it, and `both` (for two blocks with text, `canKeepBoth`) keeps the reader's block with the stored one after it under new element ids (`resolveMergeConflict`). Once none remains, the session saves again.
+
+Implementation: `src/session/merge.ts`, `src/session/merge-conflicts.ts`, `src/session/store-refresh.ts`, `src/session/store-saving.ts`
+Verification: `src/session/merge.test.ts`, `src/session/store-refresh.test.ts`
+
+### DOCE-SESSION-4.3 - The conflict prompt
+
+`MergeConflicts` shall show, for a session's conflicts, one warning per block, titled by whether both changed it or one deleted it, with the word changes from the reader's text to the stored one (`InlineTextDiff`) and a group of buttons, named by the title, to keep mine, keep theirs and, where both hold text, keep both. It renders nothing while there is no conflict. Its text comes from `labels`.
+
+Implementation: `src/components/document-session/merge-conflicts.tsx`
+Verification: `src/components/document-session/merge-conflicts.test.tsx`, `e2e/session.spec.ts`
+
 ## DOCE-SESSION-5 - Unsaved changes
 
 ### DOCE-SESSION-5.1 - The unsaved-changes reader
@@ -149,6 +174,87 @@ When the host's `lifecycle` adapter says the page is hidden or being left, the s
 
 Implementation: `src/session/session-follow.ts`, `src/session/store-saving.ts`
 Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
+
+## DOCE-SESSION-6 - Drafts and offline
+
+### DOCE-SESSION-6.1 - Keeping store-mode drafts
+
+In store mode, while the document has unsaved changes, the session shall keep its content in the stored format, with its template pin and the revision it was edited from, through the host's `drafts` adapter once changes pause for `draftDelay` milliseconds (300 by default), so a reload or a crash does not lose it. Once a save leaves nothing unsaved, the session shall remove the draft.
+
+Implementation: `src/session/drafts.ts`, `src/session/store-session.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.2 - Offering a draft
+
+When a document opens and the `drafts` adapter holds a draft for it, the session's `draft` store shall offer it (`savedAt`, `outdated`) until it is restored or discarded, and no later change replaces the offered draft meanwhile. `restoreDraft()` shall show the draft's content and template in place of the stored ones, as a change to save.
+
+Implementation: `src/session/drafts.ts`, `src/session/store-session.ts`
+Verification: `src/session/drafts.test.ts`, `e2e/offline.spec.ts`
+
+### DOCE-SESSION-6.3 - Drafts the store already holds
+
+A draft whose content and template pin the store already holds, compared as DOCE-SESSION-2.1 compares them, shall not be offered, and the session shall remove it.
+
+Implementation: `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.4 - Drafts from an older revision
+
+A draft edited from an older revision than the store holds shall be offered as `outdated`. Once restored, it shall be saved against the revision it was edited from, with that revision's content (`versions.load`) as its base, so the store refuses it as a `conflict` and the session merges it into the newer save (DOCE-SESSION-4) rather than losing either; blocks both changed wait for the reader.
+
+Implementation: `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.5 - Discarding a draft
+
+`discardDraft()` shall end the offer and remove the draft, keeping the stored content.
+
+Implementation: `src/session/store-session.ts`, `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`, `e2e/offline.spec.ts`
+
+### DOCE-SESSION-6.6 - Drafts when the page goes away
+
+When the host's `lifecycle` adapter says the page is hidden or being left, the session shall keep its draft at once, before it flushes, so a save that fails then still leaves the draft.
+
+Implementation: `src/session/store-session.ts`, `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.7 - Keeping room-mode drafts
+
+In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left: the document's state, the changes the room has not confirmed, the last state the room had confirmed all of (`confirmed`), and the room's generation.
+
+Implementation: `src/collab/offline.ts`
+Verification: `src/collab/offline.test.ts`
+
+### DOCE-SESSION-6.8 - Replaying room-mode drafts
+
+`restoreRoomDraft` shall apply a draft's state and unconfirmed changes to a new shared document as one merged update, which keeps causal order whatever order they were kept in (DOCE-COLLAB-4.6), and say whether Yjs integrated it whole. Handed to the connection as its unconfirmed update, the draft's local changes reach the room once it connects again, and `whenStored` resolves once the room has stored them.
+
+Implementation: `src/collab/offline.ts`
+Verification: `src/collab/offline.test.ts`
+
+### DOCE-SESSION-6.9 - Merging a room draft into a new generation
+
+When a shared room has started a new generation since a draft was kept, `mergeRoomDraft` shall merge what the draft holds beyond the last state the room confirmed into the new generation's document, by element id (DOCE-SESSION-4): a block only the draft changed takes the draft's version, as one change the binding sends to the room. A block both changed, or one changed and the other removed, keeps the new generation's version and is reported as a leftover with the draft's version. A draft with no unconfirmed changes merges nothing, and a draft with no confirmed state reports every block that differs.
+
+Implementation: `src/collab/offline.ts`
+Verification: `src/collab/offline.test.ts`
+
+## DOCE-SESSION-7 - Refreshing from the store
+
+### DOCE-SESSION-7.1 - Following the store's saves
+
+When the host's document store tells of a save (`documents.subscribe`) newer than the one the session holds, the session shall wait for its own save in flight, load the stored document and take it in: shown as it is when the reader has no unsaved changes, merged with them otherwise (DOCE-SESSION-4), and taken as the new baseline. Its own saves are not taken in again.
+
+Implementation: `src/session/store-refresh.ts`
+Verification: `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
+
+### DOCE-SESSION-7.2 - Replacing the content in place
+
+`replaceDocumentContent(state, doc)` shall give a transaction that turns the state's document into `doc` by changing only the blocks, matched by element id, and the runs of text that differ, so the selection and every unchanged block stay. Page headers and footers are left for the section plugins to derive. The transaction is a system change (`markSystemChange`) outside the history.
+
+Implementation: `src/engine/replace-document-content.ts`
+Verification: `src/engine/replace-document-content.test.ts`, `src/session/store-refresh.test.ts`
 
 ## DOCE-SESSION-9 - Status UI
 
@@ -193,3 +299,11 @@ Verification: `src/components/document-session/save-status.test.tsx`
 
 Implementation: `src/components/document-session/save-status.tsx`
 Verification: `src/components/document-session/save-status.test.tsx`, `e2e/session.spec.ts`
+
+## Hooks
+
+| Hook                           | Kind      | Values               | Description                                        |
+| ------------------------------ | --------- | -------------------- | -------------------------------------------------- |
+| `de-merge-conflicts`           | root      |                      | The conflict prompt (DOCE-SESSION-4.3).            |
+| `de-merge-conflicts__conflict` | slot      |                      | One block's warning.                               |
+| `data-kind`                    | attribute | `changed`, `deleted` | On a conflict: both changed it, or one deleted it. |

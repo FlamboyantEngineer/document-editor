@@ -132,7 +132,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.19 - Drafts
 
-The host's optional `drafts` adapter shall keep at most one draft of a document per mode, read it (`get`, null for none), replace it (`put`) and remove it (`clear`): in store mode the unsaved content and the revision it was edited from; in room mode the shared document's state and the changes the room has not confirmed, for the room's generation. The editor touches no browser storage itself.
+The host's optional `drafts` adapter shall keep at most one draft of a document per mode, read it (`get`, null for none), replace it (`put`) and remove it (`clear`): in store mode the unsaved content and the revision it was edited from; in room mode the shared document's state, the changes the room has not confirmed and the last state the room had confirmed all of (`confirmed`, the base a cache merges from after a new generation), for the room's generation. The editor touches no browser storage itself.
 
 Implementation: `src/host/session-adapters.ts`, `src/host/memory-session.ts`
 Verification: `src/host/memory-host.test.ts`

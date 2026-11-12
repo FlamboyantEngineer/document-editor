@@ -17,7 +17,7 @@ import type { EditorState } from 'prosemirror-state';
 import { useEffect, useRef, useState } from 'react';
 import type { VersionChangeDisplay } from '../../engine/version-changes.js';
 import type { DocumentVersion, HostResult, IdentityAdapter } from '../../host/adapters.js';
-import type { EditorCapabilities } from '../../host/capabilities.js';
+import { type EditorCapabilities, READ_ONLY_CAPABILITIES } from '../../host/capabilities.js';
 import type { TemplateFile } from '../../model/format/template-format.js';
 import type { DocumentSession, SessionStateUpdate } from '../../session/document-session.js';
 import type { VersionGroup } from '../../session/version-groups.js';
@@ -33,8 +33,11 @@ import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-la
 export interface DocumentHistoryProps<R> {
   /** The document's versions (`createDocumentVersions`). */
   readonly versions: DocumentVersions<R>;
-  /** What the reader may do: open the history, save and name versions, and edit to restore one. */
-  readonly capabilities: EditorCapabilities;
+  /**
+   * What the reader may do: open the history, save and name versions, and edit to restore one.
+   * Defaults to the session's live capabilities.
+   */
+  readonly capabilities?: EditorCapabilities | undefined;
   /** What the reader has now, which a historical view keeps until the reader returns. */
   readonly returnTo: R;
   /** Called with what the reader had before a historical view, once it ends. */
@@ -177,9 +180,19 @@ function SaveVersion<R>({
   );
 }
 
+// The capabilities given, or else the session's live ones; none until the document loads.
+function useReaderCapabilities<R>(
+  versions: DocumentVersions<R>,
+  given: EditorCapabilities | undefined,
+): EditorCapabilities {
+  const document = useSessionValue(versions.session.document);
+  return given ?? document?.capabilities ?? READ_ONLY_CAPABILITIES;
+}
+
 /** A document's versions, to save, name, view, compare and restore (DOCE-VERSIONS-4). */
 export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
-  const { versions, capabilities, returnTo, onReturn } = props;
+  const { versions, returnTo, onReturn } = props;
+  const capabilities = useReaderCapabilities(versions, props.capabilities);
   const labels = { ...DEFAULT_HISTORY_LABELS, ...props.labels };
   const list = useSessionValue(versions.list);
   const view = useSessionValue(versions.view);

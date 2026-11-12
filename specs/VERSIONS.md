@@ -194,9 +194,9 @@ Verification: `src/session/versions.test.ts`
 
 ### DOCE-VERSIONS-4.5 - Restoring
 
-`restore(revision)` shall make a version's content and the template it pins the document's, as one change the reader may undo that is neither a suggestion nor refused by locked content (`markSystemChange`), and save it. The session keeps the revision it saves against.
+`restore(revision)` shall make a version's content and the template it pins the document's. In store mode, with a host that restores versions (`versions.restore`) and tells of saves (`documents.subscribe`), it shall first keep the reader's changes, then have the host save the version as a new state, which the session takes in like another writer's save (DOCE-SESSION-7). Otherwise, and in a shared room, it shall edit the document to the version as one change the reader may undo that is neither a suggestion nor refused by locked content (`markSystemChange`), and save it.
 
-Implementation: `src/session/versions.ts`
+Implementation: `src/session/versions.ts`, `src/session/version-restore.ts`
 Verification: `src/session/versions.test.ts`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-4.6 - The history pane
@@ -205,6 +205,13 @@ Verification: `src/session/versions.test.ts`, `e2e/history.spec.ts`
 
 Implementation: `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
 Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+
+### DOCE-VERSIONS-4.7 - What the reader may do
+
+The versions shall follow the session's live capabilities: saving and naming a version shall be refused (`denied`) without `saveVersion`, restoring one without `edit`, and listing and viewing versions without `history`. The history pane shall read the session's capabilities unless it is given its own.
+
+Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
+Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`
 
 ## DOCE-VERSIONS-5 - Historical view
 

@@ -104,6 +104,13 @@ Accepting an insertion shall mark its text, where no contributor is named, as it
 Implementation: `src/engine/suggestion-decisions.ts`
 Verification: `src/engine/suggestions.test.ts`
 
+### DOCE-SUGGESTIONS-2.8 - One decide policy
+
+`suggestionPermissions(suggestion, policy)` shall say whether the reader may accept a suggestion and reject it: a reader who may decide (`canDecide`) may do both unless the policy's `decide` narrows it, and a writer may withdraw (reject) their own suggestion while `canWithdraw`, even while suggesting; an unattributed suggestion is its thread's writer's (DOCE-SUGGESTIONS-2.5). `decideWithPolicy(policy, decision, ids)` shall decide only the suggestions the policy allows, and fail when it allows none.
+
+Implementation: `src/engine/suggestion-policy.ts`
+Verification: `src/engine/suggestion-policy.test.ts`
+
 ## DOCE-SUGGESTIONS-3 - Suggesting in the editor
 
 ### DOCE-SUGGESTIONS-3.1 - Suggesting
@@ -127,9 +134,57 @@ Accepting or rejecting a suggestion, or all of them, shall update the document a
 Implementation: `src/engine/suggestion-decisions.ts`, `labs/src/suggestions.lab.tsx`
 Verification: `e2e/suggestions.spec.ts`
 
+### DOCE-SUGGESTIONS-3.4 - Deciding on every path
+
+The comments margin, the comments panel and the context menu shall decide suggestions through one policy (`editorSuggestionPolicy`): the reader is the editor's `author`, else the comments' reader; an editable editor that is not suggesting may decide, as the comments' `decide` option narrows it; and an editable writer may withdraw their own suggestion, while suggesting too. The context menu shall offer only the decisions the policy allows, and none on locked content.
+
+Implementation: `src/components/document-editor/suggestion-policy.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comments-panel.tsx`
+Verification: `e2e/suggestions.spec.ts`
+
+## DOCE-SUGGESTIONS-4 - Tracked formatting
+
+Formatting changes made while suggesting are tracked as suggestions (D20): the new formatting shows at once, and the suggestion records the formatting it replaced, so it is decided like text.
+
+### DOCE-SUGGESTIONS-4.1 - Text formatting
+
+While suggesting, a change that adds or removes a formatting mark (any mark but suggestions, comment highlights, contributors and references) shall be made, and each run it changed shall carry a format change mark (`format_change`) with the writer, a suggestion id and the run's formatting before the first tracked change (`before`). A later change that brings a run back to that formatting shall drop the mark. Accepting shall drop the mark; rejecting shall restore the recorded formatting and drop it. `listSuggestions` shall name such a suggestion `formatted`.
+
+Implementation: `src/engine/suggested-formatting.ts`, `src/engine/suggestions.ts`, `src/engine/suggestion-decisions.ts`, `src/model/schema/marks.ts`
+Verification: `src/engine/suggested-formatting.test.ts`
+
+### DOCE-SUGGESTIONS-4.2 - Block type and attributes
+
+While suggesting, a change of a block's type or formatting attributes (any attribute but identity, layout and suggestion attributes) on a block that can be suggested (DOCE-SUGGESTIONS-1.4) shall be made and recorded in the block's `suggestionFormat`: the suggestion id, the writer, and the block's type and non-default attributes before the first tracked change. A change back shall clear it. Accepting shall clear it; rejecting shall restore the type and attributes and clear it.
+
+Implementation: `src/engine/suggested-formatting.ts`, `src/model/schema/element-attributes.ts`
+Verification: `src/engine/suggested-formatting.test.ts`
+
+### DOCE-SUGGESTIONS-4.3 - What tracked formatting leaves alone
+
+Formatting the writer's own suggested insertion, and system changes (`isSystemChange`), shall not be tracked. A format change inside text another decision removes shall be reported as a dependent (DOCE-SUGGESTIONS-2.6).
+
+Implementation: `src/engine/suggested-formatting.ts`
+Verification: `src/engine/suggested-formatting.test.ts`
+
+### DOCE-SUGGESTIONS-4.4 - Stored format changes
+
+A format change shall be stored as a `formatChange` mark with its id, writer, thread and `before`, the marks listed in their stored form; a block's record as its `suggestionFormat` attribute, its type and attributes in their stored form. Both shall read back unchanged.
+
+Implementation: `src/model/format/format-records.ts`, `src/model/format/document-format.ts`
+Verification: `src/engine/suggested-formatting.test.ts`
+
+### DOCE-SUGGESTIONS-4.5 - Formatting while suggesting in the editor
+
+Making text bold while suggesting shall show it bold with its format change marked (`data-format-change`), and rejecting the suggestion shall leave it as it was.
+
+Implementation: `src/engine/suggested-formatting.ts`, `labs/src/suggestions.lab.tsx`
+Verification: `e2e/suggestions.spec.ts`
+
 ## Hooks
 
-| Hook                         | Kind      | Values                  | Description                                 |
-| ---------------------------- | --------- | ----------------------- | ------------------------------------------- |
-| `data-suggesting`            | state     | `true`                  | On the editor while it takes suggestions.   |
-| `data-suggestion-split-kind` | attribute | `insertion`, `deletion` | On a block a suggestion inserts or deletes. |
+| Hook                         | Kind      | Values                      | Description                                               |
+| ---------------------------- | --------- | --------------------------- | --------------------------------------------------------- |
+| `data-suggesting`            | state     | `true`                      | On the editor while it takes suggestions.                 |
+| `data-suggestion-split-kind` | attribute | `insertion`, `deletion`     | On a block a suggestion inserts or deletes.               |
+| `data-format-change`         | attribute | the replaced marks, as JSON | On text whose formatting a suggestion changed.            |
+| `data-suggestion-format`     | attribute | the block's record, as JSON | On a block whose type or attributes a suggestion changed. |
