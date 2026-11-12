@@ -67,16 +67,17 @@ Verification: `e2e/stress.spec.ts`
 | Wheel scroll                   | Browser layouts per wheel event, on 5 and 40 pages                                                                             | ≤ 3, no growth with the pages     |
 | Typing style scope             | Elements restyled per keystroke, 40 pages against 5                                                                            | ≤ 3 times                         |
 | Keystroke latency              | p95 from a key's press to the frame after it is drawn, on 40 and 300 pages                                                     | ≤ 16 ms; ≤ 32 ms                  |
+| Typing beside comment threads  | The same p95 on 300 pages beside 500 open comment threads                                                                      | ≤ 32 ms                           |
 | Load, 24 pages                 | `whenSettled` time from navigation over five loads: median, p95                                                                | ≤ 6 s; ≤ 12 s                     |
 
-Two budgets wait for their phases: typing beside 500 comment threads on 300 pages, and a text-only change walking no untouched section, which a unit test will check.
+One budget waits for its phase: a text-only change walking no untouched section, which a unit test will check.
 
 Implementation: `e2e/budgets.ts`, `e2e/performance.spec.ts`, `labs/src/stress/stress-probe.ts`, `playwright.config.ts`, `package.json`
 Verification: `e2e/performance.spec.ts`
 
 ### DOCE-LABS-2.4 - Scale lab
 
-The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks and 1600 blocks in eight sections, each the same on every load; and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer (`window.stressLab`).
+The `stress-scale` lab shall show the documents the budgets name, picked by its size picker or the page's `size` query parameter: about 5, 24, 40 and 300 pages in one section, one section of 5000 blocks, 25 sections of 200 blocks, 1600 blocks in eight sections, and about 300 pages beside 500 open comment threads, each the same on every load; and offer a remote writer typing into the middle of the document (Remote typist). Each stress lab shows the harness its editor's layout state and counters, when its pages first settled, and a way to type as a remote writer (`window.stressLab`).
 
 Implementation: `labs/src/stress-scale.lab.tsx`, `labs/stress-scale.html`, `labs/src/stress/scale-documents.ts`, `labs/src/stress/stress-probe.ts`, `labs/src/stress/stress-lab.tsx`
 Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`
