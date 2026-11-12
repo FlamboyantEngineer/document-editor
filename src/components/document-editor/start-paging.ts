@@ -1,5 +1,5 @@
-// Starts laying a document editor's pages out, in page layout: by a pagination of the editor's
-// state, or by a projection of it on pages (DOCE-PAGINATION-7.17), which the editor renders.
+// Starts laying a document editor's pages out, in page layout: by a projection of its state on
+// pages (DOCE-PAGINATION-7.17), which the editor renders.
 
 import {
   mountRichTextView,
@@ -21,7 +21,6 @@ import {
 } from '../../model/index.js';
 import {
   createPagedProjection,
-  type createPagination,
   type LayoutState,
   listStartsKey,
   loadTemplateFonts,
@@ -29,15 +28,15 @@ import {
   type MeasuringViewOptions,
   pageDebugKey,
   type PagedProjection,
+  type PagedProjectionOptions,
   pageVariablesKey,
-  type Pagination,
   type SectionLayoutRules,
 } from '../../pagination/index.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
 import type { PagedEditor } from './use-paged-projection.js';
 
-// What lays the pages out: a pagination of the state, or a projection of it.
-export type LayoutRunner = Pick<Pagination, 'whenSettled' | 'stats'>;
+// What lays the pages out: a projection of the state.
+export type LayoutRunner = Pick<PagedProjection, 'whenSettled' | 'stats'>;
 
 // The height inside the page margins of a section's template scope.
 function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
@@ -127,7 +126,10 @@ export function startPaging(
 const ON_PAGES = new Set<PluginKey>([listStartsKey, pageDebugKey, pageVariablesKey]);
 const onPages = (plugin: Plugin) => ON_PAGES.has(plugin.spec.key as PluginKey);
 
-type PagingSetup = Omit<Parameters<typeof createPagination>[0], 'plugins'>;
+type PagingSetup = Omit<
+  PagedProjectionOptions,
+  'state' | 'plugins' | 'dispatch' | 'onProjection' | 'onLayout'
+> & { readonly onLayoutStateChange: (state: LayoutState) => void };
 type SetPaged = (paged: PagedEditor | null) => void;
 
 // Lays the pages out as a projection of the state, the layout's plugins that read the pages moved

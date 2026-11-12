@@ -1,6 +1,7 @@
 import type { EditorState } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import type { DocumentVersion, EditorHost } from '../host/adapters.js';
+import { FULL_CAPABILITIES } from '../host/capabilities.js';
 import { createMemoryHost } from '../host/memory-host.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
@@ -155,11 +156,43 @@ describe('createDocumentVersions', () => {
     expect(labels(versions)).toEqual([null]);
   });
 
-  it('DOCE-VERSIONS-4.5 restores a version as an edit, with its template, and saves it', async () => {
+  it('DOCE-VERSIONS-4.5 restores through the host, and the session takes the new state in', async () => {
     const host = createMemoryHost({
       templates: [TEMPLATE],
       documents: [{ id: 'doc', content: { ...paragraph('First'), template: { id: 'report' } } }],
     });
+    const { session, versions } = await openWithVersions(host);
+    typeText(session, 'X');
+    await session.setTemplate(null);
+    await session.save();
+    typeText(session, 'Y');
+    await expect(versions.restore('rev-1')).resolves.toMatchObject({ ok: true });
+    await vi.waitFor(() => {
+      const shown = session.document.get();
+      expect(shown && textOf(shown.state)).toBe('First');
+      expect(shown?.pin).toEqual({ id: 'report' });
+    });
+    // The reader's unsaved change was kept before the restore, which supersedes it.
+    const stored = await host.versions?.list('doc');
+    expect(stored?.ok && stored.value.map(({ revision }) => revision)).toEqual([
+      'rev-4',
+      'rev-3',
+      'rev-2',
+      'rev-1',
+    ]);
+    typeText(session, 'Z');
+    await session.save();
+    expect(session.status.get().error).toBeNull();
+  });
+
+  it('DOCE-VERSIONS-4.5 restores as an edit, with its template, without a host restore', async () => {
+    const memory = createMemoryHost({
+      templates: [TEMPLATE],
+      documents: [{ id: 'doc', content: { ...paragraph('First'), template: { id: 'report' } } }],
+    });
+    if (!memory.versions) throw new Error('The in-memory host keeps versions.');
+    const { restore: _, ...versionStore } = memory.versions;
+    const host = { ...memory, versions: versionStore };
     const { session, versions } = await openWithVersions(host);
     typeText(session, 'X');
     await session.setTemplate(null);
@@ -170,6 +203,26 @@ describe('createDocumentVersions', () => {
     expect(shown?.pin).toEqual({ id: 'report' });
     const loaded = await host.documents.load('doc');
     expect(loaded.ok && loaded.value.content.template).toEqual({ id: 'report' });
+  });
+
+  it('DOCE-VERSIONS-4.7 refuses what the session’s capabilities do not allow', async () => {
+    const host = hostWith();
+    host.memory.setCapabilities({ ...FULL_CAPABILITIES, saveVersion: false, edit: false });
+    const { versions } = await openWithVersions(host);
+    await expect(versions.saveVersion('Final')).resolves.toMatchObject({
+      error: { kind: 'denied' },
+    });
+    await expect(versions.rename('rev-1', 'Start')).resolves.toMatchObject({
+      error: { kind: 'denied' },
+    });
+    await expect(versions.restore('rev-1')).resolves.toMatchObject({ error: { kind: 'denied' } });
+    host.memory.setCapabilities({ ...FULL_CAPABILITIES, history: false });
+    await settle();
+    await versions.refresh();
+    expect(versions.list.get()).toMatchObject({ status: 'failed', error: { kind: 'denied' } });
+    await expect(versions.viewVersion('rev-1', { returnTo: 'x' })).resolves.toMatchObject({
+      error: { kind: 'denied' },
+    });
   });
 
   it('DOCE-VERSIONS-5.1 shows a version with the template it pins, read-only, until return', async () => {
