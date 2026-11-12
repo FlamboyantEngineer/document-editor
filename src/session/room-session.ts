@@ -12,6 +12,7 @@ import type {
   DocumentSessionOptions,
   SessionDocument,
 } from './document-session.js';
+import type { DraftOffer } from './drafts.js';
 import { loadPinnedTemplate } from './open-document.js';
 import { type OpenedRoom, openRoom, whenKept } from './room-open.js';
 import { roomRefusal, roomSavePhase } from './room-status.js';
@@ -22,6 +23,19 @@ import {
   defaultState,
   type SessionStores,
 } from './store-session.js';
+import { createValueStore } from './value-store.js';
+
+// Room mode opens on its draft by itself, so it offers none to restore, and the room merges every
+// writer's changes, so no conflict is left to settle.
+const NO_DRAFT_OFFER: Pick<
+  DocumentSession,
+  'draft' | 'restoreDraft' | 'discardDraft' | 'resolveConflict'
+> = {
+  resolveConflict: () => Promise.resolve(),
+  draft: createValueStore<DraftOffer | null>(null),
+  restoreDraft: () => Promise.resolve(false),
+  discardDraft: () => undefined,
+};
 
 // The document the room holds, read for the editor with the room's plugins.
 async function readRoom(
@@ -146,8 +160,8 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
       await flush();
     },
     flush,
-    resolveConflict: () => Promise.resolve(),
     hasUnsavedChanges: () => room?.connection.state().hasUnconfirmedChanges ?? false,
+    ...NO_DRAFT_OFFER,
     close,
   };
 }
