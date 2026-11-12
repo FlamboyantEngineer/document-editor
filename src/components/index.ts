@@ -42,6 +42,20 @@ export type {
 } from './document-editor/index.js';
 export type { ChangeBar } from './document-editor/index.js';
 export type { ContentChangeCause } from './document-editor/index.js';
+export type {
+  DocumentStatusBarOptions,
+  StatusBarItem,
+  VisibleElement,
+} from './document-editor/index.js';
+export {
+  DocumentModeStatus,
+  DocumentPageStatus,
+  DocumentPresence,
+  DocumentProofingLanguage,
+  DocumentProofingStatus,
+  DocumentWordStatus,
+  STATUS_BAR_ITEMS,
+} from './document-editor/index.js';
 export {
   CODE_LANGUAGES,
   contentChangeCause,

@@ -1,12 +1,13 @@
 // The document editor lab's host panel: what the editor tells its host (focus, the selection, the
-// writer's changes, the blocks its layouts measured), a key of the host's own (Ctrl+S saves), and
-// the editor's handle taking the reader to a heading.
+// writer's changes, the blocks its layouts measured, the elements on screen), a key of the host's
+// own (Ctrl+S saves), and the editor's handle taking the reader to a heading.
 
 import type { Command } from 'prosemirror-state';
 import { type RefObject, useMemo, useState } from 'react';
 import {
   type DocumentEditorHandle,
   type DocumentEditorNotifications,
+  type DocumentEditorProps,
   EDITOR_COUNTS,
   EDITOR_MEASURES,
 } from '../../src/components/index.js';
@@ -23,6 +24,7 @@ export function useHostPanel() {
   const [ready, setReady] = useState(false);
   const [suggestions, setSuggestions] = useState(0);
   const [measured, setMeasured] = useState(0);
+  const [onScreen, setOnScreen] = useState(0);
   const telemetry = useMemo<TelemetryAdapter>(
     () => ({
       measure: (name, duration) => {
@@ -34,7 +36,9 @@ export function useHostPanel() {
     }),
     [],
   );
-  const notifications = useMemo<DocumentEditorNotifications>(() => {
+  const notifications = useMemo<
+    DocumentEditorNotifications & Pick<DocumentEditorProps, 'onVisibleElementsChange'>
+  >(() => {
     const save: Command = () => {
       setSaved((count) => count + 1);
       return true;
@@ -46,12 +50,23 @@ export function useHostPanel() {
       keymap: { 'Mod-s': save },
       onLayoutReady: () => setReady(true),
       onSuggestionsChange: (list) => setSuggestions(list.length),
+      onVisibleElementsChange: (elements) => setOnScreen(elements.length),
     };
   }, []);
   return {
     notifications,
     telemetry,
-    report: { focused, changes, caret, saved, firstLayout, ready, suggestions, measured },
+    report: {
+      focused,
+      changes,
+      caret,
+      saved,
+      firstLayout,
+      ready,
+      suggestions,
+      measured,
+      onScreen,
+    },
   };
 }
 
@@ -82,7 +97,7 @@ export function HostPanel({
         {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
         {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
         {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions · {report.measured}{' '}
-        blocks measured
+        blocks measured · {report.onScreen} elements on screen
       </output>
     </fieldset>
   );

@@ -50,6 +50,7 @@ import type { DocumentCommentsOptions } from '../document-comments/document-comm
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import type { HostDialogProps } from './dialog-parts.js';
 import { useFindBar } from './document-find-bar.js';
+import type { DocumentStatusBarOptions } from './document-status-bar.js';
 import { EditorBody } from './editor-body.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
 import {
@@ -75,6 +76,7 @@ import {
   useElementIdRepair,
 } from './use-host-events.js';
 import { usePagedEditor, usePagedView } from './use-paged-projection.js';
+import { useVisibleElementsFeed, type VisibleElement } from './visible-elements.js';
 
 /** How the editor repairs the element ids of the documents it is given. */
 export interface DocumentEditorIdRepair {
@@ -142,12 +144,13 @@ export interface DocumentEditorProps
    */
   scrollable?: boolean | undefined;
   /**
-   * Shows the editor's status bar below the document: the page holding the caret, the words, and
-   * whether the writer is editing, suggesting or reading. Defaults to false.
+   * Shows the editor's status bar below the document: the page in view, the words, and whether the
+   * writer is editing, suggesting, commenting or reading, rearranged by the host when given as
+   * options. Defaults to false.
    */
-  statusBar?: boolean | undefined;
-  /** The host's own items at the end of the status bar. */
-  statusItems?: ReactNode;
+  statusBar?: boolean | DocumentStatusBarOptions | undefined;
+  /** Tells the host the elements on screen, with their boxes, each time the set of them changes. */
+  onVisibleElementsChange?: ((elements: readonly VisibleElement[]) => void) | undefined;
   /**
    * The document's session (`createDocumentSession`): the status bar shows where its changes stand,
    * with Retry after a failed save, and Mod-S saves it.
@@ -349,6 +352,7 @@ function useEditorLayout(
     ),
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
+  useVisibleElementsFeed(view, props.onVisibleElementsChange);
   return { progress, view, layoutState };
 }
 
