@@ -211,7 +211,9 @@ function routeProjectionInput(rng: Random, pair: Pair): boolean {
   return mirrorCanonical(pair, new Transform(pair.canonical).step(routed));
 }
 
-describe('projection spike: position mapping (check 6)', () => {
+// The property tests walk every character of generated documents after each edit: under a second
+// each here, but several times slower on CI's runners beside the other test files, so they get 30 s.
+describe('projection spike: position mapping (check 6)', { timeout: 30_000 }, () => {
   // 60 generated documents, in groups that each stay well inside the timeout on a loaded runner.
   it.each([1, 16, 31, 46])(
     'maps every character between a generated projection and its canonical document (documents %i on)',
