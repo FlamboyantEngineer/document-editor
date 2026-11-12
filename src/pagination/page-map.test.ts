@@ -3,8 +3,9 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { FRAGMENT_RULES } from '../model/index.js';
-import { createPageMap, pageMap } from './page-map.js';
+import { createPageMap, pageMap, showOnPages } from './page-map.js';
 import { createPagination } from './pagination.js';
+import { createProjectionMap } from './projection-map.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -124,6 +125,34 @@ describe('page map', () => {
     expect(map.pageOf('t1')?.number).toBe(2);
     expect(map.pageOf('p9')?.number).toBe(4);
     expect(map.pageOf('missing')).toBeNull();
+  });
+
+  it('DOCE-PAGINATION-7.18 maps through the positions a projection keeps, joining no pages', () => {
+    const kept = createProjectionMap(paged);
+    const map = createPageMap(paged, FRAGMENT_RULES, kept);
+    expect(map.canonical).toBe(kept.canonical);
+    const across = positionOf(kept.canonical, 'across');
+    expect(map.pageAt(across)?.number).toBe(2);
+    expect(map.toProjection(across)).toBe(kept.toProjection(across));
+    const other = createPageMap(
+      paged.type.create(paged.attrs, paged.content),
+      FRAGMENT_RULES,
+      kept,
+    );
+    expect(other.canonical).not.toBe(kept.canonical);
+    expect(other.canonical.eq(kept.canonical)).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-7.18 keeps the pages a document was shown on with its positions', () => {
+    const kept = createProjectionMap(paged);
+    const state = EditorState.create({ doc: kept.canonical });
+    showOnPages(state.doc, { pages: paged, rules: FRAGMENT_RULES, positions: kept });
+    showOnPages(state.doc, {
+      pages: paged.type.create(paged.attrs, paged.content),
+      rules: FRAGMENT_RULES,
+    });
+    expect(pageMap(state).projection).toBe(paged);
+    expect(pageMap(state).canonical).toBe(kept.canonical);
   });
 
   it('DOCE-PAGINATION-7.8 maps text exactly between the projection and the canonical document', () => {
