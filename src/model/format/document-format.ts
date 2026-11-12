@@ -97,6 +97,7 @@ const ELEMENT_ATTRS: Readonly<Record<string, string | null>> = Object.freeze({
   orphanedListContinuation: null,
   suggestionSplitKind: 'suggestionKind',
   suggestionSplitId: 'suggestionId',
+  suggestionFormat: 'suggestionFormat',
 });
 
 const CAPTION_ATTRS = { caption: 'caption', captionEnabled: 'captionEnabled' };
@@ -252,6 +253,7 @@ export const STORED_MARK_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
   comment_highlight: { type: 'comment', attrs: { commentId: 'thread', commentState: 'state' } },
   insertion: { type: 'insertion', attrs: { commentId: 'thread' } },
   deletion: { type: 'deletion', attrs: { commentId: 'thread' } },
+  format_change: { type: 'formatChange', attrs: { commentId: 'thread', before: 'before' } },
   reference: {
     type: 'reference',
     attrs: {

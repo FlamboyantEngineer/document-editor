@@ -28,7 +28,7 @@ export function templateFontFamilies(template: TemplateFile): string[] {
 
 /**
  * The host loading the faces of the families a template names, for the pages to wait for
- * (`PaginationOptions.ready`); nothing without a fonts adapter or a family to load.
+ * (`PagedProjectionOptions.ready`); nothing without a fonts adapter or a family to load.
  */
 export function loadTemplateFonts(
   fonts: FontsAdapter | undefined,

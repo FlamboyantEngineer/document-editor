@@ -77,6 +77,7 @@ describe('element attributes', () => {
       'splitPartIndex',
       'suggestionSplitKind',
       'suggestionSplitId',
+      'suggestionFormat',
     ]);
     expect(
       identityAttributesOf(documentSchema.nodes.paragraph ?? documentSchema.topNodeType).every(

@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { FRAGMENT_RULES } from '../model/index.js';
 import { createPageMap, pageMap, showOnPages } from './page-map.js';
-import { createPagination } from './pagination.js';
 import { createProjectionMap } from './projection-map.js';
 
 type Attrs = Record<string, unknown>;
@@ -187,19 +186,9 @@ describe('page map', () => {
     expect(map.toCanonical(repeated)).toBe(positionOf(canonical, 'Name') + 2);
   });
 
-  it("DOCE-PAGINATION-7.7 reads a state's page map once per document, by its pagination's rules", () => {
+  it("DOCE-PAGINATION-7.7 reads a state's page map once per document", () => {
     const state = EditorState.create({ doc: paged });
     expect(pageMap(state)).toBe(pageMap(state));
     expect(pageMap(state).canonical.child(0).child(0).child(1).childCount).toBe(3);
-    const { paragraph: _joined, ...rules } = FRAGMENT_RULES;
-    const pagination = createPagination({
-      measureIn: document.createElement('div'),
-      pageHeight: 100,
-      fragmentRules: rules,
-    });
-    const paginated = EditorState.create({ doc: paged, plugins: [pagination.plugin] });
-    const map = pageMap(paginated);
-    expect(map).not.toBe(pageMap(state));
-    expect(map.canonical.child(0).child(0).child(1).childCount).toBe(4);
   });
 });
