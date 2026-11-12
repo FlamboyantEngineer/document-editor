@@ -3,7 +3,7 @@
 
 import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorView } from 'prosemirror-view';
-import { type RefObject, useEffect, useMemo } from 'react';
+import { memo, type RefObject, useEffect, useMemo } from 'react';
 import { customStyleNames } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
@@ -13,7 +13,7 @@ import { DocumentFindBar, type FindBarMode, type FindRequest } from './document-
 import { DocumentMenubar } from './document-menubar.js';
 import { DocumentStatusBar, type EditorZoom, ZOOM_LEVELS } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
-import type { EditorContext, ObjectDialog } from './editor-context.js';
+import { DocumentEditorContext, type EditorContext, type ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
@@ -39,8 +39,42 @@ export interface ChromeProps {
   openFind?: ((mode?: FindBarMode) => void) | null | undefined;
 }
 
+/** What the chrome above the document reads. */
+export type TopChromeProps = ChromeProps & {
+  findRequest: FindRequest | null;
+  onFindClose: () => void;
+};
+
+/** What the chrome below the document reads. */
+export type BottomChromeProps = ChromeProps & { openDialog: (dialog: ObjectDialog) => void };
+
+/**
+ * The chrome above the document as it follows the editor: given the editor's values deferred
+ * (`useDeferredValue`), it draws each state in a render after the one that draws the document,
+ * which React may interrupt, and its controls read the editor's context as it draws them
+ * (DOCE-EDITOR-1.6).
+ */
+export const FollowingTopChrome = memo(function FollowingTopChrome(chrome: TopChromeProps) {
+  return (
+    <DocumentEditorContext value={chrome.context}>
+      <TopChrome {...chrome} />
+    </DocumentEditorContext>
+  );
+});
+
+/** The chrome below the document as it follows the editor, as `FollowingTopChrome`. */
+export const FollowingBottomChrome = memo(function FollowingBottomChrome(
+  chrome: BottomChromeProps,
+) {
+  return (
+    <DocumentEditorContext value={chrome.context}>
+      <BottomChrome {...chrome} />
+    </DocumentEditorContext>
+  );
+});
+
 /** The toolbar and the find bar above the document. */
-export function TopChrome({
+function TopChrome({
   props,
   context,
   templateStyle,
@@ -48,10 +82,7 @@ export function TopChrome({
   onFindClose,
   view,
   openFind = null,
-}: ChromeProps & {
-  findRequest: FindRequest | null;
-  onFindClose: () => void;
-}) {
+}: TopChromeProps) {
   const linkedCode = Boolean(props.codeSource);
   const glossary = Boolean(props.glossary);
   const scripts = Boolean(props.scriptRunner);
@@ -121,13 +152,7 @@ export function TopChrome({
 }
 
 /** The status bar below the document, and the context menu. */
-export function BottomChrome({
-  props,
-  context,
-  view,
-  startCommentRef,
-  openDialog,
-}: ChromeProps & { openDialog: (dialog: ObjectDialog) => void }) {
+function BottomChrome({ props, context, view, startCommentRef, openDialog }: BottomChromeProps) {
   const { layout = 'page', editable = true, suggesting = false } = props;
   return (
     <>

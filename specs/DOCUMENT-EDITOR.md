@@ -39,6 +39,13 @@ While `active` is false, such as for an editor in a background tab, the editor s
 Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`
 
+### DOCE-EDITOR-1.6 - The document first, the chrome after
+
+A state the host commits shall be drawn on the document before the chrome follows it: the toolbar, the menubar, the find bar, the status bar and the context menu, and the host's controls inside them, shall take each new state and the editor's context (`useDocumentEditor`) in a render after the one that draws the document, which React may interrupt for the next key, so a keystroke does not wait for the chrome to draw.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-chrome.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
+
 ## DOCE-EDITOR-2 - Layouts in the browser
 
 ### DOCE-EDITOR-2.1 - Editing on pages

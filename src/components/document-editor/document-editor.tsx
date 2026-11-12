@@ -17,6 +17,7 @@ import {
   type ReactNode,
   type Ref,
   type RefObject,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -51,7 +52,7 @@ import type { DocumentContextMenuOptions } from './context-providers.js';
 import type { HostDialogProps } from './dialog-parts.js';
 import { useFindBar } from './document-find-bar.js';
 import { EditorBody } from './editor-body.js';
-import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
+import { FollowingBottomChrome, FollowingTopChrome, useWheelZoom } from './editor-chrome.js';
 import {
   DocumentEditorContext,
   type DocumentMarkup,
@@ -390,6 +391,9 @@ export function DocumentEditor(given: DocumentEditorProps) {
     editorContext.current = context;
   }, [context]);
   const chrome = { props, context, view, templateStyle, startCommentRef, openFind };
+  // The chrome follows each state after the pages show it (DOCE-EDITOR-1.6).
+  const top = useDeferredValue({ ...chrome, findRequest: find.request, onFindClose: find.close });
+  const bottom = useDeferredValue({ ...chrome, openDialog: setDialog });
   const body = (
     <EditorBody
       props={props}
@@ -413,7 +417,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
-        <TopChrome {...chrome} findRequest={find.request} onFindClose={find.close} />
+        <FollowingTopChrome {...top} />
         <Workspace panels={props.panels}>
           {props.scrollable ? (
             <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
@@ -423,7 +427,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
             body
           )}
         </Workspace>
-        <BottomChrome {...chrome} openDialog={setDialog} />
+        <FollowingBottomChrome {...bottom} />
         <ObjectDialogs
           {...props}
           dialog={editable ? dialog : null}

@@ -15,6 +15,7 @@ import {
 import type { VariablesAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
+import { useDocumentEditor } from './editor-context.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
 import type { DocumentLayout } from './use-document-layout.js';
 import { contentChangeCause } from './use-host-events.js';
@@ -91,6 +92,37 @@ describe('DocumentEditor', () => {
     expect(read).toHaveAttribute('aria-readonly', 'true');
     expect(read).toHaveAttribute('contenteditable', 'false');
     expect(read).toHaveTextContent(/(?=.*Hello)(?=.*More)/);
+  });
+
+  it('DOCE-EDITOR-1.6 has the chrome follow each state the pages show', async () => {
+    const user = userEvent.setup();
+    function Shown() {
+      const editor = useDocumentEditor();
+      return <output aria-label="Shown text">{editor?.state.doc.textContent}</output>;
+    }
+    function Chromed() {
+      const [state, setState] = useState(initial);
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={TEMPLATE}
+          layout="web"
+          statusBar
+          statusItems={<Shown />}
+          aria-label="Report"
+        />
+      );
+    }
+    render(<Chromed />);
+    expect(screen.getByRole('status', { name: 'Shown text' })).toHaveTextContent('Hello');
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
+    await user.keyboard('More');
+    await waitFor(() =>
+      expect(screen.getByRole('status', { name: 'Shown text' })).toHaveTextContent(
+        /(?=.*Hello)(?=.*More)/,
+      ),
+    );
   });
 
   it('DOCE-EDITOR-1.3 measures the pages in a hidden slot in page layout', () => {
