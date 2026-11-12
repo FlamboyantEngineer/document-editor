@@ -263,10 +263,24 @@ Verification: `e2e/pagination.spec.ts`
 
 ### DOCE-PAGINATION-7.4 - Layout debugging
 
-Each layout shall keep what each page's blocks take of the height it has for them (`pageMetrics(state)`, `PageMetric`, from `layoutDocument`'s `onPage`), until the next change; with the document editor's `debug`, each page carries the height its blocks take and the height left (`data-debug-used`, `data-debug-free`, `createPageDebug`) and the root `data-debug`.
+Each layout shall keep what each page's blocks take of the height it has for them, and each block's own height (`pageMetrics(state)`, `PageMetric`, from `layoutDocument`'s `onPage`), until the next change. `createPageDebug({ shown })` shall show the parts `shown` names (`PageDebugParts`): with `pages`, each page carries the height its blocks take and the height left (`data-debug-used`, `data-debug-free`); with `blocks`, each block on a page carries its measured height (`data-debug-height`). The document editor's `debug` shows them (DOCE-EDITOR-6.13).
 
 Implementation: `src/pagination/pagination.ts`, `src/pagination/layout-document.ts`, `src/pagination/page-debug.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `e2e/document-editor.spec.ts`
+
+### DOCE-PAGINATION-7.5 - Stats
+
+`stats()` shall count what the pagination's layouts did since it was made (`PaginationStats`): the layouts run (`layouts`); the blocks measured in the measuring view (`blocksMeasured`), those the cache did not hold (`cacheMisses`) and those taken from it (`cacheHits`); the sections laid out with at least one block measured again (`sectionsRelaid`) and from cached measurements alone (`sectionsReused`); and the pages a layout kept as they were (`pagesReused`) and built anew (`pagesRebuilt`). The transaction a layout moves the editor with carries the counts as they stood after it (`layoutStats(tr)`); any other transaction carries none. Every section's pages are still broken from its blocks on each layout; the counters show what was measured and rebuilt.
+
+Implementation: `src/pagination/pagination.ts`, `src/pagination/pagination-stats.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`
+Verification: `src/pagination/pagination.test.ts`
+
+### DOCE-PAGINATION-7.6 - Layout state
+
+`layoutState()` shall say whether the pages are `pending`, `settled` or `failed`, and `onLayoutStateChange` tell of each change. A pagination is pending from its start, and again on each change, each layout asked for and each `refresh`. Two frames after a layout, once the views that follow the pages have drawn, it is settled when no layout is asked for and no edit waits for one. A layout that throws fails, and so does a layout due after eight layouts in a row moved the pages with no change or `refresh` in between: that layout does not run, and the next change or `refresh` lays the pages out again. `whenSettled()` shall resolve with `settled` or `failed` once no layout is pending.
+
+Implementation: `src/pagination/pagination.ts`, `src/pagination/layout-readiness.ts`, `src/pagination/layout-triggers.ts`
+Verification: `src/pagination/pagination.test.ts`
 
 ## DOCE-PAGINATION-8 - Page headers and footers
 

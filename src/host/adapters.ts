@@ -290,6 +290,10 @@ export interface FeedbackAdapter {
 export interface TelemetryAdapter {
   /** Records a named duration, such as the time from mount to first paint. */
   measure(name: string, durationMs: number, attributes?: Readonly<Record<string, string>>): void;
+  /** Records a named count, such as the blocks a layout measured. */
+  count?:
+    | ((name: string, value: number, attributes?: Readonly<Record<string, string>>) => void)
+    | undefined;
 }
 
 /** What a proofing issue is about. */

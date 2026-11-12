@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
+  type DocumentEditorDebug,
   type DocumentEditorHandle,
   type DocumentLayout,
   type DocumentMarkup,
@@ -32,14 +33,13 @@ import {
   readDocumentFile,
   resolveTemplateFile,
 } from '../../src/model/index.js';
-import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { sampleDocument } from './lab-document.js';
-import { pagesLaidOut } from './lab-ready.js';
+import { markReadyWhenSettled } from './lab-ready.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -99,13 +99,20 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// The layout debugging's parts, each with a checkbox.
+const DEBUG_PARTS = [
+  { part: 'pages', label: 'Layout debugging' },
+  { part: 'blocks', label: 'Block heights' },
+  { part: 'measure', label: 'Measuring view' },
+] as const;
+
 function Lab() {
   const [state, setState] = useState(initialState);
   const [layout, setLayout] = useState<DocumentLayout>('page');
   const [editable, setEditable] = useState(true);
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
-  const [debug, setDebug] = useState(false);
+  const [debug, setDebug] = useState<DocumentEditorDebug>({});
   const [statusBar, setStatusBar] = useState(true);
   const [hostItems, setHostItems] = useState(true);
   const [view, setView] = useState<EditorView | null>(null);
@@ -162,15 +169,20 @@ function Lab() {
             />{' '}
             Scrolling frame
           </label>
-          <label>
-            <input
-              type="checkbox"
-              name="debug"
-              checked={debug}
-              onChange={(event) => setDebug(event.currentTarget.checked)}
-            />{' '}
-            Layout debugging
-          </label>
+          {DEBUG_PARTS.map(({ part, label }) => (
+            <label key={part}>
+              <input
+                type="checkbox"
+                name={`debug-${part}`}
+                checked={debug[part] ?? false}
+                onChange={(event) => {
+                  const { checked } = event.currentTarget;
+                  setDebug((current) => ({ ...current, [part]: checked }));
+                }}
+              />{' '}
+              {label}
+            </label>
+          ))}
           <label>
             <input
               type="checkbox"
@@ -239,9 +251,6 @@ function Lab() {
         {...host.notifications}
         events={{
           onMounted: setView,
-          onTransaction: (tr) => {
-            if (isPaginationTransaction(tr)) pagesLaidOut();
-          },
         }}
       />
     </>
@@ -249,4 +258,7 @@ function Lab() {
 }
 
 const container = document.querySelector('#lab-editor');
-if (container) createRoot(container).render(<Lab />);
+if (container) {
+  createRoot(container).render(<Lab />);
+  markReadyWhenSettled();
+}

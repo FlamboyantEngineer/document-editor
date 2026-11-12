@@ -1,13 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
-import { useState } from 'react';
+import { createRef, type Ref, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
+import type { DocumentEditorHandle } from './editor-handle.js';
 import type { DocumentLayout } from './use-document-layout.js';
 
 const TEMPLATE: TemplateFile = {
@@ -33,7 +34,15 @@ const initial = () =>
     plugins: createDocumentEditing(documentSchema),
   });
 
-function Harness({ editable, layout }: { editable: boolean; layout: DocumentLayout }) {
+function Harness({
+  editable,
+  layout,
+  handleRef,
+}: {
+  editable: boolean;
+  layout: DocumentLayout;
+  handleRef?: Ref<DocumentEditorHandle>;
+}) {
   const [state, setState] = useState(initial);
   return (
     <DocumentEditor
@@ -43,6 +52,7 @@ function Harness({ editable, layout }: { editable: boolean; layout: DocumentLayo
       layout={layout}
       editable={editable}
       aria-label="Report"
+      handleRef={handleRef}
     />
   );
 }
@@ -80,5 +90,26 @@ describe('DocumentEditor', () => {
     const measure = container.querySelector('.de-document-editor__measure');
     expect(measure).toHaveAttribute('aria-hidden', 'true');
     expect(container.querySelector('.de-document-editor')).toHaveAttribute('data-layout', 'page');
+  });
+
+  it('DOCE-EDITOR-6.12 publishes the layout state and settles its pages', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const { container } = render(<Harness editable layout="page" handleRef={handle} />);
+    const root = container.querySelector('.de-document-editor');
+    expect(root).toHaveAttribute('data-layout-state', 'pending');
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    await waitFor(() => expect(root).toHaveAttribute('data-layout-state', 'settled'));
+    expect(handle.current?.layoutStats()).toMatchObject({ layouts: 1, blocksMeasured: 1 });
+  });
+
+  it('DOCE-EDITOR-6.12 is settled at once in the web layout', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const { container } = render(<Harness editable layout="web" handleRef={handle} />);
+    expect(container.querySelector('.de-document-editor')).toHaveAttribute(
+      'data-layout-state',
+      'settled',
+    );
+    await expect(handle.current?.whenSettled()).resolves.toBe('settled');
+    expect(handle.current?.layoutStats()).toBeNull();
   });
 });

@@ -423,11 +423,45 @@ test.describe('document editor lab', () => {
     await expect(deleted).toBeVisible();
   });
 
-  test('DOCE-EDITOR-6.6 reports its first layout to the host telemetry', async ({ lab, page }) => {
+  test('DOCE-EDITOR-6.6 reports its first layout and what its layouts did to the host telemetry', async ({
+    lab,
+    page,
+  }) => {
     await lab.open('document-editor');
-    await expect(page.getByRole('status', { name: 'Host report' })).toContainText(
-      /first layout \d+ ms/,
+    const report = page.getByRole('status', { name: 'Host report' });
+    await expect(report).toContainText(/first layout \d+ ms/);
+    await expect(report).toContainText(/[1-9]\d* blocks measured/);
+  });
+
+  test('DOCE-EDITOR-6.12 publishes its layout state, pending after an edit until it settles', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
+    const before = await pages(page).count();
+    await heading(page, 'Power').click();
+    await page.keyboard.press('End');
+    // The states the root goes through from here on.
+    await page.evaluate(() => {
+      const root = document.querySelector('.de-document-editor');
+      const seen: string[] = [];
+      Object.assign(window, { layoutStates: seen });
+      if (!root) return;
+      new MutationObserver(() => {
+        seen.push(root.getAttribute('data-layout-state') ?? '');
+      }).observe(root, { attributeFilter: ['data-layout-state'] });
+    });
+    for (let line = 0; line < 30; line += 1) await page.keyboard.press('Enter');
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
+    await expect.poll(() => pages(page).count()).toBeGreaterThan(before);
+    const seen = await page.evaluate(
+      () => (window as unknown as { layoutStates: string[] }).layoutStates,
     );
+    expect(seen).toContain('pending');
+    expect(seen.at(-1)).toBe('settled');
+    await page.getByLabel('Web layout').check();
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
   });
 
   test('DOCE-EDITOR-6.7 DOCE-EDITOR-6.8 tells the host it is ready and leaves checks to the host', async ({
@@ -492,5 +526,28 @@ test.describe('document editor lab', () => {
     expect(free).toBeGreaterThanOrEqual(0);
     await page.getByLabel('Layout debugging').uncheck();
     await expect(first).not.toHaveAttribute('data-debug-used');
+  });
+
+  test('DOCE-PAGINATION-7.4 DOCE-EDITOR-6.13 shows each block height and the measuring view', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const block = content(page).locator('.pm-page-content > *').first();
+    await expect(block).not.toHaveAttribute('data-debug-height');
+    await page.getByLabel('Block heights').check();
+    await expect(editor(page)).toHaveAttribute('data-debug-blocks', 'true');
+    await expect(block).toHaveAttribute('data-debug-height', /^\d+$/);
+    const height = Number(await block.getAttribute('data-debug-height'));
+    const box = await block.boundingBox();
+    expect(Math.abs(height - (box?.height ?? 0))).toBeLessThanOrEqual(1);
+    await page.getByLabel('Block heights').uncheck();
+    await expect(block).not.toHaveAttribute('data-debug-height');
+
+    const measure = page.locator('.de-document-editor__measure');
+    await expect(measure).not.toBeInViewport();
+    await page.getByLabel('Measuring view').check();
+    await expect(editor(page)).toHaveAttribute('data-debug-measure', 'true');
+    await expect(measure).toBeInViewport();
   });
 });

@@ -1,12 +1,13 @@
 // The document editor lab's host panel: what the editor tells its host (focus, the selection, the
-// writer's changes), a key of the host's own (Ctrl+S saves), and the editor's handle taking the
-// reader to a heading.
+// writer's changes, the blocks its layouts measured), a key of the host's own (Ctrl+S saves), and
+// the editor's handle taking the reader to a heading.
 
 import type { Command } from 'prosemirror-state';
 import { type RefObject, useMemo, useState } from 'react';
 import {
   type DocumentEditorHandle,
   type DocumentEditorNotifications,
+  EDITOR_COUNTS,
   EDITOR_MEASURES,
 } from '../../src/components/index.js';
 import { describeBlocks } from '../../src/engine/index.js';
@@ -21,10 +22,14 @@ export function useHostPanel() {
   const [firstLayout, setFirstLayout] = useState<number | null>(null);
   const [ready, setReady] = useState(false);
   const [suggestions, setSuggestions] = useState(0);
+  const [measured, setMeasured] = useState(0);
   const telemetry = useMemo<TelemetryAdapter>(
     () => ({
       measure: (name, duration) => {
         if (name === EDITOR_MEASURES.firstLayout) setFirstLayout(Math.round(duration));
+      },
+      count: (name, value) => {
+        if (name === EDITOR_COUNTS.blocksMeasured) setMeasured((total) => total + value);
       },
     }),
     [],
@@ -46,7 +51,7 @@ export function useHostPanel() {
   return {
     notifications,
     telemetry,
-    report: { focused, changes, caret, saved, firstLayout, ready, suggestions },
+    report: { focused, changes, caret, saved, firstLayout, ready, suggestions, measured },
   };
 }
 
@@ -76,7 +81,8 @@ export function HostPanel({
         {report.focused ? 'Focused' : 'Not focused'} · {report.changes} changes · caret in{' '}
         {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
         {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
-        {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions
+        {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions · {report.measured}{' '}
+        blocks measured
       </output>
     </fieldset>
   );

@@ -233,7 +233,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.3 - The handle
 
-`handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, and applying a batch of automation edits (DOCE-AUTOMATION). Each returns false, or null, when it cannot act.
+`handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, applying a batch of automation edits (DOCE-AUTOMATION), and waiting for the pages to settle (`whenSettled`, `layoutStats`, DOCE-EDITOR-6.12). Each returns false, or null, when it cannot act.
 
 Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/document-editor.spec.ts`
@@ -254,9 +254,9 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.6 - Telemetry
 
-With the host's `telemetry` adapter (DOCE-HOST-1.1), the editor shall measure how long its pages took to lay out when the document opened (`document-editor.first-layout`) and after each run of edits (`document-editor.layout`), in milliseconds (`EDITOR_MEASURES`).
+With the host's `telemetry` adapter (DOCE-HOST-1.1), the editor shall measure how long its pages took to lay out when the document opened (`document-editor.first-layout`) and after each run of edits (`document-editor.layout`), in milliseconds (`EDITOR_MEASURES`). When the adapter counts (`count`), the editor shall count what each layout did (DOCE-PAGINATION-7.5): the blocks it measured (`document-editor.blocks-measured`), the sections it laid out again (`document-editor.sections-relaid`) and the pages it built anew (`document-editor.pages-rebuilt`) (`EDITOR_COUNTS`).
 
-Implementation: `src/components/document-editor/use-editor-telemetry.ts`
+Implementation: `src/components/document-editor/use-editor-telemetry.ts`, `src/host/adapters.ts`, `labs/src/host-panel.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.7 - Ready
@@ -293,6 +293,20 @@ While the document is compared with an older version, `onChangeBarsChange` shall
 
 Implementation: `src/components/document-editor/use-change-notifications.ts`
 Verification: `e2e/versions.spec.ts`
+
+### DOCE-EDITOR-6.12 - Layout state and whenSettled
+
+The editor root shall publish the pagination's layout state (DOCE-PAGINATION-7.6) as `data-layout-state`: `pending` while its pages are laid out, `settled` once they are laid out with no layout due and the views that follow them, such as a list of contents taking its page numbers, have drawn, and `failed` when they could not be laid out; the web layout is always settled. The handle's `whenSettled()` shall resolve with `settled` or `failed` once no layout is pending, at once in the web layout, and `layoutStats()` give the pagination's counters (DOCE-PAGINATION-7.5), or null in the web layout. The labs mark themselves ready once every editor on the page has settled, and the stress labs time their layouts to it.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/editor-handle.ts`, `labs/src/lab-ready.ts`, `labs/src/stress/stress-lab.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.13 - Layout debugging
+
+`debug` shall show the pages' layout for debugging (DOCE-PAGINATION-7.4): `true`, or `{ pages: true }`, what each page's blocks take of its height and what is left, published as `data-debug`; `{ blocks: true }` each block's measured height, published as `data-debug-blocks`; and `{ measure: true }` publishes `data-debug-measure`, for a stylesheet to show the hidden view the pages are measured in (`DocumentEditorDebug`).
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `labs/reference/document.css`, `labs/src/document-editor.lab.tsx`
+Verification: `e2e/document-editor.spec.ts`
 
 ## Hooks
 
@@ -339,3 +353,10 @@ Verification: `e2e/versions.spec.ts`
 | `data-layout`                           | attribute | `page`, `web`                                          | How the document is laid out.                                                           |
 | `data-mode`                             | state     | `authoring`, `reading`                                 | Whether the writer can edit.                                                            |
 | `data-scrollable`                       | state     | `true`                                                 | The editor scrolls the document itself.                                                 |
+| `data-layout-state`                     | state     | `pending`, `settled`, `failed`                         | Whether the pages are being laid out, are settled, or failed to settle.                 |
+| `data-debug`                            | state     | `true`                                                 | The layout debugging shows what each page's blocks take.                                |
+| `data-debug-blocks`                     | state     | `true`                                                 | The layout debugging shows each block's height.                                         |
+| `data-debug-measure`                    | state     | `true`                                                 | The layout debugging shows the measuring view.                                          |
+| `data-debug-used`                       | attribute |                                                        | On a page while debugging: the height its blocks take, in CSS pixels.                   |
+| `data-debug-free`                       | attribute |                                                        | On a page while debugging: the height left for blocks, in CSS pixels.                   |
+| `data-debug-height`                     | attribute |                                                        | On a block while debugging: its measured height, in CSS pixels.                         |

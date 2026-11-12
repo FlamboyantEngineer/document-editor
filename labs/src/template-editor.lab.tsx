@@ -31,9 +31,8 @@ import {
   type TemplateFile,
   templatePreviewDocument,
 } from '../../src/model/index.js';
-import { isPaginationTransaction } from '../../src/pagination/index.js';
 import { sampleDocument } from './lab-document.js';
-import { pagesLaidOut } from './lab-ready.js';
+import { markReadyWhenSettled } from './lab-ready.js';
 
 const OWN: TemplateFile = {
   formatVersion: 1,
@@ -130,15 +129,13 @@ function Lab() {
         statusBar
         className="lab-document-editor"
         aria-label="Sample document"
-        events={{
-          onTransaction: (tr) => {
-            if (isPaginationTransaction(tr)) pagesLaidOut();
-          },
-        }}
       />
     </div>
   );
 }
 
 const container = document.querySelector('#lab-editor');
-if (container) createRoot(container).render(<Lab />);
+if (container) {
+  createRoot(container).render(<Lab />);
+  markReadyWhenSettled();
+}
