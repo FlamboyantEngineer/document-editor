@@ -1,133 +1,92 @@
 // Footnotes: inserting one at the caret, its marker in the text and its entry in the footnote area
-// of the page, with the caret in the entry; keeping entries and markers together, so deleting a
-// marker deletes its entry; numbering them in document order where the pages do not; and moving
-// between a marker and its entry.
+// of the page, with the caret in the entry; keeping entries and markers together and in order;
+// numbering them in document order where the pages do not; and moving between a marker and its
+// entry, marking where the reader arrives.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   type Command,
   type EditorState,
   Plugin,
-  PluginKey,
   TextSelection,
   type Transaction,
 } from 'prosemirror-state';
+import { Decoration, DecorationSet } from 'prosemirror-view';
 import { createElementId } from './element-ids.js';
+import { boundaryMarks } from './footnote-marks.js';
+import {
+  canInsertFootnote,
+  defaultCitingPlaces,
+  footnoteAreaAt,
+  type FootnoteAt,
+  type FootnoteRevealed,
+  footnotesKey,
+  type FootnotesMeta,
+  type FootnotesPluginState,
+  idOf,
+  listFootnotes,
+  markerRanks,
+  numberFootnotes,
+} from './footnote-model.js';
+import { reconcileFootnotes } from './footnote-reconcile.js';
+import { isInlineTextOnly, isRemoteTransaction } from './transaction-kind.js';
 
-/** The text blocks a footnote may be cited in: paragraphs, in lists and table cells too. */
-const CITING_BLOCKS = new Set(['paragraph']);
-/** The blocks a citing paragraph may sit in. */
-const CITING_PLACES = new Set([
-  'page_content',
-  'list_item',
-  'table_cell',
-  'table_header',
-  'blockquote',
-  'layout_column',
-]);
+export type { FootnoteAt } from './footnote-model.js';
+export { canInsertFootnote, listFootnotes, numberFootnotes } from './footnote-model.js';
 
-/** Where a footnote is, its marker in the text and its entry. */
-export interface FootnoteAt {
-  readonly id: string;
-  readonly marker: number | null;
-  readonly entry: number | null;
+/** How the footnote plugin numbers footnotes and where it lets them be cited. */
+export interface FootnotesOptions {
+  /**
+   * Whether markers and entries are numbered in document order after each change; the pages number
+   * them per page instead when the template asks for it. Defaults to true.
+   */
+  readonly numberInOrder?: (() => boolean) | undefined;
+  /**
+   * The blocks a citing paragraph may sit in, from its parent up to the page's content. Defaults to
+   * lists, body cells, quotes and layout columns.
+   */
+  readonly citingPlaces?: readonly string[] | undefined;
+  /**
+   * Whether a change came from another writer, which their own editor reconciles. Defaults to
+   * `isRemoteTransaction`.
+   */
+  readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
+  /** Makes the id of a footnote copied with its marker. Defaults to a new element id. */
+  readonly newId?: (() => string) | undefined;
 }
 
-const idOf = (node: ProseMirrorNode): string | null => {
-  const id = node.attrs.footnoteId as unknown;
-  return typeof id === 'string' && id ? id : null;
-};
-
-/** Each footnote of a document, by id, with the positions of its marker and its entry. */
-export function listFootnotes(doc: ProseMirrorNode): Map<string, FootnoteAt> {
-  const found = new Map<string, { marker: number | null; entry: number | null }>();
-  doc.descendants((node, pos) => {
-    const name = node.type.name;
-    if (name !== 'footnote_reference' && name !== 'footnote_entry') return !node.isText;
-    const id = idOf(node);
-    if (!id) return false;
-    const at = found.get(id) ?? { marker: null, entry: null };
-    if (name === 'footnote_reference' && at.marker === null) at.marker = pos;
-    if (name === 'footnote_entry' && at.entry === null) at.entry = pos;
-    found.set(id, at);
-    return false;
+// The position, in the footnote area at `area`, before the first entry cited after `rank`.
+function entryPlace(doc: ProseMirrorNode, area: number, rank: number): number {
+  const ranks = markerRanks(doc);
+  const node = doc.nodeAt(area);
+  let place = area + (node?.nodeSize ?? 2) - 1;
+  node?.forEach((entry, offset) => {
+    const at = ranks.get(idOf(entry) ?? '');
+    if (at !== undefined && at > rank && place === area + node.nodeSize - 1)
+      place = area + 1 + offset;
   });
-  return new Map([...found].map(([id, at]) => [id, { id, ...at }]));
-}
-
-/** Whether the selection is where a footnote may be cited: in a paragraph of the page's body. */
-export function canInsertFootnote(state: EditorState): boolean {
-  const { $from } = state.selection;
-  const { footnote_reference: marker, footnote_entry: entry } = state.schema.nodes;
-  if (!marker || !entry || !CITING_BLOCKS.has($from.parent.type.name) || $from.depth < 2)
-    return false;
-  if (!CITING_PLACES.has($from.node($from.depth - 1).type.name)) return false;
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    const name = $from.node(depth).type.name;
-    if (name === 'page_content') return true;
-    if (name === 'page_header' || name === 'page_footer' || name === 'page_footnotes') return false;
-  }
-  return false;
-}
-
-// The position at the end of the footnote area of the page holding a position, or null.
-function footnoteAreaEnd(doc: ProseMirrorNode, pos: number): number | null {
-  const $pos = doc.resolve(pos);
-  for (let depth = $pos.depth; depth > 0; depth -= 1) {
-    const node = $pos.node(depth);
-    if (node.type.name !== 'page') continue;
-    let end: number | null = null;
-    node.forEach((region, offset) => {
-      if (region.type.name === 'page_footnotes')
-        end = $pos.start(depth) + offset + region.nodeSize - 1;
-    });
-    return end;
-  }
-  return null;
-}
-
-/** Numbers every footnote marker and entry in document order; returns whether any changed. */
-export function numberFootnotes(tr: Transaction): boolean {
-  const numbers = new Map<string, number>();
-  tr.doc.descendants((node) => {
-    if (node.type.name !== 'footnote_reference') return !node.isText;
-    const id = idOf(node);
-    if (id && !numbers.has(id)) numbers.set(id, numbers.size + 1);
-    return false;
-  });
-  let changed = false;
-  tr.doc.descendants((node, pos) => {
-    const name = node.type.name;
-    if (name !== 'footnote_reference' && name !== 'footnote_entry') return !node.isText;
-    const id = idOf(node);
-    const number = id ? (numbers.get(id) ?? null) : null;
-    if (node.attrs.footnoteNumber !== number) {
-      tr.setNodeMarkup(pos, undefined, { ...node.attrs, footnoteNumber: number });
-      changed = true;
-    }
-    return false;
-  });
-  return changed;
+  return place;
 }
 
 /**
  * Inserts a footnote at the caret: its marker in the text and an empty entry in the footnote area
- * of the page, numbered in document order, with the caret in the entry. Refused where a footnote
- * may not be cited (`canInsertFootnote`).
+ * of the page, among the entries in marker order, numbered in document order, with the caret in the
+ * entry. Refused where a footnote may not be cited (`canInsertFootnote`).
  */
 export function insertFootnote(options: { readonly newId?: () => string } = {}): Command {
   return (state, dispatch) => {
     if (!canInsertFootnote(state)) return false;
     const { footnote_reference: marker, footnote_entry: entry } = state.schema.nodes;
-    const area = footnoteAreaEnd(state.doc, state.selection.from);
+    const area = footnoteAreaAt(state.doc, state.selection.from);
     if (!marker || !entry || area === null) return false;
     if (dispatch) {
       const id = (options.newId ?? createElementId)();
       const tr = state.tr.replaceSelectionWith(marker.create({ footnoteId: id }), false);
-      const end = tr.mapping.map(area);
-      tr.insert(end, entry.create({ footnoteId: id }));
+      const ranks = markerRanks(tr.doc);
+      const place = entryPlace(tr.doc, tr.mapping.map(area), ranks.get(id) ?? ranks.size);
+      tr.insert(place, entry.create({ footnoteId: id }));
       numberFootnotes(tr);
-      tr.setSelection(TextSelection.create(tr.doc, end + 1));
+      tr.setSelection(TextSelection.create(tr.doc, place + 1));
       dispatch(tr.scrollIntoView());
     }
     return true;
@@ -146,7 +105,11 @@ export function footnoteAt(state: EditorState): FootnoteAt | null {
   return id ? (listFootnotes(state.doc).get(id) ?? null) : null;
 }
 
-/** Puts the caret at the end of the footnote's entry. */
+// A transaction taking the reader to a part of a footnote, marked as where they arrived.
+const revealing = (tr: Transaction, reveal: FootnoteRevealed) =>
+  tr.setMeta(footnotesKey, { reveal } satisfies FootnotesMeta).scrollIntoView();
+
+/** Puts the caret at the end of the footnote's entry, which shows `data-de-revealed`. */
 export function editFootnote(id: string): Command {
   return (state, dispatch) => {
     const at = listFootnotes(state.doc).get(id);
@@ -154,19 +117,19 @@ export function editFootnote(id: string): Command {
     const entry = state.doc.nodeAt(at.entry);
     if (!entry) return false;
     const end = at.entry + entry.nodeSize - 1;
-    dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, end)).scrollIntoView());
+    const tr = state.tr.setSelection(TextSelection.create(state.doc, end));
+    dispatch?.(revealing(tr, { id, part: 'entry', pos: at.entry }));
     return true;
   };
 }
 
-/** Selects the footnote's marker in the text. */
+/** Puts the caret after the footnote's marker in the text, which shows `data-de-revealed`. */
 export function goToFootnoteMarker(id: string): Command {
   return (state, dispatch) => {
     const at = listFootnotes(state.doc).get(id);
     if (at?.marker === null || at === undefined) return false;
-    dispatch?.(
-      state.tr.setSelection(TextSelection.create(state.doc, at.marker + 1)).scrollIntoView(),
-    );
+    const tr = state.tr.setSelection(TextSelection.create(state.doc, at.marker + 1));
+    dispatch?.(revealing(tr, { id, part: 'marker', pos: at.marker }));
     return true;
   };
 }
@@ -190,47 +153,108 @@ export function deleteFootnote(id: string): Command {
   };
 }
 
-const footnotesKey = new PluginKey('footnotes');
+// The element an event happened on, from any window, or null.
+const elementOf = (target: EventTarget | null): Element | null =>
+  target && (target as Node).nodeType === 1 ? (target as Element) : null;
 
-/** How the footnote plugin numbers footnotes. */
-export interface FootnotesOptions {
-  /**
-   * Whether markers and entries are numbered in document order after each change; the pages number
-   * them per page instead when the template asks for it. Defaults to true.
-   */
-  readonly numberInOrder?: (() => boolean) | undefined;
+// Where the reader arrived, followed through layout and remote changes, and forgotten once the
+// writer moves on or edits.
+function nextRevealed(tr: Transaction, revealed: FootnoteRevealed | null) {
+  const meta = tr.getMeta(footnotesKey) as FootnotesMeta | undefined;
+  if (meta?.reveal) return meta.reveal;
+  if (!revealed || !(tr.docChanged || tr.selectionSet)) return revealed;
+  if (tr.getMeta('addToHistory') !== false) return null;
+  const { pos, deleted } = tr.mapping.mapResult(revealed.pos, 1);
+  const node = tr.doc.nodeAt(pos);
+  return !deleted && node && idOf(node) === revealed.id ? { ...revealed, pos } : null;
+}
+
+function applyState(tr: Transaction, value: FootnotesPluginState): FootnotesPluginState {
+  const bodies = (tr.getMeta(footnotesKey) as FootnotesMeta | undefined)?.bodies;
+  const revealed = nextRevealed(tr, value.revealed);
+  if (!bodies && revealed === value.revealed) return value;
+  return {
+    ...value,
+    bodies: bodies ? new Map([...value.bodies, ...bodies]) : value.bodies,
+    revealed,
+  };
+}
+
+// The footnotes put back in order after the writer's changes, except changes to text alone.
+function reconcileAfter(
+  transactions: readonly Transaction[],
+  [before, tr]: readonly [EditorState, Transaction],
+  options: FootnotesOptions,
+): boolean {
+  const { isRemote = isRemoteTransaction } = options;
+  const own = (t: Transaction) =>
+    (t.getMeta(footnotesKey) as FootnotesMeta | undefined)?.reconciled;
+  const local = transactions.filter(
+    (t) => t.docChanged && t.getMeta('addToHistory') !== false && !isRemote(t) && !own(t),
+  );
+  if (local.length === 0 || local.every(isInlineTextOnly)) return false;
+  const bodies = footnotesKey.getState(before)?.bodies ?? new Map();
+  const newId = options.newId ?? createElementId;
+  const { changed, kept } = reconcileFootnotes(tr, {
+    before: before.doc,
+    transactions,
+    bodies,
+    newId,
+  });
+  const numbered = (options.numberInOrder ?? (() => true))() && numberFootnotes(tr);
+  const meta: FootnotesMeta = { reconciled: true, ...(kept.size > 0 ? { bodies: kept } : {}) };
+  tr.setMeta(footnotesKey, meta);
+  return changed || numbered;
 }
 
 /**
- * Keeps footnote entries with their markers after each of the writer's changes: an entry whose
- * marker is gone goes too, and the footnotes are numbered in document order.
+ * Keeps footnote entries with their markers after each of the writer's changes (`reconcileFootnotes`),
+ * numbers them in document order, gives the caret beside a marker the marks of the text around it,
+ * and marks the part of a footnote the reader was taken to with `data-de-revealed`.
  */
-export function createFootnotes({ numberInOrder = () => true }: FootnotesOptions = {}): Plugin {
-  return new Plugin({
+export function createFootnotes(options: FootnotesOptions = {}): Plugin<FootnotesPluginState> {
+  return new Plugin<FootnotesPluginState>({
     key: footnotesKey,
-    appendTransaction(transactions, _before, after) {
-      const local = transactions.some(
-        (tr) => tr.docChanged && tr.getMeta('addToHistory') !== false,
-      );
-      if (!local) return null;
+    state: {
+      init: () => ({
+        places: new Set(options.citingPlaces ?? defaultCitingPlaces),
+        bodies: new Map(),
+        revealed: null,
+      }),
+      apply: applyState,
+    },
+    appendTransaction(transactions, before, after) {
       const tr = after.tr;
-      const orphans = [...listFootnotes(after.doc).values()].filter(
-        (at) => at.marker === null && at.entry !== null,
-      );
-      for (const orphan of orphans.sort((a, b) => (b.entry ?? 0) - (a.entry ?? 0))) {
-        const pos = orphan.entry ?? 0;
-        const node = tr.doc.nodeAt(pos);
-        if (node) tr.delete(pos, pos + node.nodeSize);
+      let changed = reconcileAfter(transactions, [before, tr], options);
+      const moved = transactions.some((t) => t.docChanged || t.selectionSet);
+      const marks = moved && !transactions.some((t) => t.storedMarksSet);
+      const beside = marks && tr.selection.empty ? boundaryMarks(tr.selection.$from) : null;
+      if (beside) {
+        tr.setStoredMarks(beside);
+        changed = true;
       }
-      const numbered = numberInOrder() && numberFootnotes(tr);
-      return orphans.length > 0 || numbered ? tr : null;
+      return changed ? tr : null;
     },
     props: {
-      // A double click on a marker goes to its entry.
-      handleDoubleClickOn(view, _pos, node) {
-        if (node.type.name !== 'footnote_reference') return false;
-        const id = idOf(node);
-        return id ? editFootnote(id)(view.state, view.dispatch) : false;
+      decorations(state) {
+        const revealed = footnotesKey.getState(state)?.revealed;
+        const node = revealed ? state.doc.nodeAt(revealed.pos) : null;
+        if (!revealed || !node) return DecorationSet.empty;
+        const attrs = { 'data-de-revealed': revealed.part };
+        return DecorationSet.create(state.doc, [
+          Decoration.node(revealed.pos, revealed.pos + node.nodeSize, attrs),
+        ]);
+      },
+      // A double click on a marker goes to its entry, and on an entry's number to its marker.
+      handleDoubleClick(view, _pos, event) {
+        const target = elementOf(event.target);
+        const marker = target?.closest('[data-footnote-reference][data-footnote-id]');
+        const number = target?.closest('.pm-footnote-entry-number');
+        const entry = number?.closest('[data-footnote-entry][data-footnote-id]');
+        const id = (marker ?? entry)?.getAttribute('data-footnote-id');
+        if (!id) return false;
+        const go = marker ? editFootnote(id) : goToFootnoteMarker(id);
+        return go(view.state, view.dispatch);
       },
     },
   });
