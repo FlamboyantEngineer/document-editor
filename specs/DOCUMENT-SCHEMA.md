@@ -135,3 +135,26 @@ Verification: `src/model/reference-format.test.ts`
 
 Implementation: `src/model/reference-format.ts`
 Verification: `src/model/reference-format.test.ts`
+
+## DOCE-SCHEMA-6 - Document structure
+
+### DOCE-SCHEMA-6.1 - Sections
+
+`documentSections(doc)` shall list a document's sections in order, each with its node, where it starts, its index from 0 and its template section's name. `isStructureNode` shall tell the nodes around the content (sections, pages and regions) from content, and `regionKind` shall name a region: `header`, `content`, `footnotes` or `footer`. Code outside the pagination shall read sections and regions through these functions, never by walking pages, so it reads a paged document and the canonical whole document alike.
+
+Implementation: `src/model/schema/document-structure.ts`
+Verification: `src/model/schema/document-structure.test.ts`
+
+### DOCE-SCHEMA-6.2 - Regions
+
+`sectionRegions(section, kinds)` and `documentRegions(doc, kinds)` shall list the regions of a section or of the document in order, of the kinds given or of every kind, each with its node, where it starts and its section: the regions of every page in a paged document, and each section's regions once in the canonical document.
+
+Implementation: `src/model/schema/document-structure.ts`
+Verification: `src/model/schema/document-structure.test.ts`
+
+### DOCE-SCHEMA-6.3 - The region at a position
+
+`regionAt($pos)` shall give the region holding a position, with its kind, node, start, depth and section, and `sectionAt($pos)` the section holding it; each shall give null outside one.
+
+Implementation: `src/model/schema/document-structure.ts`
+Verification: `src/model/schema/document-structure.test.ts`

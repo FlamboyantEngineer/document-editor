@@ -211,6 +211,7 @@ export {
   createDocumentSchema,
   createDocumentSchemaExtensions,
 } from './schema/document-schema.js';
+export * from './schema/document-structure.js';
 export type { DomAttributes } from './schema/dom-attributes.js';
 export {
   appendContributorAttrs,
