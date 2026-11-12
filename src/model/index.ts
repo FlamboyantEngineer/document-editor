@@ -211,6 +211,7 @@ export {
   createDocumentSchema,
   createDocumentSchemaExtensions,
 } from './schema/document-schema.js';
+export * from './schema/document-structure.js';
 export type { DomAttributes } from './schema/dom-attributes.js';
 export {
   appendContributorAttrs,
@@ -259,18 +260,7 @@ export {
 } from './schema/object-layout.js';
 export type { DocumentSchemaOptions, ResolvedSchemaOptions } from './schema/schema-options.js';
 export { resolveSchemaOptions } from './schema/schema-options.js';
-export type {
-  SignatureMatrix,
-  SignaturePath,
-  SignatureVector,
-  SignatureVectorParseResult,
-} from './signature-vector.js';
-export {
-  normalizeSignatureVector,
-  parseSignatureVector,
-  SIGNATURE_VECTOR_LIMITS,
-  validateSignaturePathData,
-} from './signature-vector.js';
+export * from './signature-vector.js';
 export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export { setPageRegions } from './templates/page-regions.js';

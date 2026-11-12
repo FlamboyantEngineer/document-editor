@@ -2,15 +2,12 @@
 // spaces so offsets stay the block's, and long texts cut into segments a proofer takes at once.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { type RegionKind, regionKind } from '../model/index.js';
 
-// Page headers and footers, which the template fills, and blocks whose text is code.
-const UNPROOFED_BLOCKS = new Set([
-  'page_header',
-  'page_footer',
-  'code_block',
-  'linked_code_block',
-  'math_display',
-]);
+// Page headers and footers, which the template fills.
+const UNPROOFED_REGIONS: ReadonlySet<RegionKind | null> = new Set(['header', 'footer']);
+// Blocks whose text is code.
+const UNPROOFED_BLOCKS = new Set(['code_block', 'linked_code_block', 'math_display']);
 // Text in these marks is left out: code, and text a suggestion deletes.
 const UNPROOFED_MARKS = new Set(['code', 'deletion']);
 
@@ -58,7 +55,8 @@ function blockText(block: ProseMirrorNode): BlockText {
 export function proofedBlocks(doc: ProseMirrorNode): ProofedBlock[] {
   const blocks: ProofedBlock[] = [];
   doc.descendants((node, pos) => {
-    if (UNPROOFED_BLOCKS.has(node.type.name)) return false;
+    if (UNPROOFED_BLOCKS.has(node.type.name) || UNPROOFED_REGIONS.has(regionKind(node)))
+      return false;
     if (!node.isTextblock) return true;
     const block = blockText(node);
     if (block.text.trim()) blocks.push({ ...block, start: pos + 1 });
