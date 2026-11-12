@@ -35,7 +35,7 @@ const READ = readDocumentFile(
     ],
   },
   documentSchema,
-);
+).doc;
 
 const positionOf = (doc: Node, value: string) => {
   let found = -1;

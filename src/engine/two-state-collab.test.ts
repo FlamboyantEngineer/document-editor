@@ -37,7 +37,7 @@ const DOC = readDocumentFile(
     ],
   },
   documentSchema,
-);
+).doc;
 
 function editorOf(doc: Node): EditorState {
   const template = () => BASE_TEMPLATE;

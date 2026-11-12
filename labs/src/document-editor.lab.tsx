@@ -83,7 +83,7 @@ function initialState(): EditorState {
     ],
   });
   const state = EditorState.create({
-    doc: readDocumentFile(file, schema),
+    doc: readDocumentFile(file, schema).doc,
     plugins: [
       createContents({ template: () => TEMPLATE }),
       createProofing({ proofer: [PROOFER, ABBREVIATIONS], language: 'en', delay: 200 }),

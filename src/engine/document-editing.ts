@@ -53,6 +53,7 @@ import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
 import { anyLock, lockedTemplateSections } from './template-sync.js';
 import { includeAppended } from './transaction-kind.js';
+import { createVariableTokens } from './variable-tokens.js';
 import { createWordPaste } from './word-paste.js';
 
 /** What a document's editing depends on. */
@@ -234,6 +235,13 @@ const OBJECT_PLUGINS: readonly RichTextPluginContribution[] = [
   { name: 'scripts', priority: 512, build: () => [createScripts()] },
 ];
 
+// Typed `{{key}}` tokens becoming variables, before the table and key handling.
+const VARIABLE_TOKENS_PLUGIN = {
+  name: 'variable-tokens',
+  priority: 840,
+  build: () => [createVariableTokens()],
+};
+
 /**
  * The editing plugins as a kit extension: the history first, the lock and the element ids among
  * the interaction plugins, then table editing and the keymaps last, so other extensions' keys come
@@ -269,6 +277,7 @@ export function createDocumentEditingExtension<C = unknown>(
         when: () => Boolean(template),
         build: () => (template ? [createCustomStyles({ template })] : []),
       },
+      VARIABLE_TOKENS_PLUGIN,
       {
         name: 'table-width',
         priority: 845,

@@ -108,7 +108,7 @@ const issueKey = (blockText: string, issue: KeyedIssue) =>
 export function currentIssueKey(state: EditorState, issue: ProofingIssueAt): string {
   for (const block of proofedBlocks(state.doc)) {
     const from = block.offsets.indexOf(issue.from - block.start);
-    const last = block.offsets.indexOf(issue.to - 1 - block.start);
+    const last = block.offsets.lastIndexOf(issue.to - 1 - block.start);
     if (from >= 0 && last >= from) {
       return issueKey(block.text, { ...issue, from, to: last + 1 });
     }
@@ -123,6 +123,8 @@ function issuesOf(doc: ProseMirrorNode, value: ProofingState): ProofingIssueAt[]
       const first = block.offsets[issue.from];
       const last = block.offsets[issue.to - 1];
       if (first === undefined || last === undefined || issue.to <= issue.from) continue;
+      // An issue wholly in an inline atom's text, which the writer cannot edit there.
+      if (first === last && issue.to - issue.from > 1) continue;
       const text = block.text.slice(issue.from, issue.to);
       const key = issueKey(block.text, issue);
       if (value.ignored.has(text) || value.ignoredOnce.has(key)) continue;

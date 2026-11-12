@@ -26,7 +26,7 @@ function stateOf(plugins: Plugin[] = []) {
       sections: [{ name: null, content: [paragraph('First line'), paragraph('Second line')] }],
     },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins });
 }
 

@@ -27,7 +27,7 @@ const paragraph = (value: string): StoredNode => ({
   content: [{ type: 'text', text: value }],
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 function positionOf(doc: Node, value: string): number {
   let found = -1;
@@ -166,7 +166,7 @@ describe('comment anchors', () => {
     expect(first?.content?.find((child) => child.text === 'blue')?.marks).toEqual([
       { type: 'comment', attrs: { thread: 't1', state: 'resolved' } },
     ]);
-    const again = file ? readDocumentFile(file, documentSchema) : null;
+    const again = file ? readDocumentFile(file, documentSchema).doc : null;
     expect(again && resolved?.doc.eq(again)).toBe(true);
   });
 

@@ -1,5 +1,7 @@
 # Paged projection spike: findings
 
+The spike's map and editor have since moved into the library as `src/pagination/projection-*.ts` and `selection-mirror.ts` (DOCE-PAGINATION-7.9 to 7.12); its lab and browser checks now run on that code. The findings below are kept as the record of the spike.
+
 The spike tries the paged projection method (PG-40, P0-9) on the library's own code. It lives in this folder and its lab, `labs/spike-projection.html`.
 
 - **Canonical state.** The whole document, each section on one page with whole blocks, as `joinDocumentPages` gives it today. It runs as an `EditorState` with no view, and holds the undo history.

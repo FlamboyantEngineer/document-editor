@@ -237,7 +237,6 @@ function splitBlock(
         ...block,
         node: nodes[1],
         height: plan.tailHeight,
-        leadLineHeight: null,
         breakBefore: true,
         measurement: { ...measurement, offset: measurement.offset + plan.next },
       },

@@ -29,7 +29,7 @@ function stateOf() {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createEditLock({ isLocked: lockedBlock })] });
 }
 

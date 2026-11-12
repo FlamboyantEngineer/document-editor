@@ -16,7 +16,7 @@ function stateOf(...sections: StoredNode[][]) {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: sections.map((content) => ({ name: null, content })) },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc });
 }
 

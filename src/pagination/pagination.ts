@@ -15,10 +15,11 @@ import {
 } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
 import { footnoteAnchor, restoreFootnoteSelection } from './footnote-selection.js';
+import { followDocument } from './ghost-view.js';
 import { type DocumentLayoutOptions, layoutDocument, type PageMetric } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { remeasureOn, settleEdits } from './layout-triggers.js';
-import { createMeasureCache, type MeasureCache } from './measure-blocks.js';
+import { frameIn, type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
+import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
 /** How an editor's pages are kept laid out. */
@@ -100,35 +101,6 @@ export function isPaginationTransaction(tr: Transaction): boolean {
  */
 export function layoutStats(tr: Transaction): PaginationStats | null {
   return (tr.getMeta(statsKey) as PaginationStats | undefined) ?? null;
-}
-
-function frame(run: () => void): () => void {
-  const handle = requestAnimationFrame(run);
-  return () => cancelAnimationFrame(handle);
-}
-
-// Moves the measuring view onto the whole document by the smallest replacement, so the blocks
-// around the change keep their nodes, their rendering and their cached measurements.
-function follow(measuring: EditorView, whole: ProseMirrorNode): void {
-  const { state } = measuring;
-  const current = state.doc;
-  const start = current.content.findDiffStart(whole.content);
-  if (start === null) return;
-  const end = current.content.findDiffEnd(whole.content);
-  let endA = end?.a ?? current.content.size;
-  let endB = end?.b ?? whole.content.size;
-  const overlap = start - Math.min(endA, endB);
-  if (overlap > 0) {
-    endA += overlap;
-    endB += overlap;
-  }
-  // The measuring view follows the document, outside any history, so its plugins, such as an edit
-  // lock, take it as no writer's change.
-  const tr = state.tr.replace(start, endA, whole.slice(start, endB)).setMeta('addToHistory', false);
-  const next = tr.doc.eq(whole)
-    ? state.apply(tr)
-    : EditorState.create({ doc: whole, plugins: state.plugins });
-  measuring.updateState(next);
 }
 
 interface Runner {
@@ -244,15 +216,22 @@ function layOutFrom(
   if (runner.restart) {
     runner.restart = false;
     measuring.updateState(EditorState.create({ doc: whole, plugins: measuring.state.plugins }));
-  } else follow(measuring, whole);
+  } else followDocument(measuring, whole);
   const tr = stepOntoPages({ editor, measuring }, options, counter);
   runner.passes = tr.docChanged ? runner.passes + 1 : 0;
+}
+
+// Forgets what a remeasure asks for: every block after a width change, otherwise the blocks of the
+// elements that changed size.
+function forget(cache: MeasureCache, measuring: EditorView | null, change: Remeasure): void {
+  if (change.width || !measuring) cache.clear();
+  else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
 }
 
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
 export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
-  const schedule = options.schedule ?? frame;
+  const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
   const counter = { cache, ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
@@ -302,8 +281,8 @@ export function createPagination(options: PaginationOptions): Pagination {
           joinDocumentPages(editor.state.doc, fragmentRules).doc,
         );
         const unwatch = edits.watch(editor);
-        const unlisten = remeasureOn(options.measureIn, () => {
-          cache.clear();
+        const unlisten = remeasureOn(options.measureIn, (change) => {
+          forget(cache, runner.measuring, change);
           request();
         });
         change();

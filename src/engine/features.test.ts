@@ -36,6 +36,7 @@ describe('plugin order', () => {
   it('DOCE-FORMAT-7.3 runs the editing plugins in the recorded key order', () => {
     expect(keysOf(createDocumentEditing(documentSchema))).toEqual([
       ...EDITING_KEYS,
+      'variable-tokens',
       ...TABLE_KEYS,
       ...LAST_KEYS,
     ]);
@@ -48,6 +49,7 @@ describe('plugin order', () => {
       'edit-lock',
       ...rest,
       'custom-styles',
+      'variable-tokens',
       'table-width',
       ...TABLE_KEYS,
       ...LAST_KEYS,
@@ -65,6 +67,7 @@ describe('plugin order', () => {
     });
     expect(keysOf(shared.buildPlugins(undefined))).toEqual([
       ...EDITING_KEYS.slice(1),
+      'variable-tokens',
       ...TABLE_KEYS,
       ...LAST_KEYS,
     ]);
@@ -90,6 +93,8 @@ describe('fragment rule registry', () => {
       linked_code_block: { whole: { ...part, codeBlockContinued: false }, ...joined },
       table: { whole: part, ...joined },
       blockquote: { whole: part, ...joined },
+      script_block: { whole: part, ...joined },
+      layout_section: { whole: part, ...joined },
       bullet_list: { whole: part, ...joined },
       ordered_list: { whole: part, ...joined },
       list_item: { whole: { ...part, orphanedListContinuation: false }, ...joined },

@@ -67,7 +67,7 @@ function render(): void {
     pageHeight: () => bodyHeight(template),
     plugins: [variables],
   });
-  const doc = readDocumentFile(SAMPLE, createDocumentSchema());
+  const doc = readDocumentFile(SAMPLE, createDocumentSchema()).doc;
   const editor: EditorView = new EditorView(pagesRoot, {
     state: EditorState.create({
       doc: setPageRegions(new Transform(doc), template).doc,

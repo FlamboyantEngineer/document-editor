@@ -1,66 +1,20 @@
 // Spike (P0-10): a collaboration-tools room server in the same process as its clients, for the lab
-// and the tests. Each client socket is paired with a server connection by queued microtasks, as a
-// WebSocket would carry frames, so the providers run their real handshake, echoes and awareness.
+// and the tests, connected through collaboration-tools' in-process sockets (`./testing`), so the
+// providers run their real handshake, echoes and awareness.
 
 import {
   createRoomProvider,
   type RoomProvider,
-  type RoomSocket,
-  type RoomSocketFactory,
 } from '@flamboyantengineer/collaboration-tools/client';
 import {
   createMemoryPersistence,
   createRoomServer,
   type RoomServer,
-  type RoomServerConnection,
 } from '@flamboyantengineer/collaboration-tools/server';
+import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
 
 const ENDPOINT = 'ws://in-process.test/rooms';
-
-/** A client socket wired to a room server in this process. */
-class PairedSocket implements RoomSocket {
-  binaryType = 'arraybuffer';
-  onopen: RoomSocket['onopen'] = null;
-  onmessage: RoomSocket['onmessage'] = null;
-  onclose: RoomSocket['onclose'] = null;
-  onerror: RoomSocket['onerror'] = null;
-  connection: RoomServerConnection | null = null;
-  closed = false;
-  /** Bytes the client sent and received, for the measurements. */
-  sent = 0;
-  received = 0;
-
-  send(data: Uint8Array<ArrayBuffer>): void {
-    if (this.closed) return;
-    const copy = data.slice();
-    this.sent += copy.byteLength;
-    queueMicrotask(() => {
-      if (!this.closed) this.connection?.receive(copy);
-    });
-  }
-
-  close(): void {
-    this.finish(1000, '');
-  }
-
-  deliver(frame: Uint8Array): void {
-    const copy = frame.slice();
-    this.received += copy.byteLength;
-    queueMicrotask(() => {
-      if (!this.closed) this.onmessage?.({ data: copy.buffer });
-    });
-  }
-
-  finish(code: number, reason: string): void {
-    if (this.closed) return;
-    this.closed = true;
-    queueMicrotask(() => {
-      this.connection?.closed();
-      this.onclose?.({ code, reason });
-    });
-  }
-}
 
 export interface InProcessRoom {
   readonly server: RoomServer;
@@ -86,23 +40,7 @@ export function createInProcessRoom(seed: Uint8Array | null, room = 'spike'): In
       persistence: createMemoryPersistence(),
     },
   });
-  const sockets: PairedSocket[] = [];
-  const createSocket: RoomSocketFactory = (url) => {
-    const socket = new PairedSocket();
-    sockets.push(socket);
-    const { pathname, search } = new URL(url);
-    socket.connection = server.connect(
-      {
-        send: (frame) => socket.deliver(frame),
-        close: (code, reason) => socket.finish(code, reason),
-      },
-      { url: pathname + search, headers: {} },
-    );
-    queueMicrotask(() => {
-      if (!socket.closed) socket.onopen?.({});
-    });
-    return socket;
-  };
+  const { createSocket, sockets } = connectToServer(server);
   const providers: RoomProvider[] = [];
   return {
     server,
@@ -118,10 +56,12 @@ export function createInProcessRoom(seed: Uint8Array | null, room = 'spike'): In
       return provider;
     },
     traffic() {
+      const bytes = (frames: readonly Uint8Array[]) =>
+        frames.reduce((total, frame) => total + frame.byteLength, 0);
       return sockets.reduce(
         (total, socket) => ({
-          sent: total.sent + socket.sent,
-          received: total.received + socket.received,
+          sent: total.sent + bytes(socket.sent),
+          received: total.received + bytes(socket.received),
         }),
         { sent: 0, received: 0 },
       );
