@@ -8,7 +8,6 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { FRAGMENT_RULES, type FragmentRules, joinDocumentPages } from '../model/index.js';
 import { mapPosition, type PagePositions, textSide } from './page-positions.js';
-import { paginationKey } from './pagination.js';
 
 /** A page of the paged projection. */
 export interface LaidOutPage {
@@ -45,11 +44,8 @@ export interface PageMap {
   toProjection(pos: number, assoc?: -1 | 1): number | null;
 }
 
-// The page maps of the documents read so far, with the fragment rules each was joined by.
-const maps = new WeakMap<
-  ProseMirrorNode,
-  { readonly rules: FragmentRules; readonly map: PageMap }
->();
+// The page maps of the documents read so far.
+const maps = new WeakMap<ProseMirrorNode, PageMap>();
 
 function readPages(projection: ProseMirrorNode): LaidOutPage[] {
   const pages: LaidOutPage[] = [];
@@ -143,18 +139,16 @@ export function showOnPages(
 }
 
 /**
- * The layout of the document a state shows, joined by its pagination's fragment rules, or by
- * `FRAGMENT_RULES` with none. Made once for each document and set of rules. A canonical document
- * a projection shows has the layout of the projection's pages (DOCE-PAGINATION-7.17).
+ * The layout of the document a state shows: for a canonical document a projection shows, the
+ * layout of the projection's pages (DOCE-PAGINATION-7.17); otherwise the document's own pages,
+ * joined by `FRAGMENT_RULES`. Made once for each document.
  */
 export function pageMap(state: EditorState): PageMap {
   const onPages = shownOnPages.get(state.doc);
   if (onPages) return onPages();
-  const plugin = paginationKey.get(state);
-  const rules = (plugin?.spec.fragmentRules as FragmentRules | undefined) ?? FRAGMENT_RULES;
   const cached = maps.get(state.doc);
-  if (cached?.rules === rules) return cached.map;
-  const map = createPageMap(state.doc, rules);
-  maps.set(state.doc, { rules, map });
+  if (cached) return cached;
+  const map = createPageMap(state.doc, FRAGMENT_RULES);
+  maps.set(state.doc, map);
   return map;
 }

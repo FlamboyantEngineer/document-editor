@@ -1,8 +1,11 @@
 // Checks the pages as a view drew them: a page whose content, footnotes or footer reach below its
 // own bottom overflows, which means a measurement was wrong, so the layout measures again.
 
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { keepCaretInPlace } from './caret.js';
+import { isPaginationTransaction, pageMetrics } from './layout-marks.js';
 import type { MeasureCache } from './measure-blocks.js';
 import { pageElements } from './page-geometry.js';
 
@@ -62,7 +65,7 @@ export function findPageOverflow(
   return found;
 }
 
-/** What a pagination does once the editor draws a layout. */
+/** What a projection does once its view draws a layout. */
 export interface DrawChecks {
   /** The caret back where it was on screen (`keepCaretInPlace`), and the drawn pages checked. */
   drawn(view: EditorView, caret: number | null): void;
@@ -96,4 +99,37 @@ export function checkDraws(options: {
       corrected = false;
     },
   };
+}
+
+/**
+ * Has the view that renders a projection check the pages each layout draws, a layout that left
+ * them as they were too, and the pages a change draws (DOCE-PAGINATION-5.9), with the caret put
+ * back where it was on screen before the layout (`caretBefore`, DOCE-PAGINATION-5.8).
+ */
+export function checkDrawnPages(
+  draws: () => DrawChecks,
+  caretBefore: (doc: ProseMirrorNode) => number | null,
+): Plugin {
+  const key = new PluginKey<number>('drawn-pages');
+  const check = (view: EditorView) => {
+    const caret = caretBefore(view.state.doc);
+    if (pageMetrics(view.state)) draws().drawn(view, caret);
+  };
+  return new Plugin({
+    key,
+    // The layouts the view took, so a layout that left the pages as they were is checked too.
+    state: {
+      init: () => 0,
+      apply: (tr, layouts) => (isPaginationTransaction(tr) ? layouts + 1 : layouts),
+    },
+    view(view) {
+      check(view);
+      return {
+        update(updated, previous) {
+          const laidOut = key.getState(updated.state) !== key.getState(previous);
+          if (laidOut || updated.state.doc !== previous.doc) check(updated);
+        },
+      };
+    },
+  });
 }

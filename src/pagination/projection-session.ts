@@ -9,14 +9,17 @@ import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
+import { caretPlace } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import type { MeasuringView } from './ghost-view.js';
 import type { LayoutMemory } from './layout-document.js';
+import { wantsLayoutNow } from './layout-latency.js';
+import { markLayout } from './layout-marks.js';
 import type { createLayoutReadiness } from './layout-readiness.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
+import type { DrawChecks } from './layout-validation.js';
 import type { MeasureCache } from './measure-blocks.js';
 import { showOnPages } from './page-map.js';
-import { markLayout } from './pagination.js';
 import type { createPaginationCounter } from './pagination-stats.js';
 import type { PagedProjectionOptions } from './projection.js';
 import {
@@ -34,8 +37,21 @@ import { canonicalSelection, selectionAcrossBreak } from './selection-mirror.js'
 export const PROJECTION_META = 'projection-view';
 
 // How many layouts in a row may move the pages with no change in between before the layout counts
-// as not converging, as for a pagination.
+// as not converging (DOCE-PAGINATION-7.6).
 const LAYOUT_PASSES = 8;
+
+// Where the caret was on screen before each laid-out document was taken, until it is drawn.
+const caretBefore = new WeakMap<ProseMirrorNode, number | null>();
+
+/**
+ * Where the caret was on screen before the layout that made a document, once, so the view that
+ * draws it can put the caret back there (DOCE-PAGINATION-5.8); null for none.
+ */
+export function takeCaretBefore(doc: ProseMirrorNode): number | null {
+  const caret = caretBefore.get(doc) ?? null;
+  caretBefore.delete(doc);
+  return caret;
+}
 
 /** How the layouts are going: what they did, whether the pages settled, and what is due. */
 export interface LayoutPace {
@@ -51,6 +67,8 @@ export interface LayoutPace {
   readonly memory: LayoutMemory;
   /** Whether the pages still wait for what they measure with, such as the template's fonts. */
   readonly ready: { waiting(): boolean };
+  /** What is checked once a layout is drawn: pages drawn taller than they are (`checkDraws`). */
+  readonly draws: DrawChecks;
 }
 
 /** A projection's two states, the map between them, and what it counts. */
@@ -183,6 +201,7 @@ export function refreshLayout(session: Session, remeasure: boolean): void {
 /** A change, or the host asking for a layout: the count of layouts in a row starts over. */
 export function markChanged(session: Session): void {
   session.pace.changed = true;
+  session.pace.draws.changed();
   session.pace.readiness.pending();
 }
 
@@ -233,6 +252,7 @@ export function layout(session: Session): void {
   pace.passes = laidOut.tr.docChanged ? pace.passes + 1 : 0;
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
+  if (laidOut.tr.docChanged && view) caretBefore.set(laidOut.tr.doc, caretPlace(view));
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats: pace.counter.stats() }));
   pace.readiness.laidOut(
     () => session.cancelLayout === null && !session.edits.waiting() && !pace.ready.waiting(),
@@ -242,9 +262,11 @@ export function layout(session: Session): void {
 
 /**
  * Mirrors the canonical state onto the projection from the document shown, by `tr` when it made
- * the state from that document; or lays the pages out at once when a step cannot be placed.
+ * the state from that document; or lays the pages out at once when a step cannot be placed. The
+ * pages are laid out on the next frame when `now`, as after a change of structure
+ * (DOCE-PAGINATION-5.7), or once the writer pauses.
  */
-export function showCanonical(session: Session, tr: Transform | null): void {
+export function showCanonical(session: Session, tr: Transform | null, now = false): void {
   const { projection, map, rules, canonical, shown } = session;
   const changed = canonical.doc !== shown;
   const by = changed && tr?.before === shown ? tr : null;
@@ -257,9 +279,18 @@ export function showCanonical(session: Session, tr: Transform | null): void {
   session.shown = canonical.doc;
   take(session, changed ? mirrored.tr.scrollIntoView() : mirrored.tr);
   if (!changed) return;
-  markChanged(session);
-  session.edits.request();
+  afterChange(session, now);
 }
+
+// A change shown on the pages: laid out on the next frame when `now`, or once the writer pauses.
+function afterChange(session: Session, now: boolean): void {
+  markChanged(session);
+  if (now) requestLayout(session);
+  else session.edits.request();
+}
+
+// Whether the transactions a change made lay the pages out at once (DOCE-PAGINATION-5.7).
+const anyNow = (transactions: readonly Transaction[]) => transactions.some(wantsLayoutNow);
 
 /** Readies the canonical state for input: the browser's selection read and mirrored there. */
 export function prepare(session: Session): void {
@@ -270,7 +301,8 @@ export function prepare(session: Session): void {
 
 /** Takes a transaction of the canonical state as it stands, and shows it on the pages at once. */
 export function dispatchCanonical(session: Session, tr: Transaction): void {
-  showCanonical(session, chain(tr.before, send(session, tr)));
+  const made = send(session, tr);
+  showCanonical(session, chain(tr.before, made), anyNow(made));
 }
 
 /** Runs a command on the canonical state, with the projection's selection mirrored there first. */
@@ -289,7 +321,8 @@ function routeInput(session: Session, tr: Transaction): void {
   if (isColumnWidthChange(tr)) {
     const ctr = routeColumnWidth(tr, session);
     if (!ctr) return refuse(session);
-    return showCanonical(session, chain(ctr.before, send(session, ctr)));
+    const made = send(session, ctr);
+    return showCanonical(session, chain(ctr.before, made), anyNow(made));
   }
   syncSelection(session);
   const { rules } = session;
@@ -301,13 +334,13 @@ function routeInput(session: Session, tr: Transaction): void {
   take(session, routed.projection);
   const made = send(session, routed.canonical);
   session.shown = routed.canonical.doc;
+  const now = wantsLayoutNow(tr) || anyNow(made);
   // What the canonical plugins appended, or a change they refused, is mirrored after the edit.
   if (session.canonical.doc !== session.shown) {
     const appended = made[0] === routed.canonical ? made.slice(1) : null;
-    return showCanonical(session, appended && chain(session.shown, appended));
+    return showCanonical(session, appended && chain(session.shown, appended), now);
   }
-  markChanged(session);
-  session.edits.request();
+  afterChange(session, now);
 }
 
 /**

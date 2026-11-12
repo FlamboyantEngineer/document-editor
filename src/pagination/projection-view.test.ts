@@ -7,36 +7,52 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { joinDocumentPages, readDocumentFile, sameStructure } from '../model/index.js';
+import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { canonicalView } from './canonical-view.js';
 import { type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
+import { layoutNow } from './layout-latency.js';
+import { isPaginationTransaction, layoutStats, pageMetrics } from './layout-marks.js';
 import { pageMap } from './page-map.js';
-import { isPaginationTransaction, layoutStats, pageMetrics } from './pagination.js';
 import { createProjectionView, type ProjectionViewOptions } from './projection-view.js';
 
 const PARAGRAPH_HEIGHT = 400;
 const TEXTS = ['Alpha one', 'Beta two', 'Gamma three', 'Delta four', 'Epsilon five'];
 
-// The test DOM lays nothing out: ranges measure as empty, and each paragraph is 400 pixels tall,
-// so pages 1,000 pixels tall hold two paragraphs each.
-function stubLayout() {
+// How the test DOM lays out: each paragraph `height` pixels tall, 400 by default so that pages
+// 1,000 pixels tall hold two paragraphs each; every other element and range measures as empty.
+// With `boxes`, elements are drawn with boxes, so the pages, drawn with no height, overflow.
+interface StubbedLayout {
+  readonly height?: number;
+  readonly boxes?: boolean;
+}
+
+function stubLayout({ height = PARAGRAPH_HEIGHT, boxes = false }: StubbedLayout) {
   Object.assign(Range.prototype, {
     getBoundingClientRect: () => new DOMRect(),
     getClientRects: (): DOMRect[] => [],
   });
+  const rect = (element: HTMLElement) =>
+    new DOMRect(0, 0, 100, element.tagName === 'P' ? height : 0);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement,
   ) {
-    return new DOMRect(0, 0, 100, this.tagName === 'P' ? PARAGRAPH_HEIGHT : 0);
+    return rect(this);
+  });
+  if (!boxes) return;
+  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return [rect(this)] as unknown as DOMRectList;
   });
 }
 
-function canonicalState(plugins: readonly Plugin[] = []): EditorState {
+function canonicalState(plugins: readonly Plugin[] = [], texts = TEXTS): EditorState {
   const doc = readDocumentFile(
     {
       formatVersion: 1,
       sections: [
         {
-          content: TEXTS.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })),
+          content: texts.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })),
         },
       ],
     },
@@ -45,8 +61,8 @@ function canonicalState(plugins: readonly Plugin[] = []): EditorState {
   return EditorState.create({ doc, plugins: [history(), ...plugins] });
 }
 
-function mount(options: Partial<ProjectionViewOptions> = {}) {
-  stubLayout();
+function mount(options: Partial<ProjectionViewOptions> = {}, layout: StubbedLayout = {}) {
+  stubLayout(layout);
   const queue: (() => void)[] = [];
   const projection = createProjectionView({
     mount: document.body.appendChild(document.createElement('div')),
@@ -56,14 +72,30 @@ function mount(options: Partial<ProjectionViewOptions> = {}) {
     settle: 0,
     schedule: (run) => {
       queue.push(run);
-      return () => queue.splice(queue.indexOf(run), 1);
+      return () => {
+        const at = queue.indexOf(run);
+        if (at >= 0) queue.splice(at, 1);
+      };
     },
     ...options,
   });
-  const drain = () => {
-    while (queue.length) queue.shift()?.();
+  // Draws the next frame: what was scheduled before it.
+  const next = () => {
+    for (const run of queue.splice(0)) run();
   };
-  return { projection, drain };
+  const drain = () => {
+    while (queue.length) next();
+  };
+  return { projection, next, drain };
+}
+
+// Has the host make a change to the canonical state and show it on the projection.
+function edit(
+  projection: { readonly state: EditorState; update(state: EditorState, tr: Transaction): void },
+  make: (state: EditorState) => Transaction,
+) {
+  const tr = make(projection.state);
+  projection.update(projection.state.apply(tr), tr);
 }
 
 const pageCount = (doc: ProseMirrorNode) => doc.child(0).childCount;
@@ -349,7 +381,7 @@ describe('projection view', () => {
     expect(clicked).toEqual([projection.state]);
   });
 
-  it('DOCE-PAGINATION-7.16 tells how its layouts go, as a pagination does', async () => {
+  it('DOCE-PAGINATION-7.16 tells how its layouts go', async () => {
     const laid: Transaction[] = [];
     const states: string[] = [];
     const { projection, drain } = mount({
@@ -387,6 +419,141 @@ describe('projection view', () => {
     expect(projection.layoutState()).toBe('settled');
     expect(pageMap(projection.state).pages()).toHaveLength(3);
     expect(projection.stats()).toMatchObject({ layouts: 2 });
+  });
+});
+
+describe('projection layouts', () => {
+  it('DOCE-PAGINATION-7.5 counts layouts, measured and cached blocks, sections and pages', () => {
+    const { projection, drain } = mount();
+    // The first layout runs while the projection is made.
+    const first = projection.stats();
+    expect(first).toMatchObject({
+      layouts: 1,
+      blocksMeasured: 5,
+      cacheHits: 0,
+      cacheMisses: 5,
+      sectionsRelaid: 1,
+      sectionsReused: 0,
+      pagesLaidOut: 3,
+      overflowPages: 0,
+    });
+    edit(projection, (state) => state.tr.insertText('First ', positionOf(state.doc, 'Alpha')));
+    drain();
+    expect(projection.stats()).toMatchObject({
+      layouts: 2,
+      blocksMeasured: 6,
+      cacheHits: 4,
+      cacheMisses: 6,
+      sectionsRelaid: 2,
+      sectionsReused: 0,
+      overflowPages: 0,
+    });
+    expect(projection.stats().pagesReused + projection.stats().pagesRebuilt).toBeGreaterThan(
+      first.pagesReused + first.pagesRebuilt,
+    );
+  });
+
+  it('DOCE-PAGINATION-5.7 lays out on the next frame after a change of structure, but settles typing', () => {
+    const { projection, drain } = mount({ settle: 150 });
+    expect(projection.stats().layouts).toBe(1);
+    edit(projection, (state) => state.tr.insertText('Typed ', positionOf(state.doc, 'Alpha')));
+    drain();
+    expect(projection.stats().layouts).toBe(1);
+    edit(projection, (state) => state.tr.split(positionOf(state.doc, 'one')));
+    drain();
+    expect(projection.stats().layouts).toBe(2);
+    edit(projection, (state) => layoutNow(state.tr.insertText('x', positionOf(state.doc, 'Beta'))));
+    drain();
+    expect(projection.stats().layouts).toBe(3);
+  });
+
+  it('DOCE-PAGINATION-5.9 measures again once after a change when a page overflows', () => {
+    // The test DOM draws pages with no height, so a page of two paragraphs overflows.
+    const { projection, drain } = mount(
+      { state: canonicalState([], ['One', 'Two']) },
+      { height: 100, boxes: true },
+    );
+    drain();
+    expect(projection.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4, overflowPages: 2 });
+    expect(projection.layoutState()).toBe('settled');
+    edit(projection, (state) => state.tr.insertText('First ', positionOf(state.doc, 'One')));
+    drain();
+    expect(projection.stats()).toMatchObject({ layouts: 4, overflowPages: 4 });
+  });
+
+  it('DOCE-PAGINATION-7.6 settles two frames after a layout with none due, and pends on a change', async () => {
+    const states: string[] = [];
+    const { projection, next, drain } = mount({
+      onLayoutStateChange: (state) => states.push(state),
+    });
+    expect(projection.layoutState()).toBe('pending');
+    const settled = projection.whenSettled();
+    next();
+    expect(projection.layoutState()).toBe('pending');
+    next();
+    expect(projection.layoutState()).toBe('settled');
+    await expect(settled).resolves.toBe('settled');
+
+    edit(projection, (state) => state.tr.insertText('First ', positionOf(state.doc, 'Alpha')));
+    expect(projection.layoutState()).toBe('pending');
+    next();
+    // A change before the pages settle starts the wait over.
+    edit(projection, (state) => state.tr.insertText('Then ', positionOf(state.doc, 'Alpha')));
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    expect(states).toEqual(['settled', 'pending', 'settled']);
+  });
+
+  it('DOCE-PAGINATION-7.6 fails when a layout throws, and lays out again when asked', async () => {
+    let broken = false;
+    const { projection, drain } = mount({
+      pageHeight: () => {
+        if (broken) throw new Error('No page height');
+        return 1000;
+      },
+    });
+    drain();
+    broken = true;
+    projection.refresh();
+    expect(() => drain()).toThrow('No page height');
+    expect(projection.layoutState()).toBe('failed');
+    await expect(projection.whenSettled()).resolves.toBe('failed');
+    broken = false;
+    projection.refresh();
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+  });
+
+  it('DOCE-PAGINATION-7.6 fails when layouts keep moving the pages with no change in between', () => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((run) => {
+      run(0);
+      return 0;
+    });
+    let calls = 0;
+    // Every other layout fits two paragraphs on a page, so each moves the pages again.
+    const measureIn = document.body.appendChild(document.createElement('div'));
+    const { projection, drain } = mount(
+      {
+        measureIn,
+        state: canonicalState([], ['One', 'Two', 'Three', 'Four']),
+        pageHeight: () => {
+          calls += 1;
+          return calls % 2 ? 150 : 250;
+        },
+      },
+      { height: 100 },
+    );
+    drain();
+    for (let index = 0; index < 10; index += 1) {
+      measureIn.dispatchEvent(new Event(REMEASURE_EVENT));
+      drain();
+    }
+    expect(projection.layoutState()).toBe('failed');
+    const { layouts } = projection.stats();
+    edit(projection, (state) => state.tr.insertText('First ', positionOf(state.doc, 'One')));
+    drain();
+    expect(projection.stats().layouts).toBe(layouts + 1);
+    expect(projection.layoutState()).toBe('settled');
   });
 });
 
