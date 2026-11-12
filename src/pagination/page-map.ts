@@ -87,55 +87,89 @@ function elementPages(pages: readonly LaidOutPage[]): Map<string, LaidOutPage> {
   return found;
 }
 
-/**
- * The layout of a paged document, with positions mapped through the page transform that joins its
- * pages by `rules` (by default `FRAGMENT_RULES`).
- */
-export function createPageMap(
-  projection: ProseMirrorNode,
-  rules: FragmentRules = FRAGMENT_RULES,
-): PageMap {
-  const pages = readPages(projection);
+/** The positions between a paged projection and its canonical document, as a projection keeps them. */
+export type PagePositionMap = Pick<
+  PageMap,
+  'projection' | 'canonical' | 'toCanonical' | 'toProjection'
+>;
+
+// The positions of a paged document through the page transform that joins its pages, joined once
+// a position is mapped.
+function joinedPositions(projection: ProseMirrorNode, rules: FragmentRules): PagePositionMap {
   let joined: PagePositions | null = null;
-  let elements: Map<string, LaidOutPage> | null = null;
   const join = () => {
     if (joined) return joined;
     const tr = joinDocumentPages(projection, rules);
     joined = { projection, canonical: tr.doc, forward: tr.mapping, backward: tr.mapping.invert() };
     return joined;
   };
-  const toProjection = (pos: number, assoc: -1 | 1 = 1) =>
-    mapPosition(join(), { pos, assoc }, 'toProjection');
   return {
     projection,
     get canonical() {
       return join().canonical;
     },
+    toCanonical: (pos, assoc) =>
+      mapPosition(join(), { pos, assoc: assoc ?? textSide(projection, pos) }, 'toCanonical'),
+    toProjection: (pos, assoc = 1) => mapPosition(join(), { pos, assoc }, 'toProjection'),
+  };
+}
+
+/**
+ * The layout of a paged document, with positions mapped through the page transform that joins its
+ * pages by `rules` (by default `FRAGMENT_RULES`), or through `positions` when they are those of
+ * this document, as a projection keeps them, so no page transform runs (DOCE-PAGINATION-7.18).
+ */
+export function createPageMap(
+  projection: ProseMirrorNode,
+  rules: FragmentRules = FRAGMENT_RULES,
+  positions?: PagePositionMap,
+): PageMap {
+  const pages = readPages(projection);
+  const through =
+    positions?.projection === projection ? positions : joinedPositions(projection, rules);
+  let elements: Map<string, LaidOutPage> | null = null;
+  return {
+    projection,
+    get canonical() {
+      return through.canonical;
+    },
     pages: () => pages,
     pageAt(pos, assoc = 1) {
-      const at = toProjection(pos, assoc);
+      const at = through.toProjection(pos, assoc);
       return at === null ? null : pageHolding(pages, at);
     },
     pageOf(elementId) {
       elements ??= elementPages(pages);
       return elements.get(elementId) ?? null;
     },
-    toCanonical: (pos, assoc) =>
-      mapPosition(join(), { pos, assoc: assoc ?? textSide(projection, pos) }, 'toCanonical'),
-    toProjection,
+    toCanonical: (pos, assoc) => through.toCanonical(pos, assoc),
+    toProjection: (pos, assoc) => through.toProjection(pos, assoc),
   };
 }
 
 // The pages a projection shows each canonical document on, made once asked for.
 const shownOnPages = new WeakMap<ProseMirrorNode, () => PageMap>();
 
-/** Records the pages a projection shows a canonical document on, for `pageMap`. */
+/**
+ * Records the pages a projection shows a canonical document on, for `pageMap`; with the positions
+ * the projection keeps between them, when it has them. Without them, a document already recorded
+ * keeps the pages it was shown on with their positions, as those pages still show it.
+ */
 export function showOnPages(
   canonical: ProseMirrorNode,
-  { pages, rules }: { readonly pages: ProseMirrorNode; readonly rules: FragmentRules },
+  {
+    pages,
+    rules,
+    positions,
+  }: {
+    readonly pages: ProseMirrorNode;
+    readonly rules: FragmentRules;
+    readonly positions?: PagePositionMap | undefined;
+  },
 ): void {
+  if (!positions && shownOnPages.has(canonical)) return;
   let map: PageMap | null = null;
-  shownOnPages.set(canonical, () => (map ??= createPageMap(pages, rules)));
+  shownOnPages.set(canonical, () => (map ??= createPageMap(pages, rules, positions)));
 }
 
 /**

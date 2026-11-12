@@ -191,6 +191,24 @@ describe('projection view', () => {
     expect(inSync(projection)).toBe(true);
   });
 
+  it('DOCE-PAGINATION-7.18 gives the layout of the canonical state through the projection map', () => {
+    const { projection, drain } = mount();
+    const { view } = projection;
+    const before = projection.state;
+    expect(pageMap(before).canonical).toBe(projection.map.canonical);
+    view.dispatch(view.state.tr.insertText('New ', positionOf(view.state.doc, 'Epsilon')));
+    const typed = pageMap(projection.state);
+    expect(typed.projection).toBe(view.state.doc);
+    expect(typed.canonical).toBe(projection.map.canonical);
+    expect(typed.pageAt(positionOf(projection.state.doc, 'New Epsilon'))?.number).toBe(3);
+    expect(pageMap(before).projection).not.toBe(view.state.doc);
+    drain();
+    expect(pageMap(projection.state).canonical).toBe(projection.map.canonical);
+    expect(pageMap(projection.state).pageAt(positionOf(projection.state.doc, 'Beta'))?.number).toBe(
+      1,
+    );
+  });
+
   it('DOCE-PAGINATION-7.11 shows on the pages what the canonical plugins append to input', () => {
     // Appends a full stop after each edit that does not end with one.
     const stop = new Plugin({
