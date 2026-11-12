@@ -104,6 +104,13 @@ Accepting an insertion shall mark its text, where no contributor is named, as it
 Implementation: `src/engine/suggestion-decisions.ts`
 Verification: `src/engine/suggestions.test.ts`
 
+### DOCE-SUGGESTIONS-2.8 - One decide policy
+
+`suggestionPermissions(suggestion, policy)` shall say whether the reader may accept a suggestion and reject it: a reader who may decide (`canDecide`) may do both unless the policy's `decide` narrows it, and a writer may withdraw (reject) their own suggestion while `canWithdraw`, even while suggesting; an unattributed suggestion is its thread's writer's (DOCE-SUGGESTIONS-2.5). `decideWithPolicy(policy, decision, ids)` shall decide only the suggestions the policy allows, and fail when it allows none.
+
+Implementation: `src/engine/suggestion-policy.ts`
+Verification: `src/engine/suggestion-policy.test.ts`
+
 ## DOCE-SUGGESTIONS-3 - Suggesting in the editor
 
 ### DOCE-SUGGESTIONS-3.1 - Suggesting
@@ -125,6 +132,13 @@ Verification: `e2e/suggestions.spec.ts`
 Accepting or rejecting a suggestion, or all of them, shall update the document and the list of suggestions.
 
 Implementation: `src/engine/suggestion-decisions.ts`, `labs/src/suggestions.lab.tsx`
+Verification: `e2e/suggestions.spec.ts`
+
+### DOCE-SUGGESTIONS-3.4 - Deciding on every path
+
+The comments margin, the comments panel and the context menu shall decide suggestions through one policy (`editorSuggestionPolicy`): the reader is the editor's `author`, else the comments' reader; an editable editor that is not suggesting may decide, as the comments' `decide` option narrows it; and an editable writer may withdraw their own suggestion, while suggesting too. The context menu shall offer only the decisions the policy allows, and none on locked content.
+
+Implementation: `src/components/document-editor/suggestion-policy.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comments-panel.tsx`
 Verification: `e2e/suggestions.spec.ts`
 
 ## Hooks

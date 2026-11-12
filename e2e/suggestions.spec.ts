@@ -115,4 +115,28 @@ test.describe('suggestions lab', () => {
     );
     await expect(content(page).locator('ins, del')).toHaveCount(0);
   });
+
+  test('DOCE-SUGGESTIONS-3.4 lets a suggesting writer withdraw only their own suggestion', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('suggestions');
+    const menuItem = (name: string) =>
+      page.getByRole('menu').last().getByRole('menuitem', { name });
+    await caretAtEnd(page, 'within one second');
+    await page.keyboard.type(' Always.');
+    await page.keyboard.press('Shift+F10');
+    await expect(menuItem('Reject suggestion')).toBeVisible();
+    await expect(menuItem('Accept suggestion')).toHaveCount(0);
+    await menuItem('Reject suggestion').click();
+    await expect(block(page, 'within one second')).toHaveText(
+      'The system shall report each fault within one second of detecting it.',
+    );
+    const box = await content(page).locator('ins[data-au="Reviewer"]').boundingBox();
+    if (!box) throw new Error('No suggestion by the reviewer');
+    await clickAt(page, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    await page.keyboard.press('Shift+F10');
+    await expect(menuItem('Cut')).toBeVisible();
+    await expect(menuItem('Reject suggestion')).toHaveCount(0);
+  });
 });

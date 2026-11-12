@@ -15,7 +15,7 @@ import {
   canStartComment,
   createElementId,
   startCommentDraft,
-  type Suggestion,
+  type SuggestionPolicy,
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
@@ -40,7 +40,7 @@ export interface DocumentCommentsPanelProps extends DocumentCommentsOptions {
   /** Which threads it lists at first, uncontrolled. Defaults to the open ones. */
   readonly defaultFilter?: CommentsFilter | undefined;
   readonly onFilterChange?: ((filter: CommentsFilter) => void) | undefined;
-  /** Whether the reader may accept and reject suggestions. Defaults to whether the editor is editable. */
+  /** Whether the reader may accept and reject suggestions. Defaults to an editable editor that is not suggesting. */
   readonly canDecide?: boolean | undefined;
   readonly className?: string | undefined;
 }
@@ -149,16 +149,24 @@ function usePanelCommands(view: EditorView | null, focus: ReturnType<typeof useC
   return { run, startThread };
 }
 
-// What the reader may decide of each suggestion: as `decide` allows, while they may decide at all.
-function decisionsOf(
+// The editor's one decide policy (DOCE-SUGGESTIONS-2.8): a reader who edits may decide, as
+// `decide` allows, and a writer may withdraw their own suggestion, while suggesting too.
+function policyOf(
   props: DocumentCommentsPanelProps,
-  { editable, me }: { editable: boolean; me: string },
-) {
-  const canDecide = props.canDecide ?? editable;
-  return (suggestion: Suggestion) =>
-    canDecide
-      ? (props.decide?.(suggestion, me) ?? { accept: true, reject: true })
-      : { accept: false, reject: false };
+  {
+    context,
+    me,
+    threads,
+  }: { context: EditorContext | null; me: string; threads: CommentThreads['threads'] },
+): SuggestionPolicy {
+  const editable = context?.editable ?? false;
+  return {
+    me,
+    canDecide: props.canDecide ?? (editable && !(context?.suggesting ?? false)),
+    canWithdraw: editable,
+    decide: props.decide,
+    threadAuthor: (thread) => threads.get(thread)?.entries[0]?.author,
+  };
 }
 
 function CommentsPanelList(props: DocumentCommentsPanelProps) {
@@ -177,7 +185,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const opened = focus.opened ? `comment:${focus.opened.threadId}` : null;
   const caret = state ? caretKey(items, state) : null;
   const active = caret && caret !== 'draft' ? caret : opened;
-  const decisions = decisionsOf(props, { editable: context?.editable ?? false, me: card.me });
+  const policy = policyOf(props, { context, me: card.me, threads: comments.threads });
   const { labels } = card;
   const showIn = (at: number): ReactNode =>
     view ? (
@@ -209,7 +217,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
           {renderCommentCard(item, {
             context: card,
             isActive: item.key === active,
-            canDecide: decisions,
+            policy,
             run,
             startThread,
           })}
