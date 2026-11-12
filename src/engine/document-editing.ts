@@ -245,13 +245,22 @@ const VARIABLE_TOKENS_PLUGIN = {
   build: () => [createVariableTokens()],
 };
 
-// Numbered paragraphs, when given the template, after the custom styles.
-const paragraphNumberingPlugin = (template: (() => TemplateFile) | undefined) => ({
-  name: 'paragraph-numbering',
-  priority: 516,
-  when: () => Boolean(template),
-  build: () => (template ? [createParagraphNumbering({ template })] : []),
-});
+// The plugins that style blocks from the template, when given one: custom styles, then numbered
+// paragraphs.
+const templateStylePlugins = (template: (() => TemplateFile) | undefined) => [
+  {
+    name: 'custom-styles',
+    priority: 515,
+    when: () => Boolean(template),
+    build: () => (template ? [createCustomStyles({ template })] : []),
+  },
+  {
+    name: 'paragraph-numbering',
+    priority: 516,
+    when: () => Boolean(template),
+    build: () => (template ? [createParagraphNumbering({ template })] : []),
+  },
+];
 
 /**
  * The editing plugins as a kit extension: the history first, the element ids among the
@@ -307,13 +316,7 @@ export function createDocumentEditingExtension<C = unknown>(
         priority: 512,
         build: () => [createScripts()],
       },
-      {
-        name: 'custom-styles',
-        priority: 515,
-        when: () => Boolean(template),
-        build: () => (template ? [createCustomStyles({ template })] : []),
-      },
-      paragraphNumberingPlugin(template),
+      ...templateStylePlugins(template),
       VARIABLE_TOKENS_PLUGIN,
       {
         name: 'table-width',
