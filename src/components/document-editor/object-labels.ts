@@ -131,6 +131,8 @@ const CONTENTS_KINDS: Readonly<Record<string, string>> = {
   tables: 'List of tables',
   codeBlocks: 'List of code',
   equations: 'List of equations',
+  references: 'List of references',
+  abbreviations: 'List of abbreviations',
 };
 
 const CODE_STATUS = {
