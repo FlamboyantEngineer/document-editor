@@ -9,9 +9,11 @@ import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
 import type { holdCellSelection } from './cell-drag.js';
+import type { LayoutMemory } from './layout-document.js';
 import type { createLayoutReadiness } from './layout-readiness.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
 import type { MeasureCache } from './measure-blocks.js';
+import { showOnPages } from './page-map.js';
 import { markLayout } from './pagination.js';
 import type { createPaginationCounter } from './pagination-stats.js';
 import type { PagedProjectionOptions } from './projection.js';
@@ -43,6 +45,10 @@ export interface LayoutPace {
   passes: number;
   /** Whether the ghost's plugins start over at the next layout. */
   restart: boolean;
+  /** What the latest layout found, which the next starts from (`LayoutMemory`). */
+  readonly memory: LayoutMemory;
+  /** Whether the pages still wait for what they measure with, such as the template's fonts. */
+  readonly ready: { waiting(): boolean };
 }
 
 /** A projection's two states, the map between them, and what it counts. */
@@ -76,6 +82,7 @@ export function send(session: Session, tr: Transaction): void {
 // The projection's new state, told to whatever renders it.
 function setProjection(session: Session, state: EditorState): void {
   session.projection = state;
+  showOnPages(session.canonical.doc, { pages: state.doc, rules: session.rules });
   session.options.onProjection(state);
 }
 
@@ -144,6 +151,20 @@ export function requestLayout(session: Session): void {
   session.cancelLayout ??= schedule(() => layout(session));
 }
 
+/**
+ * Lays the pages out again soon; `remeasure` forgets every measurement and starts the ghost's
+ * plugins over.
+ */
+export function refreshLayout(session: Session, remeasure: boolean): void {
+  if (remeasure) {
+    session.cache.clear();
+    session.pace.restart = true;
+  }
+  markChanged(session);
+  session.edits.cancel();
+  requestLayout(session);
+}
+
 /** A change, or the host asking for a layout: the count of layouts in a row starts over. */
 export function markChanged(session: Session): void {
   session.pace.changed = true;
@@ -158,7 +179,7 @@ function layOutPages(session: Session) {
     ghost.updateState(EditorState.create({ doc: ghost.state.doc, plugins: ghost.state.plugins }));
   }
   return layOutProjection(
-    { projection, ghost, canonical, cache, onSection: pace.counter.section },
+    { projection, ghost, canonical, cache, memory: pace.memory, onSection: pace.counter.section },
     { ...options, fragmentRules: rules },
   );
 }
@@ -190,7 +211,9 @@ export function layout(session: Session): void {
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats: pace.counter.stats() }));
-  pace.readiness.laidOut(() => session.cancelLayout === null && !session.edits.waiting());
+  pace.readiness.laidOut(
+    () => session.cancelLayout === null && !session.edits.waiting() && !pace.ready.waiting(),
+  );
   session.options.onLayout?.(laidOut.tr);
 }
 
