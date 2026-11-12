@@ -31,12 +31,21 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testIgnore: [/\.performance\.spec\.ts$/, /\/performance\.spec\.ts$/],
     },
+    // The heaviest timing test, 300 pages beside 500 comment threads, alone after the lab tests, so
+    // it slows no other timing test.
+    {
+      name: 'review-scale',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /\/review-scale\.performance\.spec\.ts$/,
+      dependencies: ['chromium'],
+    },
     // Timing budgets run after every other test, with no other worker sharing the machine.
     {
       name: 'performance',
       use: { ...devices['Desktop Chrome'] },
       testMatch: /\.performance\.spec\.ts$/,
-      dependencies: ['chromium'],
+      testIgnore: /\/review-scale\.performance\.spec\.ts$/,
+      dependencies: ['review-scale'],
       fullyParallel: false,
     },
     // The performance harness (DOCE-LABS-2.3), run on its own with `npm run test:perf`.
