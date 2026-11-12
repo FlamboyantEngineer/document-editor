@@ -1,5 +1,4 @@
 export type {
-  AssetAdapter,
   CodeSourceAdapter,
   CommentEntry,
   CommentStoreAdapter,
@@ -35,7 +34,6 @@ export type {
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptVocabularyEntry,
-  StoredAsset,
   StoredDocument,
   StoredTemplate,
   TelemetryAdapter,
@@ -44,7 +42,14 @@ export type {
   VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
-export type { AssetSearchPage, DiagramAdapter, FoundAsset, StoredDiagram } from './adapters.js';
+export type {
+  AssetAdapter,
+  AssetSearchPage,
+  DiagramAdapter,
+  FoundAsset,
+  StoredAsset,
+  StoredDiagram,
+} from './asset-adapters.js';
 export type {
   ConnectionAccess,
   EditingMode,
