@@ -20,6 +20,7 @@ import {
   type TemplateFile,
   templateScopeStyles,
 } from '../model/index.js';
+import { isBodyParent, topLevelBlockEnd } from './block-place.js';
 
 /** Wraps the selection in a list, joined with a list of the same kind just before or after it. */
 export function wrapInListAndJoin(listType: NodeType): Command {
@@ -61,9 +62,6 @@ function numbersParagraphs(template: TemplateFile, $pos: ResolvedPos): boolean {
   const { paragraph } = templateScopeStyles(template, section);
   return (resolveParagraphNumberingConfig(paragraph).styleConfig?.levels.length ?? 0) > 0;
 }
-
-const isBodyParent = (parent: ProseMirrorNode | null) =>
-  parent?.type.name === 'page_content' || parent?.type.name === 'page_section';
 
 /**
  * Moves the selected top-level paragraphs one level deeper (1) or shallower (-1), where the
@@ -297,14 +295,6 @@ export const clearFormatting: Command = (state, dispatch) => {
   return true;
 };
 
-// The top-level block of the page content or document holding a position, as its end.
-function topLevelEnd($pos: ResolvedPos): number | null {
-  for (let depth = $pos.depth; depth > 0; depth -= 1) {
-    if (isBodyParent($pos.node(depth - 1)) || depth === 1) return $pos.after(depth);
-  }
-  return null;
-}
-
 /** Inserts a page break after the top-level block holding the selection. */
 export const insertPageBreak: Command = (state, dispatch) => {
   const { page_break: pageBreak, paragraph } = state.schema.nodes;
@@ -323,7 +313,7 @@ export const insertPageBreak: Command = (state, dispatch) => {
     }
     return true;
   }
-  const at = topLevelEnd($from);
+  const at = topLevelBlockEnd($from);
   if (at === null) return false;
   if (dispatch) {
     const tr: Transaction = state.tr.insert(at, pageBreak.create());

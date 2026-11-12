@@ -19,7 +19,7 @@ export interface SettingRowProps {
   readonly value: unknown;
   /** The value the template inherits, shown while it has none of its own. */
   readonly inherited: unknown;
-  /** Sets the template's own value; null inherits again. */
+  /** Sets the template's own value; null inherits again, and an empty string is its own empty value. */
   readonly onChange: (value: unknown) => void;
   /** Names the inherited value, such as `Inherited: 12pt`, and where it comes from. */
   readonly inheritedLabel: (value: string, source?: string) => string;
@@ -28,6 +28,8 @@ export interface SettingRowProps {
   /** The fonts a font field suggests. */
   readonly fonts?: readonly string[] | undefined;
   readonly isDisabled?: boolean | undefined;
+  /** Labels the button that takes the own value away while the row inherits one; none without it. */
+  readonly useInheritedLabel?: string | undefined;
 }
 
 // A length: a number and a unit, such as `12pt` or `20mm`.
@@ -56,7 +58,10 @@ const NOT_NUMBERING = /[^1aAiI.\-):/]/g;
 export const cleanNumbering = (text: string) => text.replace(NOT_NUMBERING, '');
 
 /** Whether a value is unset, so the field inherits. */
-export const isUnset = (value: unknown) => value === undefined || value === null || value === '';
+export const isUnset = (value: unknown) => value === undefined || value === null;
+
+// Whether there is a value to show as inherited: an inherited empty value shows nothing.
+const hasNothing = (value: unknown) => isUnset(value) || value === '';
 
 const shown = (value: unknown) =>
   value === undefined || value === null ? '' : typeof value === 'string' ? value : String(value);
@@ -247,7 +252,7 @@ const CONTROLS = {
 /** A setting's field. */
 export function SettingControl(props: SettingRowProps): ReactNode {
   const { inherited, value, setting } = props;
-  const placeholder = isUnset(inherited) ? undefined : shown(inherited);
+  const placeholder = hasNothing(inherited) ? undefined : shown(inherited);
   const inheritedText =
     setting.kind.type === 'points' ? `${String(toPoints(inherited) ?? '')}pt` : shown(inherited);
   const common = {
@@ -259,7 +264,7 @@ export function SettingControl(props: SettingRowProps): ReactNode {
     density: 'compact' as const,
     // While the field inherits, what it inherits and from where describe it, in its Help.
     help:
-      isUnset(value) && !isUnset(inherited)
+      isUnset(value) && !hasNothing(inherited)
         ? props.inheritedLabel(inheritedText, props.inheritedFrom)
         : undefined,
     showHelpButton: false as const,

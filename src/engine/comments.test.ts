@@ -66,7 +66,11 @@ describe('comment anchors', () => {
         state: 'open',
         from: positionOf(state.doc, 'blue'),
         to: positionOf(state.doc, 'Gamma') + 5,
-        text: 'blueGamma',
+        ranges: [
+          { from: positionOf(state.doc, 'blue'), to: positionOf(state.doc, 'blue') + 4 },
+          { from: positionOf(state.doc, 'Gamma'), to: positionOf(state.doc, 'Gamma') + 5 },
+        ],
+        text: 'blue Gamma',
       },
     ]);
   });
@@ -93,6 +97,27 @@ describe('comment anchors', () => {
     expect(early && listCommentAnchors(early.doc).map((anchor) => anchor.thread)).toEqual([
       'early',
       'late',
+    ]);
+  });
+
+  it('DOCE-COMMENTS-1.2 keeps threads that nest in or overlap one another', () => {
+    const doc = read(paragraph('one two three four'));
+    const at = (value: string) => positionOf(doc, value);
+    let state = EditorState.create({ doc });
+    const anchor = (thread: string, from: number, to: number) => {
+      const next = run(
+        state.apply(state.tr.setSelection(TextSelection.create(state.doc, from, to))),
+        addCommentAnchor(thread),
+      );
+      if (next) state = next;
+    };
+    anchor('outer', at('one'), at('four') + 4);
+    anchor('inner', at('two'), at('two') + 3);
+    anchor('overlap', at('three'), at('four') + 4);
+    expect(listCommentAnchors(state.doc).map(({ thread, text }) => [thread, text])).toEqual([
+      ['outer', 'one two three four'],
+      ['inner', 'two'],
+      ['overlap', 'three four'],
     ]);
   });
 
