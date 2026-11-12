@@ -4,20 +4,21 @@
 
 import type { Schema } from 'prosemirror-model';
 import type { HostResult, SavedState } from '../host/adapters.js';
-import type { RoomConnection } from '../host/session-adapters.js';
+import { type EditorCapabilities, READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import type {
   DocumentSession,
   DocumentSessionOptions,
+  SessionConnection,
   SessionDocument,
 } from './document-session.js';
 import type { DraftOffer } from './drafts.js';
 import { loadPinnedTemplate } from './open-document.js';
 import { createRoomDrafts } from './room-drafts.js';
+import { followConnection, readConnection } from './room-follow.js';
 import { type OpenedRoom, openRoom, type RoomDraft, whenKept } from './room-open.js';
-import { roomRefusal, roomSavePhase } from './room-status.js';
-import { editingModeOf, followSession, withCapabilities } from './session-follow.js';
+import { followSession, withCapabilities } from './session-follow.js';
 import {
   changeTemplate,
   createSessionStores,
@@ -25,6 +26,12 @@ import {
   type SessionStores,
 } from './store-session.js';
 import { createValueStore } from './value-store.js';
+
+// Where a room session's connection is before it connects.
+const CONNECTING: SessionConnection = {
+  phase: 'connecting',
+  gate: { editable: false, locked: false },
+};
 
 // Room mode opens on its draft by itself, so it offers none to restore.
 const NO_DRAFT_OFFER: Pick<DocumentSession, 'draft' | 'restoreDraft' | 'discardDraft'> = {
@@ -47,33 +54,15 @@ async function readRoom(
   if (!doc) throw new Error('The schema cannot make an empty document.');
   const create = options.createState ?? defaultState(options.schema);
   const state = create(doc, { ...options.stores.context, room: { plugins: binding.plugins } });
-  const document: SessionDocument = {
-    state,
-    template: template.value.template,
-    pin,
-    templateUpdate: null,
+  const shown = { state, template: template.value.template, pin, templateUpdate: null };
+  const cached = room.draft !== null;
+  const { gate } = readConnection(connection, { cached, hasSynced: !cached });
+  const document: SessionDocument = withCapabilities(
+    { ...shown, capabilities, editingMode: 'read' },
     capabilities,
-    editingMode: editingModeOf(capabilities, connection.state().access),
-  };
+    gate,
+  );
   return { ok: true, value: { document, saved: template.value.saved } };
-}
-
-// Follows the connection: the session's status from the room's, and the editing mode the room's
-// access gives.
-function followConnection(connection: RoomConnection, { status, document }: SessionStores) {
-  let access = connection.state().access;
-  const show = () => {
-    const state = connection.state();
-    const error = roomRefusal(state);
-    const save = error ? 'error' : roomSavePhase(state);
-    status.set({ ...status.get(), save, error, dirty: state.hasUnconfirmedChanges });
-    if (state.access === access) return;
-    access = state.access;
-    const shown = document.get();
-    if (shown) document.set(withCapabilities(shown, shown.capabilities, access));
-  };
-  show();
-  return connection.subscribe(show);
 }
 
 // What a room session runs on: its stores, its drafts and the room it is connected to now.
@@ -85,6 +74,8 @@ interface RoomRun {
   follow: ReturnType<typeof followSession>;
   showPin: (pin: TemplatePin | null) => Promise<boolean>;
   current: { room: OpenedRoom | null; stops: (() => void)[] };
+  /** The capabilities the host grants the reader, before the connection's gate narrows them. */
+  granted: EditorCapabilities;
 }
 
 // Leaves the room the session is connected to.
@@ -114,8 +105,10 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
   }
   const room = opened.value;
   current.room = room;
+  run.granted = room.capabilities;
   document.set(read.value.document);
-  current.stops.push(followConnection(room.connection, stores));
+  const following = { cached: room.draft !== null, granted: () => run.granted };
+  current.stops.push(followConnection(room.connection, stores, following));
   current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
   const reopen = (draft: RoomDraft) => {
     leaveRoom(run);
@@ -135,6 +128,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
   const controller = new AbortController();
   const { signal } = controller;
   const stores = createSessionStores(options, 'connecting');
+  stores.connection.set(CONNECTING);
   const { status, document } = stores;
   const flush = () => {
     const opened = run.current.room;
@@ -145,7 +139,10 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     documentId,
     document,
     onLeave: () => void flush(),
-    connection: () => run.current.room?.connection.state().access ?? 'pending',
+    gate: () => stores.connection.get()?.gate ?? null,
+    onGranted: (capabilities) => {
+      run.granted = capabilities;
+    },
   });
   const showPin = async (pin: TemplatePin | null) => {
     const changed = await changeTemplate({ host, signal }, stores, pin);
@@ -161,6 +158,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     follow,
     showPin,
     current: { room: null, stops: [] },
+    granted: READ_ONLY_CAPABILITIES,
   };
   const room = () => run.current.room;
   const close = () => {
@@ -179,6 +177,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     // A shared room merges every writer's changes itself; what is left to settle are a draft's
     // blocks a new generation of the room changed too (DOCE-SESSION-6.10).
     conflicts: stores.conflicts,
+    connection: stores.connection,
     ready: loadRoom(run),
     update: (update) => {
       const shown = document.get();

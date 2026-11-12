@@ -5,9 +5,15 @@
 import type * as Y from '@y/y';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';
+import {
+  type AwarenessPresenceOptions,
+  createAwarenessPresence,
+  type PresenceAwareness,
+} from '../collab/awareness.js';
 import { CONTENT_TYPE, readContent } from '../collab/delta.js';
 import { createCollabSync } from '../collab/sync.js';
 import { createCollabUndo } from '../collab/undo.js';
+import { createPresence } from '../engine/presence.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 
 const META_TYPE = 'meta';
@@ -17,7 +23,10 @@ const TEMPLATE_ATTR = 'template';
 export interface RoomBinding {
   /** The document the room holds, or null while it holds none. */
   content(): ProseMirrorNode | null;
-  /** The plugins that keep the editor and the room the same, with the writer's own undo. */
+  /**
+   * The plugins that keep the editor and the room the same, with the writer's own undo, and the
+   * other people in the room with their carets and selections.
+   */
   readonly plugins: readonly Plugin[];
   /** The template the room's document pins, or null for the base template. */
   pin(): TemplatePin | null;
@@ -31,18 +40,36 @@ const asPin = (value: unknown): TemplatePin | null =>
     ? (value as TemplatePin)
     : null;
 
+/** How a session binds to its room. */
+export interface RoomBindingOptions {
+  schema: Schema;
+  isRemoteOrigin: (origin: unknown) => boolean;
+  /** The room's awareness, a `@y/protocols` awareness, when the connection has one. */
+  awareness: unknown;
+  /** The reader as the others see them, and the page's lifecycle (DOCE-SESSION-3.9). */
+  presence: Omit<AwarenessPresenceOptions, 'awareness'>;
+}
+
+// Presence through the room's awareness, when the connection has one.
+function presencePlugins({ awareness, presence }: RoomBindingOptions) {
+  if (!awareness) return [];
+  const shared = awareness as PresenceAwareness;
+  return [createPresence(), createAwarenessPresence({ ...presence, awareness: shared })];
+}
+
 /** Binds a session to a room's shared document, a Y.Doc of `@y/y`. */
-export function bindRoom(
-  shared: unknown,
-  schema: Schema,
-  isRemoteOrigin: (origin: unknown) => boolean,
-): RoomBinding {
+export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBinding {
+  const { schema, isRemoteOrigin } = options;
   const doc = shared as Y.Doc;
   const meta = doc.get(META_TYPE);
   const origin = { session: 'template' };
   return {
     content: () => readContent(schema, doc.get(CONTENT_TYPE)),
-    plugins: [createCollabSync({ doc, isRemoteOrigin }), createCollabUndo()],
+    plugins: [
+      ...presencePlugins(options),
+      createCollabSync({ doc, isRemoteOrigin }),
+      createCollabUndo(),
+    ],
     pin: () => asPin(meta.getAttr(TEMPLATE_ATTR)),
     setPin: (pin) => {
       doc.transact(() => {

@@ -13,6 +13,12 @@ import { roomRefusal } from './room-status.js';
 /** A room-mode draft as the drafts adapter keeps it. */
 export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
 
+// The reader as the others in the room see them.
+function presenceUser(host: EditorHost) {
+  const { id, name, avatarUrl } = host.identity.currentPerson();
+  return avatarUrl === undefined ? { id, name } : { id, name, avatar: avatarUrl };
+}
+
 /** A document's room, connected and bound, and what the reader may do there. */
 export interface OpenedRoom {
   connection: RoomConnection;
@@ -80,8 +86,12 @@ export async function openRoom(
     connection.close();
     return { ok: false, error };
   }
-  const isRemoteOrigin = (origin: unknown) => connection.isRemoteOrigin(origin);
-  const binding = bindRoom(connection.doc, schema, isRemoteOrigin);
+  const binding = bindRoom(connection.doc, {
+    schema,
+    isRemoteOrigin: (origin) => connection.isRemoteOrigin(origin),
+    awareness: connection.awareness,
+    presence: { user: presenceUser(host), lifecycle: host.lifecycle },
+  });
   return { ok: true, value: { connection, binding, capabilities, draft: draft ?? null } };
 }
 
