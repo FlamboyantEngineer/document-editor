@@ -286,7 +286,7 @@ Verification: `e2e/comments.spec.ts`
 In the scale lab's document of about 300 pages beside 500 open threads, typing shall cost about what it costs on the same pages with no comments: a card is drawn again only when what it shows changes (its thread, its suggestion's text, whether it is active, or where it sits), never because the document changed elsewhere, and the cards' context and callbacks stay the same from one state to the next. The keystroke time is a budget of DOCE-LABS-2.3.
 
 Implementation: `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/document-comments.tsx`, `labs/src/stress-scale.lab.tsx`, `labs/src/stress/scale-documents.ts`
-Verification: `e2e/review-scale.spec.ts`, `e2e/performance.spec.ts`
+Verification: `e2e/review-scale.performance.spec.ts`, `e2e/performance.spec.ts`
 
 ## DOCE-COMMENTS-4 - Reviewing
 

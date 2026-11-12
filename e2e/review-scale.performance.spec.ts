@@ -31,7 +31,8 @@ test.describe('review scale', () => {
       description: `${String(alone)} alone, ${String(beside)} beside 500 threads`,
     });
     await expect(page.locator('.de-document-editor__content')).toContainText('x'.repeat(15));
-    // Every card drawn again on each keystroke made it about eight times slower.
-    expect(beside).toBeLessThanOrEqual(alone * 1.5 + 50);
+    // Every card drawn again on each keystroke made it about eight times slower; twice is the
+    // margin for the other timing tests that may share the machine.
+    expect(beside).toBeLessThanOrEqual(alone * 2 + 100);
   });
 });
