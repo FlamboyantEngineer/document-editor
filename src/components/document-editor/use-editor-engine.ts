@@ -63,23 +63,6 @@ export const READ_SELECTION_FIRST = {
 
 type EngineEvents = NonNullable<EnginePlumbingProps['events']>;
 
-// Mod and a letter alone: Ctrl, or Cmd on a Mac.
-const isModKey = (event: KeyboardEvent, letter: string) =>
-  event.key.toLowerCase() === letter &&
-  (event.ctrlKey || event.metaKey) &&
-  !event.altKey &&
-  !event.shiftKey;
-
-// Mod-F opens the find bar.
-export const isFindKey = (event: KeyboardEvent) => isModKey(event, 'f');
-
-// Mod-Alt-M starts a comment.
-export const isCommentKey = (event: KeyboardEvent) =>
-  event.code === 'KeyM' && (event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey;
-
-// Mod-K opens the reference dialog.
-export const isReferenceKey = (event: KeyboardEvent) => isModKey(event, 'k');
-
 /**
  * The engine's events as the editor keeps them: `onMounted` may name the view the host is shown,
  * such as the canonical view over a projection, beside the view the engine mounted.

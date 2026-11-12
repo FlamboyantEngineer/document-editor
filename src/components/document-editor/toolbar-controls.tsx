@@ -4,98 +4,43 @@
 
 import { Button } from '@flamboyantengineer/ui-components/button';
 import {
-  BoldGlyph,
-  CodeGlyph,
-  ItalicGlyph,
   type Key,
-  ListBulletGlyph,
-  ListNumberedGlyph,
   PageBreakGlyph,
   RedoGlyph,
-  StrikethroughGlyph,
-  SubscriptGlyph,
-  SuperscriptGlyph,
   TableGlyph,
-  UnderlineGlyph,
   UndoGlyph,
 } from '@flamboyantengineer/ui-components/core';
 import { GridSizePicker } from '@flamboyantengineer/ui-components/grid-size-picker';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
-import { toggleMark } from 'prosemirror-commands';
 import { redo, undo } from 'prosemirror-history';
-import type { MarkType, NodeType, Schema } from 'prosemirror-model';
-import { liftListItem } from 'prosemirror-schema-list';
-import type { Command, EditorState } from 'prosemirror-state';
+import type { Schema } from 'prosemirror-model';
+import type { EditorState } from 'prosemirror-state';
 import { type CSSProperties, useMemo, useState } from 'react';
 import {
   customStyleAt,
+  DEFAULT_SHORTCUTS,
   insertPageBreak,
   insertTable,
   setCustomStyle,
   setTextblockType,
-  wrapInListAndJoin,
+  type ShortcutId,
+  shortcutLabel,
+  shortcutsOf,
+  type ShortcutTable,
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { commandItem, listItems, markItems } from './format-items.js';
 import { type InsertFeatures, insertItems, linkItem } from './insert-controls.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
-import type { ToolbarButtonItem, ToolbarGroup, ToolbarItem } from './toolbar-items.js';
+import type { ToolbarGroup } from './toolbar-items.js';
 
 // The toolbar's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['block-style', 'style-preview']);
 
-type Labelled =
-  'bold' | 'italic' | 'underline' | 'strikethrough' | 'code' | 'superscript' | 'subscript';
-
-const MARKS = [
-  { id: 'bold', name: 'strong', icon: BoldGlyph, shortcut: 'Ctrl+B' },
-  { id: 'italic', name: 'em', icon: ItalicGlyph, shortcut: 'Ctrl+I' },
-  { id: 'underline', name: 'underline', icon: UnderlineGlyph, shortcut: 'Ctrl+U' },
-  { id: 'strikethrough', name: 'strike', icon: StrikethroughGlyph, shortcut: 'Ctrl+Shift+S' },
-  { id: 'code', name: 'code', icon: CodeGlyph, shortcut: 'Ctrl+Alt+I' },
-  { id: 'superscript', name: 'superscript', icon: SuperscriptGlyph, shortcut: 'Ctrl+.' },
-  { id: 'subscript', name: 'subscript', icon: SubscriptGlyph, shortcut: 'Ctrl+,' },
-] as const satisfies readonly { id: Labelled; name: string; icon: unknown; shortcut: string }[];
-
-const LISTS = [
-  {
-    id: 'bullet-list',
-    name: 'bullet_list',
-    icon: ListBulletGlyph,
-    label: 'bulletList',
-    shortcut: 'Ctrl+Shift+8',
-  },
-  {
-    id: 'numbered-list',
-    name: 'ordered_list',
-    icon: ListNumberedGlyph,
-    label: 'numberedList',
-    shortcut: 'Ctrl+Shift+7',
-  },
-] as const;
-
 const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
-
-// Whether a mark holds over the whole selection, or is one the caret types with.
-function isMarkActive(state: EditorState, type: MarkType): boolean {
-  const { empty, from, to, $from } = state.selection;
-  if (empty) return Boolean(type.isInSet(state.storedMarks ?? $from.marks()));
-  return state.doc.rangeHasMark(from, to, type);
-}
-
-// Whether the innermost list holding the selection is of a type.
-function isInList(state: EditorState, type: NodeType): boolean {
-  const { $from } = state.selection;
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    const node = $from.node(depth);
-    if (node.type.name === 'bullet_list' || node.type.name === 'ordered_list') {
-      return node.type === type;
-    }
-  }
-  return false;
-}
 
 // The text style of the block holding the selection: `paragraph` or `heading-<level>`.
 function blockStyle(state: EditorState): string | null {
@@ -125,6 +70,7 @@ function BlockStyleSelect({
   customStyles: readonly string[];
 }) {
   const { labels } = context;
+  const shortcuts = shortcutsOf(context.state);
   const preview = useMemo(() => previewProperties(templateStyle), [templateStyle]);
   const { paragraph, heading } = context.state.schema.nodes;
   // A built-in style sets the block's attributes afresh, taking it out of any custom style.
@@ -134,7 +80,7 @@ function BlockStyleSelect({
           {
             id: 'paragraph',
             label: labels.paragraph,
-            shortcut: 'Ctrl+Shift+0',
+            shortcut: shortcutLabel(shortcuts, 'paragraph'),
             command: setTextblockType(paragraph),
           },
         ]
@@ -143,7 +89,7 @@ function BlockStyleSelect({
       ? HEADING_LEVELS.map((level) => ({
           id: `heading-${String(level)}`,
           label: labels.heading(level),
-          shortcut: `Ctrl+Shift+${String(level)}`,
+          shortcut: shortcutLabel(shortcuts, `heading-${String(level)}` as ShortcutId),
           command: setTextblockType(heading, { level }),
         }))
       : []),
@@ -210,61 +156,6 @@ function TableButton({ context }: { context: EditorContext }) {
   );
 }
 
-// A button item that runs a command, disabled while it cannot run.
-function commandItem(
-  item: Omit<ToolbarButtonItem, 'kind' | 'run' | 'isEnabled'>,
-  command: Command,
-): ToolbarButtonItem {
-  return {
-    ...item,
-    kind: 'button',
-    run: (context) => context.run(command),
-    isEnabled: (context) => context.canRun(command),
-  };
-}
-
-function markItems(schema: Schema, labels: DocumentEditorLabels): ToolbarItem[] {
-  return MARKS.flatMap(({ id, name, icon, shortcut }) => {
-    const type = schema.marks[name];
-    if (!type) return [];
-    return commandItem(
-      {
-        id,
-        label: labels[id],
-        icon,
-        shortcut,
-        isPressed: (context) => isMarkActive(context.state, type),
-      },
-      toggleMark(type),
-    );
-  });
-}
-
-function listItems(schema: Schema, labels: DocumentEditorLabels): ToolbarItem[] {
-  const item = schema.nodes.list_item;
-  return LISTS.flatMap(({ id, name, icon, label, shortcut }) => {
-    const type = schema.nodes[name];
-    if (!type || !item) return [];
-    // A pressed list button lifts the items out of the list.
-    const command: Command = (current, dispatch, view) =>
-      (isInList(current, type) ? liftListItem(item) : wrapInListAndJoin(type))(
-        current,
-        dispatch,
-        view,
-      );
-    return commandItem(
-      {
-        id,
-        label: labels[label],
-        icon,
-        shortcut,
-        isPressed: (context) => isInList(context.state, type),
-      },
-      command,
-    );
-  });
-}
-
 /** The editor's own toolbar groups, by `TOOLBAR_GROUPS`. */
 export function builtInToolbarGroups(
   schema: Schema,
@@ -272,17 +163,36 @@ export function builtInToolbarGroups(
   {
     templateStyle,
     features = { linkedCode: false, symbols: DEFAULT_SYMBOLS, glossary: false },
+    shortcuts = DEFAULT_SHORTCUTS,
   }: {
     readonly templateStyle: Readonly<Record<string, string>>;
     readonly features?: InsertFeatures | undefined;
+    /** The shortcut table the items show their keys from. */
+    readonly shortcuts?: ShortcutTable | undefined;
   },
 ): ToolbarGroup[] {
   return [
     {
       id: 'history',
       items: [
-        commandItem({ id: 'undo', label: labels.undo, icon: UndoGlyph, shortcut: 'Ctrl+Z' }, undo),
-        commandItem({ id: 'redo', label: labels.redo, icon: RedoGlyph, shortcut: 'Ctrl+Y' }, redo),
+        commandItem(
+          {
+            id: 'undo',
+            label: labels.undo,
+            icon: UndoGlyph,
+            shortcut: shortcutLabel(shortcuts, 'undo'),
+          },
+          undo,
+        ),
+        commandItem(
+          {
+            id: 'redo',
+            label: labels.redo,
+            icon: RedoGlyph,
+            shortcut: shortcutLabel(shortcuts, 'redo'),
+          },
+          redo,
+        ),
       ],
     },
     {
@@ -301,8 +211,8 @@ export function builtInToolbarGroups(
         },
       ],
     },
-    { id: 'marks', items: [...markItems(schema, labels), linkItem(labels)] },
-    { id: 'lists', items: listItems(schema, labels) },
+    { id: 'marks', items: [...markItems(schema, labels, shortcuts), linkItem(labels)] },
+    { id: 'lists', items: listItems(schema, labels, shortcuts) },
     {
       id: 'insert',
       items: [
@@ -316,11 +226,11 @@ export function builtInToolbarGroups(
             id: 'page-break',
             label: labels.pageBreak,
             icon: PageBreakGlyph,
-            shortcut: 'Ctrl+Alt+Enter',
+            shortcut: shortcutLabel(shortcuts, 'page-break'),
           },
           insertPageBreak,
         ),
-        ...insertItems(labels, features),
+        ...insertItems(labels, features, shortcuts),
       ],
     },
   ];

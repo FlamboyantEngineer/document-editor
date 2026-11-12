@@ -1,5 +1,5 @@
 // The editor's chrome around the document: the toolbar and the find bar above it, the status bar
-// and the context menu below it, and Ctrl+wheel stepping the zoom.
+// and the context menu below it, and Ctrl+wheel or Cmd+wheel stepping the zoom.
 
 import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorView } from 'prosemirror-view';
@@ -153,7 +153,7 @@ function editorZoom(props: DocumentEditorProps): EditorZoom | null {
   return { value: props.zoom ?? 100, onChange, levels: props.zoomLevels ?? ZOOM_LEVELS };
 }
 
-/** Ctrl+wheel over the editor steps the zoom through its levels, while the reader can zoom. */
+/** Ctrl+wheel, or Cmd+wheel, over the editor steps the zoom through its levels, while the reader can zoom. */
 export function useWheelZoom(
   root: RefObject<HTMLDivElement | null>,
   { zoom = 100, onZoomChange, zoomLevels = ZOOM_LEVELS }: DocumentEditorProps,
@@ -162,7 +162,7 @@ export function useWheelZoom(
     const element = root.current;
     if (!element || !onZoomChange) return undefined;
     const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey || event.deltaY === 0) return;
+      if (!(event.ctrlKey || event.metaKey) || event.deltaY === 0) return;
       event.preventDefault();
       const next = findNextZoomLevel(zoomLevels, zoom, event.deltaY < 0 ? 1 : -1);
       if (next !== undefined) onZoomChange(next);

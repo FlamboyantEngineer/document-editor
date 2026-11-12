@@ -14,10 +14,9 @@ import {
   joinForward,
   liftEmptyBlock,
   newlineInCode,
-  toggleMark,
 } from 'prosemirror-commands';
 import { gapCursor } from 'prosemirror-gapcursor';
-import { history, redo, undo } from 'prosemirror-history';
+import { history } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
@@ -28,7 +27,6 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../model/index.js';
-import { setTextblockType } from './block-type.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentAnchors } from './comment-anchors.js';
 import { createCommentDraft } from './comment-draft.js';
@@ -36,25 +34,28 @@ import { createCustomStyles } from './custom-styles.js';
 import { createEditLock, type EditLockOptions } from './edit-lock.js';
 import {
   changeParagraphLevel,
-  clearFormatting,
   deleteEmptyListItem,
-  insertPageBreak,
   joinAcrossPages,
-  selectBody,
   splitBlockKeepingLevel,
-  wrapInListAndJoin,
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
 import { createEmbeds } from './embeds.js';
-import { createFootnotes, insertFootnote } from './footnotes.js';
+import { createFootnotes } from './footnotes.js';
 import { createMathViews } from './math-views.js';
-import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
 import { createParagraphNumbering } from './paragraph-numbering.js';
 import { createScripts } from './scripts.js';
+import { boundKeys } from './shortcut-commands.js';
+import {
+  createShortcuts,
+  DEFAULT_SHORTCUTS,
+  resolveShortcuts,
+  type ShortcutOverrides,
+  type ShortcutTable,
+} from './shortcuts.js';
 import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
-import { createTableEditing, insertTable } from './tables.js';
+import { createTableEditing } from './tables.js';
 import { anyLock, lockedTemplateSections } from './template-sync.js';
 import { includeAppended } from './transaction-kind.js';
 import { createVariableTokens } from './variable-tokens.js';
@@ -73,6 +74,8 @@ export interface DocumentEditingOptions {
   pasteFilters?: readonly PasteFilter[] | undefined;
   /** The host's own lock, kept beside the lock on sections the template does not let be edited. */
   isLocked?: EditLockOptions['isLocked'] | undefined;
+  /** The host's remapping of the shortcut table (`DEFAULT_SHORTCUTS`). */
+  shortcuts?: ShortcutOverrides | undefined;
 }
 
 const NO_TEMPLATE = (): TemplateFile => ({ formatVersion: 1, id: 'none' });
@@ -93,35 +96,6 @@ const always =
     command(state, dispatch, view);
     return true;
   };
-
-function markKeys(schema: Schema): Record<string, Command> {
-  const keys: Record<string, Command> = {};
-  const bind = (key: string, name: string) => {
-    const type = schema.marks[name];
-    if (type) keys[key] = toggleMark(type);
-  };
-  bind('Mod-b', 'strong');
-  bind('Mod-i', 'em');
-  bind('Mod-u', 'underline');
-  bind('Mod-Shift-s', 'strike');
-  bind('Mod-.', 'superscript');
-  bind('Mod-,', 'subscript');
-  bind('Mod-Alt-i', 'code');
-  return keys;
-}
-
-function blockKeys(schema: Schema): Record<string, Command> {
-  const keys: Record<string, Command> = {};
-  const { heading, paragraph, bullet_list: bullets, ordered_list: ordered } = schema.nodes;
-  if (heading) {
-    for (let level = 1; level <= 6; level += 1)
-      keys[`Mod-Shift-${String(level)}`] = setTextblockType(heading, { level });
-  }
-  if (paragraph) keys['Mod-Shift-0'] = setTextblockType(paragraph);
-  if (bullets) keys['Mod-Shift-8'] = wrapInListAndJoin(bullets);
-  if (ordered) keys['Mod-Shift-7'] = wrapInListAndJoin(ordered);
-  return keys;
-}
 
 // Whether a block beside a text block is an object Backspace or Delete selects before deleting: an
 // atom, such as an equation or a figure, or a table.
@@ -162,27 +136,20 @@ const atFootnoteEdge =
     return side < 0 ? $from.parentOffset === 0 : $from.parentOffset === $from.parent.content.size;
   };
 
-/** A document's own keys, ahead of ProseMirror's base keymap. */
+/**
+ * A document's own keys, ahead of ProseMirror's base keymap: the shortcut table's document actions
+ * (`DEFAULT_SHORTCUTS`, or a host's remapping of it) and the editing keys.
+ */
 export function documentKeys(
   schema: Schema,
   template: () => TemplateFile = NO_TEMPLATE,
+  table: ShortcutTable = DEFAULT_SHORTCUTS,
 ): Record<string, Command> {
   const item = schema.nodes.list_item;
   const listKey = (command: (type: NonNullable<typeof item>) => Command): Command =>
     item ? command(item) : () => false;
   return {
-    ...markKeys(schema),
-    ...blockKeys(schema),
-    'Mod-z': undo,
-    'Mod-y': redo,
-    'Mod-Shift-z': redo,
-    'Mod-a': selectBody,
-    'Mod-\\': clearFormatting,
-    'Mod-Alt-Enter': insertPageBreak,
-    'Mod-Space': clearFormatting,
-    'Mod-Alt-c': insertCodeBlock(),
-    'Mod-Alt-f': insertFootnote(),
-    'Mod-Alt-t': insertTable({ rows: 3, columns: 3 }),
+    ...boundKeys(schema, table),
     'Shift-Enter': inFootnoteEntry,
     Enter: keepIdentityWithContent(
       chainCommands(
@@ -309,7 +276,13 @@ export function createDocumentEditingExtension<C = unknown>(
       {
         name: 'keymap',
         priority: 900,
-        build: (_context, schema) => [keymap(documentKeys(schema, template)), keymap(baseKeymap)],
+        build: (_context, schema) => {
+          const table = resolveShortcuts(options.shortcuts);
+          return [
+            createShortcuts(table, documentKeys(schema, template, table)),
+            keymap(baseKeymap),
+          ];
+        },
       },
     ],
   };

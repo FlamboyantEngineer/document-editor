@@ -224,6 +224,17 @@ export {
   createSectionFootnoteNumbers,
   sectionFootnoteNumbersKey,
 } from './section-footnote-numbers.js';
+export type { ShortcutId, ShortcutOverrides, ShortcutTable } from './shortcuts.js';
+export {
+  createShortcuts,
+  DEFAULT_SHORTCUTS,
+  formatShortcut,
+  matchesShortcut,
+  resolveShortcuts,
+  shortcutLabel,
+  shortcutsKey,
+  shortcutsOf,
+} from './shortcuts.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';
