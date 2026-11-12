@@ -1,10 +1,13 @@
 // The proofing commands: listing the issues the proofing plugin marks, correcting one or all like
 // it with a suggestion, ignoring one or its word everywhere, adding its word to the proofer's
-// dictionary, turning its rule off, picking the language, checking again and moving to the next.
+// dictionary, turning its rule off, picking the language, checking again, moving to the next and
+// revealing it.
 
 import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import {
   currentIssueKey,
+  PROOFING_ISSUE_ATTR,
   type ProofingIssueAt,
   proofingKey,
   type ProofingMeta,
@@ -161,3 +164,40 @@ export const selectNextProofingIssue: Command = (state, dispatch) => {
   );
   return true;
 };
+
+// Marks the issue just revealed, for a stylesheet to flash it.
+const PROOFING_FLASH_ATTR = 'data-proofing-flash';
+
+/** An issue revealed at the selection, and where it stands among the issues, from 0. */
+export interface RevealedProofingIssue {
+  readonly issue: ProofingIssueAt;
+  readonly index: number;
+  readonly total: number;
+}
+
+/** How long a revealed issue keeps `data-proofing-flash`, in milliseconds. */
+export const PROOFING_FLASH = 1200;
+
+/**
+ * Centres the issue at the selection in the window and flashes it (`data-proofing-flash` for
+ * `PROOFING_FLASH` milliseconds), as after `selectNextProofingIssue`; with where it stands among
+ * the issues, or null when no issue is at the selection.
+ */
+export function revealSelectedProofingIssue(view: EditorView): RevealedProofingIssue | null {
+  const { state } = view;
+  const issues = listProofingIssues(state);
+  const index = issues.findIndex((issue) => issue.from === state.selection.from);
+  const issue = issues[index];
+  if (!issue) return null;
+  const { node } = view.domAtPos(issue.from + 1);
+  const element = (
+    node.nodeType === node.ELEMENT_NODE ? (node as Element) : node.parentElement
+  )?.closest(`[${PROOFING_ISSUE_ATTR}]`);
+  const owner = view.dom.ownerDocument.defaultView;
+  if (element && owner) {
+    element.scrollIntoView?.({ block: 'center' });
+    element.setAttribute(PROOFING_FLASH_ATTR, 'true');
+    owner.setTimeout(() => element.removeAttribute(PROOFING_FLASH_ATTR), PROOFING_FLASH);
+  }
+  return { issue, index, total: issues.length };
+}

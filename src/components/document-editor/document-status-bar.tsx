@@ -1,47 +1,27 @@
-// The editor's status bar: the page holding the caret, the words of the document or the selection,
-// the proofing issues when the document is proofed, whether the writer is editing, suggesting
-// or reading, and where the session's changes stand, then the host's own items. It counts
-// the state React defers, so typing in a long document never waits on the count.
+// The editor's status bar: the page in view, the words of the document or the selection, the
+// proofing issues when the document is proofed, the other people in it, whether the writer is
+// editing, suggesting, commenting or reading, and where the session's changes stand at its start;
+// the layout switch and the zoom at its end. The host rearranges the items and adds its own.
 
-import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
-import { Button } from '@flamboyantengineer/ui-components/button';
-import { GlobeGlyph } from '@flamboyantengineer/ui-components/core';
-import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
 import { ZoomControl } from '@flamboyantengineer/ui-components/zoom-control';
-import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
-import { type ReactNode, useDeferredValue, useMemo } from 'react';
-import {
-  documentStatistics,
-  isProofingPending,
-  listPeers,
-  listProofingIssues,
-  PRESENCE_COLOR_SLOTS,
-  proofingLanguages,
-  proofingState,
-  scrollToPeer,
-  selectNextProofingIssue,
-  setProofingLanguage,
-} from '../../engine/index.js';
-import { pageMap } from '../../pagination/index.js';
+import type { ReactNode } from 'react';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { type EditorSession, SaveStatusItem } from './save-status-item.js';
-import { LayoutToggle, PageJump } from './status-controls.js';
-import { runCommand } from './table-actions.js';
+import { LayoutToggle } from './status-controls.js';
+import {
+  DocumentModeStatus,
+  DocumentPageStatus,
+  DocumentPresence,
+  DocumentProofingLanguage,
+  DocumentProofingStatus,
+  DocumentWordStatus,
+} from './status-items.js';
 import type { DocumentLayout } from './use-document-layout.js';
 
 // The status bar's slots, in the editor's hooks.
-const hooks = createHooks('document-editor', [
-  'status-start',
-  'status-end',
-  'status-item',
-  'proofing-status',
-  'proofing-language',
-  'presence',
-  'zoom',
-]);
+const hooks = createHooks('document-editor', ['status-start', 'status-end', 'status-item', 'zoom']);
 
 /** The document's zoom, the levels the reader steps through and how they change it. */
 export interface EditorZoom {
@@ -54,17 +34,41 @@ export interface EditorZoom {
 /** The zoom levels the reader steps through by default, in percent. */
 export const ZOOM_LEVELS = [50, 75, 90, 100, 110, 125, 150, 200] as const;
 
-/** What the status bar reports the writer is doing. */
-export type DocumentEditorMode = 'editing' | 'suggesting' | 'reading';
+/** An item of the status bar: the editor's (`STATUS_BAR_ITEMS`) or the host's. */
+export interface StatusBarItem {
+  /** What it reports, published as `data-status`. */
+  readonly id: string;
+  /** The end of the bar it sits at. */
+  readonly side: 'start' | 'end';
+  readonly content: ReactNode;
+}
+
+/** How the host shapes the status bar. */
+export interface DocumentStatusBarOptions {
+  /**
+   * Rearranges the editor's items: reorders them, drops them, moves them to the other end or adds
+   * the host's own, such as the document's state.
+   */
+  readonly arrange?: ((items: readonly StatusBarItem[]) => readonly StatusBarItem[]) | undefined;
+}
+
+/** The editor's status items, in the order the bar shows them. */
+export const STATUS_BAR_ITEMS = [
+  'page',
+  'words',
+  'proofing',
+  'presence',
+  'mode',
+  'save',
+  'layout',
+  'zoom',
+] as const;
 
 interface DocumentStatusBarProps {
-  view: EditorView | null;
-  state: EditorState;
   labels: DocumentEditorLabels;
   layout: DocumentLayout;
-  mode: DocumentEditorMode;
-  /** The host's own items, after the editor's. */
-  items?: ReactNode;
+  /** How the host shapes the bar. */
+  options: DocumentStatusBarOptions;
   /** The document's session, whose save status the bar shows. */
   session?: EditorSession | undefined;
   /** The document's zoom and how the reader changes it, when they can. */
@@ -74,165 +78,78 @@ interface DocumentStatusBarProps {
   className?: string | undefined;
 }
 
-const MODE_LABELS = {
-  editing: 'editingMode',
-  suggesting: 'suggestingMode',
-  reading: 'readingMode',
-} as const;
-
-// The proofing status, when the document is proofed: a button selecting the next issue, or saying
-// the proofers do not answer.
-function ProofingStatus({ view, state, labels }: ProofingProps) {
-  const proofing = proofingState(state);
-  if (!proofing) return null;
-  const issues = listProofingIssues(state).length;
-  const pending = isProofingPending(state);
-  const { status } = proofing;
-  const text =
-    status === 'unavailable'
-      ? labels.proofingUnavailable
-      : `${status === 'degraded' ? `${labels.proofingDegraded} · ` : ''}${labels.proofingStatus(issues, pending)}`;
-  return (
-    <Button
-      {...hooks.slot('proofing-status', { pending, issues: issues > 0, status })}
-      variant="ghost"
-      size="sm"
-      tooltip={labels.nextIssue}
-      isDisabled={issues === 0 || view === null}
-      preventFocusOnPress
-      onPress={() => {
-        if (view) runCommand(view, selectNextProofingIssue);
-      }}
-    >
-      {text}
-    </Button>
-  );
-}
-
-interface ProofingProps {
-  view: EditorView | null;
-  state: EditorState;
-  labels: DocumentEditorLabels;
-}
-
-// The proofing menu, while the document is proofed: the language it is proofed in, picked among
-// those the proofers offer.
-function ProofingLanguage({ view, state, labels }: ProofingProps) {
-  const languages = proofingLanguages(state);
-  const proofing = proofingState(state);
-  if (!proofing) return null;
-  const current = languages.find((language) => language.id === proofing.language);
-  return (
-    <DropdownMenu
-      {...hooks.slot('proofing-language')}
-      size="sm"
-      variant="ghost"
-      icon={GlobeGlyph}
-      label={current?.label ?? proofing.language ?? labels.proofingLanguage}
-      aria-label={labels.proofingLanguage}
-      placement="top start"
-      selectionMode="single"
-      selectedKeys={proofing.language ? [proofing.language] : []}
-      isDisabled={languages.length === 0}
-      items={languages.map((language) => ({
-        id: language.id,
-        label: language.label,
-        onAction: () => {
-          if (view) runCommand(view, setProofingLanguage(language.id));
-        },
-      }))}
-    />
-  );
-}
-
-// The other people in the document, as avatars by name in their carets' colour slots; choosing
-// one scrolls to their caret.
-function Presence({
-  view,
-  state,
-  labels,
-}: {
-  view: EditorView | null;
-  state: EditorState;
-  labels: DocumentEditorLabels;
-}) {
-  const peers = [...listPeers(state)].sort((a, b) => a.name.localeCompare(b.name));
-  if (peers.length === 0) return null;
-  return (
-    <AvatarGroup
-      {...hooks.slot('presence')}
-      size="xs"
-      maxVisible={5}
-      nameTooltip
-      colorCount={PRESENCE_COLOR_SLOTS}
-      aria-label={labels.presence}
-      onAction={view ? (id) => void scrollToPeer(view, id) : undefined}
-      people={peers.map((peer) => ({
-        id: peer.id,
-        name: peer.name,
-        colorIndex: peer.slot,
-        ...(peer.avatar ? { src: peer.avatar } : {}),
-      }))}
-    />
-  );
-}
-
-/** The editor's status bar, reporting on the state shown. */
-export function DocumentStatusBar({
-  view,
-  state,
+// The editor's own items, those its props leave out aside.
+function editorItems({
   labels,
   layout,
-  mode,
-  items,
   session,
   zoom,
   onLayoutChange,
-  className,
-}: DocumentStatusBarProps) {
-  const deferred = useDeferredValue(state);
-  // The pages a projection shows the state on change as it lays them out, the state unchanged.
-  const pages = pageMap(deferred);
-  const statistics = useMemo(() => documentStatistics(deferred, pages), [deferred, pages]);
+}: DocumentStatusBarProps): StatusBarItem[] {
+  const items: StatusBarItem[] = [
+    { id: 'page', side: 'start', content: <DocumentPageStatus /> },
+    { id: 'words', side: 'start', content: <DocumentWordStatus /> },
+    {
+      id: 'proofing',
+      side: 'start',
+      content: (
+        <>
+          <DocumentProofingLanguage />
+          <DocumentProofingStatus />
+        </>
+      ),
+    },
+    { id: 'presence', side: 'start', content: <DocumentPresence /> },
+    { id: 'mode', side: 'start', content: <DocumentModeStatus /> },
+  ];
+  if (session)
+    items.push({ id: 'save', side: 'start', content: <SaveStatusItem session={session} /> });
+  if (onLayoutChange) {
+    items.push({
+      id: 'layout',
+      side: 'end',
+      content: <LayoutToggle layout={layout} labels={labels} onChange={onLayoutChange} />,
+    });
+  }
+  if (zoom) {
+    items.push({
+      id: 'zoom',
+      side: 'end',
+      content: (
+        <ZoomControl
+          {...hooks.slot('zoom')}
+          aria-label={labels.zoom}
+          levels={zoom.levels}
+          value={zoom.value}
+          resetValue={100}
+          onChange={zoom.onChange}
+        />
+      ),
+    });
+  }
+  return items;
+}
+
+// The items at one end of the bar.
+function itemsAt(items: readonly StatusBarItem[], side: StatusBarItem['side']) {
+  return items
+    .filter((item) => item.side === side)
+    .map((item) => (
+      <span key={item.id} {...hooks.slot('status-item', { status: item.id })}>
+        {item.content}
+      </span>
+    ));
+}
+
+/** The editor's status bar, reporting on the editor it is in. */
+export function DocumentStatusBar(props: DocumentStatusBarProps) {
+  const { options, labels, className } = props;
+  const builtIn = editorItems(props);
+  const items = options.arrange ? options.arrange(builtIn) : builtIn;
   return (
     <StatusBar className={className} aria-label={labels.statusBar}>
-      <span {...hooks.slot('status-start')}>
-        <span {...hooks.slot('status-item', { status: 'position' })}>
-          {layout === 'page' ? (
-            <PageJump view={view} labels={labels} page={statistics.page} pages={statistics.pages} />
-          ) : null}
-          <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>
-        </span>
-        <span {...hooks.slot('status-item', { status: 'proofing' })}>
-          <ProofingLanguage view={view} state={state} labels={labels} />
-          <ProofingStatus view={view} state={deferred} labels={labels} />
-        </span>
-        <span {...hooks.slot('status-item', { status: 'mode' })}>
-          <Presence view={view} state={deferred} labels={labels} />
-          <span>{labels[MODE_LABELS[mode]]}</span>
-        </span>
-        {session ? (
-          <span {...hooks.slot('status-item', { status: 'save' })}>
-            <SaveStatusItem session={session} />
-          </span>
-        ) : null}
-        {items}
-      </span>
-      <span {...hooks.slot('status-end')}>
-        {onLayoutChange ? (
-          <LayoutToggle layout={layout} labels={labels} onChange={onLayoutChange} />
-        ) : null}
-        {zoom ? (
-          <ZoomControl
-            {...hooks.slot('zoom')}
-            aria-label={labels.zoom}
-            levels={zoom.levels}
-            value={zoom.value}
-            resetValue={100}
-            onChange={zoom.onChange}
-          />
-        ) : null}
-      </span>
+      <span {...hooks.slot('status-start')}>{itemsAt(items, 'start')}</span>
+      <span {...hooks.slot('status-end')}>{itemsAt(items, 'end')}</span>
     </StatusBar>
   );
 }

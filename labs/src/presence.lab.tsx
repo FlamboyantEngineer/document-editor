@@ -219,8 +219,10 @@ function PersonDocument(props: PersonDocumentProps) {
       layout="web"
       editable={props.editable}
       toolbar={false}
-      statusBar
-      statusItems={props.status}
+      aria-label={`${props.person.name}’s document`}
+      statusBar={{
+        arrange: (items) => [...items, { id: 'connection', side: 'end', content: props.status }],
+      }}
     />
   );
 }

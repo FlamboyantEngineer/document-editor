@@ -11,7 +11,12 @@ import { DocumentContextMenu } from './document-context-menu.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentFindBar, type FindBarMode, type FindRequest } from './document-find-bar.js';
 import { DocumentMenubar } from './document-menubar.js';
-import { DocumentStatusBar, type EditorZoom, ZOOM_LEVELS } from './document-status-bar.js';
+import {
+  DocumentStatusBar,
+  type DocumentStatusBarOptions,
+  type EditorZoom,
+  ZOOM_LEVELS,
+} from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
 import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
@@ -27,6 +32,7 @@ const hooks = createHooks('document-editor', ['toolbar', 'find', 'status-bar']);
 const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
 const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
 const NO_MENUBAR_OPTIONS: DocumentMenubarOptions = {};
+const NO_STATUS_BAR_OPTIONS: DocumentStatusBarOptions = {};
 
 /** What the chrome reads. */
 export interface ChromeProps {
@@ -128,18 +134,15 @@ export function BottomChrome({
   startCommentRef,
   openDialog,
 }: ChromeProps & { openDialog: (dialog: ObjectDialog) => void }) {
-  const { layout = 'page', editable = true, suggesting = false } = props;
+  const { layout = 'page', editable = true } = props;
   return (
     <>
       {props.statusBar ? (
         <DocumentStatusBar
           {...hooks.slot('status-bar')}
-          view={view}
-          state={context.state}
           labels={context.labels}
           layout={layout}
-          mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
-          items={props.statusItems}
+          options={props.statusBar === true ? NO_STATUS_BAR_OPTIONS : props.statusBar}
           session={props.session}
           zoom={editorZoom(props)}
           onLayoutChange={props.onLayoutChange}
