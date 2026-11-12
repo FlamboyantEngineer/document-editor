@@ -124,7 +124,7 @@ export function EditorSurface({
               aria-label={context.labels.viewport}
               axis="both"
               scrollbar="overlay"
-              tabIndex={-1}
+              tabIndex={0}
             >
               {content}
             </ScrollRegion>
