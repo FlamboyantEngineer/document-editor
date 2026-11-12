@@ -54,7 +54,7 @@ const initial = (options: Parameters<typeof createDocumentEditing>[1] = {}) =>
                   {
                     type: 'text',
                     text: 'beta',
-                    marks: [{ type: 'insertion', attrs: { id: 's1', author: 'ada' } }],
+                    marks: [{ type: 'insertion', attrs: { id: 's1', author: 'grace' } }],
                   },
                 ],
               },
