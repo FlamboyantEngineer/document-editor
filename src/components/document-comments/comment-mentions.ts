@@ -1,26 +1,53 @@
-// Mentions in comments: `@` in a composer lists the people the host's identity finds, and a mention
-// shows as the person's chip in the comment's text. A composer taking mentions is focused once drawn.
+// Mentions in comments: `@` in a composer lists the people the host's identity finds, or the people,
+// groups and assistants its mentions adapter finds, and a mention shows as a chip in the text. A composer taking mentions is focused once drawn.
 
 import type { CommentMentions } from '@flamboyantengineer/ui-components/comment-composer';
 import { createCommentMentions } from '@flamboyantengineer/ui-components/comment-composer/rich';
 import { useEffect, useMemo, useRef } from 'react';
-import type { IdentityAdapter } from '../../host/index.js';
+import type { IdentityAdapter, MentionsAdapter } from '../../host/index.js';
 import { getComposedActiveElement } from '../../utils/composed-focus.js';
 
-/** The comments' mentions, searching the people `identity` finds. */
-export function useCommentMentions(identity: IdentityAdapter): CommentMentions {
-  return useMemo(
-    () =>
-      createCommentMentions({
+/**
+ * The comments' mentions: the people, groups and assistants the host's `mentions` finds, written
+ * in its token format, or else the people `identity` finds.
+ */
+export function useCommentMentions(
+  identity: IdentityAdapter,
+  mentions?: MentionsAdapter | undefined,
+): CommentMentions {
+  return useMemo(() => {
+    if (!mentions) {
+      return createCommentMentions({
         search: async (query, signal) =>
           (await identity.findPeople(query, signal)).map((person) => ({
             id: person.id,
             name: person.name,
             avatar: person.avatarUrl,
           })),
-      }),
-    [identity],
-  );
+      });
+    }
+    const { serialize, parse } = mentions;
+    return createCommentMentions({
+      search: async (query, signal) =>
+        (await mentions.find(query, signal)).map((target) => ({
+          kind: target.kind,
+          id: target.id,
+          name: target.name,
+          avatar: target.avatarUrl,
+          description: target.description,
+          count: target.count,
+        })),
+      serialize: serialize
+        ? (candidate) =>
+            serialize.call(mentions, {
+              kind: candidate.kind ?? 'person',
+              id: candidate.id,
+              name: candidate.name,
+            })
+        : undefined,
+      parse: parse ? (text) => parse.call(mentions, text) : undefined,
+    });
+  }, [identity, mentions]);
 }
 
 /**

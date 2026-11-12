@@ -69,6 +69,7 @@ export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHost, MemoryHostOptions } from './memory-host.js';
 export { createMemoryHost } from './memory-host.js';
 export type { MemoryHostControls, MemoryRequest } from './memory-session.js';
+export type { MentionsAdapter, MentionTarget, MentionTextRun } from './mention-adapters.js';
 export type {
   ProoferAdapter,
   ProofingIssue,
