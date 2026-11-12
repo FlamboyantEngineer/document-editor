@@ -36,7 +36,7 @@ Verification: `src/engine/presence.test.ts`
 
 ### DOCE-COLLAB-2.1 - Marking them
 
-`markRemote(tr)` shall mark a change the host applies from elsewhere (`isRemoteTransaction`) and keep it out of the undo history. A remote change is never turned into a suggestion, never refused by the edit lock, and never aborts a running proofing check.
+`markRemote(tr)` shall mark a change the host applies from elsewhere (`isRemoteTransaction`) and keep it out of the undo history. A transaction a plugin appends to a remote change is remote too; `includeAppended(isRemote)` extends a host's own test the same way, and the editing extension applies it to its `isRemote` option. A remote change is never turned into a suggestion, never refused by the edit lock, and never aborts a running proofing check.
 
 Implementation: `src/engine/transaction-kind.ts`, `src/engine/proofing.ts`
 Verification: `src/engine/transaction-kind.test.ts`
