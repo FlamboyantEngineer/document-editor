@@ -140,6 +140,25 @@ describe('room-mode drafts', () => {
     kept.stop();
   });
 
+  it('DOCE-SESSION-6.7 takes the confirmed base at once, before the draft is kept', async () => {
+    const createSocket = startServer();
+    const drafts = createMemoryDrafts();
+    const provider = openProvider(createSocket, new Y.Doc());
+    const connection = asConnection(provider);
+    await connection.whenSynced;
+    const kept = keepRoomDrafts({ documentId: 'doc', drafts, connection, delay: 1e6 });
+    write(provider.doc, 0, 'Hello');
+    expect(await connection.whenStored()).toBe(true);
+    await vi.waitFor(() => expect(connection.state().hasUnconfirmedChanges).toBe(false));
+    provider.disconnect();
+    write(provider.doc, 5, ' offline');
+    await kept.flush();
+    const base = new Y.Doc();
+    Y.applyUpdate(base, (await readDraft(drafts)).confirmed ?? new Uint8Array());
+    expect(textOf(base)).toBe('Hello');
+    kept.stop();
+  });
+
   it('DOCE-SESSION-6.7 keeps the draft at once when the page is hidden or left', async () => {
     const createSocket = startServer();
     const drafts = createMemoryDrafts();

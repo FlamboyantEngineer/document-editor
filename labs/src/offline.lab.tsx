@@ -1,7 +1,14 @@
 // Drafts on the in-memory host: the store starts over on each reload, as after a crash, and the
 // drafts live in the tab's session storage, so a reload finds the unsaved content kept and the
-// session offers it.
+// session offers it. In room mode, the room server in this page stores its room in session storage
+// too, so a reload opens the room as it was, on the draft the session kept, and sends what was
+// written offline.
 
+import {
+  createMemoryPersistence,
+  type StoredRoomState,
+} from '@flamboyantengineer/collaboration-tools/server';
+import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -13,10 +20,12 @@ import {
   createMemoryHost,
   type DocumentDraft,
   type DraftsAdapter,
+  type EditorHost,
   type HostResult,
 } from '../../src/host/index.js';
 import type { DocumentFile } from '../../src/model/index.js';
 import type { DocumentSession } from '../../src/session/index.js';
+import { createSessionRooms } from '../../test/session-rooms.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 
@@ -69,6 +78,36 @@ function createSessionStorageDrafts(): DraftsAdapter {
   };
 }
 
+const ROOM_KEY = 'offline-lab:room-state';
+
+// The room server's stored room, in the tab's session storage.
+function createSessionStoragePersistence() {
+  const kept = sessionStorage.getItem(ROOM_KEY);
+  const initial: Record<string, StoredRoomState> = {};
+  if (kept) initial[DOCUMENT_ID] = JSON.parse(kept, reviver) as StoredRoomState;
+  const memory = createMemoryPersistence({ initial });
+  return {
+    load: memory.load,
+    store: async (input: Parameters<typeof memory.store>[0]) => {
+      const stored = await memory.store(input);
+      const state = memory.peek(input.room);
+      if (state) sessionStorage.setItem(ROOM_KEY, JSON.stringify(state, replacer));
+      return stored;
+    },
+  };
+}
+
+const ROOMS = createSessionRooms({
+  documents: [{ id: DOCUMENT_ID, content: DOCUMENT }],
+  persistence: createSessionStoragePersistence(),
+});
+
+const ROOM_HOST: EditorHost = {
+  ...createMemoryHost({ person: { id: 'ada', name: 'Ada Lovelace' } }),
+  drafts: createSessionStorageDrafts(),
+  collaboration: ROOMS.adapter('ada'),
+};
+
 const HOST = {
   ...createMemoryHost({
     person: { id: 'ada', name: 'Ada Lovelace' },
@@ -93,9 +132,74 @@ function DraftOffer({ session }: { session: DocumentSession }) {
   );
 }
 
-function SessionStatusLine({ session }: { session: DocumentSession }) {
+function SessionStatusLine({ session, label }: { session: DocumentSession; label: string }) {
   const status = useSessionValue(session.status);
-  return <output aria-label="Session status">{`${status.load} · ${status.save}`}</output>;
+  return <output aria-label={label}>{`${status.load} · ${status.save}`}</output>;
+}
+
+function Leftovers({ session }: { session: DocumentSession }) {
+  const leftovers = useSessionValue(session.conflicts);
+  if (leftovers.length === 0) return null;
+  return (
+    <ul aria-label="Leftovers">
+      {leftovers.map((leftover) => (
+        <li key={leftover.id}>
+          {`Block ${leftover.id} changed in the room too. `}
+          <button type="button" onClick={() => void session.resolveConflict(leftover.id, 'mine')}>
+            Keep mine
+          </button>{' '}
+          <button type="button" onClick={() => void session.resolveConflict(leftover.id, 'theirs')}>
+            Keep the room's
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function RoomControls({ session }: { session: DocumentSession }) {
+  const [online, setOnline] = useState(true);
+  return (
+    <fieldset>
+      <legend>Room</legend>
+      <button
+        type="button"
+        onClick={() => {
+          const provider = ROOMS.providerOf('ada');
+          if (online) provider?.disconnect();
+          else provider?.connect();
+          setOnline(!online);
+        }}
+      >
+        {online ? 'Go offline' : 'Go online'}
+      </button>{' '}
+      <button type="button" onClick={() => sessionStorage.removeItem(ROOM_KEY)}>
+        Lose the stored room
+      </button>{' '}
+      <SessionStatusLine session={session} label="Room status" />
+    </fieldset>
+  );
+}
+
+function RoomLab() {
+  const session = useDocumentSession({ host: ROOM_HOST, documentId: DOCUMENT_ID, mode: 'room' });
+  if (!session) return null;
+  return (
+    <section aria-label="Room mode">
+      <h2>Room mode</h2>
+      <RoomControls session={session} />
+      <Leftovers session={session} />
+      <DocumentSessionBoundary
+        session={session}
+        fallback={<p>Opening the document…</p>}
+        renderError={(error) => (
+          <p role="alert">{`The document did not open: ${error?.kind ?? 'unknown'}`}</p>
+        )}
+      >
+        {(props) => <DocumentEditor {...props} aria-label="Room document" />}
+      </DocumentSessionBoundary>
+    </section>
+  );
 }
 
 function Lab() {
@@ -114,7 +218,7 @@ function Lab() {
         <button type="button" onClick={() => void session.save()}>
           Save now
         </button>{' '}
-        <SessionStatusLine session={session} />
+        <SessionStatusLine session={session} label="Session status" />
       </fieldset>
       <DraftOffer session={session} />
       <DocumentSessionBoundary
@@ -132,6 +236,11 @@ function Lab() {
 
 const container = document.querySelector('#lab-editor');
 if (container) {
-  createRoot(container).render(<Lab />);
+  createRoot(container).render(
+    <>
+      <Lab />
+      <RoomLab />
+    </>,
+  );
   markReadyWhenSettled();
 }
