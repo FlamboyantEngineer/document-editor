@@ -16,6 +16,12 @@ export type {
 export type { PageMetric } from './layout-document.js';
 export { layoutDocument } from './layout-document.js';
 export { LAYOUT_NOW_META, layoutNow, wantsLayoutNow } from './layout-latency.js';
+export {
+  isPaginationTransaction,
+  layoutStats,
+  pageMetrics,
+  paginationKey,
+} from './layout-marks.js';
 export type { LayoutState } from './layout-readiness.js';
 export type { PageOverflow } from './layout-validation.js';
 export { findPageOverflow } from './layout-validation.js';
@@ -32,14 +38,6 @@ export type { LaidOutPage, PageMap } from './page-map.js';
 export { createPageMap, pageMap } from './page-map.js';
 export type { PageVariablesOptions, VariableValue } from './page-variables.js';
 export { createPageVariables, pageVariablesKey, refreshPageVariables } from './page-variables.js';
-export type { Pagination, PaginationOptions } from './pagination.js';
-export {
-  createPagination,
-  isPaginationTransaction,
-  layoutStats,
-  pageMetrics,
-  paginationKey,
-} from './pagination.js';
 export type { PaginationStats } from './pagination-stats.js';
 export type { PagedProjection, PagedProjectionOptions, ProjectionStats } from './projection.js';
 export { createPagedProjection } from './projection.js';

@@ -272,4 +272,20 @@ describe('DocumentComments', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Copy link to thread' }));
     expect(copied).toEqual(['open/open-1']);
   });
+
+  it('DOCE-COMMENTS-2.22 offers only what the host allows in a thread', async () => {
+    render(
+      <Harness
+        host={host()}
+        options={{
+          threadPermissions: (thread) => ({ resolve: thread.id !== 'open', react: false }),
+        }}
+      />,
+    );
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    await within(margin).findByText('Is blue right?');
+    const first = screen.getByRole('group', { name: 'Comment thread' });
+    expect(within(first).getByRole('textbox', { name: 'Reply' })).toBeInTheDocument();
+    expect(within(first).queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument();
+  });
 });

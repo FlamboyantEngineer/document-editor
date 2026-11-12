@@ -5,7 +5,6 @@
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { createDocumentEditing } from '../engine/document-editing.js';
-import { markSystemChange } from '../engine/transaction-kind.js';
 import type {
   DocumentVersion,
   EditorHost,
@@ -13,6 +12,7 @@ import type {
   HostResult,
   VersionStoreAdapter,
 } from '../host/adapters.js';
+import type { EditorCapabilities } from '../host/capabilities.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
@@ -25,6 +25,7 @@ import type {
 import { failure, loadPinnedTemplate, readStored } from './open-document.js';
 import { createValueStore, type ValueStore } from './value-store.js';
 import { groupVersions, type VersionGroup } from './version-groups.js';
+import { restoreVersion } from './version-restore.js';
 
 /** A version about to be saved: its content and name, which a `beforeVersion` hook may change. */
 export interface NewVersion {
@@ -94,7 +95,10 @@ export interface DocumentVersions<R> {
   updateView(update: SessionStateUpdate): void;
   /** Ends the historical view, giving back what the reader had before it; null when none shows. */
   returnFromView(): R | null;
-  /** Makes a version's content and template the document's, as an edit the reader may undo, and saves it. */
+  /**
+   * Makes a version's content and template the document's: through the host's own restore in
+   * store mode, which the session takes in as a new save, else as an edit the reader may undo.
+   */
   restore(revision: string): Promise<HostResult<DocumentVersion>>;
   /** Stops following the host's versions. */
   close(): void;
@@ -102,9 +106,10 @@ export interface DocumentVersions<R> {
 
 const unsupported = (what: string) => failure('unavailable', `The host cannot ${what} versions.`);
 
-const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
-  (one?.id ?? null) === (other?.id ?? null) &&
-  (one?.revision ?? null) === (other?.revision ?? null);
+const denied = (what: string): { ok: false; error: HostError } => ({
+  ok: false,
+  error: failure('denied', `The reader may not ${what} versions.`),
+});
 
 const findVersion = (list: VersionList, revision: string) =>
   list.versions.find((version) => version.revision === revision);
@@ -145,23 +150,11 @@ async function newVersion(
   return { ok: true, value: beforeVersion ? await beforeVersion(version) : version };
 }
 
-// Edits the session's document to a version's content and template, then saves it.
-async function restoreThrough(session: DocumentSession, opened: OpenedVersion) {
-  const shown = session.document.get();
-  if (!shown) return failure('unavailable', 'The document is not loaded.');
-  if (!samePin(shown.pin, opened.pin) && !(await session.setTemplate(opened.pin))) {
-    return session.status.get().error ?? failure('unavailable');
-  }
-  const { doc } = opened.state;
-  session.update((state) =>
-    state.apply(markSystemChange(state.tr.replaceWith(0, state.doc.content.size, doc.content))),
-  );
-  await session.save();
-  return session.status.get().error;
-}
-
 // The host's list of a document's versions, followed until `stop`.
-function followVersionList(store: VersionStoreAdapter | undefined, documentId: string) {
+function followVersionList(
+  store: VersionStoreAdapter | undefined,
+  { documentId, isDenied }: { documentId: string; isDenied: () => boolean },
+) {
   const list = createValueStore<VersionList>({
     status: 'loading',
     versions: [],
@@ -170,6 +163,10 @@ function followVersionList(store: VersionStoreAdapter | undefined, documentId: s
   });
   const controller = new AbortController();
   const refresh = async () => {
+    if (isDenied()) {
+      list.set({ ...list.get(), status: 'failed', error: denied('list').error });
+      return;
+    }
     if (!store) {
       list.set({ ...list.get(), status: 'failed', error: unsupported('list') });
       return;
@@ -239,11 +236,19 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
   const { host, session } = options;
   const { documentId } = session;
   const store = host.versions;
-  const { list, refresh, stop } = followVersionList(store, documentId);
+  // A reader the session says may not open the history gets no list.
+  const { list, refresh, stop } = followVersionList(store, {
+    documentId,
+    isDenied: () => session.document.get()?.capabilities.history === false,
+  });
   // Versions are read with the session's schema, so a restored version's nodes are the document's.
   const schemaOf = () => session.document.get()?.state.schema ?? createDocumentSchema();
+  // What the reader may do, as the session's live capabilities say; nothing until it loads.
+  const may = (capability: keyof EditorCapabilities) =>
+    session.document.get()?.capabilities[capability] ?? false;
   const open = (revision: string): Promise<HostResult<OpenedVersion>> => {
     const version = findVersion(list.get(), revision);
+    if (!may('history')) return Promise.resolve(denied('open'));
     if (!store) return Promise.resolve({ ok: false, error: unsupported('open') });
     if (!version) return Promise.resolve({ ok: false, error: failure('not-found') });
     return openVersion({ ...options, schema: schemaOf(), store }, version);
@@ -254,6 +259,7 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
     ...createHistoricalView<R>(open),
     refresh,
     saveVersion: async (label) => {
+      if (!may('saveVersion')) return denied('save');
       if (!store?.create) return { ok: false, error: unsupported('save') };
       const made = await newVersion(options, label);
       if (!made.ok) return made;
@@ -263,15 +269,17 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
       return saved;
     },
     rename: async (revision, label) => {
+      if (!may('saveVersion')) return denied('rename');
       if (!store?.rename) return { ok: false, error: unsupported('rename') };
       const renamed = await store.rename(documentId, revision, label);
       if (renamed.ok) await refresh();
       return renamed;
     },
     restore: async (revision) => {
+      if (!may('edit')) return denied('restore');
       const opened = await open(revision);
       if (!opened.ok) return opened;
-      const error = await restoreThrough(session, opened.value);
+      const error = await restoreVersion({ host, session }, opened.value);
       return error ? { ok: false, error } : { ok: true, value: opened.value.version };
     },
     close: stop,

@@ -1,11 +1,11 @@
-// What a pagination has done since it was made, counted as it lays the pages out, so a test or a
-// host's telemetry can tell a layout that measured and rebuilt little from one that did it all.
+// What a projection's layouts have done since it was made, counted as it lays the pages out, so a
+// test or a host's telemetry can tell a layout that measured and rebuilt little from one that did it all.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { SectionReport } from './layout-document.js';
 import { type MeasureCache, measureCacheCounts } from './measure-blocks.js';
 
-/** A pagination's counters since it was made (`Pagination.stats`). */
+/** What a projection's layouts did since it was made (`PagedProjection.stats`). */
 export interface PaginationStats {
   /** Layouts run. */
   readonly layouts: number;
@@ -52,7 +52,7 @@ function pagesOf(doc: ProseMirrorNode): ProseMirrorNode[] {
   return pages;
 }
 
-/** Counts what a pagination's layouts do, beside what its measure cache serves. */
+/** Counts what a projection's layouts do, beside what its measure cache serves. */
 export function createPaginationCounter(cache: MeasureCache) {
   const counts: { -readonly [Key in keyof LayoutCounts]: number } = {
     layouts: 0,

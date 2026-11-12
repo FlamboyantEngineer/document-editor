@@ -16,9 +16,22 @@
             "aiSession": "session-1",
             "suggestionKind": "sample-suggestionSplitKind",
             "suggestionId": "sample-suggestionSplitId",
+            "suggestionFormat": {
+              "id": "sample-suggestionFormat",
+              "author": "sample-dataAuthor",
+              "type": "paragraph",
+              "attrs": {
+                "level": 2
+              }
+            },
             "level": 3
           },
-          "content": [{ "type": "text", "text": "Sample text" }]
+          "content": [
+            {
+              "type": "text",
+              "text": "Sample text"
+            }
+          ]
         }
       ]
     }

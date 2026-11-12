@@ -16,6 +16,7 @@ import type {
   SessionStateContext,
   SessionStateUpdate,
 } from './document-session.js';
+import { createSessionDrafts } from './drafts.js';
 import type { MergeConflict } from './merge.js';
 import {
   loadPinnedTemplate,
@@ -30,6 +31,7 @@ import { createStoreSaving, storeBaseline } from './store-saving.js';
 import { createValueStore } from './value-store.js';
 
 const DEFAULT_AUTOSAVE_DELAY = 1000;
+const DEFAULT_DRAFT_DELAY = 300;
 
 /**
  * The editor state the session makes by default: the document's editing plugins, and in room mode
@@ -117,6 +119,31 @@ export async function changeTemplate(
   return { doc: shown.state.doc, saved: loaded.value.saved };
 }
 
+// What a session takes in and keeps beside saving: other writers' saves (DOCE-SESSION-4, 7) and its
+// drafts (DOCE-SESSION-6).
+function sessionParts(
+  options: DocumentSessionOptions & { schema: Schema },
+  stores: SessionStores,
+  parts: {
+    signal: AbortSignal;
+    session: () => DocumentSession;
+    saving: () => StoreSaving | null;
+  },
+) {
+  const { schema } = options;
+  const { signal, saving } = parts;
+  const drafts = createSessionDrafts({
+    ...options,
+    ...stores,
+    delay: options.draftDelay ?? DEFAULT_DRAFT_DELAY,
+    createState: (doc) => (options.createState ?? defaultState(schema))(doc, stores.context),
+    setTemplate: (pin) => parts.session().setTemplate(pin),
+    saving,
+  });
+  const refresh = createStoreRefresh({ ...options, ...stores, schema, signal, saving });
+  return { drafts, refresh };
+}
+
 // Commits the editor's new state, measuring a changed document for saving.
 function commitState(
   { document, saving }: { document: SessionStores['document']; saving: StoreSaving | null },
@@ -138,13 +165,9 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
   const stores = createSessionStores(options);
   const { status, document, conflicts } = stores;
   let saving: StoreSaving | null = null;
-  const refresh = createStoreRefresh({
-    host,
-    documentId,
-    schema,
+  const { drafts, refresh } = sessionParts({ ...options, schema }, stores, {
     signal: controller.signal,
-    document,
-    conflicts,
+    session: () => session,
     saving: () => saving,
   });
   const follow = followSession({
@@ -156,6 +179,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
 
   const load = async () => {
     const opened = await openStoredDocument(host, documentId, controller.signal);
+    if (opened.ok) await drafts.load(opened.value.stored);
     if (controller.signal.aborted) return false;
     const context = stores.context;
     if (opened.ok) stores.setLoaded(opened.value.template.template);
@@ -188,11 +212,12 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     controller.abort();
     stopRefresh();
     saving?.close();
+    drafts.close();
     follow.stop();
   };
   options.signal?.addEventListener('abort', close, { once: true });
 
-  return {
+  const session: DocumentSession = {
     documentId,
     mode: 'store',
     status,
@@ -207,10 +232,12 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
       saving?.changed(changed.doc, pin);
       return true;
     },
+    ...drafts.members,
     save: () => saving?.save() ?? Promise.resolve(),
     flush: () => saving?.flush() ?? Promise.resolve(true),
     resolveConflict: refresh.resolve,
     hasUnsavedChanges: () => saving?.hasUnsavedChanges() ?? false,
     close,
   };
+  return session;
 }
