@@ -145,10 +145,10 @@ Verification: `src/model/pagination/text-split.test.ts`
 
 ### DOCE-PAGINATION-4.1 - Lists between items
 
-A list the editor measured (`ContainerMeasurement`: where each item sits, from the top of the fragment's first item) shall split before the first item that crosses the page's foot when that item cannot split (`splitList`). The second part shall take the rest of the height, start a page and keep its items' layouts; an ordered list's second part shall number on from the items before it.
+A list the editor measured (`ContainerMeasurement`: where each item sits, from the top of the fragment's first item) shall split before the first item that crosses the page's foot when that item cannot split (`splitList`). The second part shall take the rest of the height, start a page and keep its items' layouts; an ordered list's second part shall number on from the items before it, and the pages shall draw it so: an ordered list that starts past 1 carries how many items come before it as `--de-list-start` (`createListStarts`), for a stylesheet's own counter, and the document's markup is unchanged.
 
-Implementation: `src/model/pagination/container-split.ts`, `src/model/pagination/page-layout.ts`
-Verification: `src/model/pagination/container-split.test.ts`
+Implementation: `src/model/pagination/container-split.ts`, `src/model/pagination/page-layout.ts`, `src/pagination/list-starts.ts`
+Verification: `src/model/pagination/container-split.test.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-PAGINATION-4.2 - Through an item
 

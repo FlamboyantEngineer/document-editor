@@ -18,6 +18,7 @@ import {
   createPagedProjection,
   createPagination,
   type LayoutState,
+  listStartsKey,
   loadTemplateFonts,
   pageDebugKey,
   type PagedProjection,
@@ -122,7 +123,7 @@ export function startPaging(
 
 // The layout's plugins that read the pages, which run on a projection's pages rather than on the
 // canonical state.
-const ON_PAGES = new Set<PluginKey>([pageDebugKey, pageVariablesKey]);
+const ON_PAGES = new Set<PluginKey>([listStartsKey, pageDebugKey, pageVariablesKey]);
 const onPages = (plugin: Plugin) => ON_PAGES.has(plugin.spec.key as PluginKey);
 
 type PagingSetup = Omit<Parameters<typeof createPagination>[0], 'plugins'>;

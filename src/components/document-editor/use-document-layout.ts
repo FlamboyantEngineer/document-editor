@@ -33,6 +33,7 @@ import {
   type TemplateFile,
 } from '../../model/index.js';
 import {
+  createListStarts,
   createPageDebug,
   createPageVariables,
   type LayoutState,
@@ -57,6 +58,7 @@ export type DocumentLayout = 'page' | 'web';
 function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
   return [
     createPageDebug({ shown: () => latest.current.debug ?? {} }),
+    createListStarts(),
     createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
     createDynamicTemplates({ value: (key) => latest.current.variables?.value(key) }),
     createSectionFootnoteNumbers({

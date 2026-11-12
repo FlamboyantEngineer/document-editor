@@ -385,6 +385,7 @@ Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 | `data-dialog`                           | attribute | `math`, `figure`, `link`, `linked-code`                | On one of the editor's dialogs: what it edits.                                          |
 | `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                   | How suggestions show.                                                                   |
 | `--de-zoom`                             | property  |                                                        | The document's zoom, as a factor.                                                       |
+| `--de-list-start`                       | property  |                                                        | On an ordered list starting past 1: the items before it (DOCE-PAGINATION-4.1).          |
 | `data-layout`                           | attribute | `page`, `web`                                          | How the document is laid out.                                                           |
 | `data-mode`                             | state     | `authoring`, `reading`                                 | Whether the writer can edit.                                                            |
 | `data-scrollable`                       | state     | `true`                                                 | The editor scrolls the document itself.                                                 |

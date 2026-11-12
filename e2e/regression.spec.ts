@@ -519,16 +519,17 @@ test.describe('list split stress', () => {
     expectPagesHoldContent(pages);
   });
 
-  test('DOCE-LABS-4.3 DOCE-PAGINATION-4.3 numbers a split ordered list on from page to page', async ({
-    page,
-  }) => {
-    expectedFailure('PG-02', 'each continuation of an ordered list starts again at 1');
-    await openDocument(page, 'long-ordered-list');
-    const numbers = (await pagesOf(page)).flatMap((each) =>
-      each.lists.flatMap((list) => list.numbers),
-    );
-    expect(numbers).toEqual(numbers.map((_, index) => index + 1));
-  });
+  for (const projection of [false, true]) {
+    test(`DOCE-LABS-4.3 DOCE-PAGINATION-4.1 numbers a split ordered list on from page to page${projection ? ' on the projection (DOCE-PAGINATION-7.17)' : ''}`, async ({
+      page,
+    }) => {
+      await openDocument(page, 'long-ordered-list', { projection });
+      const numbers = (await pagesOf(page)).flatMap((each) =>
+        each.lists.flatMap((list) => list.numbers),
+      );
+      expect(numbers).toEqual(numbers.map((_, index) => index + 1));
+    });
+  }
 
   for (const name of ['long-bullet-list-with-nesting', 'oversized-blocks'] as const) {
     test(`DOCE-LABS-4.3 DOCE-PAGINATION-4.2 splits the lists of ${name} and shows every item`, async ({
