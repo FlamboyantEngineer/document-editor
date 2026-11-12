@@ -22,12 +22,14 @@ Verification: `src/model/schema/document-schema.test.ts`
 
 Every node type, a host's included, shall carry the element attributes (DOCE-SCHEMA-2). A host extension's `refineNode` and `refineMark` shall run after the built-in refinements, so a host adds attributes, parse rules or output of its own to a built-in type, such as an attribute of tables, and its refinement sees the element attributes.
 
-Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/document-schema.ts`
-Verification: `src/model/schema/document-schema.test.ts`
+A host's domain nodes follow one recipe. A refinement of a built-in type keeps what the host knows of its content, such as the source and snapshot a table was filled from, as attributes of its own. An inline atom that shows a value, such as one value of an enumerated set, gives its text as `leafText`, and search (DOCE-SEARCH-1.1), proofing (DOCE-PROOFING-1.1) and the catalog (DOCE-CONTENTS-1.1) read it as that text. A host type and a host attribute are stored under the names its extension gives them, so those names are the host's stored contract.
+
+Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/document-schema.ts`, `src/engine/search.ts`, `src/engine/proofing-text.ts`
+Verification: `src/model/schema/document-schema.test.ts`, `src/engine/host-domain-recipe.test.ts`
 
 ### DOCE-SCHEMA-1.4 - Host presentation
 
-`DocumentSchemaOptions` shall hold the host's choices for the rendered output: `tooltipAttribute`, the attribute a tooltip text is written to and read from before `title` (default `title`); `mentionClass`, the class of a rendered mention (default `de-mention`); `headerPlaceholder` and `footerPlaceholder`, the text a page header or footer holds until its template sets one; `assetPreviewUrl(fileAssetId, snapshotId)`, the address a stored asset is previewed at (default none); and `referenceTypes`, the host's own external reference types, whose references write their format key (DOCE-SCHEMA-4.1).
+`DocumentSchemaOptions` shall hold the host's choices for the rendered output: `tooltipAttribute`, the attribute a tooltip text is written to and read from before `title` (default `title`); `mentionClass`, the class of a rendered mention (default `de-mention`); `headerPlaceholder` and `footerPlaceholder`, the text a page header or footer holds until its template sets one; `assetPreviewUrl(fileAssetId, snapshotId, { asOf })`, the address a stored asset is previewed at (default none), as of `assetsAsOf()`, the time the document shows its assets as of (default null, now); and `referenceTypes`, the host's own external reference types, whose references write their format key (DOCE-SCHEMA-4.1).
 
 Implementation: `src/model/schema/schema-options.ts`, `src/model/schema/marks.ts`, `src/model/schema/inline-atom-nodes.ts`, `src/model/schema/reference-mark.ts`
 Verification: `src/model/schema/document-schema.test.ts`, `src/model/schema/page-nodes.test.ts`, `src/model/schema/figure-nodes.test.ts`, `src/model/schema/marks.test.ts`
@@ -73,10 +75,10 @@ Verification: `src/model/schema/page-nodes.test.ts`
 
 ### DOCE-SCHEMA-3.3 - Figures and images
 
-A figure shall keep its type (`image` or `diagram`), caption, whether the caption shows, size and alignment, and write the size and alignment on its image so the caption spans the content width. An uploaded or pasted figure shall store its asset and snapshot ids and no address: the address it was written with is only a preview, and the host's `assetPreviewUrl` gives the one it shows. A diagram without a stored rendering shall show a placeholder image. An inline image shall keep its address, text and tooltip. An image a template places from its own files (`templateFile:<file>:<snapshot>` or the template image attributes) shall render in a wrapper that aligns it, at its stored size or 160 by 96 pixels.
+A figure shall keep its type (`image` or `diagram`), caption, whether the caption shows, size and alignment, and write the size and alignment on its image so the caption spans the content width. An uploaded or pasted figure shall store its asset and snapshot ids and no address: the address it was written with is only a preview, and the host's `assetPreviewUrl` gives the one it shows. A diagram without a stored rendering shall show a placeholder image. An inline image shall keep its address, text and tooltip. An image a template places from its own files (`templateFile:<file>:<snapshot>` or the template image attributes) shall render in a wrapper that aligns it, at its stored size or 160 by 96 pixels. It shall be stored by its asset and snapshot and never by an address, and render at the address the host's `assetPreviewUrl(file, snapshot, { asOf })` gives, where `asOf` is the time the host shows the document's assets as of (`assetsAsOf`, null for now); without an address its wrapper shall carry `data-image-missing="true"` so the host can style an image that was not found. `templateImageRefs(template)` shall list the assets a template's content shows (its own and its sections' headers, footers, content and placeholders), each once, and `templateImageErrors(template)` shall name every image there stored by an address or without an asset.
 
-Implementation: `src/model/schema/figure-nodes.ts`, `src/model/schema/image-node.ts`, `src/model/schema/object-layout.ts`
-Verification: `src/model/schema/figure-nodes.test.ts`
+Implementation: `src/model/schema/figure-nodes.ts`, `src/model/schema/image-node.ts`, `src/model/schema/object-layout.ts`, `src/model/schema/schema-options.ts`, `src/model/templates/template-content.ts`
+Verification: `src/model/schema/figure-nodes.test.ts`, `src/model/schema/image-node.test.ts`
 
 ### DOCE-SCHEMA-3.4 - Code and math
 
@@ -142,3 +144,35 @@ Verification: `src/model/reference-format.test.ts`
 
 Implementation: `src/model/reference-format.ts`
 Verification: `src/model/reference-format.test.ts`
+
+## DOCE-SCHEMA-5 - Mark order
+
+### DOCE-SCHEMA-5.1 - Canonical order of overlapping marks
+
+Marks of a type that does not exclude itself (`overlapsItself`: comment highlights, suggested insertions and suggested deletions) may sit on one run several times, and ProseMirror keeps them in the order they were added. They shall have one canonical order instead, so two people who add the same marks in another order hold equal documents (`doc.eq`): a run's marks are sorted by type rank, and marks of one such type by `dataId`, then `commentId`, then their other attributes (`compareMarks`). `orderMarks` shall put a mark set in that order, returning the same array when it already is; `orderDocumentMarks` shall put every run of a document in that order and join the runs that then match, returning the same node when nothing changed; `addMarkInOrder(tr, from, to, mark)` shall add a mark so the runs it covers stay in that order, and add a mark of any other type as `addMark` does. Every engine command that adds such a mark adds it with `addMarkInOrder`, and a collaboration binding builds mark sets with `orderMarks` rather than normalizing documents.
+
+Implementation: `src/model/schema/mark-order.ts`
+Verification: `src/model/schema/mark-order.test.ts`
+
+## DOCE-SCHEMA-6 - Document structure
+
+### DOCE-SCHEMA-6.1 - Sections
+
+`documentSections(doc)` shall list a document's sections in order, each with its node, where it starts, its index from 0 and its template section's name. `isStructureNode` shall tell the nodes around the content (sections, pages and regions) from content, and `regionKind` shall name a region: `header`, `content`, `footnotes` or `footer`. Code outside the pagination shall read sections and regions through these functions, never by walking pages, so it reads a paged document and the canonical whole document alike.
+
+Implementation: `src/model/schema/document-structure.ts`
+Verification: `src/model/schema/document-structure.test.ts`
+
+### DOCE-SCHEMA-6.2 - Regions
+
+`sectionRegions(section, kinds)` and `documentRegions(doc, kinds)` shall list the regions of a section or of the document in order, of the kinds given or of every kind, each with its node, where it starts and its section: the regions of every page in a paged document, and each section's regions once in the canonical document.
+
+Implementation: `src/model/schema/document-structure.ts`
+Verification: `src/model/schema/document-structure.test.ts`
+
+### DOCE-SCHEMA-6.3 - The region at a position
+
+`regionAt($pos)` shall give the region holding a position, with its kind, node, start, depth and section, and `sectionAt($pos)` the section holding it; each shall give null outside one.
+
+Implementation: `src/model/schema/document-structure.ts`
+Verification: `src/model/schema/document-structure.test.ts`

@@ -10,6 +10,7 @@ import type { EditorView } from 'prosemirror-view';
 import type {
   ChildLayout,
   LayoutBlock,
+  LayoutRules,
   RowsMeasurement,
   TextMeasure,
   TextMeasurement,
@@ -22,9 +23,11 @@ export interface MeasureCache {
 }
 
 interface CacheEntry {
-  readonly block: LayoutBlock;
+  block: LayoutBlock;
   readonly placement: Placement;
   readonly key: string | undefined;
+  /** Whether its element was first or last among its siblings, which styles may zero margins at. */
+  edges: string;
 }
 
 /** What a cache has served since it was made: blocks found, blocks absent, and blocks measured. */
@@ -59,6 +62,29 @@ export function createMeasureCache(): MeasureCache {
   return cache;
 }
 
+/**
+ * Forgets the measurement of the block of a page's content that holds a DOM node, such as an image
+ * that loaded, so the next layout measures that block alone again. Returns whether one was held.
+ */
+export function forgetMeasurement(cache: MeasureCache, view: EditorView, target: Node): boolean {
+  const store = cacheEntries.get(cache);
+  if (!store || !view.dom.contains(target)) return false;
+  let pos: number;
+  try {
+    pos = view.posAtDOM(target, 0);
+  } catch {
+    return false;
+  }
+  const $pos = view.state.doc.resolve(pos);
+  const holders = [
+    $pos.nodeAfter,
+    ...Array.from({ length: $pos.depth + 1 }, (_, d) => $pos.node(d)),
+  ];
+  let forgot = false;
+  for (const node of holders) if (node && store.entries.delete(node)) forgot = true;
+  return forgot;
+}
+
 /** What a cache has served so far; clearing it keeps the counts. */
 export function measureCacheCounts(cache: MeasureCache): Readonly<MeasureCounts> {
   return { ...(cacheEntries.get(cache)?.counts ?? { hits: 0, misses: 0, measured: 0 }) };
@@ -67,7 +93,21 @@ export function measureCacheCounts(cache: MeasureCache): Readonly<MeasureCounts>
 /** The attribute a block's element names what else its rendering depends on with. */
 const MEASURE_KEY = 'deMeasureKey';
 
+// Whether an element is first or last among its siblings, where styles may zero its margins.
+function edgesOf(element: HTMLElement): string {
+  const first = element.previousElementSibling ? '' : 'first';
+  const last = element.nextElementSibling ? '' : 'last';
+  return `${first}|${last}`;
+}
+
+function margins(element: HTMLElement) {
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  return { marginTop: px(style?.marginTop ?? ''), marginBottom: px(style?.marginBottom ?? '') };
+}
+
 // The measurement a cache keeps for a node rendered as it was, moved to the node's position now.
+// A block that became or stopped being the first or last of its siblings reads its margins again,
+// since styles zero the margins at a page's edges.
 function cachedBlock(
   cache: MeasureCache | undefined,
   node: ProseMirrorNode,
@@ -80,7 +120,18 @@ function cachedBlock(
   if (!entry || entry.key !== at.element.dataset[MEASURE_KEY]) return undefined;
   store.counts.hits += 1;
   entry.placement.pos = at.pos;
+  const edges = edgesOf(at.element);
+  if (edges !== entry.edges) {
+    entry.edges = edges;
+    entry.block = { ...entry.block, ...margins(at.element) };
+  }
   return entry.block;
+}
+
+// An image still loading measures provisionally: its block is not kept, so the next layout, which
+// its load asks for, measures it again.
+function isProvisional(element: HTMLElement): boolean {
+  return [...element.querySelectorAll('img')].some((image) => !image.complete);
 }
 
 /** How blocks are measured. */
@@ -89,6 +140,8 @@ export interface MeasureOptions {
   scale?: number | undefined;
   /** Where measurements are kept between passes. */
   cache?: MeasureCache | undefined;
+  /** Layout rules whose `measure` measures their node type in place of the built-in measuring. */
+  rules?: LayoutRules | undefined;
 }
 
 // Where a measured block is now; its lazy measurements read positions through it.
@@ -102,6 +155,9 @@ const CONTAINER_TYPES = new Set([
   'ordered_list',
   'list_item',
   'table',
+  'script_block',
+  'layout_section',
+  'layout_column',
 ]);
 const TEXT_TYPES = new Set(['paragraph', 'code_block']);
 
@@ -109,6 +165,7 @@ interface Measuring {
   readonly view: EditorView;
   readonly scale: number;
   readonly placement: Placement;
+  readonly rules: LayoutRules | undefined;
 }
 
 function elementOf(view: EditorView, pos: number): HTMLElement | null {
@@ -232,37 +289,39 @@ function rowsMeasurement(measuring: Measuring, relative: number): RowsMeasuremen
   return { rows };
 }
 
-function measureContent(measuring: Measuring, { node, relative }: Placed): unknown {
+// A rule's own measure for a host's node type; undefined when its rule has none.
+function ruleMeasurement(measuring: Measuring, { node, relative }: Placed): unknown {
+  const { rules } = measuring;
+  const rule = rules && Object.hasOwn(rules, node.type.name) ? rules[node.type.name] : undefined;
+  if (!rule?.measure) return undefined;
+  const element = elementOf(measuring.view, measuring.placement.pos + relative);
+  return element ? rule.measure({ node, element, scale: measuring.scale }) : undefined;
+}
+
+// The height a container takes beyond its children's span: above its first child, and its own
+// padding and border below. A grid that stretches it to a taller neighbour's height changes neither.
+function overheadOf(measuring: Measuring, relative: number): number {
+  const { view, placement, scale } = measuring;
+  const element = elementOf(view, placement.pos + relative);
+  const first = elementOf(view, placement.pos + relative + 1);
+  const style = element?.ownerDocument.defaultView?.getComputedStyle(element);
+  if (!element || !first || !style) return 0;
+  const above = (first.getBoundingClientRect().top - element.getBoundingClientRect().top) / scale;
+  return Math.max(0, above) + px(style.paddingBottom) + px(style.borderBottomWidth);
+}
+
+function measureContent(measuring: Measuring, placed: Placed): unknown {
+  const { node, relative } = placed;
   const name = node.type.name;
+  const own = ruleMeasurement(measuring, placed);
+  if (own !== undefined) return own;
   if (name === 'toc_block') return rowsMeasurement(measuring, relative);
   if (TEXT_TYPES.has(name)) return textMeasurement(measuring, relative);
   if (name === 'linked_code_block') return codeMeasurement(measuring, relative);
   if (!CONTAINER_TYPES.has(name)) return undefined;
   const children = childLayouts(measuring, node, relative);
-  return children ? { children } : undefined;
-}
-
-// How far a block's first line of text reaches below its top: a text block's own first line, or a
-// container's first child's, which a heading before the block keeps on its page.
-function leadLineHeight(measuring: Measuring, node: ProseMirrorNode, pos: number): number | null {
-  const { view, scale } = measuring;
-  const element = elementOf(view, pos);
-  if (!element) return null;
-  const top = element.getBoundingClientRect().top;
-  if (CONTAINER_TYPES.has(node.type.name) && node.firstChild) {
-    const childPos = pos + 1;
-    const child = elementOf(view, childPos);
-    const lead = child ? leadLineHeight(measuring, node.firstChild, childPos) : null;
-    return child && lead !== null ? (child.getBoundingClientRect().top - top) / scale + lead : null;
-  }
-  if (!TEXT_TYPES.has(node.type.name) || node.content.size === 0) return null;
-  const start = view.domAtPos(pos + 1);
-  const end = view.domAtPos(pos + 1 + node.content.size);
-  const range = view.dom.ownerDocument.createRange();
-  range.setStart(start.node, start.offset);
-  range.setEnd(end.node, end.offset);
-  const [first] = range.getClientRects();
-  return first ? (first.bottom - top) / scale : null;
+  if (!children) return undefined;
+  return name === 'table' ? { children } : { children, overhead: overheadOf(measuring, relative) };
 }
 
 /** One block the view laid out at a position, measured; null when it has no element. */
@@ -278,21 +337,20 @@ export function measureBlock(
   const cached = cachedBlock(options.cache, node, { pos, element });
   if (cached) return cached;
   const scale = options.scale && options.scale > 0 ? options.scale : 1;
-  const measuring = { view, scale, placement: { pos } };
-  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  const measuring = { view, scale, placement: { pos }, rules: options.rules };
   const block: LayoutBlock = {
     node,
     height: element.getBoundingClientRect().height / scale,
-    marginTop: px(style?.marginTop ?? ''),
-    marginBottom: px(style?.marginBottom ?? ''),
-    leadLineHeight: leadLineHeight(measuring, node, pos),
+    ...margins(element),
     measurement: measureContent(measuring, { node, relative: 0 }),
   };
   const store = options.cache ? cacheEntries.get(options.cache) : undefined;
   if (store) {
-    const key = element.dataset[MEASURE_KEY];
-    store.entries.set(node, { block, placement: measuring.placement, key });
     store.counts.measured += 1;
+    if (isProvisional(element)) return block;
+    const key = element.dataset[MEASURE_KEY];
+    const edges = edgesOf(element);
+    store.entries.set(node, { block, placement: measuring.placement, key, edges });
   }
   return block;
 }

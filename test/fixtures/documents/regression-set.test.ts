@@ -90,7 +90,7 @@ describe('regression set', () => {
   it.each(documents)(
     'DOCE-FORMAT-3.2 $name uses a template of the set and only its sections',
     ({ file }) => {
-      const template = templates.get(String(file.template));
+      const template = templates.get(String(file.template?.id));
       expect(template).toBeDefined();
       if (!template) return;
       const resolved = resolveTemplateFile(template, { loadTemplate: (id) => templates.get(id) });

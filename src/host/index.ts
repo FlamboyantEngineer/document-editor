@@ -33,7 +33,9 @@ export type {
   StoredDocument,
   StoredTemplate,
   TelemetryAdapter,
+  TemplateLoadOptions,
   TemplateSourceAdapter,
+  VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
 export type {

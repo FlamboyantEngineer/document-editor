@@ -1,6 +1,8 @@
 {
   "formatVersion": 1,
-  "template": "regression-mixed-geometry",
+  "template": {
+    "id": "regression-mixed-geometry"
+  },
   "sections": [
     {
       "name": "cover",

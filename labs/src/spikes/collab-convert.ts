@@ -7,6 +7,7 @@
 import * as Y from '@y/y';
 import * as delta from 'lib0/delta';
 import { Fragment, Mark, type MarkType, type Node, type Schema } from 'prosemirror-model';
+import { orderMarks } from '../../../src/model/index.js';
 
 export type AnyDelta = delta.DeltaAny;
 type Builder = delta.DeltaBuilderAny;
@@ -46,7 +47,7 @@ function formatMarks(
     const type = schema.marks[name];
     if (type) marks.push(type.create(attrs as Record<string, unknown>));
   }
-  return Mark.setFrom(marks);
+  return orderMarks(Mark.setFrom(marks));
 }
 
 // Attributes left at their default are not stored, so a schema can add an attribute with a default

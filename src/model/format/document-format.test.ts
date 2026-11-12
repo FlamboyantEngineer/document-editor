@@ -10,7 +10,7 @@ import {
 
 const FILE: DocumentFile = {
   formatVersion: 1,
-  template: 'report',
+  template: { id: 'report', revision: 'r7' },
   sections: [
     {
       name: 'introduction',
@@ -53,7 +53,21 @@ const FILE: DocumentFile = {
 describe('stored document format', () => {
   it('DOCE-FORMAT-1.1 reads a stored document and writes it back unchanged', () => {
     const doc = readDocumentFile(FILE, documentSchema);
-    expect(writeDocumentFile(doc, { template: 'report' })).toEqual(FILE);
+    expect(writeDocumentFile(doc, { template: FILE.template })).toEqual(FILE);
+  });
+
+  it('DOCE-TEMPLATES-11.1 keeps the template pin and refuses one that is not an id', () => {
+    const doc = readDocumentFile(FILE, documentSchema);
+    expect(writeDocumentFile(doc, { template: FILE.template }).template).toEqual({
+      id: 'report',
+      revision: 'r7',
+    });
+    expect(writeDocumentFile(doc).template).toBeNull();
+    for (const template of ['report', { revision: 'r7' }, { id: 'report', revision: 7 }]) {
+      expect(() => readDocumentFile({ ...FILE, template }, documentSchema)).toThrow(
+        expect.objectContaining({ path: 'template' }),
+      );
+    }
   });
 
   it('DOCE-FORMAT-1.1 writes an empty section back empty', () => {

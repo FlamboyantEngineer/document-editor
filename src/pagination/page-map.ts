@@ -1,14 +1,13 @@
 // The layout of a paged document: its pages in order, which page holds a canonical position or an
 // element, and positions between the paged projection and the canonical whole document it shows.
 // The page transform that joins the projection's pages into the canonical document gives the
-// position maps; positions it moves or drops are found again (`redirectPosition`). The transform
+// position maps; positions it moves or drops are found again (`mapPosition`). The transform
 // runs only once a position is mapped, so reading the pages alone costs one walk of the pages.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
-import type { Mapping } from 'prosemirror-transform';
 import { FRAGMENT_RULES, type FragmentRules, joinDocumentPages } from '../model/index.js';
-import { type MapDirection, redirectPosition } from './page-map-redirects.js';
+import { mapPosition, type PagePositions, textSide } from './page-positions.js';
 import { paginationKey } from './pagination.js';
 
 /** A page of the paged projection. */
@@ -92,12 +91,6 @@ function elementPages(pages: readonly LaidOutPage[]): Map<string, LaidOutPage> {
   return found;
 }
 
-// -1 at the end of a textblock, so the position keeps to the text before it; otherwise 1.
-function side(doc: ProseMirrorNode, pos: number): -1 | 1 {
-  const $pos = doc.resolve(pos);
-  return $pos.parent.isTextblock && $pos.parentOffset === $pos.parent.content.size ? -1 : 1;
-}
-
 /**
  * The layout of a paged document, with positions mapped through the page transform that joins its
  * pages by `rules` (by default `FRAGMENT_RULES`).
@@ -107,23 +100,16 @@ export function createPageMap(
   rules: FragmentRules = FRAGMENT_RULES,
 ): PageMap {
   const pages = readPages(projection);
-  let joined: { canonical: ProseMirrorNode; forward: Mapping; backward: Mapping } | null = null;
+  let joined: PagePositions | null = null;
   let elements: Map<string, LaidOutPage> | null = null;
   const join = () => {
     if (joined) return joined;
     const tr = joinDocumentPages(projection, rules);
-    joined = { canonical: tr.doc, forward: tr.mapping, backward: tr.mapping.invert() };
+    joined = { projection, canonical: tr.doc, forward: tr.mapping, backward: tr.mapping.invert() };
     return joined;
   };
-  const map = (pos: number, assoc: -1 | 1, direction: MapDirection): number | null => {
-    const { canonical, forward, backward } = join();
-    const toCanonical = direction === 'toCanonical';
-    const result = (toCanonical ? forward : backward).mapResult(pos, assoc);
-    if (!result.deletedAcross) return result.pos;
-    const [from, to] = toCanonical ? [projection, canonical] : [canonical, projection];
-    return redirectPosition({ $pos: from.resolve(pos), to, direction, forward });
-  };
-  const toProjection = (pos: number, assoc: -1 | 1 = 1) => map(pos, assoc, 'toProjection');
+  const toProjection = (pos: number, assoc: -1 | 1 = 1) =>
+    mapPosition(join(), { pos, assoc }, 'toProjection');
   return {
     projection,
     get canonical() {
@@ -138,7 +124,8 @@ export function createPageMap(
       elements ??= elementPages(pages);
       return elements.get(elementId) ?? null;
     },
-    toCanonical: (pos, assoc) => map(pos, assoc ?? side(projection, pos), 'toCanonical'),
+    toCanonical: (pos, assoc) =>
+      mapPosition(join(), { pos, assoc: assoc ?? textSide(projection, pos) }, 'toCanonical'),
     toProjection,
   };
 }
