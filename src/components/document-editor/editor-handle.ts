@@ -24,6 +24,7 @@ import type {
   StartComment,
   StartCommentOptions,
 } from '../document-comments/document-comments.js';
+import type { EditorPanes, RevealPaneOptions } from '../document-panels/document-panels.js';
 import type { FindBarMode } from './document-find-bar.js';
 import type { LayoutProgress } from './use-document-layout.js';
 import { measureVisibleElements, type VisibleElement } from './visible-elements.js';
@@ -87,6 +88,11 @@ export interface DocumentEditorHandle {
   layoutStats(): PaginationStats | null;
   /** The elements with an element id on screen now, with their boxes in the window. */
   visibleElements(): readonly VisibleElement[];
+  /**
+   * Shows a pane of the editor's side panels: selects it in the panel holding it, expands that
+   * panel and, unless asked not to, moves focus into it; false when no panel holds it.
+   */
+  revealPane(paneId: string, options?: RevealPaneOptions): boolean;
 }
 
 // The document range an address names in the view's document: a range of a text block's text, or
@@ -155,10 +161,12 @@ export function useEditorHandle(
     openThreadRef,
     template,
     layout,
+    panes,
     openFind,
   }: CommentRefs & {
     template: TemplateFile;
     layout: LayoutProgress;
+    panes: EditorPanes;
     openFind: ((mode?: FindBarMode) => void) | null;
   },
 ) {
@@ -201,7 +209,8 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
+      revealPane: (paneId, options) => panes.reveal(paneId, options),
     }),
-    [view, startCommentRef, openThreadRef, template, layout, openFind],
+    [view, startCommentRef, openThreadRef, template, layout, openFind, panes],
   );
 }
