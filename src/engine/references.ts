@@ -14,74 +14,23 @@ import {
 } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
-  catalogDocument,
-  formatReference,
   readReferenceBaseline,
   type ReferenceBaseline,
   type TemplateFile,
 } from '../model/index.js';
+import { isReferencePlace } from './reference-places.js';
+import {
+  internalBaseline,
+  internalReferenceText,
+  type ReferenceTarget,
+  referenceTargets,
+} from './reference-targets.js';
+import { touchesReferences } from './reference-updates.js';
 import { revealElement } from './reveal.js';
+import { isRemoteTransaction } from './transaction-kind.js';
 
-/** A target an internal reference may cite. */
-export interface ReferenceTarget {
-  /** The target's element id, which the reference keeps. */
-  readonly id: string;
-  /** `heading`, `figure`, `table`, `codeblock` or `equation`. */
-  readonly kind: string;
-  /** Its number as the stylesheet prints it, such as `2.1.` or `Table 1.1`. */
-  readonly number: string;
-  /** A heading's text, or an object's caption. */
-  readonly title: string;
-  /** How a picker names it: its number, then its title. */
-  readonly label: string;
-  readonly pos: number;
-}
-
-// The catalog's kinds and the reference kinds they hold.
-const CATALOG_KINDS = {
-  toc: 'heading',
-  figures: 'figure',
-  tables: 'table',
-  codeBlocks: 'codeblock',
-  equations: 'equation',
-} as const;
-
-/** The targets a document holds, by kind, in reading order: those with an element id. */
-export function referenceTargets(doc: ProseMirrorNode, template: TemplateFile): ReferenceTarget[] {
-  const catalog = catalogDocument(doc, template);
-  const targets: ReferenceTarget[] = [];
-  for (const [key, kind] of Object.entries(CATALOG_KINDS)) {
-    for (const entry of catalog[key] ?? []) {
-      const id = doc.nodeAt(entry.pos)?.attrs.dataId as unknown;
-      if (typeof id !== 'string' || !id) continue;
-      const number = entry.number.trim();
-      const separator = kind === 'heading' ? ' ' : ' - ';
-      const label = [number, entry.text].filter(Boolean).join(separator);
-      targets.push({ id, kind, number, title: entry.text, label, pos: entry.pos });
-    }
-  }
-  return targets;
-}
-
-/** The text an internal reference to a target reads, as the template formats its kind. */
-export function internalReferenceText(target: ReferenceTarget, template: TemplateFile): string {
-  const formats = Object.fromEntries(
-    Object.entries(template.references?.formats ?? {}).filter(
-      (entry): entry is [string, string] => typeof entry[1] === 'string',
-    ),
-  );
-  const baseline: ReferenceBaseline = {
-    version: 1,
-    documentId: '',
-    numbering: target.number,
-    title: target.title,
-    revision: null,
-    revisionLabel: '',
-    target: null,
-    defaultLabel: target.label,
-  };
-  return formatReference({ refType: `internal-${target.kind}`, baseline, formats });
-}
+export type { ReferenceTarget } from './reference-targets.js';
+export { internalReferenceText, referenceTargets } from './reference-targets.js';
 
 /** A reference in the text: its range and its mark. */
 export interface ReferenceAt {
@@ -128,12 +77,15 @@ export function referenceAt(state: EditorState): ReferenceAt | null {
   );
 }
 
-/** Whether a reference may go at the selection: in text that takes marks, not in code. */
+/**
+ * Whether a reference may go at the selection: in body text that takes marks
+ * (`isReferencePlace`), not in a heading, a header cell, code or a page header or footer.
+ */
 export function canInsertReference(state: EditorState): boolean {
   const type = state.schema.marks.reference;
   const { $from, $to } = state.selection;
-  if (!type || !$from.sameParent($to) || !$from.parent.isTextblock) return false;
-  return !$from.parent.type.spec.code && $from.parent.type.allowsMarkType(type);
+  if (!type || !$from.sameParent($to) || !isReferencePlace($from)) return false;
+  return $from.parent.type.allowsMarkType(type);
 }
 
 /** What a reference cites: a target of this document, or a citation a host resolved. */
@@ -150,7 +102,12 @@ export type ReferenceSource =
 
 function referenceAttrs(source: ReferenceSource): Record<string, unknown> {
   if (source.kind === 'internal') {
-    return { refType: `internal-${source.target.kind}`, targetId: source.target.id, broken: false };
+    return {
+      refType: `internal-${source.target.kind}`,
+      targetId: source.target.id,
+      referenceBaseline: JSON.stringify(internalBaseline(source.target)),
+      broken: false,
+    };
   }
   const { baseline } = source;
   return {
@@ -204,7 +161,7 @@ export function internalTargetId(mark: Mark): string | null {
   return type.startsWith('internal-') && typeof id === 'string' && id ? id : null;
 }
 
-/** The citation an external reference keeps, or null. */
+/** What a reference records of what it cites, or null: a citation, or an internal target. */
 export function referenceBaselineOf(mark: Mark): ReferenceBaseline | null {
   return readReferenceBaseline(mark.attrs.referenceBaseline);
 }
@@ -214,24 +171,35 @@ const referencesKey = new PluginKey('references');
 /** Whether a transaction updates the internal references' text, rather than the writer's. */
 export const isReferenceUpdate = (tr: Transaction): boolean => tr.getMeta(referencesKey) === true;
 
+// The mark an internal reference carries once up to date: broken without a target, else recording
+// the target as it reads now.
+function currentMark(reference: ReferenceAt, target: ReferenceTarget | undefined): Mark {
+  const { attrs } = reference.mark;
+  const referenceBaseline = target
+    ? JSON.stringify(internalBaseline(target))
+    : (attrs.referenceBaseline as unknown);
+  return reference.mark.type.create({ ...attrs, broken: !target, referenceBaseline });
+}
+
 /**
- * Brings each internal reference up to date in a transaction: its text as its target reads now,
- * or marked broken, its text kept, when the target is gone. Returns whether any changed.
+ * Brings each internal reference in body text up to date in a transaction: its text as its target
+ * reads now, recording the target's number and title, or marked broken, its text kept, when the
+ * target is gone. A reference where none may go (`isReferencePlace`), as in a heading, is left as
+ * it reads, so a heading that cites itself never grows. Returns whether any changed.
  */
 export function updateReferences(tr: Transaction, template: TemplateFile): boolean {
-  const references = listReferences(tr.doc).filter((each) => internalTargetId(each.mark));
+  const references = listReferences(tr.doc).filter(
+    (each) => internalTargetId(each.mark) && isReferencePlace(tr.doc.resolve(each.from)),
+  );
   if (references.length === 0) return false;
   const targets = new Map(referenceTargets(tr.doc, template).map((each) => [each.id, each]));
   let changed = false;
   for (const reference of references.reverse()) {
     const target = targets.get(internalTargetId(reference.mark) ?? '');
-    const broken = !target;
     const text = target ? internalReferenceText(target, template) : null;
     const current = tr.doc.textBetween(reference.from, reference.to);
-    if (Boolean(reference.mark.attrs.broken) === broken && (text === null || text === current)) {
-      continue;
-    }
-    const mark = reference.mark.type.create({ ...reference.mark.attrs, broken });
+    const mark = currentMark(reference, target);
+    if (mark.eq(reference.mark) && (text === null || text === current)) continue;
     if (text !== null && text !== current) {
       const marks = tr.doc.resolve(reference.from + 1).marks();
       const kept = marks.filter((each) => each.type !== mark.type);
@@ -245,25 +213,46 @@ export function updateReferences(tr: Transaction, template: TemplateFile): boole
   return changed;
 }
 
+/**
+ * Renders every internal reference again as the template formats it now, out of the undo history,
+ * such as after the template changed; false when none changed.
+ */
+export function refreshReferences(template: TemplateFile): Command {
+  return (state, dispatch) => {
+    const tr = state.tr;
+    if (!updateReferences(tr, template)) return false;
+    dispatch?.(tr.setMeta(referencesKey, true).setMeta('addToHistory', false));
+    return true;
+  };
+}
+
 /** How the references plugin reads the template. */
 export interface ReferencesOptions {
   readonly template: () => TemplateFile;
   /** Takes the reader to an element by its id; `revealElement` by default. */
   readonly reveal?: ((view: EditorView, id: string) => void) | undefined;
+  /**
+   * Whether a change came from elsewhere, which already carries its references' updates;
+   * `isRemoteTransaction` by default.
+   */
+  readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
 }
 
 /**
- * Keeps internal references up to date after each change, out of the undo history, and follows
- * one to its target on a click in a read document, or a Ctrl or Cmd click in an edited one.
+ * Keeps internal references up to date after each local change that may change one
+ * (`touchesReferences`), out of the undo history, and follows one to its target on a click in a
+ * read document, or a Ctrl or Cmd click in an edited one.
  */
 export function createReferences({
   template,
   reveal = (view, id) => revealElement(view, id),
+  isRemote = isRemoteTransaction,
 }: ReferencesOptions): Plugin {
   return new Plugin({
     key: referencesKey,
     appendTransaction(transactions, _before, after) {
-      if (!transactions.some((tr) => tr.docChanged && !isReferenceUpdate(tr))) return null;
+      const local = transactions.filter((tr) => !isRemote(tr) && !isReferenceUpdate(tr));
+      if (!local.some(touchesReferences)) return null;
       const tr = after.tr;
       if (!updateReferences(tr, template())) return null;
       return tr.setMeta(referencesKey, true).setMeta('addToHistory', false);
