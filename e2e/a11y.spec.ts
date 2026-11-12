@@ -1,6 +1,6 @@
 import { readdirSync } from 'node:fs';
 import { AxeBuilder } from '@axe-core/playwright';
-import { expect, test } from './fixtures.js';
+import { expect, test, waitForLab } from './fixtures.js';
 
 // Every lab the build serves, by name.
 const LABS = readdirSync(new URL('../labs/', import.meta.url))
@@ -17,9 +17,19 @@ test.describe('accessibility', () => {
       lab,
       page,
     }) => {
-      // The stress labs lay out hundreds of pages, which axe reads in full.
-      test.setTimeout(name.startsWith('stress') ? 180_000 : 60_000);
-      await lab.open(name);
+      // The stress labs lay out hundreds of pages, which axe reads in full, and on a busy runner
+      // take longer than an assertion's default wait to be ready.
+      const isStress = name.startsWith('stress');
+      test.setTimeout(isStress ? 180_000 : 60_000);
+      if (isStress) {
+        await page.goto(`${name}.html`);
+        await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
+          timeout: 60_000,
+        });
+        await waitForLab(page);
+      } else {
+        await lab.open(name);
+      }
       const { violations } = await new AxeBuilder({ page }).analyze();
       const failing = violations
         .filter((violation) => FAILING.has(violation.impact ?? ''))
