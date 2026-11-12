@@ -152,15 +152,18 @@ test.describe('table handles', () => {
       .toEqual(['Condition|Limit', '|', 'Run|50 ms', 'Stop|75 ms']);
   });
 
-  test('DOCE-TABLES-2.4 resizes a column by dragging the border between its cells', async ({
+  test('DOCE-TABLES-2.4 resizes the columns either side of a border, keeping the table width', async ({
     lab,
     page,
   }) => {
     await lab.open('document-editor');
     const first = cell(page, 'Start');
+    const second = cell(page, '25 ms');
     await first.scrollIntoViewIfNeeded();
     const box = await first.boundingBox();
-    if (!box) throw new Error('The cell is not drawn');
+    const next = await second.boundingBox();
+    const table = await content(page).locator('table').first().boundingBox();
+    if (!box || !next || !table) throw new Error('The table is not drawn');
     const border = { x: box.x + box.width - 1, y: box.y + box.height / 2 };
     await page.mouse.move(border.x - 10, border.y);
     await page.mouse.move(border.x, border.y, { steps: 3 });
@@ -170,6 +173,46 @@ test.describe('table handles', () => {
     await expect(first).toHaveAttribute('data-colwidth', /^\d+$/);
     const width = Number(await first.getAttribute('data-colwidth'));
     expect(Math.abs(width - (box.width - 120))).toBeLessThan(12);
+    const following = Number(await second.getAttribute('data-colwidth'));
+    expect(Math.abs(following - (next.width + 120))).toBeLessThan(12);
+    const after = await content(page).locator('table').first().boundingBox();
+    expect(Math.abs((after?.width ?? 0) - table.width)).toBeLessThan(4);
+  });
+
+  test('DOCE-TABLES-3.7 widens the last column no further than the page content', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const last = cell(page, '25 ms');
+    await last.scrollIntoViewIfNeeded();
+    const box = await last.boundingBox();
+    const region = await content(page)
+      .locator('table')
+      .first()
+      .evaluate((table) => {
+        const parent = table.parentElement as HTMLElement;
+        const style = getComputedStyle(parent);
+        return parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      });
+    if (!box) throw new Error('The cell is not drawn');
+    const border = { x: box.x + box.width - 1, y: box.y + box.height / 2 };
+    await page.mouse.move(border.x - 10, border.y);
+    await page.mouse.move(border.x, border.y, { steps: 3 });
+    await page.mouse.down();
+    await page.mouse.move(border.x + 2000, border.y, { steps: 6 });
+    await page.mouse.up();
+    await expect(last).toHaveAttribute('data-colwidth', /^\d+$/);
+    const widths = await content(page)
+      .locator('table')
+      .first()
+      .locator('tr')
+      .first()
+      .locator('th, td')
+      .evaluateAll((cells) => cells.map((each) => Number(each.getAttribute('data-colwidth'))));
+    const total = widths.reduce((sum, width) => sum + width, 0);
+    expect(total).toBeLessThanOrEqual(region + 1);
+    expect(total).toBeGreaterThan(region - 4);
   });
 
   test('DOCE-TABLES-3.5 DOCE-TABLES-3.6 selects cells with Ctrl clicks and drags a row taller', async ({

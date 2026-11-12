@@ -7,7 +7,6 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
-import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { touchesBreak } from './projection-input.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
@@ -15,7 +14,7 @@ import { canonicalSelection, projectionSelection } from './selection-mirror.js';
 
 /** The projection a change is mirrored onto. */
 export interface MirrorTarget {
-  readonly view: EditorView;
+  readonly projection: EditorState;
   readonly map: ProjectionMap;
   readonly rules: FragmentRules;
 }
@@ -52,10 +51,10 @@ export function mirrorChange(
   target: MirrorTarget,
   change: CanonicalChange,
 ): { readonly tr: Transaction; readonly map: ProjectionMap } | null {
-  const { view } = target;
+  const { projection } = target;
   const steps = change.tr ?? difference(change.from, change.canonical.doc);
   if (!steps) return null;
-  const ptr = view.state.tr;
+  const ptr = projection.tr;
   let map = target.map;
   let rebuild = false;
   for (const [index, step] of steps.steps.entries()) {
@@ -73,9 +72,9 @@ export function mirrorChange(
   const { selection } = change.canonical;
   const current = steps.steps.length
     ? null
-    : canonicalSelection(map, view.state.selection, change.canonical.doc);
+    : canonicalSelection(map, projection.selection, change.canonical.doc);
   if (!current?.eq(selection)) {
-    const near = view.state.selection.map(ptr.doc, ptr.mapping);
+    const near = projection.selection.map(ptr.doc, ptr.mapping);
     ptr.setSelection(projectionSelection(map, selection, near));
   }
   return { tr: ptr, map };

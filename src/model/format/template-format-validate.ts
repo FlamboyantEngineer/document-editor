@@ -4,9 +4,10 @@
 
 import type { Schema } from 'prosemirror-model';
 import { referenceFormatError, referenceFormatKeys } from '../reference-format.js';
+import { templateImageErrors } from '../templates/template-content.js';
 import { DOCUMENT_FORMAT_VERSION } from './document-format.js';
 import { readDocumentFile } from './document-format-convert.js';
-import { TEMPLATE_FORMAT_VERSION } from './template-format.js';
+import { TEMPLATE_FORMAT_VERSION, type TemplateFile } from './template-format.js';
 import { type SettingShape, TEMPLATE_SHAPE } from './template-format-shape.js';
 
 type LooseRecord = Record<string, unknown>;
@@ -247,6 +248,8 @@ export function validateTemplateFile(
     ...walk.errors,
     ...referenceErrors(template, options.referenceTypes),
     ...customStyleErrors(template.styles, 'template'),
+    // Images are looked for only in content of the right shape, which the walk has checked.
+    ...(walk.errors.length ? [] : templateImageErrors(template as unknown as TemplateFile)),
     ...sectionErrors(template),
   ];
 }

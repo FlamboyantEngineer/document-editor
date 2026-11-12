@@ -876,6 +876,8 @@
         "script": { "default": "" },
         "refreshPolicy": { "default": "manual" },
         "renderedAt": { "default": null },
+        "provenance": { "default": null },
+        "signatures": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
@@ -890,7 +892,7 @@
       ],
       "toDOM": {
         "defaults": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"\" data-refresh-policy=\"manual\"><div class=\"script-output\"></div></section>",
-        "filled": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"sample-script\" data-refresh-policy=\"manual\" data-rendered-at=\"sample-renderedAt\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><div class=\"script-output\"></div></section>"
+        "filled": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"sample-script\" data-refresh-policy=\"manual\" data-rendered-at=\"sample-renderedAt\" data-provenance=\"&quot;sample-provenance&quot;\" data-signatures=\"&quot;sample-signatures&quot;\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><div class=\"script-output\"></div></section>"
       }
     },
     {

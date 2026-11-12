@@ -154,6 +154,13 @@ Verification: `src/model/templates/template-properties.test.ts`
 Implementation: `src/model/templates/page-regions.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/templates/page-regions.test.ts`
 
+### DOCE-TEMPLATES-6.2 - A document section's own regions
+
+A document section's own page header and footer (DOCE-FORMAT-1.6) shall apply over its template section's region by the same field-by-field rule (DOCE-FORMAT-3.4): its own content where it sets some, the template's where it sets none or asks to inherit.
+
+Implementation: `src/model/templates/page-regions.ts`
+Verification: `src/model/templates/page-regions.test.ts`
+
 ## DOCE-TEMPLATES-7 - Custom styles
 
 ### DOCE-TEMPLATES-7.1 - Applying a custom style
@@ -266,6 +273,13 @@ The generic templates in `test/fixtures/templates/` shall be valid, resolve over
 
 Implementation: `test/fixtures/templates/`
 Verification: `test/fixtures/templates/template-fixtures.test.ts`
+
+### DOCE-TEMPLATES-10.9 - Template images
+
+`validateTemplateFile` shall report each image in a template's or its sections' headers, footers, content and placeholders that is stored by an address or names no asset (`templateImageErrors`, DOCE-SCHEMA-3.3), once the template's settings are of the right shape.
+
+Implementation: `src/model/format/template-format-validate.ts`
+Verification: `src/model/format/template-format.test.ts`
 
 ## DOCE-TEMPLATES-11 - Template pinning
 

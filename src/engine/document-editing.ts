@@ -29,6 +29,7 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { setTextblockType } from './block-type.js';
+import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentDraft } from './comment-draft.js';
 import { createCustomStyles } from './custom-styles.js';
 import { createEditLock, type EditLockOptions } from './edit-lock.js';
@@ -55,7 +56,6 @@ import { createTableEditing, insertTable } from './tables.js';
 import { anyLock, lockedTemplateSections } from './template-sync.js';
 import { includeAppended } from './transaction-kind.js';
 import { createVariableTokens } from './variable-tokens.js';
-import { createWordPaste } from './word-paste.js';
 
 /** What a document's editing depends on. */
 export interface DocumentEditingOptions {
@@ -67,6 +67,8 @@ export interface DocumentEditingOptions {
   isRemote?: ((tr: Transaction) => boolean) | undefined;
   /** Whether to keep the undo history; a collaborative editor keeps its own. Defaults to true. */
   history?: boolean | undefined;
+  /** Filters the clipboard runs on every pasted and dropped slice, after the library's own. */
+  pasteFilters?: readonly PasteFilter[] | undefined;
   /** The host's own lock, kept beside the lock on sections the template does not let be edited. */
   isLocked?: EditLockOptions['isLocked'] | undefined;
 }
@@ -228,11 +230,10 @@ const tableWidth = (template: () => TemplateFile) => ({
 const numbersInOrder = (template: (() => TemplateFile) | undefined) => () =>
   !template || resolveFootnoteSettings(template(), null).numbering !== 'page';
 
-// The object plugins, which take no options: math, object views, word processor paste, scripts.
+// The object plugins, which take no options: math, object views and scripts.
 const OBJECT_PLUGINS: readonly RichTextPluginContribution[] = [
   { name: 'math-views', priority: 500, build: () => [createMathViews()] },
   { name: 'object-views', priority: 505, build: () => [createObjectViews()] },
-  { name: 'word-paste', priority: 510, build: () => [createWordPaste()] },
   { name: 'scripts', priority: 512, build: () => [createScripts()] },
 ];
 
@@ -280,6 +281,11 @@ export function createDocumentEditingExtension<C = unknown>(
       { name: 'footnotes', priority: 490, build: () => [createFootnotes(footnotes)] },
       { name: 'comment-draft', priority: 495, build: () => [createCommentDraft()] },
       ...OBJECT_PLUGINS,
+      {
+        name: 'clipboard',
+        priority: 510,
+        build: () => [createClipboard({ filters: options.pasteFilters, template })],
+      },
       {
         name: 'custom-styles',
         priority: 515,

@@ -51,4 +51,26 @@ describe('page regions', () => {
     expect(textIn(tr.doc, 0, 1)).toBe('Body');
     expect(setPageRegions(new Transform(tr.doc), template).steps).toHaveLength(0);
   });
+
+  it("DOCE-TEMPLATES-6.2 shows a document section's own header and footer over its template's", () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: 'annex',
+            header: { content: [paragraph(text('Own annex'))] },
+            footer: { height: '12mm' },
+            content: [paragraph(text('Annex body'))],
+          },
+          { name: 'annex', header: { inherit: true }, content: [paragraph(text('More'))] },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const tr = setPageRegions(new Transform(doc), template);
+    expect(textIn(tr.doc, 0, 0)).toBe('Own annex');
+    expect(textIn(tr.doc, 0, 3)).toBe('Page ');
+    expect(textIn(tr.doc, 1, 0)).toBe('Annex');
+  });
 });
