@@ -1,6 +1,6 @@
 // The document editor lab's host panel: what the editor tells its host (focus, the selection, the
-// writer's changes and review-only changes, the blocks its layouts measured), a key of the host's own (Ctrl+S saves), and
-// the editor's handle taking the reader to a heading.
+// writer's changes, review-only changes once there are some, the blocks its layouts measured), a
+// key of the host's own (Ctrl+S saves), and the editor's handle taking the reader to a heading.
 
 import type { Command } from 'prosemirror-state';
 import { type RefObject, useMemo, useState } from 'react';
@@ -83,8 +83,9 @@ export function HostPanel({
         {report.focused ? 'Focused' : 'Not focused'} · {report.changes} changes · caret in{' '}
         {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
         {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
-        {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions · {report.reviews}{' '}
-        review changes · {report.measured} blocks measured
+        {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions
+        {report.reviews > 0 ? ` · ${String(report.reviews)} review changes` : ''} ·{' '}
+        {report.measured} blocks measured
       </output>
     </fieldset>
   );
