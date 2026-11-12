@@ -58,7 +58,7 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
 function stateOf(file: DocumentFile): EditorState {
   const schema = createDocumentSchema();
   const state = EditorState.create({
-    doc: readDocumentFile(file, schema),
+    doc: readDocumentFile(file, schema).doc,
     plugins: [
       createContents({ template: () => TEMPLATE }),
       createProofing({ proofer: PROOFER }),

@@ -64,7 +64,7 @@ function initialState(file?: DocumentFile): EditorState {
   }
   const template = () => current.template;
   const state = EditorState.create({
-    doc: readDocumentFile(file, schema),
+    doc: readDocumentFile(file, schema).doc,
     plugins: [
       createContents({ template }),
       createProofing({ proofer: PROOFER, delay: 200, language: 'en-US' }),

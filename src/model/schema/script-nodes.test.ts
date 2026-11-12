@@ -21,7 +21,7 @@ describe('script nodes', () => {
     const file = writeDocumentFile(parseMarkup(BLOCK));
     const stored = file.sections[0]?.content.find((node) => node.type === 'script');
     expect(stored?.attrs).toMatchObject({ source: 'count', refresh: 'open' });
-    const back = readDocumentFile(file, documentSchema);
+    const back = readDocumentFile(file, documentSchema).doc;
     expect(findNode(back, 'script_block')?.attrs.script).toBe('count');
   });
 });

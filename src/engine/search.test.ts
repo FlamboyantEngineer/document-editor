@@ -24,7 +24,7 @@ function stateOf(...values: string[]) {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content: values.map(paragraph) }] },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createSearch()] });
 }
 
@@ -104,7 +104,7 @@ describe('search', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     let state = EditorState.create({ doc, plugins: [createSearch()] });
     state = run(state, setSearch('log'));
     expect(searchResults(state, BASE_TEMPLATE)).toEqual([

@@ -18,7 +18,7 @@ const paragraph = (id: string, value: string, attrs: Record<string, unknown> = {
   content: value ? [{ type: 'text', text: value }] : [],
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 const summary = (older: StoredNode[], newer: StoredNode[]) =>
   compareVersions(read(...older), read(...newer)).map(({ kind, id, text }) => [kind, id, text]);

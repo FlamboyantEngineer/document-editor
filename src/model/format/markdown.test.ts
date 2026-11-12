@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
-import { readDocumentFile, writeDocumentFile } from './document-format-convert.js';
+import { readDocumentFile } from './document-format-convert.js';
+import { writeDocumentFile } from './document-format-write.js';
 import { writeMarkdown } from './markdown.js';
 
 const text = (value: string, ...marks: string[]): StoredNode => ({
@@ -73,7 +74,7 @@ function storedMath(): DocumentFile {
       },
     ],
   };
-  return writeDocumentFile(readDocumentFile(stored, documentSchema));
+  return writeDocumentFile(readDocumentFile(stored, documentSchema).doc);
 }
 
 describe('writeMarkdown', () => {

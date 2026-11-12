@@ -34,7 +34,7 @@ const doc = () =>
       ],
     },
     documentSchema,
-  );
+  ).doc;
 
 describe('authorship', () => {
   it('DOCE-COLLAB-3.1 tells who wrote what, and marks each writer while shown', () => {

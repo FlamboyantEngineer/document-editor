@@ -28,7 +28,7 @@ function positionIn(section: string | null) {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: section, content: [{ type: 'paragraph' }] }] },
     documentSchema,
-  );
+  ).doc;
   let at = 0;
   doc.descendants((node, pos) => {
     if (node.type.name === 'paragraph') at = pos + 1;
