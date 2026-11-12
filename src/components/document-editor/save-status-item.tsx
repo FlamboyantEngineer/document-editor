@@ -3,6 +3,7 @@
 
 import { SaveStatus } from '@flamboyantengineer/ui-components/save-status';
 import { type RefObject, useEffect, useSyncExternalStore } from 'react';
+import { matchesShortcut, type ShortcutTable } from '../../engine/index.js';
 import type { EditorCapabilities } from '../../host/index.js';
 import type { SessionStatusStore } from '../../session/status.js';
 
@@ -45,21 +46,23 @@ export function SaveStatusItem({ session }: { session: EditorSession }) {
   );
 }
 
-/** Mod-S anywhere in the editor saves the session, in place of the browser's save. */
+/**
+ * The `save` shortcut (Mod-S) anywhere in the editor, its chrome included, saves the session in
+ * place of the browser's save.
+ */
 export function useSaveShortcut(
   root: RefObject<HTMLElement | null>,
-  session: EditorSession | undefined,
+  { session, shortcuts }: { session: EditorSession | undefined; shortcuts: ShortcutTable },
 ) {
   useEffect(() => {
     const element = root.current;
     if (!element || !session) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
-      const mod = event.metaKey || event.ctrlKey;
-      if (!mod || event.altKey || event.shiftKey || event.key.toLowerCase() !== 's') return;
+      if (!matchesShortcut(shortcuts, 'save', event)) return;
       event.preventDefault();
       requestSave(session);
     };
     element.addEventListener('keydown', onKeyDown);
     return () => element.removeEventListener('keydown', onKeyDown);
-  }, [root, session]);
+  }, [root, session, shortcuts]);
 }

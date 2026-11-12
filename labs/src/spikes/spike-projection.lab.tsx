@@ -1,19 +1,16 @@
 // The paged projection's lab: a sample document, or that document repeated to hundreds of pages,
 // shown by `createProjectionView`, where the canonical state takes every edit and a read-only
-// projection shows the pages. `?copies=<n>` repeats the document; `?mode=current` opens it in
-// today's editor, kept paginated by `createPagination`, to compare typing latency.
+// projection shows the pages. `?copies=<n>` repeats the document.
 //
 // The page reports what the browser tests read on `window.projectionSpike`: the canonical
 // document's text and selection, the projection's counts, each layout's time and each key's
 // latency from the key press to the next frame.
 
-import { baseKeymap, toggleMark } from 'prosemirror-commands';
+import { toggleMark } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
-import { keymap } from 'prosemirror-keymap';
 import type { Node } from 'prosemirror-model';
 import { EditorState, type Selection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
-import { EditorView } from 'prosemirror-view';
 import {
   createDocumentSchema,
   type DocumentFile,
@@ -22,12 +19,7 @@ import {
   sameStructure,
   type StoredNode,
 } from '../../../src/model/index.js';
-import {
-  createPagination,
-  createProjectionView,
-  isPaginationTransaction,
-  type ProjectionView,
-} from '../../../src/pagination/index.js';
+import { createProjectionView, type ProjectionView } from '../../../src/pagination/index.js';
 
 const PAGE_HEIGHT = 360;
 
@@ -105,7 +97,6 @@ function sample(copies: number): DocumentFile {
 }
 
 interface Probe {
-  mode: 'spike' | 'current';
   /** Each key's time from its press to the next frame, in milliseconds. */
   latencies: number[];
   /** The main thread's tasks over 50 milliseconds, such as layouts, in milliseconds. */
@@ -264,64 +255,38 @@ function mountProjection(doc: Node, mount: HTMLElement, measureIn: HTMLElement):
 
 let editor: LabEditor | null = null;
 
-function mountCurrent(doc: Node, mount: HTMLElement, measureIn: HTMLElement): EditorView {
-  const pagination = createPagination({ measureIn, pageHeight: PAGE_HEIGHT });
-  const view: EditorView = new EditorView(mount, {
-    state: EditorState.create({
-      doc,
-      plugins: [
-        pagination.plugin,
-        history(),
-        keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
-        keymap(baseKeymap),
-      ],
-    }),
-    dispatchTransaction(tr) {
-      view.updateState(view.state.apply(tr));
-      if (isPaginationTransaction(tr)) markReady();
-    },
-  });
-  return view;
-}
-
 function render(): void {
   const mount = document.querySelector<HTMLElement>('.lab-pages');
   const measureIn = document.querySelector<HTMLElement>('.lab-measure');
   if (!mount || !measureIn) return;
   const params = new URLSearchParams(window.location.search);
   const copies = Math.max(1, Number(params.get('copies') ?? 1) || 1);
-  const mode = params.get('mode') === 'current' ? 'current' : 'spike';
-  document.documentElement.dataset.labMode = mode;
   const doc = readDocumentFile(sample(copies), createDocumentSchema()).doc;
   const latencies: number[] = [];
   const longTasks: number[] = [];
   timeKeys(latencies);
   timeLongTasks(longTasks);
-  let current: EditorView | null = null;
   const probe: Probe = {
-    mode,
     latencies,
     longTasks,
     pages: pageCount,
     canonicalSelection() {
-      const state = probe.editor?.canonical ?? current?.state;
+      const state = probe.editor?.canonical;
       if (!state) throw new Error('no editor');
       return selectionReport(state.doc, state.selection);
     },
     columnWidths(id) {
-      const state = probe.editor?.canonical ?? current?.state;
+      const state = probe.editor?.canonical;
       return state ? columnWidths(state.doc, id) : [];
     },
-    inSync: () => (stats ? stats().outOfSync === 0 : true),
-    stats: () => stats?.() ?? null,
+    inSync: () => stats().outOfSync === 0,
+    stats: () => stats(),
     get editor() {
       return editor;
     },
   };
   window.projectionSpike = probe;
-  let stats: (() => LabStats) | null = null;
-  if (mode === 'spike') stats = mountProjection(doc, mount, measureIn);
-  else current = mountCurrent(doc, mount, measureIn);
+  const stats = mountProjection(doc, mount, measureIn);
 }
 
 render();

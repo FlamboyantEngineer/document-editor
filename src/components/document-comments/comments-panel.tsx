@@ -10,7 +10,7 @@ import { TextSelection } from 'prosemirror-state';
 import { useMemo, useState } from 'react';
 import {
   type CommentAnchor,
-  listCommentAnchors,
+  commentAnchors,
   removeCommentAnchor,
   setCommentState,
 } from '../../engine/index.js';
@@ -19,8 +19,9 @@ import { createHooks } from '../../utils/hooks.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
 import { type CardContext, DEFAULT_COMMENTS_LABELS, ThreadCard } from './comment-cards.js';
 import { useCommentMentions } from './comment-mentions.js';
+import { WithCommentThreads } from './comment-threads-provider.js';
 import type { DocumentCommentsOptions } from './document-comments.js';
-import { useCommentThreads } from './use-comment-threads.js';
+import { useProvidedCommentThreads } from './use-comment-threads.js';
 
 const hooks = createHooks('comments-panel', ['thread']);
 
@@ -55,17 +56,29 @@ function listed(
     .sort((a, b) => (order.get(a.id) ?? Infinity) - (order.get(b.id) ?? Infinity));
 }
 
-/** Lists the document's threads, filtered, answering and resolving them in place. */
+/**
+ * Lists the document's threads, filtered, answering and resolving them in place. It shares the
+ * threads of the provider around it, such as the editor's, or keeps its own.
+ */
 export function DocumentCommentsPanel(props: DocumentCommentsPanelProps) {
+  const failed = props.labels?.failed ?? DEFAULT_COMMENTS_LABELS.failed;
+  return (
+    <WithCommentThreads {...props} failed={failed}>
+      <CommentsPanelList {...props} />
+    </WithCommentThreads>
+  );
+}
+
+function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const held = useDocumentEditor();
   const context = props.context ?? held;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
-  const comments = useCommentThreads({ ...props, failed: labels.failed });
+  const comments = useProvidedCommentThreads(props);
   const [own, setOwn] = useState<CommentsFilter>(props.defaultFilter ?? 'open');
   const filter = props.filter ?? own;
   const me = props.identity.currentPerson().id;
   const canComment = props.canComment ?? true;
-  const anchors = useMemo(() => (context ? listCommentAnchors(context.state.doc) : []), [context]);
+  const anchors = useMemo(() => (context ? commentAnchors(context.state) : []), [context]);
   const shown = listed(comments.threads, anchors, { filter, me });
   const mentions = useCommentMentions(props.identity);
   const card: CardContext = {

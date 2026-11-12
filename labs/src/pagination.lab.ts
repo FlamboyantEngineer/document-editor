@@ -1,15 +1,14 @@
-// Shows a sample document on fixed-height pages in an editor kept paginated by `createPagination`:
-// its whole document is measured in a hidden view, and the editor moves onto each new layout by
-// steps after every edit and when the page width changes, with the caret staying on its text, undo
-// undoing edits, and each page leaving room for the footnotes it holds. The page holding the caret
-// is read from the layout (`pageMap`).
+// Shows a sample document on fixed-height pages, a read-only projection of the whole document
+// (`createProjectionView`): the whole document is measured in a hidden view, and the pages move
+// onto each new layout by steps after every edit and when the page width changes, with the caret
+// staying on its text, undo undoing edits, and each page leaving room for the footnotes it holds.
+// The page holding the caret is read from the layout (`pageMap`).
 
 import { baseKeymap } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { Node } from 'prosemirror-model';
 import { EditorState, type Transaction } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
 import {
   createDocumentSchema,
   type DocumentFile,
@@ -18,7 +17,8 @@ import {
   sameStructure,
   type StoredNode,
 } from '../../src/model/index.js';
-import { createPagination, isPaginationTransaction, pageMap } from '../../src/pagination/index.js';
+import { pageMap } from '../../src/pagination/index.js';
+import { showOnPages } from './lab-pages.js';
 
 /** The content height of each page, in pixels. */
 const PAGE_HEIGHT = 360;
@@ -149,13 +149,11 @@ function sameContent(left: Node, right: Node): boolean {
 const WIDTHS = { wide: 480, narrow: 300 } as const;
 
 // Records the caret's text, and the page that holds it as the layout tells it.
-function reportCaret({ state }: EditorView): void {
+function reportCaret(state: EditorState): void {
   const { from } = state.selection;
   const { dataset } = document.documentElement;
   dataset.labCaretText = state.doc.textBetween(from, from + 12);
-  const layout = pageMap(state);
-  const canonical = layout.toCanonical(from);
-  dataset.labCaretPage = String(canonical === null ? 0 : (layout.pageAt(canonical)?.number ?? 0));
+  dataset.labCaretPage = String(pageMap(state).pageAt(from)?.number ?? 0);
 }
 
 // Records what a test reads after the editor moved onto new pages: whether they join back into
@@ -164,39 +162,38 @@ function reportPages(tr: Transaction): void {
   const { dataset } = document.documentElement;
   const before = joinDocumentPages(tr.before).doc;
   dataset.labJoinsWhole = String(sameContent(joinDocumentPages(tr.doc).doc, before));
-  dataset.labPages = String(document.querySelectorAll('.lab-pages .pm-page').length);
   dataset.labLayouts = String(Number(dataset.labLayouts ?? 0) + 1);
-  dataset.labReady = 'true';
 }
 
 function render(): void {
   const measureIn = document.querySelector<HTMLElement>('.lab-measure');
-  const pagesRoot = document.querySelector('.lab-pages');
+  const mount = document.querySelector<HTMLElement>('.lab-pages');
   const button = document.querySelector<HTMLButtonElement>('.lab-narrow');
-  if (!measureIn || !pagesRoot || !button) return;
-  const pagination = createPagination({ measureIn, pageHeight: PAGE_HEIGHT });
-  const editor: EditorView = new EditorView(pagesRoot, {
-    state: EditorState.create({
-      doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc,
-      plugins: [
-        pagination.plugin,
-        history(),
-        keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
-        keymap(baseKeymap),
-      ],
-    }),
-    dispatchTransaction(tr: Transaction) {
-      editor.updateState(editor.state.apply(tr));
-      reportCaret(editor);
-      if (isPaginationTransaction(tr)) reportPages(tr);
+  if (!measureIn || !mount || !button) return;
+  const pages = showOnPages(
+    { mount, measureIn },
+    {
+      state: EditorState.create({
+        doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc,
+        plugins: [
+          history(),
+          keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
+          keymap(baseKeymap),
+        ],
+      }),
+      pageHeight: PAGE_HEIGHT,
+      ghostPlugins: [],
+      dispatch: () => reportCaret(pages.state),
+      onLayout: reportPages,
+      onLaidOut: (laidOut) => reportCaret(laidOut.state),
     },
-  });
+  );
   button.addEventListener('click', () => {
     const narrow = button.getAttribute('aria-pressed') !== 'true';
     button.setAttribute('aria-pressed', String(narrow));
     const width = narrow ? WIDTHS.narrow : WIDTHS.wide;
     document.documentElement.style.setProperty('--lab-width', `${String(width)}px`);
-    pagination.refresh({ remeasure: true });
+    pages.refresh({ remeasure: true });
   });
 }
 

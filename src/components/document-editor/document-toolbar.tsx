@@ -10,6 +10,7 @@ import {
   ToolbarRowSeparator,
 } from '@flamboyantengineer/ui-components/layout';
 import { Fragment, useMemo } from 'react';
+import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
@@ -82,10 +83,14 @@ function Item({ item, context }: { item: ToolbarItem; context: EditorContext }) 
 function useGroups({ context, options, templateStyle, features }: DocumentToolbarProps) {
   const { schema } = context.state;
   const { labels } = context;
+  const shortcuts = shortcutsOf(context.state);
   return useMemo(
     () =>
-      arrangeToolbar(builtInToolbarGroups(schema, labels, { templateStyle, features }), options),
-    [schema, labels, templateStyle, features, options],
+      arrangeToolbar(
+        builtInToolbarGroups(schema, labels, { templateStyle, features, shortcuts }),
+        options,
+      ),
+    [schema, labels, templateStyle, features, shortcuts, options],
   );
 }
 

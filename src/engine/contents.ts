@@ -1,6 +1,7 @@
 // Lists of contents: a table of contents, lists of figures, tables, code and equations, and any
-// kind of list a host configures, drawn live from the document's catalog. A plugin keeps the catalog and hands each list block its rows;
-// the list's node view draws them, and an entry takes the reader to what it names.
+// kind of list a host configures, drawn live from the document's catalog. A plugin keeps the
+// catalog and hands each list block its rows, with the page the layout shows each entry on; the
+// list's node view draws them, and an entry takes the reader to what it names.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
@@ -20,6 +21,7 @@ import {
   resolveContentsList,
   type TemplateFile,
 } from '../model/index.js';
+import { type PageMap, pageMap } from '../pagination/page-map.js';
 
 /** A list's title, and what it shows when it lists nothing. */
 export interface ContentsLabels {
@@ -122,6 +124,25 @@ function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog, kinds: Kinds):
 function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): ContentsState {
   const catalog = catalogDocument(doc, template, kinds.all);
   return { catalog, decorations: decorate(doc, catalog, kinds) };
+}
+
+// The rows a plugin state draws, each entry on the page the layout shows it on, once for each
+// state and layout: the catalog counts a section as one page, the layout knows where pages break.
+const onLayout = new WeakMap<ContentsState, { map: PageMap; set: DecorationSet }>();
+
+function pagedDecorations(state: EditorState, value: ContentsState, kinds: Kinds): DecorationSet {
+  const map = pageMap(state);
+  const cached = onLayout.get(value);
+  if (cached?.map === map) return cached.set;
+  const catalog = Object.fromEntries(
+    Object.entries(value.catalog).map(([key, entries]) => [
+      key,
+      entries.map((entry) => ({ ...entry, page: map.pageAt(entry.pos)?.number ?? entry.page })),
+    ]),
+  );
+  const set = decorate(state.doc, catalog, kinds);
+  onLayout.set(value, { map, set });
+  return set;
 }
 
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
@@ -320,7 +341,10 @@ export function createContents({
         tr.docChanged || tr.getMeta(contentsKey) ? stateOf(tr.doc, template(), kinds) : value,
     },
     props: {
-      decorations: (state) => contentsKey.getState(state)?.decorations ?? null,
+      decorations(state) {
+        const value = contentsKey.getState(state);
+        return value ? pagedDecorations(state, value, kinds) : null;
+      },
       nodeViews: { toc_block: view },
       handleClickOn: (...[editor, , node, , event]) => followAnchor(editor, node, event),
     },

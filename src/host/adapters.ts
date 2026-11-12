@@ -2,8 +2,12 @@ import type { DocumentFile, StoredContent } from '../model/format/document-forma
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import type { ReferenceBaseline } from '../model/reference-format.js';
+import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
+import type { CommentStoreAdapter } from './comment-adapters.js';
 import type { CollaborationAdapter, DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
+
+export type * from './asset-adapters.js';
 
 /** A failure the host reports for a request it could not complete. */
 export interface HostError {
@@ -141,30 +145,6 @@ export interface TemplateSourceAdapter {
    * function is called.
    */
   subscribe?(templateId: string, onSaved: (state: SavedState) => void): () => void;
-}
-
-/** An uploaded file the document references. */
-export interface StoredAsset {
-  id: string;
-  /** URL the editor renders the asset from. */
-  url: string;
-  name: string;
-  mediaType: string;
-  /**
-   * The stored snapshot of the asset a document names with its id, such as a figure's; defaults to
-   * the asset's id.
-   */
-  snapshotId?: string | undefined;
-}
-
-export interface AssetAdapter {
-  upload(file: File, signal?: AbortSignal): Promise<HostResult<StoredAsset>>;
-  /**
-   * URL for an asset id stored in a document, at the snapshot it names when given, as of the time
-   * the document shows its assets as of (`asOf`, null or absent for now), such as an earlier
-   * version's.
-   */
-  resolveUrl(assetId: string, snapshotId?: string, at?: { readonly asOf: string | null }): string;
 }
 
 /** Font faces the host serves itself, which a template's text styles name by family. */
@@ -312,77 +292,6 @@ export interface GlossaryAdapter {
   resolve(ids: readonly string[]): Promise<HostResult<GlossaryEntry[]>>;
 }
 
-/** One comment of a thread: the opening comment or a reply. */
-export interface CommentEntry {
-  id: string;
-  /** The id of the person who wrote it. */
-  author: string;
-  text: string;
-  /** When it was posted: an ISO 8601 date and time. */
-  createdAt: string;
-  /** When its text was last changed, if it was. */
-  editedAt?: string | undefined;
-  /** The people who reacted to it, by the emoji they reacted with. */
-  reactions?: Record<string, string[]> | undefined;
-}
-
-/** A comment thread on a document, anchored to its text or to a suggestion. */
-export interface CommentThread {
-  /** The thread's id, which the document's anchor names. The editor chooses it. */
-  id: string;
-  state: 'open' | 'resolved';
-  /** The text the thread was started on. */
-  quote: string;
-  /** The suggestion the thread discusses, when it does. */
-  suggestion: string | null;
-  /** The opening comment, then the replies, oldest first. */
-  entries: CommentEntry[];
-}
-
-/** A thread to start: its id, what it quotes, its opening comment, and its suggestion. */
-export interface NewCommentThread {
-  id: string;
-  quote: string;
-  text: string;
-  suggestion?: string | null | undefined;
-}
-
-/**
- * Where a document's comment threads are kept. The store attributes each comment to the reader
- * and returns the thread as it is after the change.
- */
-export interface CommentStoreAdapter {
-  list(documentId: string, signal?: AbortSignal): Promise<HostResult<CommentThread[]>>;
-  create(documentId: string, thread: NewCommentThread): Promise<HostResult<CommentThread>>;
-  reply(documentId: string, threadId: string, text: string): Promise<HostResult<CommentThread>>;
-  setState(
-    documentId: string,
-    threadId: string,
-    state: CommentThread['state'],
-  ): Promise<HostResult<CommentThread>>;
-  remove(documentId: string, threadId: string): Promise<HostResult<null>>;
-  /** Changes the text of the reader's own comment. */
-  edit?(
-    documentId: string,
-    change: { threadId: string; entryId: string; text: string },
-  ): Promise<HostResult<CommentThread>>;
-  /** Deletes the reader's own reply. */
-  removeEntry?(
-    documentId: string,
-    entry: { threadId: string; entryId: string },
-  ): Promise<HostResult<CommentThread>>;
-  /** Adds or takes back the reader's reaction to a comment. */
-  react?(
-    documentId: string,
-    reaction: { threadId: string; entryId: string; emoji: string; reacted: boolean },
-  ): Promise<HostResult<CommentThread>>;
-  /**
-   * Calls `onThreads` with a document's threads whenever they change, by the reader or anyone
-   * else, until the returned function is called.
-   */
-  subscribe?(documentId: string, onThreads: (threads: CommentThread[]) => void): () => void;
-}
-
 export type FeedbackTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface FeedbackAdapter {
@@ -472,6 +381,7 @@ export interface EditorHost {
   documents: DocumentStoreAdapter;
   templates?: TemplateSourceAdapter | undefined;
   assets?: AssetAdapter | undefined;
+  diagrams?: DiagramAdapter | undefined;
   fonts?: FontsAdapter | undefined;
   codeSource?: CodeSourceAdapter | undefined;
   references?: ReferenceSourceAdapter | undefined;

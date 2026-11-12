@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
-import { createDocumentEditing } from '../../engine/index.js';
+import { createDocumentEditing, type ShortcutOverrides } from '../../engine/index.js';
 import { createMemoryHost, type EditorCapabilities, FULL_CAPABILITIES } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import type { SessionStatus } from '../../session/status.js';
@@ -38,7 +38,7 @@ function stubSession(save: () => Promise<void> = () => Promise.resolve()) {
   return { session, setStatus };
 }
 
-const initial = () =>
+const initial = (options: Parameters<typeof createDocumentEditing>[1] = {}) =>
   EditorState.create({
     doc: readDocumentFile(
       {
@@ -64,17 +64,19 @@ const initial = () =>
       },
       documentSchema,
     ).doc,
-    plugins: createDocumentEditing(documentSchema),
+    plugins: createDocumentEditing(documentSchema, options),
   });
 
 function Harness({
   session,
   capabilities,
+  shortcuts,
 }: {
   session?: EditorSession;
   capabilities?: EditorCapabilities;
+  shortcuts?: ShortcutOverrides;
 }) {
-  const [state, setState] = useState(initial);
+  const [state, setState] = useState(() => initial({ shortcuts }));
   const [host] = useState(() => createMemoryHost({ person: { id: 'ada', name: 'Ada Lovelace' } }));
   return (
     <DocumentEditor
@@ -140,6 +142,17 @@ describe('SaveStatusItem', () => {
     await user.keyboard('{Control>}s{/Control}');
     expect(session.save).toHaveBeenCalledTimes(1);
     await user.keyboard('{Control>}{Shift>}s{/Shift}{/Control}');
+    expect(session.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('DOCE-SESSION-9.2 saves with the keys the host remapped save to', async () => {
+    const user = userEvent.setup();
+    const { session } = stubSession();
+    render(<Harness session={session} shortcuts={{ save: 'Mod-e' }} />);
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
+    await user.keyboard('{Control>}s{/Control}');
+    expect(session.save).not.toHaveBeenCalled();
+    await user.keyboard('{Control>}e{/Control}');
     expect(session.save).toHaveBeenCalledTimes(1);
   });
 

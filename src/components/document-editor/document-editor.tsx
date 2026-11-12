@@ -26,6 +26,7 @@ import {
 import type {
   AssetAdapter,
   CodeSourceAdapter,
+  DiagramAdapter,
   EditorCapabilities,
   FeedbackAdapter,
   FontsAdapter,
@@ -42,6 +43,7 @@ import {
   templateProperties,
 } from '../../model/index.js';
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
+import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
@@ -55,6 +57,7 @@ import {
 } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
+import { EditorScope } from './editor-scope.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
@@ -196,6 +199,11 @@ export interface DocumentEditorProps
    * address.
    */
   assets?: AssetAdapter | undefined;
+  /**
+   * Draws the diagrams figures show in the host's diagram editor; without it the editor offers no
+   * diagrams.
+   */
+  diagrams?: DiagramAdapter | undefined;
   /** Resolves the code linked code blocks show; without it the editor offers no linked code. */
   codeSource?: CodeSourceAdapter | undefined;
   /** Finds citations of other documents, which the reference dialog then offers. */
@@ -328,7 +336,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
-  useSaveShortcut(root, props.session);
+  useSaveShortcut(root, { session: props.session, shortcuts: shortcutsOf(state) });
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props.onContentChange, tap);
   const editorContext = useRef<EditorContext | null>(null);
@@ -369,7 +377,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
     />
   );
   return (
-    <DocumentEditorContext value={context}>
+    <EditorScope context={context} comments={props.comments} transactions={engine.transactions}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}
@@ -399,7 +407,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
           onClose={() => setDialog(null)}
         />
       </div>
-    </DocumentEditorContext>
+    </EditorScope>
   );
 }
 

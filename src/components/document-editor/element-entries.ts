@@ -184,7 +184,7 @@ function alignEntry(view: EditorView, labels: DocumentEditorLabels, object: Pros
         { id: `align-${layout}`, label: names[layout], icon: LAYOUT_GLYPHS[layout] },
         setObjectLayout(layout),
       ),
-      isSelected: object.attrs.objectLayout === layout,
+      isSelected: object.attrs.objectLayout === (layout === 'fit' ? 'fit-page-width' : layout),
     })),
   };
 }

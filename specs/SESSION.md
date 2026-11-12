@@ -13,9 +13,9 @@ Verification: `src/components/document-editor/save-status-item.test.tsx`
 
 ### DOCE-SESSION-9.2 - Save shortcut
 
-With a `session`, Mod-S anywhere in the editor shall save the session, in place of the browser's own save. Mod-S with Shift or Alt is left alone.
+With a `session`, the shortcut table's `save` keys (Mod-s by default, remapped through the editing's `shortcuts`) pressed anywhere in the editor, its chrome included, shall save the session in place of the browser's own save. Other keys, such as Mod-Shift-s, are left alone.
 
-Implementation: `src/components/document-editor/save-status-item.tsx`, `src/components/document-editor/document-editor.tsx`
+Implementation: `src/components/document-editor/save-status-item.tsx`, `src/components/document-editor/document-editor.tsx`, `src/engine/shortcuts.ts`
 Verification: `src/components/document-editor/save-status-item.test.tsx`
 
 ### DOCE-SESSION-9.3 - Deciding suggestions
