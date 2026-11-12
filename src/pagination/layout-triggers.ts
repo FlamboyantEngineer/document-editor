@@ -10,7 +10,10 @@ import type { PaginationOptions } from './pagination.js';
  * long after the first edit, and until no pointer button is down on the editor, so a layout never
  * lands in the middle of a drag; then asks for it.
  */
-export function settleEdits(options: PaginationOptions, request: () => void) {
+export function settleEdits(
+  options: Pick<PaginationOptions, 'measureIn' | 'settle'>,
+  request: () => void,
+) {
   const settle = options.settle ?? 150;
   const owner = options.measureIn.ownerDocument.defaultView;
   const edits = { first: 0, last: 0, timer: null as number | null, pressed: false };
@@ -124,5 +127,15 @@ export function remeasureOn(
     container.removeEventListener(REMEASURE_EVENT, listener);
     container.removeEventListener('load', onImage, true);
     container.removeEventListener('error', onImage, true);
+  };
+}
+
+/** Runs on the next animation frame of the window an element is in: a layout's default schedule. */
+export function frameIn(container: HTMLElement): (run: () => void) => () => void {
+  const owner = container.ownerDocument.defaultView;
+  return (run) => {
+    if (!owner) return () => undefined;
+    const handle = owner.requestAnimationFrame(run);
+    return () => owner.cancelAnimationFrame(handle);
   };
 }

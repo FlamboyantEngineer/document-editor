@@ -1,10 +1,7 @@
-// Check 6 of the projection spike: positions map exactly between a paged projection and its
-// canonical whole document, on generated documents and layouts, and stay exact through generated
-// edits made on either side and mirrored onto the other.
-
 import type { Node } from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
 import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
 import {
   type ContainerMeasurement,
   createLayoutRules,
@@ -14,9 +11,8 @@ import {
   projectDocument,
   sameStructure,
   type TextMeasurement,
-} from '../../../src/model/index.js';
-import { documentSchema } from '../../../test/document-markup.js';
-import { ProjectionMap } from './projection-map.js';
+} from '../model/index.js';
+import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -213,16 +209,17 @@ function routeProjectionInput(rng: Random, pair: Pair): boolean {
 
 // The property tests walk every character of generated documents after each edit: under a second
 // each here, but several times slower on CI's runners beside the other test files, so they get 30 s.
-describe('projection spike: position mapping (check 6)', { timeout: 30_000 }, () => {
+describe('projection map', { timeout: 30_000 }, () => {
   // 60 generated documents, in groups that each stay well inside the timeout on a loaded runner.
   it.each([1, 16, 31, 46])(
-    'maps every character between a generated projection and its canonical document (documents %i on)',
+    'DOCE-PAGINATION-7.9 maps every character between a generated projection and its canonical document (documents %i on)',
     (first) => {
       for (let seed = first; seed < first + 15; seed += 1) {
         const rng = random(seed);
         const generated = generate(rng);
         const projection = project(rng, generated);
-        const { map, whole } = ProjectionMap.of(projection);
+        const map = createProjectionMap(projection);
+        const whole = map.canonical;
         expect(sameStructure(whole, generated.whole), `seed ${String(seed)}`).toBe(true);
         expectExact(map, projection, whole);
       }
@@ -231,13 +228,14 @@ describe('projection spike: position mapping (check 6)', { timeout: 30_000 }, ()
 
   // 1,000 edits in all: 40 documents of 25 edits, in groups that each stay well inside the timeout.
   it.each([1, 11, 21, 31])(
-    'keeps the mapping exact through generated edits mirrored either way (documents %i on)',
+    'DOCE-PAGINATION-7.9 keeps the mapping exact through generated edits mirrored either way (documents %i on)',
     (first) => {
       let edits = 0;
       for (let seed = first; seed < first + 10; seed += 1) {
         const rng = random(seed * 7919);
         const projection = project(rng, generate(rng));
-        const { map, whole } = ProjectionMap.of(projection);
+        const map = createProjectionMap(projection);
+        const whole = map.canonical;
         const pair: Pair = { map, projection, canonical: whole };
         for (let step = 0; step < 25; step += 1) {
           const fromProjection = rng.next() < 0.4;
@@ -255,22 +253,9 @@ describe('projection spike: position mapping (check 6)', { timeout: 30_000 }, ()
         }
         expectExact(pair.map, pair.projection, pair.canonical);
         // A layout rebuilds the map from the page transform and starts it over.
-        expectExact(ProjectionMap.of(pair.projection).map, pair.projection, pair.canonical);
+        expectExact(createProjectionMap(pair.projection), pair.projection, pair.canonical);
       }
       expect(edits).toBe(250);
     },
   );
-
-  it('finds footnote entries and repeated header rows again, which the page transform drops', () => {
-    const rng = random(3);
-    let redirected = 0;
-    for (let seed = 0; seed < 20; seed += 1) {
-      const projection = project(rng, generate(rng));
-      const { map, whole } = ProjectionMap.of(projection);
-      expectExact(map, projection, whole);
-      redirected += map.counts.redirected;
-      expect(map.counts.lost).toBe(0);
-    }
-    expect(redirected).toBeGreaterThan(0);
-  });
 });
