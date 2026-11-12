@@ -9,9 +9,9 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { ProoferAdapter, ProofingIssue, ProofingKind } from '../host/adapters.js';
-import { isRemoteTransaction } from './presence.js';
 import { proofedBlocks } from './proofing-text.js';
 import { proofingView } from './proofing-view.js';
+import { isRemoteTransaction } from './transaction-kind.js';
 
 /** How a document is proofed. */
 export interface ProofingOptions {

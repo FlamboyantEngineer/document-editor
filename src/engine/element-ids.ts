@@ -3,9 +3,10 @@
 // a local change adds are attributed to the writer. The parts a split element is laid out in share
 // its id. Page chrome is view content and is left as it is.
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { AddMarkStep, RemoveMarkStep, ReplaceStep, type Step } from 'prosemirror-transform';
+import { clearIdentityAttrs } from '../model/schema/element-attributes.js';
 
 /** What an element id looks like: eight lower-case hexadecimal digits. */
 export const ELEMENT_ID_PATTERN = /^[a-f0-9]{8}$/;
@@ -59,16 +60,16 @@ function isRepeatedHeaderRow(node: ProseMirrorNode, parent: ProseMirrorNode | nu
   return found;
 }
 
-// A step that only changes text or marks inside text blocks, which adds no element.
+// A step that only changes text or marks inside text blocks, which adds no element: an inline atom,
+// such as a mention or an equation, is an element of its own.
 function isTextStep(step: Step): boolean {
   if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) return true;
   if (!(step instanceof ReplaceStep)) return false;
-  let inline = true;
-  step.slice.content.descendants((node) => {
-    if (!node.isInline) inline = false;
-    return inline;
+  let text = true;
+  step.slice.content.forEach((node) => {
+    if (!node.isText) text = false;
   });
-  return inline;
+  return text;
 }
 
 /**
@@ -156,6 +157,14 @@ export function createElementIds({
 /** Marks the change that repairs a document's element ids when it opens. */
 export const ELEMENT_IDS_REPAIR = 'elementIdsRepair';
 
+/** How `repairElementIds` repairs a document. */
+export interface RepairElementIdsOptions {
+  /** The writer the repaired elements without one are attributed to, such as a system account. */
+  readonly author?: string | null | undefined;
+  /** Makes a fresh id; random by default. */
+  readonly newId?: (() => string) | undefined;
+}
+
 /**
  * The change that gives a document opened with missing, invalid or repeated element ids valid ones,
  * out of the undo history; null when every element already has one. A server can run it on a
@@ -163,9 +172,38 @@ export const ELEMENT_IDS_REPAIR = 'elementIdsRepair';
  */
 export function repairElementIds(
   state: EditorState,
-  options: { readonly newId?: (() => string) | undefined } = {},
+  options: RepairElementIdsOptions = {},
 ): Transaction | null {
   const tr = state.tr;
-  if (!assignElementIds(tr, { newId: options.newId })) return null;
+  if (!assignElementIds(tr, options)) return null;
   return tr.setMeta('addToHistory', false).setMeta(ELEMENT_IDS_REPAIR, true);
+}
+
+// A node as a new copy: its own identity cleared, and its contributors' marks on its text removed.
+function copyOf(node: ProseMirrorNode): ProseMirrorNode {
+  if (node.isText) {
+    const marks = node.marks.filter((mark) => mark.type.name !== 'contributor');
+    return marks.length === node.marks.length ? node : node.mark(marks);
+  }
+  return node.type.create(
+    clearIdentityAttrs(node.type, node.attrs),
+    copiesOf(node.content),
+    node.marks,
+  );
+}
+
+function copiesOf(fragment: Fragment): Fragment {
+  const nodes: ProseMirrorNode[] = [];
+  fragment.forEach((node) => nodes.push(copyOf(node)));
+  return Fragment.fromArray(nodes);
+}
+
+/**
+ * Pasted content as new elements: every element's identity attributes that a copy clears are
+ * cleared (DOCE-SCHEMA-2.3), and the contributor marks on its text removed, so the element ids give
+ * the copy fresh ids and attribute it to its paster, and the original keeps its own. Content moved
+ * by dragging it within the document is the same content, and keeps its identity.
+ */
+export function clearCopiedIdentity(slice: Slice): Slice {
+  return new Slice(copiesOf(slice.content), slice.openStart, slice.openEnd);
 }

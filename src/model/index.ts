@@ -234,6 +234,7 @@ export {
   TABLE_BORDER_NONE_CLASS,
   TABLE_CAPTION_TEXT_ATTR,
 } from './schema/dom-attributes.js';
+export type { IdentityAttribute, IdentityAttributeCopy } from './schema/element-attributes.js';
 export {
   MAX_PARAGRAPH_LEVEL,
   normalizeParagraphLevel,

@@ -161,4 +161,25 @@ test.describe('pagination lab', () => {
     expect(Number(await html.getAttribute('data-lab-layouts')) - before).toBeLessThanOrEqual(2);
     await expectPagesHoldContent(page);
   });
+
+  test('DOCE-PAGINATION-7.7 tells which page holds the caret from the layout', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('pagination');
+    const html = page.locator('html');
+    for (const [target, text] of [
+      [page.locator('.lab-pages').getByText('Room 9:'), /^Room 9:/],
+      [page.locator('.lab-pages .pm-footnote-entry[data-footnote-id="n2"]'), /^The second/],
+    ] as const) {
+      await target.click({ position: { x: 1, y: 6 } });
+      await expect(html).toHaveAttribute('data-lab-caret-text', text);
+      const shown = await target.evaluate((element) => {
+        const all = [...document.querySelectorAll('.lab-pages .pm-page')];
+        return all.findIndex((each) => each.contains(element)) + 1;
+      });
+      expect(shown).toBeGreaterThan(1);
+      await expect(html).toHaveAttribute('data-lab-caret-page', String(shown));
+    }
+  });
 });

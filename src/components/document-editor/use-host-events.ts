@@ -101,14 +101,23 @@ export function useHostViewProps(host: DocumentEditorNotifications) {
   }, [onFocusChange, keymap]);
 }
 
-/** Repairs the element ids of the document a view opens with, once per document it is given. */
-export function useElementIdRepair(view: EditorView | null, state: EditorState) {
+/**
+ * Repairs the element ids of the document a view opens with, once per document it is given, as
+ * `repair` says: not at all, or with the repaired elements without a writer attributed to `author`.
+ */
+export function useElementIdRepair(
+  view: EditorView | null,
+  state: EditorState,
+  repair: boolean | { readonly author?: string | undefined } | undefined,
+) {
   const { plugins } = state;
+  const enabled = Boolean(repair);
+  const author = typeof repair === 'object' ? (repair.author ?? null) : null;
   useEffect(() => {
-    if (!view) return;
-    const tr = repairElementIds(view.state);
+    if (!view || !enabled) return;
+    const tr = repairElementIds(view.state, { author });
     if (tr) view.dispatch(tr);
-  }, [view, plugins]);
+  }, [view, plugins, enabled, author]);
 }
 
 /**

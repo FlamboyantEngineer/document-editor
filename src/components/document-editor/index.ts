@@ -8,6 +8,7 @@ export type {
 export type { ContextKind, ContextTarget } from './context-target.js';
 export type {
   DocumentEditorDebug,
+  DocumentEditorIdRepair,
   DocumentEditorProps,
   DocumentMarkup,
 } from './document-editor.js';
