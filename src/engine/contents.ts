@@ -127,13 +127,13 @@ function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog, kinds: Kinds):
 function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): ContentsState {
   let catalog: DocumentCatalog | null = null;
   let decorations: DecorationSet | null = null;
+  const catalogued = () => (catalog ??= catalogDocument(doc, template, kinds.all));
   return {
     get catalog() {
-      catalog ??= catalogDocument(doc, template, kinds.all);
-      return catalog;
+      return catalogued();
     },
     get decorations() {
-      decorations ??= hasContents(doc) ? decorate(doc, this.catalog, kinds) : DecorationSet.empty;
+      decorations ??= hasContents(doc) ? decorate(doc, catalogued(), kinds) : DecorationSet.empty;
       return decorations;
     },
   };

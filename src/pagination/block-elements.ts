@@ -19,6 +19,7 @@ export function childElement(
   previous: HTMLElement | null,
   { node, pos }: { readonly node: ProseMirrorNode; readonly pos: number },
 ): HTMLElement | null {
+  // prosemirror-view and react-prosemirror both set `pmViewDesc` on the elements they draw.
   const next = previous?.nextElementSibling as (HTMLElement & { pmViewDesc?: unknown }) | null;
   const drawn = (next?.pmViewDesc as { node?: unknown } | undefined)?.node;
   return next && drawn === node ? next : elementOf(view, pos);
