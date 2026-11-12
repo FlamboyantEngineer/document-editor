@@ -32,6 +32,27 @@ Each peer shall take the colour slot their id gives, or the next one no other pe
 Implementation: `src/engine/presence.ts`, `labs/reference/editor-chrome.css`
 Verification: `src/engine/presence.test.ts`
 
+### DOCE-COLLAB-1.5 - Presence through a shared room
+
+`createAwarenessPresence({ awareness, user })` from `./collab` shall share presence through the shared document's awareness, such as a collaboration-tools room provider's, beside the sync plugin and `createPresence`. It shall publish the reader (`user`: id, name, picture and colour), their selection as Yjs relative positions in the `content` type (`cursor`, published again only when it changes) and their status (`status`), and set the other people from the awareness on the presence plugin, once for a burst of awareness changes and again after each change from the shared document, so each caret stays on the same characters in every editor whatever its width or layout. A person who leaves is listed no more; the reader's cursor is cleared when the plugin's view goes.
+
+Implementation: `src/collab/awareness.ts`, `src/collab/relative-positions.ts`
+Verification: `src/collab/awareness.test.ts`, `e2e/presence.spec.ts`
+
+### DOCE-COLLAB-1.6 - Status and activity
+
+Each person shall be `active`, `idle` after `idleAfter` without input of their own (two minutes by default), or `away` while their page is hidden (the host's lifecycle), and active again on their next input or when the page shows again. An idle or away peer's caret and selection shall carry `data-presence-status`.
+
+Implementation: `src/collab/awareness.ts`, `src/engine/presence.ts`, `labs/reference/editor-chrome.css`
+Verification: `src/collab/awareness.test.ts`, `src/engine/presence.test.ts`
+
+### DOCE-COLLAB-1.7 - Presence by element address
+
+A host that shares selections without a shared Yjs document (store mode) shall give each peer's selection by address (`at`: an element id and an offset in the element's text, each inline object counting one); setting the peers turns it into positions in the editor's own document, and a peer whose element the document lacks has no caret. `presenceSelection(state)` gives the reader's selection in the same form to share.
+
+Implementation: `src/engine/presence-address.ts`, `src/engine/presence.ts`
+Verification: `src/engine/presence-address.test.ts`
+
 ## DOCE-COLLAB-2 - Remote changes
 
 ### DOCE-COLLAB-2.1 - Marking them
@@ -117,6 +138,29 @@ The binding relies on the shared document integrating each update it receives. Y
 Implementation: `src/collab/sync-binding.ts`
 Verification: `src/collab/yjs-pending.test.ts`
 
+## DOCE-COLLAB-5 - Connection
+
+### DOCE-COLLAB-5.1 - Connection phases
+
+`connectionPhase(state)` shall read a room connection's state (`RoomState`, as the host's collaboration adapter gives it) as one phase: `generation-mismatch` while the room refuses the document for holding another generation; `refused` while the room refuses the connection for another reason; `offline` while disconnected; `connecting` while connecting or reconnecting, before access is granted or before the connection's first sync; then `read-only` or `synced` by the access granted.
+
+Implementation: `src/collab/connection.ts`
+Verification: `src/collab/connection.test.ts`
+
+### DOCE-COLLAB-5.2 - Opening and locking
+
+`connectionGate(phase, { cached, hasSynced })` shall say whether the reader may change the document and whether every surface is locked (decision D15). A document opened from a cached state of the room, or synced once since it opened, shall be editable at once and while connecting, reconnecting or offline; one without either shall stay read-only until its first sync, so a fresh editor never writes content the room's seed would repeat; such an editor binds the sync plugin only once synced, since binding an empty shared document writes the editor's document into it (DOCE-COLLAB-4.2). A read-only connection takes no content changes; a refused connection or another generation locks every surface until the connection recovers. `gateCapabilities(capabilities, gate)` narrows the reader's capabilities by it: without content changes, no editing, suggesting, deciding or saving versions; locked, no comments either; the history stays open.
+
+Implementation: `src/collab/connection.ts`
+Verification: `src/collab/connection.test.ts`, `e2e/presence.spec.ts`
+
+### DOCE-COLLAB-5.3 - Connection status item
+
+`ConnectionStatus` shall show a phase in words (`CONNECTION_STATUS_LABELS`, each replaceable) as a polite status (`de-connection-status`), with the phase in `data-phase`, `data-locked` in a phase that locks every surface, and `data-editable` while the reader may change the document. A host places it among the status bar's items.
+
+Implementation: `src/components/document-editor/connection-status.tsx`, `labs/reference/editor-chrome.css`
+Verification: `e2e/presence.spec.ts`
+
 ## DOCE-COLLAB-6 - Shared rooms
 
 ### DOCE-COLLAB-6.1 - Room layout and write rules
@@ -128,11 +172,16 @@ Verification: `test/shared-room-rules.test.ts`
 
 ## Hooks
 
-| Hook                       | Kind      | Values  | Description                                      |
-| -------------------------- | --------- | ------- | ------------------------------------------------ |
-| `de-presence-caret`        | root      |         | A peer's caret, at the head of their selection.  |
-| `de-presence-caret__label` | slot      |         | The peer's name above their caret.               |
-| `de-presence-selection`    | root      |         | The text a peer's selection covers.              |
-| `data-presence-peer`       | attribute |         | On a caret or selection: the peer's id.          |
-| `data-presence-slot`       | attribute | `0`–`7` | On a caret or selection: the peer's colour slot. |
-| `--de-presence-color`      | property  |         | On a caret or selection: the peer's own colour.  |
+| Hook                       | Kind      | Values                                                                           | Description                                                   |
+| -------------------------- | --------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `de-presence-caret`        | root      |                                                                                  | A peer's caret, at the head of their selection.               |
+| `de-presence-caret__label` | slot      |                                                                                  | The peer's name above their caret.                            |
+| `de-presence-selection`    | root      |                                                                                  | The text a peer's selection covers.                           |
+| `data-presence-peer`       | attribute |                                                                                  | On a caret or selection: the peer's id.                       |
+| `data-presence-slot`       | attribute | `0`–`7`                                                                          | On a caret or selection: the peer's colour slot.              |
+| `--de-presence-color`      | property  |                                                                                  | On a caret or selection: the peer's own colour.               |
+| `data-presence-status`     | attribute | `idle`, `away`                                                                   | On a caret or selection: the peer is not active.              |
+| `de-connection-status`     | root      |                                                                                  | The shared room connection's phase, in the status bar.        |
+| `data-phase`               | attribute | `connecting`, `synced`, `offline`, `read-only`, `refused`, `generation-mismatch` | On the connection status: its phase.                          |
+| `data-locked`              | state     |                                                                                  | On the connection status: the phase locks every surface.      |
+| `data-editable`            | state     |                                                                                  | On the connection status: the reader may change the document. |
