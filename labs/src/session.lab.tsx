@@ -1,7 +1,8 @@
 // A document session on the in-memory host: the document loads by id, saves by itself after a
 // pause, and reloads from the store. The controls slow the store down, fail the next save, have
-// another writer save first, hide the page, reopen the session and leave it, which the unsaved-
-// changes guard confirms. The editor's status bar shows the save status, with Retry.
+// another writer save or change a block, which the session merges or asks about, turn automatic
+// saves off, hide the page, reopen the session and leave it, which the unsaved-changes guard
+// confirms. The editor's status bar shows the save status, with Retry.
 
 import {
   UnsavedChangesGuard,
@@ -12,6 +13,7 @@ import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
   DocumentSessionBoundary,
+  MergeConflicts,
   SessionLoading,
   useDocumentSession,
   useSessionGuard,
@@ -19,7 +21,7 @@ import {
   useSessionValue,
 } from '../../src/components/index.js';
 import { createMemoryHost, type MemoryHost } from '../../src/host/index.js';
-import type { DocumentFile } from '../../src/model/index.js';
+import type { DocumentFile, StoredNode } from '../../src/model/index.js';
 import type { DocumentSession } from '../../src/session/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
@@ -48,15 +50,29 @@ const HOST = createMemoryHost({
   documents: [{ id: DOCUMENT_ID, content: DOCUMENT }],
 });
 
-// Another writer's save of the stored document, as it is now, so the session's next save conflicts.
-async function saveAsAnotherWriter(host: MemoryHost) {
+// Another writer's save of the stored document as it is now, with the block of an id changed.
+async function saveAsAnotherWriter(host: MemoryHost, change?: StoredNode) {
   const stored = await host.documents.load(DOCUMENT_ID);
   if (!stored.ok) return;
-  await host.documents.save(DOCUMENT_ID, {
-    content: stored.value.content,
-    baseRevision: stored.value.revision,
-  });
+  const content = structuredClone(stored.value.content);
+  for (const section of content.sections) {
+    section.content = section.content.map((node) =>
+      change && node.attrs?.id === change.attrs?.id ? change : node,
+    );
+  }
+  await host.documents.save(DOCUMENT_ID, { content, baseRevision: stored.value.revision });
 }
+
+const THEIR_HEADING: StoredNode = {
+  ...heading(1, 'Scope and purpose'),
+  attrs: { level: 1, id: 'a0000001' },
+};
+
+const THEIR_PARAGRAPH: StoredNode = {
+  type: 'paragraph',
+  attrs: { id: 'a0000002' },
+  content: [text('The system shall report each fault within two seconds.')],
+};
 
 function SessionStatusLine({ session }: { session: DocumentSession }) {
   const status = useSessionValue(session.status);
@@ -91,7 +107,14 @@ function LoadMeasures({ session }: { session: DocumentSession }) {
   return <output aria-label="Load measures">{names.join(', ')}</output>;
 }
 
-function Controls({ session, onReopen }: { session: DocumentSession; onReopen: () => void }) {
+interface ControlsProps {
+  session: DocumentSession;
+  onReopen: () => void;
+  autosave: boolean;
+  onAutosaveChange: (autosave: boolean) => void;
+}
+
+function Controls({ session, onReopen, autosave, onAutosaveChange }: ControlsProps) {
   const [latency, setLatency] = useState(0);
   useSessionGuard(session, 'Sample document');
   return (
@@ -121,6 +144,20 @@ function Controls({ session, onReopen }: { session: DocumentSession; onReopen: (
       <button type="button" onClick={() => void saveAsAnotherWriter(HOST)}>
         Save as another writer
       </button>{' '}
+      <button type="button" onClick={() => void saveAsAnotherWriter(HOST, THEIR_HEADING)}>
+        Another writer edits the heading
+      </button>{' '}
+      <button type="button" onClick={() => void saveAsAnotherWriter(HOST, THEIR_PARAGRAPH)}>
+        Another writer edits the paragraph
+      </button>{' '}
+      <label>
+        <input
+          type="checkbox"
+          checked={autosave}
+          onChange={(event) => onAutosaveChange(event.target.checked)}
+        />{' '}
+        Save automatically
+      </label>{' '}
       <button type="button" onClick={() => void session.save()}>
         Save now
       </button>{' '}
@@ -135,17 +172,21 @@ function Controls({ session, onReopen }: { session: DocumentSession; onReopen: (
   );
 }
 
-function OpenDocument({ onReopen }: { onReopen: () => void }) {
+// Without automatic saves, the session saves only when asked.
+const NEVER = 24 * 60 * 60 * 1000;
+
+function OpenDocument(props: Omit<ControlsProps, 'session'>) {
   const session = useDocumentSession({
     host: HOST,
     documentId: DOCUMENT_ID,
     mode: 'store',
-    autosaveDelay: 800,
+    autosaveDelay: props.autosave ? 800 : NEVER,
   });
   if (!session) return null;
   return (
     <>
-      <Controls session={session} onReopen={onReopen} />
+      <Controls session={session} {...props} />
+      <MergeConflicts session={session} />
       <DocumentSessionBoundary
         session={session}
         fallback={<SessionLoading session={session} />}
@@ -161,9 +202,15 @@ function OpenDocument({ onReopen }: { onReopen: () => void }) {
 
 function Lab() {
   const [opened, setOpened] = useState(1);
+  const [autosave, setAutosave] = useState(true);
   return (
     <UnsavedChangesGuard shouldConfirmUnload={false}>
-      <OpenDocument key={opened} onReopen={() => setOpened((count) => count + 1)} />
+      <OpenDocument
+        key={`${String(opened)}-${String(autosave)}`}
+        onReopen={() => setOpened((count) => count + 1)}
+        autosave={autosave}
+        onAutosaveChange={setAutosave}
+      />
     </UnsavedChangesGuard>
   );
 }
