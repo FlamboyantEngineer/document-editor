@@ -200,6 +200,7 @@ export function EditorBody({
             suggestionPolicy={editorSuggestionPolicy(props)}
             startRef={startCommentRef}
             openRef={openThreadRef}
+            view={view}
           >
             {content}
           </DocumentComments>
