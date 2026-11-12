@@ -129,20 +129,25 @@ export {
   scriptsState,
   setScriptSource,
 } from './scripts.js';
-export type { SearchMatch, SearchOptions, SearchResult, SearchState } from './search.js';
+export type { SearchMatch, SearchOptions, SearchScope, SearchState } from './search.js';
 export {
   createSearch,
+  isMatchReplaceable,
   replaceAllMatches,
   replaceMatch,
+  revealMatchAt,
   SEARCH_MATCH_ATTR,
+  SEARCH_RESULT_ATTR,
   searchKey,
-  searchResults,
+  searchPaneKey,
+  searchSeed,
   searchState,
-  selectMatchAt,
   selectNextMatch,
   selectPreviousMatch,
   setSearch,
 } from './search.js';
+export type { SearchResult, SearchResultsOptions } from './search-results.js';
+export { searchResults } from './search-results.js';
 export type { SnapshotOptions } from './snapshot.js';
 export { documentSnapshot } from './snapshot.js';
 export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';

@@ -73,6 +73,9 @@ const isModKey = (event: KeyboardEvent, letter: string) =>
 // Mod-F opens the find bar.
 export const isFindKey = (event: KeyboardEvent) => isModKey(event, 'f');
 
+// Mod-H opens the find bar at its replacement.
+export const isReplaceKey = (event: KeyboardEvent) => isModKey(event, 'h');
+
 // Mod-Alt-M starts a comment.
 export const isCommentKey = (event: KeyboardEvent) =>
   event.code === 'KeyM' && (event.ctrlKey || event.metaKey) && event.altKey && !event.shiftKey;

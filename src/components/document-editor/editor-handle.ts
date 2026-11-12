@@ -19,6 +19,7 @@ import {
 } from '../../engine/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { LayoutState, PaginationStats } from '../../pagination/index.js';
+import type { FindBarMode } from './document-find-bar.js';
 import type { LayoutProgress } from './use-document-layout.js';
 
 /** What a host can do with a mounted editor. */
@@ -46,6 +47,11 @@ export interface DocumentEditorHandle {
    * comments and the reader may comment; false otherwise.
    */
   startComment(): boolean;
+  /**
+   * Opens the find bar at its find box, or at its replacement with `replace`, seeded with the
+   * selected text, while the editor has a find bar (`find`); false otherwise.
+   */
+  openFind(mode?: FindBarMode): boolean;
   /**
    * The document as its pages show it now, as a standalone HTML document a host prints or turns
    * into a PDF (`documentSnapshot`); null before the editor is mounted.
@@ -112,10 +118,12 @@ export function useEditorHandle(
     startCommentRef,
     template,
     layout,
+    openFind,
   }: {
     startCommentRef: RefObject<(() => void) | null>;
     template: TemplateFile;
     layout: LayoutProgress;
+    openFind: ((mode?: FindBarMode) => void) | null;
   },
 ) {
   useImperativeHandle(
@@ -134,6 +142,10 @@ export function useEditorHandle(
         start?.();
         return Boolean(start);
       },
+      openFind(mode) {
+        openFind?.(mode);
+        return Boolean(openFind);
+      },
       run(command) {
         if (!view) return false;
         const ran = command(view.state, view.dispatch, view);
@@ -149,6 +161,6 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
     }),
-    [view, startCommentRef, template, layout],
+    [view, startCommentRef, template, layout, openFind],
   );
 }

@@ -78,6 +78,7 @@ function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
         resolveFootnoteSettings(latest.current.template, null).numbering === 'page',
     }),
     createSearch(),
+    createSearch('pane'),
     createAuthorship(),
     createRegionEditing({
       enabled: () => Boolean(latest.current.onRegionChange),

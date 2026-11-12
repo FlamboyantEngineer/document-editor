@@ -36,7 +36,7 @@ test.describe('document panels', () => {
     await expect(results.first()).toBeVisible();
     await expect(results.first()).toContainText('Scope');
     await results.nth(1).click();
-    await expect(content(page).locator('[data-search-match]').first()).toBeVisible();
+    await expect(content(page).locator('[data-search-result="current"]')).toHaveCount(1);
     await pane
       .getByRole('button', { name: /replace/i })
       .first()
