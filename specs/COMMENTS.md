@@ -6,14 +6,14 @@ A comment thread is a discussion about part of a document. Its anchor, the text 
 
 ### DOCE-COMMENTS-1.1 - Anchoring a thread
 
-`addCommentAnchor(thread)` shall mark the selected text as the open anchor of a thread, across blocks, and refuse an empty selection or one without text. `selectedText(state)` shall give the selected text as a new thread quotes it.
+`addCommentAnchor(thread)` shall mark the selected text as the open anchor of a thread, across blocks, and refuse an empty selection or one without text. `selectedText(state)` shall give the selected text as a new thread quotes it, and `selectionRanges(state)` the stretches it covers in reading order.
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.2 - Listing anchors
 
-`listCommentAnchors(doc)` shall give one anchor per thread in reading order, with its thread, state, range, each stretch of text it marks (`ranges`, as edits, blocks or pages part it) and that text, the stretches joined by spaces. Threads that nest in or overlap one another shall each keep their own anchor.
+`listCommentAnchors(doc)` shall give one anchor per thread in reading order (by start, an outer anchor before those it holds, then by thread), with its thread, state, range, each stretch of text it marks (`ranges`, as edits, blocks, cells or pages part it) and that text, the stretches joined by spaces. Threads that nest in or overlap one another shall each keep their own anchor. A cell selection shall anchor one range per selected cell, leaving the cells between them unmarked (`anchorCommentRanges` anchors any ranges).
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
@@ -27,7 +27,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.4 - Stored anchors
 
-An anchor shall be stored with its thread and state, and read back unchanged.
+An anchor shall be stored with its thread, its state and its element id, and read back unchanged. Each new anchor shall get a fresh element id (`newId`, random by default), one for all its ranges.
 
 Implementation: `src/model/schema/marks.ts`, `src/model/format/document-format.ts`
 Verification: `src/engine/comments.test.ts`
@@ -41,17 +41,31 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.6 - A thread being started
 
-`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`) that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
+`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`), with a range per selected cell, that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
 
 Implementation: `src/engine/comment-draft.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.7 - Anchors in canonical order
 
-Anchoring a thread, resolving or reopening it and linking a suggestion to a thread shall add their marks in canonical order (DOCE-SCHEMA-5.1), so text anchored to several threads holds them by thread id whichever was anchored first, and two people who anchor the same threads in another order hold equal documents.
+Anchoring a thread, resolving or reopening it and linking a suggestion to a thread shall add their marks in canonical order (DOCE-SCHEMA-5.1), so text anchored to several threads holds them by anchor id whichever was anchored first, and two people who anchor the same anchors in another order hold equal documents.
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
+
+### DOCE-COMMENTS-1.8 - The anchor index
+
+The editing plugins shall keep an index of the comment anchors (`createCommentAnchors`) that follows each change by scanning only the text blocks it touches, so typing walks no document, and `commentAnchors(state)` shall give the anchors `listCommentAnchors` gives, from the index, or from the document without it. The margin, the comments panel and the handle read the anchors from it.
+
+Implementation: `src/engine/comment-anchors.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/comment-anchors.test.ts`
+
+### DOCE-COMMENTS-1.9 - The active anchor
+
+`activeCommentThread(state)` shall give the thread whose anchor holds the caret, the innermost when anchors nest, or null, and the index shall draw that anchor's text with `data-comment-active`.
+
+Implementation: `src/engine/comment-anchors.ts`
+Verification: `src/engine/comment-anchors.test.ts`
 
 ## DOCE-COMMENTS-2 - The comments margin
 
@@ -239,13 +253,21 @@ In the full editor lab, whose appendix is on landscape pages between portrait on
 Implementation: `src/components/document-comments/anchor-rects.ts`, `src/components/document-comments/document-comments.tsx`, `labs/reference/document.css`, `labs/src/full-editor.lab.tsx`
 Verification: `e2e/full-editor.spec.ts`
 
+### DOCE-COMMENTS-3.6 - The active anchor drawn
+
+In the comments lab, opening a thread shall draw its anchor's text with `data-comment-active`, and moving the caret out of it shall stop. The margin measures every anchor in one pass over the document, however many threads it shows.
+
+Implementation: `src/engine/comment-anchors.ts`, `src/components/document-comments/anchor-rects.ts`, `labs/src/comments.lab.tsx`
+Verification: `e2e/comments.spec.ts`
+
 ## Hooks
 
-| Hook                           | Kind     | Values | Description                                                |
-| ------------------------------ | -------- | ------ | ---------------------------------------------------------- |
-| `de-document-comments`         | root     |        | The annotation layer around the document and margin.       |
-| `de-document-comments__margin` | slot     |        | The margin of cards.                                       |
-| `de-document-comments__card`   | slot     |        | A card, beside its anchor's page.                          |
-| `--de-comment-offset`          | property |        | On a card: how far it moves across to sit beside its page. |
-| `de-comments-panel`            | root     |        | The comments panel.                                        |
-| `de-comments-panel__thread`    | slot     |        | A thread of the panel, with `data-anchored`.               |
+| Hook                           | Kind      | Values | Description                                                |
+| ------------------------------ | --------- | ------ | ---------------------------------------------------------- |
+| `de-document-comments`         | root      |        | The annotation layer around the document and margin.       |
+| `de-document-comments__margin` | slot      |        | The margin of cards.                                       |
+| `de-document-comments__card`   | slot      |        | A card, beside its anchor's page.                          |
+| `--de-comment-offset`          | property  |        | On a card: how far it moves across to sit beside its page. |
+| `de-comments-panel`            | root      |        | The comments panel.                                        |
+| `de-comments-panel__thread`    | slot      |        | A thread of the panel, with `data-anchored`.               |
+| `data-comment-active`          | attribute | `true` | On the text of the anchor holding the caret.               |
