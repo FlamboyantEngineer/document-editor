@@ -42,8 +42,11 @@ describe('plugin order', () => {
   });
 
   it('DOCE-FORMAT-7.3 places the template plugins before table editing', () => {
+    const [first, ...rest] = EDITING_KEYS;
     expect(keysOf(createDocumentEditing(documentSchema, { template: () => TEMPLATE }))).toEqual([
-      ...EDITING_KEYS,
+      first,
+      'edit-lock',
+      ...rest,
       'custom-styles',
       'table-width',
       ...TABLE_KEYS,

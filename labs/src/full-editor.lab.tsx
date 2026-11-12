@@ -20,7 +20,6 @@ import {
   assignElementIds,
   createContents,
   createDocumentEditing,
-  createEditLock,
   createInlineCompletion,
   createPresence,
   createProofing,
@@ -285,9 +284,12 @@ function initialState(): EditorState {
       createReferences({ template: () => TEMPLATE }),
       createInlineCompletion({ provider: COMPLETER, delay: 300 }),
       createProofing({ proofer: PROOFERS, delay: 200 }),
-      createEditLock({ isLocked: isLockedParagraph }),
       createPresence(),
-      ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'ada' }),
+      ...createDocumentEditing(schema, {
+        template: () => TEMPLATE,
+        author: () => 'ada',
+        isLocked: isLockedParagraph,
+      }),
     ],
   });
   const tr = state.tr;

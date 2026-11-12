@@ -114,6 +114,19 @@ describe('two editors on one document', () => {
     expect(received.state.doc.eq(split.state.doc)).toBe(true);
   });
 
+  it('DOCE-EDITING-3.3 writes nothing derived on the receiving side of one widened cell', () => {
+    const sender = opened();
+    const receiver = editorOf(sender.doc);
+    const at = cellBefore(sender.doc, 'B1');
+    const widened = sender.applyTransaction(
+      sender.tr.setNodeMarkup(at, undefined, { ...sender.doc.nodeAt(at)?.attrs, colwidth: [5000] }),
+    );
+    expect(widened.transactions.length).toBeGreaterThan(1);
+    const received = send(widened.transactions, receiver);
+    expect(received.applied.every((count) => count === 1)).toBe(true);
+    expect(received.state.doc.eq(widened.state.doc)).toBe(true);
+  });
+
   it('DOCE-EDITING-3.3 still derives writes from the receiver’s own changes', () => {
     const receiver = opened();
     const widened = widen(receiver);

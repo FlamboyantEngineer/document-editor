@@ -122,7 +122,9 @@ function follow(measuring: EditorView, whole: ProseMirrorNode): void {
     endA += overlap;
     endB += overlap;
   }
-  const tr = state.tr.replace(start, endA, whole.slice(start, endB));
+  // The measuring view follows the document, outside any history, so its plugins, such as an edit
+  // lock, take it as no writer's change.
+  const tr = state.tr.replace(start, endA, whole.slice(start, endB)).setMeta('addToHistory', false);
   const next = tr.doc.eq(whole)
     ? state.apply(tr)
     : EditorState.create({ doc: whole, plugins: state.plugins });
