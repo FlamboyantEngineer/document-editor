@@ -22,7 +22,11 @@
           "content": [
             {
               "type": "tableRow",
-              "attrs": { "id": "tableRow-2", "author": "author-1", "aiSession": "session-1" },
+              "attrs": {
+                "id": "tableRow-2",
+                "author": "author-1",
+                "aiSession": "session-1"
+              },
               "content": [
                 {
                   "type": "tableHeader",
@@ -49,9 +53,22 @@
                         "aiSession": "session-1",
                         "suggestionKind": "sample-suggestionSplitKind",
                         "suggestionId": "sample-suggestionSplitId",
+                        "suggestionFormat": {
+                          "id": "sample-suggestionFormat",
+                          "author": "sample-dataAuthor",
+                          "type": "paragraph",
+                          "attrs": {
+                            "level": 2
+                          }
+                        },
                         "level": 3
                       },
-                      "content": [{ "type": "text", "text": "Head" }]
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Head"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -80,9 +97,22 @@
                         "aiSession": "session-1",
                         "suggestionKind": "sample-suggestionSplitKind",
                         "suggestionId": "sample-suggestionSplitId",
+                        "suggestionFormat": {
+                          "id": "sample-suggestionFormat",
+                          "author": "sample-dataAuthor",
+                          "type": "paragraph",
+                          "attrs": {
+                            "level": 2
+                          }
+                        },
                         "level": 3
                       },
-                      "content": [{ "type": "text", "text": "Cell" }]
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Cell"
+                        }
+                      ]
                     }
                   ]
                 }

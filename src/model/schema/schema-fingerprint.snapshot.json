@@ -215,12 +215,13 @@
         "splitPartIndex": { "default": null },
         "suggestionSplitKind": { "default": null },
         "suggestionSplitId": { "default": null },
+        "suggestionFormat": { "default": null },
         "paragraphLevel": { "default": 1 }
       },
       "parseDOM": [{ "tag": "p", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<p></p>",
-        "filled": "<p class=\"sample-className\" data-id=\"sample-dataId\" data-paragraph-level=\"3\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\"></p>"
+        "filled": "<p class=\"sample-className\" data-id=\"sample-dataId\" data-paragraph-level=\"3\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"></p>"
       }
     },
     {
@@ -321,7 +322,8 @@
         "dataAiSession": { "default": null },
         "splitPartIndex": { "default": null },
         "suggestionSplitKind": { "default": null },
-        "suggestionSplitId": { "default": null }
+        "suggestionSplitId": { "default": null },
+        "suggestionFormat": { "default": null }
       },
       "parseDOM": [
         { "tag": "h1", "getAttrs": "function" },
@@ -333,7 +335,7 @@
       ],
       "toDOM": {
         "defaults": "<h1></h1>",
-        "filled": "<h3 data-doc-title=\"true\" class=\"sample-className\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\"></h3>"
+        "filled": "<h3 data-doc-title=\"true\" class=\"sample-className\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"></h3>"
       }
     },
     {
@@ -444,12 +446,13 @@
         "dataAiSession": { "default": null },
         "splitPartIndex": { "default": null },
         "suggestionSplitKind": { "default": null },
-        "suggestionSplitId": { "default": null }
+        "suggestionSplitId": { "default": null },
+        "suggestionFormat": { "default": null }
       },
       "parseDOM": [{ "tag": "figure", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<figure data-figure-type=\"image\"><img src=\"\" alt=\"figure\" loading=\"lazy\" decoding=\"async\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>",
-        "filled": "<figure data-caption-enabled=\"false\" data-figure-width=\"sample-width\" data-figure-height=\"sample-height\" data-file-asset-id=\"sample-fileAssetId\" data-snapshot-id=\"sample-snapshotId\" data-figure-src=\"sample-src\" data-figure-type=\"image\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\"><img src=\"sample-src\" alt=\"sample-alt\" loading=\"lazy\" decoding=\"async\" style=\"display: block; max-width: 100%; object-fit: contain;\" width=\"sample-width\" height=\"sample-height\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-caption</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>"
+        "filled": "<figure data-caption-enabled=\"false\" data-figure-width=\"sample-width\" data-figure-height=\"sample-height\" data-file-asset-id=\"sample-fileAssetId\" data-snapshot-id=\"sample-snapshotId\" data-figure-src=\"sample-src\" data-figure-type=\"image\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"><img src=\"sample-src\" alt=\"sample-alt\" loading=\"lazy\" decoding=\"async\" style=\"display: block; max-width: 100%; object-fit: contain;\" width=\"sample-width\" height=\"sample-height\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-caption</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>"
       }
     },
     {
@@ -838,12 +841,13 @@
         "dataAiSession": { "default": null },
         "splitPartIndex": { "default": null },
         "suggestionSplitKind": { "default": null },
-        "suggestionSplitId": { "default": null }
+        "suggestionSplitId": { "default": null },
+        "suggestionFormat": { "default": null }
       },
       "parseDOM": [{ "tag": "div[data-layout-preset]", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<div class=\"doc-layout-section\" data-layout-preset=\"halves\"></div>",
-        "filled": "<div class=\"doc-layout-section\" data-layout-preset=\"sample-preset\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\"></div>"
+        "filled": "<div class=\"doc-layout-section\" data-layout-preset=\"sample-preset\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"></div>"
       }
     },
     {
@@ -1155,8 +1159,27 @@
       }
     },
     {
-      "name": "reference",
+      "name": "format_change",
       "ordinal": 12,
+      "inclusive": null,
+      "excludes": "format_change",
+      "group": null,
+      "spanning": null,
+      "attrs": {
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "commentId": { "default": null },
+        "before": { "default": [] }
+      },
+      "parseDOM": [{ "tag": "span[data-format-change]", "priority": 60, "getAttrs": "function" }],
+      "toDOM": {
+        "defaults": "<span data-format-change=\"[]\"></span>",
+        "filled": "<span data-format-change=\"[2]\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-comment-id=\"sample-commentId\"></span>"
+      }
+    },
+    {
+      "name": "reference",
+      "ordinal": 13,
       "inclusive": false,
       "excludes": null,
       "group": null,

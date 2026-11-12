@@ -756,6 +756,16 @@
   box-shadow: -6px 0 0 -3px #cf222e;
 }
 
+/* Tracked formatting: changed text underlined dotted, a changed block barred. */
+.de-document-editor span[data-format-change] {
+  background: rgb(130 80 223 / 10%);
+  text-decoration: underline dotted #8250df;
+}
+
+.de-document-editor [data-suggestion-format] {
+  box-shadow: -6px 0 0 -3px #8250df;
+}
+
 /*
  * Changes from an older version: a bar beside each changed block in its kind's color, from the
  * template's change bar settings; in markup, words a block gained and lost, and blocks it lost.
