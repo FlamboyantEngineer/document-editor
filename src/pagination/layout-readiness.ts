@@ -14,7 +14,7 @@ export interface LayoutReadinessOptions {
   readonly onChange?: ((state: LayoutState) => void) | undefined;
 }
 
-/** Keeps a pagination's layout state, and the callers waiting for it to settle. */
+/** Keeps a projection's layout state, and the callers waiting for it to settle. */
 export function createLayoutReadiness({ schedule, onChange }: LayoutReadinessOptions) {
   let state: LayoutState = 'pending';
   let cancel: (() => void) | null = null;

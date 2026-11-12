@@ -49,7 +49,7 @@ function isSameCard(previous: MarginCardProps, next: MarginCardProps): boolean {
     previous.offset === next.offset &&
     a.isActive === b.isActive &&
     a.context === b.context &&
-    a.canDecide === b.canDecide &&
+    a.policy === b.policy &&
     a.run === b.run &&
     a.startThread === b.startThread &&
     isSameItem(previous.item, next.item)

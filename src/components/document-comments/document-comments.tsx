@@ -13,16 +13,8 @@ import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState } from 'prosemirror-state';
-import {
-  type ReactNode,
-  type RefObject,
-  useCallback,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import type { Suggestion } from '../../engine/index.js';
+import { type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter, MentionsAdapter } from '../../host/index.js';
 import {
   type AnchorTarget,
@@ -51,6 +43,7 @@ import { caretKey, listCommentItems } from './comment-items.js';
 import { useCommentMentions } from './comment-mentions.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import { MarginCard, useStableCallbacks } from './margin-card.js';
+import type { ThreadPermissionPolicy } from './thread-permissions.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
 
@@ -61,6 +54,7 @@ export type {
   ThreadTarget,
 } from './comment-focus.js';
 export { EditorCommentThreads } from './comment-threads-provider.js';
+export type { ThreadPermissionPolicy, ThreadPermissions } from './thread-permissions.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
 export interface DocumentCommentsOptions {
@@ -72,6 +66,11 @@ export interface DocumentCommentsOptions {
   identity: IdentityAdapter;
   /** Whether the reader may start and answer threads. Defaults to true. */
   canComment?: boolean | undefined;
+  /**
+   * What the reader may do in each thread (reply, resolve, react, edit and delete their own), of
+   * what `canComment` allows; everything by default.
+   */
+  threadPermissions?: ThreadPermissionPolicy | undefined;
   /** The text the margin shows, beside the defaults. */
   labels?: Partial<DocumentCommentsLabels> | undefined;
   /**
@@ -126,7 +125,7 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   state: EditorState;
   onStateChange: (update: RichTextStateUpdate) => void;
   /** Whether the reader may accept and reject suggestions. */
-  canDecide: boolean;
+  suggestionPolicy: SuggestionPolicy;
   /** Receives the way to start a thread on the selected text while the reader may comment. */
   startRef?: RefObject<StartComment | null> | undefined;
   /** Receives the way to take the reader to a thread. */
@@ -198,7 +197,7 @@ function useCardContext(
 ): { context: CardContext; filter: ThreadFilter; opened: OpenedComment | null } {
   const mentions = useCommentMentions(props.identity, props.mentions);
   const me = props.identity.currentPerson().id;
-  const { format, mentionCard, audience, commentActions } = props;
+  const { format, mentionCard, audience, commentActions, threadPermissions } = props;
   const host = props.mentions;
   const listed = useMemo(
     () => ({
@@ -226,6 +225,7 @@ function useCardContext(
       format,
       mentionCard,
       commentActions,
+      threadPermissions,
       documentId,
       me,
       scope: 'margin',
@@ -240,6 +240,7 @@ function useCardContext(
       format,
       mentionCard,
       commentActions,
+      threadPermissions,
       documentId,
       me,
       opened,
@@ -272,12 +273,11 @@ function PaneComments(props: DocumentCommentsProps) {
 }
 
 function CommentsMargin(props: DocumentCommentsProps) {
-  const { state, canDecide, children, canComment = true } = props;
+  const { state, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
   const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
-  const { decide } = props;
   const { context, filter, opened } = useCardContext(props, { comments, canComment, labels });
   const { run, startThread } = useCommentControls({
     ...props,
@@ -310,16 +310,21 @@ function CommentsMargin(props: DocumentCommentsProps) {
     if (caret !== null) setActive(caret);
   }
   const byKey = new Map(items.map((item) => [item.key, item]));
-  const commands = useStableCallbacks({ run, startThread: () => startThread() });
-  // A new function when what it answers changes, so the suggestion cards are drawn again.
-  const { me } = context;
-  const decisions = useCallback(
-    (suggestion: Suggestion) =>
-      canDecide
-        ? (decide?.(suggestion, me) ?? { accept: true, reject: true })
-        : { accept: false, reject: false },
-    [canDecide, decide, me],
+  // Unattributed suggestions are their thread's writer's (DOCE-SUGGESTIONS-2.5).
+  // A new policy only when what it says or the threads change, the editor building a new one on
+  // each render, so the suggestion cards are drawn again only then.
+  const { me, canDecide, canWithdraw, decide } = props.suggestionPolicy;
+  const policy = useMemo(
+    () => ({
+      me,
+      canDecide,
+      canWithdraw,
+      decide,
+      threadAuthor: (thread: string) => comments.threads.get(thread)?.entries[0]?.author,
+    }),
+    [me, canDecide, canWithdraw, decide, comments.threads],
   );
+  const commands = useStableCallbacks({ run, startThread: () => startThread() });
   return (
     <AnnotationLayer
       ref={setLayer}
@@ -339,7 +344,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
             <MarginCard
               item={item}
               offset={offsets.get(item.key)}
-              actions={{ context, isActive, canDecide: decisions, ...commands }}
+              actions={{ context, isActive, policy, ...commands }}
             />
           ) : null;
         }}

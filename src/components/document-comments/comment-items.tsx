@@ -3,19 +3,20 @@
 import type { Command, EditorState } from 'prosemirror-state';
 import type { ReactNode } from 'react';
 import {
-  acceptSuggestion,
   clearCommentDraft,
   commentAnchors,
   commentDraft,
   commitCommentDraft,
   createElementId,
+  decideWithPolicy,
   linkSuggestionThread,
   listSuggestions,
-  rejectSuggestion,
   removeCommentAnchor,
   selectedText,
   setCommentState,
   type Suggestion,
+  suggestionPermissions,
+  type SuggestionPolicy,
 } from '../../engine/index.js';
 import type { CommentThread } from '../../host/index.js';
 import type { AnchorTarget } from './anchor-rects.js';
@@ -118,8 +119,8 @@ export function caretKey(items: readonly CommentItem[], state: EditorState): str
 export interface CardActions {
   readonly context: CardContext;
   readonly isActive: boolean;
-  /** Whether the reader may accept a suggestion, and reject it. */
-  readonly canDecide: (suggestion: Suggestion) => { accept: boolean; reject: boolean };
+  /** Who may accept and reject suggestions. */
+  readonly policy: SuggestionPolicy;
   /** Runs a command on the document. */
   readonly run: (command: Command) => void;
   /** Starts a thread on the selected text. */
@@ -133,8 +134,10 @@ function renderSuggestion(
   const { context, run } = actions;
   const { suggestion, thread } = item;
   // The editor records the decision on the suggestion's thread (DOCE-COMMENTS-2.19).
-  const decide = (accept: boolean) =>
-    run((accept ? acceptSuggestion : rejectSuggestion)(suggestion.id));
+  const decide = (accept: boolean) => {
+    const ids = new Set([suggestion.id]);
+    run(decideWithPolicy(actions.policy, accept ? 'accept' : 'reject', ids));
+  };
   const reply = async (text: string) => {
     if (thread) return context.comments.reply(thread.id, text);
     const id = createElementId();
@@ -149,7 +152,7 @@ function renderSuggestion(
       thread={thread}
       isActive={actions.isActive}
       context={context}
-      canDecide={actions.canDecide(suggestion)}
+      canDecide={suggestionPermissions(suggestion, actions.policy)}
       onDecide={decide}
       onReply={reply}
     />

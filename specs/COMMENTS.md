@@ -237,6 +237,13 @@ With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by d
 Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`
 
+### DOCE-COMMENTS-2.22 - What the reader may do in a thread
+
+Given `threadPermissions(thread, me)`, the margin and the comments panel shall offer in each thread only what it allows of what `canComment` allows: replying, resolving and reopening, reacting, and editing and deleting the reader's own comments (`resolveThreadPermissions`). What it leaves out is allowed, and it cannot grant a reader who may not comment anything.
+
+Implementation: `src/components/document-comments/thread-permissions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`
+Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/components/document-comments/document-comments.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

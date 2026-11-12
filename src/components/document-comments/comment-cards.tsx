@@ -24,6 +24,7 @@ import { activityRows } from './comment-activity-rows.js';
 import type { OpenedComment } from './comment-focus.js';
 import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
+import { resolveThreadPermissions, type ThreadPermissionPolicy } from './thread-permissions.js';
 import type { CommentThreads } from './use-comment-threads.js';
 
 export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments-labels.js';
@@ -58,6 +59,8 @@ export interface CardContext {
    * identity gives, and none with null.
    */
   readonly mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
+  /** What the reader may do in each thread, of what `canComment` allows. */
+  readonly threadPermissions?: ThreadPermissionPolicy | undefined;
   /** The host's own actions in a comment's menu, before Edit and Delete. */
   readonly commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
   /** Where the cards show, which keeps their comments' element ids apart. */
@@ -130,7 +133,7 @@ function Reactions({
       aria-label={labels.reactions}
       reactions={reactions}
       onToggle={
-        react && context.canComment
+        react && resolveThreadPermissions(thread, context).react
           ? (emoji, reacted) =>
               void react({ threadId: thread.id, entryId: entry.id, emoji, reacted }).catch(
                 () => undefined,
@@ -148,18 +151,18 @@ function entryActions(
   { entry, index }: { entry: CommentEntry; index: number },
   { context, onRemove }: { context: CardContext; onRemove?: (() => Promise<void>) | undefined },
 ) {
-  const { comments, me, canComment } = context;
-  const own = canComment && entry.author === me;
-  const { edit, removeEntry } = comments;
+  const may = resolveThreadPermissions(thread, context);
+  const own = may.own(entry);
+  const { edit, removeEntry } = context.comments;
   const removeReply = removeEntry
     ? () => removeEntry({ threadId: thread.id, entryId: entry.id })
     : undefined;
   return {
     onEdit:
-      own && edit
+      own && may.edit && edit
         ? (text: string) => edit({ threadId: thread.id, entryId: entry.id, text })
         : undefined,
-    onDelete: own ? (index === 0 ? onRemove : removeReply) : undefined,
+    onDelete: own && may.remove ? (index === 0 ? onRemove : removeReply) : undefined,
   };
 }
 
@@ -227,7 +230,8 @@ export function ThreadCard({
   onResolve: (resolved: boolean) => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
-  const { canComment, comments } = context;
+  const { comments } = context;
+  const may = resolveThreadPermissions(thread, context);
   const opened = context.opened?.threadId === thread.id ? context.opened : null;
   return (
     <CommentThread
@@ -235,9 +239,9 @@ export function ThreadCard({
       quote={thread.quote}
       highlightedId={opened?.entryId ? entryElementId(context, opened.entryId) : undefined}
       isResolved={thread.state === 'resolved'}
-      onResolvedChange={canComment ? (resolved) => void onResolve(resolved) : undefined}
+      onResolvedChange={may.resolve ? (resolved) => void onResolve(resolved) : undefined}
       composer={
-        canComment ? (
+        may.reply ? (
           <DraftComposer
             // A reply a link starts takes the composer's place, with the text it begins with.
             key={opened?.reply === undefined ? 'draft' : `opened-${String(opened.sequence)}`}
@@ -249,7 +253,7 @@ export function ThreadCard({
           />
         ) : undefined
       }
-      isReadOnly={!canComment}
+      isReadOnly={!may.reply && !may.resolve}
       isSelected={isActive}
       activity={activityRows(comments.activity.get(thread.id), context)}
     >
