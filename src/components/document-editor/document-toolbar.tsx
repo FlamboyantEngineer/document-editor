@@ -14,10 +14,13 @@ import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
+import type { ShellFeatures } from './mode-controls.js';
 import { builtInToolbarGroups } from './toolbar-controls.js';
 import {
   arrangeToolbar,
+  disabledReasonOf,
   type DocumentToolbarOptions,
+  isItemEnabled,
   type ToolbarButtonItem,
   type ToolbarItem,
   type ToolbarMenuItem,
@@ -33,20 +36,25 @@ interface DocumentToolbarProps {
   templateStyle: Readonly<Record<string, string>>;
   /** What the insert items offer. */
   features?: InsertFeatures | undefined;
+  /** What the mode and markup controls change. */
+  shell?: ShellFeatures | undefined;
   className?: string | undefined;
 }
 
-const isEnabled = (item: ToolbarButtonItem | ToolbarMenuItem, context: EditorContext) =>
-  item.isEnabled ? item.isEnabled(context) : context.editable && !context.locked;
+// A disabled item's tooltip names it and says why it cannot be used.
+const tooltipOf = (label: string, reason: string | undefined) =>
+  reason === undefined ? label : `${label}: ${reason}`;
 
 function ButtonItem({ item, context }: { item: ToolbarButtonItem; context: EditorContext }) {
+  const reason = disabledReasonOf(item, context);
   const shared = {
     'data-item': item.id,
     size: 'sm' as const,
     preventFocusOnPress: true,
-    isDisabled: !isEnabled(item, context),
+    isDisabled: !isItemEnabled(item, context),
+    focusableWhenDisabled: reason !== undefined,
     icon: item.icon,
-    tooltip: item.label,
+    tooltip: tooltipOf(item.label, reason),
     shortcut: item.shortcut,
     ...(item.icon ? { label: item.label } : { children: item.label }),
   };
@@ -66,7 +74,7 @@ function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorCon
       label={item.label}
       icon={item.icon}
       iconOnly={Boolean(item.icon)}
-      isDisabled={!isEnabled(item, context)}
+      isDisabled={!isItemEnabled(item, context)}
       items={item.entries(context)}
       aria-label={item.label}
     />
@@ -80,17 +88,17 @@ function Item({ item, context }: { item: ToolbarItem; context: EditorContext }) 
 }
 
 // The groups the editor's own items and the host's make, as the host arranges them.
-function useGroups({ context, options, templateStyle, features }: DocumentToolbarProps) {
+function useGroups({ context, options, templateStyle, features, shell }: DocumentToolbarProps) {
   const { schema } = context.state;
   const { labels } = context;
   const shortcuts = shortcutsOf(context.state);
   return useMemo(
     () =>
       arrangeToolbar(
-        builtInToolbarGroups(schema, labels, { templateStyle, features, shortcuts }),
+        builtInToolbarGroups(schema, labels, { templateStyle, features, shortcuts, shell }),
         options,
       ),
-    [schema, labels, templateStyle, features, shortcuts, options],
+    [schema, labels, templateStyle, features, shortcuts, shell, options],
   );
 }
 
@@ -103,12 +111,21 @@ export function DocumentToolbar(props: DocumentToolbarProps) {
   }));
   const shown = groups.filter((group) => group.items.length > 0);
   return (
-    <ToolbarRow className={className} aria-label={context.labels.toolbar} justify="start">
+    <ToolbarRow
+      className={className}
+      aria-label={context.labels.toolbar}
+      justify="start"
+      overflow={options.overflow ?? 'wrap'}
+    >
       {options.start ? <div {...hooks.slot('toolbar-start')}>{options.start}</div> : null}
       {shown.map((group, index) => (
         <Fragment key={group.id}>
           {index > 0 ? <ToolbarRowSeparator /> : null}
-          <ToolbarRowGroup aria-label={group.label} data-group={group.id}>
+          <ToolbarRowGroup
+            aria-label={group.label}
+            attached={group.attached ?? false}
+            data-group={group.id}
+          >
             {group.items.map((item) => (
               <Fragment key={item.id}>
                 <Item item={item} context={context} />
