@@ -10,7 +10,7 @@ import { TextSelection } from 'prosemirror-state';
 import { useMemo, useState } from 'react';
 import {
   type CommentAnchor,
-  listCommentAnchors,
+  commentAnchors,
   removeCommentAnchor,
   setCommentState,
 } from '../../engine/index.js';
@@ -65,7 +65,7 @@ export function DocumentCommentsPanel(props: DocumentCommentsPanelProps) {
   const filter = props.filter ?? own;
   const me = props.identity.currentPerson().id;
   const canComment = props.canComment ?? true;
-  const anchors = useMemo(() => (context ? listCommentAnchors(context.state.doc) : []), [context]);
+  const anchors = useMemo(() => (context ? commentAnchors(context.state) : []), [context]);
   const shown = listed(comments.threads, anchors, { filter, me });
   const mentions = useCommentMentions(props.identity);
   const card: CardContext = {
