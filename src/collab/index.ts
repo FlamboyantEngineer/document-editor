@@ -18,3 +18,4 @@ export {
   getCollabSync,
   readCollabChange,
 } from './sync.js';
+export { type CollabUndoOptions, createCollabUndo } from './undo.js';
