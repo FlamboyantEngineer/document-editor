@@ -40,4 +40,32 @@ test.describe('DocumentEditor on the projection', () => {
     await page.keyboard.type('Energy $E=mc^2$');
     await expect(content(page).locator('.de-math')).toHaveCount(before + 1);
   });
+
+  test('DOCE-PAGINATION-7.17 edits math in place on a double click on the pages', async ({
+    page,
+  }) => {
+    await openProjected(page);
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Gain is $k^2$ now');
+    const math = content(page).locator('p', { hasText: 'now' }).locator('.de-math');
+    await expect(math).toHaveAttribute('data-state', 'ready');
+    await math.dblclick();
+    const field = page
+      .locator('.de-object-editors__field[data-kind="math"]')
+      .getByRole('textbox', { name: 'LaTeX' });
+    await expect(field).toHaveValue('k^2');
+  });
+
+  test('DOCE-PAGINATION-7.17 turns typing on the pages into suggestions while suggesting', async ({
+    page,
+  }) => {
+    await openProjected(page);
+    await page.getByLabel('Suggesting').check();
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' plan');
+    await expect(content(page).locator('h1 ins', { hasText: 'plan' })).toHaveCount(1);
+  });
 });

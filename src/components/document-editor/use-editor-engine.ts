@@ -80,6 +80,14 @@ export const isCommentKey = (event: KeyboardEvent) =>
 // Mod-K opens the reference dialog.
 export const isReferenceKey = (event: KeyboardEvent) => isModKey(event, 'k');
 
+/**
+ * The engine's events as the editor keeps them: `onMounted` may name the view the host is shown,
+ * such as the canonical view over a projection, beside the view the engine mounted.
+ */
+export type EngineViewEvents = Omit<EngineEvents, 'onMounted'> & {
+  onMounted(view: EditorView, shown?: EditorView): void;
+};
+
 // The caller's events, with the engine's view kept for the chrome that acts on it.
 export function useEngineView(
   events: EnginePlumbingProps['events'],
@@ -94,7 +102,7 @@ export function useEngineView(
   useEffect(() => {
     latest.current = { events, onContentChange, tap };
   });
-  const withView = useMemo<EngineEvents>(
+  const withView = useMemo<EngineViewEvents>(
     () => ({
       onTransaction: (tr, current) => {
         latest.current.events?.onTransaction?.(tr, current);
@@ -106,9 +114,9 @@ export function useEngineView(
         latest.current.events?.onSelectionChange?.(selection, current),
       onUpdated: (current, previous) => latest.current.events?.onUpdated?.(current, previous),
       afterCommit: (current) => latest.current.events?.afterCommit?.(current),
-      onMounted: (mounted) => {
+      onMounted: (mounted, shown = mounted) => {
         setView(mounted);
-        latest.current.events?.onMounted?.(mounted);
+        latest.current.events?.onMounted?.(shown);
       },
       onUnmounted: () => {
         setView(null);

@@ -271,6 +271,30 @@ describe('projection view', () => {
     expect(inSync(projection)).toBe(true);
   });
 
+  it('DOCE-PAGINATION-7.15 hands the canonical plugins double clicks and what is pasted', () => {
+    const clicked: EditorState[] = [];
+    const clipboard = new Plugin({
+      props: {
+        transformPastedHTML: (html) => html.replace('raw', 'clean'),
+        handleDOMEvents: {
+          dblclick: (view) => {
+            clicked.push(view.state);
+            return true;
+          },
+        },
+      },
+    });
+    const { projection } = mount({ state: canonicalState([clipboard]) });
+    const { view } = projection;
+    let html = '<p>raw</p>';
+    view.someProp('transformPastedHTML', (transform) => {
+      html = transform(html, view);
+    });
+    expect(html).toBe('<p>clean</p>');
+    view.dom.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    expect(clicked).toEqual([projection.state]);
+  });
+
   it('DOCE-PAGINATION-7.16 tells how its layouts go, as a pagination does', async () => {
     const laid: Transaction[] = [];
     const states: string[] = [];
