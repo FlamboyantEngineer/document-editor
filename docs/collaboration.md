@@ -97,3 +97,42 @@ const seeds = {
 ```
 
 and a stored room state reads back with `yjsToDocument(state.update, { schema })`.
+
+## Undo
+
+Each writer undoes only their own changes. `createCollabUndo()` runs a Yjs undo manager beside the sync plugin (`createCollabSync`) that tracks only the changes the editor sends as its own, so another writer's change, a write a plugin derives from one, and a host's system change stay out of it (DOCE-COLLAB-6.3). Run it with the editing history off (`createDocumentEditing({ history: false })`); the editor's keys, toolbar and menubar run `undoCommand` and `redoCommand`, which take the undo the state's plugins provide (`provideUndoCommands`) and the editing history's otherwise. A room-mode session runs both plugins itself.
+
+Plugins that bind to the shared document set `measured: false` in their spec, so the paged layout's hidden measuring view does not bind a second time, and each binds one view at a time.
+
+## The shared room lab
+
+`labs/collab-room.html` shows two writers editing one document in its room, on a collaboration-tools room server in the page (`./testing`'s `connectToServer`), each at their own width and zoom. Either can go offline, edit on their own and come back to merge; each one's undo undoes only their own changes. `e2e/shared-room.spec.ts` checks that both hold the same document after concurrent edits (DOCE-COLLAB-6.4).
+
+## What the binding spike found
+
+The library's binding started as a spike (P0-10), since retired; its code is in the repository's history before this page's lab replaced it. What it found still holds:
+
+- **Yjs 14 needs no fork.** The binding uses only public API: `Y.Type`, `applyDelta`, `toDelta`, `observeDeep` with `deltaDeep`, `UndoManager` and relative positions, plus `lib0/delta`. `lib0` is an optional peer next to `@y/y`, at the version `@y/y` uses.
+- **Yjs 14 can leave complete updates pending.** Updates from three writers delivered to a fourth out of causal order can stay pending after all have arrived (seen on rc.23 and rc.29, pinned on 31 updates in `src/collab/yjs-pending.test.ts`, DOCE-COLLAB-4.6). Through a room server it does not happen: updates arrive in the room's order, and collaboration-tools refuses incomplete ones (COLLAB-SERVER-7.3). For offline work in room mode, replay the cached state and then the unconfirmed update, in that order.
+- **Marks that do not exclude themselves need a canonical order.** ProseMirror keeps comment highlights and suggestion marks in the order they were added, so writers would hold the same text with marks in another order. They are added in a fixed order (`addMarkInOrder`); the binding does not normalize.
+- **A room is seeded with its element ids.** Without them, the first edit gives every block an id, an update of about a megabyte for a long document; `documentToYjs` gives them in the seed.
+- **Spaces where two writers' text meets.** Where typed text meets another writer's run, the browser may store a space at the edge as a no-break space. Normalizing it in text input broke the spike's shared editing, so it is left as typed.
+- **Generated edits.** The convergence test runs 6 seeds of generated edits from several writers through a room; 20 seeds starved other tests on CI, so it keeps 6 with an explicit timeout.
+
+Measured in Node on the long stress document, two bindings exchanging updates directly. Typing is 300 single characters at random places; paste and delete move 40 top-level blocks.
+
+| Document                                  | 20 chapters (about 41 pages) | 150 chapters (about 327 pages) |
+| ----------------------------------------- | ---------------------------: | -----------------------------: |
+| Textblocks / characters                   |                 1,159 / 89 k |                  8,614 / 769 k |
+| Seed size (V1 / V2)                       |              169 KB / 130 KB |            1,375 KB / 1,076 KB |
+| Seed: build / read back                   |                 41 ms / 9 ms |                166 ms / 116 ms |
+| Open an editor on a full room             |                        16 ms |                          86 ms |
+| Typing, local diff and apply (p50 / p95)  |               0.16 / 0.33 ms |                 0.26 / 0.45 ms |
+| Typing, update size (p50 / p95)           |                    38 / 72 B |                      38 / 74 B |
+| Typing, remote replay (p50 / p95)         |               0.17 / 0.26 ms |                 0.64 / 2.75 ms |
+| Paste 40 blocks: local / update / remote  |      4.1 ms / 16 KB / 1.1 ms |       16.1 ms / 21 KB / 2.6 ms |
+| Delete 40 blocks: local / update / remote |       0.8 ms / 15 B / 0.3 ms |         1.6 ms / 15 B / 1.2 ms |
+| Undo the deletion: local / remote         |                 4.3 / 1.5 ms |                   5.3 / 6.8 ms |
+| Room state after all of it                |                       212 KB |                       1,429 KB |
+
+In Chromium, through an in-process room at 150 chapters, typing cost 0.5 ms (p50) and 0.7 ms (p95) locally and 1.5 ms and 2.4 ms on the other side, well inside the 32 ms typing budget.

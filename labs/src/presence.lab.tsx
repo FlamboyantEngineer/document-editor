@@ -23,6 +23,7 @@ import {
   connectionPhase,
   createAwarenessPresence,
   createCollabSync,
+  documentToYjs,
   type PresenceAwareness,
 } from '../../src/collab/index.js';
 import { ConnectionStatus, DocumentEditor } from '../../src/components/index.js';
@@ -37,7 +38,6 @@ import {
 } from '../../src/model/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
-import { documentToUpdate } from './spikes/collab-convert.js';
 
 const schema = createDocumentSchema();
 
@@ -78,7 +78,7 @@ const EMPTY: DocumentFile = {
 };
 
 // The room's seed, which a cached state of the room also holds, so opening from it adds nothing.
-const SEED = documentToUpdate(readDocumentFile(DOCUMENT, schema).doc);
+const SEED = documentToYjs(DOCUMENT, { schema });
 
 type Access = 'read-write' | 'read-only' | 'refused';
 
