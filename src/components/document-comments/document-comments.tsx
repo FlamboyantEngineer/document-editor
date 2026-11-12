@@ -27,6 +27,7 @@ import {
   listSuggestions,
   startCommentDraft,
   type Suggestion,
+  type SuggestionPolicy,
 } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter } from '../../host/index.js';
 import {
@@ -76,8 +77,8 @@ export interface DocumentCommentsOptions {
 interface DocumentCommentsProps extends DocumentCommentsOptions {
   state: EditorState;
   onStateChange: (update: RichTextStateUpdate) => void;
-  /** Whether the reader may accept and reject suggestions. */
-  canDecide: boolean;
+  /** Who may accept and reject suggestions; the editor's one policy. */
+  suggestionPolicy: SuggestionPolicy;
   /** Receives the way to start a thread on the selected text while the reader may comment. */
   startRef?: RefObject<(() => void) | null> | undefined;
   /** The document's content. */
@@ -214,14 +215,14 @@ function useSuggestionAuthors(state: EditorState): readonly string[] {
  * thread on it. Resolved threads are hidden; their anchors stay in the document.
  */
 export function DocumentComments(props: DocumentCommentsProps) {
-  const { state, onStateChange, canDecide, children, canComment = true } = props;
+  const { state, onStateChange, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
   const authors = useSuggestionAuthors(state);
   const comments = useCommentThreads({ ...props, failed: labels.failed, authors });
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const run = useRunCommand(onStateChange);
-  const { showResolved, decide } = props;
+  const { showResolved } = props;
   const items = useMemo(
     () => listCommentItems(state, { threads: comments.threads, canComment, showResolved }),
     [state, comments.threads, canComment, showResolved],
@@ -248,10 +249,11 @@ export function DocumentComments(props: DocumentCommentsProps) {
     run(startCommentDraft(id));
     setActive(`comment:${id}`);
   };
-  const decisions = (suggestion: Suggestion) =>
-    canDecide
-      ? (decide?.(suggestion, context.me) ?? { accept: true, reject: true })
-      : { accept: false, reject: false };
+  // Unattributed suggestions are their thread's writer's (DOCE-SUGGESTIONS-2.5).
+  const policy = {
+    ...props.suggestionPolicy,
+    threadAuthor: (thread: string) => comments.threads.get(thread)?.entries[0]?.author,
+  };
   const { startRef } = props;
   useEffect(() => {
     if (!startRef) return undefined;
@@ -280,7 +282,7 @@ export function DocumentComments(props: DocumentCommentsProps) {
               {renderCommentCard(item, {
                 context,
                 isActive,
-                canDecide: decisions,
+                policy,
                 run,
                 startThread,
               })}

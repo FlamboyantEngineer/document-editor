@@ -162,6 +162,8 @@ export {
   suggestionAuthor,
   suggestionDecisionOf,
 } from './suggestion-decisions.js';
+export type { SuggestionPermissions, SuggestionPolicy } from './suggestion-policy.js';
+export { decideWithPolicy, suggestionPermissions } from './suggestion-policy.js';
 export type { SuggestOptions } from './suggestions.js';
 export { suggestionsKey, suggestTransaction } from './suggestions.js';
 export type { CellTextAlign, CellVerticalAlign } from './table-format.js';

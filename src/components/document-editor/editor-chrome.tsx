@@ -16,6 +16,7 @@ import { DocumentToolbar } from './document-toolbar.js';
 import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
+import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
@@ -131,7 +132,7 @@ export function BottomChrome({
           view={view}
           labels={context.labels}
           editable={editable}
-          canDecide={editable && !suggesting}
+          suggestionPolicy={editorSuggestionPolicy(props)}
           startCommentRef={startCommentRef}
           openDialog={openDialog}
           linkedCode={Boolean(props.codeSource)}

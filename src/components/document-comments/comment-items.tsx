@@ -3,19 +3,20 @@
 import type { Command, EditorState } from 'prosemirror-state';
 import type { ReactNode } from 'react';
 import {
-  acceptSuggestion,
   clearCommentDraft,
   commentDraft,
   commitCommentDraft,
   createElementId,
+  decideWithPolicy,
   linkSuggestionThread,
   listCommentAnchors,
   listSuggestions,
-  rejectSuggestion,
   removeCommentAnchor,
   selectedText,
   setCommentState,
   type Suggestion,
+  suggestionPermissions,
+  type SuggestionPolicy,
 } from '../../engine/index.js';
 import type { CommentThread } from '../../host/index.js';
 import type { AnchorTarget } from './anchor-rects.js';
@@ -109,8 +110,8 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
 export interface CardActions {
   readonly context: CardContext;
   readonly isActive: boolean;
-  /** Whether the reader may accept a suggestion, and reject it. */
-  readonly canDecide: (suggestion: Suggestion) => { accept: boolean; reject: boolean };
+  /** Who may accept and reject suggestions. */
+  readonly policy: SuggestionPolicy;
   /** Runs a command on the document. */
   readonly run: (command: Command) => void;
   /** Starts a thread on the selected text. */
@@ -124,7 +125,8 @@ function renderSuggestion(
   const { context, run } = actions;
   const { suggestion, thread } = item;
   const decide = (accept: boolean) => {
-    run((accept ? acceptSuggestion : rejectSuggestion)(suggestion.id));
+    const ids = new Set([suggestion.id]);
+    run(decideWithPolicy(actions.policy, accept ? 'accept' : 'reject', ids));
     if (thread) void context.comments.setState(thread.id, 'resolved').catch(() => undefined);
   };
   const reply = async (text: string) => {
@@ -141,7 +143,7 @@ function renderSuggestion(
       thread={thread}
       isActive={actions.isActive}
       context={context}
-      canDecide={actions.canDecide(suggestion)}
+      canDecide={suggestionPermissions(suggestion, actions.policy)}
       onDecide={decide}
       onReply={reply}
     />

@@ -16,6 +16,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
 import { useOpeningScripts } from './script-entries.js';
+import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { TableHandles } from './table-handles.js';
 import {
   isCommentKey,
@@ -182,7 +183,7 @@ export function EditorBody({
             {...props.comments}
             state={state}
             onStateChange={onStateChange}
-            canDecide={editable && !suggesting}
+            suggestionPolicy={editorSuggestionPolicy(props)}
             startRef={startCommentRef}
           >
             {content}
