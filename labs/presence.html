@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Presence and connection: two people in one shared room at different widths, with their carets, and the connection's phase."
+    />
+    <title>Presence and connection · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/presence.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Presence and connection</h1>
+      <p>
+        Two people edit one document through a collaboration-tools room server running in this page,
+        their editors at different widths. Select a word in either editor to see the other person's
+        caret and selection on the same word. Open Grace's editor from a cached state or fresh,
+        offline, read-only or refused, or replace the room with a new generation.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>

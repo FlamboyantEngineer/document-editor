@@ -1,9 +1,11 @@
 // Shows the document editor component (`DocumentEditor`): a sample document in the base template,
 // with the editing keys and a table of contents, shown on pages or in the web layout and switched
 // between authoring and reading without losing its state, with or without its toolbar, its
-// scrolling frame and its status bar. Right-click anywhere in the document for its context menu, and hover a table
-// for the handles that drag its rows and columns. The lab adds its own toolbar items, as a host
-// does (`host-toolbar.tsx`). A word-list proofer marks a few misspellings and
+// scrolling frame and its status bar, which shows the page in view. Right-click anywhere in the
+// document for its context menu, and hover a table for the handles that drag its rows and columns.
+// The scrolling frame shows an overview of the proofing issues and changes. The lab adds its own
+// toolbar items, a lead, a placeholder and a banner and arranges the status bar, as a host does
+// (`host-toolbar.tsx`). A word-list proofer marks a few misspellings and
 // a grammar slip, which the context menu corrects.
 
 import { EditorState } from 'prosemirror-state';
@@ -16,6 +18,7 @@ import {
   type DocumentEditorHandle,
   type DocumentLayout,
   type DocumentMarkup,
+  type DocumentStatusBarOptions,
 } from '../../src/components/index.js';
 import {
   assignElementIds,
@@ -103,6 +106,17 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// The host's arrangement of the status bar: the mode moved to the end, and the document's state.
+const HOST_STATUS_BAR: DocumentStatusBarOptions = {
+  arrange: (items) => [
+    ...items.filter((item) => item.id !== 'mode'),
+    ...items
+      .filter((item) => item.id === 'mode')
+      .map((item) => ({ ...item, side: 'end' as const })),
+    { id: 'workflow', side: 'end', content: 'Draft' },
+  ],
+};
+
 // The layout debugging's parts, each with a checkbox.
 const DEBUG_PARTS = [
   { part: 'pages', label: 'Layout debugging' },
@@ -119,6 +133,7 @@ function Lab() {
   const [debug, setDebug] = useState<DocumentEditorDebug>({});
   const [statusBar, setStatusBar] = useState(true);
   const [hostItems, setHostItems] = useState(true);
+  const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
@@ -208,6 +223,15 @@ function Lab() {
           <label>
             <input
               type="checkbox"
+              name="banner"
+              checked={banner}
+              onChange={(event) => setBanner(event.currentTarget.checked)}
+            />{' '}
+            Banner
+          </label>
+          <label>
+            <input
+              type="checkbox"
               name="collaborators"
               checked={collaborators}
               onChange={(event) => setCollaborators(event.currentTarget.checked)}
@@ -241,7 +265,23 @@ function Lab() {
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
         debug={debug}
-        statusBar={statusBar}
+        statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
+        lead={hostItems ? <p className="lab-lead">Sample document · draft</p> : undefined}
+        placeholder={<p>Laying out the pages…</p>}
+        overview
+        banners={
+          banner
+            ? [
+                {
+                  id: 'review',
+                  tone: 'info',
+                  title: 'In review',
+                  description: 'Reviewers are reading this version.',
+                  onDismiss: () => setBanner(false),
+                },
+              ]
+            : undefined
+        }
         find
         repairIds
         zoom={zoom}

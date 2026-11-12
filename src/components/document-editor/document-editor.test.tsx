@@ -20,6 +20,7 @@ import {
 import type { VariablesAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
+import type { StatusBarItem } from './document-status-bar.js';
 import { useDocumentEditor } from './editor-context.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
 import type { DocumentLayout } from './use-document-layout.js';
@@ -116,6 +117,12 @@ describe('DocumentEditor', () => {
       const editor = useDocumentEditor();
       return <output aria-label="Shown text">{editor?.state.doc.textContent}</output>;
     }
+    const STATUS_BAR = {
+      arrange: (items: readonly StatusBarItem[]) => [
+        ...items,
+        { id: 'shown', side: 'start' as const, content: <Shown /> },
+      ],
+    };
     function Chromed() {
       const [state, setState] = useState(initial);
       return (
@@ -124,8 +131,7 @@ describe('DocumentEditor', () => {
           onStateChange={setState}
           template={TEMPLATE}
           layout="web"
-          statusBar
-          statusItems={<Shown />}
+          statusBar={STATUS_BAR}
           aria-label="Report"
         />
       );

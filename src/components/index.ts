@@ -42,6 +42,24 @@ export type {
 } from './document-editor/index.js';
 export type { ChangeBar } from './document-editor/index.js';
 export type { ContentChangeCause } from './document-editor/index.js';
+export type { DocumentBanner } from './document-editor/index.js';
+export type {
+  DocumentStatusBarOptions,
+  StatusBarItem,
+  VisibleElement,
+} from './document-editor/index.js';
+export type { ConnectionStatusLabels, ConnectionStatusProps } from './document-editor/index.js';
+export { EDITOR_BANNERS } from './document-editor/index.js';
+export {
+  DocumentModeStatus,
+  DocumentPageStatus,
+  DocumentPresence,
+  DocumentProofingLanguage,
+  DocumentProofingStatus,
+  DocumentWordStatus,
+  STATUS_BAR_ITEMS,
+} from './document-editor/index.js';
+export { CONNECTION_STATUS_LABELS, ConnectionStatus } from './document-editor/index.js';
 export {
   CODE_LANGUAGES,
   contentChangeCause,

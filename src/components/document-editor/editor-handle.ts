@@ -26,6 +26,7 @@ import type {
 } from '../document-comments/document-comments.js';
 import type { FindBarMode } from './document-find-bar.js';
 import type { LayoutProgress } from './use-document-layout.js';
+import { measureVisibleElements, type VisibleElement } from './visible-elements.js';
 
 /** Where `openThread` takes the reader within a thread. */
 export interface OpenThreadOptions {
@@ -84,6 +85,8 @@ export interface DocumentEditorHandle {
   whenSettled(): Promise<LayoutState>;
   /** What the page layouts have done (`PaginationStats`); null in the web layout. */
   layoutStats(): PaginationStats | null;
+  /** The elements with an element id on screen now, with their boxes in the window. */
+  visibleElements(): readonly VisibleElement[];
 }
 
 // The document range an address names in the view's document: a range of a text block's text, or
@@ -197,6 +200,7 @@ export function useEditorHandle(
       },
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
+      visibleElements: () => (view ? measureVisibleElements(view) : []),
     }),
     [view, startCommentRef, openThreadRef, template, layout, openFind],
   );

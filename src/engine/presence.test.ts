@@ -73,4 +73,29 @@ describe('presence', () => {
     expect(carets).toHaveLength(2);
     expect(listPeers(state).map((peer) => peer.name)).toEqual(['Ada', 'Grace', 'Hedy']);
   });
+
+  it('DOCE-COLLAB-1.6 marks the caret and selection of an idle or away peer with their status', () => {
+    const state = stateOf('Shared text');
+    const at = start(state);
+    const next = state.apply(
+      setPeers(state, [
+        { id: 'grace', name: 'Grace', anchor: at, head: at + 6, status: 'away' },
+        { id: 'alan', name: 'Alan', anchor: at + 2, head: at + 2, status: 'active' },
+      ]),
+    );
+    const document = window.document;
+    const view = { dom: { ownerDocument: document } };
+    const statuses = (presenceKey.getState(next)?.decorations.find() ?? []).map((decoration) => {
+      const spec = decoration.spec as { peer?: unknown };
+      if (spec.peer) {
+        const toDOM = (decoration as unknown as { type: { toDOM: (v: unknown) => Element } }).type
+          .toDOM;
+        return toDOM(view).getAttribute('data-presence-status');
+      }
+      const attrs = (decoration as unknown as { type: { attrs: Record<string, string> } }).type
+        .attrs;
+      return attrs['data-presence-status'] ?? null;
+    });
+    expect(statuses.sort()).toEqual(['away', 'away', null]);
+  });
 });

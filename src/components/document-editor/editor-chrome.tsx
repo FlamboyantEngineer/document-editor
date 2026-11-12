@@ -12,7 +12,12 @@ import { DocumentContextMenu } from './document-context-menu.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentFindBar, type FindBarMode, type FindRequest } from './document-find-bar.js';
 import { DocumentMenubar } from './document-menubar.js';
-import { DocumentStatusBar, type EditorZoom, ZOOM_LEVELS } from './document-status-bar.js';
+import {
+  DocumentStatusBar,
+  type DocumentStatusBarOptions,
+  type EditorZoom,
+  ZOOM_LEVELS,
+} from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
 import { DocumentEditorContext, type EditorContext, type ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
@@ -28,6 +33,7 @@ const hooks = createHooks('document-editor', ['toolbar', 'find', 'status-bar']);
 const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
 const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
 const NO_MENUBAR_OPTIONS: DocumentMenubarOptions = {};
+const NO_STATUS_BAR_OPTIONS: DocumentStatusBarOptions = {};
 
 /** What the chrome reads. */
 export interface ChromeProps {
@@ -69,7 +75,9 @@ export const FollowingTopChrome = memo(function FollowingTopChrome(chrome: TopCh
 });
 
 /** The chrome below the document as it follows the editor, as `FollowingTopChrome`. */
-const FollowingBottomChrome = memo(function FollowingBottomChrome(chrome: BottomChromeProps) {
+export const FollowingBottomChrome = memo(function FollowingBottomChrome(
+  chrome: BottomChromeProps,
+) {
   return (
     <DocumentEditorContext value={chrome.context}>
       <BottomChrome {...chrome} />
@@ -156,19 +164,16 @@ function TopChrome({
 }
 
 /** The status bar below the document. */
-function BottomChrome({ props, context, view }: BottomChromeProps) {
-  const { layout = 'page', editable = true, suggesting = false } = props;
+function BottomChrome({ props, context }: BottomChromeProps) {
+  const { layout = 'page' } = props;
   return (
     <>
       {props.statusBar ? (
         <DocumentStatusBar
           {...hooks.slot('status-bar')}
-          view={view}
-          state={context.state}
           labels={context.labels}
           layout={layout}
-          mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
-          items={props.statusItems}
+          options={props.statusBar === true ? NO_STATUS_BAR_OPTIONS : props.statusBar}
           session={props.session}
           zoom={editorZoom(props)}
           onLayoutChange={props.onLayoutChange}
@@ -179,26 +184,10 @@ function BottomChrome({ props, context, view }: BottomChromeProps) {
 }
 
 /**
- * The chrome below the document: the status bar as it follows the editor, and the context menu,
- * which follows it at once, as it acts on the input that opens it (DOCE-EDITOR-1.6).
+ * The editor's context menu, on the editor's latest props rather than after them as the rest of the
+ * chrome: it acts on the input that opens it (DOCE-EDITOR-1.6).
  */
-export function EditorBottom({
-  following,
-  now,
-}: {
-  following: BottomChromeProps;
-  now: BottomChromeProps;
-}) {
-  return (
-    <>
-      <FollowingBottomChrome {...following} />
-      <EditorContextMenu {...now} />
-    </>
-  );
-}
-
-// The editor's context menu, on the editor's latest props.
-function EditorContextMenu({
+export function EditorContextMenu({
   props,
   context,
   view,
