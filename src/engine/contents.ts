@@ -11,6 +11,7 @@ import {
   type NodeViewConstructor,
 } from 'prosemirror-view';
 import {
+  abbreviationTargetId,
   catalogDocument,
   type CatalogEntry,
   type ContentsKind,
@@ -169,6 +170,7 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
   row.dataset.level = String(entry.level || 1);
   row.setAttribute('role', 'link');
   row.tabIndex = -1;
+  if (entry.anchor) row.id = entry.anchor;
   if (entry.number) row.append(span('de-contents__number', entry.number));
   row.append(span('de-contents__text', entry.text));
   const character = drawing.leaders[(entry.level || 1) - 1] ?? null;
@@ -211,6 +213,22 @@ function goTo(view: EditorView, entry: CatalogEntry) {
   const pos = Math.min(entry.pos + 1, doc.content.size);
   view.dispatch(view.state.tr.setSelection(TextSelection.near(doc.resolve(pos))).scrollIntoView());
   view.focus();
+}
+
+/**
+ * Follows an abbreviation to its entry in a list of abbreviations, on a click in a read document
+ * or a Ctrl or Cmd click in an edited one; false when no list shows its entry.
+ */
+function followAnchor(view: EditorView, node: ProseMirrorNode, event: MouseEvent): boolean {
+  if (node.type.name !== 'abbreviation_reference') return false;
+  if (view.editable && !event.ctrlKey && !event.metaKey) return false;
+  const target = view.dom.ownerDocument.getElementById(
+    abbreviationTargetId(String(node.attrs.entryId)),
+  );
+  if (!target || !view.dom.contains(target)) return false;
+  event.preventDefault();
+  target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  return true;
 }
 
 /** The catalog a contents plugin keeps in a state, or null without one. */
@@ -292,6 +310,7 @@ export function createContents({
     props: {
       decorations: (state) => contentsKey.getState(state)?.decorations ?? null,
       nodeViews: { toc_block: view },
+      handleClickOn: (...[editor, , node, , event]) => followAnchor(editor, node, event),
     },
   });
 }
