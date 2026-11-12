@@ -48,10 +48,13 @@ function bodyHeight(template: TemplateFile, section: ProseMirrorNode): number {
 
 // The plugins the measuring view runs: the editor's, with the layout's own plugins once. Proofing
 // and search are left out: their marks take no room, and the hidden view would do their work again.
+// So is a plugin whose spec says `measured: false`, such as the shared document's sync, whose view
+// would bind the hidden view to the shared document a second time.
 const UNMEASURED = new Set<PluginKey>([proofingKey, searchKey, searchPaneKey]);
 
 function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
-  const measured = (plugin: Plugin) => !UNMEASURED.has(plugin.spec.key as PluginKey);
+  const measured = (plugin: Plugin) =>
+    plugin.spec.measured !== false && !UNMEASURED.has(plugin.spec.key as PluginKey);
   return [
     ...plugins.filter((plugin) => !own.includes(plugin) && measured(plugin)),
     ...own.filter(measured),
