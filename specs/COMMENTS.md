@@ -146,6 +146,13 @@ Every composer of the margin and the comments panel shall take mentions: `@` lis
 Implementation: `src/components/document-comments/comment-mentions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`
 Verification: `e2e/comments.spec.ts`
 
+### DOCE-COMMENTS-2.14 - One thread state
+
+The document editor given `comments` shall keep one state of the document's threads, which its margin, a comments panel inside it for the same store and document, and every other part inside it share: the store lists the threads once, and a change made in one shows in the others at once, whether or not the store tells of changes. A margin or panel outside such an editor keeps its own (`WithCommentThreads`).
+
+Implementation: `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text
