@@ -7,7 +7,6 @@ import type { Node } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { countTextWords, documentRegions, type RegionKind } from '../model/index.js';
 import { type PageMap, pageMap } from '../pagination/page-map.js';
-import { layoutPageAt } from './layout-page.js';
 
 /** A document's pages and words, as a status bar reports them. */
 export interface DocumentStatistics {
@@ -34,14 +33,6 @@ function inlineText(node: Node): string {
 
 const blockWords = new WeakMap<Node, number>();
 
-const isHeaderRow = (row: Node) => {
-  let header = row.childCount > 0;
-  row.forEach((cell) => {
-    if (cell.type.name !== 'table_header') header = false;
-  });
-  return header;
-};
-
 // The words of a block, counted once for each block node.
 function wordsOf(block: Node): number {
   const known = blockWords.get(block);
@@ -49,12 +40,8 @@ function wordsOf(block: Node): number {
   let words = 0;
   if (block.isTextblock) words = countTextWords(inlineText(block));
   else {
-    // A later part of a split table repeats the header rows its first part leads with.
-    const repeats = block.type.name === 'table' && Number(block.attrs.splitPartIndex ?? 0) > 0;
-    let leading = repeats;
     block.forEach((child) => {
-      leading = leading && isHeaderRow(child);
-      if (!leading) words += wordsOf(child);
+      words += wordsOf(child);
     });
   }
   blockWords.set(block, words);
@@ -79,7 +66,7 @@ export function documentStatistics(
     });
   }
   const count = pages.pages().length;
-  const page = layoutPageAt(state, selection.head)?.number ?? 1;
+  const page = pages.pageAt(selection.head)?.number ?? 1;
   const selected = selection.empty
     ? 0
     : countTextWords(doc.textBetween(selection.from, selection.to, ' ', ' '));

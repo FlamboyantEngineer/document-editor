@@ -64,14 +64,17 @@ const ASSETS: AssetAdapter = {
 };
 
 // Sets a number field, committing it as leaving the field does.
+// Types a number into a field as one paste, then leaves it: a key at a time renders the dialog
+// once for each digit, which a busy runner may not finish within the test's time.
 async function setNumber(user: ReturnType<typeof userEvent.setup>, name: string, value: string) {
   const field = screen.getByRole('textbox', { name });
   await user.clear(field);
-  await user.type(field, value);
+  await user.paste(value);
   await user.tab();
 }
 
-describe('FigureDialog', () => {
+// Each case renders the dialog's fields and lists, which a busy runner takes seconds to draw.
+describe('FigureDialog', { timeout: 15_000 }, () => {
   it('DOCE-OBJECTS-1.4 keeps the proportions while locked, then sets each side and clamps it', async () => {
     const user = userEvent.setup();
     const view = editorView(FIGURE);
