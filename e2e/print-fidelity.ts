@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test';
 
 /** The share of a page's pixels that may differ between the editor and print. */
 export const PIXEL_TOLERANCE = 0.005;
@@ -168,6 +168,22 @@ function visibleText(page: Element): string {
   return parts.join(' ');
 }
 
+// Moves a printed page by less than a pixel, so it sits at the same fraction of a pixel as the
+// editor's page did: text is drawn snapped to the pixel grid from where its page sits, so pages
+// at different fractions would draw it a pixel apart.
+async function alignToEditor(page: Locator, editor: { x: number; y: number }): Promise<void> {
+  await page.evaluate((element, { x, y }) => {
+    const box = element.getBoundingClientRect();
+    const fraction = (value: number) => value - Math.floor(value);
+    const shift = (to: number, from: number) => fraction(fraction(to) - fraction(from));
+    Object.assign((element as HTMLElement).style, {
+      position: 'relative',
+      left: `${String(shift(x, box.x))}px`,
+      top: `${String(shift(y, box.y))}px`,
+    });
+  }, editor);
+}
+
 /**
  * Checks that print shows the editor's pages: the snapshot `snapshot` gives prints one sheet per
  * page, of the page's size, holding the page's text, and each page as print lays it out differs
@@ -182,7 +198,14 @@ export async function expectPrintEqualsEditor(
   await page.mouse.move(0, 0);
   const pages = content(page).locator('.pm-page');
   const count = await pages.count();
-  const shown: { image: Buffer; words: string[]; width: number; height: number }[] = [];
+  const shown: {
+    image: Buffer;
+    words: string[];
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  }[] = [];
   for (let index = 0; index < count; index += 1) {
     const one = pages.nth(index);
     const box = await one.boundingBox();
@@ -191,6 +214,8 @@ export async function expectPrintEqualsEditor(
       words: words(await one.evaluate(visibleText)),
       width: box?.width ?? 0,
       height: box?.height ?? 0,
+      x: box?.x ?? 0,
+      y: box?.y ?? 0,
     });
   }
 
@@ -223,6 +248,7 @@ export async function expectPrintEqualsEditor(
   const printedPages = printed.locator('.pm-page');
   const comparisons: PageComparison[] = [];
   for (let index = 0; index < count; index += 1) {
+    await alignToEditor(printedPages.nth(index), shown[index] ?? { x: 0, y: 0 });
     const image = await printedPages.nth(index).screenshot({ animations: 'disabled' });
     const editor = shown[index]?.image ?? Buffer.alloc(0);
     const { share: differing, box, crops } = await differingShare(printed, editor, image);
