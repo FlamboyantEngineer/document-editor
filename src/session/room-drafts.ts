@@ -62,7 +62,7 @@ export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraft
   const show = (room: OpenedRoom, state: EditorState, send: SendRoomDocument) => {
     const shown = document.get();
     if (!shown) return;
-    send((room.connection as RoomConnection<Y.Doc>).doc, shown.state.doc, state.doc);
+    send((room.connection as RoomConnection<Y.Doc>).doc, { from: shown.state, to: state });
     document.set({ ...shown, state });
   };
 

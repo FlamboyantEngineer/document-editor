@@ -9,6 +9,7 @@ import {
 import {
   createMemoryPersistence,
   createRoomServer,
+  type RoomPersistence,
   type RoomServer,
 } from '@flamboyantengineer/collaboration-tools/server';
 import {
@@ -30,6 +31,8 @@ export interface SessionRoomsOptions {
   readers?: readonly string[];
   /** The people the rooms refuse. */
   refused?: readonly string[];
+  /** Where the rooms are stored. Defaults to memory; a room that starts over always is. */
+  persistence?: RoomPersistence | undefined;
 }
 
 export interface SessionRooms {
@@ -64,7 +67,11 @@ export function roomSeed(content: DocumentFile): Uint8Array {
 
 function startServer(
   documents: SessionRoomsOptions['documents'],
-  { readers = [], refused = [] }: Pick<SessionRoomsOptions, 'readers' | 'refused'>,
+  {
+    readers = [],
+    refused = [],
+    persistence = createMemoryPersistence(),
+  }: Pick<SessionRoomsOptions, 'readers' | 'refused' | 'persistence'>,
 ) {
   return createRoomServer({
     storeDebounceMs: 20,
@@ -84,7 +91,7 @@ function startServer(
           return Promise.resolve({ ok: true, actor: { id: person }, access });
         },
       },
-      persistence: createMemoryPersistence(),
+      persistence,
     },
   });
 }
@@ -94,8 +101,9 @@ export function createSessionRooms({
   documents,
   readers = [],
   refused = [],
+  persistence,
 }: SessionRoomsOptions): SessionRooms {
-  let server = startServer(documents, { readers, refused });
+  let server = startServer(documents, { readers, refused, persistence });
   let paired = connectToServer(server);
   const sockets: PairedSocket[] = [];
   const createSocket: typeof paired.createSocket = (...args) => {

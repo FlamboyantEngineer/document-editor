@@ -3,7 +3,6 @@
 // edits with no connection and sends what it kept once connected again (D25).
 
 import * as Y from '@y/y';
-import type { Node } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { createElementId } from '../engine/element-ids.js';
 import { replaceDocumentContent } from '../engine/replace-document-content.js';
@@ -21,6 +20,7 @@ import { resolveMergeConflict } from '../session/merge-conflicts.js';
 import { readRoomDocument, type RoomReadOptions, yjsToDocument } from './convert.js';
 import { CONTENT_TYPE, readContent } from './delta.js';
 import { diffNodes } from './diff.js';
+import { getCollabSync } from './sync.js';
 
 /** A room-mode draft as the adapter keeps it. */
 export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
@@ -128,8 +128,12 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   // What the document holds already, such as changes made before keeping started.
   schedule();
   const stopState = connection.subscribe((state) => {
-    // The room confirmed every local change: what the document holds now is the base to keep.
-    if (unconfirmedBefore && !state.hasUnconfirmedChanges) schedule();
+    // The room confirmed every local change: what the document holds now is the base to keep,
+    // taken at once, since the reader may go offline and edit before the draft is kept.
+    if (unconfirmedBefore && !state.hasUnconfirmedChanges) {
+      confirmed = Y.encodeStateAsUpdate(doc);
+      schedule();
+    }
     unconfirmedBefore = state.hasUnconfirmedChanges;
   });
   const stopLifecycle = options.lifecycle?.subscribe((event) => {
@@ -191,16 +195,17 @@ export function mergeRoomDraft(
 }
 
 /**
- * Writes `to` into a shared document that holds `from`, as one local change the connection sends,
- * whether or not an editor is bound to it yet. When the shared document holds something else by now,
- * the change is taken from what it holds.
+ * Sends a change the session made to a room's document, from `from` to `to`: through the editor
+ * when one is bound, which sends its changes itself, or else written into the shared document as
+ * one local change the connection sends, and which the editor takes once it binds.
  */
-export function sendRoomDocument(doc: Y.Doc, from: Node, to: Node): void {
+export function sendRoomDocument(doc: Y.Doc, { from, to }: { from: EditorState; to: EditorState }) {
+  if (getCollabSync(to)?.bound) return;
   const type = doc.get(CONTENT_TYPE);
-  const held = readContent(to.type.schema, type);
-  const base = held && !held.eq(from) ? held : from;
-  if (base.eq(to)) return;
-  const change = diffNodes(base, to);
+  const held = readContent(to.schema, type);
+  const base = held && !held.eq(from.doc) ? held : from.doc;
+  if (base.eq(to.doc)) return;
+  const change = diffNodes(base, to.doc);
   doc.transact(() => {
     type.applyDelta(change as never);
   });
