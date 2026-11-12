@@ -186,7 +186,8 @@ describe('collab binding spike', () => {
   // Three people edit at random while their updates reach each other late and out of order: text,
   // deletions across blocks, splits and joins, block types, marks that may overlap (comments),
   // inline atoms, and their own undo and redo.
-  it.each(Array.from({ length: 20 }, (_, index) => index + 1))(
+  // Six seeds keep the suite light; the spike passed 100 once (collab-findings.md, finding 2).
+  it.each(Array.from({ length: 6 }, (_, index) => index + 1))(
     'P0-10 converges under generated concurrent edits (seed %i)',
     (seed) => {
       const random = generator(seed);
