@@ -41,7 +41,14 @@ Verification: `src/engine/tables.test.ts`
 
 ### DOCE-TABLES-1.6 - Inserting a table
 
-`insertTable({ rows, columns })` shall insert a table of that many rows, the first of header cells, and columns, in place of the empty paragraph holding the caret or after the top-level block holding it, with the caret in its first cell. A table without rows or columns is refused.
+`insertTable({ rows, columns })` shall insert a table of that many rows, the first of header cells, and columns, with a one pixel border (`TABLE_BORDER_1PX_CLASS`), in place of the empty paragraph holding the caret or after the top-level block holding it, with the caret in its first cell. A table without rows or columns is refused.
+
+Implementation: `src/engine/tables.ts`
+Verification: `src/engine/tables.test.ts`
+
+### DOCE-TABLES-1.7 - Remote changes
+
+The repair that keeps every row of a table as wide as the table, which comes with cell selections, shall write only after a change that is not remote (`isRemote`, `isRemoteTransaction` by default): a remote change carries its sender's repair already.
 
 Implementation: `src/engine/tables.ts`
 Verification: `src/engine/tables.test.ts`
@@ -64,7 +71,7 @@ Verification: `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-2.3 - A grip's menu
 
-Pressing a grip, without dragging it, shall select its row or column and open its menu: insert a row above or below (a column to the left or right), move it one place back or forward, make it a header row (column), and delete it. Each entry is disabled while it cannot run and returns focus to the document.
+Pressing a grip, without dragging it, shall select its row or column and open its menu: insert a row above or below (a column to the left or right, DOCE-TABLES-3.3), move it one place back or forward, make it a header row (column, DOCE-TABLES-3.8), and delete it. Each entry is disabled while it cannot run and returns focus to the document.
 
 Implementation: `src/components/document-editor/table-actions.ts`, `src/components/document-editor/table-handles.tsx`
 Verification: `e2e/tables.spec.ts`
@@ -94,7 +101,7 @@ Verification: `src/engine/table-format.test.ts`
 
 ### DOCE-TABLES-3.3 - Inserting as many as selected
 
-`insertTableLines(axis, side)` shall insert rows above or below the selection, or columns before or after it, as many as the selected cells span, one at the caret; the context menu's insert entries use it.
+`insertTableLines(axis, side)` shall insert rows above or below the selection, or columns before or after it, as many as the selected cells span, one at the caret, keeping the headers leading (DOCE-TABLES-3.8): a row or column inserted before a header row or column is a header one, any other is not, and its cells in a header column or row are header cells. The context menu's and the grips' insert entries use it.
 
 Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
 Verification: `src/engine/table-format.test.ts`
@@ -125,6 +132,27 @@ Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
 After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history.
 
 Implementation: `src/engine/table-width.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/table-format.test.ts`
+
+### DOCE-TABLES-3.8 - Header rows and columns
+
+A table's header rows are its leading rows of header cells only, and its header columns its leading columns whose cells below the header rows are header cells. `toggleHeaderLines(axis)` shall make the rows (columns) the selection covers header rows, with every row before them, or, when the first of them is a header already, make it and every row after it plain, as one change on the whole table; a cell in a header row or a header column stays a header cell. The context menu's `Header` entries and the grips' header entries use it.
+
+Implementation: `src/engine/table-headers.ts`, `src/components/document-editor/table-actions.ts`
+Verification: `src/engine/table-headers.test.ts`
+
+### DOCE-TABLES-3.9 - Splitting a cell
+
+`splitTableCell(axis)` shall split the cell holding the caret, or the one cell selected: a merged cell back into the cells it covers, and any other in two, side by side (`column`, the column's width halved and the column's other cells spanning both) or one above the other (`row`, a row below whose other cells span both), with the caret in the new cell, on the whole table. Several selected cells are refused. The context menu's `Split cell` entry offers both.
+
+Implementation: `src/engine/table-split.ts`, `src/components/document-editor/table-actions.ts`
+Verification: `src/engine/table-split.test.ts`
+
+### DOCE-TABLES-3.10 - Equal rows
+
+`distributeRows` shall give the rows the selected cells cover, when they cover more than one, or every row of the table, one height: the average of their heights, each row's height being its cells' set height or its height as laid out, never below `MIN_ROW_HEIGHT`. It is refused while a row has no height or the heights are equal already. The context menu in a cell offers it.
+
+Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
 Verification: `src/engine/table-format.test.ts`
 
 ## Hooks

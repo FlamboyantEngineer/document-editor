@@ -153,3 +153,7 @@ export { isReferencePlace, repairPastedReferences } from './reference-places.js'
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
+export { distributeRows } from './table-format.js';
+export { toggleHeaderLines } from './table-headers.js';
+export { splitTableCell } from './table-split.js';
+export type { TableEditingOptions } from './tables.js';

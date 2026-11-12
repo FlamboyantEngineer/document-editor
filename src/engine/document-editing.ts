@@ -229,7 +229,7 @@ export function createDocumentEditing(
     ...(template
       ? [createCustomStyles({ template }), createTableWidth({ ...tableWidth(template), isRemote })]
       : []),
-    ...createTableEditing(),
+    ...createTableEditing({ isRemote }),
     gapCursor(),
     keymap(documentKeys(schema, template)),
     keymap(baseKeymap),
@@ -305,7 +305,7 @@ export function createDocumentEditingExtension<C = unknown>(
       {
         name: 'tables',
         priority: 850,
-        build: () => createTableEditing(),
+        build: () => createTableEditing({ isRemote }),
       },
       {
         name: 'gap-cursor',
