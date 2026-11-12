@@ -32,6 +32,8 @@ export interface CommentControlsOptions {
   readonly openRef?: RefObject<OpenComment | null> | undefined;
   /** Called with the key of the card of a thread just started. */
   readonly onStart?: ((key: string) => void) | undefined;
+  /** Hears of a thread the reader is taken to. */
+  readonly onOpen?: (() => void) | undefined;
 }
 
 /**
@@ -78,6 +80,7 @@ export function useCommentControls(options: CommentControlsOptions) {
   const open: OpenComment = (target) => {
     if (!comments.threads.has(target.threadId)) return false;
     focus.open(target);
+    options.onOpen?.();
     return true;
   };
   useEffect(() => {

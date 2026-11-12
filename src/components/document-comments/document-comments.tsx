@@ -135,6 +135,8 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   openRef?: RefObject<OpenComment | null> | undefined;
   /** The editor's view, which the comments' changes go through (`useCommentControls`). */
   view?: EditorView | null | undefined;
+  /** With pane placement, shows the pane holding the comments, for a thread started or opened. */
+  onReveal?: (() => void) | undefined;
   /** The document's content. */
   children: ReactNode;
 }
@@ -273,7 +275,14 @@ export function DocumentComments(props: DocumentCommentsProps) {
 // The document alone, its threads shown in the comments panel, which the editor still reaches.
 function PaneComments(props: DocumentCommentsProps) {
   const comments = useProvidedCommentThreads(props);
-  useCommentControls({ ...props, canComment: props.canComment ?? true, comments });
+  const { onReveal } = props;
+  useCommentControls({
+    ...props,
+    canComment: props.canComment ?? true,
+    comments,
+    onStart: onReveal,
+    onOpen: onReveal,
+  });
   return props.children;
 }
 
