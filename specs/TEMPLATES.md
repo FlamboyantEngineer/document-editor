@@ -22,7 +22,7 @@ Verification: `src/model/templates/template-css-values.test.ts`
 
 ### DOCE-TEMPLATES-2.1 - Base template
 
-`BASE_TEMPLATE` shall be a valid template that sets every page and style setting a document needs: portrait A4 pages with 25.4mm margins, paragraph, title and heading styles, numbering for headings, paragraphs and captioned objects, and list, table, figure, code block, equation, contents, footnote and change bar settings. A host stores it, or a base of its own, as the base template every template inherits (DOCE-FORMAT-3.2).
+`BASE_TEMPLATE` shall be a valid template that sets every page and style setting a document needs: portrait A4 pages with 25.4mm margins, paragraph, title and heading styles, numbering for headings and captioned objects, paragraph numbering defined but switched off (`enabled: false`), and list, table, figure, code block, equation, contents, footnote and change bar settings. A host stores it, or a base of its own, as the base template every template inherits (DOCE-FORMAT-3.2).
 
 Implementation: `src/model/templates/base-template.ts`
 Verification: `src/model/templates/template-scopes.test.ts`
