@@ -1,5 +1,13 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.js';
+import { REGRESSION_DOCUMENTS } from '../labs/src/regression/regression-documents.js';
+import type { RegressionProbe } from '../labs/src/regression/regression-probe.js';
+import { expect, test, waitForLab } from './fixtures.js';
+import { expectPrintEqualsEditor } from './print-fidelity.js';
+
+const REGRESSION_NAMES = Object.keys(REGRESSION_DOCUMENTS);
+
+// A window that shows a whole page, portrait or landscape, inside a lab's scrolling frame.
+const ROOMY = { width: 1600, height: 1800 };
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
 
@@ -90,4 +98,44 @@ test.describe('print a comparison', () => {
     expect(look.adjust).toBe('exact');
     await printed.close();
   });
+});
+
+test.describe('print equals the editor', () => {
+  // Each case screenshots, prints and compares every page; CI runners are several times slower.
+  test.describe.configure({ timeout: 120_000 });
+
+  test('DOCE-EDITOR-6.19 prints the print lab on the projection as the editor shows it', async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize(ROOMY);
+    await page.goto('print.html?projection');
+    await waitForLab(page);
+    await expectPrintEqualsEditor(page, context, async () => {
+      await page.getByRole('button', { name: 'Make a print preview' }).click();
+      return (await page.getByTitle('Print preview').getAttribute('srcdoc')) ?? '';
+    });
+  });
+
+  for (const name of REGRESSION_NAMES) {
+    test(`DOCE-EDITOR-6.19 DOCE-LABS-4.1 prints regression document ${name} on the projection as the editor shows it`, async ({
+      page,
+      context,
+    }) => {
+      await page.setViewportSize(ROOMY);
+      await page.goto(`regression.html?document=${name}&projection`);
+      await waitForLab(page);
+      await expectPrintEqualsEditor(page, context, async () => {
+        const stylesheet = new URL('build/reference.css', page.url()).href;
+        const html = await page.evaluate(
+          (href) =>
+            (window as unknown as { regressionLab: RegressionProbe }).regressionLab.snapshot({
+              stylesheets: [href],
+            }),
+          stylesheet,
+        );
+        return html ?? '';
+      });
+    });
+  }
 });
