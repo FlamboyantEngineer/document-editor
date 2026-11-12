@@ -1,7 +1,9 @@
 // Highlighting of code: the text of each code block, and the code linked code shows, split into
-// tokens by the base library's tokenizer for the block's language, each kind of token marked for
-// the stylesheet (`de-code-token`, with `data-token`). A change highlights again only the code
-// blocks it touched.
+// tokens by the base library's tokenizer for the block's language. Linked code draws its tokens as
+// elements marked for the stylesheet (`de-code-token`, with `data-token`); a code block's text is
+// the writer's, so its tokens are painted with named highlights instead, which leave its DOM as
+// the editor draws it: thousands of token elements in one block would make every redraw of it,
+// such as each layout of the pages, slow.
 
 import {
   type CodeLanguage,
@@ -9,8 +11,7 @@ import {
   resolveCodeTokenizer,
 } from '@flamboyantengineer/ui-components/code-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { Transaction } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import type { EditorView } from 'prosemirror-view';
 
 // The base library's preset for each language name a block may carry; the others are plain text.
 const LANGUAGES: Readonly<Record<string, CodeLanguage>> = {
@@ -44,7 +45,10 @@ export interface CodeTokenAt {
   readonly kind: string;
 }
 
-/** The tokens of a kind in code of a language, by offset; none for plain text or another language. */
+/**
+ * The tokens of a kind in code of a language, by offset, a run of one kind as one; none for plain
+ * text or another language.
+ */
 export function highlightCode(code: string, language: unknown): CodeTokenAt[] {
   const preset = LANGUAGES[String(language ?? '').toLowerCase()];
   const tokenize = preset ? resolveCodeTokenizer({ language: preset }) : undefined;
@@ -53,7 +57,11 @@ export function highlightCode(code: string, language: unknown): CodeTokenAt[] {
   let offset = 0;
   for (const token of tokenize(code) as readonly CodeToken[]) {
     const to = offset + token.text.length;
-    if (token.type) found.push({ from: offset, to, kind: token.type });
+    const last = found.at(-1);
+    // A run of tokens of one kind, as a tokenizer gives text it cannot read, is one token.
+    if (last && last.to === offset && last.kind === token.type)
+      found[found.length - 1] = { ...last, to };
+    else if (token.type) found.push({ from: offset, to, kind: token.type });
     offset = to;
   }
   return found;
@@ -65,58 +73,123 @@ export const codeTokenAttrs = (kind: string): Record<string, string> => ({
   'data-token': kind,
 });
 
-// The decorations of one code block's tokens.
-function blockDecorations(node: ProseMirrorNode, pos: number): Decoration[] {
-  return highlightCode(node.textContent, node.attrs.language).map((token) =>
-    Decoration.inline(pos + 1 + token.from, pos + 1 + token.to, codeTokenAttrs(token.kind)),
-  );
-}
+// The tokens of each code block node, kept while the node lives.
+const blockTokens = new WeakMap<ProseMirrorNode, readonly CodeTokenAt[]>();
 
-// The code blocks between two positions of a document, each once.
-function codeBlocksBetween(doc: ProseMirrorNode, from: number, to: number) {
-  const found: { node: ProseMirrorNode; pos: number }[] = [];
-  doc.nodesBetween(from, to, (node, pos) => {
-    if (node.type.name === 'code_block') found.push({ node, pos });
-    return !node.isTextblock;
-  });
-  return found;
-}
-
-/** The highlighting of every code block of a document. */
-export function highlightCodeBlocks(doc: ProseMirrorNode): DecorationSet {
-  const blocks = codeBlocksBetween(doc, 0, doc.content.size);
-  return DecorationSet.create(
-    doc,
-    blocks.flatMap(({ node, pos }) => blockDecorations(node, pos)),
-  );
-}
-
-// The ranges of the changed document a transaction's steps replaced.
-function changedRanges(tr: Transaction): { from: number; to: number }[] {
-  const ranges: { from: number; to: number }[] = [];
-  tr.mapping.maps.forEach((map, index) => {
-    const after = tr.mapping.slice(index + 1);
-    map.forEach((...[, , start, end]) => {
-      ranges.push({ from: after.map(start, -1), to: after.map(end, 1) });
-    });
-  });
-  return ranges;
-}
-
-/** The highlighting after a change: mapped, with the code blocks the change touched redone. */
-export function updateCodeHighlighting(tr: Transaction, set: DecorationSet): DecorationSet {
-  if (!tr.docChanged) return set;
-  let next = set.map(tr.mapping, tr.doc);
-  const seen = new Set<number>();
-  for (const { from, to } of changedRanges(tr)) {
-    for (const block of codeBlocksBetween(tr.doc, from, Math.min(to, tr.doc.content.size))) {
-      if (seen.has(block.pos)) continue;
-      seen.add(block.pos);
-      const end = block.pos + block.node.nodeSize;
-      next = next
-        .remove(next.find(block.pos, end))
-        .add(tr.doc, blockDecorations(block.node, block.pos));
-    }
+function tokensOf(node: ProseMirrorNode): readonly CodeTokenAt[] {
+  let tokens = blockTokens.get(node);
+  if (!tokens) {
+    tokens = highlightCode(node.textContent, node.attrs.language);
+    blockTokens.set(node, tokens);
   }
-  return next;
+  return tokens;
+}
+
+/** The name of the highlight a kind of token of a code block is painted with: `de-code-<kind>`. */
+export const codeHighlightName = (kind: string): string =>
+  `de-code-${kind.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+
+// The highlights of the window a view shows in, when it paints highlights.
+interface Highlights {
+  readonly registry: Map<string, Set<AbstractRange>>;
+  readonly create: () => Set<AbstractRange>;
+}
+
+function highlightsOf(view: EditorView): Highlights | null {
+  const owner = view.dom.ownerDocument.defaultView as {
+    readonly CSS?: { readonly highlights?: Map<string, Set<AbstractRange>> };
+    readonly Highlight?: new () => Set<AbstractRange>;
+  } | null;
+  const registry = owner?.CSS?.highlights;
+  const Highlight = owner?.Highlight;
+  return registry && Highlight ? { registry, create: () => new Highlight() } : null;
+}
+
+// A code block painted: its node, the text nodes that drew it then, and the ranges of its tokens
+// by highlight name.
+interface PaintedBlock {
+  readonly node: ProseMirrorNode;
+  readonly texts: readonly Node[];
+  readonly ranges: readonly (readonly [string, Range])[];
+}
+
+// The text nodes an element draws.
+function textsOf(element: Node): Node[] {
+  const walker = element.ownerDocument?.createTreeWalker(element, 4);
+  const texts: Node[] = [];
+  for (let text = walker?.nextNode(); text; text = walker?.nextNode()) texts.push(text);
+  return texts;
+}
+
+const sameTexts = (a: readonly Node[], b: readonly Node[]) =>
+  a.length === b.length && a.every((text, index) => text === b[index]);
+
+// The ranges of a code block's tokens in the view's DOM.
+function paintBlock(
+  view: EditorView,
+  { node, pos }: { readonly node: ProseMirrorNode; readonly pos: number },
+  dom: Node,
+): PaintedBlock {
+  const owner = view.dom.ownerDocument;
+  const ranges = tokensOf(node).map((token) => {
+    const start = view.domAtPos(pos + 1 + token.from);
+    const end = view.domAtPos(pos + 1 + token.to);
+    const range = owner.createRange();
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+    return [codeHighlightName(token.kind), range] as const;
+  });
+  return { node, texts: textsOf(dom), ranges };
+}
+
+/**
+ * Paints the tokens of a view's code blocks with the window's named highlights (`CSS.highlights`,
+ * `codeHighlightName`), which colour text without changing the DOM or the layout. A code block is
+ * painted again when its node or the elements of its text change; other views' ranges in the same
+ * highlights are kept. Without highlights in the window, nothing is painted.
+ */
+export function paintCodeHighlights(view: EditorView): { update: () => void; destroy: () => void } {
+  const highlights = highlightsOf(view);
+  // The blocks painted, by the element that draws each.
+  let painted = new Map<Node, PaintedBlock>();
+  const highlight = (name: string) => {
+    const found = highlights?.registry.get(name);
+    if (found || !highlights) return found;
+    const created = highlights.create();
+    highlights.registry.set(name, created);
+    return created;
+  };
+  const unpaint = (block: PaintedBlock) => {
+    for (const [name, range] of block.ranges) highlights?.registry.get(name)?.delete(range);
+  };
+  const update = () => {
+    if (!highlights || view.isDestroyed) return;
+    const next = new Map<Node, PaintedBlock>();
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name !== 'code_block') return !node.isTextblock;
+      const dom = view.nodeDOM(pos);
+      if (!dom) return false;
+      const before = painted.get(dom);
+      painted.delete(dom);
+      if (before?.node === node && sameTexts(before.texts, textsOf(dom))) next.set(dom, before);
+      else {
+        if (before) unpaint(before);
+        next.set(dom, paintBlock(view, { node, pos }, dom));
+      }
+      return false;
+    });
+    for (const block of painted.values()) unpaint(block);
+    for (const block of next.values()) {
+      for (const [name, range] of block.ranges) highlight(name)?.add(range);
+    }
+    painted = next;
+  };
+  update();
+  return {
+    update,
+    destroy() {
+      for (const block of painted.values()) unpaint(block);
+      painted.clear();
+    },
+  };
 }

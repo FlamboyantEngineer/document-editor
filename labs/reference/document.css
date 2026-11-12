@@ -977,8 +977,14 @@
   user-select: none;
 }
 
-/* Highlighted code: each token kind in its colour. */
+/* Highlighted code: each token kind in its colour, on linked code's token elements and in the
+   highlights code blocks are painted with. A highlight takes colours and lines only, so neither
+   changes the layout. Each highlight has a rule of its own, which a browser without them drops. */
 .de-code-token[data-token='keyword'] {
+  color: #7c3aed;
+}
+
+::highlight(de-code-keyword) {
   color: #7c3aed;
 }
 
@@ -986,17 +992,39 @@
   color: #047857;
 }
 
-.de-code-token[data-token='number'],
+::highlight(de-code-string) {
+  color: #047857;
+}
+
+.de-code-token[data-token='number'] {
+  color: #b45309;
+}
+
+::highlight(de-code-number) {
+  color: #b45309;
+}
+
 .de-code-token[data-token='literal'] {
+  color: #b45309;
+}
+
+::highlight(de-code-literal) {
   color: #b45309;
 }
 
 .de-code-token[data-token='comment'] {
   color: #64748b;
-  font-style: italic;
+}
+
+::highlight(de-code-comment) {
+  color: #64748b;
 }
 
 .de-code-token[data-token='key'] {
+  color: #1d4ed8;
+}
+
+::highlight(de-code-key) {
   color: #1d4ed8;
 }
 
@@ -1004,7 +1032,16 @@
   color: #475569;
 }
 
+::highlight(de-code-punctuation) {
+  color: #475569;
+}
+
 .de-code-token[data-token='link'] {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+::highlight(de-code-link) {
   color: #1d4ed8;
   text-decoration: underline;
 }
