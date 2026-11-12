@@ -7,12 +7,17 @@ const dialog = (page: Page) => page.getByRole('dialog');
 const item = (page: Page, name: string | RegExp) =>
   page.getByRole('menu').last().getByRole('menuitem', { name });
 
-// Types a new paragraph after the heading, leaving the caret at its end.
+// Types a new paragraph after the heading, leaving the caret at its end once the pages are laid
+// out again, so a repagination does not collapse a selection made next.
 async function newParagraph(page: Page, heading: string, value: string) {
   await content(page).locator('h1', { hasText: heading }).click();
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await page.keyboard.type(value);
+  await expect(page.locator('.de-document-editor').first()).toHaveAttribute(
+    'data-layout-state',
+    'settled',
+  );
 }
 
 const reference = (page: Page) => content(page).locator('[data-reference="true"]');
