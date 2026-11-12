@@ -46,6 +46,7 @@ describe('plugin order', () => {
     expect(keysOf(createDocumentEditing(documentSchema, { template: () => TEMPLATE }))).toEqual([
       ...EDITING_KEYS,
       'custom-styles',
+      'paragraph-numbering',
       'variable-tokens',
       'table-width',
       ...TABLE_KEYS,

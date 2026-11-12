@@ -43,6 +43,7 @@ import { createFootnotes, insertFootnote } from './footnotes.js';
 import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
+import { createParagraphNumbering } from './paragraph-numbering.js';
 import { createScripts } from './scripts.js';
 import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
@@ -227,7 +228,7 @@ export function createDocumentEditing(
     createObjectViews(),
     createWordPaste(),
     createScripts(),
-    ...(template ? [createCustomStyles({ template })] : []),
+    ...(template ? [createCustomStyles({ template }), createParagraphNumbering({ template })] : []),
     createVariableTokens(),
     ...(template ? [createTableWidth({ ...tableWidth(template), isRemote })] : []),
     ...createTableEditing({ isRemote }),
@@ -243,6 +244,14 @@ const VARIABLE_TOKENS_PLUGIN = {
   priority: 840,
   build: () => [createVariableTokens()],
 };
+
+// Numbered paragraphs, when given the template, after the custom styles.
+const paragraphNumberingPlugin = (template: (() => TemplateFile) | undefined) => ({
+  name: 'paragraph-numbering',
+  priority: 516,
+  when: () => Boolean(template),
+  build: () => (template ? [createParagraphNumbering({ template })] : []),
+});
 
 /**
  * The editing plugins as a kit extension: the history first, the element ids among the
@@ -304,6 +313,7 @@ export function createDocumentEditingExtension<C = unknown>(
         when: () => Boolean(template),
         build: () => (template ? [createCustomStyles({ template })] : []),
       },
+      paragraphNumberingPlugin(template),
       VARIABLE_TOKENS_PLUGIN,
       {
         name: 'table-width',

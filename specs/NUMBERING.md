@@ -144,3 +144,33 @@ Verification: `src/model/numbering/numbering-text.test.ts`
 
 Implementation: `src/model/numbering/numbering-text.ts`, `src/model/templates/template-numbering.ts`
 Verification: `src/model/numbering/numbering-text.test.ts`
+
+## DOCE-NUMBERING-6 - Numbered paragraphs
+
+### DOCE-NUMBERING-6.1 - Paragraphs numbered in the editor
+
+`createParagraphNumbering({ template })`, which the editing plugins install when given the template, shall number each top-level paragraph of the body that earns a number (DOCE-NUMBERING-3.3) in a section whose template scope numbers paragraphs (`numberedParagraphs`), in every view it runs in, so the measuring view measures the numbers too. A numbered paragraph shall carry its number as `data-paragraph-number` and its level as `data-paragraph-level`, with its level's indentation properties (DOCE-NUMBERING-3.4); paragraphs in lists, tables, columns and page regions shall not be numbered. The paragraphs shall be numbered again after every change of the document or of the template.
+
+Implementation: `src/engine/paragraph-numbering.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/paragraph-numbering.test.ts`
+
+### DOCE-NUMBERING-6.2 - Counting through the pages
+
+The counters (DOCE-NUMBERING-3.2) shall run through the document in order, across its pages, at the level of each paragraph's displayed depth under the last heading (DOCE-NUMBERING-3.1). A later part of a paragraph or heading the pages split shall neither advance nor show a number. Each heading other than the title shall start the counters again, and so shall a section that restarts numbering (`sectionRestartsNumbering`).
+
+Implementation: `src/engine/paragraph-numbering.ts`
+Verification: `src/engine/paragraph-numbering.test.ts`
+
+### DOCE-NUMBERING-6.3 - Paragraph number text
+
+`paragraphNumberText(format, parts, affixes)` shall write a paragraph's number as each of its counters in its level's format character, joined by the levels' separators (the format's last level for counters past its levels), then the trailing separator and the suffix, after the prefix and, for a prefix not ending in space, the trailing separator.
+
+Implementation: `src/engine/paragraph-numbering.ts`
+Verification: `src/engine/paragraph-numbering.test.ts`
+
+### DOCE-NUMBERING-6.4 - Counting in the measuring view
+
+The reference stylesheet shall count headings, tables, figures and code blocks in the measuring view as on the pages, so a caption's label and number take the room there that they take on the pages.
+
+Implementation: `labs/reference/document.css`
+Verification: `e2e/numbering.spec.ts`

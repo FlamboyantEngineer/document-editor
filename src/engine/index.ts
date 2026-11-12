@@ -149,6 +149,13 @@ export {
 export type { MathViewsOptions } from './math-views.js';
 export { createMathViews } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
+export type { NumberedParagraph, ParagraphNumberingOptions } from './paragraph-numbering.js';
+export {
+  createParagraphNumbering,
+  numberedParagraphs,
+  paragraphNumberingKey,
+  paragraphNumberText,
+} from './paragraph-numbering.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';

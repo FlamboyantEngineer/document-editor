@@ -298,6 +298,7 @@ describe('the editing extension', () => {
       'word-paste',
       'scripts',
       'custom-styles',
+      'paragraph-numbering',
       'variable-tokens',
       'table-width',
       'tables',
