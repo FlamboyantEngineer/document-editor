@@ -30,6 +30,7 @@ import {
 } from '../model/index.js';
 import { setTextblockType } from './block-type.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
+import { createCommentAnchors } from './comment-anchors.js';
 import { createCommentDraft } from './comment-draft.js';
 import { createCustomStyles } from './custom-styles.js';
 import { createEditLock, type EditLockOptions } from './edit-lock.js';
@@ -282,6 +283,7 @@ export function createDocumentEditingExtension<C = unknown>(
       },
       { name: 'footnotes', priority: 490, build: () => [createFootnotes(footnotes)] },
       { name: 'comment-draft', priority: 495, build: () => [createCommentDraft()] },
+      { name: 'comment-anchors', priority: 496, build: () => [createCommentAnchors()] },
       ...OBJECT_PLUGINS,
       {
         name: 'clipboard',

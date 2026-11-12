@@ -5,6 +5,7 @@
 import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, EditorState, Transaction } from 'prosemirror-state';
 import { addMarkInOrder } from '../model/index.js';
+import { createElementId } from './element-ids.js';
 
 /** Whether a comment thread is open or resolved. */
 export type CommentState = 'open' | 'resolved';
@@ -62,6 +63,11 @@ function extendAnchor(
   found.set(thread, entry);
 }
 
+/** Orders anchors by where they start, an outer one before those it holds, then by thread. */
+export function compareAnchors(a: CommentAnchor, b: CommentAnchor): number {
+  return a.from - b.from || b.to - a.to || (a.thread < b.thread ? -1 : a.thread > b.thread ? 1 : 0);
+}
+
 /**
  * The comment anchors of a document in reading order, one per thread, with every range it marks:
  * threads that nest in or overlap one another each keep their own anchor.
@@ -84,46 +90,62 @@ export function listCommentAnchors(doc: ProseMirrorNode): CommentAnchor[] {
       ranges: ranges.map(({ from, to }) => ({ from, to })),
       text: ranges.map((range) => range.text).join(' '),
     }))
+    .sort(compareAnchors);
+}
+
+/** How a new anchor is identified. */
+export interface AnchorOptions {
+  /** Makes the anchor's element id; random by default. */
+  readonly newId?: (() => string) | undefined;
+}
+
+/**
+ * The stretches of text a selection covers in reading order: one for a text selection, one per
+ * cell for a cell selection; only those holding text.
+ */
+export function selectionRanges(state: EditorState): CommentRange[] {
+  if (state.selection.empty) return [];
+  return state.selection.ranges
+    .map(({ $from, $to }) => ({ from: $from.pos, to: $to.pos }))
+    .filter(({ from, to }) => from < to && state.doc.textBetween(from, to).trim() !== '')
     .sort((a, b) => a.from - b.from);
 }
 
 /** The selected text, as a new comment would quote it; empty without a selection. */
 export function selectedText(state: EditorState): string {
-  const { from, to, empty } = state.selection;
-  return empty ? '' : state.doc.textBetween(from, to, ' ', ' ');
+  return selectionRanges(state)
+    .map(({ from, to }) => state.doc.textBetween(from, to, ' ', ' '))
+    .join(' ');
 }
 
 /**
- * Anchors a comment thread to a range of a transaction's document; returns whether it could, which
- * needs text in the range and comment anchors in the schema.
+ * Anchors a comment thread to ranges of a transaction's document, under one new element id;
+ * returns whether it could, which needs text in a range and comment anchors in the schema.
  */
-export function anchorCommentRange(
+export function anchorCommentRanges(
   tr: Transaction,
-  { from, to }: { readonly from: number; readonly to: number },
-  thread: string,
+  { thread, ranges }: { readonly thread: string; readonly ranges: readonly CommentRange[] },
+  { newId = createElementId }: AnchorOptions = {},
 ): boolean {
   const type = anchorType(tr.doc.type.schema);
-  if (!type || from >= to || !tr.doc.textBetween(from, to).trim()) return false;
-  addMarkInOrder(tr, { from, to }, type.create({ commentId: thread, commentState: 'open' }));
+  const marked = ranges.filter(
+    ({ from, to }) => from < to && tr.doc.textBetween(from, to).trim() !== '',
+  );
+  if (!type || marked.length === 0) return false;
+  const mark = type.create({ dataId: newId(), commentId: thread, commentState: 'open' });
+  for (const range of marked) addMarkInOrder(tr, range, mark);
   return true;
 }
 
 /**
- * Anchors a comment thread to the selected text. Refused without a selection or text in it, or
- * when the schema has no comment anchors.
+ * Anchors a comment thread to the selected text, each selected cell its own range. Refused without
+ * text in the selection, or when the schema has no comment anchors.
  */
-export function addCommentAnchor(thread: string): Command {
+export function addCommentAnchor(thread: string, options: AnchorOptions = {}): Command {
   return (state, dispatch) => {
-    const type = anchorType(state.schema);
-    const { from, to, empty } = state.selection;
-    if (!type || empty || !selectedText(state).trim()) return false;
-    dispatch?.(
-      addMarkInOrder(
-        state.tr,
-        { from, to },
-        type.create({ commentId: thread, commentState: 'open' }),
-      ),
-    );
+    const tr = state.tr;
+    if (!anchorCommentRanges(tr, { thread, ranges: selectionRanges(state) }, options)) return false;
+    dispatch?.(tr);
     return true;
   };
 }

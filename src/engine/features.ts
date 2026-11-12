@@ -145,7 +145,13 @@ export {
 } from './search.js';
 export type { SnapshotOptions } from './snapshot.js';
 export { documentSnapshot } from './snapshot.js';
-export type { Suggestion, SuggestionDecision } from './suggestion-decisions.js';
+export type {
+  DecideOptions,
+  DependentSuggestion,
+  Suggestion,
+  SuggestionDecision,
+  SuggestionDecisionReport,
+} from './suggestion-decisions.js';
 export {
   acceptAllSuggestions,
   acceptSuggestion,
@@ -153,6 +159,8 @@ export {
   listSuggestions,
   rejectAllSuggestions,
   rejectSuggestion,
+  suggestionAuthor,
+  suggestionDecisionOf,
 } from './suggestion-decisions.js';
 export type { SuggestOptions } from './suggestions.js';
 export { suggestionsKey, suggestTransaction } from './suggestions.js';
