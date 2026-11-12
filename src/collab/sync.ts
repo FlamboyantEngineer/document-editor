@@ -66,6 +66,8 @@ export function createCollabSync({
   let binding: Binding | null = null;
   const plugin: Plugin<LocalSteps> = new Plugin<LocalSteps>({
     key: collabSyncKey,
+    // Kept out of the paged layout's hidden measuring view, which would bind a second time.
+    measured: false,
     state: {
       init: () => NOT_TRACKING,
       // The steps since the document the shared document last agreed with, so local changes the
@@ -78,6 +80,9 @@ export function createCollabSync({
       },
     },
     view(view) {
+      // One view at a time takes the shared document's changes: a second binding would replay
+      // each change on a document that already holds it.
+      if (binding) return {};
       const bound = bindView(view, {
         doc,
         type,
