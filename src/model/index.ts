@@ -25,9 +25,8 @@ export {
   writeDocumentFile,
   writeStoredContent,
 } from './format/document-format-convert.js';
-export type { DocxOptions } from './format/docx.js';
-export { writeDocx } from './format/docx.js';
-export { cleanWordHtml, isWordHtml, readHtml, writeHtml } from './format/html.js';
+export { type DocxOptions, writeDocx } from './format/docx.js';
+export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './format/html.js';
 export type { MarkdownOptions } from './format/markdown.js';
 export { writeMarkdown } from './format/markdown.js';
 export type * from './format/template-format.js';
@@ -265,7 +264,7 @@ export * from './signature-vector.js';
 export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export { setPageRegions } from './templates/page-regions.js';
-export { CONTENTS_TOKENS, readTemplateContent } from './templates/template-content.js';
+export * from './templates/template-content.js';
 export * from './templates/template-css-values.js';
 export * from './templates/template-numbering.js';
 export * from './templates/template-preview.js';
