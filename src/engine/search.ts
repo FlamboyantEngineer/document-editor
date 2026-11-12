@@ -1,6 +1,7 @@
-// Finding and replacing text: a plugin keeps the reader's query, the matches in the document's text
-// blocks, page headers and footers left out, and the current one, marked by decorations carrying
-// `data-search-match`; commands move between matches and replace one or all of them.
+// Finding and replacing text. Two searches run side by side, each a plugin with its own state:
+// the find bar's (`find`) and the search pane's (`pane`). Each keeps a query, its matches in the
+// document's text blocks, page headers and footers left out, and the current one, marked by
+// decorations of its own; commands move between matches, reveal one and replace one or all.
 
 import { closeHistory } from 'prosemirror-history';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -12,26 +13,22 @@ import {
   TextSelection,
   type Transaction,
 } from 'prosemirror-state';
-import { DecorationSet } from 'prosemirror-view';
-import { type RegionKind, regionKind, type TemplateFile } from '../model/index.js';
+import { DecorationSet, type EditorView } from 'prosemirror-view';
 import { viewOnlyInline } from '../utils/view-only-decorations.js';
-import { isPositionLocked } from './edit-lock.js';
-import { documentOutline } from './outline.js';
+import {
+  findMatches,
+  isMatchReplaceable,
+  type SearchMatch,
+  type SearchOptions,
+} from './search-text.js';
 
-/** How a query matches. */
-export interface SearchOptions {
-  readonly caseSensitive?: boolean | undefined;
-  /** Matches only whole words. */
-  readonly wholeWord?: boolean | undefined;
-}
+export type { SearchMatch, SearchOptions } from './search-text.js';
+export { isMatchReplaceable, searchSeed } from './search-text.js';
 
-/** A match, by its positions in the document. */
-export interface SearchMatch {
-  readonly from: number;
-  readonly to: number;
-}
+/** Which search: the find bar's or the search pane's. */
+export type SearchScope = 'find' | 'pane';
 
-/** What the search plugin keeps. */
+/** What a search plugin keeps. */
 export interface SearchState {
   readonly query: string;
   readonly options: SearchOptions;
@@ -44,100 +41,70 @@ export interface SearchState {
 type SearchMeta =
   { readonly query: string; readonly options: SearchOptions } | { readonly current: number };
 
-// Whether a match sits in content the writer may not change.
-const isLocked = (state: EditorState, match: SearchMatch) =>
-  isPositionLocked(state, match.from) || isPositionLocked(state, match.to - 1);
-
-/** The search plugin's state. */
+/** The find bar's search plugin. */
 export const searchKey = new PluginKey<SearchState>('search');
 
-/** The hook a match's decoration carries: `current` for the current match, `match` otherwise. */
+/** The search pane's search plugin. */
+export const searchPaneKey = new PluginKey<SearchState>('search-pane');
+
+/** The hook a find bar match carries: `current` for the current match, `match` otherwise. */
 export const SEARCH_MATCH_ATTR = 'data-search-match';
 
-// Page headers and footers, which the template fills.
-const SKIPPED: ReadonlySet<RegionKind | null> = new Set(['header', 'footer']);
+/** The hook a search pane match carries: `current` for the current match, `match` otherwise. */
+export const SEARCH_RESULT_ATTR = 'data-search-result';
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const keys: Readonly<Record<SearchScope, PluginKey<SearchState>>> = {
+  find: searchKey,
+  pane: searchPaneKey,
+};
 
-function pattern(query: string, { caseSensitive, wholeWord }: SearchOptions): RegExp | null {
-  if (!query) return null;
-  const body = wholeWord ? `(?<![\\p{L}\\p{N}])${escape(query)}(?![\\p{L}\\p{N}])` : escape(query);
-  return new RegExp(body, caseSensitive ? 'gu' : 'giu');
-}
+const attributes: Readonly<Record<SearchScope, string>> = {
+  find: SEARCH_MATCH_ATTR,
+  pane: SEARCH_RESULT_ATTR,
+};
 
-// The text a child of a text block reads as: its text, an inline atom's text (`leafText`) such as
-// a value it shows, or one object character for another node, which a match then covers whole.
-function readText(child: ProseMirrorNode): string {
-  if (child.isText) return child.text ?? '';
-  const leafText = child.type.spec.leafText?.(child);
-  return leafText || '￼';
-}
-
-// Each match of a pattern in the document's text blocks.
-function findMatches(doc: ProseMirrorNode, regexp: RegExp | null): SearchMatch[] {
-  if (!regexp) return [];
-  const matches: SearchMatch[] = [];
-  doc.descendants((node, pos) => {
-    if (SKIPPED.has(regionKind(node))) return false;
-    if (!node.isTextblock) return true;
-    let text = '';
-    const positions: number[] = [];
-    node.forEach((child, offset) => {
-      const read = readText(child);
-      text += read;
-      for (let index = 0; index < read.length; index += 1) {
-        positions.push(pos + 1 + offset + (child.isText ? index : 0));
-      }
-    });
-    for (const match of text.matchAll(regexp)) {
-      const first = positions[match.index];
-      const last = positions[match.index + match[0].length - 1];
-      if (first !== undefined && last !== undefined) matches.push({ from: first, to: last + 1 });
-    }
-    return false;
-  });
-  return matches;
-}
-
-function decorate(doc: ProseMirrorNode, matches: readonly SearchMatch[], current: number) {
+function decorate(doc: ProseMirrorNode, scope: SearchScope, value: SearchState) {
   return DecorationSet.create(
     doc,
-    matches.map((match, index) =>
-      viewOnlyInline(match, {
-        [SEARCH_MATCH_ATTR]: index === current ? 'current' : 'match',
-      }),
+    value.matches.map((match, index) =>
+      viewOnlyInline(match, { [attributes[scope]]: index === value.current ? 'current' : 'match' }),
     ),
   );
 }
 
-function searched(doc: ProseMirrorNode, value: SearchState, near: number | null): SearchState {
-  const matches = findMatches(doc, pattern(value.query, value.options));
+// The state with its matches found again; the current match is the first at or after `near`.
+function searched(
+  { doc, scope, near }: { doc: ProseMirrorNode; scope: SearchScope; near: number | null },
+  value: SearchState,
+) {
+  const matches = findMatches(doc, value);
   const after = near === null ? -1 : matches.findIndex((match) => match.to >= near);
   const current = matches.length === 0 ? -1 : Math.max(after, 0);
-  return { ...value, matches, current, decorations: decorate(doc, matches, current) };
+  const next = { ...value, matches, current };
+  return { ...next, decorations: decorate(doc, scope, next) };
 }
 
-function apply(tr: Transaction, value: SearchState): SearchState {
-  const meta = tr.getMeta(searchKey) as SearchMeta | undefined;
+function apply(scope: SearchScope, tr: Transaction, value: SearchState): SearchState {
+  const meta = tr.getMeta(keys[scope]) as SearchMeta | undefined;
   if (meta && 'query' in meta) {
-    return searched(tr.doc, { ...value, ...meta }, tr.selection.from);
+    return searched({ doc: tr.doc, scope, near: tr.selection.from }, { ...value, ...meta });
   }
   if (meta && 'current' in meta) {
-    return {
-      ...value,
-      current: meta.current,
-      decorations: decorate(tr.doc, value.matches, meta.current),
-    };
+    const next = { ...value, current: meta.current };
+    return { ...next, decorations: decorate(tr.doc, scope, next) };
   }
   if (!tr.docChanged || !value.query) return value;
   const near = value.matches[value.current]?.from;
-  return searched(tr.doc, value, near === undefined ? null : tr.mapping.map(near));
+  return searched(
+    { doc: tr.doc, scope, near: near === undefined ? null : tr.mapping.map(near) },
+    value,
+  );
 }
 
-/** The plugin that finds a query's matches in the document. */
-export function createSearch(): Plugin<SearchState> {
+/** The plugin of one search, the find bar's by default. */
+export function createSearch(scope: SearchScope = 'find'): Plugin<SearchState> {
   return new Plugin<SearchState>({
-    key: searchKey,
+    key: keys[scope],
     state: {
       init: () => ({
         query: '',
@@ -146,140 +113,124 @@ export function createSearch(): Plugin<SearchState> {
         current: -1,
         decorations: DecorationSet.empty,
       }),
-      apply,
+      apply: (tr, value) => apply(scope, tr, value),
     },
-    props: { decorations: (state) => searchKey.getState(state)?.decorations ?? null },
+    props: { decorations: (state) => keys[scope].getState(state)?.decorations ?? null },
   });
 }
 
-/** The search state, or null when the document is not searched. */
-export function searchState(state: EditorState): SearchState | null {
-  return searchKey.getState(state) ?? null;
+/** A search's state, the find bar's by default; null when the document is not searched so. */
+export function searchState(state: EditorState, scope: SearchScope = 'find'): SearchState | null {
+  return keys[scope].getState(state) ?? null;
 }
 
 /** Looks for a query, from the selection on; an empty query clears the matches. */
-export function setSearch(query: string, options: SearchOptions = {}): Command {
+export function setSearch(
+  query: string,
+  options: SearchOptions = {},
+  scope: SearchScope = 'find',
+): Command {
   return (state, dispatch) => {
-    if (!searchKey.getState(state)) return false;
-    dispatch?.(state.tr.setMeta(searchKey, { query, options }).setMeta('addToHistory', false));
+    if (!searchState(state, scope)) return false;
+    dispatch?.(state.tr.setMeta(keys[scope], { query, options }).setMeta('addToHistory', false));
     return true;
   };
 }
 
 // Selects a match and makes it current.
+function selectAt(state: EditorState, index: number) {
+  const match = searchKey.getState(state)?.matches[index];
+  if (!match) return null;
+  return state.tr
+    .setMeta(searchKey, { current: index })
+    .setSelection(TextSelection.create(state.doc, match.from, match.to))
+    .setMeta('addToHistory', false)
+    .scrollIntoView();
+}
+
+// Selects the find bar's next or previous match.
 function selectMatch(step: 1 | -1): Command {
   return (state, dispatch) => {
     const search = searchKey.getState(state);
     if (!search || search.matches.length === 0) return false;
     const count = search.matches.length;
-    const current = (search.current + step + count) % count;
-    const match = search.matches[current];
-    if (!match) return false;
-    dispatch?.(
-      state.tr
-        .setMeta(searchKey, { current })
-        .setSelection(TextSelection.create(state.doc, match.from, match.to))
-        .setMeta('addToHistory', false)
-        .scrollIntoView(),
-    );
+    const tr = selectAt(state, (search.current + step + count) % count);
+    if (!tr) return false;
+    dispatch?.(tr);
     return true;
   };
 }
 
-/** Selects the match at an index of the matches, making it current. */
-export function selectMatchAt(index: number): Command {
-  return (state, dispatch) => {
-    const match = searchKey.getState(state)?.matches[index];
-    if (!match) return false;
-    dispatch?.(
-      state.tr
-        .setMeta(searchKey, { current: index })
-        .setSelection(TextSelection.create(state.doc, match.from, match.to))
-        .setMeta('addToHistory', false)
-        .scrollIntoView(),
-    );
-    return true;
-  };
-}
+/** Selects the find bar's next match, wrapping to the first. */
+export const selectNextMatch: Command = selectMatch(1);
 
-/** A match as a results list shows it: the text of its block, where it is, and whether it may change. */
-export interface SearchResult {
-  readonly index: number;
-  /** The text of the block holding it. */
-  readonly source: string;
-  /** Where the match starts and ends in `source`. */
-  readonly start: number;
-  readonly end: number;
-  /** The heading it is under, as `<number> <text>`, or null before the first heading. */
-  readonly heading: string | null;
-  /** Whether the writer may replace it. */
-  readonly replaceable: boolean;
+/** Selects the find bar's previous match, wrapping to the last. */
+export const selectPreviousMatch: Command = selectMatch(-1);
+
+// Scrolls a position's text into the middle of the view.
+function scrollTo(view: EditorView, pos: number) {
+  const { node } = view.domAtPos(pos);
+  const element = node.nodeType === 1 ? (node as Element) : node.parentElement;
+  if (element && 'scrollIntoView' in element) element.scrollIntoView({ block: 'center' });
 }
 
 /**
- * The search's matches as results: each in the text of its block, under the heading it is under,
- * numbered by the template when it is given.
+ * Makes a match of a search current and scrolls it into view, leaving the selection where it is,
+ * so the writer's caret stays put while they look through the matches.
  */
-export function searchResults(state: EditorState, template?: TemplateFile): SearchResult[] {
-  const search = searchKey.getState(state);
-  if (!search) return [];
-  const headings = documentOutline(state, template);
-  return search.matches.map((match, index) => {
-    const $from = state.doc.resolve(match.from);
-    const start = $from.start();
-    const under = headings.filter((heading) => heading.pos <= match.from).at(-1);
-    return {
-      index,
-      source: $from.parent.textBetween(0, $from.parent.content.size, ' ', ' '),
-      start: match.from - start,
-      end: Math.min(match.to, $from.end()) - start,
-      heading: under ? [under.number, under.text].filter(Boolean).join(' ') : null,
-      replaceable: !isLocked(state, match),
-    };
-  });
+export function revealMatchAt(index: number, scope: SearchScope = 'find'): Command {
+  return (state, dispatch, view) => {
+    const match = searchState(state, scope)?.matches[index];
+    if (!match) return false;
+    dispatch?.(state.tr.setMeta(keys[scope], { current: index }).setMeta('addToHistory', false));
+    if (view) scrollTo(view, match.from);
+    return true;
+  };
 }
 
-/** Selects the next match, wrapping to the first. */
-export const selectNextMatch: Command = selectMatch(1);
+// The match replaced: the replacement with the marks of the text it replaces.
+function replaceIn(tr: Transaction, match: SearchMatch, replacement: string) {
+  const marks = tr.doc.resolve(match.from + 1).marks();
+  if (replacement)
+    tr.replaceWith(match.from, match.to, tr.doc.type.schema.text(replacement, marks));
+  else tr.delete(match.from, match.to);
+}
 
-/** Selects the previous match, wrapping to the last. */
-export const selectPreviousMatch: Command = selectMatch(-1);
-
-/** Replaces the current match, then selects the next. */
-export function replaceMatch(replacement: string): Command {
+/**
+ * Replaces a search's current match, refused when the writer may not replace it
+ * (`isMatchReplaceable`). The find bar then puts the caret after the replacement; the pane leaves
+ * the selection where it was.
+ */
+export function replaceMatch(replacement: string, scope: SearchScope = 'find'): Command {
   return (state, dispatch) => {
-    const search = searchKey.getState(state);
+    const search = searchState(state, scope);
     const match = search?.matches[search.current];
-    if (!match || isLocked(state, match)) return false;
+    if (!match || !isMatchReplaceable(state, match)) return false;
     if (dispatch) {
-      const marks = state.doc.resolve(match.from + 1).marks();
-      const tr = replacement
-        ? state.tr.replaceWith(match.from, match.to, state.schema.text(replacement, marks))
-        : state.tr.delete(match.from, match.to);
+      const tr = state.tr;
+      replaceIn(tr, match, replacement);
       closeHistory(tr);
-      dispatch(tr.setSelection(TextSelection.create(tr.doc, match.from + replacement.length)));
+      if (scope === 'find') {
+        tr.setSelection(TextSelection.create(tr.doc, match.from + replacement.length));
+      }
+      dispatch(tr);
     }
     return true;
   };
 }
 
-/** Replaces every match outside locked content, as one change; locked matches stay found. */
-export function replaceAllMatches(replacement: string): Command {
+/** Replaces each match of a search the writer may replace, as one change; the others stay found. */
+export function replaceAllMatches(replacement: string, scope: SearchScope = 'find'): Command {
   return (state, dispatch) => {
-    const matches = (searchKey.getState(state)?.matches ?? []).filter(
-      (match) => !isLocked(state, match),
+    const matches = (searchState(state, scope)?.matches ?? []).filter((match) =>
+      isMatchReplaceable(state, match),
     );
     if (matches.length === 0) return false;
     if (dispatch) {
       const tr = state.tr;
-      for (const match of [...matches].reverse()) {
-        const marks = tr.doc.resolve(match.from + 1).marks();
-        if (replacement)
-          tr.replaceWith(match.from, match.to, state.schema.text(replacement, marks));
-        else tr.delete(match.from, match.to);
-      }
+      for (const match of [...matches].reverse()) replaceIn(tr, match, replacement);
       closeHistory(tr);
-      dispatch(tr.scrollIntoView());
+      dispatch(scope === 'find' ? tr.scrollIntoView() : tr);
     }
     return true;
   };

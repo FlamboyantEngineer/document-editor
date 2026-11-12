@@ -23,6 +23,7 @@ export type {
   DocumentMenubarOptions,
   DocumentToolbarOptions,
   EditorContext,
+  FindBarMode,
   ObjectDialog,
   ToolbarButtonItem,
   ToolbarCustomItem,
