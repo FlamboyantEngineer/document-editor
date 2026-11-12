@@ -53,6 +53,13 @@ Verification: `src/engine/object-commands.test.ts`
 Implementation: `src/engine/math-views.ts`, `src/pagination/pagination.ts`, `src/utils/remeasure.ts`
 Verification: `e2e/objects.spec.ts`
 
+### DOCE-OBJECTS-1.8 - Math as it is typed
+
+The math views shall write math as it is typed: typing the closing dollar of `$` LaTeX `$`, the LaTeX neither starting nor ending with a space nor its closing dollar escaped (`\$`), turns it, with its dollars, into inline math with the caret after it, except in code; Enter in a paragraph holding only `$$` and LaTeX, closed by `$$` or not, turns it into display math followed by an empty paragraph holding the caret, and a paragraph holding only `$$` into empty display math, selected and edited in place. Mod-Alt-L writes the text selected in one paragraph as inline math, or empty inline math at the caret, edited in place. Enter on selected math and a double click on math edit it in place too. `mathEditingAt(state)` gives the math edited in place, kept through changes until it goes; `commitMathEditing(latex)` sets its LaTeX, deleting it when the LaTeX is empty, and leaves the caret after inline math or display math selected; `cancelMathEditing` leaves it as it was, deleting math still empty. While the editor is editable, it shows the base library's `MathField` (inline or display, named by `mathSource`) over the math edited in place, focused: Enter (inline) or Ctrl or Cmd with Enter (display) commits the LaTeX, focus leaving the field commits a changed LaTeX and otherwise cancels, and Escape cancels; focus then goes back to the document. The fields' layer (`de-object-editors`) covers the editor's body and its field (`de-object-editors__field`, with `data-kind` `math` or `caption`) publishes the box of the math, relative to the layer, as `--de-object-editors-top`, `--de-object-editors-left`, `--de-object-editors-width` and `--de-object-editors-height`.
+
+Implementation: `src/engine/math-input.ts`, `src/engine/math-views.ts`, `src/components/document-editor/object-editors.tsx`, `labs/reference/editor-chrome.css`
+Verification: `src/engine/math-input.test.ts`, `e2e/math-input.spec.ts`
+
 ## DOCE-OBJECTS-2 - Captions
 
 ### DOCE-OBJECTS-2.1 - A caption's text
@@ -69,6 +76,13 @@ A caption line shall read the object's label and number, from the template's num
 Implementation: `src/model/schema/table-nodes.ts`, `labs/reference/document.css`
 Verification: `e2e/captions.spec.ts`
 
+### DOCE-OBJECTS-2.3 - Captions edited in place
+
+A double click on a caption line, or `editCaption`, shall edit the caption of the table, figure or code block it belongs to, or at the selection, in place: `captionEditingAt(state)` gives that object, kept through changes until it goes, and marks it `data-caption-editing`; `commitCaptionEditing(text)` sets its caption text as `setCaption` does, in one change, with the object selected after, and `cancelCaptionEditing` leaves it as it was. While the editor is editable, it shows the base library's `InlineTextField` (named by `caption`) over the caption line (`de-object-editors__field`, `data-kind="caption"`, placed as DOCE-OBJECTS-1.8 says), focused, holding the caption text: Enter commits the text, focus leaving the field commits a changed text and otherwise cancels, and Escape cancels; focus then goes back to the document. Select all and paste stay inside the field.
+
+Implementation: `src/engine/caption-views.ts`, `src/engine/object-views.ts`, `src/components/document-editor/object-editors.tsx`
+Verification: `src/engine/caption-views.test.ts`, `e2e/captions.spec.ts`
+
 ## DOCE-OBJECTS-3 - Object views
 
 ### DOCE-OBJECTS-3.1 - Line numbers
@@ -84,6 +98,13 @@ The object views shall draw a signature (`de-signature`, with `data-signed`) as 
 
 Implementation: `src/engine/object-views.ts`
 Verification: `e2e/objects.spec.ts`
+
+### DOCE-OBJECTS-3.3 - Highlighting
+
+The object views shall highlight the text of each code block and the code of linked code in their language, in every view: `highlightCode(code, language)` splits code into its tokens through the base library's code tokenizer (`resolveCodeTokenizer`), for JavaScript (`js`), TypeScript (`ts`), Python (`py`), C, C++ (`c++`), JSON, XML, HTML, CSS, YAML (`yml`), SQL, shell (`bash`, `sh`) and Markdown (`md`), and gives none for plain text or another language. Each token with a kind is marked `de-code-token` with its kind in `data-token` (`keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link`); the text stays as it is. A change highlights again the code blocks it touched, its text or its language, and no other.
+
+Implementation: `src/engine/code-highlighting.ts`, `src/engine/object-views.ts`
+Verification: `src/engine/code-highlighting.test.ts`, `e2e/objects.spec.ts`
 
 ## DOCE-OBJECTS-4 - Script blocks
 
@@ -110,13 +131,15 @@ Verification: `src/engine/scripts.test.ts`, `e2e/full-editor.spec.ts`
 
 ## Hooks
 
-| Hook                 | Kind      | Values                        | Description                               |
-| -------------------- | --------- | ----------------------------- | ----------------------------------------- |
-| `de-math`            | root      |                               | A math node, typeset.                     |
-| `data-display`       | attribute | `inline`, `display`           | On math: inline or a block.               |
-| `data-state`         | state     | `pending`, `ready`, `invalid` | On math: whether it is typeset yet.       |
-| `de-code-gutter`     | root      |                               | The line numbers beside code.             |
-| `de-signature`       | root      |                               | A signature.                              |
-| `de-signature__name` | slot      |                               | The signer's name.                        |
-| `data-signed`        | state     | `true`, `false`               | On a signature: whether it holds strokes. |
-| `data-script-state`  | state     | `running`, `error`, `empty`   | On a script block: its last run.          |
+| Hook                 | Kind      | Values                                                                            | Description                               |
+| -------------------- | --------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
+| `de-math`            | root      |                                                                                   | A math node, typeset.                     |
+| `data-display`       | attribute | `inline`, `display`                                                               | On math: inline or a block.               |
+| `data-state`         | state     | `pending`, `ready`, `invalid`                                                     | On math: whether it is typeset yet.       |
+| `de-code-gutter`     | root      |                                                                                   | The line numbers beside code.             |
+| `de-code-token`      | root      |                                                                                   | A token of highlighted code.              |
+| `data-token`         | attribute | `keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link` | On a code token: its kind.                |
+| `de-signature`       | root      |                                                                                   | A signature.                              |
+| `de-signature__name` | slot      |                                                                                   | The signer's name.                        |
+| `data-signed`        | state     | `true`, `false`                                                                   | On a signature: whether it holds strokes. |
+| `data-script-state`  | state     | `running`, `error`, `empty`                                                       | On a script block: its last run.          |

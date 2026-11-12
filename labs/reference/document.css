@@ -974,6 +974,38 @@
   user-select: none;
 }
 
+/* Highlighted code: each token kind in its colour. */
+.de-code-token[data-token='keyword'] {
+  color: #7c3aed;
+}
+
+.de-code-token[data-token='string'] {
+  color: #047857;
+}
+
+.de-code-token[data-token='number'],
+.de-code-token[data-token='literal'] {
+  color: #b45309;
+}
+
+.de-code-token[data-token='comment'] {
+  color: #64748b;
+  font-style: italic;
+}
+
+.de-code-token[data-token='key'] {
+  color: #1d4ed8;
+}
+
+.de-code-token[data-token='punctuation'] {
+  color: #475569;
+}
+
+.de-code-token[data-token='link'] {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
 /* A signature: its strokes over the signer's name; an unsigned one is a line to sign on. */
 .de-signature {
   display: inline-flex;

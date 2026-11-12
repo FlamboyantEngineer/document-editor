@@ -148,7 +148,14 @@ export {
 } from './layout-sections.js';
 export type { MathViewsOptions } from './math-views.js';
 export { createMathViews } from './math-views.js';
+export { cancelMathEditing, commitMathEditing, mathEditingAt } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
+export {
+  cancelCaptionEditing,
+  captionEditingAt,
+  commitCaptionEditing,
+  editCaption,
+} from './object-views.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';

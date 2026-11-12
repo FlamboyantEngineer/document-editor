@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import { Schema } from 'prosemirror-model';
 import { EditorState, NodeSelection, type Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
@@ -58,7 +58,8 @@ describe('typing over a selected object', () => {
     const shown = viewSelecting(EditorState.create({ doc }), 0);
     await user.keyboard('x');
     expect(findNode(shown.state.doc, 'linked_code_block')).toBeDefined();
-    expect(shown.state.doc.textContent).toBe('After');
+    const { doc: typed } = shown.state;
+    expect(typed.textBetween(0, typed.content.size)).toBe('After');
   });
 
   it('DOCE-OBJECTS-1.2 lets typing replace a selected inline object, and a block whose type replaces on typing', () => {

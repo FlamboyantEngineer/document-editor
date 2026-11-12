@@ -1,12 +1,34 @@
 // Views of the objects their markup does not draw whole: code with a gutter of line numbers from
-// its first line's number, and signatures drawn from their stored vector with the signer's name,
-// or as the place a signature goes until it is signed. They draw in every view, the pages'
-// measuring view too.
+// its first line's number and its tokens highlighted, and signatures drawn from their stored
+// vector with the signer's name, or as the place a signature goes until it is signed. They draw in
+// every view, the pages' measuring view too. A selected block object is kept from typing.
 
 import { DOMSerializer, type Node as ProseMirrorNode } from 'prosemirror-model';
-import { NodeSelection, Plugin, PluginKey } from 'prosemirror-state';
-import type { EditorView, NodeView } from 'prosemirror-view';
+import {
+  type Command,
+  type EditorState,
+  NodeSelection,
+  Plugin,
+  PluginKey,
+} from 'prosemirror-state';
+import type { DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
+import {
+  cancelCaptionOf,
+  captionDoubleClick,
+  captionEditingDecorations,
+  captionEditingOf,
+  commitCaptionOf,
+  editCaptionOf,
+  updateCaptionEditing,
+} from './caption-views.js';
+import type { CaptionedObject } from './captions.js';
+import {
+  codeTokenAttrs,
+  highlightCode,
+  highlightCodeBlocks,
+  updateCodeHighlighting,
+} from './code-highlighting.js';
 
 /** The line numbers of a code text, from its first line's number, one per line. */
 export function lineNumbers(code: string, first = 1): string {
@@ -26,8 +48,29 @@ const codeText = (node: ProseMirrorNode) =>
 const sameAttrs = (a: ProseMirrorNode, b: ProseMirrorNode) =>
   JSON.stringify(a.attrs) === JSON.stringify(b.attrs);
 
-// A code block as its markup draws it, with a gutter of line numbers before its code.
-function codeView(node: ProseMirrorNode, view: EditorView): NodeView {
+// Draws linked code's text as its tokens, each kind marked for the stylesheet.
+function drawLinkedCode(code: HTMLElement, node: ProseMirrorNode): void {
+  const owner = code.ownerDocument;
+  const text = codeText(node);
+  const parts: Node[] = [];
+  let offset = 0;
+  for (const token of highlightCode(text, node.attrs.language)) {
+    if (token.from > offset) parts.push(owner.createTextNode(text.slice(offset, token.from)));
+    const span = owner.createElement('span');
+    for (const [name, value] of Object.entries(codeTokenAttrs(token.kind))) {
+      span.setAttribute(name, value);
+    }
+    span.textContent = text.slice(token.from, token.to);
+    parts.push(span);
+    offset = token.to;
+  }
+  if (offset < text.length) parts.push(owner.createTextNode(text.slice(offset)));
+  code.replaceChildren(...parts);
+}
+
+// A code block as its markup draws it, with a gutter of line numbers before its code when asked,
+// and linked code's text highlighted.
+function codeView(node: ProseMirrorNode, view: EditorView, numbered: boolean): NodeView {
   const owner = view.dom.ownerDocument;
   const spec = node.type.spec.toDOM?.(node);
   if (!spec) throw new Error(`${node.type.name} has no markup`);
@@ -39,7 +82,8 @@ function codeView(node: ProseMirrorNode, view: EditorView): NodeView {
   gutter.className = 'de-code-gutter';
   gutter.setAttribute('aria-hidden', 'true');
   gutter.contentEditable = 'false';
-  if (pre && code) pre.insertBefore(gutter, code);
+  if (numbered && pre && code) pre.insertBefore(gutter, code);
+  if (code && node.type.name === 'linked_code_block') drawLinkedCode(code, node);
   let current = node;
   const draw = (next: ProseMirrorNode) => {
     current = next;
@@ -127,22 +171,63 @@ export interface ObjectViewsOptions {
   readonly lineNumbers?: LineNumbers | undefined;
 }
 
+/** What the object views keep: the code's highlighting and the caption edited in place. */
+interface ObjectViewsState {
+  readonly highlighting: DecorationSet;
+  readonly caption: number | null;
+}
+
+const objectViewsKey = new PluginKey<ObjectViewsState>('object-views');
+
+/** The captioned object whose caption is edited in place, which the editor draws its field over. */
+export function captionEditingAt(state: EditorState): CaptionedObject | null {
+  return captionEditingOf(objectViewsKey, state);
+}
+
+/** Edits the caption of the table, figure or code block at the selection in place. */
+export const editCaption: Command = editCaptionOf(objectViewsKey);
+
+/** Commits the caption edited in place with its text, shown; the object is selected after. */
+export const commitCaptionEditing = (text: string): Command =>
+  commitCaptionOf(objectViewsKey, text);
+
+/** Stops editing a caption in place, leaving it as it is. */
+export const cancelCaptionEditing: Command = cancelCaptionOf(objectViewsKey);
+
 /**
- * Draws code with its line numbers and signatures from their vector, in every view, and keeps a
+ * Draws code with its line numbers and highlighted tokens (`highlightCode`), and signatures from
+ * their vector, in every view, and keeps a
  * selected node that is not replaced on typing (`isReplacedOnType`) from the writer's typing.
  */
 export function createObjectViews({
   lineNumbers: numbered = 'linked',
-}: ObjectViewsOptions = {}): Plugin {
-  const code = (node: ProseMirrorNode, view: EditorView) => codeView(node, view);
-  return new Plugin({
-    key: new PluginKey('object-views'),
+}: ObjectViewsOptions = {}): Plugin<ObjectViewsState> {
+  const code = (node: ProseMirrorNode, view: EditorView) =>
+    codeView(node, view, numbered === 'all');
+  const linked = (node: ProseMirrorNode, view: EditorView) =>
+    codeView(node, view, numbered !== 'none');
+  const key = objectViewsKey;
+  return new Plugin<ObjectViewsState>({
+    key,
+    state: {
+      init: (_config, state) => ({ highlighting: highlightCodeBlocks(state.doc), caption: null }),
+      apply: (tr, value) => ({
+        highlighting: updateCodeHighlighting(tr, value.highlighting),
+        caption: updateCaptionEditing(key, tr, value.caption),
+      }),
+    },
     props: {
+      decorations(state) {
+        const value = key.getState(state);
+        const editing = captionEditingDecorations(captionEditingAt(state));
+        return editing.length ? value?.highlighting.add(state.doc, editing) : value?.highlighting;
+      },
+      handleDOMEvents: { dblclick: captionDoubleClick(key) },
       handleTextInput: ({ state }) =>
         state.selection instanceof NodeSelection && !isReplacedOnType(state.selection.node),
       nodeViews: {
         signature: (node, view) => signatureView(node, view),
-        ...(numbered === 'none' ? {} : { linked_code_block: code }),
+        linked_code_block: linked,
         ...(numbered === 'all' ? { code_block: code } : {}),
       },
     },
