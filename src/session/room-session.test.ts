@@ -1,7 +1,8 @@
-import type { EditorState } from 'prosemirror-state';
+import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSessionRooms, type SessionRooms } from '../../test/session-rooms.js';
+import { listPeers } from '../engine/presence.js';
 import { undoCommand } from '../engine/undo-commands.js';
 import { FULL_CAPABILITIES } from '../host/capabilities.js';
 import { createMemoryHost, type MemoryHostOptions } from '../host/memory-host.js';
@@ -148,12 +149,56 @@ describe('createDocumentSession in room mode', () => {
     await vi.waitFor(() => expect(session.status.get().save).toBe('offline'));
   });
 
-  it('DOCE-SESSION-3.4 reads a document whose room grants read-only access', async () => {
+  it('DOCE-SESSION-3.4 narrows what the reader may do by the connection’s gate', async () => {
     roomsFor(DOCUMENT, { readers: ['grace'] });
     const session = openAs('grace');
     await session.ready;
-    await vi.waitFor(() => expect(shown(session).editingMode).toBe('read'));
-    expect(shown(session).capabilities).toEqual(FULL_CAPABILITIES);
+    await vi.waitFor(() => expect(session.connection.get()?.phase).toBe('read-only'));
+    expect(shown(session).capabilities).toMatchObject({
+      edit: false,
+      suggest: false,
+      comment: true,
+    });
+    expect(shown(session).editingMode).toBe('comment');
+  });
+
+  it('DOCE-SESSION-3.8 tells the connection’s phase and gate', async () => {
+    const room = roomsFor();
+    const session = openAs('ada');
+    expect(session.connection.get()).toEqual({
+      phase: 'connecting',
+      gate: { editable: false, locked: false },
+    });
+    await session.ready;
+    await vi.waitFor(() => expect(session.connection.get()?.phase).toBe('synced'));
+    expect(shown(session).editingMode).toBe('edit');
+    room.providerOf('ada')?.disconnect();
+    await vi.waitFor(() => expect(session.connection.get()?.phase).toBe('offline'));
+    // A document that synced stays editable offline; its changes wait for the room.
+    expect(session.connection.get()?.gate).toEqual({ editable: true, locked: false });
+    expect(shown(session).editingMode).toBe('edit');
+    const store = createDocumentSession({
+      host: createMemoryHost({ documents: [{ id: 'doc', content: DOCUMENT }] }),
+      documentId: 'doc',
+      mode: 'store',
+    });
+    sessions.push(store);
+    await store.ready;
+    expect(store.connection.get()).toBeNull();
+  });
+
+  it('DOCE-SESSION-3.9 shows the other people in the room', async () => {
+    roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const adaView = mount(ada);
+    const graceView = mount(grace);
+    adaView.dispatch(adaView.state.tr.setSelection(TextSelection.create(adaView.state.doc, 3)));
+    await vi.waitFor(() =>
+      expect(listPeers(graceView.state).map((peer) => peer.id)).toContain('ada'),
+    );
+    expect(listPeers(graceView.state).find((peer) => peer.id === 'ada')?.head).toBe(3);
   });
 
   it('DOCE-SESSION-3.5 pins another template for every reader of the room', async () => {

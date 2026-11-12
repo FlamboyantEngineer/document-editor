@@ -1,9 +1,11 @@
 // The document session: opening a document by id in room or store mode, keeping its changes and
 // reporting its status, with no framework.
 
+export type { ConnectionGate, ConnectionPhase } from '../collab/connection.js';
 export type {
   DocumentSession,
   DocumentSessionOptions,
+  SessionConnection,
   SessionDocument,
   SessionMode,
   SessionStateContext,

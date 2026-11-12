@@ -34,6 +34,45 @@ test.describe('proofing', () => {
     expect(selected).toBe('teh');
   });
 
+  test('DOCE-PROOFING-3.6 DOCE-EDITOR-5.6 centres, flashes and announces the next issue', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await expect(status(page)).toHaveText('5 issues');
+    await page
+      .locator('.de-document-editor__viewport .ui-scroll-region__viewport')
+      .evaluate((element) => {
+        element.scrollTop = element.scrollHeight;
+      });
+    await status(page).click();
+    const flashed = page.locator('[data-proofing-flash]');
+    await expect(flashed).toHaveCount(1);
+    await expect(flashed).toHaveText('teh');
+    const announcer = page.locator('.ui-announcer [role="status"]').first();
+    await expect(announcer).toHaveText('Spelling: teh, 1 of 5');
+    // Centred in the scrolling frame, as far as the frame scrolls.
+    const viewport = page.locator('.de-document-editor__viewport .ui-scroll-region__viewport');
+    await expect(async () => {
+      const frame = await viewport.boundingBox();
+      const box = await flashed.boundingBox();
+      if (!frame || !box) throw new Error('The issue and the frame should show.');
+      const offCentre = Math.abs(box.y + box.height / 2 - (frame.y + frame.height / 2));
+      const isClamped = await viewport.evaluate(
+        (element) =>
+          element.scrollTop === 0 ||
+          Math.abs(element.scrollTop + element.clientHeight - element.scrollHeight) < 2,
+      );
+      expect(offCentre < 40 || isClamped).toBe(true);
+    }).toPass({ timeout: 1000 });
+    await expect(flashed).toHaveCount(0);
+    // A correction checks the text again, and the new count is announced.
+    await openMenuOn(page, 'recieve');
+    await menu(page).getByRole('menuitem', { name: 'receive', exact: true }).click();
+    await expect(status(page)).toHaveText('4 issues');
+    await expect(announcer).toHaveText('4 issues');
+  });
+
   test('DOCE-PROOFING-3.2 corrects, ignores and adds words from the context menu', async ({
     lab,
     page,
@@ -66,7 +105,8 @@ test.describe('proofing', () => {
     await expect(issue(page, 'TBD')).toHaveAttribute('data-proofing-issue', 'style');
     await expect(issues(page, 'teh')).toHaveCount(2);
     await openMenuOn(page, 'teh');
-    await menu(page).getByRole('menuitem', { name: 'Replace all with “the”' }).click();
+    await menu(page).getByRole('menuitem', { name: 'Replace all' }).click();
+    await page.getByRole('menu').last().getByRole('menuitem', { name: 'the', exact: true }).click();
     await expect(issues(page, 'teh')).toHaveCount(0);
     await expect(content(page)).toContainText('the team says');
     await openMenuOn(page, 'a error');

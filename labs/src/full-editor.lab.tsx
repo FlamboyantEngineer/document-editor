@@ -40,7 +40,7 @@ import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HOST_DIALOGS, NOTE_ITEM } from './host-dialogs.js';
 import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
-import { labPanels } from './host-panes.js';
+import { labPanels, RevealPanes } from './host-panes.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
 import { chapter, heading, sampleDocument, text } from './lab-document.js';
 import { labAssets, labDiagrams } from './lab-figures.js';
@@ -415,6 +415,7 @@ function Lab() {
         </fieldset>
         <AgentPanel view={view} />
         <HostPanel report={host.report} handle={handle} />
+        <RevealPanes handle={handle} />
         <button
           type="button"
           onClick={() => {
@@ -471,7 +472,7 @@ function Lab() {
           }
         }
         panels={
-          panels ? labPanels({ template: TEMPLATE, comments, identity: HOST.identity }) : undefined
+          panels ? labPanels({ template: TEMPLATE, onAuthorshipChange: setAuthorship }) : undefined
         }
         className="lab-document-editor"
         aria-label="Sample document"

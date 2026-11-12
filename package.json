@@ -96,6 +96,7 @@
     "react-reconciler": "^0.33.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
     "@flamboyantengineer/collaboration-tools": "git+https://github.com/FlamboyantEngineer/collaboration-tools.git#91721037bb5c8af30914bc9b0da8b5f51ed7162f",
     "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#4937fed7f96fc1b9224d5f4c30f32e93b27604e5",

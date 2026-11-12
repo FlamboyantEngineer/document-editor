@@ -103,14 +103,14 @@ Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
 
 While the document is proofed, the status bar (DOCE-EDITOR-5.1) shall show the proofing status (`de-document-editor__proofing-status`, the `proofingStatus` label): checking, no issues, or how many; pressing it selects the next issue and keeps focus in the document. It publishes `data-pending` while text waits to be checked and `data-issues` while issues are marked.
 
-Implementation: `src/components/document-editor/document-status-bar.tsx`, `labs/reference/editor-chrome.css`
+Implementation: `src/components/document-editor/status-items.tsx`, `labs/reference/editor-chrome.css`
 Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-3.2 - The context menu
 
-In an editable document, the context menu opened on an issue shall lead with a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`), then, when other issues are like it, replacing them all with its first suggestion (`replaceAll`); Ignore, for this issue alone; Ignore all, for its word; for a spelling issue and a proofer with a dictionary, Add to dictionary; and, for an issue with a rule, turning the rule off.
+In an editable document, the context menu opened on an issue shall lead with a section titled by the issue's message, or its kind (`proofingIssue`), offering up to five of its suggestions (or `noSuggestions`), then, when other issues are like it, a submenu (`replaceAll`) replacing them all with one of those suggestions; Ignore, for this issue alone; Ignore all, for its word; for a spelling issue and a proofer with a dictionary, Add to dictionary; and, for an issue with a rule, turning the rule off.
 
-Implementation: `src/components/document-editor/context-entries.ts`
+Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-editor/proofing-entries.ts`
 Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-3.3 - A word-list proofer
@@ -131,11 +131,19 @@ Verification: `e2e/proofing.spec.ts`
 
 While the document is proofed, the status bar shall show the proofing menu (`de-document-editor__proofing-language`, named by `proofingLanguage`): a button showing the language the document is proofed in, opening a menu of the languages the proofers offer, the one in use checked, that checks the document again in the language picked. The proofing status says when the proofers do not answer (`proofingUnavailable`, `proofingDegraded`) and publishes the status in `data-status`.
 
-Implementation: `src/components/document-editor/document-status-bar.tsx`
+Implementation: `src/components/document-editor/status-items.tsx`
+Verification: `e2e/proofing.spec.ts`
+
+### DOCE-PROOFING-3.6 - Revealing and announcing issues
+
+Once the proofing status has selected the next issue, the editor shall centre the issue in the window as far as the document scrolls and mark it with `data-proofing-flash` for `PROOFING_FLASH` milliseconds (`revealSelectedProofingIssue`), and read out its message, or kind, its text and where it stands among the issues (`proofingIssueAnnouncement`) through the editor's live regions (DOCE-EDITOR-5.6). Each issue count the proofers settle on after the first is read out (`proofingStatus`).
+
+Implementation: `src/engine/proofing-commands.ts`, `src/components/document-editor/status-items.tsx`, `src/components/document-editor/editor-labels.ts`
 Verification: `e2e/proofing.spec.ts`
 
 ## Hooks
 
-| Hook                  | Kind      | Values                         | Description                                |
-| --------------------- | --------- | ------------------------------ | ------------------------------------------ |
-| `data-proofing-issue` | attribute | `spelling`, `grammar`, `style` | On the text of an issue: what it is about. |
+| Hook                  | Kind      | Values                         | Description                                          |
+| --------------------- | --------- | ------------------------------ | ---------------------------------------------------- |
+| `data-proofing-issue` | attribute | `spelling`, `grammar`, `style` | On the text of an issue: what it is about.           |
+| `data-proofing-flash` | attribute | `true`                         | On the text of an issue just revealed, for a moment. |

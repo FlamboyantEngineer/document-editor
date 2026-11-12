@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
+import { useEditorPanesContext } from '../document-panels/document-panels.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
@@ -178,6 +179,8 @@ export function EditorBody({
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   useOpeningScripts(view, props.scriptRunner);
+  // With the comments in a pane, a thread started or opened shows that pane; focus stays put.
+  const panes = useEditorPanesContext();
   const content = (
     <RichTextEngineContent
       {...hooks.slot('content')}
@@ -200,6 +203,8 @@ export function EditorBody({
             suggestionPolicy={editorSuggestionPolicy(props)}
             startRef={startCommentRef}
             openRef={openThreadRef}
+            view={view}
+            onReveal={() => panes?.reveal('comments', { focus: false })}
           >
             {content}
           </DocumentComments>
