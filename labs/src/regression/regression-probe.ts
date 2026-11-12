@@ -15,6 +15,7 @@ import {
   type StoredNode,
   writeDocumentFile,
 } from '../../../src/model/index.js';
+import { pageMap } from '../../../src/pagination/index.js';
 
 /** Where a caret goes at a fragment boundary: the head fragment's end or its continuation's start. */
 export type FragmentEdge = 'head-end' | 'continuation-start';
@@ -109,20 +110,20 @@ function placeCaret(view: EditorView, at: number) {
   view.focus();
 }
 
+// The caret at a fragment boundary of the pages the view shows: on its own paged state, or on the
+// canonical state a projection shows on pages, at the boundary's place in the whole document.
 function caretAtFragment(view: EditorView, type: string, edge: FragmentEdge): FragmentCaret | null {
-  const { doc } = view.state;
+  const doc = pageMap(view.state).projection;
   const continuation = firstContinuation(doc, type);
   if (!continuation) return null;
   const target = edge === 'continuation-start' ? continuation : headOf(doc, continuation);
   if (!target) return null;
   const at = textEdge(doc, target.pos, target.pos + target.node.nodeSize, edge === 'head-end');
   if (at === null) return null;
-  placeCaret(view, at);
+  const joined = joinDocumentPages(doc).mapping.map(at, edge === 'head-end' ? -1 : 1);
+  placeCaret(view, doc === view.state.doc ? at : joined);
   const id: unknown = continuation.node.attrs.dataId;
-  return {
-    elementId: typeof id === 'string' ? id : '',
-    joined: joinDocumentPages(doc).mapping.map(at, edge === 'head-end' ? -1 : 1),
-  };
+  return { elementId: typeof id === 'string' ? id : '', joined };
 }
 
 /** Puts the probe on `window.regressionLab` while the lab shows. */

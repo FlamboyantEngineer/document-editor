@@ -19,11 +19,17 @@ import { CellSelection } from 'prosemirror-tables';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { ProjectionMap } from './projection-map.js';
 
-// The projection position of a canonical one nearest `near`, where a page break gives two.
+// The projection position of a canonical one nearest `near`, where a page break gives two. A side
+// that stands for another canonical position, as a code fragment's end stands for the place before
+// the line break its split dropped, is no place of this one.
 function nearest(map: ProjectionMap, pos: number, near: number): number | null {
-  const before = map.toProjection(pos, -1);
-  const after = map.toProjection(pos, 1);
-  if (before === null || after === null) return before ?? after;
+  const side = (assoc: -1 | 1) => {
+    const at = map.toProjection(pos, assoc);
+    return at !== null && map.toCanonical(at) === pos ? at : null;
+  };
+  const before = side(-1);
+  const after = side(1);
+  if (before === null || after === null) return before ?? after ?? map.toProjection(pos, 1);
   return Math.abs(before - near) <= Math.abs(after - near) ? before : after;
 }
 

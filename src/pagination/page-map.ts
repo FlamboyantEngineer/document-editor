@@ -130,11 +130,26 @@ export function createPageMap(
   };
 }
 
+// The pages a projection shows each canonical document on, made once asked for.
+const shownOnPages = new WeakMap<ProseMirrorNode, () => PageMap>();
+
+/** Records the pages a projection shows a canonical document on, for `pageMap`. */
+export function showOnPages(
+  canonical: ProseMirrorNode,
+  { pages, rules }: { readonly pages: ProseMirrorNode; readonly rules: FragmentRules },
+): void {
+  let map: PageMap | null = null;
+  shownOnPages.set(canonical, () => (map ??= createPageMap(pages, rules)));
+}
+
 /**
  * The layout of the document a state shows, joined by its pagination's fragment rules, or by
- * `FRAGMENT_RULES` with none. Made once for each document and set of rules.
+ * `FRAGMENT_RULES` with none. Made once for each document and set of rules. A canonical document
+ * a projection shows has the layout of the projection's pages (DOCE-PAGINATION-7.17).
  */
 export function pageMap(state: EditorState): PageMap {
+  const onPages = shownOnPages.get(state.doc);
+  if (onPages) return onPages();
   const plugin = paginationKey.get(state);
   const rules = (plugin?.spec.fragmentRules as FragmentRules | undefined) ?? FRAGMENT_RULES;
   const cached = maps.get(state.doc);

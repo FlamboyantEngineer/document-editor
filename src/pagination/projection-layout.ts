@@ -15,6 +15,7 @@ import {
 import { followDocument } from './ghost-view.js';
 import {
   layoutDocument,
+  type LayoutMemory,
   type PageMetric,
   type SectionPageHeight,
   type SectionReport,
@@ -30,6 +31,8 @@ export interface LayoutSource {
   readonly ghost: EditorView;
   readonly canonical: EditorState;
   readonly cache: MeasureCache;
+  /** What the latest layout found, which this one starts from. */
+  readonly memory?: LayoutMemory | undefined;
   /** Told of each section laid out, by how many of its blocks were measured again. */
   readonly onSection?: ((section: SectionReport) => void) | undefined;
 }
@@ -52,7 +55,7 @@ export interface ProjectionLayout {
 
 /** The projection transaction onto the canonical document's pages, and the map after it. */
 export function layOutProjection(
-  { projection, ghost, canonical, cache, onSection }: LayoutSource,
+  { projection, ghost, canonical, cache, memory, onSection }: LayoutSource,
   options: ProjectionLayoutOptions,
 ): ProjectionLayout {
   followDocument(ghost, canonical.doc);
@@ -62,6 +65,7 @@ export function layOutProjection(
     rules: options.rules,
     footnoteNumbering: options.footnoteNumbering,
     cache,
+    memory,
     onPage: (page) => metrics.push(page),
     onSection,
   });

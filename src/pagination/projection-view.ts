@@ -53,6 +53,7 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     dispatch: projection.dispatch,
     canonicalView: projection.canonicalView,
     layout: projection.layout,
+    redraw: projection.redraw,
     refresh: projection.refresh,
     layoutState: projection.layoutState,
     whenSettled: projection.whenSettled,

@@ -24,8 +24,13 @@ function expectedFailure(gap: string, why: string) {
   test.fail(true, `${gap}: ${why}`);
 }
 
-async function openDocument(page: Page, name: RegressionDocumentName, layout = 'page') {
-  await page.goto(`regression.html?document=${name}&layout=${layout}`);
+async function openDocument(
+  page: Page,
+  name: RegressionDocumentName,
+  { layout = 'page', projection = false }: { layout?: string; projection?: boolean } = {},
+) {
+  const shown = projection ? '&projection' : '';
+  await page.goto(`regression.html?document=${name}&layout=${layout}${shown}`);
   await waitForLab(page);
 }
 
@@ -422,34 +427,80 @@ async function press(page: Page, key: MatrixCell['key']) {
   await settle(page);
 }
 
+// The same key at a fragment boundary on the pages, then at the same place in the whole block.
+async function editAcross(
+  page: Page,
+  {
+    block,
+    edit,
+    projection,
+  }: { block: (typeof BLOCKS)[number]; edit: (typeof EDITS)[number]; projection: boolean },
+) {
+  await openDocument(page, block.document, { projection });
+  const caret = await page.evaluate(
+    ([type, edge]) => window.regressionLab.caretAtFragment(type, edge),
+    [block.type, edit.edge] as const,
+  );
+  expect(caret, `a split ${block.type}`).not.toBeNull();
+  await press(page, edit.key);
+  const paged = await storedOf(page);
+  expectPagesHoldContent(await pagesOf(page));
+
+  await openDocument(page, block.document, { layout: 'web' });
+  const inText = await page.evaluate(
+    (at) => window.regressionLab.caretAtJoined(at),
+    caret?.joined ?? 0,
+  );
+  expect(inText, 'the caret is in a text block of the whole document').toBe(true);
+  await press(page, edit.key);
+  expect(withoutIds(paged)).toEqual(withoutIds(await storedOf(page)));
+}
+
+const cellOf = (block: (typeof BLOCKS)[number], edit: (typeof EDITS)[number]) =>
+  `${block.document} ${block.type} ${edit.edge} ${edit.key}`;
+
+const titleOf = (block: (typeof BLOCKS)[number], edit: (typeof EDITS)[number]) => {
+  const where = edit.edge === 'head-end' ? "a head fragment's end" : "a continuation's start";
+  return `${edit.key === 'type' ? 'types' : `presses ${edit.key}`} at ${where} of ${block.name} as in the whole block`;
+};
+
 test.describe('split-paragraph repagination matrix', () => {
   for (const block of BLOCKS) {
     for (const edit of EDITS) {
-      const cell = `${block.document} ${block.type} ${edit.edge} ${edit.key}`;
-      const where = edit.edge === 'head-end' ? "a head fragment's end" : "a continuation's start";
-      test(`DOCE-LABS-4.2 DOCE-EDITING-2.4 DOCE-PAGINATION-3.5 ${edit.key === 'type' ? 'types' : `presses ${edit.key}`} at ${where} of ${block.name} as in the whole block`, async ({
+      test(`DOCE-LABS-4.2 DOCE-EDITING-2.4 DOCE-PAGINATION-3.5 ${titleOf(block, edit)}`, async ({
         page,
       }) => {
-        const fails = FAILING_CELLS[cell];
+        const fails = FAILING_CELLS[cellOf(block, edit)];
         if (fails) expectedFailure(fails.split(' ')[0] ?? PROJECTION, fails);
-        await openDocument(page, block.document);
-        const caret = await page.evaluate(
-          ([type, edge]) => window.regressionLab.caretAtFragment(type, edge),
-          [block.type, edit.edge] as const,
-        );
-        expect(caret, `a split ${block.type}`).not.toBeNull();
-        await press(page, edit.key);
-        const paged = await storedOf(page);
-        expectPagesHoldContent(await pagesOf(page));
+        await editAcross(page, { block, edit, projection: false });
+      });
+    }
+  }
+});
 
-        await openDocument(page, block.document, 'web');
-        const inText = await page.evaluate(
-          (at) => window.regressionLab.caretAtJoined(at),
-          caret?.joined ?? 0,
-        );
-        expect(inText, 'the caret is in a text block of the whole document').toBe(true);
-        await press(page, edit.key);
-        expect(withoutIds(paged)).toEqual(withoutIds(await storedOf(page)));
+// The failing cells the paged projection (PG-40) already passes, run on it while it is opt-in.
+const PASSING_ON_PROJECTION = new Set([
+  'oversized-blocks paragraph head-end Enter',
+  'oversized-blocks paragraph continuation-start Enter',
+  'oversized-blocks list_item head-end Enter',
+  'oversized-blocks list_item continuation-start Enter',
+  'long-ordered-list ordered_list head-end Delete',
+  'long-ordered-list ordered_list continuation-start Backspace',
+  'long-ordered-list ordered_list continuation-start Enter',
+  'long-bullet-list-with-nesting bullet_list head-end Delete',
+  'table-long-headerless table continuation-start Enter',
+  'code-blocks code_block continuation-start Backspace',
+  'blockquotes blockquote continuation-start Enter',
+]);
+
+test.describe('split-paragraph repagination matrix on the projection', () => {
+  for (const block of BLOCKS) {
+    for (const edit of EDITS) {
+      if (!PASSING_ON_PROJECTION.has(cellOf(block, edit))) continue;
+      test(`DOCE-LABS-4.2 DOCE-PAGINATION-7.17 ${titleOf(block, edit)} on the projection`, async ({
+        page,
+      }) => {
+        await editAcross(page, { block, edit, projection: true });
       });
     }
   }
@@ -698,15 +749,17 @@ test.describe('pagination corner cases', () => {
     expect(pages.map(({ section }) => section)).toEqual(['cover', 'body', 'appendix']);
   });
 
-  test('DOCE-LABS-4.8 DOCE-PAGINATION-8.2 fills the page number and count into each footer', async ({
-    page,
-  }) => {
-    await openDocument(page, 'long-mixed');
-    const pages = await pagesOf(page);
-    expect(pages.map(({ footer }) => footer)).toEqual(
-      pages.map((_, index) => `Page ${String(index + 1)} of ${String(pages.length)}`),
-    );
-  });
+  for (const projection of [false, true]) {
+    test(`DOCE-LABS-4.8 DOCE-PAGINATION-8.2 fills the page number and count into each footer${projection ? ' on the projection (DOCE-PAGINATION-7.17)' : ''}`, async ({
+      page,
+    }) => {
+      await openDocument(page, 'long-mixed', { projection });
+      const pages = await pagesOf(page);
+      expect(pages.map(({ footer }) => footer)).toEqual(
+        pages.map((_, index) => `Page ${String(index + 1)} of ${String(pages.length)}`),
+      );
+    });
+  }
 
   test('DOCE-LABS-4.8 DOCE-PAGINATION-6.6 lays a long mixed document out again after an edit and its undo', async ({
     page,

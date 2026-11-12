@@ -41,7 +41,13 @@ import {
   pageVariablesKey,
   type PaginationStats,
 } from '../../pagination/index.js';
-import { fragmentRulesOf, type LayoutRunner, startPaging } from './start-paging.js';
+import {
+  fragmentRulesOf,
+  type LayoutRunner,
+  type PagingRefs,
+  type Redraw,
+  startPaging,
+} from './start-paging.js';
 import type { PagedEditor } from './use-paged-projection.js';
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
@@ -95,6 +101,7 @@ function useRegionsEditable(
 function useLayoutDebug(
   debug: PageDebugParts | undefined,
   onStateChange: (update: RichTextStateUpdate) => void,
+  redraw: RefObject<Redraw | null>,
 ) {
   const latest = useRef(onStateChange);
   useEffect(() => {
@@ -103,7 +110,8 @@ function useLayoutDebug(
   const shown = `${String(debug?.pages ?? false)} ${String(debug?.blocks ?? false)}`;
   useEffect(() => {
     latest.current((state) => state.apply(state.tr.setMeta(pageDebugKey, true)));
-  }, [shown]);
+    redraw.current?.(pageDebugKey);
+  }, [shown, redraw]);
 }
 
 /** What the layout hook reads. */
@@ -170,7 +178,10 @@ const revalue = (state: EditorState) =>
 
 // The host's variables shown again, and the pages measured again, whenever the host says they
 // changed, and when it hands in other variables.
-function useHostVariables(options: DocumentLayoutOptions, refresh: RefObject<(() => void) | null>) {
+function useHostVariables(
+  options: DocumentLayoutOptions,
+  { refresh, redraw }: Pick<PagingRefs, 'refresh' | 'redraw'>,
+) {
   const { variables, onStateChange } = options;
   const latest = useRef(onStateChange);
   useEffect(() => {
@@ -179,11 +190,12 @@ function useHostVariables(options: DocumentLayoutOptions, refresh: RefObject<(()
   useEffect(() => {
     const show = () => {
       latest.current(revalue);
+      redraw.current?.(pageVariablesKey);
       refresh.current?.();
     };
     show();
     return variables?.subscribe?.(show);
-  }, [variables, refresh]);
+  }, [variables, refresh, redraw]);
 }
 
 // A state with each section's pages joined into one and its footnotes numbered for it, out of the
@@ -251,6 +263,7 @@ export function useDocumentLayout(
     latest.current = options;
   });
   const refresh = useRef<(() => void) | null>(null);
+  const redraw = useRef<Redraw | null>(null);
   const ownPlugins = useRef<readonly Plugin[]>([]);
   const paginationPlugin = useRef<Plugin | null>(null);
   const active = useRef<LayoutRunner | null>(null);
@@ -280,7 +293,7 @@ export function useDocumentLayout(
     }
     return startPaging(element, latest, {
       settings: { repeatTableHeader, footnoteNumbering },
-      refs: { refresh, active, ownPlugins, paginationPlugin },
+      refs: { refresh, redraw, active, ownPlugins, paginationPlugin },
       setPaged,
     });
   }, [layout, measureIn, repeatTableHeader, footnoteNumbering, options.projection]);
@@ -297,8 +310,8 @@ export function useDocumentLayout(
     latest.current.onStateChange(recompare);
     refresh.current?.();
   }, [previous, display, suggestions]);
-  useHostVariables(options, refresh);
-  useLayoutDebug(options.debug, options.onStateChange);
+  useHostVariables(options, { refresh, redraw });
+  useLayoutDebug(options.debug, options.onStateChange, redraw);
   useRegionsEditable(Boolean(options.onRegionChange), options.onStateChange);
   const progress = useLayoutProgress(active);
   return useMemo(() => ({ ...progress, paged }), [progress, paged]);
