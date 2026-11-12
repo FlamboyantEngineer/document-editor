@@ -282,6 +282,20 @@ Verification: `src/pagination/pagination.test.ts`
 Implementation: `src/pagination/pagination.ts`, `src/pagination/layout-readiness.ts`, `src/pagination/layout-triggers.ts`
 Verification: `src/pagination/pagination.test.ts`
 
+### DOCE-PAGINATION-7.7 - The layout
+
+`pageMap(state)` shall give the layout of the document a state shows (`PageMap`), made once for each document and joined by the fragment rules of the state's pagination, or `FRAGMENT_RULES` with none; `createPageMap(paged, rules)` shall make one for any paged document. `pages()` shall list its pages in order (`LaidOutPage`): each with its number through the document from 1, its section's index from 0, and its page node and where it starts in the paged document. `pageAt(pos)` shall give the page holding a position in the canonical whole document (DOCE-PAGINATION-6.1), the page after a break that falls inside a block by default and the page before it with `assoc` -1, or null where no page holds it; a footnote entry's position gives the page that shows the entry. `pageOf(elementId)` shall give the first page holding the element with that id, or null. Reading the pages and elements shall not join the pages; the first position mapped does, once.
+
+Implementation: `src/pagination/page-map.ts`, `labs/src/pagination.lab.ts`
+Verification: `src/pagination/page-map.test.ts`, `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-7.8 - Positions between the pages and the canonical document
+
+`toCanonical(pos)` and `toProjection(pos)` shall map a position between the paged document (the projection) and its canonical whole document (`canonical`) through the page transform's steps, so every position in the content's text maps exactly both ways. A projection position at the end of a textblock shall keep to the text before it unless `assoc` says otherwise; a canonical position where a page break falls inside a block shall map after the break, or before it with `assoc` -1. Positions the transform moves or drops shall be found again at the same offset: inside a footnote entry, in the entry of the same footnote, and inside a header row a table continuation repeats, in the canonical table's row. A position found in neither shall map to null.
+
+Implementation: `src/pagination/page-map.ts`, `src/pagination/page-map-redirects.ts`
+Verification: `src/pagination/page-map.test.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

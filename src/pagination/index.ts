@@ -11,6 +11,8 @@ export type { FootnoteArea } from './measure-footnotes.js';
 export { footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 export type { PageDebugParts } from './page-debug.js';
 export { createPageDebug, pageDebugKey } from './page-debug.js';
+export type { LaidOutPage, PageMap } from './page-map.js';
+export { createPageMap, pageMap } from './page-map.js';
 export type { PageVariablesOptions, VariableValue } from './page-variables.js';
 export { createPageVariables, pageVariablesKey, refreshPageVariables } from './page-variables.js';
 export type { Pagination, PaginationOptions } from './pagination.js';

@@ -1,5 +1,7 @@
 // How a host presents the document's rendered elements: the names and texts the schema writes
-// that are the host's choice rather than the document's.
+// that are the host's choice rather than the document's, and the host's own identity attributes.
+
+import type { IdentityAttribute } from './element-attributes.js';
 
 /** The host's choices for the document schema's rendered output. */
 export interface DocumentSchemaOptions {
@@ -25,6 +27,11 @@ export interface DocumentSchemaOptions {
    * catalogue it keeps. A reference of one renders its format key for templates to style.
    */
   referenceTypes?: readonly string[] | undefined;
+  /**
+   * The host's own identity attributes, such as an element's review state, which every node type
+   * in their scope carries, reads and writes beside the built-in ones (DOCE-SCHEMA-2.3).
+   */
+  identityAttributes?: readonly IdentityAttribute[] | undefined;
 }
 
 /** The options with every default applied. */
@@ -41,6 +48,7 @@ export function resolveSchemaOptions(options: DocumentSchemaOptions = {}): Resol
     footerPlaceholder: options.footerPlaceholder ?? 'Footer (Template)',
     assetPreviewUrl: options.assetPreviewUrl ?? (() => ''),
     referenceTypes: options.referenceTypes ?? [],
+    identityAttributes: options.identityAttributes ?? [],
   };
 }
 

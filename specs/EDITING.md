@@ -32,14 +32,21 @@ Verification: `src/engine/document-editing.test.ts`
 Implementation: `src/engine/element-ids.ts`, `src/components/document-editor/use-host-events.ts`
 Verification: `src/engine/document-editing.test.ts`
 
+### DOCE-EDITING-1.5 - Copies are new
+
+`clearCopiedIdentity(slice)` shall make pasted content new: every element in it has the identity attributes a copy clears reset (DOCE-SCHEMA-2.3), and its text loses its contributor marks, so the element ids give the copy fresh ids attributed to its paster and the original keeps its own, wherever the copy lands. The slice keeps its open depths. Content moved by dragging it within the document is the same content and keeps its identity, so the clipboard pipeline runs the filter on pastes and copied drops only.
+
+Implementation: `src/engine/element-ids.ts`
+Verification: `src/engine/element-ids.test.ts`
+
 ## DOCE-EDITING-2 - Keys
 
 ### DOCE-EDITING-2.1 - Formatting and block types
 
-`Mod-b`, `Mod-i`, `Mod-u`, `Mod-Shift-s`, `Mod-.`, `Mod-,` and `Mod-Alt-i` shall toggle bold, italic, underline, strikethrough, superscript, subscript and code. `Mod-Shift-1` to `Mod-Shift-6` shall make the selected blocks headings of that level and `Mod-Shift-0` paragraphs (`setTextblockType`, which the toolbar and menubar run too); a block whose type changes keeps its identity: its element id, its author and the parts it is split into; its look, such as a custom style, is the new type's. `Mod-\` shall clear character formatting and turn headings back into paragraphs; links, comments and suggestions stay.
+`Mod-b`, `Mod-i`, `Mod-u`, `Mod-Shift-s`, `Mod-.`, `Mod-,` and `Mod-Alt-i` shall toggle bold, italic, underline, strikethrough, superscript, subscript and code. `Mod-Shift-1` to `Mod-Shift-6` shall make the selected blocks headings of that level and `Mod-Shift-0` paragraphs (`setTextblockType`, which the toolbar and menubar run too); a block whose type changes keeps its identity attributes (DOCE-SCHEMA-2.3): its element id, its author, the parts it is split into and the host's own; its look, such as a custom style, is the new type's. `Mod-\` shall clear character formatting and turn headings back into paragraphs; links, comments and suggestions stay.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`, `src/engine/block-type.ts`
-Verification: `src/engine/document-editing.test.ts`
+Verification: `src/engine/document-editing.test.ts`, `src/engine/block-type.test.ts`
 
 ### DOCE-EDITING-2.2 - Lists
 
@@ -105,6 +112,26 @@ Verification: `src/engine/block-place.test.ts`
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`
 Verification: `src/engine/document-editing.test.ts`
+
+### DOCE-EDITING-3.2 - Transaction kinds
+
+`src/engine/transaction-kind.ts` shall name what kind of change a transaction is, so every plugin decides the same way whether to act on it:
+
+- A remote change (`markRemote`, `isRemoteTransaction`, DOCE-COLLAB-2.1) came from elsewhere.
+- A derived change (`markDerived`, `isDerivedTransaction`) is one a plugin made from other changes: marked, or appended by a plugin's `appendTransaction`. It stays out of the undo history.
+- A system change (`markSystemChange`, `isSystemChange`) is one the library or the host made for the writer, such as a template update or a script's output. It keeps its history setting.
+- A local edit (`isLocalEdit(tr, isRemote)`) changes the document and is none of the three; `isRemote` defaults to `isRemoteTransaction`, so an editor that recognises remote changes another way passes its own test.
+- An inline text change (`isInlineTextOnly`) has steps that each only type or delete text inside one textblock: no block boundary, inline node, mark or attribute changes. A transaction without steps is not one.
+
+Implementation: `src/engine/transaction-kind.ts`
+Verification: `src/engine/transaction-kind.test.ts`
+
+### DOCE-EDITING-3.3 - No derived writes on remote changes
+
+A plugin that writes to the document in response to other changes (element ids, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
+
+Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/two-state-collab.test.ts`
 
 ## DOCE-EDITING-4 - Locked positions
 
