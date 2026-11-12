@@ -64,6 +64,25 @@ describe('createMemoryHost', () => {
     });
   });
 
+  it('DOCE-TEMPLATES-11.2 loads the revision a document pins, or the latest', async () => {
+    const host = createMemoryHost({
+      templates: [
+        { formatVersion: 1, id: 't', name: 'First' },
+        { formatVersion: 1, id: 't', name: 'Second' },
+      ],
+    });
+    await expect(host.templates?.load('t')).resolves.toMatchObject({
+      value: { template: { name: 'Second' }, revision: 'rev-2' },
+    });
+    await expect(host.templates?.load('t', { revision: 'rev-1' })).resolves.toMatchObject({
+      value: { template: { name: 'First' }, revision: 'rev-1' },
+    });
+    await expect(host.templates?.load('t', { revision: 'rev-9' })).resolves.toMatchObject({
+      ok: false,
+      error: { kind: 'not-found' },
+    });
+  });
+
   it('DOCE-HOST-3.3 finds and resolves people, including the reader', async () => {
     const { identity } = createMemoryHost({
       person: { id: 'p1', name: 'Ada Lovelace' },

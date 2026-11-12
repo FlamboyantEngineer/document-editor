@@ -96,7 +96,7 @@ const BULLETS: [string, string][] = [
   ['disc', '• Disc'],
   ['circle', '◦ Circle'],
   ['square', '▪ Square'],
-  ['"– "', '– Dash'],
+  ['–', '– Dash'],
   ['none', 'None'],
 ];
 
@@ -244,7 +244,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Table of contents',
     scope: ['styles', 'contents'],
     settings: [
-      setting('leader', 'Leader', text),
+      setting('leader.character', 'Leader', text),
       setting('title.size', 'Title size', points),
       setting('entry.size', 'Entry size', points),
     ],

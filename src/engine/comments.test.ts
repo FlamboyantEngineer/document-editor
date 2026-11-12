@@ -85,6 +85,29 @@ describe('comment anchors', () => {
     expect(run(blank, addCommentAnchor('t1'))).toBeNull();
   });
 
+  it('DOCE-COMMENTS-1.7 gives the same document whichever thread is anchored first', () => {
+    const state = selected('Alpha', 'Gamma');
+    const anchor = (first: string, second: string) => {
+      const once = run(state, addCommentAnchor(first));
+      return once && run(once, addCommentAnchor(second));
+    };
+    const ab = anchor('t1', 't2');
+    const ba = anchor('t2', 't1');
+    expect(ab && ba && ab.doc.eq(ba.doc)).toBe(true);
+    const marks = ab?.doc.nodeAt(positionOf(state.doc, 'blue'))?.marks ?? [];
+    expect(marks.map((mark) => mark.attrs.commentId)).toEqual(['t1', 't2']);
+  });
+
+  it('DOCE-COMMENTS-1.7 keeps anchors in order when a thread is resolved or reopened', () => {
+    const state = selected('Alpha', 'Gamma');
+    const both = run(run(state, addCommentAnchor('t1')) ?? state, addCommentAnchor('t2'));
+    const resolved = both && run(both, setCommentState('t1', 'resolved'));
+    const reopened = resolved && run(resolved, setCommentState('t1', 'open'));
+    expect(reopened && both && reopened.doc.eq(both.doc)).toBe(true);
+    const marks = resolved?.doc.nodeAt(positionOf(state.doc, 'blue'))?.marks ?? [];
+    expect(marks.map((mark) => mark.attrs.commentId)).toEqual(['t1', 't2']);
+  });
+
   it('DOCE-COMMENTS-1.2 lists anchors in reading order, one per thread', () => {
     const late = run(selected('Gamma', 'Gamma'), addCommentAnchor('late'));
     const from = late ? positionOf(late.doc, 'Alpha') : 0;
