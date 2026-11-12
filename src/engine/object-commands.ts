@@ -173,9 +173,10 @@ export const convertMath: Command = (state, dispatch) => {
   return true;
 };
 
-/** A figure to insert: an image stored as an asset, or by URL. */
+/** A figure to insert: an image or a diagram stored as an asset, or an image by URL. */
 export interface FigureSource {
-  readonly figureType?: string | undefined;
+  /** `image` (the default) or `diagram`. */
+  readonly figureType?: 'image' | 'diagram' | undefined;
   readonly src?: string | undefined;
   readonly fileAssetId?: string | undefined;
   readonly snapshotId?: string | undefined;
@@ -184,13 +185,19 @@ export interface FigureSource {
   /** In CSS pixels; the height keeps the image's proportions when only the width is given. */
   readonly width?: number | null | undefined;
   readonly height?: number | null | undefined;
+  /** How it sits across the content width; null for the template's default. */
+  readonly objectLayout?: 'left' | 'center' | 'right' | 'fit' | null | undefined;
 }
+
+// The stored layout of an object: `fit` is stored as fitting the page's width.
+const storedLayout = (layout: 'left' | 'center' | 'right' | 'fit' | null | undefined) =>
+  layout === 'fit' ? 'fit-page-width' : layout;
 
 // A figure source's attributes, leaving out those it does not give.
 function figureAttrs(source: FigureSource) {
   return Object.fromEntries(
     Object.entries({
-      figureType: source.figureType ?? 'image',
+      figureType: source.figureType,
       src: source.src,
       fileAssetId: source.fileAssetId,
       snapshotId: source.snapshotId,
@@ -198,6 +205,7 @@ function figureAttrs(source: FigureSource) {
       caption: source.caption,
       width: source.width,
       height: source.height,
+      objectLayout: storedLayout(source.objectLayout),
     }).filter(([, value]) => value !== undefined),
   );
 }
@@ -232,7 +240,10 @@ export function setObjectLayout(layout: 'left' | 'center' | 'right' | 'fit' | nu
     const found = nodeAtSelection(state, ['figure', 'table']);
     if (!found || !('objectLayout' in found.node.attrs)) return false;
     dispatch?.(
-      state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, objectLayout: layout }),
+      state.tr.setNodeMarkup(found.pos, undefined, {
+        ...found.node.attrs,
+        objectLayout: storedLayout(layout),
+      }),
     );
     return true;
   };

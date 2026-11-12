@@ -23,11 +23,11 @@ const writeRules: RoomWriteRules = {
   otherwise: 'write-outside-layout',
 };
 
-function roomCapabilities({ edit, suggest, comment }: EditorCapabilities): string[] {
+function roomCapabilities({ edit, suggest, decide, comment }: EditorCapabilities): string[] {
   const capabilities: string[] = [];
-  if (edit || suggest) capabilities.push('write-content');
+  if (edit || suggest || decide) capabilities.push('write-content');
   if (edit) capabilities.push('write-meta');
-  if (edit || suggest || comment) capabilities.push('write-comments');
+  if (edit || suggest || decide || comment) capabilities.push('write-comments');
   return capabilities;
 }
 
@@ -35,6 +35,7 @@ const READERS: Record<string, EditorCapabilities> = {
   editor: FULL_CAPABILITIES,
   suggester: { ...READ_ONLY_CAPABILITIES, suggest: true, comment: true },
   commenter: { ...READ_ONLY_CAPABILITIES, comment: true },
+  decider: { ...READ_ONLY_CAPABILITIES, decide: true },
   reader: READ_ONLY_CAPABILITIES,
 };
 
@@ -150,6 +151,16 @@ describe('the shared room write rules', () => {
     await confirmed(suggester);
     suggester.doc.get('meta').setAttr('formatVersion', 1);
     await refusedWrite(suggester);
+  });
+
+  it('DOCE-COLLAB-6.1 lets a reader who decides on suggestions write content and comments', async () => {
+    const room = openRoom();
+    const decider = await room.join('decider');
+    decider.doc.get('content').setAttr('title', 'Accepted');
+    decider.doc.get('comments').setAttr('thread-1', { decision: 'accepted' });
+    await confirmed(decider);
+    decider.doc.get('meta').setAttr('formatVersion', 1);
+    await refusedWrite(decider);
   });
 
   it('DOCE-COLLAB-6.1 refuses a type outside the layout and admits a reader read-only', async () => {

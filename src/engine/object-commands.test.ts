@@ -123,6 +123,23 @@ describe('object commands', () => {
     expect(figure().attrs.objectLayout).toBe('center');
   });
 
+  it('DOCE-OBJECTS-1.4 keeps a diagram a diagram and stores fitting the page width', () => {
+    let state = run(
+      atStart(stateOf(paragraph(''))),
+      insertFigure({ figureType: 'diagram', fileAssetId: 'd1', snapshotId: 's1', width: 400 }),
+    );
+    const figure = () => (state.selection as NodeSelection).node;
+    state = run(state, setFigure({ caption: 'Flow', objectLayout: 'right' }));
+    expect(figure().attrs).toMatchObject({
+      figureType: 'diagram',
+      fileAssetId: 'd1',
+      caption: 'Flow',
+      objectLayout: 'right',
+    });
+    state = run(state, setObjectLayout('fit'));
+    expect(figure().attrs.objectLayout).toBe('fit-page-width');
+  });
+
   it('DOCE-OBJECTS-1.4 inserts figures one after another, never over the one selected', () => {
     let state = run(
       atStart(stateOf(paragraph(''))),
