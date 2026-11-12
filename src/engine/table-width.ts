@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Mapping } from 'prosemirror-transform';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
+import { isRemoteTransaction } from './transaction-kind.js';
 
 // The widths of a table's columns, from the cells of its first row; null while one is unset.
 function widthsOf(table: ProseMirrorNode): number[] | null {
@@ -71,14 +72,19 @@ function setWidths(
 export interface TableWidthOptions {
   /** The width a table may take in a section, in CSS pixels: the width of its pages' content. */
   readonly maxWidth: (sectionName: string | null) => number;
+  /** Whether a change came from elsewhere, already fitted there. Defaults to `isRemoteTransaction`. */
+  readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
 }
 
 /** Keeps the tables a change widens within the page's content width. */
-export function createTableWidth({ maxWidth }: TableWidthOptions): Plugin {
+export function createTableWidth({
+  maxWidth,
+  isRemote = isRemoteTransaction,
+}: TableWidthOptions): Plugin {
   return new Plugin({
     key: new PluginKey('table-width'),
     appendTransaction(transactions, before, after) {
-      if (!transactions.some((tr) => tr.docChanged)) return null;
+      if (!transactions.some((tr) => tr.docChanged && !isRemote(tr))) return null;
       // Where each table was before the changes, to tell the columns that grew.
       const back = new Mapping(transactions.flatMap((each) => each.mapping.maps)).invert();
       const tr = after.tr;

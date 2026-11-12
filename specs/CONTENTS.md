@@ -1,6 +1,6 @@
 # Contents
 
-A list of contents (`toc_block`, stored as `contents`) lists one kind of a document's nodes, such as its headings, one kind of its captioned objects, or any node type a host configures, with the number each shows and the page it is on. The list is drawn by the editor from the document as it is now, never stored, and a list longer than the room left on a page continues on the next page.
+A list of contents (`toc_block`, stored as `contents`) lists one kind of a document's nodes or marks, such as its headings, one kind of its captioned objects, the documents it cites, its abbreviations, or any node or mark type a host configures, with the number each shows and the page it is on. The list is drawn by the editor from the document as it is now, never stored, and a list longer than the room left on a page continues on the next page.
 
 ## DOCE-CONTENTS-1 - The catalog
 
@@ -20,17 +20,31 @@ Verification: `src/model/contents/document-catalog.test.ts`
 
 ### DOCE-CONTENTS-1.3 - Configured kinds
 
-A kind (`ContentsKind`) shall name the node types it lists, and may choose which of them it lists (`include`), an entry's text (`text`, the node's caption or its text by default), its level (`level`, a heading's level, or 0 for other nodes) and a number for nodes the template does not number (`number`). An entry of a heading or a numbered object shall show the template's number. The parts a split node continues on shall not be listed again.
+A kind (`ContentsKind`) shall name the node types it lists, and the mark types (`marks`), each run of text carrying one being one entry at the run's start, and may choose which of them it lists (`include`), an entry's text (`text`, the node's caption or its text, or the run's text, by default), its level (`level`, a heading's level, or 0 for other nodes) and a number for nodes the template does not number (`number`). An entry of a heading or a numbered object shall show the template's number. The parts a split node continues on shall not be listed again.
 
 Implementation: `src/model/contents/document-catalog.ts`
 Verification: `src/model/contents/document-catalog.test.ts`
 
 ### DOCE-CONTENTS-1.4 - Ordering and showing a kind's entries
 
-A kind may order its entries (`sort`), such as by their text, in place of document order, and list only the first entry of each text (`unique`); a list of the kind shall leave out its entries' page numbers (`showPage: false`) or their leaders (`leader: false`).
+A kind may order its entries (`sort`), such as by their text, in place of document order, and list only the first entry of each number and text (`unique`); a list of the kind shall leave out its entries' page numbers (`showPage: false`) or their leaders (`leader: false`).
 
 Implementation: `src/model/contents/document-catalog.ts`, `src/engine/contents.ts`
 Verification: `src/model/contents/document-catalog.test.ts`, `e2e/contents.spec.ts`
+
+### DOCE-CONTENTS-1.5 - References
+
+The default `references` kind shall list each document the document cites with an external reference (a `reference` mark whose type is not `internal-…`), once, in the order it is first cited: the cited document's number as the entry's number and its title, or the catalogue entry's label, as its text, as the citation recorded them. A list of references shall show neither page numbers nor leaders.
+
+Implementation: `src/model/contents/document-catalog.ts`
+Verification: `src/model/contents/document-catalog.test.ts`
+
+### DOCE-CONTENTS-1.6 - Abbreviations
+
+The default `abbreviations` kind shall list each abbreviation the document uses (`abbreviation_reference`), once, in alphabetical order: the abbreviation as the entry's number and its expansion as its text, as the document last read them from the glossary. A list of abbreviations shall show neither page numbers nor leaders.
+
+Implementation: `src/model/contents/document-catalog.ts`
+Verification: `src/model/contents/document-catalog.test.ts`
 
 ## DOCE-CONTENTS-2 - Lists of contents
 
@@ -71,16 +85,16 @@ Verification: `e2e/contents.spec.ts`
 
 ## Hooks
 
-| Hook                  | Kind      | Values                                                | Description                                     |
-| --------------------- | --------- | ----------------------------------------------------- | ----------------------------------------------- |
-| `de-contents`         | root      |                                                       | A list of contents.                             |
-| `de-contents__title`  | slot      |                                                       | The list's title, on its first part only.       |
-| `de-contents__empty`  | slot      |                                                       | The text shown when there is nothing to list.   |
-| `de-contents__entry`  | slot      |                                                       | One entry, a link to what it names.             |
-| `de-contents__number` | slot      |                                                       | The number the entry's heading or object shows. |
-| `de-contents__text`   | slot      |                                                       | The entry's text.                               |
-| `de-contents__leader` | slot      |                                                       | The leader between the text and the page.       |
-| `de-contents__page`   | slot      |                                                       | The page the entry is on.                       |
-| `data-contents-type`  | attribute | `toc`, `figures`, `tables`, `codeBlocks`, `equations` | The kind the list lists, or a configured kind.  |
-| `data-level`          | state     |                                                       | An entry's heading level.                       |
-| `data-de-measure-key` | state     |                                                       | What the list's rendering depends on.           |
+| Hook                  | Kind      | Values                                                                               | Description                                     |
+| --------------------- | --------- | ------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `de-contents`         | root      |                                                                                      | A list of contents.                             |
+| `de-contents__title`  | slot      |                                                                                      | The list's title, on its first part only.       |
+| `de-contents__empty`  | slot      |                                                                                      | The text shown when there is nothing to list.   |
+| `de-contents__entry`  | slot      |                                                                                      | One entry, a link to what it names.             |
+| `de-contents__number` | slot      |                                                                                      | The number the entry's heading or object shows. |
+| `de-contents__text`   | slot      |                                                                                      | The entry's text.                               |
+| `de-contents__leader` | slot      |                                                                                      | The leader between the text and the page.       |
+| `de-contents__page`   | slot      |                                                                                      | The page the entry is on.                       |
+| `data-contents-type`  | attribute | `toc`, `figures`, `tables`, `codeBlocks`, `equations`, `references`, `abbreviations` | The kind the list lists, or a configured kind.  |
+| `data-level`          | state     |                                                                                      | An entry's heading level.                       |
+| `data-de-measure-key` | state     |                                                                                      | What the list's rendering depends on.           |

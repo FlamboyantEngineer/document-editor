@@ -4,6 +4,7 @@
 
 import type { Mark, MarkType, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, EditorState, Transaction } from 'prosemirror-state';
+import { addMarkInOrder } from '../model/index.js';
 
 /** Whether a comment thread is open or resolved. */
 export type CommentState = 'open' | 'resolved';
@@ -103,7 +104,7 @@ export function anchorCommentRange(
 ): boolean {
   const type = anchorType(tr.doc.type.schema);
   if (!type || from >= to || !tr.doc.textBetween(from, to).trim()) return false;
-  tr.addMark(from, to, type.create({ commentId: thread, commentState: 'open' }));
+  addMarkInOrder(tr, { from, to }, type.create({ commentId: thread, commentState: 'open' }));
   return true;
 }
 
@@ -117,7 +118,11 @@ export function addCommentAnchor(thread: string): Command {
     const { from, to, empty } = state.selection;
     if (!type || empty || !selectedText(state).trim()) return false;
     dispatch?.(
-      state.tr.addMark(from, to, type.create({ commentId: thread, commentState: 'open' })),
+      addMarkInOrder(
+        state.tr,
+        { from, to },
+        type.create({ commentId: thread, commentState: 'open' }),
+      ),
     );
     return true;
   };
@@ -154,7 +159,7 @@ export function setCommentState(thread: string, next: CommentState): Command {
         (mark) => mark.type === type && mark.attrs.commentId === thread,
         ([from, to], mark) => {
           tr.removeMark(from, to, mark);
-          tr.addMark(from, to, type.create({ ...mark.attrs, commentState: next }));
+          addMarkInOrder(tr, { from, to }, type.create({ ...mark.attrs, commentState: next }));
         },
       );
     if (found && tr.docChanged) dispatch?.(tr);
@@ -190,7 +195,7 @@ export function linkSuggestionThread(suggestion: string, thread: string): Comman
         (mark.type === insertion || mark.type === deletion) && mark.attrs.dataId === suggestion,
       ([from, to], mark) => {
         tr.removeMark(from, to, mark);
-        tr.addMark(from, to, mark.type.create({ ...mark.attrs, commentId: thread }));
+        addMarkInOrder(tr, { from, to }, mark.type.create({ ...mark.attrs, commentId: thread }));
       },
     );
     if (found) dispatch?.(tr);

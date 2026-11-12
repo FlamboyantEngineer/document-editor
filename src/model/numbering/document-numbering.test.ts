@@ -54,7 +54,7 @@ describe('document numbering content', () => {
     expect(escapeCssContent('')).toBe('');
   });
 
-  it('DOCE-NUMBERING-2.5 reads a paragraph style numbering, off without a format', () => {
+  it('DOCE-NUMBERING-2.5 reads a paragraph style numbering, off without a format or switched off', () => {
     const levels = [{ format: 'a)' }];
     const config = resolveParagraphNumberingConfig({
       numbering: { format: '1.', prefix: 'P', levels },
@@ -68,5 +68,10 @@ describe('document numbering content', () => {
     const off = { levels: [], trailingSeparator: '', hasTrailingSeparator: false };
     expect(resolveParagraphNumberingConfig({ numbering: { format: '' } }).styleConfig).toEqual(off);
     expect(resolveParagraphNumberingConfig(null).styleConfig).toEqual(off);
+    const switchedOff = resolveParagraphNumberingConfig({
+      numbering: { enabled: false, format: '1.', levels: [null, { format: 'a)' }] },
+    });
+    expect(switchedOff.styleConfig).toEqual(off);
+    expect(switchedOff.levels).toEqual([{}, { format: 'a)' }]);
   });
 });
