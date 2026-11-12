@@ -30,7 +30,7 @@ Each file in this directory specifies one component, one family of components, o
 | [SEARCH.md](SEARCH.md)                   | Finding and replacing text, and the editor's find bar.                          |
 | [OUTLINE.md](OUTLINE.md)                 | The document's headings, for a navigation panel.                                |
 | [TEMPLATE-EDITOR.md](TEMPLATE-EDITOR.md) | Editing a template's settings beside the document it styles.                    |
-| [SESSION.md](SESSION.md)                 | Opening, saving and guarding a document in a session, and its status UI.        |
+| [SESSION.md](SESSION.md)                 | Opening a document by id, keeping its changes and the session's status.         |
 | [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.                    |
 | [LABS.md](LABS.md)                       | Starting the labs, and the lab toolbar's stylesheet and theme.                  |
 | [ENTRY-POINTS.md](ENTRY-POINTS.md)       | The package's entry points and which of them a server imports.                  |

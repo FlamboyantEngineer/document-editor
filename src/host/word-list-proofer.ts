@@ -2,7 +2,12 @@
 // spelling issue whose suggestions are the word's corrections, with the found word's capital kept.
 // It stands in for a host's proofer in tests and labs. Added words are no longer flagged.
 
-import type { ProoferAdapter, ProofingIssue, ProofingKind, ProofingLanguage } from './adapters.js';
+import type {
+  ProoferAdapter,
+  ProofingIssue,
+  ProofingKind,
+  ProofingLanguage,
+} from './proofing-adapters.js';
 
 /** The misspellings a word-list proofer flags. */
 export interface WordListProoferOptions {

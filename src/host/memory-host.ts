@@ -5,16 +5,12 @@ import { sliceCodeLines } from '../model/linked-code.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
-  DocumentStoreAdapter,
-  DocumentVersion,
   EditorHost,
   EditorPerson,
   ExternalReference,
   GlossaryAdapter,
-  HostResult,
   IdentityAdapter,
   ReferenceSourceAdapter,
-  SavedState,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptVocabularyEntry,
@@ -26,6 +22,19 @@ import type {
 } from './adapters.js';
 import { type EditorCapabilities, FULL_CAPABILITIES } from './capabilities.js';
 import { createMemoryComments, type MemoryCommentsOptions } from './memory-comments.js';
+import {
+  createMemoryDocuments,
+  createMemoryHistory,
+  createMemoryVersions,
+  notFound,
+  savedState,
+} from './memory-documents.js';
+import {
+  createMemoryDrafts,
+  createMemorySessionParts,
+  type MemoryHostControls,
+} from './memory-session.js';
+import type { DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
 
 export interface MemoryHostOptions {
   /** The reader. Defaults to a person named Reader. */
@@ -56,10 +65,6 @@ export interface MemoryHostOptions {
 
 const DEFAULT_PERSON: EditorPerson = { id: 'reader', name: 'Reader' };
 
-function notFound<T>(id: string): HostResult<T> {
-  return { ok: false, error: { kind: 'not-found', message: `No item with id ${id}.` } };
-}
-
 function createMemoryIdentity(person: EditorPerson, people: readonly EditorPerson[]) {
   const everyone = [person, ...people.filter((other) => other.id !== person.id)];
   const identity: IdentityAdapter = {
@@ -74,58 +79,6 @@ function createMemoryIdentity(person: EditorPerson, people: readonly EditorPerso
     },
   };
   return identity;
-}
-
-// The in-memory host's revisions are opaque text, as a host's may be; the sequence orders them.
-function savedState(sequence: number): SavedState {
-  return { revision: `rev-${String(sequence)}`, sequence };
-}
-
-// Every saved state of each document, oldest first, which the documents and versions share.
-type History = Map<string, (DocumentVersion & { content: DocumentFile })[]>;
-
-function createMemoryDocuments(
-  history: History,
-  record: (documentId: string, content: DocumentFile, sequence: number) => void,
-): DocumentStoreAdapter {
-  const latest = (documentId: string) => history.get(documentId)?.at(-1);
-  return {
-    load: (documentId) => {
-      const version = latest(documentId);
-      if (!version) return Promise.resolve(notFound(documentId));
-      const { revision, sequence, content } = version;
-      return Promise.resolve({
-        ok: true,
-        value: structuredClone({ id: documentId, revision, sequence, content }),
-      });
-    },
-    save: (documentId, save) => {
-      const current = latest(documentId);
-      if (!current) return Promise.resolve(notFound(documentId));
-      if (current.revision !== save.baseRevision) {
-        return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
-      }
-      record(documentId, save.content, current.sequence + 1);
-      return Promise.resolve({ ok: true, value: savedState(current.sequence + 1) });
-    },
-  };
-}
-
-function createMemoryVersions(history: History): VersionStoreAdapter {
-  return {
-    list: (documentId) => {
-      const versions = history.get(documentId);
-      if (!versions) return Promise.resolve(notFound(documentId));
-      const listed = versions.map(({ content: _, ...version }) => version).reverse();
-      return Promise.resolve({ ok: true, value: structuredClone(listed) });
-    },
-    load: (documentId, revision) => {
-      const version = history.get(documentId)?.find((each) => each.revision === revision);
-      return Promise.resolve(
-        version ? { ok: true, value: structuredClone(version.content) } : notFound(revision),
-      );
-    },
-  };
 }
 
 // Each template's revisions, oldest first: a template listed again is its next revision.
@@ -269,33 +222,69 @@ function createMemoryScripts(
   };
 }
 
+/** An in-memory host, with the controls a lab or test changes it through while it runs. */
+export interface MemoryHost extends EditorHost {
+  drafts: DraftsAdapter;
+  lifecycle: LifecycleAdapter;
+  memory: MemoryHostControls;
+}
+
+// The stores' requests, each taking the latency set and failing as the controls say.
+function withFaults(
+  {
+    documents,
+    versions,
+    templates,
+    drafts,
+  }: Pick<MemoryHost, 'documents' | 'drafts'> & {
+    versions: VersionStoreAdapter;
+    templates: TemplateSourceAdapter;
+  },
+  faulty: ReturnType<typeof createMemorySessionParts>['faulty'],
+) {
+  return {
+    documents: {
+      ...documents,
+      load: faulty('documents.load', documents.load),
+      save: faulty('documents.save', documents.save),
+    },
+    versions: {
+      ...versions,
+      list: faulty('versions.list', versions.list),
+      load: faulty('versions.load', versions.load),
+      ...(versions.create ? { create: faulty('versions.create', versions.create) } : {}),
+    },
+    templates: { ...templates, load: faulty('templates.load', templates.load) },
+    drafts: { ...drafts, put: faulty('drafts.put', drafts.put) },
+  };
+}
+
 /**
  * A complete host that keeps everything in memory, for demos, tests and standalone use. Saves check
- * the base revision, so conflict handling can be exercised without a server.
+ * the base revision, so conflict handling can be exercised without a server; `memory` injects
+ * latency and failures, changes the reader's capabilities and drives the page lifecycle.
  */
-export function createMemoryHost(options: MemoryHostOptions = {}): EditorHost {
-  const capabilities = options.capabilities ?? FULL_CAPABILITIES;
+export function createMemoryHost(options: MemoryHostOptions = {}): MemoryHost {
   const identity = createMemoryIdentity(options.person ?? DEFAULT_PERSON, options.people ?? []);
   const now = options.now ?? (() => new Date());
-  const history: History = new Map();
-  const record = (documentId: string, content: DocumentFile, sequence: number) => {
-    const versions = history.get(documentId) ?? [];
-    versions.push({
-      ...savedState(sequence),
-      savedAt: now().toISOString(),
-      author: identity.currentPerson().id,
-      label: null,
-      content: structuredClone(content),
-    });
-    history.set(documentId, versions);
-  };
-  for (const document of options.documents ?? []) record(document.id, document.content, 1);
+  const history = createMemoryHistory(() => identity.currentPerson().id, now);
+  for (const document of options.documents ?? []) history.record(document.id, document.content);
+  const session = createMemorySessionParts(options.capabilities ?? FULL_CAPABILITIES);
+  const stores = withFaults(
+    {
+      documents: createMemoryDocuments(history),
+      versions: createMemoryVersions(history),
+      templates: createMemoryTemplates(options.templates ?? []),
+      drafts: createMemoryDrafts(),
+    },
+    session.faulty,
+  );
   return {
     identity,
-    permissions: { capabilities: () => Promise.resolve(capabilities) },
-    documents: createMemoryDocuments(history, record),
-    versions: createMemoryVersions(history),
-    templates: createMemoryTemplates(options.templates ?? []),
+    permissions: session.permissions,
+    ...stores,
+    lifecycle: session.lifecycle,
+    memory: session.controls,
     assets: createMemoryAssets(),
     codeSource: createMemoryCodeSource(options.code ?? {}),
     glossary: createMemoryGlossary(options.glossary ?? [], now),

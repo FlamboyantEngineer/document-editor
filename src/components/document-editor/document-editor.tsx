@@ -65,7 +65,11 @@ import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
 import { useLayoutTap } from './use-editor-telemetry.js';
-import { type DocumentEditorNotifications, useElementIdRepair } from './use-host-events.js';
+import {
+  type DocumentEditorNotifications,
+  useActiveProps,
+  useElementIdRepair,
+} from './use-host-events.js';
 import { usePagedEditor, usePagedView } from './use-paged-projection.js';
 
 /** How suggestions show in the document. */
@@ -103,6 +107,12 @@ export interface DocumentEditorProps
   layout?: DocumentLayout | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
   editable?: boolean | undefined;
+  /**
+   * Whether the editor is shown. A hidden editor, such as one in a background tab, keeps showing
+   * the state it last showed, so it lays out, measures and proofs nothing, and shows the latest
+   * state once it is active again. Defaults to true.
+   */
+  active?: boolean | undefined;
   /** Whether an editable document takes changes as suggestions (`suggestTransaction`). */
   suggesting?: boolean | undefined;
   /** The writer suggestions are attributed to. */
@@ -330,7 +340,8 @@ function useEditorLayout(
  * its toolbar above the document and its status bar below it, and scrolls the document itself,
  * with overlay scrollbars.
  */
-export function DocumentEditor(props: DocumentEditorProps) {
+export function DocumentEditor(given: DocumentEditorProps) {
+  const props = useActiveProps(given);
   const { state, template, layout = 'page', editable = true } = props;
   const { className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
