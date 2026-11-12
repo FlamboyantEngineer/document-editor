@@ -1,7 +1,8 @@
 // Views of the objects their markup does not draw whole: code with a gutter of line numbers from
-// its first line's number and its tokens highlighted, and signatures drawn from their stored
-// vector with the signer's name, or as the place a signature goes until it is signed. They draw in
-// every view, the pages' measuring view too. A selected block object is kept from typing.
+// its first line's number and its tokens highlighted (painted over, in code blocks), and
+// signatures drawn from their stored vector with the signer's name, or as the place a signature
+// goes until it is signed. They draw in every view, the pages' measuring view too. A selected
+// block object is kept from typing.
 
 import { DOMSerializer, type Node as ProseMirrorNode } from 'prosemirror-model';
 import {
@@ -11,7 +12,7 @@ import {
   Plugin,
   PluginKey,
 } from 'prosemirror-state';
-import type { DecorationSet, EditorView, NodeView } from 'prosemirror-view';
+import { DecorationSet, type EditorView, type NodeView } from 'prosemirror-view';
 import { normalizeSignatureVector } from '../model/index.js';
 import {
   cancelCaptionOf,
@@ -23,12 +24,7 @@ import {
   updateCaptionEditing,
 } from './caption-views.js';
 import type { CaptionedObject } from './captions.js';
-import {
-  codeTokenAttrs,
-  highlightCode,
-  highlightCodeBlocks,
-  updateCodeHighlighting,
-} from './code-highlighting.js';
+import { codeTokenAttrs, highlightCode, paintCodeHighlights } from './code-highlighting.js';
 
 /** The line numbers of a code text, from its first line's number, one per line. */
 export function lineNumbers(code: string, first = 1): string {
@@ -171,9 +167,8 @@ export interface ObjectViewsOptions {
   readonly lineNumbers?: LineNumbers | undefined;
 }
 
-/** What the object views keep: the code's highlighting and the caption edited in place. */
+/** What the object views keep: the caption edited in place. */
 interface ObjectViewsState {
-  readonly highlighting: DecorationSet;
   readonly caption: number | null;
 }
 
@@ -210,17 +205,14 @@ export function createObjectViews({
   return new Plugin<ObjectViewsState>({
     key,
     state: {
-      init: (_config, state) => ({ highlighting: highlightCodeBlocks(state.doc), caption: null }),
-      apply: (tr, value) => ({
-        highlighting: updateCodeHighlighting(tr, value.highlighting),
-        caption: updateCaptionEditing(key, tr, value.caption),
-      }),
+      init: () => ({ caption: null }),
+      apply: (tr, value) => ({ caption: updateCaptionEditing(key, tr, value.caption) }),
     },
+    view: paintCodeHighlights,
     props: {
       decorations(state) {
-        const value = key.getState(state);
         const editing = captionEditingDecorations(captionEditingAt(state));
-        return editing.length ? value?.highlighting.add(state.doc, editing) : value?.highlighting;
+        return editing.length ? DecorationSet.create(state.doc, editing) : undefined;
       },
       handleDOMEvents: { dblclick: captionDoubleClick(key) },
       handleTextInput: ({ state }) =>
