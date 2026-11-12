@@ -141,6 +141,22 @@ describe('document keys', () => {
     expect(hasStrong(state)).toBe(false);
   });
 
+  it('DOCE-EDITING-2.1 keeps the id and author of a block whose type changes', () => {
+    const doc = read(
+      paragraph('Alpha', { id: '0000abcd', author: 'person-1', style: 'note', level: 3 }),
+    );
+    let state = stateAt(doc, 'Alpha');
+    state = run(state, key('Mod-Shift-2'));
+    const heading = body(state).child(0);
+    expect(heading.type.name).toBe('heading');
+    expect(heading.attrs).toMatchObject({ level: 2, dataId: '0000abcd', dataAuthor: 'person-1' });
+    state = run(state, key('Mod-Shift-0'));
+    const block = body(state).child(0);
+    expect(block.type.name).toBe('paragraph');
+    expect(block.attrs).toMatchObject({ dataId: '0000abcd', dataAuthor: 'person-1' });
+    expect(block.attrs).toMatchObject({ className: '', paragraphLevel: 1 });
+  });
+
   it('DOCE-EDITING-2.2 wraps lists that join their neighbours, and nests and removes items', () => {
     let state = stateAt(read(bullets('One'), paragraph('Two')), 'Two');
     state = run(state, key('Mod-Shift-8'));

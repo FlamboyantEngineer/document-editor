@@ -11,7 +11,7 @@ import { DocumentContextMenu } from './document-context-menu.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentFindBar } from './document-find-bar.js';
 import { DocumentMenubar } from './document-menubar.js';
-import { DocumentStatusBar, ZOOM_LEVELS } from './document-status-bar.js';
+import { DocumentStatusBar, type EditorZoom, ZOOM_LEVELS } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
 import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
@@ -81,9 +81,7 @@ export function TopChrome({
             openFind,
             layout: props.layout ?? 'page',
             onLayoutChange: props.onLayoutChange,
-            zoom: props.onZoomChange
-              ? { value: props.zoom ?? 100, onChange: props.onZoomChange }
-              : null,
+            zoom: editorZoom(props),
             scriptRunner: props.scriptRunner,
           }}
         />
@@ -124,9 +122,7 @@ export function BottomChrome({
           layout={layout}
           mode={editable ? (suggesting ? 'suggesting' : 'editing') : 'reading'}
           items={props.statusItems}
-          zoom={
-            props.onZoomChange ? { value: props.zoom ?? 100, onChange: props.onZoomChange } : null
-          }
+          zoom={editorZoom(props)}
           onLayoutChange={props.onLayoutChange}
         />
       ) : null}
@@ -148,10 +144,17 @@ export function BottomChrome({
   );
 }
 
-/** Ctrl+wheel over the editor steps the zoom, while the reader can zoom. */
+// The zoom the status bar and the menubar offer, while the reader can zoom.
+function editorZoom(props: DocumentEditorProps): EditorZoom | null {
+  const { onZoomChange: onChange } = props;
+  if (!onChange) return null;
+  return { value: props.zoom ?? 100, onChange, levels: props.zoomLevels ?? ZOOM_LEVELS };
+}
+
+/** Ctrl+wheel over the editor steps the zoom through its levels, while the reader can zoom. */
 export function useWheelZoom(
   root: RefObject<HTMLDivElement | null>,
-  { zoom = 100, onZoomChange }: DocumentEditorProps,
+  { zoom = 100, onZoomChange, zoomLevels = ZOOM_LEVELS }: DocumentEditorProps,
 ) {
   useEffect(() => {
     const element = root.current;
@@ -159,10 +162,10 @@ export function useWheelZoom(
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey || event.deltaY === 0) return;
       event.preventDefault();
-      const next = findNextZoomLevel(ZOOM_LEVELS, zoom, event.deltaY < 0 ? 1 : -1);
+      const next = findNextZoomLevel(zoomLevels, zoom, event.deltaY < 0 ? 1 : -1);
       if (next !== undefined) onZoomChange(next);
     };
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
-  }, [root, zoom, onZoomChange]);
+  }, [root, zoom, onZoomChange, zoomLevels]);
 }

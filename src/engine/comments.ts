@@ -8,44 +8,82 @@ import type { Command, EditorState, Transaction } from 'prosemirror-state';
 /** Whether a comment thread is open or resolved. */
 export type CommentState = 'open' | 'resolved';
 
+/** A range of the document, by its positions. */
+export interface CommentRange {
+  readonly from: number;
+  readonly to: number;
+}
+
 /** The text a comment thread is anchored to. */
 export interface CommentAnchor {
   readonly thread: string;
   readonly state: CommentState;
+  /** The start of its first range and the end of its last. */
   readonly from: number;
   readonly to: number;
-  /** The anchored text, as the thread quotes it. */
+  /** Each stretch of text it marks, in reading order, as edits or pages may part it. */
+  readonly ranges: readonly CommentRange[];
+  /** The anchored text, as the thread quotes it; its ranges' text joined by spaces. */
   readonly text: string;
 }
 
 const anchorType = (schema: EditorState['schema']): MarkType | undefined =>
   schema.marks.comment_highlight;
 
-/** The comment anchors of a document in reading order, one per thread, spanning all its text. */
+interface FoundAnchor {
+  thread: string;
+  state: CommentState;
+  ranges: { from: number; to: number; text: string }[];
+}
+
+// Adds an inline node a thread's mark covers to its anchor, extending its last range when it
+// continues it.
+function extendAnchor(
+  found: Map<string, FoundAnchor>,
+  mark: Mark,
+  { node, pos }: { readonly node: ProseMirrorNode; readonly pos: number },
+) {
+  const thread: unknown = mark.attrs.commentId;
+  if (typeof thread !== 'string') return;
+  const entry = found.get(thread) ?? {
+    thread,
+    state: mark.attrs.commentState === 'resolved' ? 'resolved' : 'open',
+    ranges: [],
+  };
+  const last = entry.ranges.at(-1);
+  const text = node.text ?? '';
+  if (last?.to === pos) {
+    last.to = pos + node.nodeSize;
+    last.text += text;
+  } else {
+    entry.ranges.push({ from: pos, to: pos + node.nodeSize, text });
+  }
+  found.set(thread, entry);
+}
+
+/**
+ * The comment anchors of a document in reading order, one per thread, with every range it marks:
+ * threads that nest in or overlap one another each keep their own anchor.
+ */
 export function listCommentAnchors(doc: ProseMirrorNode): CommentAnchor[] {
   const type = anchorType(doc.type.schema);
-  const found = new Map<
-    string,
-    { thread: string; state: CommentState; from: number; to: number; text: string }
-  >();
+  if (!type) return [];
+  const found = new Map<string, FoundAnchor>();
   doc.descendants((node, pos) => {
     if (!node.isInline) return true;
-    const mark = type ? node.marks.find((each) => each.type === type) : undefined;
-    const thread: unknown = mark?.attrs.commentId;
-    if (!mark || typeof thread !== 'string') return false;
-    const entry = found.get(thread) ?? {
-      thread,
-      state: mark.attrs.commentState === 'resolved' ? 'resolved' : 'open',
-      from: pos,
-      to: pos,
-      text: '',
-    };
-    entry.to = pos + node.nodeSize;
-    entry.text += node.text ?? '';
-    found.set(thread, entry);
+    for (const mark of node.marks) if (mark.type === type) extendAnchor(found, mark, { node, pos });
     return false;
   });
-  return [...found.values()].sort((a, b) => a.from - b.from);
+  return [...found.values()]
+    .map(({ thread, state, ranges }) => ({
+      thread,
+      state,
+      from: ranges[0]?.from ?? 0,
+      to: ranges.at(-1)?.to ?? 0,
+      ranges: ranges.map(({ from, to }) => ({ from, to })),
+      text: ranges.map((range) => range.text).join(' '),
+    }))
+    .sort((a, b) => a.from - b.from);
 }
 
 /** The selected text, as a new comment would quote it; empty without a selection. */

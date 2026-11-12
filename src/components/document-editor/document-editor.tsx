@@ -117,6 +117,8 @@ export interface DocumentEditorProps
   zoom?: number | undefined;
   /** Lets the reader zoom: a zoom control in the status bar, and Ctrl+wheel over the document. */
   onZoomChange?: ((zoom: number) => void) | undefined;
+  /** The zoom levels the reader steps through, in percent, ascending. Defaults to `ZOOM_LEVELS`. */
+  zoomLevels?: readonly number[] | undefined;
   /**
    * How suggestions show: all their markup (the default), `simple` (the document as if accepted,
    * with a bar beside each changed block), `final` (as if accepted) or `original` (as if rejected).

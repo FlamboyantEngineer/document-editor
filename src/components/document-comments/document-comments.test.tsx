@@ -199,6 +199,20 @@ describe('DocumentComments', () => {
     expect(seen.state?.doc.textContent).toBe('Alpha blue gamma delta epsilon');
   });
 
+  it('DOCE-COMMENTS-2.4 names the writer of a suggestion who wrote no comment', async () => {
+    const store = createMemoryHost({
+      person: { id: 'grace', name: 'Grace Hopper' },
+      people: [{ id: 'ada', name: 'Ada Lovelace' }],
+      comments: { threads: { doc: [] } },
+    });
+    render(<Harness host={store} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('epsilon')).closest('[role="listitem"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show.');
+    expect(await within(card).findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(within(card).queryByText('ada')).not.toBeInTheDocument();
+  });
+
   it('DOCE-COMMENTS-2.10 offers only the decisions the host allows on a suggestion', async () => {
     render(
       <Harness

@@ -12,6 +12,7 @@ import {
   type Suggestion,
   versionChanges,
 } from '../../engine/index.js';
+import type { TemplateFile } from '../../model/index.js';
 import { useChangeLines } from './change-lines-measure.js';
 import { type DocumentEditorNotifications, useSelectionNotification } from './use-host-events.js';
 
@@ -136,12 +137,13 @@ export function useReviewNotifications(
     readonly onChangeBarsChange?: ((bars: readonly ChangeBar[]) => void) | undefined;
     readonly onSelectionChange?: DocumentEditorNotifications['onSelectionChange'];
     readonly authorship?: boolean | undefined;
+    readonly template?: TemplateFile | undefined;
   },
 ) {
   useAuthorship(view, props.state, props.authorship ?? false);
   useSelectionNotification(props.state, props.onSelectionChange);
   useSuggestionsNotification(props.state, props.onSuggestionsChange);
-  useChangeLines(view, props.state, props.zoom ?? 100);
+  useChangeLines(view, props.state, { zoom: props.zoom ?? 100, template: props.template });
   useChangeBarsNotification(view, props.state, {
     onChangeBarsChange: props.onChangeBarsChange,
     zoom: props.zoom ?? 100,

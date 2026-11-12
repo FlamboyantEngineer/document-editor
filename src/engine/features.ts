@@ -15,6 +15,7 @@ export {
   insertCharacter,
   insertCodeBlock,
   insertContents,
+  insertFigure,
   insertMath,
   linkAt,
   setCodeLanguage,

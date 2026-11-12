@@ -3,7 +3,12 @@
 // and its footnotes as numbered definitions at the end. Formats Markdown lacks, such as underline,
 // superscript and subscript, are written as HTML.
 
-import type { DocumentFile, StoredMark, StoredNode } from './document-format.js';
+import {
+  type DocumentFile,
+  type StoredMark,
+  storedMathSource,
+  type StoredNode,
+} from './document-format.js';
 
 /** How `writeMarkdown` writes a document. */
 export interface MarkdownOptions {
@@ -63,7 +68,7 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'lineBreak':
       return '\\\n';
     case 'math':
-      return `$${inlineText(node.content)}$`;
+      return `$${storedMathSource(node)}$`;
     case 'footnote': {
       writing.footnotes.push(inlines(node.content, writing));
       return `[^${String(writing.footnotes.length)}]`;
@@ -151,7 +156,7 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
   blockquote: (node, writing) => prefixed(blocks(node.content, writing).join('\n\n'), '> ', '> '),
   codeBlock: (node) => fenced(inlineText(node.content), node.attrs?.language),
   linkedCode: (node) => fenced(text(node.attrs?.code), node.attrs?.language),
-  mathBlock: (node) => `$$\n${inlineText(node.content)}\n$$`,
+  mathBlock: (node) => `$$\n${storedMathSource(node)}\n$$`,
   table: tableOf,
   figure: figureOf,
   rule: () => '---',

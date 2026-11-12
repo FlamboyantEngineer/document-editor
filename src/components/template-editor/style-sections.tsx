@@ -76,17 +76,21 @@ function rename(context: Rows, from: string, to: string) {
   context.target.set(['styles', 'custom'], renamed);
 }
 
-// A style's name, kept as typed and committed on Enter or on leaving the field; Escape puts the
-// name back.
-function NameField({
+/**
+ * A name, kept as typed and committed on Enter or on leaving the field; Escape puts the name back.
+ * Give it a `key` of the name, so a committed name starts a new draft.
+ */
+export function NameField({
   name,
   label,
   isDisabled,
+  maxLength,
   onCommit,
 }: {
   name: string;
   label: string;
   isDisabled: boolean;
+  maxLength?: number | undefined;
   onCommit: (name: string) => void;
 }) {
   const [draft, setDraft] = useState(name);
@@ -96,7 +100,7 @@ function NameField({
       labelLayout="control-only"
       density="compact"
       tracksChanges={false}
-      maxLength={16}
+      maxLength={maxLength}
       value={draft}
       isDisabled={isDisabled}
       onChange={setDraft}
@@ -107,6 +111,14 @@ function NameField({
       }}
     />
   );
+}
+
+// A copy of the custom style a target inherits, which overriding it starts from.
+function inheritedStyle({ target }: Rows, name: string): Record<string, unknown> {
+  const style = target.inherited ? settingAt(target.inherited, ['styles', 'custom', name]) : null;
+  return style && typeof style === 'object'
+    ? structuredClone(style as Record<string, unknown>)
+    : {};
 }
 
 // A custom style's card: its name, which renames it once committed, and its rows; deleted, or,
@@ -140,7 +152,7 @@ function CustomStyleCard({
       label={labels.overrideCustomStyle}
       tooltip={labels.overrideCustomStyle}
       isDisabled={props.isDisabled}
-      onPress={() => context.target.set(['styles', 'custom', name, 'size'], '11pt')}
+      onPress={() => context.target.set(['styles', 'custom', name], inheritedStyle(context, name))}
     />
   );
   return (
@@ -156,6 +168,7 @@ function CustomStyleCard({
           name={name}
           label={labels.styleName}
           isDisabled={Boolean(props.isDisabled) || !owned}
+          maxLength={16}
           onCommit={(next) => rename(context, name, next)}
         />
       </PropertyRow>

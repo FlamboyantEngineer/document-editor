@@ -4,7 +4,7 @@
 
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { setFigure } from '../../engine/index.js';
+import { insertFigure } from '../../engine/index.js';
 import type { AssetAdapter, FeedbackAdapter } from '../../host/index.js';
 
 /** What pasting images needs from the host. */
@@ -29,7 +29,7 @@ async function insertFigures(view: EditorView, files: File[], options: FigurePas
       continue;
     }
     const { id, snapshotId } = result.value;
-    const command = setFigure({ fileAssetId: id, snapshotId: snapshotId ?? id, alt: file.name });
+    const command = insertFigure({ fileAssetId: id, snapshotId: snapshotId ?? id, alt: file.name });
     if (!view.isDestroyed) command(view.state, view.dispatch, view);
   }
 }

@@ -192,3 +192,18 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
   background: var(--ref-surface, #fff);
   border: 1px solid #cbd5e1;
 }
+
+/* The collaboration binding spike: two editors side by side, each scrolling on its own. */
+.lab-collab {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lab-collab__editor {
+  height: 60vh;
+  overflow: auto;
+  padding: 8px 16px;
+  border: 1px solid var(--ref-border);
+  border-radius: 8px;
+}
