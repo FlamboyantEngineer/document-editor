@@ -13,7 +13,7 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import type { TemplateFile } from '../model/index.js';
+import { type RegionKind, regionKind, type TemplateFile } from '../model/index.js';
 import { isPositionLocked } from './edit-lock.js';
 import { documentOutline } from './outline.js';
 
@@ -53,7 +53,8 @@ export const searchKey = new PluginKey<SearchState>('search');
 /** The hook a match's decoration carries: `current` for the current match, `match` otherwise. */
 export const SEARCH_MATCH_ATTR = 'data-search-match';
 
-const SKIPPED = new Set(['page_header', 'page_footer']);
+// Page headers and footers, which the template fills.
+const SKIPPED: ReadonlySet<RegionKind | null> = new Set(['header', 'footer']);
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -68,7 +69,7 @@ function findMatches(doc: ProseMirrorNode, regexp: RegExp | null): SearchMatch[]
   if (!regexp) return [];
   const matches: SearchMatch[] = [];
   doc.descendants((node, pos) => {
-    if (SKIPPED.has(node.type.name)) return false;
+    if (SKIPPED.has(regionKind(node))) return false;
     if (!node.isTextblock) return true;
     let text = '';
     const positions: number[] = [];

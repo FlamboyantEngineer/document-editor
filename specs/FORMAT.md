@@ -140,6 +140,13 @@ HTML from a word processor (`isWordHtml`) shall be cleaned of the word processor
 Implementation: `src/model/format/html.ts`, `src/engine/word-paste.ts`
 Verification: `src/model/format/html.test.ts`, `e2e/full-editor.spec.ts`
 
+### DOCE-FORMAT-6.3 - HTML content for regions and sections
+
+`readHtmlContent(html, schema, document)` shall read HTML, such as a template header's or a section's content a host keeps as markup, as stored content: its blocks as the schema reads them, inline text in paragraphs, word processor markup cleaned, from an inert document so nothing in it runs or loads. Variables stay variables, and `{{key}}` tokens stay text for the template's content to read (DOCE-TEMPLATES-8.1).
+
+Implementation: `src/model/format/html.ts`
+Verification: `src/model/format/html.test.ts`
+
 ## DOCE-FORMAT-7 - Contract tests
 
 Committed snapshots lock what stored and pasted documents depend on. Until the owner's switch to the library, a change to any of them shall come with the matching change to this spec or to DOCUMENT-SCHEMA.md and the updated snapshot, and needs no upgrade step; from the switch on, it shall also step `formatVersion`. A snapshot is updated with `npx vitest run -u` on the test that holds it, never by editing the test's expectations away.
