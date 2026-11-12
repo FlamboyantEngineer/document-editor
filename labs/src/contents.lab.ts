@@ -5,7 +5,6 @@
 // Inserting a chapter renumbers every entry after it; an entry takes the reader to what it names.
 
 import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
 import { createContents } from '../../src/engine/index.js';
 import {
   BASE_TEMPLATE,
@@ -17,8 +16,8 @@ import {
   resolveTemplateFile,
   type StoredNode,
 } from '../../src/model/index.js';
-import { createPagination, isPaginationTransaction } from '../../src/pagination/index.js';
 import { applyTemplate, bodyHeight, sampleDocument, text } from './lab-document.js';
+import { labMounts, showOnPages } from './lab-pages.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -90,40 +89,27 @@ function sample() {
 }
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
-  const pagesRoot = document.querySelector('.lab-pages');
+  const mounts = labMounts();
   const insert = document.querySelector<HTMLButtonElement>('button[name="insert-chapter"]');
-  if (!measureIn || !pagesRoot || !insert) return;
+  if (!mounts || !insert) return;
   applyTemplate(TEMPLATE, []);
   const contents = createContents({
     template: () => TEMPLATE,
     kinds: { quotes: QUOTES },
     labels: { quotes: { title: 'Table of Quotations', empty: 'No quotations found.' } },
   });
-  const pagination = createPagination({
-    measureIn,
-    pageHeight: () => bodyHeight(TEMPLATE),
-    plugins: [contents],
-  });
   const schema = createDocumentSchema();
-  const editor: EditorView = new EditorView(pagesRoot, {
-    state: EditorState.create({
-      doc: readDocumentFile(sample(), schema).doc,
-      plugins: [pagination.plugin, contents],
-    }),
-    dispatchTransaction(tr) {
-      editor.updateState(editor.state.apply(tr));
-      const { dataset } = document.documentElement;
-      dataset.labPages = String(pagesRoot.querySelectorAll('.pm-page').length);
-      if (isPaginationTransaction(tr)) dataset.labReady = 'true';
-    },
+  const pages = showOnPages(mounts, {
+    state: EditorState.create({ doc: readDocumentFile(sample(), schema).doc, plugins: [contents] }),
+    pageHeight: () => bodyHeight(TEMPLATE),
   });
   let added = 0;
   insert.addEventListener('click', () => {
     added += 1;
     // After the lists of contents, at the start of the first chapter.
+    const { state } = pages;
     let at = -1;
-    editor.state.doc.descendants((node, pos) => {
+    state.doc.descendants((node, pos) => {
       if (at < 0 && node.type.name === 'heading') at = pos;
       return at < 0;
     });
@@ -138,7 +124,7 @@ function render(): void {
       ],
       schema,
     );
-    if (at >= 0) editor.dispatch(editor.state.tr.insert(at, blocks));
+    if (at >= 0) pages.dispatch(state.tr.insert(at, blocks));
   });
 }
 
