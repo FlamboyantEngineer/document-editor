@@ -64,13 +64,7 @@ export {
   createCommentDraft,
   startCommentDraft,
 } from './comment-draft.js';
-export type {
-  AnchoredThread,
-  CommentTarget,
-  CommentTargetRange,
-  ResolvedTarget,
-  ThreadReconcileReport,
-} from './comment-targets.js';
+export type { AnchoredThread, ResolvedTarget, ThreadReconcileReport } from './comment-targets.js';
 export {
   anchorThreads,
   describeCommentTarget,

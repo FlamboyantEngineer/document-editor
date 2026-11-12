@@ -69,7 +69,7 @@ Verification: `src/engine/comment-anchors.test.ts`
 
 ### DOCE-COMMENTS-1.10 - Portable targets
 
-`describeCommentTarget(state, thread)` shall describe a thread's anchor portably (`CommentTarget`): each range by the element id of its text block, its offsets in that block (each character and inline object counting one) and its text, with the quote; null when a block has no id. `resolveCommentTarget(doc, target)` shall find it again: each range at its offsets when its text is still there (`exact`), else its text nearest them in its block, else the quote in any one text block; null when none is found. `reanchorThread(thread, target)` shall anchor the thread again where its target is found, replacing its marks, and be refused when it is not found.
+`describeCommentTarget(state, thread)` shall describe a thread's anchor portably (`CommentTarget`, the host's thread record type, DOCE-HOST-1.5): each range by the element id of its text block, its offsets in that block (each character and inline object counting one) and its text, with the quote; null when a block has no id. `resolveCommentTarget(doc, target)` shall find it again: each range at its offsets when its text is still there (`exact`), else its text nearest them in its block, else the quote in any one text block; null when none is found. `reanchorThread(thread, target)` shall anchor the thread again where its target is found, replacing its marks, and be refused when it is not found.
 
 Implementation: `src/engine/comment-targets.ts`
 Verification: `src/engine/comment-targets.test.ts`

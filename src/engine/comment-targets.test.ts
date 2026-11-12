@@ -3,11 +3,11 @@ import { type Command, EditorState, type Plugin, TextSelection } from 'prosemirr
 import type { DecorationSet } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import type { CommentTarget } from '../host/index.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { commentAnchors, createCommentAnchors } from './comment-anchors.js';
 import {
   anchorThreads,
-  type CommentTarget,
   describeCommentTarget,
   reanchorThread,
   reconcileThreads,

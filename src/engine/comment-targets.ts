@@ -5,6 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
+import type { CommentTarget, CommentTargetRange } from '../host/index.js';
 import { commentAnchors, placeCommentAnchors, type PlacedAnchor } from './comment-anchors.js';
 import {
   anchorCommentRanges,
@@ -14,21 +15,6 @@ import {
   listCommentAnchors,
   removeCommentAnchor,
 } from './comments.js';
-
-/** A stretch of a thread's text: offsets inside the text block with this element id. */
-export interface CommentTargetRange {
-  readonly element: string;
-  readonly start: number;
-  readonly end: number;
-  /** The text of the stretch when the thread was anchored. */
-  readonly text: string;
-}
-
-/** Where a thread's text is, portably, to find it again without its marks. */
-export interface CommentTarget {
-  readonly ranges: readonly CommentTargetRange[];
-  readonly quote: string;
-}
 
 /** Where a target was found: its ranges, and whether each was where the target said. */
 export interface ResolvedTarget {
