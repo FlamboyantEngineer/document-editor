@@ -29,6 +29,7 @@ export type {
   DocumentMenubarOptions,
   DocumentToolbarOptions,
   EditorContext,
+  EditorSession,
   FindBarMode,
   HostDialogProps,
   ObjectDialog,
@@ -89,10 +90,17 @@ export {
 export type {
   DocumentSessionBoundaryProps,
   DocumentSessionEditorProps,
+  SessionLoadingLabels,
+  SessionLoadingProps,
 } from './document-session/index.js';
 export {
+  DEFAULT_SESSION_LOADING_LABELS,
   DocumentSessionBoundary,
+  SESSION_MEASURES,
+  SessionLoading,
   useDocumentSession,
+  useSessionGuard,
+  useSessionTelemetry,
   useSessionValue,
 } from './document-session/index.js';
 export type {
