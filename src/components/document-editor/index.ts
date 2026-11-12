@@ -1,5 +1,11 @@
 export type { DocumentBanner } from './banners.js';
 export { EDITOR_BANNERS } from './banners.js';
+export {
+  CONNECTION_STATUS_LABELS,
+  ConnectionStatus,
+  type ConnectionStatusLabels,
+  type ConnectionStatusProps,
+} from './connection-status.js';
 export type { ContextMenuGroup } from './context-entries.js';
 export { CONTEXT_MENU_GROUPS } from './context-entries.js';
 export type {

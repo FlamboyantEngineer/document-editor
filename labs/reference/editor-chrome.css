@@ -418,9 +418,30 @@
   );
 }
 
+/* An idle or away person's caret and selection fade. */
+.de-presence-caret[data-presence-status],
+.de-presence-selection[data-presence-status] {
+  opacity: 0.5;
+}
+
 /* The other people's avatars in the status bar. */
 .de-document-editor__presence {
   display: inline-flex;
+}
+
+/* The shared room's connection in the status bar: a warning while it locks the document. */
+.de-connection-status {
+  color: var(--ref-text-muted, #59636e);
+}
+
+.de-connection-status[data-phase='offline'],
+.de-connection-status[data-phase='connecting'] {
+  color: #9a6700;
+}
+
+.de-connection-status[data-locked] {
+  color: var(--ref-danger, #d1242f);
+  font-weight: 600;
 }
 
 /* The find bar below the toolbar, and the matches it finds: the current one stronger. The search

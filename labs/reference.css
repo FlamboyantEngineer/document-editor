@@ -193,6 +193,18 @@ body:has(.lab-fill .de-document-editor[data-scrollable]) #lab-root.lab-fill {
   border: 1px solid #cbd5e1;
 }
 
+/* The presence lab: a wide and a narrow editor side by side. */
+.lab-presence {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.lab-presence__pane .de-document-editor {
+  height: 60vh;
+}
+
 /* The collaboration binding spike: two editors side by side, each scrolling on its own. */
 .lab-collab {
   display: grid;
