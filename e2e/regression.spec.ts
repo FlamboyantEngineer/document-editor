@@ -405,11 +405,9 @@ const FAILING_CELLS: Readonly<Record<string, string>> = {
   'long-ordered-list ordered_list continuation-start Backspace': `${PROJECTION}: Backspace at a list continuation's start joins the wrong items`,
   'long-bullet-list-with-nesting bullet_list continuation-start Enter': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
   'long-bullet-list-with-nesting bullet_list head-end Delete': `${PROJECTION}: Delete at a nested list's head end does not join the next item`,
-  'table-long-repeated-header table continuation-start type': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
   'table-long-repeated-header table continuation-start Enter': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
   'table-long-single-header table continuation-start Enter': `${PROJECTION}: the continuation's first row is no row of the stored table`,
   'long-bullet-list-with-nesting bullet_list continuation-start Backspace': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
-  'table-long-repeated-header table continuation-start Backspace': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
   'oversized-blocks list_item continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
   'long-ordered-list ordered_list continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
   'table-long-headerless table continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
@@ -490,6 +488,9 @@ const PASSING_ON_PROJECTION = new Set([
   'blockquotes blockquote continuation-start Enter',
   'long-bullet-list-with-nesting bullet_list continuation-start Enter',
   'long-bullet-list-with-nesting bullet_list continuation-start Backspace',
+  'table-long-repeated-header table continuation-start type',
+  'table-long-repeated-header table continuation-start Enter',
+  'table-long-repeated-header table continuation-start Backspace',
 ]);
 
 test.describe('split-paragraph repagination matrix on the projection', () => {
