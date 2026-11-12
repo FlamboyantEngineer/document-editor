@@ -2,7 +2,12 @@
 // host changes them, the page's lifecycle, and newer saves of the template the document pins.
 
 import type { EditorHost, SavedState } from '../host/adapters.js';
-import { type EditorCapabilities, resolveEditingMode } from '../host/capabilities.js';
+import {
+  type ConnectionAccess,
+  type EditingMode,
+  type EditorCapabilities,
+  resolveEditingMode,
+} from '../host/capabilities.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import type { SessionDocument } from './document-session.js';
 import type { WritableStore } from './value-store.js';
@@ -14,14 +19,29 @@ export interface SessionFollowers {
   document: WritableStore<SessionDocument | null>;
   /** Called when the page is hidden or left: the session keeps its changes. */
   onLeave: () => void;
+  /** In room mode, the access the room granted the connection. */
+  connection?: (() => ConnectionAccess) | undefined;
+}
+
+/**
+ * The editing mode capabilities give; in room mode, read while the room grants read-only access,
+ * since it would drop the reader's changes (DOCE-SESSION-3.4).
+ */
+export function editingModeOf(
+  capabilities: EditorCapabilities,
+  connection?: ConnectionAccess,
+): EditingMode {
+  if (connection === 'read-only') return 'read';
+  return resolveEditingMode(capabilities, { connection });
 }
 
 /** The document with new capabilities, and the editing mode they give. */
 export function withCapabilities(
   document: SessionDocument,
   capabilities: EditorCapabilities,
+  connection?: ConnectionAccess,
 ): SessionDocument {
-  return { ...document, capabilities, editingMode: resolveEditingMode(capabilities) };
+  return { ...document, capabilities, editingMode: editingModeOf(capabilities, connection) };
 }
 
 /** Whether `latest` is a newer saved state of the template than the one the document pins. */
@@ -53,12 +73,12 @@ function followTemplate(
  * template the document pins, again whenever the pin changes.
  */
 export function followSession(followers: SessionFollowers) {
-  const { host, documentId, document, onLeave } = followers;
+  const { host, documentId, document, onLeave, connection } = followers;
   const stops: (() => void)[] = [];
   stops.push(
     host.permissions.subscribe?.(documentId, (capabilities) => {
       const current = document.get();
-      if (current) document.set(withCapabilities(current, capabilities));
+      if (current) document.set(withCapabilities(current, capabilities, connection?.()));
     }) ?? (() => undefined),
   );
   stops.push(
