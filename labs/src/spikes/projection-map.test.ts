@@ -212,16 +212,20 @@ function routeProjectionInput(rng: Random, pair: Pair): boolean {
 }
 
 describe('projection spike: position mapping (check 6)', () => {
-  it('maps every character between a generated projection and its canonical document', () => {
-    for (let seed = 1; seed <= 60; seed += 1) {
-      const rng = random(seed);
-      const generated = generate(rng);
-      const projection = project(rng, generated);
-      const { map, whole } = ProjectionMap.of(projection);
-      expect(sameStructure(whole, generated.whole), `seed ${String(seed)}`).toBe(true);
-      expectExact(map, projection, whole);
-    }
-  });
+  // 60 generated documents, in groups that each stay well inside the timeout on a loaded runner.
+  it.each([1, 16, 31, 46])(
+    'maps every character between a generated projection and its canonical document (documents %i on)',
+    (first) => {
+      for (let seed = first; seed < first + 15; seed += 1) {
+        const rng = random(seed);
+        const generated = generate(rng);
+        const projection = project(rng, generated);
+        const { map, whole } = ProjectionMap.of(projection);
+        expect(sameStructure(whole, generated.whole), `seed ${String(seed)}`).toBe(true);
+        expectExact(map, projection, whole);
+      }
+    },
+  );
 
   // 1,000 edits in all: 40 documents of 25 edits, in groups that each stay well inside the timeout.
   it.each([1, 11, 21, 31])(
