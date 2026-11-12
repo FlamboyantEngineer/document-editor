@@ -1,6 +1,8 @@
 {
   "formatVersion": 1,
-  "template": "regression-numbering",
+  "template": {
+    "id": "regression-numbering"
+  },
   "sections": [
     {
       "name": "front_matter",

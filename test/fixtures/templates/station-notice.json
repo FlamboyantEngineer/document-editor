@@ -1,0 +1,56 @@
+{
+  "formatVersion": 1,
+  "id": "station-notice",
+  "name": "Station notice",
+  "parent": "base",
+  "page": {
+    "size": "US Letter",
+    "orientation": "landscape",
+    "margins": {
+      "top": "0.75in",
+      "right": "0.75in",
+      "bottom": "0.75in",
+      "left": "0.75in"
+    }
+  },
+  "styles": {
+    "heading1": {
+      "numbering": {
+        "format": ""
+      }
+    },
+    "heading2": {
+      "numbering": {
+        "format": ""
+      }
+    },
+    "heading3": {
+      "numbering": {
+        "format": ""
+      }
+    },
+    "list": {
+      "bullet": "square",
+      "format": "1)",
+      "suffix": ""
+    },
+    "table": {
+      "repeatHeader": false
+    },
+    "contents": {
+      "leader": {
+        "character": ""
+      }
+    }
+  },
+  "footnotes": {
+    "numbering": "page"
+  },
+  "sections": [
+    {
+      "name": "notice",
+      "label": "Notice",
+      "required": true
+    }
+  ]
+}
