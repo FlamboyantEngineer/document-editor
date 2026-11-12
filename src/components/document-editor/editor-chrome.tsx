@@ -2,6 +2,7 @@
 // and the context menu below it, and Ctrl+wheel or Cmd+wheel stepping the zoom.
 
 import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
+import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { memo, type RefObject, useEffect, useMemo } from 'react';
 import { customStyleNames } from '../../engine/index.js';
@@ -37,6 +38,11 @@ export interface ChromeProps {
   startCommentRef: RefObject<(() => void) | null>;
   /** Opens the find bar at a box, while the editor has one. */
   openFind?: ((mode?: FindBarMode) => void) | null | undefined;
+  /**
+   * The pages' state while they are a projection of the editor's state, so the chrome follows each
+   * layout as well as each state, such as the status bar's page count.
+   */
+  pages?: EditorState | null | undefined;
 }
 
 /** What the chrome above the document reads. */

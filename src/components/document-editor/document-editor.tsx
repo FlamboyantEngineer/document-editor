@@ -390,7 +390,8 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useLayoutEffect(() => {
     editorContext.current = context;
   }, [context]);
-  const chrome = { props, context, view, templateStyle, startCommentRef, openFind };
+  const pages = progress.paged?.state ?? null;
+  const chrome = { props, context, view, templateStyle, startCommentRef, openFind, pages };
   // The chrome follows each state after the pages show it (DOCE-EDITOR-1.6).
   const top = useDeferredValue({ ...chrome, findRequest: find.request, onFindClose: find.close });
   const bottom = useDeferredValue({ ...chrome, openDialog: setDialog });
