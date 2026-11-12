@@ -116,6 +116,13 @@ function useLayoutDebug(
   }, [shown, redraw]);
 }
 
+// Whether each scope of the template repeats a table's header rows on its pages: the template's,
+// then each section's, for the pages to start over when any changes (DOCE-PAGINATION-4.5).
+const repeatHeaderKey = (template: TemplateFile) =>
+  [template, ...(template.sections ?? [])]
+    .map((scope) => String(scope.styles?.table?.repeatHeader ?? ''))
+    .join(' ');
+
 /** What the layout hook reads. */
 export interface DocumentLayoutOptions {
   readonly layout: DocumentLayout;
@@ -258,7 +265,7 @@ export function useDocumentLayout(
   const { layout, template } = options;
   // The template's settings that change how the pages are laid out: the pagination starts over
   // when they do.
-  const repeatTableHeader = template.styles?.table?.repeatHeader ?? true;
+  const repeatHeaders = repeatHeaderKey(template);
   const footnoteNumbering = resolveFootnoteSettings(template, null).numbering ?? 'document';
   const latest = useRef(options);
   useEffect(() => {
@@ -294,11 +301,11 @@ export function useDocumentLayout(
       return undefined;
     }
     return startPaging(element, latest, {
-      settings: { repeatTableHeader, footnoteNumbering },
+      settings: { footnoteNumbering },
       refs: { refresh, redraw, active, ownPlugins, paginationPlugin },
       setPaged,
     });
-  }, [layout, measureIn, repeatTableHeader, footnoteNumbering, options.projection]);
+  }, [layout, measureIn, repeatHeaders, footnoteNumbering, options.projection]);
 
   useLayoutPlugins(options, [ownPlugins, paginationPlugin]);
 

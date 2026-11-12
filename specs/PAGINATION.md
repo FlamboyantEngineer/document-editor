@@ -159,10 +159,10 @@ Verification: `src/model/pagination/container-split.test.ts`
 
 ### DOCE-PAGINATION-4.3 - Item continuations
 
-An item's second fragment that starts with a block other than a paragraph shall open with an empty paragraph and be marked continued. An item shall not split where either fragment would hold only that empty paragraph.
+An item's second fragment that starts with a block other than a paragraph shall open with an empty paragraph and be marked continued. The empty paragraph has no id and takes no room on the page; the reference stylesheet hides it (`data-orphaned-list-continuation`). An item shall not split where either fragment would hold only that empty paragraph.
 
 Implementation: `src/model/pagination/container-split.ts`
-Verification: `src/model/pagination/container-split.test.ts`
+Verification: `src/model/pagination/container-split.test.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-PAGINATION-4.4 - Quotes
 
@@ -173,10 +173,10 @@ Verification: `src/model/pagination/container-split.test.ts`
 
 ### DOCE-PAGINATION-4.5 - Tables
 
-A measured table shall split after its last body row that fits with its height beyond its rows (`splitTableWith`), never inside its leading header rows, and not when it has one body row. Its second part shall repeat the header rows when the template's `styles.table.repeatHeader` asks for it (`createLayoutRules({ repeatTableHeader })`, by default it does). Joining shall drop only header rows that repeat the first part's.
+A measured table shall split after its last body row that fits with its height beyond its rows (`splitTableWith`), never inside its leading header rows, and not when it has one body row. Its second part shall repeat the header rows when its section's `styles.table.repeatHeader` asks for it, or the template's when the section sets none (`createLayoutRules({ repeatTableHeader })`, by default it does); a layout's `rules` may be given by section for it (`SectionLayoutRules`). Joining shall drop only header rows that repeat the first part's.
 
-Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`
-Verification: `src/model/pagination/container-split.test.ts`
+Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`, `src/pagination/layout-document.ts`, `src/components/document-editor/start-paging.ts`
+Verification: `src/model/pagination/container-split.test.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-PAGINATION-4.6 - Script blocks
 

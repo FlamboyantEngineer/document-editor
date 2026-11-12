@@ -403,16 +403,13 @@ const FAILING_CELLS: Readonly<Record<string, string>> = {
   'oversized-blocks list_item head-end Enter': `${PROJECTION} (PG-29): Enter at a split item's head fragment adds an empty item`,
   'long-ordered-list ordered_list head-end Delete': `${PROJECTION}: Delete at a split list's head end does not join the next item`,
   'long-ordered-list ordered_list continuation-start Backspace': `${PROJECTION}: Backspace at a list continuation's start joins the wrong items`,
-  'long-bullet-list-with-nesting bullet_list continuation-start type': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
   'long-bullet-list-with-nesting bullet_list continuation-start Enter': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
   'long-bullet-list-with-nesting bullet_list head-end Delete': `${PROJECTION}: Delete at a nested list's head end does not join the next item`,
   'table-long-repeated-header table continuation-start type': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
   'table-long-repeated-header table continuation-start Enter': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
-  'table-long-single-header table continuation-start type': `${PROJECTION}: the continuation's first row is no row of the stored table`,
   'table-long-single-header table continuation-start Enter': `${PROJECTION}: the continuation's first row is no row of the stored table`,
   'long-bullet-list-with-nesting bullet_list continuation-start Backspace': `${PROJECTION} (PG-03): the caret sits in the continuation's placeholder paragraph`,
   'table-long-repeated-header table continuation-start Backspace': `${PROJECTION} (PG-36): the caret sits in the repeated header row`,
-  'table-long-single-header table continuation-start Backspace': `${PROJECTION}: the continuation's first row is no row of the stored table`,
   'oversized-blocks list_item continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
   'long-ordered-list ordered_list continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
   'table-long-headerless table continuation-start Enter': `SE-02: Enter at a block's start gives the moved text a new identity in the whole block`,
@@ -491,6 +488,8 @@ const PASSING_ON_PROJECTION = new Set([
   'table-long-headerless table continuation-start Enter',
   'code-blocks code_block continuation-start Backspace',
   'blockquotes blockquote continuation-start Enter',
+  'long-bullet-list-with-nesting bullet_list continuation-start Enter',
+  'long-bullet-list-with-nesting bullet_list continuation-start Backspace',
 ]);
 
 test.describe('split-paragraph repagination matrix on the projection', () => {
@@ -551,7 +550,6 @@ test.describe('list split stress', () => {
   test('DOCE-LABS-4.3 DOCE-PAGINATION-4.3 draws no empty line where a split item continues', async ({
     page,
   }) => {
-    expectedFailure('PG-03', "a list item's continuation placeholder is drawn as an empty line");
     await openDocument(page, 'long-bullet-list-with-nesting');
     const empty = await page
       .locator('.de-document-editor__content li[data-orphaned-list-continuation] > p:first-child')
@@ -579,12 +577,6 @@ test.describe('table fragment stress', () => {
     test(`DOCE-LABS-4.4 DOCE-PAGINATION-4.5 splits ${name} between rows, each row once, the header on ${header === 'every' ? 'every page' : header === 'first' ? 'the first page' : 'no page'}`, async ({
       page,
     }) => {
-      if (header === 'first') {
-        expectedFailure(
-          'DC-18',
-          "the editor reads repeatHeader from the template's own styles, not the section's",
-        );
-      }
       const fragments = await tableFragments(page, name);
       expect(fragments.length).toBeGreaterThan(3);
       const ids = fragments.flatMap(({ bodyRows }) => bodyRows);

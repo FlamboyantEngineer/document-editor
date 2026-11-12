@@ -11,6 +11,7 @@ import {
   findTemplateSection,
   FRAGMENT_RULES,
   type FragmentRules,
+  type LayoutRules,
   type TemplateFile,
   templatePageMetrics,
 } from '../../model/index.js';
@@ -24,6 +25,7 @@ import {
   type PagedProjection,
   pageVariablesKey,
   type Pagination,
+  type SectionLayoutRules,
 } from '../../pagination/index.js';
 import type { DocumentLayoutOptions } from './use-document-layout.js';
 import type { PagedEditor } from './use-paged-projection.js';
@@ -48,6 +50,24 @@ function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
     ...plugins.filter((plugin) => !own.includes(plugin) && measured(plugin)),
     ...own.filter(measured),
   ];
+}
+
+// The layout rules of each section: whether its tables repeat their header rows is the section's
+// own setting, else the template's (DOCE-PAGINATION-4.5), and the host's rules go over them.
+function sectionRules(options: DocumentLayoutOptions): SectionLayoutRules {
+  const { template, layoutRules } = options;
+  const byRepeat = new Map<boolean, LayoutRules>();
+  return (section) => {
+    const scope = findTemplateSection(template, section.attrs.sectionName as string | null);
+    const repeat =
+      scope?.styles?.table?.repeatHeader ?? template.styles?.table?.repeatHeader ?? true;
+    let rules = byRepeat.get(repeat);
+    if (!rules) {
+      rules = { ...createLayoutRules({ repeatTableHeader: repeat }), ...layoutRules };
+      byRepeat.set(repeat, rules);
+    }
+    return rules;
+  };
 }
 
 /** The rules the pages' fragments join by: the library's, with the host's over them. */
@@ -78,7 +98,7 @@ export function startPaging(
     refs,
     setPaged,
   }: {
-    settings: { repeatTableHeader: boolean; footnoteNumbering: 'document' | 'page' };
+    settings: { footnoteNumbering: 'document' | 'page' };
     refs: PagingRefs;
     setPaged: (paged: PagedEditor | null) => void;
   },
@@ -86,10 +106,7 @@ export function startPaging(
   const setup = {
     measureIn: element,
     pageHeight: (section: ProseMirrorNode) => bodyHeight(latest.current.template, section),
-    rules: {
-      ...createLayoutRules({ repeatTableHeader: settings.repeatTableHeader }),
-      ...latest.current.layoutRules,
-    },
+    rules: sectionRules(latest.current),
     fragmentRules: fragmentRulesOf(latest.current),
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
