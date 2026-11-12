@@ -1,9 +1,9 @@
 // Shows a paged document edited with the keyboard through `createDocumentEditing`: the document's
 // keys format text, make headings and lists, start a new page and join text across a page break,
-// the undo history follows the edits through the repaginations, and every new block gets an id.
+// the undo history follows the edits through the layouts, and every new block gets an id. The
+// whole document is the editing state; its pages are a read-only projection of it.
 
 import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
 import { assignElementIds, createDocumentEditing } from '../../src/engine/index.js';
 import {
   BASE_TEMPLATE,
@@ -13,8 +13,8 @@ import {
   readDocumentFile,
   resolveTemplateFile,
 } from '../../src/model/index.js';
-import { createPagination, isPaginationTransaction } from '../../src/pagination/index.js';
 import { applyTemplate, bodyHeight, heading, list, paragraph } from './lab-document.js';
+import { labMounts, showOnPages } from './lab-pages.js';
 
 const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
   loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
@@ -54,31 +54,23 @@ function caretBlockId({ selection }: EditorState): string {
 }
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
-  const pagesRoot = document.querySelector('.lab-pages');
+  const mounts = labMounts();
   const blockId = document.querySelector<HTMLOutputElement>('output[name="block-id"]');
-  if (!measureIn || !pagesRoot || !blockId) return;
+  if (!mounts || !blockId) return;
   applyTemplate(TEMPLATE, []);
-  const pagination = createPagination({ measureIn, pageHeight: () => bodyHeight(TEMPLATE) });
   const schema = createDocumentSchema();
   const loaded = EditorState.create({
     doc: readDocumentFile(SAMPLE, schema).doc,
-    plugins: [
-      pagination.plugin,
-      ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
-    ],
+    plugins: createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
   });
   // The sample is written without ids, as a stored document from elsewhere may be.
   const identified = loaded.tr;
   assignElementIds(identified, {});
-  const editor: EditorView = new EditorView(pagesRoot, {
+  const pages = showOnPages(mounts, {
     state: loaded.apply(identified),
-    dispatchTransaction(tr) {
-      editor.updateState(editor.state.apply(tr));
-      blockId.value = caretBlockId(editor.state);
-      const { dataset } = document.documentElement;
-      dataset.labPages = String(pagesRoot.querySelectorAll('.pm-page').length);
-      if (isPaginationTransaction(tr)) dataset.labReady = 'true';
+    pageHeight: () => bodyHeight(TEMPLATE),
+    dispatch: () => {
+      blockId.value = caretBlockId(pages.state);
     },
   });
 }

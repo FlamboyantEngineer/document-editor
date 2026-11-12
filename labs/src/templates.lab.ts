@@ -3,7 +3,6 @@
 // Choosing another template sets its properties and lays the pages out again.
 
 import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -12,8 +11,8 @@ import {
   resolveTemplateFile,
   type TemplateFile,
 } from '../../src/model/index.js';
-import { createPagination, isPaginationTransaction } from '../../src/pagination/index.js';
 import { applyTemplate, bodyHeight, sampleDocument } from './lab-document.js';
+import { labMounts, showOnPages } from './lab-pages.js';
 
 const COMPACT: TemplateFile = {
   formatVersion: 1,
@@ -47,32 +46,23 @@ const TEMPLATES: Readonly<Record<string, TemplateFile>> = Object.fromEntries(
 const SAMPLE = sampleDocument(['Scope', 'Interfaces', 'Timing']);
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
-  const pagesRoot = document.querySelector('.lab-pages');
+  const mounts = labMounts();
   const choices = document.querySelectorAll<HTMLInputElement>('input[name="template"]');
-  if (!measureIn || !pagesRoot) return;
+  if (!mounts) return;
   let current = TEMPLATES[BASE_TEMPLATE_ID] ?? BASE_TEMPLATE;
   let applied = applyTemplate(current, []);
-  const pagination = createPagination({ measureIn, pageHeight: () => bodyHeight(current) });
-  const editor: EditorView = new EditorView(pagesRoot, {
-    state: EditorState.create({
-      doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc,
-      plugins: [pagination.plugin],
-    }),
-    dispatchTransaction(tr) {
-      editor.updateState(editor.state.apply(tr));
-      if (!isPaginationTransaction(tr)) return;
-      const { dataset } = document.documentElement;
-      dataset.labPages = String(pagesRoot.querySelectorAll('.pm-page').length);
-      dataset.labLaidOut = current.id;
-      dataset.labReady = 'true';
+  const pages = showOnPages(mounts, {
+    state: EditorState.create({ doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc }),
+    pageHeight: () => bodyHeight(current),
+    onLayout: () => {
+      document.documentElement.dataset.labLaidOut = current.id;
     },
   });
   choices.forEach((choice) =>
     choice.addEventListener('change', () => {
       current = TEMPLATES[choice.value] ?? current;
       applied = applyTemplate(current, applied);
-      pagination.refresh({ remeasure: true });
+      pages.refresh({ remeasure: true });
     }),
   );
 }
