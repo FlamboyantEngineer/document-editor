@@ -127,6 +127,8 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     mode: 'room',
     status,
     document,
+    // A shared room merges every writer's changes itself: nothing is left to settle.
+    conflicts: stores.conflicts,
     ready: load(),
     update: (update) => {
       const shown = document.get();
@@ -144,6 +146,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
       await flush();
     },
     flush,
+    resolveConflict: () => Promise.resolve(),
     hasUnsavedChanges: () => room?.connection.state().hasUnconfirmedChanges ?? false,
     close,
   };

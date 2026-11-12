@@ -24,8 +24,10 @@
       <h1>Session</h1>
       <p>
         The document opens by id from the in-memory store and saves by itself once typing pauses.
-        Slow the store down, fail the next save, have another writer save first so the next save
-        conflicts, hide the page to flush, or reopen the session to load what the store holds.
+        Slow the store down, fail the next save, or have another writer save or change a block: the
+        session takes their save in, merging it with unsaved changes and asking about a block both
+        changed. Turn automatic saves off, hide the page to flush, or reopen the session to load
+        what the store holds.
       </p>
       <div id="lab-editor"></div>
     </main>
