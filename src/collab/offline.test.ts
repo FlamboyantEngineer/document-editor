@@ -10,11 +10,22 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
+import { EditorState } from 'prosemirror-state';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import stored from '../../test/fixtures/yjs-pending-updates.json' with { type: 'json' };
 import { createMemoryDrafts } from '../host/memory-session.js';
 import type { LifecycleEvent, RoomConnection } from '../host/session-adapters.js';
-import { keepRoomDrafts, readRoomGeneration, restoreRoomDraft, type RoomDraft } from './offline.js';
+import type { DocumentFile } from '../model/format/document-format.js';
+import { readDocumentFile } from '../model/format/document-format-convert.js';
+import { createDocumentSchema } from '../model/schema/document-schema.js';
+import { documentToYjs } from './convert.js';
+import {
+  keepRoomDrafts,
+  mergeRoomDraft,
+  readRoomGeneration,
+  restoreRoomDraft,
+  type RoomDraft,
+} from './offline.js';
 
 const providers: RoomProvider[] = [];
 let server: RoomServer | null = null;
@@ -198,5 +209,70 @@ describe('room-mode drafts', () => {
     });
     expect(restored).toBe(true);
     expect(Y.encodeStateVector(doc)).toEqual(Y.encodeStateVector(reference));
+  });
+});
+
+describe('merging a room draft into a new generation', () => {
+  const schema = createDocumentSchema();
+  const paragraph = (id: string, text: string) => ({
+    type: 'paragraph',
+    attrs: { id },
+    content: [{ type: 'text', text }],
+  });
+  const file = (...texts: string[]): DocumentFile => ({
+    formatVersion: 1,
+    sections: [
+      { name: null, content: texts.map((text, at) => paragraph(`a000000${String(at + 1)}`, text)) },
+    ],
+  });
+  const editorOf = (content: DocumentFile) =>
+    EditorState.create({ doc: readDocumentFile(content, schema).doc });
+  const draftOf = (mine: DocumentFile, confirmed: DocumentFile | null): RoomDraft => {
+    const state = documentToYjs(mine, { schema });
+    return {
+      mode: 'room',
+      generation: 'g1',
+      state,
+      unconfirmed: state,
+      confirmed: confirmed && documentToYjs(confirmed, { schema }),
+      savedAt: '2026-01-01T00:00:00.000Z',
+    };
+  };
+  const textOfState = (state: EditorState) => state.doc.textBetween(0, state.doc.content.size, '|');
+
+  it('DOCE-SESSION-6.9 takes offline edits into blocks the new generation left alone', () => {
+    const state = editorOf(file('One', 'Two changed'));
+    const merge = mergeRoomDraft(state, draftOf(file('One offline', 'Two'), file('One', 'Two')), {
+      schema,
+    });
+    expect(merge.leftovers).toEqual([]);
+    expect(merge.transaction).not.toBeNull();
+    const next = state.apply(merge.transaction ?? state.tr);
+    expect(textOfState(next)).toBe('One offline|Two changed');
+  });
+
+  it('DOCE-SESSION-6.9 keeps the new generation in blocks both changed and reports the draft', () => {
+    const state = editorOf(file('One there', 'Two'));
+    const merge = mergeRoomDraft(state, draftOf(file('One offline', 'Two'), file('One', 'Two')), {
+      schema,
+    });
+    expect(merge.transaction).toBeNull();
+    expect(merge.leftovers).toMatchObject([
+      { id: 'a0000001', theirs: { attrs: { id: 'a0000001' } } },
+    ]);
+    expect(JSON.stringify(merge.leftovers[0]?.mine)).toContain('One offline');
+  });
+
+  it('DOCE-SESSION-6.9 merges nothing from a draft with no unconfirmed changes', () => {
+    const state = editorOf(file('One', 'Two'));
+    const draft = { ...draftOf(file('Other', 'Two'), file('One', 'Two')), unconfirmed: null };
+    expect(mergeRoomDraft(state, draft, { schema })).toEqual({ transaction: null, leftovers: [] });
+  });
+
+  it('DOCE-SESSION-6.9 reports every differing block when no confirmed state is known', () => {
+    const state = editorOf(file('One', 'Two'));
+    const merge = mergeRoomDraft(state, draftOf(file('One offline', 'Two'), null), { schema });
+    expect(merge.transaction).toBeNull();
+    expect(merge.leftovers.map((leftover) => leftover.id)).toEqual(['a0000001']);
   });
 });

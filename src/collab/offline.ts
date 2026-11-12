@@ -3,12 +3,21 @@
 // edits with no connection and sends what it kept once connected again (D25).
 
 import * as Y from '@y/y';
+import type { EditorState, Transaction } from 'prosemirror-state';
+import { createElementId } from '../engine/element-ids.js';
+import { replaceDocumentContent } from '../engine/replace-document-content.js';
 import type {
   DocumentDraft,
   DraftsAdapter,
   LifecycleAdapter,
   RoomConnection,
 } from '../host/session-adapters.js';
+import type { DocumentFile } from '../model/format/document-format.js';
+import { readDocumentFile } from '../model/format/document-format-convert.js';
+import { writeDocumentFile } from '../model/format/document-format-write.js';
+import { type MergeConflict, mergeDocuments } from '../session/merge.js';
+import { resolveMergeConflict } from '../session/merge-conflicts.js';
+import { readRoomDocument, type RoomReadOptions, yjsToDocument } from './convert.js';
 
 /** A room-mode draft as the adapter keeps it. */
 export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
@@ -132,4 +141,53 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
       stopLifecycle?.();
     },
   };
+}
+
+/** What a room draft's merge into a new generation's document gives. */
+export interface RoomDraftMerge {
+  /** The change that takes the draft's offline edits into the document, or null for none. */
+  transaction: Transaction | null;
+  /**
+   * The draft's blocks that could not be placed: blocks the new generation changed or removed too.
+   * The document keeps the new generation's version; `mine` is the draft's, to report.
+   */
+  leftovers: readonly MergeConflict[];
+}
+
+const EMPTY_DOCUMENT: DocumentFile = { formatVersion: 1, sections: [] };
+
+/**
+ * Merges what a room draft holds beyond the last state the room confirmed into the document of a
+ * room that started a new generation (DOCE-SESSION-6.9): a three-way merge by element id
+ * (`mergeDocuments`) with the confirmed state as the base, the draft as mine and the new document
+ * as theirs. A draft with no confirmed state merges from an empty base, so every block that differs
+ * is a leftover. Blocks both changed keep the new generation's version and are reported.
+ */
+export function mergeRoomDraft(
+  state: EditorState,
+  draft: RoomDraft,
+  options: RoomReadOptions,
+): RoomDraftMerge {
+  const cached = restoredDoc(draft);
+  const mine = readRoomDocument(cached, options);
+  cached.destroy();
+  if (!draft.unconfirmed || !mine) return { transaction: null, leftovers: [] };
+  const base = draft.confirmed ? yjsToDocument(draft.confirmed, options) : null;
+  const theirs = writeDocumentFile(state.doc, { fragmentRules: options.fragmentRules });
+  const merge = mergeDocuments({ base: base ?? EMPTY_DOCUMENT, mine, theirs });
+  const content = merge.conflicts.reduce(
+    (merged, conflict) =>
+      resolveMergeConflict(merged, conflict, { choice: 'theirs', newId: createElementId }),
+    merge.content,
+  );
+  const read = readDocumentFile(content, options.schema, { unknown: 'keep' });
+  const transaction = replaceDocumentContent(state, read.doc);
+  return { transaction: transaction.docChanged ? transaction : null, leftovers: merge.conflicts };
+}
+
+// A shared document holding a draft's state and unconfirmed changes.
+function restoredDoc(draft: RoomDraft): Y.Doc {
+  const doc = new Y.Doc();
+  restoreRoomDraft(doc, draft);
+  return doc;
 }

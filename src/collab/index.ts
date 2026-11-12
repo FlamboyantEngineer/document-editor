@@ -11,9 +11,11 @@ export {
 } from './convert.js';
 export {
   keepRoomDrafts,
+  mergeRoomDraft,
   readRoomGeneration,
   restoreRoomDraft,
   type RoomDraft,
+  type RoomDraftMerge,
   type RoomDrafts,
   type RoomDraftsOptions,
 } from './offline.js';

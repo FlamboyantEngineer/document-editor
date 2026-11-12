@@ -233,6 +233,13 @@ Verification: `src/collab/offline.test.ts`
 Implementation: `src/collab/offline.ts`
 Verification: `src/collab/offline.test.ts`
 
+### DOCE-SESSION-6.9 - Merging a room draft into a new generation
+
+When a shared room has started a new generation since a draft was kept, `mergeRoomDraft` shall merge what the draft holds beyond the last state the room confirmed into the new generation's document, by element id (DOCE-SESSION-4): a block only the draft changed takes the draft's version, as one change the binding sends to the room. A block both changed, or one changed and the other removed, keeps the new generation's version and is reported as a leftover with the draft's version. A draft with no unconfirmed changes merges nothing, and a draft with no confirmed state reports every block that differs.
+
+Implementation: `src/collab/offline.ts`
+Verification: `src/collab/offline.test.ts`
+
 ## DOCE-SESSION-7 - Refreshing from the store
 
 ### DOCE-SESSION-7.1 - Following the store's saves
