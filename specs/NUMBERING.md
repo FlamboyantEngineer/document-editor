@@ -78,10 +78,17 @@ Verification: `src/model/numbering/document-numbering.test.ts`
 
 ### DOCE-NUMBERING-2.5 - Paragraph styles
 
-`resolveParagraphNumberingConfig(settings)` shall read a paragraph style's numbering: its format, levels, prefix and suffix. An empty or absent format shall switch numbering off.
+`resolveParagraphNumberingConfig(settings)` shall read a paragraph style's numbering: its format, levels (a null level as an empty one), prefix and suffix. An empty or absent format, or `enabled: false`, shall switch numbering off.
 
 Implementation: `src/model/numbering/document-numbering.ts`
 Verification: `src/model/numbering/document-numbering.test.ts`
+
+### DOCE-NUMBERING-2.6 - Numbering switch
+
+A numbering setting's `enabled: false` shall read as an empty format for headings, paragraphs and captioned objects alike, while the stored format is kept, so switching it on again restores the numbering. Unset, the format decides.
+
+Implementation: `src/model/templates/template-numbering.ts`, `src/model/numbering/document-numbering.ts`, `src/model/format/template-format.ts`
+Verification: `src/model/templates/template-properties.test.ts`
 
 ## DOCE-NUMBERING-3 - Paragraph numbering
 

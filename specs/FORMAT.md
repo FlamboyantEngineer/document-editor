@@ -6,7 +6,7 @@ The library stores documents and templates in formats of its own, as JSON a host
 
 ### DOCE-FORMAT-1.1 - Stored document
 
-A stored document (`DocumentFile`) shall hold `formatVersion` 1, the id of the `template` it uses, and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
+A stored document (`DocumentFile`) shall hold `formatVersion` 1, the `template` it uses, pinned at a revision (DOCE-TEMPLATES-11.1), and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
@@ -66,10 +66,10 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-3.1 - One inheritance rule
 
-`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own. The merged template shall keep its own `id` and `parent`.
+`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, except a list of `levels` (paragraph numbering and contents levels), which merges level by level by its place, so a null level takes the parent's, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own. The merged template shall keep its own `id` and `parent`.
 
 Implementation: `src/model/format/template-format-resolve.ts`
-Verification: `src/model/format/template-format-resolve.test.ts`
+Verification: `src/model/format/template-format-resolve.test.ts`, `src/model/templates/template-settings.test.ts`
 
 ### DOCE-FORMAT-3.2 - Inherited chains
 
@@ -87,7 +87,7 @@ Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-FORMAT-3.4 - Section regions
 
-`resolveSectionRegion(template, section, region)` shall give a section its own page header or footer, or the template's when the section has none or asks to inherit.
+`resolveSectionRegion(template, section, region)` shall give a section the template's page header or footer when the section has none or asks to inherit, and otherwise the section's region settings over the template's, field by field, so a section that sets only a height keeps the template's content and one that sets empty content shows none.
 
 Implementation: `src/model/format/template-format-resolve.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`

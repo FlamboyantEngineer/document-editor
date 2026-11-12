@@ -82,6 +82,9 @@ export interface ObjectLabels {
     across: 'left' | 'center' | 'right',
   ) => string;
   readonly distributeColumns: string;
+  readonly distributeRows: string;
+  readonly splitCellColumns: string;
+  readonly splitCellRows: string;
   readonly reference: string;
   readonly editReference: string;
   readonly removeReference: string;
@@ -210,6 +213,9 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
     return across === 'center' && vertical === 'middle' ? 'Center' : `${down} ${across}`;
   },
   distributeColumns: 'Distribute columns',
+  distributeRows: 'Distribute rows',
+  splitCellColumns: 'Into two columns',
+  splitCellRows: 'Into two rows',
   reference: 'Reference',
   editReference: 'Edit reference…',
   removeReference: 'Remove reference',
