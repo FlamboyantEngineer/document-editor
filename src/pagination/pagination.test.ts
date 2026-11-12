@@ -6,6 +6,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { createPagination, type LayoutState, type PaginationOptions } from './index.js';
+import { layoutNow } from './layout-latency.js';
 
 const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
@@ -253,6 +254,25 @@ describe('pagination waiting for fonts', () => {
     frames.drain();
     expect(pagination.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4 });
     expect(pagination.layoutState()).toBe('settled');
+    view.destroy();
+  });
+});
+
+describe('pagination latency', () => {
+  it('DOCE-PAGINATION-5.7 lays out on the next frame after a change of structure, but settles typing', () => {
+    stubLayout();
+    const { pagination, view, frames } = mount([['One', 'Two']], { settle: 150 });
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(1);
+    view.dispatch(view.state.tr.insertText('Typed ', firstText(view.state.doc)));
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(1);
+    view.dispatch(view.state.tr.split(firstText(view.state.doc) + 3));
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(2);
+    view.dispatch(layoutNow(view.state.tr.insertText('x', firstText(view.state.doc))));
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(3);
     view.destroy();
   });
 });

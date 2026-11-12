@@ -236,6 +236,20 @@ When font faces load in the measuring view's document, every block shall measure
 Implementation: `src/pagination/layout-triggers.ts`, `src/pagination/fonts.ts`, `src/pagination/pagination.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/pagination/layout-triggers.test.ts`, `src/pagination/fonts.test.ts`, `src/pagination/pagination.test.ts`, `e2e/pagination.spec.ts`
 
+### DOCE-PAGINATION-5.7 - Laying out at once
+
+Typing or deleting text inside one textblock shall wait for the writer to pause (DOCE-PAGINATION-7.1); any other change to the document, such as Enter, a page break, a footnote, a deletion across blocks, a paste or a drop, shall lay the pages out on the next frame without waiting (`wantsLayoutNow`), and so shall a transaction marked with `layoutNow`.
+
+Implementation: `src/pagination/layout-latency.ts`, `src/pagination/pagination.ts`
+Verification: `src/pagination/layout-latency.test.ts`, `src/pagination/pagination.test.ts`
+
+### DOCE-PAGINATION-5.8 - The caret stays in place
+
+When a layout moves the caret of a focused editor on screen, as when its line moves onto the next page, the editor's scrolling pane, or the document's, shall scroll by as much, so the caret is back where the writer saw it (`caretPlace`, `keepCaretInPlace`). An editor without focus is not scrolled.
+
+Implementation: `src/pagination/caret.ts`, `src/pagination/pagination.ts`
+Verification: `src/pagination/caret.test.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document

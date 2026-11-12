@@ -14,6 +14,7 @@ import {
   repaginate,
 } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
+import { caretPlace, keepCaretInPlace } from './caret.js';
 import { footnoteAnchor, restoreFootnoteSelection } from './footnote-selection.js';
 import { followDocument } from './ghost-view.js';
 import {
@@ -23,8 +24,15 @@ import {
   type LayoutMemory,
   type PageMetric,
 } from './layout-document.js';
+import { wantsLayoutNow } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { awaitReady, frameIn, type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
+import {
+  awaitReady,
+  frameIn,
+  type Remeasure,
+  remeasureOn,
+  settleEdits,
+} from './layout-triggers.js';
 import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
@@ -125,6 +133,8 @@ interface Runner {
   changed: boolean;
   /** The layouts in a row that moved the pages with no change in between. */
   passes: number;
+  /** Whether a change since the latest layout lays the pages out at once (`wantsLayoutNow`). */
+  now: boolean;
 }
 
 // Lays the measuring view's document out on pages, with what each page's blocks take of it.
@@ -142,7 +152,13 @@ function layOutPages(measuring: EditorView, options: PaginationOptions, counter:
 }
 
 // A runner with no editor mounted.
-const unmounted = { editor: null, measuring: null, cancel: null, restart: false } as const;
+const unmounted = {
+  editor: null,
+  measuring: null,
+  cancel: null,
+  restart: false,
+  now: false,
+} as const;
 
 // What a layout counts with: the measure cache, and the pagination's counters.
 type LayoutCounter = {
@@ -176,7 +192,9 @@ function stepOntoPages(
   laidOut.set(tr.doc, metrics);
   counter.layout(state.doc, tr.doc);
   tr.setMeta(statsKey, counter.stats());
+  const caret = tr.docChanged ? caretPlace(editor) : null;
   editor.dispatch(tr.setMeta(paginationKey, true).setMeta('addToHistory', false));
+  keepCaretInPlace(editor, caret);
   return tr;
 }
 
@@ -198,6 +216,11 @@ function paginationPlugin(
     state: {
       init: () => true,
       apply: (tr, due) => (isPaginationTransaction(tr) ? false : due || tr.docChanged),
+    },
+    appendTransaction(transactions) {
+      const now = (tr: Transaction) => !isPaginationTransaction(tr) && wantsLayoutNow(tr);
+      if (transactions.some(now)) runner.now = true;
+      return null;
     },
     view(editor) {
       runner.editor = editor;
@@ -246,6 +269,19 @@ function forget(
 ): void {
   if (change.all || !measuring) cache.clear();
   else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
+  request();
+}
+
+// Asks for a layout once the writer pauses, or on the next frame after a change that wants one at
+// once.
+function settleOrNow(
+  runner: Runner,
+  edits: ReturnType<typeof settleEdits>,
+  request: () => void,
+): void {
+  if (!runner.now) return edits.request();
+  runner.now = false;
+  edits.cancel();
   request();
 }
 
@@ -324,7 +360,7 @@ export function createPagination(options: PaginationOptions): Pagination {
       },
       changed() {
         change();
-        edits.request();
+        settleOrNow(runner, edits, request);
       },
       request,
     },
