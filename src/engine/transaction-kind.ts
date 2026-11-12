@@ -41,9 +41,26 @@ export function markRemote(tr: Transaction): Transaction {
   return tr.setMeta(REMOTE_META, true).setMeta('addToHistory', false);
 }
 
-/** Whether a transaction is a remote change (`markRemote`). */
+/**
+ * Whether a transaction is a remote change (`markRemote`), or a plugin appended it to one: what a
+ * plugin derives from a remote change on the receiving side is no more the writer's than the
+ * change itself.
+ */
 export function isRemoteTransaction(tr: Transaction): boolean {
-  return tr.getMeta(REMOTE_META) === true;
+  return includeAppended((each) => each.getMeta(REMOTE_META) === true)(tr);
+}
+
+/**
+ * Extends a test of remote changes to the transactions plugins append to them, so a host's own
+ * `isRemote` covers derived writes the way `isRemoteTransaction` does.
+ */
+export function includeAppended(
+  isRemote: (tr: Transaction) => boolean,
+): (tr: Transaction) => boolean {
+  return (tr) => {
+    const root = tr.getMeta('appendedTransaction') as Transaction | undefined;
+    return isRemote(tr) || (root !== undefined && isRemote(root));
+  };
 }
 
 /** Marks a transaction as a change derived from others. */
