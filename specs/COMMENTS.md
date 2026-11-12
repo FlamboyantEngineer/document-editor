@@ -67,6 +67,27 @@ Verification: `src/engine/comment-anchors.test.ts`
 Implementation: `src/engine/comment-anchors.ts`
 Verification: `src/engine/comment-anchors.test.ts`
 
+### DOCE-COMMENTS-1.10 - Portable targets
+
+`describeCommentTarget(state, thread)` shall describe a thread's anchor portably (`CommentTarget`): each range by the element id of its text block, its offsets in that block (each character and inline object counting one) and its text, with the quote; null when a block has no id. `resolveCommentTarget(doc, target)` shall find it again: each range at its offsets when its text is still there (`exact`), else its text nearest them in its block, else the quote in any one text block; null when none is found. `reanchorThread(thread, target)` shall anchor the thread again where its target is found, replacing its marks, and be refused when it is not found.
+
+Implementation: `src/engine/comment-targets.ts`
+Verification: `src/engine/comment-targets.test.ts`
+
+### DOCE-COMMENTS-1.11 - Reconciling threads
+
+`reconcileThreads(doc, threads)` shall report, by thread id, the threads the document's marks anchor (`anchored`), those without marks whose target is where it said (`placed`) or found again by its text (`reanchored`), the text threads with neither (`orphaned`), the threads about the whole document (`document`, scope `document`, never orphaned), and the anchors whose thread is not listed (`unknown`).
+
+Implementation: `src/engine/comment-targets.ts`
+Verification: `src/engine/comment-targets.test.ts`
+
+### DOCE-COMMENTS-1.12 - Threads placed by their targets
+
+`anchorThreads(threads)` shall place the anchors of the listed text threads that no mark anchors where their targets are found, without changing the document, as when the reader may write only a shared room's comments: the index lists them with the marked anchors, draws them as stored anchors are drawn (`mark` with `data-comment-id`, `data-comment-state` and `data-comment-placed`), and maps them through edits; a mark anchoring the thread takes over from its placed anchor. Each call replaces the threads placed before.
+
+Implementation: `src/engine/comment-targets.ts`, `src/engine/comment-anchors.ts`
+Verification: `src/engine/comment-targets.test.ts`
+
 ## DOCE-COMMENTS-2 - The comments margin
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
@@ -222,3 +243,4 @@ Verification: `e2e/comments.spec.ts`
 | `de-comments-panel`            | root      |        | The comments panel.                                        |
 | `de-comments-panel__thread`    | slot      |        | A thread of the panel, with `data-anchored`.               |
 | `data-comment-active`          | attribute | `true` | On the text of the anchor holding the caret.               |
+| `data-comment-placed`          | attribute | `true` | On an anchor placed by its thread's target, not stored.    |

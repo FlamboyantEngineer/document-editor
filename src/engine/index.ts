@@ -56,6 +56,20 @@ export type { CaptionedObject } from './captions.js';
 export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
 export { activeCommentThread, commentAnchors, createCommentAnchors } from './comment-anchors.js';
 export type { CommentDraft } from './comment-draft.js';
+export type {
+  AnchoredThread,
+  CommentTarget,
+  CommentTargetRange,
+  ResolvedTarget,
+  ThreadReconcileReport,
+} from './comment-targets.js';
+export {
+  anchorThreads,
+  describeCommentTarget,
+  reanchorThread,
+  reconcileThreads,
+  resolveCommentTarget,
+} from './comment-targets.js';
 export {
   canStartComment,
   clearCommentDraft,
