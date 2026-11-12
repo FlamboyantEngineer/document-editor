@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Documents at the sizes the performance budgets name, up to 5000 blocks and 300 pages."
+    />
+    <title>Stress: scale · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/stress-scale.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" class="lab-fill">
+      <h1>Stress: scale</h1>
+      <p>
+        Documents at the sizes the performance budgets name, up to 5000 blocks and 300 pages. The
+        editor shows how long its pages took to lay out, at first and after the latest edit.
+      </p>
+      <div id="lab-editor" class="lab-editor"></div>
+    </main>
+  </body>
+</html>

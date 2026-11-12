@@ -29,7 +29,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /\.performance\.spec\.ts$/,
+      testIgnore: [/\.performance\.spec\.ts$/, /\/performance\.spec\.ts$/],
     },
     // Timing budgets run after every other test, with no other worker sharing the machine.
     {
@@ -38,6 +38,12 @@ export default defineConfig({
       testMatch: /\.performance\.spec\.ts$/,
       dependencies: ['chromium'],
       fullyParallel: false,
+    },
+    // The performance harness (DOCE-LABS-2.3), run on its own with `npm run test:perf`.
+    {
+      name: 'budgets',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /\/performance\.spec\.ts$/,
     },
   ],
 });

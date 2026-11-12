@@ -37,6 +37,7 @@ Labs are static demo pages in `labs/`, one per area of the editor, bundled from 
 npm run labs         # install and build what is out of date, then serve labs/ at http://127.0.0.1:4183/
 npm run build:labs   # bundle every lab into labs/build/; add `-- --dev --watch` to rebuild on save
 npm run test:labs    # browser tests against the built labs
+npm run test:perf    # performance harness: the budgets in specs/LABS.md, measured on the scale lab
 ```
 
 `npm run labs` runs `npm ci` when `package-lock.json` changed since the last install and `npm run build:labs` when a lab source changed since the last build. `npm run labs -- --dry-run` lists those steps without running them; `npm run serve:labs` serves `labs/` as it is. Both, and the browser tests, use port 4183; set the `LABS_PORT` environment variable to use another.
