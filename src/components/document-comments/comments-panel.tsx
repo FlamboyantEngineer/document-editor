@@ -107,6 +107,7 @@ function usePanelCards(props: DocumentCommentsPanelProps, comments: CommentThrea
     format: props.format,
     mentionCard: props.mentionCard,
     commentActions: props.commentActions,
+    threadPermissions: props.threadPermissions,
     scope: 'panel',
     opened: focus.opened,
     newText: focus.newText,

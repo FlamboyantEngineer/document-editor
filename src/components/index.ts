@@ -90,12 +90,15 @@ export {
 export type {
   DocumentSessionBoundaryProps,
   DocumentSessionEditorProps,
+  MergeConflictsLabels,
+  MergeConflictsProps,
   SessionLoadingLabels,
   SessionLoadingProps,
 } from './document-session/index.js';
 export {
   DEFAULT_SESSION_LOADING_LABELS,
   DocumentSessionBoundary,
+  MergeConflicts,
   SESSION_MEASURES,
   SessionLoading,
   useDocumentSession,
