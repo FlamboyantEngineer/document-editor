@@ -111,13 +111,17 @@ test.describe('offline lab in room mode', () => {
       offline: () => typeInto(page, roomParagraph(page), ' Offline.'),
     });
     await reopen(page);
-    await expect(roomEditor(page)).toContainText('Online. Offline.');
+    await expect(roomParagraph(page)).toHaveText(
+      'The system shall report each fault within one second. Online. Offline.',
+    );
     await expect(roomStatus(page)).toHaveText('ready · saved');
     await expect.poll(() => roomDraftUnconfirmed(page)).toBe(false);
     // The room stored it: without the draft, the room still holds it.
     await page.evaluate(() => sessionStorage.removeItem('offline-lab:room:lab'));
     await reopen(page);
-    await expect(roomEditor(page)).toContainText('Online. Offline.');
+    await expect(roomParagraph(page)).toHaveText(
+      'The system shall report each fault within one second. Online. Offline.',
+    );
   });
 
   test('DOCE-SESSION-6.10 merges a draft into a room that started over', async ({ lab, page }) => {
@@ -125,9 +129,7 @@ test.describe('offline lab in room mode', () => {
     await editOffline(page, { offline: () => typeInto(page, roomHeading(page), ' offline') });
     await room(page).getByRole('button', { name: 'Lose the stored room' }).click();
     await reopen(page);
-    // Contains, not equals: in a browser, the editor's paged layout binds the room twice for now and
-    // sends each local change twice, which this lab does not check.
-    await expect(roomHeading(page)).toContainText('Scope offline');
+    await expect(roomHeading(page)).toHaveText('Scope offline');
     await expect(page.getByRole('list', { name: 'Leftovers' })).toHaveCount(0);
     await expect(roomStatus(page)).toHaveText('ready · saved');
   });
@@ -148,7 +150,9 @@ test.describe('offline lab in room mode', () => {
     await expect(roomEditor(page)).not.toContainText('Offline.');
     await leftovers.getByRole('button', { name: 'Keep mine' }).click();
     await expect(leftovers).toHaveCount(0);
-    await expect(roomEditor(page)).toContainText('Online. Offline.');
+    await expect(roomParagraph(page)).toHaveText(
+      'The system shall report each fault within one second. Online. Offline.',
+    );
     await expect(roomStatus(page)).toHaveText('ready · saved');
   });
 });
