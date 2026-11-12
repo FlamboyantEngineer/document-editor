@@ -5,11 +5,11 @@ import type { ReactNode } from 'react';
 import {
   acceptSuggestion,
   clearCommentDraft,
+  commentAnchors,
   commentDraft,
   commitCommentDraft,
   createElementId,
   linkSuggestionThread,
-  listCommentAnchors,
   listSuggestions,
   rejectSuggestion,
   removeCommentAnchor,
@@ -58,7 +58,7 @@ export interface CommentItemsOptions {
 
 function threadItems(state: EditorState, { threads, showResolved }: CommentItemsOptions) {
   const items: CommentItem[] = [];
-  for (const anchor of listCommentAnchors(state.doc)) {
+  for (const anchor of commentAnchors(state)) {
     const thread = threads.get(anchor.thread);
     if (!thread || (thread.state !== 'open' && !showResolved)) continue;
     const key = `comment:${anchor.thread}`;
@@ -123,10 +123,9 @@ function renderSuggestion(
 ): ReactNode {
   const { context, run } = actions;
   const { suggestion, thread } = item;
-  const decide = (accept: boolean) => {
+  // The editor records the decision on the suggestion's thread (DOCE-COMMENTS-2.19).
+  const decide = (accept: boolean) =>
     run((accept ? acceptSuggestion : rejectSuggestion)(suggestion.id));
-    if (thread) void context.comments.setState(thread.id, 'resolved').catch(() => undefined);
-  };
   const reply = async (text: string) => {
     if (thread) return context.comments.reply(thread.id, text);
     const id = createElementId();
