@@ -49,17 +49,30 @@ function viewOf(view: EditorView, source: CanonicalPluginsSource): EditorView {
   return canonical;
 }
 
-// Whether a canonical plugin handles an event, in order, on the canonical view.
-function offered(view: EditorView, source: CanonicalPluginsSource, handle: Handler): boolean {
+// An event for the canonical plugins: which of them take it, and how each is handed it.
+interface Offer {
+  readonly has: (plugin: Plugin) => boolean;
+  readonly handle: Handler;
+}
+
+// Whether a canonical plugin handles an event, in order, on the canonical view; input that acts on
+// the selection has the selection the pages show mirrored first. With no plugin that takes it,
+// nothing is done, so typing costs nothing more.
+function offered(
+  view: EditorView,
+  source: CanonicalPluginsSource,
+  { has, handle, input }: Offer & { readonly input: boolean },
+): boolean {
+  const takers = source.canonical().plugins.filter(has);
+  if (takers.length === 0) return false;
+  if (input) source.prepare();
   const canonical = viewOf(view, source);
-  return source.canonical().plugins.some((plugin) => handle(plugin, canonical) === true);
+  return takers.some((plugin) => handle(plugin, canonical) === true);
 }
 
 // Whether a canonical plugin handles input, with the selection the pages show mirrored first.
-function handled(view: EditorView, source: CanonicalPluginsSource, handle: Handler): boolean {
-  source.prepare();
-  return offered(view, source, handle);
-}
+const handled = (view: EditorView, source: CanonicalPluginsSource, offer: Offer) =>
+  offered(view, source, { ...offer, input: true });
 
 // The canonical plugins' views, started on the canonical view and updated as its state changes.
 function pluginViews(view: EditorView, source: CanonicalPluginsSource): PluginView {
@@ -96,24 +109,27 @@ function clickOn(
   return (view: EditorView, pos: number, event: MouseEvent): boolean => {
     const at = source.map().toCanonical(pos);
     if (at === null) return false;
-    return handled(view, source, (plugin, canonical) =>
-      plugin.props[prop]?.call(plugin, canonical, at, event),
-    );
+    return handled(view, source, {
+      has: (plugin) => Boolean(plugin.props[prop]),
+      handle: (plugin, canonical) => plugin.props[prop]?.call(plugin, canonical, at, event),
+    });
   };
 }
 
 // Text typed on the pages, offered to the canonical plugins, as input rules read it.
 function textInput(source: CanonicalPluginsSource): NonNullable<Props['handleTextInput']> {
-  return (view, ...[from, to, text]) => {
-    const map = source.map();
-    const start = map.toCanonical(from, -1);
-    const end = map.toCanonical(to, 1);
-    if (start === null || end === null) return false;
-    const typed = () => source.canonical().tr.insertText(text, start, end);
-    return handled(view, source, (plugin, canonical) =>
-      plugin.props.handleTextInput?.call(plugin, canonical, start, end, text, typed),
-    );
-  };
+  return (view, ...[from, to, text]) =>
+    handled(view, source, {
+      has: (plugin) => Boolean(plugin.props.handleTextInput),
+      handle(plugin, canonical) {
+        const map = source.map();
+        const start = map.toCanonical(from, -1);
+        const end = map.toCanonical(to, 1);
+        if (start === null || end === null) return false;
+        const typed = () => source.canonical().tr.insertText(text, start, end);
+        return plugin.props.handleTextInput?.call(plugin, canonical, start, end, text, typed);
+      },
+    });
 }
 
 function domEvents(source: CanonicalPluginsSource): NonNullable<Props['handleDOMEvents']> {
@@ -121,10 +137,14 @@ function domEvents(source: CanonicalPluginsSource): NonNullable<Props['handleDOM
     DOM_EVENTS.map((name) => [
       name,
       (view: EditorView, event: Event) =>
-        offered(view, source, (plugin, canonical) => {
-          const handler = plugin.props.handleDOMEvents?.[name] as
-            ((view: EditorView, event: Event) => boolean | undefined) | undefined;
-          return handler?.call(plugin, canonical, event);
+        offered(view, source, {
+          has: (plugin) => Boolean(plugin.props.handleDOMEvents?.[name]),
+          handle(plugin, canonical) {
+            const handler = plugin.props.handleDOMEvents?.[name] as
+              ((view: EditorView, event: Event) => boolean | undefined) | undefined;
+            return handler?.call(plugin, canonical, event);
+          },
+          input: false,
         }),
     ]),
   );
@@ -133,17 +153,20 @@ function domEvents(source: CanonicalPluginsSource): NonNullable<Props['handleDOM
 /** The canonical plugins' keys, run on the canonical view of the projection view. */
 export function canonicalKeys(source: CanonicalPluginsSource) {
   return (view: EditorView, event: KeyboardEvent): boolean =>
-    handled(view, source, (plugin, canonical) =>
-      plugin.props.handleKeyDown?.call(plugin, canonical, event),
-    );
+    handled(view, source, {
+      has: (plugin) => Boolean(plugin.props.handleKeyDown),
+      handle: (plugin, canonical) => plugin.props.handleKeyDown?.call(plugin, canonical, event),
+    });
 }
 
 /** The canonical plugins' paste handlers, run on the canonical view of the projection view. */
 export function canonicalPaste(source: CanonicalPluginsSource) {
   return (view: EditorView, event: ClipboardEvent, slice: Slice): boolean =>
-    handled(view, source, (plugin, canonical) =>
-      plugin.props.handlePaste?.call(plugin, canonical, event, slice),
-    );
+    handled(view, source, {
+      has: (plugin) => Boolean(plugin.props.handlePaste),
+      handle: (plugin, canonical) =>
+        plugin.props.handlePaste?.call(plugin, canonical, event, slice),
+    });
 }
 
 /**
