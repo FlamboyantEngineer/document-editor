@@ -36,6 +36,8 @@ export interface IdentityAttribute {
   readonly name: string;
   /** The markup attribute it is read from and written to. */
   readonly dom: string;
+  /** Its name in the stored document format; its `name` when left out. */
+  readonly stored?: string | undefined;
   /** The node types that carry it; every type but text when left out. */
   readonly scope?: readonly string[] | undefined;
   /** Whether a pasted copy keeps the source's value or clears it, so the copy is a new element. */

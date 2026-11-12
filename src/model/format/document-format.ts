@@ -6,6 +6,7 @@
 // stored names below. An attribute at its default is left out.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { IdentityAttribute } from '../schema/element-attributes.js';
 import type { RegionSettings, TemplatePin } from './template-format.js';
 
 /** The current document format version. */
@@ -266,23 +267,34 @@ export const STORED_MARK_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
   },
 });
 
-/** A stored attribute name: the type's own, else an element attribute's, else the schema name. */
+/** What a type's spec says about its stored attributes: its attributes and identity attributes. */
+export interface StoredTypeSpec {
+  readonly attrs?: Readonly<Record<string, unknown>> | undefined;
+  readonly identityAttributes?: readonly IdentityAttribute[] | undefined;
+}
+
+/**
+ * A stored attribute name: the type's own, else an element attribute's, else a host identity
+ * attribute's stored name (DOCE-SCHEMA-2.3), else the schema name.
+ */
 export function storedAttrName(
   mapping: StoredTypeMapping | undefined,
   name: string,
+  spec: StoredTypeSpec = {},
 ): string | null {
   if (mapping?.attrs && Object.hasOwn(mapping.attrs, name)) return mapping.attrs[name] ?? null;
   if (Object.hasOwn(ELEMENT_ATTRS, name)) return ELEMENT_ATTRS[name] ?? null;
-  return name;
+  return spec.identityAttributes?.find((attribute) => attribute.name === name)?.stored ?? name;
 }
 
 /** The schema attribute a stored attribute names; null when the type stores no such attribute. */
 export function schemaAttrName(
   mapping: StoredTypeMapping | undefined,
   stored: string,
-  schemaAttrs: readonly string[],
+  spec: StoredTypeSpec,
 ): string | null {
-  return schemaAttrs.find((name) => storedAttrName(mapping, name) === stored) ?? null;
+  const names = Object.keys(spec.attrs ?? {});
+  return names.find((name) => storedAttrName(mapping, name, spec) === stored) ?? null;
 }
 
 /** The LaTeX source of stored math, inline or a block, which the format keeps in `source`. */
