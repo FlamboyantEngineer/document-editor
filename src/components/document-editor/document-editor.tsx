@@ -54,6 +54,7 @@ import {
 } from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
+import { EditorScope } from './editor-scope.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
@@ -356,7 +357,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
     />
   );
   return (
-    <DocumentEditorContext value={context}>
+    <EditorScope context={context} comments={props.comments}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}
@@ -386,7 +387,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
           onClose={() => setDialog(null)}
         />
       </div>
-    </DocumentEditorContext>
+    </EditorScope>
   );
 }
 
