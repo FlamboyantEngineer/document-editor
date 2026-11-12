@@ -33,13 +33,10 @@ export { documentOutline } from './outline.js';
 export type { Peer, PlacedPeer, PresenceState } from './presence.js';
 export {
   createPresence,
-  isRemoteTransaction,
   listPeers,
-  markRemote,
   placePeers,
   PRESENCE_COLOR_SLOTS,
   presenceKey,
-  REMOTE_META,
   scrollToPeer,
   setPeers,
 } from './presence.js';
@@ -184,6 +181,19 @@ export {
 } from './template-sync.js';
 export type { TextSegment } from './text-diff.js';
 export { diffText } from './text-diff.js';
+export {
+  DERIVED_META,
+  isDerivedTransaction,
+  isInlineTextOnly,
+  isLocalEdit,
+  isRemoteTransaction,
+  isSystemChange,
+  markDerived,
+  markRemote,
+  markSystemChange,
+  REMOTE_META,
+  SYSTEM_META,
+} from './transaction-kind.js';
 export type {
   ChangeLineMark,
   VersionChangeDisplay,
