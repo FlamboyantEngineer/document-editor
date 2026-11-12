@@ -188,11 +188,13 @@ describe('store-mode saving', () => {
     const host = hostWith();
     const session = open(host);
     await session.ready;
-    await host.documents.save('doc', { content: DOCUMENT, baseRevision: 'rev-1' });
+    host.memory.failNext('documents.save', { kind: 'unavailable' });
     typeText(session, 'Oh ');
     await session.save();
-    expect(session.status.get()).toMatchObject({ save: 'error', error: { kind: 'conflict' } });
+    expect(session.status.get()).toMatchObject({ save: 'error', error: { kind: 'unavailable' } });
     expect(session.hasUnsavedChanges()).toBe(true);
+    await session.save();
+    expect(session.status.get()).toMatchObject({ save: 'saved', error: null });
   });
 
   it('DOCE-SESSION-2.3 saves by itself after a pause in the changes', async () => {
