@@ -100,7 +100,8 @@ function regionHeight(view: EditorView, pos: number, ratio: number): number {
   const element = dom as HTMLElement;
   const { height } = element.getBoundingClientRect();
   if (!height) return 0;
-  const style = getComputedStyle(element);
+  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+  if (!style) return height / ratio;
   const margins = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
   return height / ratio + margins;
 }
