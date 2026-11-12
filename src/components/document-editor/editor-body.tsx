@@ -14,6 +14,7 @@ import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers } from './figure-paste.js';
+import { ObjectEditors } from './object-editors.js';
 import { useOpeningScripts } from './script-entries.js';
 import { TableHandles } from './table-handles.js';
 import {
@@ -148,6 +149,7 @@ export function EditorBody({
       {editable && !suggesting ? (
         <TableHandles view={engine.view} state={state} labels={labels} />
       ) : null}
+      {editable ? <ObjectEditors view={engine.view} state={state} labels={labels} /> : null}
     </div>
   );
 }

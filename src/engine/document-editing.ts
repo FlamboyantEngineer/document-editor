@@ -1,7 +1,10 @@
 // The keys of a document and the plugins that make it editable: the undo history, element ids,
 // table editing and the keymap, as one extension a document kit installs.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type {
+  RichTextExtension,
+  RichTextPluginContribution,
+} from '@flamboyantengineer/ui-components/rich-text-editor';
 import {
   baseKeymap,
   chainCommands,
@@ -29,6 +32,7 @@ import { setTextblockType } from './block-type.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentDraft } from './comment-draft.js';
 import { createCustomStyles } from './custom-styles.js';
+import { createEditLock, type EditLockOptions } from './edit-lock.js';
 import {
   changeParagraphLevel,
   clearFormatting,
@@ -48,6 +52,7 @@ import { createScripts } from './scripts.js';
 import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
+import { anyLock, lockedTemplateSections } from './template-sync.js';
 import { includeAppended } from './transaction-kind.js';
 import { createVariableTokens } from './variable-tokens.js';
 
@@ -63,9 +68,20 @@ export interface DocumentEditingOptions {
   history?: boolean | undefined;
   /** Filters the clipboard runs on every pasted and dropped slice, after the library's own. */
   pasteFilters?: readonly PasteFilter[] | undefined;
+  /** The host's own lock, kept beside the lock on sections the template does not let be edited. */
+  isLocked?: EditLockOptions['isLocked'] | undefined;
 }
 
 const NO_TEMPLATE = (): TemplateFile => ({ formatVersion: 1, id: 'none' });
+
+// The lock the editing installs: the template's locked sections and the host's own lock.
+function editLockOf({ template, isLocked }: DocumentEditingOptions): Plugin[] {
+  const locks = [
+    ...(template ? [lockedTemplateSections(template)] : []),
+    ...(isLocked ? [isLocked] : []),
+  ];
+  return locks.length ? [createEditLock({ isLocked: anyLock(...locks) })] : [];
+}
 
 // A command that always reports it handled the key, so Tab never leaves the document.
 const always =
@@ -213,31 +229,12 @@ const tableWidth = (template: () => TemplateFile) => ({
 const numbersInOrder = (template: (() => TemplateFile) | undefined) => () =>
   !template || resolveFootnoteSettings(template(), null).numbering !== 'page';
 
-/** The plugins that make a document editable, in the order they run. */
-export function createDocumentEditing(
-  schema: Schema,
-  options: DocumentEditingOptions = {},
-): Plugin[] {
-  const { template, author, history: keepHistory = true } = options;
-  const isRemote = options.isRemote && includeAppended(options.isRemote);
-  return [
-    ...(keepHistory ? [history()] : []),
-    createElementIds({ author, isRemote }),
-    createFootnotes({ numberInOrder: numbersInOrder(template) }),
-    createCommentDraft(),
-    createMathViews(),
-    createObjectViews(),
-    createClipboard({ filters: options.pasteFilters, template }),
-    createScripts(),
-    ...(template ? [createCustomStyles({ template })] : []),
-    createVariableTokens(),
-    ...(template ? [createTableWidth({ ...tableWidth(template), isRemote })] : []),
-    ...createTableEditing({ isRemote }),
-    gapCursor(),
-    keymap(documentKeys(schema, template)),
-    keymap(baseKeymap),
-  ];
-}
+// The object plugins, which take no options: math, object views and scripts.
+const OBJECT_PLUGINS: readonly RichTextPluginContribution[] = [
+  { name: 'math-views', priority: 500, build: () => [createMathViews()] },
+  { name: 'object-views', priority: 505, build: () => [createObjectViews()] },
+  { name: 'scripts', priority: 512, build: () => [createScripts()] },
+];
 
 // Typed `{{key}}` tokens becoming variables, before the table and key handling.
 const VARIABLE_TOKENS_PLUGIN = {
@@ -247,8 +244,8 @@ const VARIABLE_TOKENS_PLUGIN = {
 };
 
 /**
- * The editing plugins as a kit extension: the history first, the element ids among the
- * interaction plugins, then table editing and the keymaps last, so other extensions' keys come
+ * The editing plugins as a kit extension: the history first, the lock and the element ids among
+ * the interaction plugins, then table editing and the keymaps last, so other extensions' keys come
  * before them.
  */
 export function createDocumentEditingExtension<C = unknown>(
@@ -256,49 +253,29 @@ export function createDocumentEditingExtension<C = unknown>(
 ): RichTextExtension<C> {
   const { template, author, history: keepHistory = true } = options;
   const isRemote = options.isRemote && includeAppended(options.isRemote);
+  const footnotes = { numberInOrder: numbersInOrder(template), isRemote };
   return {
     name: 'document-editing',
     plugins: [
+      { name: 'history', priority: 100, when: () => keepHistory, build: () => [history()] },
       {
-        name: 'history',
-        priority: 100,
-        when: () => keepHistory,
-        build: () => [history()],
+        name: 'edit-lock',
+        priority: 470,
+        when: () => Boolean(template ?? options.isLocked),
+        build: () => editLockOf(options),
       },
       {
         name: 'element-ids',
         priority: 480,
         build: () => [createElementIds({ author, isRemote })],
       },
-      {
-        name: 'footnotes',
-        priority: 490,
-        build: () => [createFootnotes({ numberInOrder: numbersInOrder(template) })],
-      },
-      {
-        name: 'comment-draft',
-        priority: 495,
-        build: () => [createCommentDraft()],
-      },
-      {
-        name: 'math-views',
-        priority: 500,
-        build: () => [createMathViews()],
-      },
-      {
-        name: 'object-views',
-        priority: 505,
-        build: () => [createObjectViews()],
-      },
+      { name: 'footnotes', priority: 490, build: () => [createFootnotes(footnotes)] },
+      { name: 'comment-draft', priority: 495, build: () => [createCommentDraft()] },
+      ...OBJECT_PLUGINS,
       {
         name: 'clipboard',
         priority: 510,
         build: () => [createClipboard({ filters: options.pasteFilters, template })],
-      },
-      {
-        name: 'scripts',
-        priority: 512,
-        build: () => [createScripts()],
       },
       {
         name: 'custom-styles',
@@ -313,16 +290,8 @@ export function createDocumentEditingExtension<C = unknown>(
         when: () => Boolean(template),
         build: () => (template ? [createTableWidth({ ...tableWidth(template), isRemote })] : []),
       },
-      {
-        name: 'tables',
-        priority: 850,
-        build: () => createTableEditing({ isRemote }),
-      },
-      {
-        name: 'gap-cursor',
-        priority: 860,
-        build: () => [gapCursor()],
-      },
+      { name: 'tables', priority: 850, build: () => createTableEditing({ isRemote }) },
+      { name: 'gap-cursor', priority: 860, build: () => [gapCursor()] },
       {
         name: 'keymap',
         priority: 900,
@@ -330,4 +299,16 @@ export function createDocumentEditingExtension<C = unknown>(
       },
     ],
   };
+}
+
+/** The plugins that make a document editable, in the order they run. */
+export function createDocumentEditing(
+  schema: Schema,
+  options: DocumentEditingOptions = {},
+): Plugin[] {
+  const { plugins = [] } = createDocumentEditingExtension<undefined>(options);
+  return plugins
+    .filter((entry) => entry.when?.(undefined) ?? true)
+    .toSorted((a, b) => a.priority - b.priority)
+    .flatMap((entry) => entry.build(undefined, schema));
 }
