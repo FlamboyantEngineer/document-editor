@@ -106,7 +106,9 @@ export {
   ELEMENT_IDS_REPAIR,
   repairElementIds,
 } from './element-ids.js';
+export { clearCopiedIdentity } from './element-ids.js';
 export * from './features.js';
+export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
 export {
   canInsertFootnote,
@@ -145,3 +147,7 @@ export {
 export type { MathViewsOptions } from './math-views.js';
 export { createMathViews } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
+export { isReferencePlace, repairPastedReferences } from './reference-places.js';
+export { refreshReferenceStatus } from './reference-status.js';
+export { touchesReferences } from './reference-updates.js';
+export { refreshReferences } from './references.js';

@@ -252,10 +252,10 @@ describe('createMemoryHost', () => {
       { documentId: 'doc-1', targetId: null },
       { documentId: 'gone', targetId: null },
     ]);
-    expect(current?.ok && current.value.map((each) => each?.numbering ?? null)).toEqual([
-      'SPEC-1',
-      null,
-    ]);
+    expect(
+      current?.ok &&
+        current.value.map((each) => (each && each !== 'no-access' ? each.numbering : null)),
+    ).toEqual(['SPEC-1', null]);
   });
 
   it('DOCE-HOST-1.10 DOCE-HOST-3.8 edits, deletes and reacts to comments, telling subscribers', async () => {
