@@ -1,8 +1,7 @@
 // What the regression lab shows its scenarios (`e2e/regression.spec.ts`) on `window.regressionLab`:
 // the document as it would be stored, a caret put at a split block's fragment boundary, and the
-// pages as a snapshot for printing. The
-// scenarios read pages from the page's DOM and the document from here, so they do not depend on
-// how the editing state holds the pages.
+// pages as a snapshot for printing. The scenarios read pages from the page's DOM and the document
+// from here, so they do not depend on how the editing state holds the pages.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
