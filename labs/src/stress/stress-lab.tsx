@@ -16,7 +16,11 @@ import {
   createDocumentEditing,
   createProofing,
 } from '../../../src/engine/index.js';
-import { createWordListProofer } from '../../../src/host/index.js';
+import {
+  type CommentThread,
+  createMemoryHost,
+  createWordListProofer,
+} from '../../../src/host/index.js';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -47,6 +51,21 @@ export interface StressLabOptions {
   readonly sizes?: readonly { readonly label: string; readonly value: number }[];
   /** Offers a remote writer typing into the middle of the document. */
   readonly remote?: boolean | undefined;
+  /** The comment threads of a size's document, shown in the margin; none for sizes without. */
+  readonly threads?: ((size: number) => readonly CommentThread[] | null) | undefined;
+}
+
+// An in-memory host keeping a size's comment threads, or none.
+function useReviewHost(threads: StressLabOptions['threads'], size: number) {
+  return useMemo(() => {
+    const listed = threads?.(size);
+    if (!listed) return null;
+    return createMemoryHost({
+      person: { id: 'lab', name: 'Lab Writer' },
+      people: [{ id: 'reviewer', name: 'Reviewer' }],
+      comments: { threads: { scale: [...listed] } },
+    });
+  }, [threads, size]);
 }
 
 // The size shown on load: the one the query names, or the first.
@@ -110,10 +129,11 @@ function useLayoutTimes(handle: RefObject<DocumentEditorHandle | null>) {
 const milliseconds = (value: number | null) =>
   value === null ? '…' : `${String(Math.round(value))} ms`;
 
-function StressLab({ build, sizes, remote }: StressLabOptions) {
+function StressLab({ build, sizes, remote, threads }: StressLabOptions) {
   const [size, setSize] = useState(() => initialSize(sizes));
   const [state, setState] = useState(() => stateOf(build(size)));
   const [layout, setLayout] = useState<DocumentLayout>('page');
+  const review = useReviewHost(threads, size);
   const handle = useRef<DocumentEditorHandle>(null);
   const layoutTimes = useLayoutTimes(handle);
   useStressProbe(handle, layoutTimes.times.settledAt);
@@ -192,6 +212,11 @@ function StressLab({ build, sizes, remote }: StressLabOptions) {
         aria-label="Stress document"
         handleRef={handle}
         events={events}
+        comments={
+          review?.comments
+            ? { store: review.comments, documentId: 'scale', identity: review.identity }
+            : undefined
+        }
       />
     </>
   );

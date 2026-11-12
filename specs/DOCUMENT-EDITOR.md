@@ -201,7 +201,7 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.11 - Side panels
 
-`panels` shall place panels beside the document, between the toolbar and the status bar (`de-document-editor__workspace`), `start` before the pages and `end` after them. `DocumentSidePanel` shall be such a panel: the base library's `DockPanel` docked at the document's start or end, named by its label (Navigation and Details by default, `DEFAULT_PANELS_LABELS`), holding a tab for each of its panes in order, the built-in ones by id, `outline` (DOCE-OUTLINE), `search` (DOCE-SEARCH) and `properties`, and the host's own (`DocumentPane`: an id, a label, an icon, a count and what it renders from the editor's context). `DocumentProperties`, the `properties` pane, shall show in the base library's property panel the document's template, sections, pages (from its layout) and words; the section at the caret, by its template section's label or as the body, with its page size, orientation and margins; and the block at the caret, its style, element id and author.
+`panels` shall place panels beside the document, between the toolbar and the status bar (`de-document-editor__workspace`), `start` before the pages and `end` after them. `DocumentSidePanel` shall be such a panel: the base library's `DockPanel` docked at the document's start or end, named by its label (Navigation and Details by default, `DEFAULT_PANELS_LABELS`), holding a tab for each of its panes in order, the built-in ones by id, `outline` (DOCE-OUTLINE), `search` (DOCE-SEARCH), `properties`, `comments` (DOCE-EDITOR-8.3) and `contributors` (DOCE-COLLAB-3.4), and the host's own (`DocumentPane`: an id, a label, an icon, a count and what it renders from the editor's context). `DocumentProperties`, the `properties` pane, shall show in the base library's property panel the document's template, sections, pages (from its layout) and words; the section at the caret, by its template section's label or as the body, with its page size, orientation and margins; and the block at the caret, its style, element id and author.
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
 Verification: `e2e/document-panels.spec.ts`
@@ -310,9 +310,9 @@ Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-EDITOR-6.1 - Notifications
 
-The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids. A review-only change (DOCE-COMMENTS-1.13) shall also be told as one (`onReviewChange`, with the threads and suggestions it touched), and is never made a suggestion while suggesting.
+The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids. A review-only change (DOCE-COMMENTS-1.13) shall also be told as one (`onReviewChange`, with the threads and suggestions it touched), and is never made a suggestion while suggesting; the comments' changes go through the editor's dispatch, so the host hears of them and the edit lock applies.
 
-Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
+Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-comments/comment-controls.ts`, `labs/src/host-panel.tsx`
 Verification: `e2e/document-editor.spec.ts`, `e2e/full-editor.spec.ts`, `src/components/document-editor/document-editor.test.tsx`
 
 ### DOCE-EDITOR-6.2 - The host's keys
@@ -478,6 +478,36 @@ Banners that come or go while the reader presses a pointer inside the editor, as
 Implementation: `src/components/document-editor/banners.tsx`
 Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-editor.spec.ts`
 
+## DOCE-EDITOR-8 - Side panels
+
+### DOCE-EDITOR-8.1 - A controlled side panel
+
+A side panel's selected pane (`selectedPane`, `defaultSelectedPane`, `onSelectedPaneChange`), expanded state (`isExpanded`, `defaultExpanded`, `onExpandedChange`) and width (`size`, `defaultSize`, `onSizeChange` once a resize ends) shall each be controlled by the host or held by the panel, which saves what it holds under `persistKey` through the base library's storage; a tab, a launcher, the toggle and `revealPane` report each change. Its width stays between `minSize` (200 pixels by default) and `maxSize` (640 by default). Each pane's content sits in a `de-document-side-panel__pane` naming the pane in `data-pane`.
+
+Implementation: `src/components/document-panels/document-side-panel.tsx`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`
+
+### DOCE-EDITOR-8.2 - Revealing a pane
+
+The editor's handle shall reveal a pane by its id (`revealPane(paneId, { focus })`): the first side panel inside the editor that holds it selects it and expands, as its tab and launcher would, and focus moves into the pane, on its first focusable element or the pane itself, once it shows, unless `focus` is false. It returns false when no panel holds the pane.
+
+Implementation: `src/components/document-panels/document-panels.ts`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/editor-scope.tsx`, `src/components/document-editor/use-host-reach.ts`, `labs/src/host-panes.tsx`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+
+### DOCE-EDITOR-8.3 - The comments pane
+
+The built-in `comments` pane shall show the comments panel (`DocumentCommentsPanel`) of the editor's `comments`, sharing the editor's thread state (DOCE-COMMENTS-2.14), with the open threads counted on its tab. An editor without comments has no comments pane.
+
+Implementation: `src/components/document-panels/built-in-panes.tsx`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+
+### DOCE-EDITOR-8.4 - Extending the properties
+
+The properties pane's pages and words shall be those the status bar counts (`documentStatistics`, DOCE-EDITOR-5.2). A host shall arrange its sections (`sections`: the built-in `document`, `section` and `selection` by id, and sections of its own, each with an id, a title, its rows and buttons after its title), add rows after a built-in section's own and buttons after its title (`extend`), and give a side panel's `properties` pane both (`properties`).
+
+Implementation: `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/built-in-panes.tsx`, `labs/src/host-panes.tsx`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                                 | Description                                                                             |
@@ -494,6 +524,9 @@ Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-e
 | `de-document-editor__measure`           | slot      |                                                                        | The hidden slot the pages are measured in.                                              |
 | `de-document-editor__toolbar`           | slot      |                                                                        | The editor's toolbar, with `toolbar`.                                                   |
 | `de-document-editor__viewport`          | slot      |                                                                        | The frame that scrolls the document, with `scrollable`.                                 |
+| `de-document-side-panel`                | root      |                                                                        | A side panel beside the document (DOCE-EDITOR-4.11).                                    |
+| `de-document-side-panel__pane`          | slot      |                                                                        | A pane's content, with `data-pane`.                                                     |
+| `data-pane`                             | attribute |                                                                        | On a side panel's pane: its id.                                                         |
 | `de-document-editor__workspace`         | slot      |                                                                        | The document between the panels beside it.                                              |
 | `de-document-editor__body`              | slot      |                                                                        | The document with its table handles.                                                    |
 | `de-document-editor__toolbar-start`     | slot      |                                                                        | The host's controls before the toolbar's groups.                                        |

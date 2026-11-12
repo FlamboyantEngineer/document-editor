@@ -49,7 +49,6 @@ import type { DocumentCommentsOptions } from '../document-comments/document-comm
 import { type DocumentBanner, useReportedFonts } from './banners.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import type { HostDialogProps } from './dialog-parts.js';
-import { useFindBar } from './document-find-bar.js';
 import type { DocumentStatusBarOptions } from './document-status-bar.js';
 import { EditorBody } from './editor-body.js';
 import { useWheelZoom } from './editor-chrome.js';
@@ -60,7 +59,7 @@ import {
   type ObjectDialog,
   useShownContext,
 } from './editor-context.js';
-import { type DocumentEditorHandle, useCommentRefs, useEditorHandle } from './editor-handle.js';
+import { type DocumentEditorHandle, useCommentRefs } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import type { DocumentOverviewOptions } from './editor-overview.js';
 import { EditorScope } from './editor-scope.js';
@@ -77,6 +76,7 @@ import {
   useActiveProps,
   useElementIdRepair,
 } from './use-host-events.js';
+import { useHostReach } from './use-host-reach.js';
 import { usePagedEditor, usePagedView } from './use-paged-projection.js';
 import { useVisibleElementsFeed, type VisibleElement } from './visible-elements.js';
 
@@ -382,9 +382,9 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const { startCommentRef } = refs;
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  const find = useFindBar(root, view, Boolean(props.find));
+  const reach = { root, refs, progress, transactions: engine.transactions };
+  const { find, scope } = useHostReach(props, view, reach);
   const openFind = find.open;
-  useEditorHandle(props.handleRef, view, { ...refs, template, layout: progress, openFind });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useShownContext(props, { view, labels, openDialog: setDialog });
@@ -404,7 +404,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
     />
   );
   return (
-    <EditorScope context={context} comments={props.comments} transactions={engine.transactions}>
+    <EditorScope context={context} {...scope}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}
