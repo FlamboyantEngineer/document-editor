@@ -31,14 +31,17 @@ function summaryOf(suggestion: Suggestion, context: CardContext) {
     (suggestion.author ? comments.people.get(suggestion.author)?.name : undefined) ??
     labels.someone;
   const split = suggestion.inserted !== '' && suggestion.inserted === suggestion.deleted;
+  const formatOnly = suggestion.formatted && !suggestion.inserted && !suggestion.deleted;
   const action = split
     ? labels.split
-    : suggestion.deleted && suggestion.inserted
-      ? labels.replace
-      : suggestion.deleted
-        ? labels.remove
-        : labels.insert;
-  return { author, split, action };
+    : formatOnly
+      ? labels.format
+      : suggestion.deleted && suggestion.inserted
+        ? labels.replace
+        : suggestion.deleted
+          ? labels.remove
+          : labels.insert;
+  return { author, split: split || formatOnly, action };
 }
 
 /**

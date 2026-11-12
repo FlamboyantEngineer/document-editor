@@ -23,6 +23,7 @@ import {
   PARAGRAPH_LEVEL_ATTR,
   readContributorAuthorAttr,
   SPLIT_PART_INDEX_ATTR,
+  SUGGESTION_FORMAT_ATTR,
   SUGGESTION_SPLIT_ID_ATTR,
   SUGGESTION_SPLIT_KIND_ATTR,
 } from './dom-attributes.js';
@@ -65,6 +66,12 @@ const BUILT_IN_IDENTITY: readonly IdentityAttribute[] = [
   {
     name: 'suggestionSplitId',
     dom: SUGGESTION_SPLIT_ID_ATTR,
+    scope: SPLIT_SUGGESTION_NODES,
+    onCopy: 'clear',
+  },
+  {
+    name: 'suggestionFormat',
+    dom: SUGGESTION_FORMAT_ATTR,
     scope: SPLIT_SUGGESTION_NODES,
     onCopy: 'clear',
   },
@@ -115,11 +122,25 @@ function elementAttrSpecs(name: string): NonNullable<NodeSpec['attrs']> {
     dataAiSession: { default: null },
     splitPartIndex: { default: null },
     ...(SPLIT_SUGGESTION_NODES.includes(name)
-      ? { suggestionSplitKind: { default: null }, suggestionSplitId: { default: null } }
+      ? {
+          suggestionSplitKind: { default: null },
+          suggestionSplitId: { default: null },
+          suggestionFormat: { default: null },
+        }
       : {}),
     ...(name === 'paragraph' ? { paragraphLevel: { default: 1 } } : {}),
     ...(name === 'list_item' ? { orphanedListContinuation: { default: false } } : {}),
   };
+}
+
+// A JSON attribute's value, or null when it is missing or not JSON.
+function readJsonAttr(value: string | null): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 function readSplitPartIndex(dom: HTMLElement): number | null {
@@ -139,6 +160,7 @@ function readElementAttrs(dom: HTMLElement): Record<string, unknown> {
     orphanedListContinuation: dom.getAttribute(ORPHANED_LIST_CONTINUATION_ATTR) === 'true',
     suggestionSplitKind: dom.getAttribute(SUGGESTION_SPLIT_KIND_ATTR) || null,
     suggestionSplitId: dom.getAttribute(SUGGESTION_SPLIT_ID_ATTR) || null,
+    suggestionFormat: readJsonAttr(dom.getAttribute(SUGGESTION_FORMAT_ATTR)),
   };
 }
 
@@ -171,6 +193,8 @@ function writeElementAttrs(node: ProseMirrorNode, attrs: DomAttributes): DomAttr
   const { suggestionSplitKind, suggestionSplitId } = node.attrs;
   if (suggestionSplitKind) attrs[SUGGESTION_SPLIT_KIND_ATTR] = String(suggestionSplitKind);
   if (suggestionSplitId) attrs[SUGGESTION_SPLIT_ID_ATTR] = String(suggestionSplitId);
+  const { suggestionFormat } = node.attrs;
+  if (suggestionFormat) attrs[SUGGESTION_FORMAT_ATTR] = JSON.stringify(suggestionFormat);
   return attrs;
 }
 

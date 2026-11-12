@@ -24,7 +24,15 @@
             "author": "author-1",
             "aiSession": "session-1",
             "suggestionKind": "sample-suggestionSplitKind",
-            "suggestionId": "sample-suggestionSplitId"
+            "suggestionId": "sample-suggestionSplitId",
+            "suggestionFormat": {
+              "id": "sample-suggestionFormat",
+              "author": "sample-dataAuthor",
+              "type": "paragraph",
+              "attrs": {
+                "level": 2
+              }
+            }
           }
         }
       ]
