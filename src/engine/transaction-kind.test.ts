@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import {
+  includeAppended,
   isDerivedTransaction,
   isInlineTextOnly,
   isLocalEdit,
@@ -44,6 +45,23 @@ describe('transaction kinds', () => {
     expect(isRemoteTransaction(tr)).toBe(true);
     expect(tr.getMeta('addToHistory')).toBe(false);
     expect(isRemoteTransaction(state.tr)).toBe(false);
+  });
+
+  it('DOCE-COLLAB-2.1 counts what plugins append to a remote change as remote', () => {
+    const appender = new Plugin({
+      appendTransaction: (transactions, _before, after) =>
+        transactions.some((tr) => tr.getMeta('appendedTransaction'))
+          ? null
+          : after.tr.insertText('.', 1),
+    });
+    const state = stateOf([appender]);
+    const remote = state.applyTransaction(markRemote(state.tr.insertText('x', 1)));
+    expect(remote.transactions.map(isRemoteTransaction)).toEqual([true, true]);
+    const local = state.applyTransaction(state.tr.insertText('x', 1));
+    expect(local.transactions.map(isRemoteTransaction)).toEqual([false, false]);
+    const hosts = new Set(local.transactions.slice(0, 1));
+    const fromHost = includeAppended((tr) => hosts.has(tr));
+    expect(local.transactions.map(fromHost)).toEqual([true, true]);
   });
 
   it('DOCE-EDITING-3.2 counts marked and appended changes as derived, out of the history', () => {

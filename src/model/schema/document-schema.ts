@@ -11,7 +11,7 @@ import type { Schema } from 'prosemirror-model';
 import { blockLayoutNodesExtension } from './block-layout-nodes.js';
 import { codeNodesExtension } from './code-nodes.js';
 import { coreNodesExtension } from './core-nodes.js';
-import { elementAttributesExtension } from './element-attributes.js';
+import { createElementAttributesExtension } from './element-attributes.js';
 import { createFigureNodesExtension } from './figure-nodes.js';
 import { createFootnoteNodesExtension } from './footnote-nodes.js';
 import { createInlineAtomNodesExtension } from './inline-atom-nodes.js';
@@ -56,7 +56,7 @@ export function createDocumentSchemaExtensions(
     scriptNodesExtension,
     keptNodesExtension,
     createMarksExtension(options),
-    elementAttributesExtension,
+    createElementAttributesExtension(options?.identityAttributes),
   ];
 }
 

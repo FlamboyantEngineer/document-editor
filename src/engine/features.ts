@@ -183,6 +183,7 @@ export type { TextSegment } from './text-diff.js';
 export { diffText } from './text-diff.js';
 export {
   DERIVED_META,
+  includeAppended,
   isDerivedTransaction,
   isInlineTextOnly,
   isLocalEdit,
