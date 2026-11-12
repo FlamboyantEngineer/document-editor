@@ -151,12 +151,20 @@ test.describe('objects', () => {
     await page.keyboard.press('ControlOrMeta+Alt+C');
     await page.keyboard.type('const size = 4;');
     const code = content(page).locator('pre', { hasText: 'const size = 4;' });
-    await expect(code.locator('.de-code-token')).toHaveCount(0);
+    // The text of the ranges painted with a kind's highlight.
+    const painted = (kind: string) =>
+      page.evaluate(
+        (name) => [...(CSS.highlights.get(name) ?? [])].map((range) => String(range)),
+        `de-code-${kind}`,
+      );
+    await expect.poll(() => painted('keyword')).not.toContain('const');
     await code.click({ button: 'right' });
     await item(page, 'Language').click();
     await choice(page, 'typescript').click();
-    await expect(code.locator('.de-code-token[data-token="keyword"]')).toHaveText('const');
-    await expect(code.locator('.de-code-token[data-token="number"]')).toHaveText('4');
+    await expect.poll(() => painted('keyword')).toContain('const');
+    await expect.poll(() => painted('number')).toContain('4');
+    // The text is painted over, not split into elements.
+    await expect(code.locator('.de-code-token')).toHaveCount(0);
     await expect(code.locator('code')).toHaveText('const size = 4;');
   });
 

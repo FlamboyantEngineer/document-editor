@@ -229,6 +229,62 @@ Given a layout memory (`createLayoutMemory`, `layoutDocument`'s `memory`), layin
 Implementation: `src/pagination/incremental-layout.ts`, `src/pagination/layout-document.ts`, `src/pagination/pagination.ts`
 Verification: `src/pagination/incremental-layout.test.ts`, `src/pagination/pagination.test.ts`
 
+### DOCE-PAGINATION-5.6 - Fonts
+
+When font faces load in the measuring view's document, every block shall measure again and the pages be laid out again (`remeasureOn`). Given what the measurements wait for (`PaginationOptions.ready`), the pages shall be laid out meanwhile but stay pending until it settles, loaded or failed, and then measure every block again. The document editor's `fonts` adapter (DOCE-HOST-1.14) shall be asked to load the families the template names (`templateFontFamilies`, `loadTemplateFonts`) within `FONT_TIMEOUT` milliseconds, and the pages wait for it. After a delayed font loads, the pages shall hold their content.
+
+Implementation: `src/pagination/layout-triggers.ts`, `src/pagination/fonts.ts`, `src/pagination/pagination.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/pagination/layout-triggers.test.ts`, `src/pagination/fonts.test.ts`, `src/pagination/pagination.test.ts`, `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-5.7 - Laying out at once
+
+Typing or deleting text inside one textblock shall wait for the writer to pause (DOCE-PAGINATION-7.1); any other change to the document, such as Enter, a page break, a footnote, a deletion across blocks, a paste or a drop, shall lay the pages out on the next frame without waiting (`wantsLayoutNow`), and so shall a transaction marked with `layoutNow`.
+
+Implementation: `src/pagination/layout-latency.ts`, `src/pagination/pagination.ts`
+Verification: `src/pagination/layout-latency.test.ts`, `src/pagination/pagination.test.ts`
+
+### DOCE-PAGINATION-5.8 - The caret stays in place
+
+When a layout moves the caret of a focused editor on screen, as when its line moves onto the next page, the editor's scrolling pane, or the document's, shall scroll by as much, so the caret is back where the writer saw it (`caretPlace`, `keepCaretInPlace`). An editor without focus is not scrolled.
+
+Implementation: `src/pagination/caret.ts`, `src/pagination/pagination.ts`
+Verification: `src/pagination/caret.test.ts`
+
+### DOCE-PAGINATION-5.9 - Checking the drawn pages
+
+After each layout, the pages the editor drew shall be checked (`findPageOverflow`): a page whose content, footnotes or footer reach more than a pixel below its content box overflows, unless it holds a single block, which may be taller than a page by design. A region or block drawn without a box, such as an empty region its styles hide, reaches nowhere, wherever the page is scrolled. The check runs once the editor shows the laid-out document, which a React-rendered editor draws after the dispatch. The pages that overflow are counted (`stats().overflowPages`), and once after each change, an overflow shall forget every measurement and lay the pages out again.
+
+Implementation: `src/pagination/layout-validation.ts`, `src/pagination/pagination.ts`, `src/pagination/pagination-stats.ts`
+Verification: `src/pagination/layout-validation.test.ts`, `src/pagination/pagination.test.ts`
+
+### DOCE-PAGINATION-5.10 - Page geometry
+
+`pageElements(view)` shall give the element of each page of the paged document a view shows, in the order `PageMap.pages()` lists them; `pageBoxes(view, { scale })` each drawn page's box relative to the view's element, divided by its on-screen scale; and `pageAtPoint(view, { y })` the index of the page a point on screen falls on, or of the nearest page above it, or null above the first page.
+
+Implementation: `src/pagination/page-geometry.ts`
+Verification: `src/pagination/page-geometry.test.ts`
+
+### DOCE-PAGINATION-5.11 - Host rules on the document editor
+
+`DocumentEditor` shall lay its pages out with the host's `layoutRules` over the library's (`createLayoutRules`) and join their fragments with the host's `fragmentRules` over `FRAGMENT_RULES` (DOCE-PAGINATION-1.7), on pages and when it joins them for the web layout. Both are read when the pages mount.
+
+Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`
+
+### DOCE-PAGINATION-5.12 - A first layout before the first paint
+
+`beforePaintIn(element)` shall give a schedule that runs in a microtask of the element's window, before it next paints, and can be cancelled, so a pagination's first layout can land before the first paint.
+
+Implementation: `src/pagination/layout-triggers.ts`
+Verification: `src/pagination/layout-triggers.test.ts`
+
+### DOCE-PAGINATION-5.13 - The measuring view follows the document
+
+The hidden view that measures a whole document shall follow each new one by the smallest replacements (`followDocument`), node by node where the two pair up: a node whose attributes alone changed, such as a header numbered anew when a section gains a page, takes the new attributes and keeps its content, and within a node whose children no longer pair up, only the range that differs is replaced. Every block a change does not reach keeps its node, and with it its rendering and its cached measurement, even when a fresh join of the pages builds it anew.
+
+Implementation: `src/pagination/ghost-view.ts`
+Verification: `src/pagination/ghost-view.test.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document
@@ -305,7 +361,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-PAGINATION-7.5 - Stats
 
-`stats()` shall count what the pagination's layouts did since it was made (`PaginationStats`): the layouts run (`layouts`); the blocks measured in the measuring view (`blocksMeasured`), those the cache did not hold (`cacheMisses`) and those taken from it (`cacheHits`); the sections laid out with at least one block measured again (`sectionsRelaid`) and from cached measurements alone (`sectionsReused`); the pages broken from their blocks rather than reused from the layout before (`pagesLaidOut`, DOCE-PAGINATION-5.5); and the pages a layout kept as they were (`pagesReused`) and built anew (`pagesRebuilt`). The transaction a layout moves the editor with carries the counts as they stood after it (`layoutStats(tr)`); any other transaction carries none.
+`stats()` shall count what the pagination's layouts did since it was made (`PaginationStats`): the layouts run (`layouts`); the blocks measured in the measuring view (`blocksMeasured`), those the cache did not hold (`cacheMisses`) and those taken from it (`cacheHits`); the sections laid out with at least one block measured again (`sectionsRelaid`) and from cached measurements alone (`sectionsReused`); the pages broken from their blocks rather than reused from the layout before (`pagesLaidOut`, DOCE-PAGINATION-5.5); the pages drawn taller than they are (`overflowPages`, DOCE-PAGINATION-5.9); and the pages a layout kept as they were (`pagesReused`) and built anew (`pagesRebuilt`). The transaction a layout moves the editor with carries the counts as they stood after it (`layoutStats(tr)`); any other transaction carries none.
 
 Implementation: `src/pagination/pagination.ts`, `src/pagination/pagination-stats.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`
 Verification: `src/pagination/pagination.test.ts`
@@ -375,7 +431,7 @@ Verification: `src/pagination/projection-view.test.ts`
 
 ### DOCE-PAGINATION-7.15 - The canonical plugins run through the pages
 
-The canonical state's plugins shall run on the canonical view of the view that renders the projection (DOCE-PAGINATION-7.14), as they would on a view of their own. Their plugin views shall start with it and be updated with each new canonical state, and what they dispatch shall reach the canonical state and the pages at once. Their key handlers shall run after an arrow key's move across a page break and the host's `keys`, and before Enter, Backspace and Delete; their paste handlers before the projection's paste. Their text input, click, double- and triple-click handlers shall take canonical positions, and their handlers of DOM events other than a press shall see those events. Input shall have the projection's selection mirrored onto the canonical state first. A press stays the projection's: it places the caret on the pages, or starts a cell drag across them.
+The canonical state's plugins shall run on the canonical view of the view that renders the projection (DOCE-PAGINATION-7.14), as they would on a view of their own. Their plugin views shall start with it and be updated with each new canonical state, and what they dispatch shall reach the canonical state and the pages at once. Their key handlers shall run after an arrow key's move across a page break and the host's `keys`, and before Enter, Backspace and Delete; their paste handlers before the projection's paste. Their text input, click, double- and triple-click handlers shall take canonical positions, and their handlers of DOM events other than a press shall see those events. Input that a canonical plugin takes shall have the projection's selection mirrored onto the canonical state first, and input no canonical plugin takes shall cost nothing more, so typing keeps its budget (DOCE-PAGINATION-7.10). A press stays the projection's: it places the caret on the pages, or starts a cell drag across them.
 
 Implementation: `src/pagination/canonical-plugins.ts`, `src/pagination/projection.ts`, `src/pagination/projection-input.ts`
 Verification: `src/pagination/projection-view.test.ts`

@@ -26,11 +26,14 @@ import {
   sectionFootnoteNumbersKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
-import type { VariablesAdapter } from '../../host/index.js';
+import type { FontsAdapter, VariablesAdapter } from '../../host/index.js';
 import {
   createLayoutRules,
   findTemplateSection,
+  FRAGMENT_RULES,
+  type FragmentRules,
   joinDocumentPages,
+  type LayoutRules,
   resolveFootnoteSettings,
   type TemplateFile,
   templatePageMetrics,
@@ -40,6 +43,7 @@ import {
   createPageVariables,
   createPagination,
   type LayoutState,
+  loadTemplateFonts,
   pageDebugKey,
   type PageDebugParts,
   pageVariablesKey,
@@ -121,6 +125,15 @@ export interface DocumentLayoutOptions {
   readonly debug?: PageDebugParts | undefined;
   /** Tells of each change of the layout state; the web layout is always settled. */
   readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
+  /**
+   * The host's layout rules by node type, over the library's (`createLayoutRules`), read when the
+   * pages mount: how its blocks split and keep together (DOCE-PAGINATION-1.7).
+   */
+  readonly layoutRules?: LayoutRules | undefined;
+  /** The host's fragment rules by node type, over `FRAGMENT_RULES`: how its fragments join. */
+  readonly fragmentRules?: FragmentRules | undefined;
+  /** The host's font faces, which the pages wait for (DOCE-PAGINATION-5.6). */
+  readonly fonts?: FontsAdapter | undefined;
   /** Edits the pages' headers and footers in place, handing each edit here. */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /** The host's variables, shown in the headers, footers and text (`createPageVariables`). */
@@ -190,10 +203,15 @@ function useHostVariables(options: DocumentLayoutOptions, refresh: RefObject<(()
   }, [variables, refresh]);
 }
 
+// The rules the pages' fragments join by: the library's, with the host's over them.
+function fragmentRulesOf(options: DocumentLayoutOptions): FragmentRules {
+  return { ...FRAGMENT_RULES, ...options.fragmentRules };
+}
+
 // A state with each section's pages joined into one and its footnotes numbered for it, out of the
 // history.
-function joinPages(state: EditorState): EditorState {
-  const join = joinDocumentPages(state.doc);
+function joinPages(state: EditorState, rules: FragmentRules): EditorState {
+  const join = joinDocumentPages(state.doc, rules);
   const tr = state.tr.setMeta(sectionFootnoteNumbersKey, true);
   for (const step of join.steps) tr.step(step);
   return state.apply(tr.setMeta('addToHistory', false));
@@ -277,7 +295,7 @@ export function useDocumentLayout(
   useEffect(() => {
     const element = measureIn.current;
     if (layout !== 'page' || !element) {
-      latest.current.onStateChange(joinPages);
+      latest.current.onStateChange((state) => joinPages(state, fragmentRulesOf(latest.current)));
       latest.current.onLayoutStateChange?.('settled');
       return undefined;
     }
@@ -285,8 +303,10 @@ export function useDocumentLayout(
       measureIn: element,
       pageHeight: (section) => bodyHeight(latest.current.template, section),
       plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
-      rules: createLayoutRules({ repeatTableHeader }),
+      rules: { ...createLayoutRules({ repeatTableHeader }), ...latest.current.layoutRules },
+      fragmentRules: fragmentRulesOf(latest.current),
       footnoteNumbering,
+      ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
       onLayoutStateChange: (state) => latest.current.onLayoutStateChange?.(state),
     });
     latest.current.onLayoutStateChange?.(pagination.layoutState());

@@ -22,6 +22,7 @@ import {
   isFindKey,
   isReferenceKey,
   READ_SELECTION_FIRST,
+  SelectionFirst,
   useDispatchBody,
   type useEngineView,
 } from './use-editor-engine.js';
@@ -123,6 +124,7 @@ export function EditorBody({
   );
   return (
     <div {...hooks.slot('body')}>
+      <SelectionFirst view={engine.view} state={state} />
       <RichTextEngineHost
         {...engine.events}
         dispatchTransaction={dispatchTransaction}
