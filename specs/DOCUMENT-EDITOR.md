@@ -187,7 +187,7 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.11 - Side panels
 
-`panels` shall place panels beside the document, between the toolbar and the status bar (`de-document-editor__workspace`), `start` before the pages and `end` after them. `DocumentSidePanel` shall be such a panel: the base library's `DockPanel` docked at the document's start or end, named by its label (Navigation and Details by default, `DEFAULT_PANELS_LABELS`), holding a tab for each of its panes in order, the built-in ones by id, `outline` (DOCE-OUTLINE), `search` (DOCE-SEARCH) and `properties`, and the host's own (`DocumentPane`: an id, a label, an icon, a count and what it renders from the editor's context). `DocumentProperties`, the `properties` pane, shall show in the base library's property panel the document's template, sections, pages and words; the section at the caret, by its template section's label or as the body, with its page size, orientation and margins; and the block at the caret, its style, element id and author.
+`panels` shall place panels beside the document, between the toolbar and the status bar (`de-document-editor__workspace`), `start` before the pages and `end` after them. `DocumentSidePanel` shall be such a panel: the base library's `DockPanel` docked at the document's start or end, named by its label (Navigation and Details by default, `DEFAULT_PANELS_LABELS`), holding a tab for each of its panes in order, the built-in ones by id, `outline` (DOCE-OUTLINE), `search` (DOCE-SEARCH) and `properties`, and the host's own (`DocumentPane`: an id, a label, an icon, a count and what it renders from the editor's context). `DocumentProperties`, the `properties` pane, shall show in the base library's property panel the document's template, sections, pages (from its layout) and words; the section at the caret, by its template section's label or as the body, with its page size, orientation and margins; and the block at the caret, its style, element id and author.
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
 Verification: `e2e/document-panels.spec.ts`
@@ -203,9 +203,9 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-5.2 - Counting pages and words
 
-`documentStatistics(state)` shall return the pages the document is laid out on, the page holding the selection's head, the words of its pages' bodies and footnote areas (`countTextWords`), leaving out page headers and footers and the header rows a later part of a split table repeats, and the words of a selection, or null for a caret or a selection holding no words, such as a selected object. Each block's count is kept for as long as the block, so a changed document is counted again only where it changed.
+`documentStatistics(state)` shall return the pages the document is laid out on and the page holding the selection's head, both read from its layout (`pageMap`, DOCE-PAGINATION-7.7), the words of its sections' content and footnote areas (DOCE-SCHEMA-6.2) (`countTextWords`), leaving out page headers and footers and the header rows a later part of a split table repeats, and the words of a selection, or null for a caret or a selection holding no words, such as a selected object. Each block's count is kept for as long as the block, so a changed document is counted again only where it changed.
 
-Implementation: `src/engine/document-statistics.ts`
+Implementation: `src/engine/document-statistics.ts`, `src/engine/layout-page.ts`
 Verification: `src/engine/document-statistics.test.ts`
 
 ### DOCE-EDITOR-5.3 - Going to a page and switching the layout

@@ -23,7 +23,7 @@ export * from './document-format-ids.js';
 export * from './document-format-write.js';
 export type { DocxOptions } from './docx.js';
 export { writeDocx } from './docx.js';
-export { cleanWordHtml, isWordHtml, readHtml, writeHtml } from './html.js';
+export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
 export type { MarkdownOptions } from './markdown.js';
 export { writeMarkdown } from './markdown.js';
 export type * from './template-format.js';

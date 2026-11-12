@@ -481,7 +481,7 @@
       "marks": null,
       "flags": { "inline": true, "draggable": true },
       "attrs": {
-        "src": { "required": true, "validate": "string" },
+        "src": { "default": "", "validate": "string" },
         "alt": { "default": null, "validate": "string|null" },
         "title": { "default": null, "validate": "string|null" },
         "templateAssetImage": { "default": false },
@@ -507,11 +507,12 @@
           "priority": 60,
           "getAttrs": "function"
         },
-        { "tag": "img[src]", "priority": 60, "getAttrs": "function" }
+        { "tag": "img[src]", "priority": 60, "getAttrs": "function" },
+        { "tag": "img[data-template-file-id]", "priority": 60, "getAttrs": "function" }
       ],
       "toDOM": {
-        "defaults": "<img src=\"sample-src\" loading=\"lazy\" decoding=\"async\">",
-        "filled": "<span data-template-asset-image-wrapper=\"true\" data-template-image-alignment=\"left\" style=\"display: block; text-align: left; line-height: 0;\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><img src=\"sample-src\" alt=\"sample-alt\" title=\"sample-title\" loading=\"lazy\" decoding=\"async\" data-template-asset-image=\"true\" data-template-file-id=\"sample-templateFileId\" data-file-asset-id=\"sample-templateFileId\" data-template-image-width=\"160\" data-template-image-height=\"96\" data-template-image-natural-width=\"160\" data-template-image-natural-height=\"96\" data-template-image-alignment=\"left\" data-template-image-constrain=\"false\" width=\"160\" height=\"96\" style=\"width: 160px; height: 96px; object-fit: contain;\" data-snapshot-id=\"sample-templateSnapshotId\" data-template-image-name=\"sample-templateImageName\" data-template-image-mime-type=\"sample-templateImageMimeType\"></span>"
+        "defaults": "<img loading=\"lazy\" decoding=\"async\">",
+        "filled": "<span data-template-asset-image-wrapper=\"true\" data-template-image-alignment=\"left\" data-image-missing=\"true\" style=\"display: block; text-align: left; line-height: 0;\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><img alt=\"sample-alt\" title=\"sample-title\" loading=\"lazy\" decoding=\"async\" data-template-asset-image=\"true\" data-template-file-id=\"sample-templateFileId\" data-file-asset-id=\"sample-templateFileId\" data-template-image-width=\"160\" data-template-image-height=\"96\" data-template-image-natural-width=\"160\" data-template-image-natural-height=\"96\" data-template-image-alignment=\"left\" data-template-image-constrain=\"false\" width=\"160\" height=\"96\" style=\"width: 160px; height: 96px; object-fit: contain;\" data-snapshot-id=\"sample-templateSnapshotId\" data-template-image-name=\"sample-templateImageName\" data-template-image-mime-type=\"sample-templateImageMimeType\"></span>"
       }
     },
     {

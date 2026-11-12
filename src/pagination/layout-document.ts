@@ -153,7 +153,7 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const regionsHeight = regions.reduce((sum, pos) => sum + regionHeight(view, pos, ratio), 0);
     const baseHeight = pageHeight - regionsHeight;
     const before = measuredSoFar();
-    const blocks = measureChildBlocks(view, content, { scale, cache });
+    const blocks = measureChildBlocks(view, content, { scale, cache, rules: options.rules });
     options.onSection?.({ blocksMeasured: cache ? measuredSoFar() - before : blocks.length });
     return layoutSection(
       {
