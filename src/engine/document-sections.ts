@@ -21,7 +21,6 @@ import {
   documentSections,
   findTemplateSection,
   isStructureNode,
-  joinDocumentPages,
   readStoredContent,
   readTemplateContent,
   regionAt,
@@ -158,13 +157,6 @@ export function createDocumentSections({
   });
 }
 
-/** A transaction with every section's pages joined, so each section is one page. */
-export function joinedTransaction(state: EditorState): Transaction {
-  const tr = state.tr;
-  for (const step of joinDocumentPages(state.doc).steps) tr.step(step);
-  return tr;
-}
-
 // The content region holding a position, with its section and the index of its top-level block
 // there.
 function contentAt(doc: ProseMirrorNode, pos: number) {
@@ -239,8 +231,8 @@ export function insertDocumentSection(template: TemplateFile, name: string | nul
   return (state, dispatch) => {
     const scope = insertable(template, name);
     if (scope === false) return false;
-    const tr = joinedTransaction(state);
-    const at = contentAt(tr.doc, tr.mapping.map(state.selection.from));
+    const { tr } = state;
+    const at = contentAt(tr.doc, state.selection.from);
     const content = at?.region.node.content;
     if (!at || !content) return false;
     if (!dispatch) return true;
@@ -267,8 +259,8 @@ export function insertDocumentSection(template: TemplateFile, name: string | nul
  */
 export function joinDocumentSectionBackward(template: TemplateFile): Command {
   return (state, dispatch) => {
-    const tr = joinedTransaction(state);
-    const at = contentAt(tr.doc, tr.mapping.map(state.selection.from))?.section;
+    const { tr } = state;
+    const at = contentAt(tr.doc, state.selection.from)?.section;
     if (!at || at.index === 0) return false;
     if (findTemplateSection(template, at.name)?.required === true) return false;
     const sections = documentSections(tr.doc);
