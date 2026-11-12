@@ -56,7 +56,7 @@ describe('column resize', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     let tablePos = -1;
     doc.descendants((node, pos) => {
       if (tablePos < 0 && node.type.name === 'table') tablePos = pos;
