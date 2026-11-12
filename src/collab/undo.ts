@@ -28,7 +28,11 @@ export function createCollabUndo({ captureTimeout = 500 }: CollabUndoOptions = {
   let manager: Y.UndoManager | null = null;
   const plugin = new Plugin({
     key: collabUndoKey,
+    // Kept out of the paged layout's measuring view, which runs no sync plugin (DOCE-COLLAB-4.1).
+    measured: false,
     view(view) {
+      // One view at a time keeps the undo manager, as the sync plugin binds one view at a time.
+      if (manager) return {};
       const sync = getCollabSync(view.state);
       if (!sync)
         throw new Error('createCollabUndo runs only with a sync plugin (createCollabSync).');
