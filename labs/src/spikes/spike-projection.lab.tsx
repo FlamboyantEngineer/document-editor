@@ -1,13 +1,13 @@
-// The paged projection spike's lab: a sample document, or that document repeated to hundreds of
-// pages, in the spike's editor, where the canonical state takes every edit and a read-only
+// The paged projection's lab: a sample document, or that document repeated to hundreds of pages,
+// shown by `createProjectionView`, where the canonical state takes every edit and a read-only
 // projection shows the pages. `?copies=<n>` repeats the document; `?mode=current` opens it in
 // today's editor, kept paginated by `createPagination`, to compare typing latency.
 //
 // The page reports what the browser tests read on `window.projectionSpike`: the canonical
-// document's text and selection, the spike's counts, each layout's time and each key's latency
-// from the key press to the next frame.
+// document's text and selection, the projection's counts, each layout's time and each key's
+// latency from the key press to the next frame.
 
-import { baseKeymap } from 'prosemirror-commands';
+import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { Node } from 'prosemirror-model';
@@ -17,11 +17,17 @@ import { EditorView } from 'prosemirror-view';
 import {
   createDocumentSchema,
   type DocumentFile,
+  joinDocumentPages,
   readDocumentFile,
+  sameStructure,
   type StoredNode,
 } from '../../../src/model/index.js';
-import { createPagination, isPaginationTransaction } from '../../../src/pagination/index.js';
-import { createProjectionEditor, type ProjectionEditor } from './projection-editor.js';
+import {
+  createPagination,
+  createProjectionView,
+  isPaginationTransaction,
+  type ProjectionView,
+} from '../../../src/pagination/index.js';
 
 const PAGE_HEIGHT = 360;
 
@@ -118,7 +124,24 @@ interface Probe {
   columnWidths(id: string): (number[] | null)[];
   inSync(): boolean;
   stats(): unknown;
-  editor: ProjectionEditor | null;
+  editor: LabEditor | null;
+}
+
+/** The projection as the browser tests drive it. */
+interface LabEditor {
+  readonly canonical: EditorState;
+  layout(): void;
+}
+
+/** What the lab counts of the projection: its own counts, and each layout's time. */
+interface LabStats {
+  layouts: number;
+  layoutMs: number[];
+  /** Layouts after which the projection's pages did not join into the canonical document. */
+  outOfSync: number;
+  /** Canonical changes that could not be mirrored, which laid the pages out at once. */
+  resyncs: number;
+  refused: number;
 }
 
 declare global {
@@ -187,15 +210,59 @@ function markReady(): void {
   dataset.labReady = 'true';
 }
 
-function mountSpike(doc: Node, mount: HTMLElement, measureIn: HTMLElement, probe: Probe): void {
-  probe.editor = createProjectionEditor({
+// Times each layout the projection schedules, on the next frame as by default.
+function timedFrame(times: number[]) {
+  return (run: () => void) => {
+    const handle = requestAnimationFrame(() => {
+      const started = performance.now();
+      run();
+      times.push(performance.now() - started);
+    });
+    return () => cancelAnimationFrame(handle);
+  };
+}
+
+function mountProjection(doc: Node, mount: HTMLElement, measureIn: HTMLElement): () => LabStats {
+  const { schema } = doc.type;
+  const layoutMs: number[] = [];
+  let outOfSync = 0;
+  // The first layout runs as the projection is made, before it is assigned.
+  let shown: ProjectionView | null = null;
+  const projection = createProjectionView({
     mount,
     measureIn,
-    doc,
+    state: EditorState.create({ doc: joinDocumentPages(doc).doc, plugins: [history()] }),
     pageHeight: PAGE_HEIGHT,
-    onLayout: markReady,
+    keys: {
+      'Mod-z': undo,
+      'Mod-y': redo,
+      'Shift-Mod-z': redo,
+      ...(schema.marks.bold ? { 'Mod-b': toggleMark(schema.marks.bold) } : {}),
+      ...(schema.marks.italic ? { 'Mod-i': toggleMark(schema.marks.italic) } : {}),
+    },
+    schedule: timedFrame(layoutMs),
+    onLayout() {
+      if (shown) {
+        const joined = joinDocumentPages(shown.view.state.doc).doc;
+        if (!sameStructure(joined, shown.state.doc)) outOfSync += 1;
+      }
+      markReady();
+    },
   });
+  shown = projection;
+  editor = {
+    get canonical() {
+      return projection.state;
+    },
+    layout: projection.layout,
+  };
+  return () => {
+    const { layouts, relaid, refused } = projection.stats();
+    return { layouts, layoutMs, outOfSync, resyncs: relaid, refused };
+  };
 }
+
+let editor: LabEditor | null = null;
 
 function mountCurrent(doc: Node, mount: HTMLElement, measureIn: HTMLElement): EditorView {
   const pagination = createPagination({ measureIn, pageHeight: PAGE_HEIGHT });
@@ -225,7 +292,7 @@ function render(): void {
   const copies = Math.max(1, Number(params.get('copies') ?? 1) || 1);
   const mode = params.get('mode') === 'current' ? 'current' : 'spike';
   document.documentElement.dataset.labMode = mode;
-  const doc = readDocumentFile(sample(copies), createDocumentSchema());
+  const doc = readDocumentFile(sample(copies), createDocumentSchema()).doc;
   const latencies: number[] = [];
   const longTasks: number[] = [];
   timeKeys(latencies);
@@ -245,12 +312,15 @@ function render(): void {
       const state = probe.editor?.canonical ?? current?.state;
       return state ? columnWidths(state.doc, id) : [];
     },
-    inSync: () => (probe.editor ? probe.editor.stats.outOfSync === 0 : true),
-    stats: () => probe.editor?.stats ?? null,
-    editor: null,
+    inSync: () => (stats ? stats().outOfSync === 0 : true),
+    stats: () => stats?.() ?? null,
+    get editor() {
+      return editor;
+    },
   };
   window.projectionSpike = probe;
-  if (mode === 'spike') mountSpike(doc, mount, measureIn, probe);
+  let stats: (() => LabStats) | null = null;
+  if (mode === 'spike') stats = mountProjection(doc, mount, measureIn);
   else current = mountCurrent(doc, mount, measureIn);
 }
 

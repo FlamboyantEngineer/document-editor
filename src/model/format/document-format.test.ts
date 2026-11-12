@@ -52,19 +52,19 @@ const FILE: DocumentFile = {
 
 describe('stored document format', () => {
   it('DOCE-FORMAT-1.1 reads a stored document and writes it back unchanged', () => {
-    const doc = readDocumentFile(FILE, documentSchema);
+    const doc = readDocumentFile(FILE, documentSchema).doc;
     expect(writeDocumentFile(doc, { template: FILE.template })).toEqual(FILE);
   });
 
   it('DOCE-TEMPLATES-11.1 keeps the template pin and refuses one that is not an id', () => {
-    const doc = readDocumentFile(FILE, documentSchema);
+    const doc = readDocumentFile(FILE, documentSchema).doc;
     expect(writeDocumentFile(doc, { template: FILE.template }).template).toEqual({
       id: 'report',
       revision: 'r7',
     });
     expect(writeDocumentFile(doc).template).toBeNull();
     for (const template of ['report', { revision: 'r7' }, { id: 'report', revision: 7 }]) {
-      expect(() => readDocumentFile({ ...FILE, template }, documentSchema)).toThrow(
+      expect(() => readDocumentFile({ ...FILE, template }, documentSchema).doc).toThrow(
         expect.objectContaining({ path: 'template' }),
       );
     }
@@ -79,11 +79,11 @@ describe('stored document format', () => {
         { name: 'body', content: [{ type: 'paragraph', attrs: { id: '0000abcd' } }] },
       ],
     };
-    expect(writeDocumentFile(readDocumentFile(file, documentSchema))).toEqual(file);
+    expect(writeDocumentFile(readDocumentFile(file, documentSchema).doc)).toEqual(file);
   });
 
   it('DOCE-FORMAT-1.2 lays each stored section out on one page for the editor', () => {
-    const doc = readDocumentFile(FILE, documentSchema);
+    const doc = readDocumentFile(FILE, documentSchema).doc;
     const section = doc.firstChild;
     expect(section?.type.name).toBe('page_section');
     expect(section?.attrs.sectionName).toBe('introduction');
@@ -132,7 +132,7 @@ describe('stored document format', () => {
   });
 
   it('DOCE-FORMAT-1.3 stores a block split across pages as one whole block', () => {
-    const doc = readDocumentFile(FILE, documentSchema);
+    const doc = readDocumentFile(FILE, documentSchema).doc;
     const section = doc.child(0);
     const page = section.child(0);
     const [header, , footnotes, footer] = page.content.content;
@@ -158,7 +158,7 @@ describe('stored document format', () => {
   });
 
   it('DOCE-FORMAT-1.4 names where a stored document cannot be read', () => {
-    const read = (file: unknown) => () => readDocumentFile(file, documentSchema);
+    const read = (file: unknown) => () => readDocumentFile(file, documentSchema).doc;
     expect(read({ ...FILE, formatVersion: 2 })).toThrow('formatVersion: must be 1');
     let failure: unknown;
     try {
@@ -176,5 +176,49 @@ describe('stored document format', () => {
     expect(read({ formatVersion: 1, sections: [{ content: [{ type: 'listItem' }] }] })).toThrow(
       'sections[0].content[0]',
     );
+  });
+});
+
+describe('stored sections', () => {
+  const header = { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Draft' }] }] };
+  const file: DocumentFile = {
+    formatVersion: 1,
+    template: { id: 'report' },
+    sections: [
+      {
+        id: 'section-1',
+        name: 'summary',
+        editable: false,
+        header,
+        footer: { inherit: true },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Locked' }] }],
+      },
+      { id: 'section-2', name: 'body', content: [] },
+    ],
+  };
+
+  it('DOCE-FORMAT-1.6 keeps a section id, whether it is editable and its own header and footer', () => {
+    const doc = readDocumentFile(file, documentSchema).doc;
+    expect(doc.firstChild?.attrs).toMatchObject({
+      dataId: 'section-1',
+      sectionName: 'summary',
+      editable: false,
+      pageHeader: header,
+      pageFooter: { inherit: true },
+    });
+    expect(writeDocumentFile(doc, { template: { id: 'report' } })).toEqual(file);
+  });
+
+  it('DOCE-FORMAT-1.6 refuses a section setting of the wrong kind, or leaves it out when lenient', () => {
+    const wrong = { formatVersion: 1, sections: [{ editable: 'no', header: [], content: [] }] };
+    expect(() => readDocumentFile(wrong, documentSchema).doc).toThrow(
+      'sections[0].editable: editable has the wrong kind of value',
+    );
+    const { doc, problems } = readDocumentFile(wrong, documentSchema, { unknown: 'drop' });
+    expect(problems.map((problem) => problem.path)).toEqual([
+      'sections[0].editable',
+      'sections[0].header',
+    ]);
+    expect(writeDocumentFile(doc).sections).toEqual([{ name: null, content: [] }]);
   });
 });

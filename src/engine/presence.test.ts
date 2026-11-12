@@ -13,7 +13,7 @@ function stateOf(value: string) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createPresence()] });
 }
 

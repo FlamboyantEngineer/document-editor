@@ -29,6 +29,7 @@ import type {
   ReferenceSourceAdapter,
   ScriptRunnerAdapter,
   TelemetryAdapter,
+  VariablesAdapter,
 } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
@@ -165,6 +166,11 @@ export interface DocumentEditorProps
   glossary?: GlossaryAdapter | undefined;
   /** Runs the script blocks: from their dialog and the context menu, and on opening for those that ask. */
   scriptRunner?: ScriptRunnerAdapter | undefined;
+  /**
+   * The host's variables, such as `document.name`, shown in the headers, footers and text beside
+   * the page numbers and today's date, again whenever the adapter says they changed.
+   */
+  variables?: VariablesAdapter | undefined;
   /** Tells the reader what failed, such as an upload. */
   feedback?: FeedbackAdapter | undefined;
   /** The symbol picker's characters, in place of the editor's own. */

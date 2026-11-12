@@ -23,7 +23,7 @@ const columns = (preset: string, ...texts: string[]): StoredNode => ({
   content: texts.map((text) => ({ type: 'column', content: [paragraph(text)] })),
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 function positionOf(doc: Node, text: string): number {
   let found = -1;

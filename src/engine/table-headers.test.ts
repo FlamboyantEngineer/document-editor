@@ -18,7 +18,7 @@ const read = (...rows: StoredNode[]) =>
   readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content: [{ type: 'table', content: rows }] }] },
     documentSchema,
-  );
+  ).doc;
 
 // A table with a header row and a header column.
 const headed = () =>
