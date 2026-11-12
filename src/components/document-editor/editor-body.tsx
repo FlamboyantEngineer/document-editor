@@ -7,15 +7,17 @@ import {
   RichTextEngineHost,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorView } from 'prosemirror-view';
-import { type RefObject, useMemo } from 'react';
+import { useMemo } from 'react';
 import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
+import type { CommentRefs } from './editor-handle.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
+import { canDecideSuggestions } from './save-status-item.js';
 import { useOpeningScripts } from './script-entries.js';
 import { TableHandles } from './table-handles.js';
 import {
@@ -46,7 +48,8 @@ export interface EditorBodyProps {
   /** The projection the engine renders in page layout, when the pages are one. */
   paged: PagedEditor | null;
   labels: DocumentEditorLabels;
-  startCommentRef: RefObject<(() => void) | null>;
+  /** Receive the comments' ways to start a thread and to take the reader to one. */
+  commentRefs: CommentRefs;
 }
 
 // The editor's own keys beside the document's, by their ids in the shortcut table, while each can
@@ -76,7 +79,9 @@ function useBodyViewProps({
   labels,
   startCommentRef,
   onDialog,
-}: Omit<EditorBodyProps, 'engine' | 'view' | 'paged'>) {
+}: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs'> & {
+  startCommentRef: CommentRefs['startCommentRef'];
+}) {
   const { editable = true, assets, feedback } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
@@ -165,9 +170,10 @@ export function EditorBody({
   view,
   paged,
   labels,
-  startCommentRef,
+  commentRefs,
   onDialog,
 }: EditorBodyProps) {
+  const { startCommentRef, openThreadRef } = commentRefs;
   const { state, onStateChange, editable = true, suggesting = false } = props;
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
@@ -191,8 +197,13 @@ export function EditorBody({
             {...props.comments}
             state={state}
             onStateChange={onStateChange}
-            canDecide={editable && !suggesting}
+            canDecide={canDecideSuggestions({
+              editable,
+              suggesting,
+              capabilities: props.capabilities,
+            })}
             startRef={startCommentRef}
+            openRef={openThreadRef}
           >
             {content}
           </DocumentComments>

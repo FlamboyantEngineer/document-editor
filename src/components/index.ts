@@ -2,6 +2,11 @@
 
 export type { DocumentCommentsLabels, DocumentCommentsOptions } from './document-comments/index.js';
 export type { CommentsFilter, DocumentCommentsPanelProps } from './document-comments/index.js';
+export type {
+  CommentActionTarget,
+  CommentsAudience,
+  MentionCardTarget,
+} from './document-comments/index.js';
 export { DEFAULT_COMMENTS_LABELS } from './document-comments/index.js';
 export { DocumentCommentsPanel } from './document-comments/index.js';
 export type {
@@ -24,6 +29,7 @@ export type {
   DocumentMenubarOptions,
   DocumentToolbarOptions,
   EditorContext,
+  EditorSession,
   FindBarMode,
   HostDialogProps,
   ObjectDialog,
@@ -84,10 +90,17 @@ export {
 export type {
   DocumentSessionBoundaryProps,
   DocumentSessionEditorProps,
+  SessionLoadingLabels,
+  SessionLoadingProps,
 } from './document-session/index.js';
 export {
+  DEFAULT_SESSION_LOADING_LABELS,
   DocumentSessionBoundary,
+  SESSION_MEASURES,
+  SessionLoading,
   useDocumentSession,
+  useSessionGuard,
+  useSessionTelemetry,
   useSessionValue,
 } from './document-session/index.js';
 export type {
