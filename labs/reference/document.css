@@ -410,7 +410,7 @@
 }
 
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol {
-  counter-reset: ordered-list;
+  counter-reset: ordered-list var(--de-list-start, 0);
   list-style-type: var(--doc-ol-list-style-type, decimal);
 }
 
