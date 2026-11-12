@@ -2,12 +2,22 @@
 // schema draws, so pages laid out without it run past their bottom (DOCE-PAGINATION-7.17).
 
 import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
+import { useDocumentEditor } from '../../../src/components/index.js';
 
-/** Draws a quote with room above and below its text that the schema's markup does not have. */
+/**
+ * Draws a quote with room above and below its text that the schema's markup does not have, marked
+ * with whether it reads the editor it is drawn in (`data-in-editor`).
+ */
 export function HostQuoteView({ nodeProps, children, ...props }: RichTextNodeViewProps) {
   void nodeProps;
+  const editor = useDocumentEditor();
   return (
-    <blockquote {...props} data-host-view="" style={{ paddingBlock: '96px' }}>
+    <blockquote
+      {...props}
+      data-host-view=""
+      data-in-editor={editor ? 'true' : 'false'}
+      style={{ paddingBlock: '96px' }}
+    >
       {children}
     </blockquote>
   );

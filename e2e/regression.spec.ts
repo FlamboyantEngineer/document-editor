@@ -520,6 +520,9 @@ test.describe('host views on the projection', () => {
     // The ghost draws the host's view too, in the editor's measuring element.
     const measuring = page.locator('.de-document-editor__measure .ProseMirror');
     await expect(measuring.locator('blockquote[data-host-view]').first()).toBeAttached();
+    // Under the editor's own providers, as the pages draw it.
+    await expect(measuring.locator('blockquote[data-in-editor="false"]')).toHaveCount(0);
+    await expect(page.locator('.pm-page blockquote[data-in-editor="false"]')).toHaveCount(0);
     // The taller quotes take more pages, and every page holds what it shows.
     const pages = await pagesOf(page);
     expect(pages.length).toBeGreaterThan(plain);

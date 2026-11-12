@@ -9,7 +9,15 @@ import type {
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Plugin, Transaction } from 'prosemirror-state';
-import { type ComponentType, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ComponentType,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   type CompareSuggestions,
   createAuthorship,
@@ -161,6 +169,8 @@ export interface DocumentLayoutOptions {
    * pages mount.
    */
   readonly nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
+  /** Wraps the ghost's React node views in the providers the editor's own views render under. */
+  readonly wrapGhost?: ((view: ReactNode) => ReactNode) | undefined;
   /** Takes each canonical transaction input on the projection's pages makes. */
   readonly onCanonical?: ((tr: Transaction) => void) | undefined;
   /** Told of each layout of the projection's pages. */

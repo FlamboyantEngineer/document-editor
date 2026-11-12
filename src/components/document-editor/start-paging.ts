@@ -3,13 +3,12 @@
 
 import {
   mountRichTextView,
-  type RichTextNodeViewProps,
   withoutReactKeys,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { reactKeys } from '@handlewithcare/react-prosemirror';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin, PluginKey } from 'prosemirror-state';
-import type { ComponentType, RefObject } from 'react';
+import type { RefObject } from 'react';
 import { proofingKey, searchKey } from '../../engine/index.js';
 import {
   createLayoutRules,
@@ -121,7 +120,7 @@ export function startPaging(
   const { refresh, active, ownPlugins, paginationPlugin } = refs;
   if (latest.current.projection) {
     const start = () => startProjectionOf(setup, latest, { refs, setPaged });
-    if (!ghostWith(latest.current.nodeViews)) return start();
+    if (!ghostWith(latest)) return start();
     // Pending until the ghost has mounted, so nothing reads the pages as settled before then.
     setup.onLayoutStateChange('pending');
     return afterCommit(start);
@@ -217,7 +216,7 @@ function startProjection(
       withoutReactKeys(latest.current.state).plugins.filter((plugin) => !pages.includes(plugin)),
       own,
     ),
-    mountGhost: ghostWith(latest.current.nodeViews),
+    mountGhost: ghostWith(latest),
     dispatch: (tr) => latest.current.onCanonical?.(tr),
     onProjection: (state) => {
       if (made) setPaged({ projection: made, state });
@@ -230,16 +229,21 @@ function startProjection(
   return projection;
 }
 
-type HostNodeViews = Readonly<Record<string, ComponentType<RichTextNodeViewProps>>>;
-
-// How the ghost mounts: with the host's React node views, which it renders as the pages do, so a
-// block they draw is measured as it shows; a plain view without them.
+// How the ghost mounts: with the host's React node views, which it renders as the pages do, under
+// the providers the editor's own views read, so a block they draw is measured as it shows; a plain
+// view without them. The node views are those the pages mount with: a host that swaps them has the
+// ghost keep the old ones until the pages mount again.
 function ghostWith(
-  nodeViews: HostNodeViews | undefined,
+  latest: RefObject<DocumentLayoutOptions>,
 ): ((element: HTMLElement, options: MeasuringViewOptions) => MeasuringView) | undefined {
+  const { nodeViews } = latest.current;
   if (!nodeViews || Object.keys(nodeViews).length === 0) return undefined;
   return (element, { state }) => {
-    const mounted = mountRichTextView(element, { state, nodeViews });
+    const mounted = mountRichTextView(element, {
+      state,
+      nodeViews,
+      wrap: (shown) => latest.current.wrapGhost?.(shown) ?? shown,
+    });
     return {
       view: mounted.view,
       show: (next) => mounted.update(next),
