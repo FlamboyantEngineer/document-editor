@@ -230,7 +230,7 @@ const FRAGMENTS: FragmentRules = {
 // The sample with the host's log in its slot.
 function sampleDocument(): Node {
   const schema = createDocumentSchema({ extensions: [logExtension] });
-  const doc = readDocumentFile(SAMPLE, schema);
+  const doc = readDocumentFile(SAMPLE, schema).doc;
   let slot = -1;
   doc.descendants((node, pos) => {
     if (node.attrs.dataId === LOG_SLOT) slot = pos;

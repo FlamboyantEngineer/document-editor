@@ -7,7 +7,7 @@ import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { createVariableTokens } from './index.js';
 
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 // The end of the first textblock whose text is the one given.
 function endOf(doc: Node, text: string): number {

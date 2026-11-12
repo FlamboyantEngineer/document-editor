@@ -26,7 +26,7 @@ function stateOf() {
       sections: [{ name: null, content: [paragraph('Open'), paragraph('Fixed')] }],
     },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createEditLock({ isLocked: lockedBlock })] });
 }
 

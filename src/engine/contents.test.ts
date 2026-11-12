@@ -43,7 +43,7 @@ function render(template: TemplateFile) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   const state = EditorState.create({
     doc,
     plugins: [createContents({ template: () => template })],

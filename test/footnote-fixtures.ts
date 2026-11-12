@@ -23,7 +23,7 @@ export function footnoteState(content: StoredNode[], options: FootnotesOptions =
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createFootnotes(options)] });
 }
 

@@ -30,7 +30,7 @@ const document = () =>
       ],
     },
     documentSchema,
-  );
+  ).doc;
 
 const regionOf = (doc: ReturnType<typeof document>, section: number, index: number) =>
   doc.child(section).child(0).child(index);

@@ -10,7 +10,7 @@ function editorView() {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content: [{ type: 'paragraph' }] }] },
     documentSchema,
-  );
+  ).doc;
   const state = EditorState.create({ doc });
   return new EditorView(document.createElement('div'), {
     state: state.apply(state.tr.setSelection(TextSelection.atStart(doc))),
