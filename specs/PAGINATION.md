@@ -374,3 +374,10 @@ The plugin shall show the variables in the document's text too, `page.current` b
 
 Implementation: `src/pagination/page-variables.ts`
 Verification: `src/pagination/page-variables.test.ts`
+
+### DOCE-PAGINATION-8.4 - Variables in the editor
+
+`DocumentEditor` shall show page variables in both layouts, and in the view it measures in, with the values of the host's `variables` adapter (DOCE-HOST-1.12); when the adapter says a value changed, it shall show the values again, outside the undo history, and lay the pages out again. Page numbers shall be read from the layout's pages (`createPageMap`).
+
+Implementation: `src/components/document-editor/use-document-layout.ts`, `src/pagination/page-variables.ts`
+Verification: `src/components/document-editor/document-editor.test.tsx`

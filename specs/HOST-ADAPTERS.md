@@ -81,6 +81,13 @@ The host's `scripts` adapter shall run a script block's script against the docum
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
+### DOCE-HOST-1.12 - Variables
+
+The host's `variables` adapter shall give the text of each variable it knows (`value`), such as `document.name`, beside `page.current`, `page.total` and `date.current`, which the editor gives itself; null or undefined shows none. It may tell the editor whenever a value may have changed (`subscribe`) until the editor unsubscribes.
+
+Implementation: `src/host/adapters.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/components/document-editor/document-editor.test.tsx`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
