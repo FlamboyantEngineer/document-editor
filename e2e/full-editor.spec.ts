@@ -110,7 +110,8 @@ test.describe('full editor lab', () => {
   }) => {
     await lab.open('full-editor');
     const report = page.locator('output[aria-label="Host report"]');
-    await expect(report).toContainText('0 review changes');
+    await expect(report).toContainText('blocks measured');
+    await expect(report).not.toContainText('review changes');
     await page.getByLabel('Suggesting').check();
     await page.getByRole('button', { name: 'Comment on a sentence' }).click();
     await expect(page.locator('output[aria-label="Agent report"]')).toContainText('Commented on');
