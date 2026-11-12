@@ -28,7 +28,7 @@ test.describe('versions lab', () => {
   }) => {
     await lab.open('versions');
     await compareWith(page, 'Version 1');
-    await expect(page.getByLabel('Changes')).toHaveText('6 changes');
+    await expect(page.getByLabel('Changes')).toHaveText('7 changes');
     await expect(page.locator('.de-document-editor')).toHaveAttribute('data-comparing', 'markup');
     await expect(block(page, 'shall report each fault')).toHaveAttribute(
       'data-diff-change',
@@ -121,5 +121,53 @@ test.describe('versions lab', () => {
     ).toHaveText('0 bars');
     await compareWith(page, 'Version 1');
     await expect(page.locator('output[aria-label="Bars reported"]')).toHaveText(/^[1-9]\d* bars$/);
+  });
+
+  test('DOCE-VERSIONS-3.5 compares any two versions, showing the newer read-only', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('versions');
+    const versions = page.getByRole('complementary');
+    await versions.getByText('Version 1', { exact: true }).click();
+    await versions.getByText('Version 2', { exact: true }).click();
+    await page.getByRole('button', { name: /compare/i }).click();
+    await expect(page.getByLabel('Showing')).toHaveText('Two versions');
+    // Version 2 against Version 1: the edited rule and the bolded words, nothing from Version 3.
+    await expect(block(page, 'shall report each fault')).toHaveAttribute(
+      'data-diff-change',
+      'modification',
+    );
+    await expect(block(page, 'Reports go')).toHaveAttribute('data-diff-change', 'formatting');
+    await expect(block(page, 'Each report names')).toHaveCount(0);
+    await expect(page.getByLabel('Changes')).toHaveText('2 changes');
+    await expect(content(page).locator('[contenteditable="true"]')).toHaveCount(0);
+    await versions.getByText('Version 1', { exact: true }).click();
+    await expect(page.getByLabel('Showing')).toHaveText('The document');
+    await expect(block(page, 'Each report names')).toHaveCount(1);
+  });
+
+  test('DOCE-VERSIONS-2.6 DOCE-VERSIONS-3.6 scopes a comparison to a heading, with counts', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('versions');
+    await compareWith(page, 'Version 1');
+    await page.getByLabel('Compare within').selectOption('Retention');
+    await expect(page.getByLabel('Changes')).toHaveText('1 changes');
+    await expect(page.getByLabel('Counts')).toHaveText(
+      '0 inserted, 0 deleted, 1 modified, 0 formatted, 0 moved',
+    );
+    await expect(block(page, 'Records are kept')).toHaveAttribute(
+      'data-diff-change',
+      'modification',
+    );
+    const outside = block(page, 'shall report each fault');
+    await expect(outside).toHaveAttribute('data-diff-scope', 'outside');
+    await expect(outside).not.toHaveAttribute('data-diff-change');
+    expect(await outside.evaluate((element) => getComputedStyle(element).opacity)).toBe('0.45');
+    await page.getByLabel('Compare within').selectOption('Whole document');
+    await expect(page.getByLabel('Changes')).toHaveText('7 changes');
+    await expect(content(page).locator('[data-diff-scope]')).toHaveCount(0);
   });
 });

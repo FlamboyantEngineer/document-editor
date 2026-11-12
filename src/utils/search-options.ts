@@ -3,7 +3,7 @@
 
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { EditorState } from 'prosemirror-state';
-import { type SearchOptions, searchState } from '../engine/index.js';
+import { type SearchOptions, type SearchScope, searchState } from '../engine/index.js';
 
 /** The plugin options the selected option keys stand for: `case` and `word`. */
 export function searchOptionsOf(keys: ReadonlySet<Key>): SearchOptions {
@@ -18,9 +18,9 @@ export function searchOptionKeys(options: SearchOptions | undefined): Set<Key> {
   return keys;
 }
 
-/** What a find control shows of the search the plugin holds. */
-export function searchControlState(state: EditorState) {
-  const search = searchState(state);
+/** What a find control shows of the search a plugin holds. */
+export function searchControlState(state: EditorState, scope: SearchScope) {
+  const search = searchState(state, scope);
   return {
     query: search?.query ?? '',
     selected: searchOptionKeys(search?.options),
