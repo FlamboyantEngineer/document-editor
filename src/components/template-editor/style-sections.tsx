@@ -11,6 +11,7 @@ import {
 } from '@flamboyantengineer/ui-components/property-panel';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';
+import { CUSTOM_STYLE_NAME } from '../../model/index.js';
 import { isStyleOverridden, StyleRows, type StyleScope, styleSummary } from './style-fields.js';
 import type { Rows } from './template-rows.js';
 import { settingAt, TEXT_STYLES } from './template-settings.js';
@@ -58,9 +59,6 @@ function freshStyle(taken: readonly string[]): string {
   while (taken.includes(`style_${String(index)}`)) index += 1;
   return `style_${String(index)}`;
 }
-
-/** What a custom style's name may be: a letter, then letters, digits, `_` or `-`, 16 at most. */
-export const CUSTOM_STYLE_NAME = /^[a-z][a-z0-9_-]{0,15}$/i;
 
 // Renames a custom style, keeping its settings, unless the name is taken or not a name.
 function rename(context: Rows, from: string, to: string) {

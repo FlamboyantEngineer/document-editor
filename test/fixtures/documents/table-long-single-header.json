@@ -1,6 +1,8 @@
 {
   "formatVersion": 1,
-  "template": "regression-tables",
+  "template": {
+    "id": "regression-tables"
+  },
   "sections": [
     {
       "name": "single",

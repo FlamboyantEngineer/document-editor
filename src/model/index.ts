@@ -25,8 +25,7 @@ export {
   writeDocumentFile,
   writeStoredContent,
 } from './format/document-format-convert.js';
-export type { DocxOptions } from './format/docx.js';
-export { writeDocx } from './format/docx.js';
+export { type DocxOptions, writeDocx } from './format/docx.js';
 export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './format/html.js';
 export type { MarkdownOptions } from './format/markdown.js';
 export { writeMarkdown } from './format/markdown.js';
@@ -50,6 +49,7 @@ export {
   isTemplateLength,
   validateTemplateFile,
 } from './format/template-format-validate.js';
+export * from './format/template-format-validate.js';
 export type { ZipEntry } from './format/zip.js';
 export { crc32, writeZip } from './format/zip.js';
 export type { AbbreviationReferenceAttrs, GlossaryEntry } from './glossary.js';
@@ -245,6 +245,7 @@ export {
   findDocumentLayoutPreset,
   normalizeDocumentLayoutPresetId,
 } from './schema/layout-presets.js';
+export * from './schema/mark-order.js';
 export { DOCUMENT_MARK_ORDER, DOCUMENT_NODE_ORDER } from './schema/node-order.js';
 export type { ObjectLayout } from './schema/object-layout.js';
 export {
@@ -299,3 +300,4 @@ export {
   sectionRestartsNumbering,
 } from './templates/template-scopes.js';
 export { findTemplateSection, requiredTemplateSections } from './templates/template-sections.js';
+export * from './templates/template-settings.js';

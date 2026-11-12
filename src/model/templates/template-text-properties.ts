@@ -8,6 +8,7 @@ import type {
   TemplateStyles,
   TextSettings,
 } from '../format/template-format.js';
+import { isBulletKeyword } from '../format/template-format-validate.js';
 import { escapeCssContent } from '../numbering/document-numbering.js';
 import { parseNumberingStyle, resolveCssCounterStyleToken } from '../numbering/numbering-format.js';
 import { resolveFontStack } from './template-css-values.js';
@@ -62,21 +63,35 @@ function textProperties(
   return properties;
 }
 
+const quoted = (text: string) => `"${escapeCssContent(text)}"`;
+
+// A bullet keyword is a list style; any other bullet is the text it shows, then a space.
+function bulletStyle(bullet: string | null | undefined): string | null {
+  if (!bullet) return null;
+  return isBulletKeyword(bullet) ? bullet : quoted(`${bullet} `);
+}
+
 function listProperties(properties: CustomProperties, list: ListSettings | null | undefined) {
   if (!list) return;
   set(properties, '--doc-list-margin-top', list.spaceBefore);
   set(properties, '--doc-list-margin-bottom', list.spaceAfter);
   set(properties, '--doc-list-indentation', list.indentation);
-  set(properties, '--doc-ul-list-style-type', list.bullet);
-  if (!list.format) return;
-  const level = parseNumberingStyle(list.format).levels[0] ?? { token: '1', separator: '.' };
+  set(properties, '--doc-ul-list-style-type', bulletStyle(list.bullet));
+  if (!list.format && !list.prefix && !list.suffix) return;
+  const level = parseNumberingStyle(list.format || '1.').levels[0] ?? {
+    token: '1',
+    separator: '.',
+  };
   const style = resolveCssCounterStyleToken(level.token);
   set(properties, '--doc-ol-list-style-type', style);
-  set(
-    properties,
-    '--doc-ol-counter-content',
-    `counter(ordered-list, ${style}) "${escapeCssContent(level.separator)}" " "`,
-  );
+  const parts = [
+    list.prefix ? quoted(list.prefix) : '',
+    `counter(ordered-list, ${style})`,
+    quoted(level.separator),
+    list.suffix ? quoted(list.suffix) : '',
+    '" "',
+  ];
+  set(properties, '--doc-ol-counter-content', parts.filter(Boolean).join(' '));
 }
 
 function tableProperties(properties: CustomProperties, table: TableSettings | null | undefined) {
@@ -101,13 +116,15 @@ function contentsProperties(
   if (!contents) return;
   Object.assign(properties, textProperties('--doc-contents-title', contents.title, fontStacks));
   Object.assign(properties, textProperties('--doc-contents-entry', contents.entry, fontStacks));
-  if (contents.leader)
-    properties['--doc-contents-leader'] = `"${escapeCssContent(contents.leader)}"`;
+  if (contents.leader?.character)
+    properties['--doc-contents-leader'] = quoted(contents.leader.character);
+  set(properties, '--doc-contents-leader-spacing', contents.leader?.spacing);
   contents.levels?.forEach((level, index) => {
     const prefix = `--doc-contents-level-${String(index + 1)}`;
-    set(properties, `${prefix}-indentation`, level.indentation);
-    set(properties, `${prefix}-margin-top`, level.spaceBefore);
-    set(properties, `${prefix}-margin-bottom`, level.spaceAfter);
+    set(properties, `${prefix}-indentation`, level?.indentation);
+    set(properties, `${prefix}-margin-top`, level?.spaceBefore);
+    set(properties, `${prefix}-margin-bottom`, level?.spaceAfter);
+    set(properties, `${prefix}-leader-spacing`, level?.leader?.spacing);
   });
 }
 
