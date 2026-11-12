@@ -7,6 +7,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { viewOnlyInline } from '../utils/view-only-decorations.js';
 
 /** Another person in the document, with their selection. */
 export interface Peer {
@@ -103,7 +104,7 @@ function decorate(doc: ProseMirrorNode, peers: readonly PlacedPeer[]): Decoratio
     const to = Math.max(anchor, head);
     const selection =
       from < to
-        ? [Decoration.inline(from, to, { class: 'de-presence-selection', ...peerAttrs(peer) })]
+        ? [viewOnlyInline({ from, to }, { class: 'de-presence-selection', ...peerAttrs(peer) })]
         : [];
     return [
       ...selection,

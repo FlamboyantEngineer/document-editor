@@ -7,8 +7,9 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { DecorationSet } from 'prosemirror-view';
 import type { ProoferAdapter, ProofingIssue, ProofingKind } from '../host/adapters.js';
+import { viewOnlyInline } from '../utils/view-only-decorations.js';
 import { isRemoteTransaction } from './presence.js';
 import { proofedBlocks } from './proofing-text.js';
 import { proofingView } from './proofing-view.js';
@@ -148,7 +149,7 @@ function decorate(doc: ProseMirrorNode, value: ProofingState): ProofingState {
   const decorations = DecorationSet.create(
     doc,
     issuesOf(doc, value).map((issue) =>
-      Decoration.inline(issue.from, issue.to, { [PROOFING_ISSUE_ATTR]: issue.kind }, { issue }),
+      viewOnlyInline(issue, { [PROOFING_ISSUE_ATTR]: issue.kind }, { issue }),
     ),
   );
   return { ...value, decorations };
