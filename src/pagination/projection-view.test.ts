@@ -294,6 +294,22 @@ describe('projection view', () => {
     expect(marked(view.dom)).toBe('two|Gamma');
   });
 
+  it('DOCE-PAGINATION-8.5 hides the header and footer a section repeats on its later pages', () => {
+    const { projection } = mount();
+    const { view } = projection;
+    expect(pageCount(view.state.doc)).toBe(3);
+    const hidden = [...view.dom.querySelectorAll('.pm-page')].map((page) =>
+      [...page.querySelectorAll(':scope > .pm-page-header, :scope > .pm-page-footer')].map(
+        (region) => region.getAttribute('aria-hidden'),
+      ),
+    );
+    expect(hidden).toEqual([
+      [null, null],
+      ['true', 'true'],
+      ['true', 'true'],
+    ]);
+  });
+
   it("DOCE-PAGINATION-7.14 gives the chrome the pages' view as a view of the canonical state", () => {
     const sent: Transaction[] = [];
     const { projection } = mount();

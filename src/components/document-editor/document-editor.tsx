@@ -9,7 +9,6 @@ import type {
   RichTextNodeViewProps,
   RichTextStateUpdate,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
-import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorState } from 'prosemirror-state';
 import {
   type ComponentType,
@@ -47,11 +46,12 @@ import {
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
+import { type DocumentBanner, useReportedFonts } from './banners.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import type { HostDialogProps } from './dialog-parts.js';
-import { useFindBar } from './document-find-bar.js';
+import type { DocumentStatusBarOptions } from './document-status-bar.js';
 import { EditorBody } from './editor-body.js';
-import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
+import { useWheelZoom } from './editor-chrome.js';
 import {
   DocumentEditorContext,
   type DocumentMarkup,
@@ -59,9 +59,11 @@ import {
   type ObjectDialog,
   useShownContext,
 } from './editor-context.js';
-import { type DocumentEditorHandle, useCommentRefs, useEditorHandle } from './editor-handle.js';
+import { type DocumentEditorHandle, useCommentRefs } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
+import type { DocumentOverviewOptions } from './editor-overview.js';
 import { EditorScope } from './editor-scope.js';
+import { EditorSurface } from './editor-surface.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
@@ -74,7 +76,9 @@ import {
   useActiveProps,
   useElementIdRepair,
 } from './use-host-events.js';
+import { useHostReach } from './use-host-reach.js';
 import { usePagedEditor, usePagedView } from './use-paged-projection.js';
+import { useVisibleElementsFeed, type VisibleElement } from './visible-elements.js';
 
 /** How the editor repairs the element ids of the documents it is given. */
 export interface DocumentEditorIdRepair {
@@ -142,12 +146,13 @@ export interface DocumentEditorProps
    */
   scrollable?: boolean | undefined;
   /**
-   * Shows the editor's status bar below the document: the page holding the caret, the words, and
-   * whether the writer is editing, suggesting or reading. Defaults to false.
+   * Shows the editor's status bar below the document: the page in view, the words, and whether the
+   * writer is editing, suggesting, commenting or reading, rearranged by the host when given as
+   * options. Defaults to false.
    */
-  statusBar?: boolean | undefined;
-  /** The host's own items at the end of the status bar. */
-  statusItems?: ReactNode;
+  statusBar?: boolean | DocumentStatusBarOptions | undefined;
+  /** Tells the host the elements on screen, with their boxes, each time the set of them changes. */
+  onVisibleElementsChange?: ((elements: readonly VisibleElement[]) => void) | undefined;
   /**
    * The document's session (`createDocumentSession`): the status bar shows where its changes stand,
    * with Retry after a failed save, and Mod-S saves it.
@@ -253,6 +258,20 @@ export interface DocumentEditorProps
   dialogs?: Readonly<Record<string, ComponentType<HostDialogProps>>> | undefined;
   /** The text of the editor's menus and table handles, beside the defaults. */
   labels?: Partial<DocumentEditorLabels> | undefined;
+  /**
+   * Banners above the document, before the editor's own: the document out of step with its
+   * template, and the template's fonts that did not load.
+   */
+  banners?: readonly DocumentBanner[] | undefined;
+  /** The host's content before the document's pages, scrolling with them, such as its title. */
+  lead?: ReactNode;
+  /** Shown before the document while the pages await their first layout, such as a skeleton. */
+  placeholder?: ReactNode;
+  /**
+   * Marks the changes, the search matches, the proofing issues and the elements the reader has not
+   * read on a scroll overview beside the frame, while the editor scrolls the document.
+   */
+  overview?: boolean | DocumentOverviewOptions | undefined;
   /** Chrome inside the editor's engine, such as a toolbar reading its state. */
   children?: ReactNode;
   /**
@@ -265,31 +284,11 @@ export interface DocumentEditorProps
 const hooks = createHooks('document-editor', [
   'measure',
   'toolbar',
-  'viewport',
-  'workspace',
   'body',
   'content',
   'status-bar',
   'find',
 ]);
-
-// The document between the panels beside it, when there are any.
-function Workspace({
-  panels,
-  children,
-}: {
-  panels: DocumentEditorProps['panels'];
-  children: ReactNode;
-}) {
-  if (!panels?.start && !panels?.end) return children;
-  return (
-    <div {...hooks.slot('workspace')}>
-      {panels.start}
-      {children}
-      {panels.end}
-    </div>
-  );
-}
 
 // The parts of the layout debugging shown: `true` shows the pages'.
 function debugParts(debug: DocumentEditorProps['debug']): DocumentEditorDebug {
@@ -336,8 +335,10 @@ function useEditorLayout(
     events: engine.events,
   });
   const [layoutState, setLayoutState] = useState<LayoutState>('pending');
+  const reported = useReportedFonts(props.fonts);
   const progress = useDocumentLayout(measureIn, {
     ...props,
+    fonts: reported.fonts,
     layout: props.layout ?? 'page',
     compare: props.compare ?? null,
     debug: debugParts(props.debug),
@@ -349,7 +350,8 @@ function useEditorLayout(
     ),
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
-  return { progress, view, layoutState };
+  useVisibleElementsFeed(view, props.onVisibleElementsChange);
+  return { progress, view, layoutState, missingFonts: reported.missing };
 }
 
 /**
@@ -368,7 +370,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props, tap);
   const editorContext = useRef<EditorContext | null>(null);
-  const { progress, view, layoutState } = useEditorLayout(props, engine, {
+  const { progress, view, layoutState, missingFonts } = useEditorLayout(props, engine, {
     measureIn,
     context: editorContext,
   });
@@ -380,9 +382,9 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const { startCommentRef } = refs;
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  const find = useFindBar(root, view, Boolean(props.find));
+  const reach = { root, refs, progress, transactions: engine.transactions };
+  const { find, scope } = useHostReach(props, view, reach);
   const openFind = find.open;
-  useEditorHandle(props.handleRef, view, { ...refs, template, layout: progress, openFind });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useShownContext(props, { view, labels, openDialog: setDialog });
@@ -402,7 +404,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
     />
   );
   return (
-    <EditorScope context={context} comments={props.comments} transactions={engine.transactions}>
+    <EditorScope context={context} {...scope}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}
@@ -413,17 +415,17 @@ export function DocumentEditor(given: DocumentEditorProps) {
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
-        <TopChrome {...chrome} findRequest={find.request} onFindClose={find.close} />
-        <Workspace panels={props.panels}>
-          {props.scrollable ? (
-            <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
-              {body}
-            </ScrollRegion>
-          ) : (
-            body
-          )}
-        </Workspace>
-        <BottomChrome {...chrome} openDialog={setDialog} />
+        <EditorSurface
+          chrome={chrome}
+          root={root}
+          findRequest={find.request}
+          onFindClose={find.close}
+          openDialog={setDialog}
+          missingFonts={missingFonts}
+          layoutState={layoutState}
+        >
+          {body}
+        </EditorSurface>
         <ObjectDialogs
           {...props}
           dialog={editable ? dialog : null}

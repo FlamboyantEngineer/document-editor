@@ -13,6 +13,7 @@ import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
 import type { CommentStoreAdapter, IdentityAdapter, MentionsAdapter } from '../../host/index.js';
@@ -54,7 +55,9 @@ export type {
   ThreadTarget,
 } from './comment-focus.js';
 export { EditorCommentThreads } from './comment-threads-provider.js';
+export { DocumentCommentsPanel } from './comments-panel.js';
 export type { ThreadPermissionPolicy, ThreadPermissions } from './thread-permissions.js';
+export { SharedCommentThreadsContext } from './use-comment-threads.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
 export interface DocumentCommentsOptions {
@@ -130,6 +133,8 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   startRef?: RefObject<StartComment | null> | undefined;
   /** Receives the way to take the reader to a thread. */
   openRef?: RefObject<OpenComment | null> | undefined;
+  /** The editor's view, which the comments' changes go through (`useCommentControls`). */
+  view?: EditorView | null | undefined;
   /** The document's content. */
   children: ReactNode;
 }
