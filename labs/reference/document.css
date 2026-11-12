@@ -129,6 +129,18 @@
 }
 
 /*
+ * A host's node view on the pages lays out as the view's own element would: its element is a plain
+ * block or inline box, and the element around the node's content takes no box (DOCE-EDITOR-1.8).
+ */
+div.de-host-view {
+  display: block;
+}
+
+.de-host-view__content {
+  display: contents;
+}
+
+/*
  * Pages stack in one column, each centered, whatever its size or orientation; a page wider than the
  * frame starts at its start edge, so all of it scrolls into view.
  */

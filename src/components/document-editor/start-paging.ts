@@ -5,7 +5,6 @@ import {
   mountRichTextView,
   withoutReactKeys,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
-import { reactKeys } from '@handlewithcare/react-prosemirror';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin, PluginKey } from 'prosemirror-state';
 import type { RefObject } from 'react';
@@ -151,7 +150,16 @@ function startProjectionOf(
   onStateChange((state) =>
     state.reconfigure({ plugins: state.plugins.filter((plugin) => !pages.includes(plugin)) }),
   );
-  const projection = startProjection(setup, latest, { own: ownPlugins.current, pages, setPaged });
+  // A projection stopped shows nothing more, as the view drawing its last pages goes after it.
+  let live = true;
+  const show = (paged: PagedEditor | null) => {
+    if (live) setPaged(paged);
+  };
+  const projection = startProjection(setup, latest, {
+    own: ownPlugins.current,
+    pages,
+    setPaged: show,
+  });
   active.current = projection;
   // The pages were just measured with what the editor's effects refresh them for as it mounts, so
   // only a later change measures them again.
@@ -165,6 +173,7 @@ function startProjectionOf(
     redraw.current = null;
     active.current = null;
     setPaged(null);
+    live = false;
     projection.destroy();
     // The pages' plugins go back to the state only while the layout keeps its plugins, as when
     // the projection is turned off, not as the editor goes.
@@ -191,9 +200,9 @@ function startProjection(
     state: latest.current.state,
     pageHeight: setup.pageHeight,
     ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
-    // The engine renders the projection's states with React node identities kept.
-    plugins: [reactKeys(), ...pages],
-    // The ghost takes the projection's React keys, not those the engine gave the state.
+    // The pages render in a plain view (DOCE-EDITOR-1.8), which keeps no React node identities.
+    plugins: [...pages],
+    // The ghost takes no React keys of the engine's: it keys the states it renders itself.
     ghostPlugins: withOwn(
       withoutReactKeys(latest.current.state).plugins.filter((plugin) => !pages.includes(plugin)),
       own,
@@ -201,7 +210,7 @@ function startProjection(
     mountGhost: ghostWith(latest),
     // The engine's own border resize runs on the pages, on the whole table.
     resizeColumns: false,
-    dispatch: (tr) => latest.current.onCanonical?.(tr),
+    dispatch: (tr, change) => latest.current.onCanonical?.(tr, change),
     onProjection: (state) => {
       if (made) setPaged({ projection: made, state });
     },

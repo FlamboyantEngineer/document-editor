@@ -53,6 +53,13 @@ A state the host commits shall be drawn on the document before the chrome follow
 Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-chrome.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
 
+### DOCE-EDITOR-1.8 - The pages in a plain view
+
+In page layout, the editor shall draw the projection's pages in a plain ProseMirror view rather than through React, so a keystroke redraws the blocks it changes and nothing else. Every transaction of that view shall go to the projection, and the view shall tell the editor's events as the engine does: once mounted, after each state it shows, and, for a state its own transaction made, the selection and the update. Its document element shall keep the engine's content element's hook classes, role and labels. The host's React node views shall be drawn through portals in the editor's tree, so they read the editor's context (`useDocumentEditor`), each inside an element of its own (`de-host-view`), with the node's content inside the element the view renders as its children (`de-host-view__content`). In the web layout the editor shall keep drawing the document through the engine.
+
+Implementation: `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/host-node-views.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/start-paging.ts`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
+
 ## DOCE-EDITOR-2 - Layouts in the browser
 
 ### DOCE-EDITOR-2.1 - Editing on pages
@@ -561,6 +568,8 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `data-issues`                           | state     | `true`                                                                 | On the proofing status: issues are marked.                                              |
 | `data-status`                           | attribute | `STATUS_BAR_ITEMS`, the host's ids; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
 | `de-document-editor__content`           | slot      |                                                                        | The document.                                                                           |
+| `de-host-view`                          | root      |                                                                        | On the pages, the element a host's node view is drawn in (DOCE-EDITOR-1.8).             |
+| `de-host-view__content`                 | slot      |                                                                        | Inside a host's node view on the pages: the node's content.                             |
 | `de-document-editor__zoom`              | slot      |                                                                        | The status bar's zoom control, with `onZoomChange`.                                     |
 | `data-dialog`                           | attribute | `math`, `figure`, `link`, `linked-code`                                | On one of the editor's dialogs: what it edits.                                          |
 | `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                                   | How suggestions show.                                                                   |

@@ -457,6 +457,13 @@ The layout of a canonical document a projection shows (`pageMap`, DOCE-PAGINATIO
 Implementation: `src/pagination/page-map.ts`, `src/pagination/projection-session.ts`, `src/model/pagination/fragments.ts`, `src/model/pagination/page-transform.ts`, `src/pagination/block-elements.ts`
 Verification: `src/pagination/page-map.test.ts`, `src/pagination/projection-view.test.ts`
 
+### DOCE-PAGINATION-7.19 - A keystroke drawn once
+
+Text typed on the pages shall be offered to the canonical plugins (DOCE-PAGINATION-7.15) with the selection the view read with the browser's change mirrored on the canonical state, without having the view read the browser again, which would draw the pages without the text and then with it. The values of page variables (DOCE-PAGINATION-8.2) shall move with a change that only edits text inside a textblock, adding and taking no variable, and be found again through the document after any other change, so typing reads the variables of no other block. A host that holds the canonical state shall take a transaction the pages made as the state the projection made of it, while the host still holds the state it was applied to, so what the canonical plugins appended to it, such as the element ids of a new block, is the same on the pages and in the host, and the host applies no transaction a second time.
+
+Implementation: `src/pagination/canonical-plugins.ts`, `src/pagination/projection-session.ts`, `src/pagination/page-variables.ts`, `src/components/document-editor/use-paged-projection.ts`
+Verification: `src/pagination/projection-view.test.ts`, `src/pagination/page-variables.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

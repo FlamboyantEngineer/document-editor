@@ -215,7 +215,11 @@ export async function expectPrintEqualsEditor(
   context: BrowserContext,
   snapshot: () => Promise<string>,
 ): Promise<readonly PageComparison[]> {
-  await page.addStyleTag({ content: '#lab-chrome { display: none !important; }' });
+  // The caret is hidden by a stylesheet: Playwright hides it by writing a style on each editable
+  // element, which the editor takes for an edit of its pages and draws them again.
+  await page.addStyleTag({
+    content: '#lab-chrome { display: none !important; } * { caret-color: transparent !important; }',
+  });
   await page.mouse.move(0, 0);
   const pages = content(page).locator('.pm-page');
   const count = await pages.count();
@@ -231,7 +235,7 @@ export async function expectPrintEqualsEditor(
     const one = pages.nth(index);
     const box = await one.boundingBox();
     shown.push({
-      image: await one.screenshot({ caret: 'hide', animations: 'disabled' }),
+      image: await one.screenshot({ caret: 'initial', animations: 'disabled' }),
       words: words(await one.evaluate(visibleText)),
       width: box?.width ?? 0,
       height: box?.height ?? 0,

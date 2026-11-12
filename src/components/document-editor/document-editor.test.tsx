@@ -1,8 +1,9 @@
+import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
-import { createRef, type Ref, useState } from 'react';
+import { createRef, type Ref, useEffect, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
@@ -48,6 +49,16 @@ const initial = () =>
     ).doc,
     plugins: createDocumentEditing(documentSchema),
   });
+
+// Where the document's first text starts.
+function textStart(state: EditorState): number {
+  let start = -1;
+  state.doc.descendants((node, pos) => {
+    if (node.isText && start < 0) start = pos;
+    return start < 0;
+  });
+  return start;
+}
 
 function Harness({
   editable,
@@ -152,6 +163,90 @@ describe('DocumentEditor', () => {
     const measure = container.querySelector('.de-document-editor__measure');
     expect(measure).toHaveAttribute('aria-hidden', 'true');
     expect(container.querySelector('.de-document-editor')).toHaveAttribute('data-layout', 'page');
+  });
+
+  it('DOCE-EDITOR-1.8 draws the pages in a plain view, the host views in the editor', async () => {
+    function HostParagraph({ nodeProps, children, ...props }: RichTextNodeViewProps) {
+      void nodeProps;
+      const editor = useDocumentEditor();
+      return (
+        <p {...props} data-host-view="" data-in-editor={editor ? 'true' : 'false'}>
+          {children}
+        </p>
+      );
+    }
+    const views = { paragraph: HostParagraph };
+    function Shown() {
+      const [state, setState] = useState(initial);
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => setState(state.apply(state.tr.insertText('Oh, ', textStart(state))))}
+          >
+            Change
+          </button>
+          <DocumentEditor
+            state={state}
+            onStateChange={setState}
+            template={TEMPLATE}
+            nodeViews={views}
+            aria-label="Report"
+          />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Shown />);
+    const drawn = () =>
+      screen
+        .getByRole('textbox', { name: 'Report' })
+        .querySelector('.de-host-view [data-host-view]');
+    await waitFor(() => expect(drawn()).toHaveTextContent('Hello'));
+    const pages = screen.getByRole('textbox', { name: 'Report' });
+    expect(pages).toHaveClass('ProseMirror', 'de-document-editor__content');
+    expect(pages).toHaveAttribute('aria-multiline', 'true');
+    expect(drawn()).toHaveAttribute('data-in-editor', 'true');
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await waitFor(() => expect(drawn()).toHaveTextContent('Oh, Hello'));
+  });
+
+  it('DOCE-PAGINATION-7.19 gives the host the element ids the pages gave a new block', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const held: { current: EditorState | null } = { current: null };
+    function Shown() {
+      const [state, setState] = useState(initial);
+      useEffect(() => {
+        held.current = state;
+      });
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={TEMPLATE}
+          aria-label="Report"
+          handleRef={handle}
+        />
+      );
+    }
+    render(<Shown />);
+    await handle.current?.whenSettled();
+    const idsOf = (state: EditorState | null) => {
+      const ids: unknown[] = [];
+      state?.doc.descendants((node) => {
+        if (node.type.name === 'paragraph') ids.push(node.attrs.dataId);
+      });
+      return ids;
+    };
+    let given: unknown[] = [];
+    handle.current?.run((state, dispatch, view) => {
+      const end = textStart(state) + 'Hello'.length + 1;
+      dispatch?.(state.tr.insert(end, documentSchema.node('paragraph')));
+      given = idsOf(view?.state ?? null);
+      return true;
+    });
+    expect(given).toHaveLength(2);
+    await waitFor(() => expect(idsOf(held.current)).toEqual(given));
   });
 
   it('DOCE-EDITOR-6.12 publishes the layout state and settles its pages', async () => {

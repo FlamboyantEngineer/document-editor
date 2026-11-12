@@ -98,4 +98,35 @@ describe('page variables', () => {
     );
     view.destroy();
   });
+
+  it('DOCE-PAGINATION-7.19 moves the values with text typed around them, and shows a variable added', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [{ type: 'paragraph', content: [text('Page '), variable('page.current')] }],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, plugins: [createPageVariables()] }),
+    });
+    const paragraph = () => view.dom.querySelector('.pm-page-content p')?.textContent;
+    let start = -1;
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && start < 0) start = pos;
+    });
+    view.dispatch(view.state.tr.insertText('This ', start));
+    expect(paragraph()).toBe('This Page 1');
+    const end = view.state.doc.resolve(start).end();
+    const added = documentSchema.nodes.template_variable?.create({ variableKey: 'page.total' });
+    if (!added) throw new Error('The schema has no variables.');
+    view.dispatch(view.state.tr.insertText(' of ', end).insert(end + 4, added));
+    expect(paragraph()).toBe('This Page 1 of 1');
+    view.destroy();
+  });
 });

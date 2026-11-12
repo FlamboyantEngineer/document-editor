@@ -18,8 +18,11 @@ export interface CanonicalPluginsSource {
   map(): ProjectionMap;
   /** Takes a canonical transaction and shows it on the pages at once. */
   dispatch(tr: Transaction): void;
-  /** Readies the canonical state for input: the selection the pages show, mirrored there. */
-  prepare(): void;
+  /**
+   * Readies the canonical state for input: the selection the pages show, mirrored there, read from
+   * the browser first unless the view has just read it (`fromDom: false`).
+   */
+  prepare(options?: { readonly fromDom?: boolean }): void;
 }
 
 // The DOM events handed to the canonical plugins. A press starts the projection's own cell drag
@@ -57,6 +60,10 @@ export function canonicalViewOf(view: EditorView, source: CanonicalPluginsSource
   return canonical;
 }
 
+// How input readies the canonical state: by the selection the browser shows, read first; by the
+// selection the view holds, which it has just read; or not at all.
+type Input = 'read' | 'held' | false;
+
 // An event for the canonical plugins: which of them take it, and how each is handed it.
 interface Offer {
   readonly has: (plugin: Plugin) => boolean;
@@ -69,18 +76,18 @@ interface Offer {
 function offered(
   view: EditorView,
   source: CanonicalPluginsSource,
-  { has, handle, input }: Offer & { readonly input: boolean },
+  { has, handle, input }: Offer & { readonly input: Input },
 ): boolean {
   const takers = source.canonical().plugins.filter(has);
   if (takers.length === 0) return false;
-  if (input) source.prepare();
+  if (input) source.prepare({ fromDom: input === 'read' });
   const canonical = canonicalViewOf(view, source);
   return takers.some((plugin) => handle(plugin, canonical) === true);
 }
 
 // Whether a canonical plugin handles input, with the selection the pages show mirrored first.
 const handled = (view: EditorView, source: CanonicalPluginsSource, offer: Offer) =>
-  offered(view, source, { ...offer, input: true });
+  offered(view, source, { ...offer, input: 'read' });
 
 // The canonical plugins' views, started on the canonical view and updated as its state changes
 // and as the pages change under it, as a layout redraws them, so a view that paints the DOM, such
@@ -129,10 +136,13 @@ function clickOn(
   };
 }
 
-// Text typed on the pages, offered to the canonical plugins, as input rules read it.
+// Text typed on the pages, offered to the canonical plugins, as input rules read it. It arrives as
+// the view reads the browser's change, with the selection: reading the browser again there would
+// show the pages without the text, and draw it back after (DOCE-PAGINATION-7.19).
 function textInput(source: CanonicalPluginsSource): NonNullable<Props['handleTextInput']> {
   return (view, ...[from, to, text]) =>
-    handled(view, source, {
+    offered(view, source, {
+      input: 'held',
       has: (plugin) => Boolean(plugin.props.handleTextInput),
       handle(plugin, canonical) {
         const map = source.map();

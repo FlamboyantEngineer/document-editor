@@ -3,7 +3,8 @@
 // property, from the host.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type EditorState, Plugin, PluginKey } from 'prosemirror-state';
+import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
+import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { createPageMap } from './page-map.js';
 
@@ -98,14 +99,47 @@ function decorate(doc: ProseMirrorNode, options: PageVariablesOptions): Decorati
   return DecorationSet.create(doc, decorations);
 }
 
+// Whether a variable is in a document's range.
+function hasVariable(doc: ProseMirrorNode, from: number, to: number): boolean {
+  let found = false;
+  doc.nodesBetween(from, to, (node) => {
+    if (node.type.name === 'template_variable') found = true;
+    return !found;
+  });
+  return found;
+}
+
+// Whether a change only edits text inside a textblock, a variable neither added nor taken: the
+// pages and the variables stay as they were, so the values only move with the text
+// (DOCE-PAGINATION-7.19).
+function editsTextOnly(tr: Transaction): boolean {
+  return tr.steps.every((step, index) => {
+    if (!(step instanceof ReplaceStep)) return false;
+    const doc = tr.docs[index];
+    const { from, to, slice } = step;
+    if (!doc || slice.openStart !== 0 || slice.openEnd !== 0) return false;
+    const $from = doc.resolve(from);
+    if (!$from.parent.isTextblock || !$from.sameParent(doc.resolve(to))) return false;
+    let added = false;
+    slice.content.descendants((node) => {
+      if (!node.isInline || node.type.name === 'template_variable') added = true;
+      return !added;
+    });
+    return !added && !hasVariable(doc, from, to);
+  });
+}
+
 /** A plugin that shows each variable's value inside it, in the headers, footers and text. */
 export function createPageVariables(options: PageVariablesOptions = {}): Plugin<DecorationSet> {
   return new Plugin<DecorationSet>({
     key: pageVariablesKey,
     state: {
       init: (_config, state: EditorState) => decorate(state.doc, options),
-      apply: (tr, set) =>
-        tr.docChanged || tr.getMeta(pageVariablesKey) ? decorate(tr.doc, options) : set,
+      apply(tr, set) {
+        if (tr.getMeta(pageVariablesKey)) return decorate(tr.doc, options);
+        if (!tr.docChanged) return set;
+        return editsTextOnly(tr) ? set.map(tr.mapping, tr.doc) : decorate(tr.doc, options);
+      },
     },
     props: { decorations: (state) => pageVariablesKey.getState(state) },
   });

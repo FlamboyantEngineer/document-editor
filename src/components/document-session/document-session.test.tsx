@@ -58,7 +58,8 @@ describe('DocumentSessionBoundary', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     const versions = await host.versions?.list('doc');
     expect(versions?.ok && versions.value).toHaveLength(1);
-    await user.click(editor);
+    // The pages, drawn in a view of their own once laid out (DOCE-EDITOR-1.8), take the typing.
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
     await user.keyboard('!');
     await vi.waitFor(async () => expect(await stored(host)).toContain('!'));
   });

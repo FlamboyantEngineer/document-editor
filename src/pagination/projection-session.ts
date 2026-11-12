@@ -99,9 +99,10 @@ export interface Session {
  * plugin filtered it out.
  */
 export function send(session: Session, tr: Transaction): readonly Transaction[] {
-  const { state, transactions } = session.canonical.applyTransaction(tr);
+  const from = session.canonical;
+  const { state, transactions } = from.applyTransaction(tr);
   session.canonical = state;
-  session.options.dispatch?.(tr);
+  session.options.dispatch?.(tr, { from, to: state });
   return transactions;
 }
 
@@ -301,9 +302,12 @@ function afterChange(session: Session, now: boolean): void {
 // Whether the transactions a change made lay the pages out at once (DOCE-PAGINATION-5.7).
 const anyNow = (transactions: readonly Transaction[]) => transactions.some(wantsLayoutNow);
 
-/** Readies the canonical state for input: the browser's selection read and mirrored there. */
-export function prepare(session: Session): void {
-  readDom(session);
+/**
+ * Readies the canonical state for input: the browser's selection read, unless the view has just
+ * read it, and mirrored there.
+ */
+export function prepare(session: Session, { fromDom = true } = {}): void {
+  if (fromDom) readDom(session);
   syncSelection(session);
   session.cells.release();
 }

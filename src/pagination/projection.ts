@@ -69,6 +69,12 @@ import {
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
 
+/** A canonical transaction as the projection applied it: the state it was applied to, and made. */
+export interface CanonicalChange {
+  readonly from: EditorState;
+  readonly to: EditorState;
+}
+
 /** How a paged projection is set up. */
 export interface PagedProjectionOptions {
   /** Where the ghost view that measures mounts, laid out as a page's content. */
@@ -103,10 +109,12 @@ export interface PagedProjectionOptions {
   /** Commands on the canonical state by key, beside Enter, Backspace and Delete. */
   readonly keys?: Readonly<Record<string, Command>> | undefined;
   /**
-   * Receives each canonical transaction the projection's input makes, already applied to `state`.
-   * A host that holds the canonical state applies it too, and hands the result to `update`.
+   * Receives each canonical transaction the projection's input makes, already applied to `state`,
+   * with the canonical state it was applied to and the one it made, the transactions the plugins
+   * appended included. A host that holds the canonical state takes it too, as that state when it
+   * still holds the one it was applied to (DOCE-PAGINATION-7.19), and hands the result to `update`.
    */
-  readonly dispatch?: ((tr: Transaction) => void) | undefined;
+  readonly dispatch?: ((tr: Transaction, made: CanonicalChange) => void) | undefined;
   /** Receives each new projection state, for whatever renders it. */
   readonly onProjection: (state: EditorState) => void;
   /** How much the pages are scaled on screen, such as by a zoom, for the check of drawn pages. */
@@ -232,7 +240,7 @@ function sourceOf(session: () => Session): CanonicalPluginsSource {
     canonical: () => session().canonical,
     map: () => session().map,
     dispatch: (tr) => dispatchCanonical(session(), tr),
-    prepare: () => prepare(session()),
+    prepare: (options) => prepare(session(), options),
   };
 }
 

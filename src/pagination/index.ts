@@ -39,7 +39,12 @@ export { createPageMap, pageMap } from './page-map.js';
 export type { PageVariablesOptions, VariableValue } from './page-variables.js';
 export { createPageVariables, pageVariablesKey, refreshPageVariables } from './page-variables.js';
 export type { PaginationStats } from './pagination-stats.js';
-export type { PagedProjection, PagedProjectionOptions, ProjectionStats } from './projection.js';
+export type {
+  CanonicalChange,
+  PagedProjection,
+  PagedProjectionOptions,
+  ProjectionStats,
+} from './projection.js';
 export { createPagedProjection } from './projection.js';
 export type { ProjectionMap } from './projection-map.js';
 export type { ProjectionView, ProjectionViewOptions } from './projection-view.js';
