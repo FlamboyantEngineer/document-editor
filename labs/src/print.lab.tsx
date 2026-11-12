@@ -61,7 +61,7 @@ function sample(): DocumentFile {
 function initialState(): EditorState {
   const schema = createDocumentSchema();
   const state = EditorState.create({
-    doc: readDocumentFile(sample(), schema),
+    doc: readDocumentFile(sample(), schema).doc,
     plugins: [
       createProofing({ proofer: PROOFER }),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),

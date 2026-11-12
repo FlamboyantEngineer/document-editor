@@ -6,6 +6,7 @@ import type { Node } from 'prosemirror-model';
 import { EditorState, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  addMarkInOrder,
   createDocumentSchema,
   type DocumentFile,
   readDocumentFile,
@@ -39,7 +40,7 @@ const FILE: DocumentFile = {
 };
 
 function initialState(file: DocumentFile = FILE): EditorState {
-  return EditorState.create({ doc: readDocumentFile(file, schema) });
+  return EditorState.create({ doc: readDocumentFile(file, schema).doc });
 }
 
 /** Two bindings on two Yjs documents that exchange updates by hand. */
@@ -96,18 +97,10 @@ function type(binding: CollabBinding, block: number, text: string): void {
   binding.dispatch(binding.state.tr.insertText(text, pos));
 }
 
-// A document's JSON with each run's marks in one order, adjacent runs with the same marks joined.
-// ProseMirror keeps marks of a type that does not exclude itself (comment highlights, suggestions)
-// in the order they were added, which differs between the person who added them and those who
-// receive them, and does not join runs whose marks differ only in that order; the content is the
-// same.
+// A document's JSON. Marks that may overlap (comment highlights) are added in canonical order
+// (DOCE-SCHEMA-5.1) and built in that order from Yjs, so peers hold equal documents.
 function canonical(node: Node): unknown {
-  const sorted: unknown = JSON.parse(JSON.stringify(node.toJSON()), (key, value: unknown) =>
-    key === 'marks' && Array.isArray(value)
-      ? [...value].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
-      : value,
-  );
-  return schema.nodeFromJSON(sorted).toJSON();
+  return node.toJSON();
 }
 
 // The editor state holds what its Yjs document holds, with where they first differ when not.
@@ -292,9 +285,9 @@ function randomEdit(
     else if (roll < 0.63 && at < target.to)
       tr.addMark(at, Math.min(target.to, at + 4), markType('em').create());
     else if (roll < 0.68 && at < target.to)
-      tr.addMark(
-        at,
-        Math.min(target.to, at + 5),
+      addMarkInOrder(
+        tr,
+        { from: at, to: Math.min(target.to, at + 5) },
         markType('comment_highlight').create({
           commentId: `c${String(Math.floor(random() * 3))}`,
         }),

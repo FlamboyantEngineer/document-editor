@@ -1,7 +1,8 @@
 // Shows a sample document on fixed-height pages in an editor kept paginated by `createPagination`:
 // its whole document is measured in a hidden view, and the editor moves onto each new layout by
 // steps after every edit and when the page width changes, with the caret staying on its text, undo
-// undoing edits, and each page leaving room for the footnotes it holds.
+// undoing edits, and each page leaving room for the footnotes it holds. The page holding the caret
+// is read from the layout (`pageMap`).
 
 import { baseKeymap } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
@@ -17,7 +18,7 @@ import {
   sameStructure,
   type StoredNode,
 } from '../../src/model/index.js';
-import { createPagination, isPaginationTransaction } from '../../src/pagination/index.js';
+import { createPagination, isPaginationTransaction, pageMap } from '../../src/pagination/index.js';
 
 /** The content height of each page, in pixels. */
 const PAGE_HEIGHT = 360;
@@ -147,9 +148,14 @@ function sameContent(left: Node, right: Node): boolean {
 /** The pages wide and narrow, in pixels. */
 const WIDTHS = { wide: 480, narrow: 300 } as const;
 
+// Records the caret's text, and the page that holds it as the layout tells it.
 function reportCaret({ state }: EditorView): void {
   const { from } = state.selection;
-  document.documentElement.dataset.labCaretText = state.doc.textBetween(from, from + 12);
+  const { dataset } = document.documentElement;
+  dataset.labCaretText = state.doc.textBetween(from, from + 12);
+  const layout = pageMap(state);
+  const canonical = layout.toCanonical(from);
+  dataset.labCaretPage = String(canonical === null ? 0 : (layout.pageAt(canonical)?.number ?? 0));
 }
 
 // Records what a test reads after the editor moved onto new pages: whether they join back into
@@ -171,7 +177,7 @@ function render(): void {
   const pagination = createPagination({ measureIn, pageHeight: PAGE_HEIGHT });
   const editor: EditorView = new EditorView(pagesRoot, {
     state: EditorState.create({
-      doc: readDocumentFile(SAMPLE, createDocumentSchema()),
+      doc: readDocumentFile(SAMPLE, createDocumentSchema()).doc,
       plugins: [
         pagination.plugin,
         history(),

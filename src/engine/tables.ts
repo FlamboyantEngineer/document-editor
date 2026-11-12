@@ -6,13 +6,7 @@
 import { chainCommands } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import {
-  type Command,
-  type EditorState,
-  type Plugin,
-  TextSelection,
-  type Transaction,
-} from 'prosemirror-state';
+import { type Command, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import {
   addRowAfter,
   CellSelection,
@@ -26,9 +20,14 @@ import {
   TableMap,
 } from 'prosemirror-tables';
 import { Mapping } from 'prosemirror-transform';
-import { isInPageRegion, topLevelBlockEnd } from './block-place.js';
+import { TABLE_BORDER_1PX_CLASS } from '../model/index.js';
+import { newBlockRange } from './block-place.js';
 import { appendTransaction, captureTransaction, inWholeTable } from './table-parts.js';
 import { createTablePointer } from './table-pointer.js';
+import { isRemoteTransaction } from './transaction-kind.js';
+
+// Where a new block goes, which the table commands share with every block command.
+export { newBlockRange } from './block-place.js';
 
 /** A table's rows or its columns. */
 export type TableAxis = 'row' | 'column';
@@ -156,29 +155,16 @@ export function moveSelectedTableLine(axis: TableAxis, direction: -1 | 1): Comma
 }
 
 /**
- * Where a new block goes: in place of the empty paragraph holding the caret, or after the
- * top-level block of the body holding it; null in a page header, footer or footnote area.
- */
-export function newBlockRange(state: EditorState): { from: number; to: number } | null {
-  const { $from } = state.selection;
-  if (isInPageRegion($from)) return null;
-  const parent = $from.parent;
-  if (parent.type.name === 'paragraph' && parent.childCount === 0) {
-    return { from: $from.before(), to: $from.after() };
-  }
-  const end = topLevelBlockEnd($from);
-  return end === null ? null : { from: end, to: end };
-}
-
-/**
- * Inserts a table of `rows` rows, the first of header cells, and `columns` columns, in place of the
- * empty paragraph holding the caret or after the block holding it, with the caret in its first cell.
+ * Inserts a table of `rows` rows, the first of header cells, and `columns` columns, with a one pixel
+ * border, in place of the empty paragraph holding the caret or after the block holding it, with
+ * the caret in its first cell.
  */
 export function insertTable({ rows, columns }: { rows: number; columns: number }): Command {
   return (state, dispatch) => {
     const { table, table_row: row, table_cell: cell, table_header: header } = state.schema.nodes;
     const range = newBlockRange(state);
     if (!table || !row || !cell || !header || !range || rows < 1 || columns < 1) return false;
+    const attrs = { tableBorderClass: TABLE_BORDER_1PX_CLASS };
     const line = (type: typeof cell) =>
       row.create(
         null,
@@ -186,7 +172,7 @@ export function insertTable({ rows, columns }: { rows: number; columns: number }
       );
     const lines = [line(header), ...Array.from({ length: rows - 1 }, () => line(cell))];
     if (dispatch) {
-      const tr = state.tr.replaceWith(range.from, range.to, table.create(null, lines));
+      const tr = state.tr.replaceWith(range.from, range.to, table.create(attrs, lines));
       // The first cell's paragraph opens after the table, its row and its cell.
       tr.setSelection(TextSelection.near(tr.doc.resolve(range.from + 4)));
       dispatch(tr.scrollIntoView());
@@ -219,14 +205,36 @@ export function tableKeys(): Record<string, Command> {
   };
 }
 
+/** How table editing tells a remote change. */
+export interface TableEditingOptions {
+  /** Whether a transaction is a remote change; `isRemoteTransaction` by default. */
+  readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
+}
+
+// Cell selections, and the repair that keeps every row as wide as the table, which writes only
+// after a change of the writer's own: a remote change carries its sender's repair already.
+function localTableEditing(isRemote: (tr: Transaction) => boolean): Plugin {
+  const plugin = tableEditing();
+  const repair = plugin.spec.appendTransaction;
+  return new Plugin({
+    ...plugin.spec,
+    appendTransaction: (transactions, before, after) =>
+      transactions.some((tr) => !isRemote(tr))
+        ? (repair?.(transactions, before, after) ?? null)
+        : null,
+  });
+}
+
 /**
  * The plugins that edit tables: column widths dragged by the cell borders, cell selections and the
  * table keys. They run before the document's keys, so Tab moves between cells in a table.
  */
-export function createTableEditing(): Plugin[] {
+export function createTableEditing({
+  isRemote = isRemoteTransaction,
+}: TableEditingOptions = {}): Plugin[] {
   return [
     columnResizing({ View: null, cellMinWidth: DEFAULT_TABLE_CELL_MIN_WIDTH }),
-    tableEditing(),
+    localTableEditing(isRemote),
     createTablePointer(),
     keymap(tableKeys()),
   ];

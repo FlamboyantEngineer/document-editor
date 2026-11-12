@@ -32,7 +32,7 @@ const bullets = (...values: string[]): StoredNode => ({
   content: values.map(item),
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 function positionOf(doc: Node, value: string): number {
   let found = -1;
@@ -181,6 +181,42 @@ describe('document keys', () => {
     expect(body(state).children.map((block) => block.attrs.paragraphLevel)).toEqual([2, 2]);
   });
 
+  it('DOCE-EDITING-2.3 keeps the id with the content when Enter splits at a block start', () => {
+    const plugins = createDocumentEditing(documentSchema, { author: () => 'writer' });
+    const heading: StoredNode = {
+      type: 'heading',
+      attrs: { level: 2, id: '0000000a', author: 'first' },
+      content: text('Title'),
+    };
+    let state = run(stateAt(read(heading), 'Title', plugins), key('Enter'));
+    const [empty, title] = body(state).children;
+    expect(title?.attrs).toMatchObject({ dataId: '0000000a', dataAuthor: 'first', level: 2 });
+    expect(title?.type.name).toBe('heading');
+    expect(String(empty?.attrs.dataId)).toMatch(ELEMENT_ID_PATTERN);
+    expect(empty?.attrs).toMatchObject({ dataAuthor: 'writer' });
+    expect(empty?.attrs.dataId).not.toBe('0000000a');
+    expect(state.selection.$from.parent).toBe(title);
+
+    const list: StoredNode = {
+      type: 'bulletList',
+      attrs: { id: '0000000b' },
+      content: [
+        {
+          type: 'listItem',
+          attrs: { id: '0000000c' },
+          content: [paragraph('One', { id: '0000000d' })],
+        },
+      ],
+    };
+    state = run(stateAt(read(list), 'One', plugins), key('Enter'));
+    const items = body(state).child(0).children;
+    expect(items.map((each) => each.textContent)).toEqual(['', 'One']);
+    expect(items[1]?.attrs.dataId).toBe('0000000c');
+    expect(items[1]?.child(0).attrs.dataId).toBe('0000000d');
+    expect(items[0]?.attrs.dataId).not.toBe('0000000c');
+    expect(items[0]?.child(0).attrs.dataId).not.toBe('0000000d');
+  });
+
   it('DOCE-EDITING-2.4 joins text across a page break with Backspace and Delete', () => {
     const block = (value: string, id: string) =>
       value === '|'
@@ -262,16 +298,17 @@ describe('the editing extension', () => {
       'word-paste',
       'scripts',
       'custom-styles',
+      'variable-tokens',
       'table-width',
       'tables',
       'gap-cursor',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(15);
+    expect(kit.buildPlugins(undefined)).toHaveLength(16);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(14);
+    expect(shared.buildPlugins(undefined)).toHaveLength(15);
   });
 
   it('DOCE-EDITING-2.7 selects an object before deleting it', () => {

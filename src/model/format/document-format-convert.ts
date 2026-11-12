@@ -1,32 +1,28 @@
-// Converts between the stored document format and the editor's document. The editor's document
-// lays each section out on pages; the stored one holds the content alone. A footnote is stored where
-// it is cited, with its text, and the editor keeps its text in the page's footnote area.
+// Reads the stored document format into the editor's document: each section on one page, for the
+// editor to lay out, with its footnotes' text in the page's footnote area. A strict read throws at
+// the first problem; a lenient one drops or keeps what it cannot read and lists each problem.
 
-import type { Fragment, Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
-import { FRAGMENT_RULES, type FragmentRules, joinFragments } from '../pagination/fragments.js';
+import type {
+  ContentMatch,
+  Mark,
+  Node as ProseMirrorNode,
+  NodeType,
+  Schema,
+} from 'prosemirror-model';
+import { cloneJson } from '../clone-json.js';
 import {
   DOCUMENT_FORMAT_VERSION,
-  type DocumentFile,
+  type DocumentRead,
+  type DocumentReadOptions,
+  type DocumentReadPolicy,
+  type DocumentReadProblem,
   schemaAttrName,
   STORED_MARK_TYPES,
   STORED_NODE_TYPES,
-  storedAttrName,
-  type StoredContent,
-  type StoredMark,
-  type StoredNode,
-  type StoredSection,
   type StoredTypeMapping,
 } from './document-format.js';
 
 type Attrs = Record<string, unknown>;
-
-/** What a stored document is written with. */
-export interface DocumentWriteOptions {
-  /** The id of the template the document uses. */
-  template?: string | null | undefined;
-  /** How split blocks are joined; a host adds rules for its own splittable types. */
-  fragmentRules?: FragmentRules | undefined;
-}
 
 /** A stored document that cannot be read, with the path of the first problem. */
 export interface DocumentFormatError extends Error {
@@ -52,134 +48,11 @@ const PAGE_TYPES = new Set([
   'page_content',
   'page_footnotes',
   'page_footer',
+  'page_section',
+  'footnote_entry',
 ]);
-const MATH_TYPES = new Set(['math_inline', 'math_display']);
-
-function sameValue(left: unknown, right: unknown): boolean {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
-
-function storedValue(name: string, value: unknown): unknown {
-  if (name !== 'referenceBaseline' || typeof value !== 'string') return value;
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return value;
-  }
-}
-
-function writeAttrs(
-  attrs: Attrs,
-  defaults: Record<string, { default?: unknown }>,
-  mapping: StoredTypeMapping | undefined,
-): Attrs | undefined {
-  const stored: Attrs = {};
-  for (const [name, value] of Object.entries(attrs)) {
-    const storedName = storedAttrName(mapping, name);
-    if (!storedName || sameValue(value, defaults[name]?.default)) continue;
-    stored[storedName] = storedValue(name, value);
-  }
-  return Object.keys(stored).length ? stored : undefined;
-}
-
-function writeMark(mark: Mark): StoredMark {
-  const mapping = STORED_MARK_TYPES[mark.type.name];
-  const attrs = writeAttrs(mark.attrs, mark.type.spec.attrs ?? {}, mapping);
-  return { type: mapping?.type ?? mark.type.name, ...(attrs ? { attrs } : {}) };
-}
-
-interface WriteContext {
-  footnotes: Map<string, ProseMirrorNode>;
-}
-
-function writeChildren(node: ProseMirrorNode, context: WriteContext): StoredContent {
-  const content: StoredContent = [];
-  node.forEach((child) => content.push(writeNode(child, context)));
-  return content;
-}
-
-function writeNode(node: ProseMirrorNode, context: WriteContext): StoredNode {
-  const name = node.type.name;
-  if (node.isText) {
-    const marks = node.marks.map(writeMark);
-    return { type: 'text', text: node.text ?? '', ...(marks.length ? { marks } : {}) };
-  }
-  const mapping = STORED_NODE_TYPES[name];
-  const attrs = writeAttrs(node.attrs, node.type.spec.attrs ?? {}, mapping);
-  const stored: StoredNode = { type: mapping?.type ?? name, ...(attrs ? { attrs } : {}) };
-  if (MATH_TYPES.has(name)) {
-    stored.attrs = { ...stored.attrs, source: node.textContent };
-    return stored;
-  }
-  if (name === 'footnote_reference') {
-    const entry = context.footnotes.get(String(node.attrs.footnoteId as string));
-    if (entry?.childCount) stored.content = writeChildren(entry, context);
-    return stored;
-  }
-  if (name === 'template_variable' || node.isLeaf) return stored;
-  const content = writeChildren(node, context);
-  if (content.length) stored.content = content;
-  return stored;
-}
-
-/** The stored form of content outside a document, such as a page region's, footnotes left out. */
-export function writeStoredContent(content: Fragment): StoredContent {
-  const context: WriteContext = { footnotes: new Map() };
-  const stored: StoredContent = [];
-  content.forEach((node) => stored.push(writeNode(node, context)));
-  return stored;
-}
-
-function sectionContent(section: ProseMirrorNode, footnotes: Map<string, ProseMirrorNode>) {
-  const blocks: ProseMirrorNode[] = [];
-  section.descendants((node) => {
-    if (node.type.name === 'page_content') node.forEach((block) => blocks.push(block));
-    if (node.type.name === 'footnote_entry') {
-      footnotes.set(String(node.attrs.footnoteId as string), node);
-    }
-    return node.type.name === 'page' || node.type.name === 'page_footnotes';
-  });
-  return blocks;
-}
-
-// Whether a section's content is only the paragraph an empty section is read with (`readSection`),
-// as yet unwritten and without attributes, so an empty section stays empty when written again.
-const isPlaceholder = (content: StoredContent) =>
-  content.length === 1 &&
-  content[0]?.type === 'paragraph' &&
-  !content[0].content?.length &&
-  !Object.keys(content[0].attrs ?? {}).length;
-
-/**
- * The stored form of an editor document: its sections' content in order, with every block split
- * across pages joined whole, and the content outside any section as unnamed sections.
- */
-export function writeDocumentFile(
-  doc: ProseMirrorNode,
-  { template = null, fragmentRules = FRAGMENT_RULES }: DocumentWriteOptions = {},
-): DocumentFile {
-  const sections: StoredSection[] = [];
-  let loose: ProseMirrorNode[] = [];
-  const write = (blocks: ProseMirrorNode[], name: string | null, footnotes = new Map()) => {
-    const context: WriteContext = { footnotes };
-    const content = joinFragments(blocks, fragmentRules).map((block) => writeNode(block, context));
-    sections.push({ name, content: isPlaceholder(content) ? [] : content });
-  };
-  doc.forEach((child) => {
-    if (child.type.name !== 'page_section') {
-      loose.push(child);
-      return;
-    }
-    if (loose.length) write(loose, null);
-    loose = [];
-    const footnotes = new Map<string, ProseMirrorNode>();
-    const blocks = sectionContent(child, footnotes);
-    write(blocks, (child.attrs.sectionName as string | null) || null, footnotes);
-  });
-  if (loose.length) write(loose, null);
-  return { formatVersion: DOCUMENT_FORMAT_VERSION, template, sections };
-}
-
+// Stored nodes the schema does not know, kept whole by a lenient read; never stored by name.
+const KEPT_TYPES = new Set(['kept_block', 'kept_inline']);
 const SCHEMA_NODE_NAMES = new Map(
   Object.entries(STORED_NODE_TYPES).map(([name, mapping]) => [mapping.type, name]),
 );
@@ -191,98 +64,202 @@ function isRecord(value: unknown): value is Attrs {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+interface ReadContext {
+  schema: Schema;
+  policy: DocumentReadPolicy;
+  problems: DocumentReadProblem[];
+  footnotes: ProseMirrorNode[];
+}
+
+// Records a problem, or throws it under the strict policy; the caller then drops or keeps.
+function report({ context, path }: Located, message: string, kept = false): void {
+  if (context.policy === 'throw') throw formatError(path, message);
+  context.problems.push({ path, message, kept });
+}
+
 interface ReadTarget {
   type: { name: string; spec: { attrs?: Record<string, unknown> } };
   mappings: Readonly<Record<string, StoredTypeMapping>>;
 }
 
-function readAttrs(stored: unknown, target: ReadTarget, path: string): Attrs {
+function readAttrs(stored: unknown, target: ReadTarget, at: Located): Attrs {
   if (stored === undefined) return {};
-  if (!isRecord(stored)) throw formatError(path, 'attrs must be an object');
+  if (!isRecord(stored)) {
+    report(at, 'attrs must be an object');
+    return {};
+  }
   const { type } = target;
   const mapping = target.mappings[type.name];
   const names = Object.keys(type.spec.attrs ?? {});
   const attrs: Attrs = {};
   for (const [storedName, value] of Object.entries(stored)) {
     const name = schemaAttrName(mapping, storedName, names);
-    if (!name) throw formatError(path, `unknown attribute ${storedName}`);
-    attrs[name] = name === 'referenceBaseline' && isRecord(value) ? JSON.stringify(value) : value;
+    if (!name) report(at, `unknown attribute ${storedName}`);
+    else
+      attrs[name] = name === 'referenceBaseline' && isRecord(value) ? JSON.stringify(value) : value;
   }
   return attrs;
 }
 
-interface ReadContext {
-  schema: Schema;
-  footnotes: ProseMirrorNode[];
+type Read = ProseMirrorNode | null;
+
+const isRead = (node: Read): node is ProseMirrorNode => node !== null;
+
+interface Located {
+  path: string;
+  context: ReadContext;
 }
 
-function readMark(stored: unknown, path: string, schema: Schema): Mark {
+function readMark(stored: unknown, at: Located): Mark | null {
+  const { schema } = at.context;
   if (!isRecord(stored) || typeof stored.type !== 'string') {
-    throw formatError(path, 'a mark must have a type');
+    report(at, 'a mark must have a type');
+    return null;
   }
   const type = schema.marks[SCHEMA_MARK_NAMES.get(stored.type) ?? stored.type];
-  if (!type) throw formatError(path, `unknown mark ${stored.type}`);
-  return type.create(readAttrs(stored.attrs, { type, mappings: STORED_MARK_TYPES }, path));
+  if (!type) {
+    report(at, `unknown mark ${stored.type}`);
+    return null;
+  }
+  return type.create(readAttrs(stored.attrs, { type, mappings: STORED_MARK_TYPES }, at));
 }
 
-function readText(stored: Attrs, path: string, schema: Schema): ProseMirrorNode {
+function readText(stored: Attrs, at: Located): ProseMirrorNode | null {
   if (typeof stored.text !== 'string' || !stored.text) {
-    throw formatError(path, 'a text node must have text');
+    report(at, 'a text node must have text');
+    return null;
   }
-  const marks = Array.isArray(stored.marks) ? stored.marks : [];
-  return schema.text(
-    stored.text,
-    marks.map((mark, index) => readMark(mark, `${path}.marks[${String(index)}]`, schema)),
+  const marks = (Array.isArray(stored.marks) ? stored.marks : [])
+    .map((mark, index) => readMark(mark, { ...at, path: `${at.path}.marks[${String(index)}]` }))
+    .filter((mark): mark is Mark => mark !== null);
+  return at.context.schema.text(stored.text, marks);
+}
+
+// Each stored child read in place, null where it could not be, so a later problem names its index.
+function readContent(stored: unknown, at: Located, inline: boolean): Read[] {
+  if (stored === undefined) return [];
+  if (!Array.isArray(stored)) {
+    report(at, 'content must be an array');
+    return [];
+  }
+  return stored.map((node, index) =>
+    readNode(node, { ...at, path: `${at.path}[${String(index)}]` }, inline),
   );
 }
 
-function readContent(stored: unknown, path: string, context: ReadContext): ProseMirrorNode[] {
-  if (stored === undefined) return [];
-  if (!Array.isArray(stored)) throw formatError(path, 'content must be an array');
-  return stored.map((node, index) => readNode(node, `${path}[${String(index)}]`, context));
-}
-
-function nodeType(stored: Attrs, path: string, schema: Schema) {
+function nodeType(stored: Attrs, schema: Schema) {
   const name = SCHEMA_NODE_NAMES.get(stored.type as string) ?? (stored.type as string);
   const type = schema.nodes[name];
-  if (!type || PAGE_TYPES.has(name) || name === 'page_section' || name === 'footnote_entry') {
-    throw formatError(path, `unknown node ${String(stored.type)}`);
-  }
-  return type;
+  const internal = PAGE_TYPES.has(name) || KEPT_TYPES.has(name);
+  return !type || internal ? null : type;
 }
 
-function readMath(stored: Attrs, path: string, context: ReadContext): ProseMirrorNode {
-  const type = nodeType(stored, path, context.schema);
-  const { source, ...rest } = isRecord(stored.attrs) ? stored.attrs : {};
-  const attrs = readAttrs(rest, { type, mappings: STORED_NODE_TYPES }, path);
-  const text = typeof source === 'string' ? source : '';
-  return type.create(attrs, text ? context.schema.text(text) : null);
+// The children a type allows, in order: a child it does not allow, or a mark it does not allow on
+// a child, is dropped and listed.
+function allowedChildren(
+  type: NodeType,
+  children: readonly Read[],
+  at: Located,
+): ProseMirrorNode[] {
+  const allowed: ProseMirrorNode[] = [];
+  let match: ContentMatch | null = type.contentMatch;
+  children.forEach((child, index) => {
+    if (!child) return;
+    const path = `${at.path}.content[${String(index)}]`;
+    const next = match?.matchType(child.type) ?? null;
+    if (!next) {
+      report({ ...at, path }, `${type.name} does not allow ${child.type.name}`);
+      return;
+    }
+    match = next;
+    const marks = child.marks.filter((mark) => type.allowsMarkType(mark.type));
+    if (marks.length < child.marks.length) report({ ...at, path }, 'a mark is not allowed here');
+    allowed.push(marks.length < child.marks.length ? child.mark(marks) : child);
+  });
+  return allowed;
 }
 
-function readFootnote(stored: Attrs, path: string, context: ReadContext): ProseMirrorNode {
-  const type = nodeType(stored, path, context.schema);
-  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, path);
-  const content = readContent(stored.content, `${path}.content`, context);
-  const entry = context.schema.nodes.footnote_entry;
-  if (entry) context.footnotes.push(entry.create({ footnoteId: attrs.footnoteId }, content));
-  return type.create(attrs);
-}
-
-function readNode(stored: unknown, path: string, context: ReadContext): ProseMirrorNode {
-  if (!isRecord(stored) || typeof stored.type !== 'string') {
-    throw formatError(path, 'a node must have a type');
-  }
-  if (stored.type === 'text') return readText(stored, path, context.schema);
-  if (stored.type === 'math' || stored.type === 'mathBlock') return readMath(stored, path, context);
-  if (stored.type === 'footnote') return readFootnote(stored, path, context);
-  const type = nodeType(stored, path, context.schema);
-  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, path);
-  const content = readContent(stored.content, `${path}.content`, context);
+/**
+ * A node of a type, checked. Under `drop`, it is made of the children and marks the type allows,
+ * filled where it needs more; under `keep`, null when it does not hold, so it is kept whole.
+ */
+function createNode(
+  type: NodeType,
+  attrs: Attrs,
+  { content, at }: { content: readonly Read[]; at: Located },
+): ProseMirrorNode | null {
+  const { policy } = at.context;
+  if (policy === 'drop') return type.createAndFill(attrs, allowedChildren(type, content, at));
   try {
-    return type.createChecked(attrs, content);
+    return type.createChecked(attrs, content.filter(isRead));
   } catch (error) {
-    throw formatError(path, error instanceof Error ? error.message : 'invalid content');
+    if (policy === 'keep') return null;
+    throw formatError(at.path, error instanceof Error ? error.message : 'invalid content');
   }
+}
+
+// A stored node a lenient read cannot read: kept whole under `keep`, else dropped.
+function unreadable(stored: Attrs, at: Located, { inline, message }: Unreadable) {
+  const keep = at.context.policy === 'keep';
+  report(at, message, keep);
+  const kept = at.context.schema.nodes[inline ? 'kept_inline' : 'kept_block'];
+  return keep && kept ? kept.create({ stored: cloneJson(stored) }) : null;
+}
+
+interface Unreadable {
+  inline: boolean;
+  message: string;
+}
+
+function readMath(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
+  const { source, ...rest } = isRecord(stored.attrs) ? stored.attrs : {};
+  const attrs = readAttrs(rest, { type, mappings: STORED_NODE_TYPES }, at);
+  const text = typeof source === 'string' ? source : '';
+  const content = text ? [at.context.schema.text(text)] : [];
+  return createNode(type, attrs, { content, at });
+}
+
+function readFootnote(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
+  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  const content = readContent(stored.content, { ...at, path: `${at.path}.content` }, false);
+  const entry = at.context.schema.nodes.footnote_entry;
+  const note = entry && createNode(entry, { footnoteId: attrs.footnoteId }, { content, at });
+  if (note) at.context.footnotes.push(note);
+  return createNode(type, attrs, { content: [], at });
+}
+
+function readNode(stored: unknown, at: Located, inline: boolean): ProseMirrorNode | null {
+  if (!isRecord(stored) || typeof stored.type !== 'string') {
+    report(at, 'a node must have a type');
+    return null;
+  }
+  if (stored.type === 'text') return readText(stored, at);
+  const type = nodeType(stored, at.context.schema);
+  if (!type) return unreadable(stored, at, { inline, message: `unknown node ${stored.type}` });
+  const node = readKnownNode(stored, type, at);
+  if (node) return node;
+  return unreadable(stored, at, { inline, message: `${stored.type} cannot be read` });
+}
+
+function readKnownNode(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
+  if (type.name === 'math_inline' || type.name === 'math_display') {
+    return readMath(stored, type, at);
+  }
+  if (type.name === 'footnote_reference') return readFootnote(stored, type, at);
+  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  const contentAt = { ...at, path: `${at.path}.content` };
+  const content = readContent(stored.content, contentAt, type.inlineContent);
+  return createNode(type, attrs, { content, at });
+}
+
+// A pin is absent, or an id with an optional revision.
+function checkTemplatePin(pin: unknown): void {
+  if (pin === null || pin === undefined) return;
+  const valid =
+    isRecord(pin) &&
+    typeof pin.id === 'string' &&
+    (pin.revision === null || pin.revision === undefined || typeof pin.revision === 'string');
+  if (!valid) throw formatError('template', 'must be an id with an optional revision');
 }
 
 /**
@@ -294,44 +271,83 @@ export function readStoredContent(
   schema: Schema,
   path = 'content',
 ): ProseMirrorNode[] {
-  return readContent(content, path, { schema, footnotes: [] });
+  const context: ReadContext = { schema, policy: 'throw', problems: [], footnotes: [] };
+  return readContent(content, { path, context }, false).filter(isRead);
 }
 
-function readSection(stored: unknown, path: string, schema: Schema): ProseMirrorNode {
-  if (!isRecord(stored)) throw formatError(path, 'a section must be an object');
-  const context: ReadContext = { schema, footnotes: [] };
-  const blocks = readContent(stored.content, `${path}.content`, context);
-  const { nodes } = schema;
-  const node = (typeName: string, attrs: Attrs | null, content?: ProseMirrorNode[]) => {
-    const type = nodes[typeName];
-    if (!type) throw formatError(path, `the schema has no ${typeName}`);
-    return type.create(attrs, content);
-  };
-  const paragraph = node('paragraph', null);
-  const page = node('page', null, [
-    node('page_header', null),
-    node('page_content', null, blocks.length ? blocks : [paragraph]),
-    node('page_footnotes', null, context.footnotes),
-    node('page_footer', null),
+function schemaNode(schema: Schema, name: string): NodeType {
+  const type = schema.nodes[name];
+  if (!type) throw formatError('document', `the schema has no ${name}`);
+  return type;
+}
+
+function readSection(stored: unknown, at: Located): ProseMirrorNode | null {
+  if (!isRecord(stored)) {
+    report(at, 'a section must be an object');
+    return null;
+  }
+  const context: ReadContext = { ...at.context, footnotes: [] };
+  const blocks = readContent(stored.content, { context, path: `${at.path}.content` }, false);
+  const { schema } = context;
+  const node = (name: string, content?: ProseMirrorNode[]) =>
+    schemaNode(schema, name).create(null, content);
+  const pageContent = schemaNode(schema, 'page_content');
+  const kept = allowedChildren(pageContent, blocks, { context, path: at.path });
+  const page = node('page', [
+    node('page_header'),
+    pageContent.create(null, kept.length ? kept : [node('paragraph')]),
+    node('page_footnotes', context.footnotes),
+    node('page_footer'),
   ]);
-  const name = typeof stored.name === 'string' && stored.name ? stored.name : null;
-  return node('page_section', { sectionName: name }, [page]);
+  return schemaNode(schema, 'page_section').create(readSectionAttrs(stored, at), [page]);
+}
+
+// A section's settings as its node's attributes; under a lenient policy, a setting of the wrong
+// kind is left out and listed.
+function readSectionAttrs(stored: Attrs, at: Located): Attrs {
+  const setting = (key: string, valid: (value: unknown) => boolean) => {
+    const value = stored[key];
+    if (value === undefined || value === null) return null;
+    if (valid(value)) return value;
+    report({ ...at, path: `${at.path}.${key}` }, `${key} has the wrong kind of value`);
+    return null;
+  };
+  const region = (value: unknown) =>
+    isRecord(value) && (value.content === undefined || Array.isArray(value.content));
+  return {
+    dataId: setting('id', (value) => typeof value === 'string'),
+    sectionName: setting('name', (value) => typeof value === 'string') || null,
+    editable: setting('editable', (value) => typeof value === 'boolean') ?? true,
+    pageHeader: cloneJson(setting('header', region)),
+    pageFooter: cloneJson(setting('footer', region)),
+  };
 }
 
 /**
- * The editor document of a stored one: each section on one page, for the editor to lay out. A
- * stored document it cannot read throws a `DocumentFormatError` naming where (`isDocumentFormatError`).
+ * The editor document of a stored one, `{ doc, problems }`: each section on one page, for the editor
+ * to lay out. A stored document that is not one, or, under the strict policy, holds content it
+ * cannot read, throws a `DocumentFormatError` naming where (`isDocumentFormatError`).
  */
-export function readDocumentFile(file: unknown, schema: Schema): ProseMirrorNode {
+export function readDocumentFile(
+  file: unknown,
+  schema: Schema,
+  { unknown = 'throw' }: DocumentReadOptions = {},
+): DocumentRead {
   if (!isRecord(file)) throw formatError('document', 'must be an object');
   if (file.formatVersion !== DOCUMENT_FORMAT_VERSION) {
     throw formatError('formatVersion', `must be ${String(DOCUMENT_FORMAT_VERSION)}`);
   }
+  checkTemplatePin(file.template);
   if (!Array.isArray(file.sections)) throw formatError('sections', 'must be an array');
-  const sections = file.sections.map((section, index) =>
-    readSection(section, `sections[${String(index)}]`, schema),
-  );
+  const context: ReadContext = { schema, policy: unknown, problems: [], footnotes: [] };
+  const sections = file.sections
+    .map((section, index) => readSection(section, { context, path: `sections[${String(index)}]` }))
+    .filter((section): section is ProseMirrorNode => section !== null);
   const doc = schema.topNodeType.create(null, sections);
-  doc.check();
-  return doc;
+  try {
+    doc.check();
+  } catch (error) {
+    throw formatError('document', error instanceof Error ? error.message : 'invalid content');
+  }
+  return { doc, problems: context.problems };
 }

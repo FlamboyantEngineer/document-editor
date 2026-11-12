@@ -18,6 +18,7 @@ import {
   citationKey,
   createReferenceStatus,
   referenceStatusAt,
+  refreshReferenceStatus,
   resolveCitations,
   updateReference,
 } from './reference-status.js';
@@ -48,7 +49,7 @@ function stateOf(...content: StoredNode[]) {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createReferences({ template: () => TEMPLATE })] });
 }
 
@@ -86,7 +87,7 @@ describe('references', () => {
     ]);
   });
 
-  it('DOCE-REFERENCES-1.2 inserts a reference as the template formats it, where one may go', () => {
+  it('DOCE-REFERENCES-1.2 DOCE-REFERENCES-1.6 inserts a reference as the template formats it, where one may go', () => {
     let state = stateOf(
       heading('h0000001', 'Scope'),
       heading('h0000002', 'Power'),
@@ -101,7 +102,9 @@ describe('references', () => {
     );
     expect(referenceTexts(state)).toEqual([{ text: 'section 2. Power', broken: false }]);
     expect(referenceAt(at(state, '2. Power', 2))?.mark.attrs.targetId).toBe('h0000002');
-    expect(canInsertReference(at(state, 'Scope'))).toBe(true);
+    expect(canInsertReference(at(state, 'See'))).toBe(true);
+    // DOCE-REFERENCES-1.6: a heading takes none.
+    expect(canInsertReference(at(state, 'Scope'))).toBe(false);
     const code = stateOf({ type: 'codeBlock', content: [text('x = 1')] });
     expect(canInsertReference(at(code, 'x'))).toBe(false);
   });
@@ -179,7 +182,7 @@ describe('external references', () => {
     const doc = readDocumentFile(
       { formatVersion: 1, sections: [{ name: null, content: [paragraph('See .')] }] },
       documentSchema,
-    );
+    ).doc;
     const source = { search: () => Promise.resolve({ ok: true as const, value: [] }) };
     let state = EditorState.create({ doc, plugins: [createReferenceStatus({ source })] });
     state = at(state, '.');
@@ -202,5 +205,45 @@ describe('external references', () => {
     state = run(state, resolveCitations(new Map([[key, null]])));
     expect(referenceStatusAt(at(state, 'PWR-100', 3))).toBe('unavailable');
     expect(updateReference(at(state, 'PWR-100', 3))).toBe(false);
+  });
+
+  it('DOCE-REFERENCES-1.9 marks a citation out of reach, asks again, and moves to a new target', () => {
+    const target = {
+      id: 't1',
+      kind: 'heading',
+      stable: true,
+      numbering: '2',
+      title: 'Bus',
+      label: '2 Bus',
+    };
+    const doc = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [paragraph('See .')] }] },
+      documentSchema,
+    ).doc;
+    const source = { search: () => Promise.resolve({ ok: true as const, value: [] }) };
+    let state = EditorState.create({ doc, plugins: [createReferenceStatus({ source })] });
+    const cited = { ...baseline('A'), target };
+    state = run(
+      at(state, '.'),
+      insertReference({
+        kind: 'external',
+        refType: 'external-document',
+        baseline: cited,
+        text: 'Bus',
+      }),
+    );
+    state = at(state, 'Bus', 2);
+    const key = citationKey({ documentId: 'pwr-100', targetId: 't1' });
+    state = run(state, resolveCitations(new Map([[key, 'no-access']])));
+    expect(referenceStatusAt(state)).toBe('no-access');
+    expect(updateReference(state)).toBe(false);
+    // The host asks again: nothing is known until it answers.
+    state = run(state, refreshReferenceStatus);
+    expect(referenceStatusAt(state)).toBeNull();
+    const moved = { ...baseline('B'), target: { ...target, id: 't2', title: 'Power bus' } };
+    state = run(state, resolveCitations(new Map([[key, moved]])));
+    expect(referenceStatusAt(state)).toBe('update');
+    state = run(state, updateReference);
+    expect(referenceAt(at(state, 'PWR-100', 2))?.mark.attrs.targetId).toBe('t2');
   });
 });

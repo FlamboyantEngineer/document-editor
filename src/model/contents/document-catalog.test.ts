@@ -57,7 +57,7 @@ const doc = readDocumentFile(
     ],
   },
   documentSchema,
-);
+).doc;
 
 const brief = (entries: readonly { number: string; text: string; page: number }[] = []) =>
   entries.map(({ number, text: value, page }) => `${number}|${value}|${String(page)}`);
@@ -101,7 +101,7 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     expect(brief(catalogDocument(nested, BASE_TEMPLATE).toc)).toEqual([
       '1.|Scope|1',
       '2.|Interfaces|1',
@@ -135,7 +135,7 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const catalog = catalogDocument(quotes, BASE_TEMPLATE, {
       quotes: { nodes: ['blockquote'], number: (node) => `Q${node.childCount}` },
       chapters: { nodes: ['heading'], text: (node) => node.textContent.toUpperCase() },
@@ -158,10 +158,110 @@ describe('document catalog', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     const catalog = catalogDocument(terms, BASE_TEMPLATE, {
       terms: { nodes: ['paragraph'], unique: true, sort: (a, b) => a.text.localeCompare(b.text) },
     });
     expect(catalog.terms?.map((entry) => entry.text)).toEqual(['Ampere', 'Ohm', 'Volt']);
+  });
+
+  it('DOCE-CONTENTS-1.5 lists each cited document once, in the order first cited', () => {
+    const cite = (value: string, attrs: Record<string, unknown>): StoredNode => ({
+      type: 'text',
+      text: value,
+      marks: [{ type: 'reference', attrs }],
+    });
+    const cited = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              heading(1, 'Scope'),
+              {
+                type: 'paragraph',
+                content: [
+                  text('See '),
+                  cite('the interface standard', {
+                    referenceType: 'external-document',
+                    number: 'STD-2',
+                    title: 'Interface standard',
+                  }),
+                  text(' and '),
+                  cite('the scope', { target: 'a1b2c3d4' }),
+                  text(' and '),
+                  cite('the handbook', {
+                    referenceType: 'external-document',
+                    number: 'HB-1',
+                    title: 'Handbook',
+                  }),
+                ],
+              },
+              {
+                type: 'paragraph',
+                content: [
+                  cite('the standard again', {
+                    referenceType: 'external-document',
+                    number: 'STD-2',
+                    title: 'Interface standard',
+                  }),
+                  text(', '),
+                  cite('a catalogue entry', {
+                    referenceType: 'external-document',
+                    targetLabel: 'Part list',
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const { references } = catalogDocument(cited, BASE_TEMPLATE);
+    expect(references?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
+      'STD-2|Interface standard',
+      'HB-1|Handbook',
+      '|Part list',
+    ]);
+    expect(cited.textBetween(references?.[0]?.pos ?? 0, (references?.[0]?.pos ?? 0) + 3)).toBe(
+      'the',
+    );
+  });
+
+  it('DOCE-CONTENTS-1.6 lists each abbreviation once, alphabetically, with its expansion', () => {
+    const abbreviation = (abbr: string, expansion: string): StoredNode => ({
+      type: 'abbreviation',
+      attrs: { entry: abbr.toLowerCase(), abbreviation: abbr, expansion },
+    });
+    const used = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  abbreviation('RAM', 'Random access memory'),
+                  text(' and '),
+                  abbreviation('CPU', 'Central processing unit'),
+                ],
+              },
+              { type: 'paragraph', content: [abbreviation('RAM', 'Random access memory')] },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const { abbreviations } = catalogDocument(used, BASE_TEMPLATE);
+    expect(abbreviations?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
+      'CPU|Central processing unit',
+      'RAM|Random access memory',
+    ]);
+    expect(used.nodeAt(abbreviations?.[1]?.pos ?? 0)?.attrs.abbr).toBe('RAM');
   });
 });

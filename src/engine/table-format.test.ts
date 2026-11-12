@@ -6,7 +6,12 @@ import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { captionedAt, setCaption, toggleCaption } from './captions.js';
 import { createDocumentEditing, documentKeys } from './document-editing.js';
-import { distributeColumns, insertTableLines, setCellAlignment } from './table-format.js';
+import {
+  distributeColumns,
+  distributeRows,
+  insertTableLines,
+  setCellAlignment,
+} from './table-format.js';
 import { MIN_ROW_HEIGHT, selectCellTo, setRowHeight } from './table-pointer.js';
 import { createTableWidth, fitColumns } from './table-width.js';
 
@@ -22,7 +27,7 @@ const table = (...rows: StoredNode[]): StoredNode => ({
   content: rows,
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 const grid = () =>
   read(
@@ -90,6 +95,24 @@ describe('table formatting', () => {
     const state = run(stateAt(grid(), 'A2'), distributeColumns);
     expect(cells(state).map((attrs) => attrs.colwidth)).toEqual([[200], [200], [200], [200]]);
     expect(distributeColumns(state)).toBe(false);
+  });
+
+  it('DOCE-TABLES-3.10 gives the rows their average height, the selected ones or all', () => {
+    const tall = read(
+      table(
+        row(cell('A1', { rowHeight: 20 }), cell('B1', { rowHeight: 20 })),
+        row(cell('A2', { rowHeight: 40 }), cell('B2', { rowHeight: 40 })),
+        row(cell('A3', { rowHeight: 90 }), cell('B3', { rowHeight: 90 })),
+      ),
+    );
+    let state = run(selectCells(stateAt(tall, 'A1'), 'A1', 'B2'), distributeRows);
+    expect(cells(state).map((attrs) => attrs.rowHeight)).toEqual([30, 30, 30, 30, 90, 90]);
+    expect(distributeRows(selectCells(state, 'A1', 'B2'))).toBe(false);
+    state = run(stateAt(state.doc, 'B3'), distributeRows);
+    expect(cells(state).map((attrs) => attrs.rowHeight)).toEqual([50, 50, 50, 50, 50, 50]);
+    expect(distributeRows(state)).toBe(false);
+    // Without a height set or laid out, there is nothing to share.
+    expect(distributeRows(stateAt(grid(), 'A1'))).toBe(false);
   });
 
   it('DOCE-TABLES-3.3 inserts as many rows or columns as the selection spans', () => {

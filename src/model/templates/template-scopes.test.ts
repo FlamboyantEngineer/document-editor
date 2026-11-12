@@ -96,6 +96,7 @@ describe('template footnotes and captions', () => {
         suffix: '"',
         separator: { enabled: false },
         text: { font: 'Brand', size: '9px' },
+        marker: { italic: true },
       },
     });
     const entries = Object.fromEntries(
@@ -108,6 +109,7 @@ describe('template footnotes and captions', () => {
       '--doc-footnote-marker-font-family': 'inherit',
       '--doc-footnote-marker-font-size': '0.85em',
       '--doc-footnote-marker-font-weight': '600',
+      '--doc-footnote-marker-font-style': 'italic',
       '--doc-footnote-text-font-family': '"Brand", sans-serif',
       '--doc-footnote-text-font-size': '9px',
       '--doc-footnote-text-line-height': '1.4',

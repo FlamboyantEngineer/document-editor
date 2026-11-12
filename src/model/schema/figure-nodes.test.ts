@@ -63,7 +63,7 @@ describe('figure nodes', () => {
     });
     const written = roundTrip(html);
     expect(written).toContain(
-      '<span data-template-asset-image-wrapper="true" data-template-image-alignment="right" style="display: block; text-align: right; line-height: 0;">',
+      '<span data-template-asset-image-wrapper="true" data-template-image-alignment="right" data-image-missing="true" style="display: block; text-align: right; line-height: 0;">',
     );
     expect(written).toContain('width="80" height="96"');
     expect(roundTrip(written)).toBe(written);

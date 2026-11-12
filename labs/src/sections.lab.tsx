@@ -75,7 +75,7 @@ function sample(): DocumentFile {
 function initialState(): EditorState {
   const schema = createDocumentSchema();
   const state = EditorState.create({
-    doc: readDocumentFile(sample(), schema),
+    doc: readDocumentFile(sample(), schema).doc,
     plugins: createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
   });
   const tr = state.tr;

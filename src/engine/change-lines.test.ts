@@ -32,7 +32,7 @@ const doc = readDocumentFile(
     ],
   },
   documentSchema,
-);
+).doc;
 
 // The position of the paragraph holding a text.
 function blockOf(state: EditorState, text: string): number {

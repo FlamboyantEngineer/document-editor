@@ -29,6 +29,7 @@ import type {
   ReferenceSourceAdapter,
   ScriptRunnerAdapter,
   TelemetryAdapter,
+  VariablesAdapter,
 } from '../../host/index.js';
 import { type TemplateFile, templateProperties } from '../../model/index.js';
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
@@ -50,6 +51,12 @@ import { type DocumentEditorNotifications, useElementIdRepair } from './use-host
 
 /** How suggestions show in the document. */
 export type DocumentMarkup = 'all' | 'simple' | 'final' | 'original';
+
+/** How the editor repairs the element ids of the documents it is given. */
+export interface DocumentEditorIdRepair {
+  /** The writer the repaired elements without one are attributed to, such as a system account. */
+  readonly author?: string | undefined;
+}
 
 /** What the layout debugging shows. */
 export interface DocumentEditorDebug extends PageDebugParts {
@@ -134,10 +141,11 @@ export interface DocumentEditorProps
   /** Shows who wrote what: each writer's text in their colour slot (`data-author-slot`). */
   authorship?: boolean | undefined;
   /**
-   * Repairs the element ids of each document the editor is given (`repairElementIds`), telling the
-   * host through `onContentChange`. Defaults to false.
+   * Repairs the element ids of each document the editor is given while it is editable
+   * (`repairElementIds`), telling the host through `onContentChange`; `{ author }` attributes the
+   * repaired elements without a writer to that author. Defaults to false.
    */
-  repairIds?: boolean | undefined;
+  repairIds?: boolean | DocumentEditorIdRepair | undefined;
   /** Opens a find bar above the document with Mod-F, to find and replace text. Defaults to false. */
   find?: boolean | undefined;
   /**
@@ -158,6 +166,11 @@ export interface DocumentEditorProps
   glossary?: GlossaryAdapter | undefined;
   /** Runs the script blocks: from their dialog and the context menu, and on opening for those that ask. */
   scriptRunner?: ScriptRunnerAdapter | undefined;
+  /**
+   * The host's variables, such as `document.name`, shown in the headers, footers and text beside
+   * the page numbers and today's date, again whenever the adapter says they changed.
+   */
+  variables?: VariablesAdapter | undefined;
   /** Tells the reader what failed, such as an upload. */
   feedback?: FeedbackAdapter | undefined;
   /** The symbol picker's characters, in place of the editor's own. */
@@ -245,7 +258,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
   useEffect(() => {
     if (engine.view && layout === 'web') ready.signal();
   }, [engine.view, layout, ready]);
-  useElementIdRepair(props.repairIds ? engine.view : null, state);
+  useElementIdRepair(editable ? engine.view : null, state, props.repairIds);
   const startCommentRef = useRef<(() => void) | null>(null);
   useReviewNotifications(engine.view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);

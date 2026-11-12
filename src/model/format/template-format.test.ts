@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { TEMPLATE_SHAPE, type TemplateFile, validateTemplateFile } from '../index.js';
+import {
+  CUSTOM_STYLE_NAME,
+  isNumberingFormat,
+  isTemplateBullet,
+  TEMPLATE_SHAPE,
+  type TemplateFile,
+  validateTemplateFile,
+} from '../index.js';
 
 const TEMPLATE: TemplateFile = {
   formatVersion: 1,
@@ -88,6 +95,59 @@ describe('stored template format', () => {
     expect(errors).toEqual(['template.header.content: [0]: unknown node poster']);
     expect(validateTemplateFile({ ...TEMPLATE, header: { content: 'Header' } })).toEqual([
       'template.header.content must be a list of content',
+    ]);
+  });
+});
+
+describe('template setting rules', () => {
+  it('DOCE-TEMPLATES-10.1 accepts numbering formats of up to six levels with their separators', () => {
+    for (const format of ['', '1', '1.1.', 'A-1', 'a)', 'I.1.a', '1:1_1/1 1)', '1.1.1.1.1.1.']) {
+      expect(isNumberingFormat(format)).toBe(true);
+    }
+    for (const format of ['x', '.1', '1.1.1.1.1.1.1', '1,1', 'B', 7]) {
+      expect(isNumberingFormat(format)).toBe(false);
+    }
+    const errors = validateTemplateFile({
+      ...TEMPLATE,
+      styles: {
+        heading2: { numbering: { format: '1,1', enabled: 'yes' } },
+        paragraph: { numbering: { levels: [{ format: '#' }] } },
+        list: { format: 'x.' },
+      },
+    });
+    expect(errors).toEqual([
+      'template.styles.heading2.numbering.format must be a numbering format: up to six of 1, a, A, i or I, each with its separators',
+      'template.styles.heading2.numbering.enabled must be true or false',
+      expect.stringMatching(/^template\.styles\.paragraph\.numbering\.levels\[0\]\.format must be/),
+      expect.stringMatching(/^template\.styles\.list\.format must be a numbering format/),
+    ]);
+  });
+
+  it('DOCE-TEMPLATES-10.2 accepts a bullet keyword or a short text, never control characters', () => {
+    for (const bullet of ['disc', 'circle', 'square', 'none', '–', '»', '"x"']) {
+      expect(isTemplateBullet(bullet)).toBe(true);
+    }
+    for (const bullet of ['', ' ', 'nine char', 'a\u0000', '\u202e!', 3]) {
+      expect(isTemplateBullet(bullet)).toBe(false);
+    }
+    expect(
+      validateTemplateFile({ ...TEMPLATE, styles: { list: { bullet: 'a long bullet' } } }),
+    ).toEqual([
+      'template.styles.list.bullet must be disc, circle, square, none or up to 8 characters of text',
+    ]);
+  });
+
+  it('DOCE-TEMPLATES-10.3 names custom styles with a letter, then up to 15 more', () => {
+    expect(CUSTOM_STYLE_NAME.test('lead_note-2')).toBe(true);
+    expect(CUSTOM_STYLE_NAME.test('2lead')).toBe(false);
+    const errors = validateTemplateFile({
+      ...TEMPLATE,
+      styles: { custom: { lead: {}, 'two words': {} } },
+      sections: [{ name: 'scope', styles: { custom: { averyveryverylongname: {} } } }],
+    });
+    expect(errors).toEqual([
+      'template.styles.custom.two words must be named with a letter, then letters, digits, underscores or hyphens, 16 at most',
+      'template.sections[0].styles.custom.averyveryverylongname must be named with a letter, then letters, digits, underscores or hyphens, 16 at most',
     ]);
   });
 });

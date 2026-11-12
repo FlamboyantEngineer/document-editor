@@ -42,7 +42,10 @@ const template: TemplateFile = {
 // A view of one page with a header and footer, inside an editor root with the given hooks.
 function snapshotView(rootData: Record<string, string>) {
   const stored = { formatVersion: 1, sections: [{ name: null, content: [] }] } as const;
-  const doc = setPageRegions(new Transform(readDocumentFile(stored, documentSchema)), template).doc;
+  const doc = setPageRegions(
+    new Transform(readDocumentFile(stored, documentSchema).doc),
+    template,
+  ).doc;
   const root = document.createElement('div');
   root.className = 'de-document-editor';
   for (const [name, value] of Object.entries(rootData)) root.setAttribute(`data-${name}`, value);
@@ -74,7 +77,7 @@ function sectionedView(rootData: Record<string, string> = {}) {
       { name: 'letter', content: [paragraph('Letter')] },
     ],
   } as const;
-  const doc = readDocumentFile(stored, documentSchema);
+  const doc = readDocumentFile(stored, documentSchema).doc;
   const root = document.createElement('div');
   root.className = 'de-document-editor';
   for (const [name, value] of Object.entries(rootData)) root.setAttribute(`data-${name}`, value);

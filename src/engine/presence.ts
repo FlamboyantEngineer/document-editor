@@ -1,8 +1,7 @@
 // Presence: where the other people in a document are. The host's collaboration library hands the
 // editor each person's selection, by positions in the document the editor shows; the plugin draws
 // a caret with the person's name at its head and marks the text it covers, and moves them with the
-// writer's own changes until the next update. And the remote changes collaboration brings in are
-// marked so the editor's own features leave them alone.
+// writer's own changes until the next update.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
@@ -162,17 +161,4 @@ export function scrollToPeer(view: EditorView, id: string): boolean {
   );
   caret?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   return Boolean(caret);
-}
-
-/** Marks a change that came from elsewhere, such as a collaborator's; out of the history. */
-export const REMOTE_META = 'remote';
-
-/** Marks a transaction as a remote change. */
-export function markRemote(tr: Transaction): Transaction {
-  return tr.setMeta(REMOTE_META, true).setMeta('addToHistory', false);
-}
-
-/** Whether a transaction is a remote change (`markRemote`). */
-export function isRemoteTransaction(tr: Transaction): boolean {
-  return tr.getMeta(REMOTE_META) === true;
 }

@@ -28,10 +28,8 @@ const paragraph = (value: string): StoredNode => ({
 
 const stateOf = (...content: StoredNode[]) =>
   EditorState.create({
-    doc: readDocumentFile(
-      { formatVersion: 1, sections: [{ name: null, content }] },
-      documentSchema,
-    ),
+    doc: readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema)
+      .doc,
   });
 
 function find(state: EditorState, value: string) {

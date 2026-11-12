@@ -14,13 +14,14 @@ import {
   rejectSuggestion,
 } from './suggestion-decisions.js';
 import { suggestTransaction } from './suggestions.js';
+import { markSystemChange } from './transaction-kind.js';
 
 const paragraph = (value: string): StoredNode => ({
   type: 'paragraph',
   content: [{ type: 'text', text: value }],
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 function positionOf(doc: Node, value: string): number {
   let found = -1;
@@ -184,6 +185,12 @@ describe('suggest mode', () => {
     expect(suggestTransaction(split, inList)).toBeNull();
   });
 
+  it('DOCE-SUGGESTIONS-1.5 leaves a system change as it is', () => {
+    const state = EditorState.create({ doc: read(paragraph('Alpha')) });
+    const tr = markSystemChange(state.tr.insertText('X', 1));
+    expect(suggestTransaction(tr, state, { author: 'writer' })).toBe(tr);
+  });
+
   it('DOCE-SUGGESTIONS-1.5 undoes a suggestion rather than suggesting its undoing', () => {
     const doc = read(paragraph('Alpha'));
     const end = positionOf(doc, 'Alpha') + 5;
@@ -237,7 +244,7 @@ describe('deciding suggestions', () => {
     expect(first?.content?.find((child) => child.text === 'delta')?.marks).toEqual([
       { type: 'insertion', attrs: { id: '00000001', author: 'writer' } },
     ]);
-    const again = file ? readDocumentFile(file, documentSchema) : null;
+    const again = file ? readDocumentFile(file, documentSchema).doc : null;
     expect(again && state?.doc.eq(again)).toBe(true);
   });
 });

@@ -26,4 +26,27 @@ describe('template content', () => {
     expect(list?.type.name).toBe('toc_block');
     expect(list?.attrs.tocType).toBe('toc');
   });
+
+  it("DOCE-TEMPLATES-8.1 reads the reference and abbreviation list tokens and a host's own", () => {
+    const lists = (tokens?: Record<string, string>) =>
+      readTemplateContent(
+        ['list_of_references', 'list_of_abbreviations', 'list_of_parts'].map((token) => ({
+          type: 'paragraph',
+          content: [{ type: 'text', text: `{{${token}}}` }],
+        })),
+        documentSchema,
+        tokens ? { contentsTokens: tokens } : {},
+      ).map((node) => (node.type.name === 'toc_block' ? String(node.attrs.tocType) : 'variable'));
+    expect(lists()).toEqual(['references', 'abbreviations', 'variable']);
+    expect(lists({ list_of_parts: 'parts' })).toEqual(['variable', 'variable', 'parts']);
+  });
+
+  it('DOCE-TEMPLATES-8.1 reads only the {{key}} form as a token', () => {
+    const [node] = readTemplateContent(
+      [{ type: 'paragraph', content: [{ type: 'text', text: '${document.name} [[page]] {{ }}' }] }],
+      documentSchema,
+    );
+    expect(node?.childCount).toBe(1);
+    expect(node?.textContent).toBe('${document.name} [[page]] {{ }}');
+  });
 });

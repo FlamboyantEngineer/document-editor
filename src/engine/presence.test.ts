@@ -2,15 +2,7 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
-import {
-  createPresence,
-  isRemoteTransaction,
-  listPeers,
-  markRemote,
-  placePeers,
-  presenceKey,
-  setPeers,
-} from './presence.js';
+import { createPresence, listPeers, placePeers, presenceKey, setPeers } from './presence.js';
 
 function stateOf(value: string) {
   const doc = readDocumentFile(
@@ -21,7 +13,7 @@ function stateOf(value: string) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createPresence()] });
 }
 
@@ -58,14 +50,6 @@ describe('presence', () => {
     expect(listPeers(typed)[0]?.head).toBe(at + 11);
     const cleared = typed.apply(setPeers(typed, []));
     expect(listPeers(cleared)).toEqual([]);
-  });
-
-  it('DOCE-COLLAB-2.1 marks remote changes and keeps them out of the history', () => {
-    const state = stateOf('Shared text');
-    const tr = markRemote(state.tr.insertText('!', start(state)));
-    expect(isRemoteTransaction(tr)).toBe(true);
-    expect(tr.getMeta('addToHistory')).toBe(false);
-    expect(isRemoteTransaction(state.tr)).toBe(false);
   });
 
   it('DOCE-COLLAB-1.4 gives each peer a slot no other has, stacks carets and draws none without a head', () => {

@@ -15,9 +15,18 @@ function isRegionKey(key: string): boolean {
   return key === 'header' || key === 'footer';
 }
 
+// Levels are kept by their place, so a template that sets one level keeps the others it inherits.
+function mergeLevels(parent: unknown[], child: unknown[]): unknown[] {
+  const length = Math.max(parent.length, child.length);
+  return Array.from({ length }, (_, index) => mergeValue(parent[index], child[index], ''));
+}
+
 function mergeValue(parent: unknown, child: unknown, key: string): unknown {
   if (child === null || child === undefined) return cloneJson(parent);
   if (isRegionKey(key) && isRecord(child) && child.inherit === true) return cloneJson(parent);
+  if (key === 'levels' && Array.isArray(parent) && Array.isArray(child)) {
+    return mergeLevels(parent, child);
+  }
   if (!isRecord(parent) || !isRecord(child)) return cloneJson(child);
   const merged: LooseRecord = {};
   for (const name of new Set([...Object.keys(parent), ...Object.keys(child)])) {
@@ -39,8 +48,9 @@ export function mergeTemplateSettings<T>(
 
 /**
  * A template over its parent, into a copy. A setting that is absent or null takes the parent's,
- * objects merge setting by setting, a list replaces the parent's list whole, a header or footer that
- * asks to inherit takes the parent's, and any other value is the template's own.
+ * objects merge setting by setting, a list replaces the parent's list whole except a list of levels,
+ * which merges level by level, a header or footer that asks to inherit takes the parent's, and any
+ * other value is the template's own.
  */
 export function mergeTemplateFiles(parent: TemplateFile | null, child: TemplateFile): TemplateFile {
   const merged = mergeValue(parent, child, '') as TemplateFile;
@@ -49,15 +59,20 @@ export function mergeTemplateFiles(parent: TemplateFile | null, child: TemplateF
   return merged;
 }
 
-/** A section's page header or footer: its own, or the template's when it has none or inherits. */
+/**
+ * A section's page header or footer: the template's when the section has none or inherits, else the
+ * section's settings over the template's, field by field, so a section that sets only a height
+ * keeps the template's content.
+ */
 export function resolveSectionRegion(
   template: Pick<TemplateFile, 'header' | 'footer'>,
   section: Pick<TemplateSection, 'header' | 'footer'> | null | undefined,
   region: 'header' | 'footer',
 ): RegionSettings | null {
   const own = section?.[region];
-  if (!own || own.inherit === true) return template[region] ?? null;
-  return own;
+  const inherited = template[region] ?? null;
+  if (!own || own.inherit === true) return inherited;
+  return mergeTemplateSettings(inherited, own);
 }
 
 /** How a template's chain is resolved. */

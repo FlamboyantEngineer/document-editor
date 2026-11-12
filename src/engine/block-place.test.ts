@@ -1,7 +1,8 @@
 import type { Node } from 'prosemirror-model';
-import { type Command, EditorState, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { canInsertBlock } from './block-place.js';
 import { insertPageBreak } from './editing-commands.js';
 import { insertTable } from './tables.js';
 
@@ -55,4 +56,18 @@ describe('block placement', () => {
       for (const [, command] of blockCommands) expect(command(state)).toBe(false);
     },
   );
+
+  it('DOCE-EDITING-2.9 adds no block with a page region or a page selected', () => {
+    // The page content starts after the section, the page and the header.
+    const header = page.child(0).child(0).child(0);
+    const content = 2 + header.nodeSize;
+    const state = EditorState.create({ doc: page });
+    for (const at of [content, 1]) {
+      const selected = state.apply(state.tr.setSelection(NodeSelection.create(page, at)));
+      expect(canInsertBlock(selected)).toBe(false);
+      for (const [, command] of blockCommands) expect(command(selected)).toBe(false);
+    }
+    expect(canInsertBlock(stateAt(page, 'Body'))).toBe(true);
+    expect(canInsertBlock(stateAt(page, 'Footer'))).toBe(false);
+  });
 });

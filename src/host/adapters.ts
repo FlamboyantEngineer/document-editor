@@ -90,8 +90,15 @@ export interface StoredTemplate extends SavedState {
   template: TemplateFile;
 }
 
+/** Which revision of a stored template to load. */
+export interface TemplateLoadOptions {
+  /** The revision a document pins (`DocumentFile.template.revision`); without one, the latest. */
+  revision?: string | undefined;
+  signal?: AbortSignal | undefined;
+}
+
 export interface TemplateSourceAdapter {
-  load(templateId: string, signal?: AbortSignal): Promise<HostResult<StoredTemplate>>;
+  load(templateId: string, options?: TemplateLoadOptions): Promise<HostResult<StoredTemplate>>;
 }
 
 /** An uploaded file the document references. */
@@ -110,8 +117,12 @@ export interface StoredAsset {
 
 export interface AssetAdapter {
   upload(file: File, signal?: AbortSignal): Promise<HostResult<StoredAsset>>;
-  /** URL for an asset id stored in a document. */
-  resolveUrl(assetId: string): string;
+  /**
+   * URL for an asset id stored in a document, at the snapshot it names when given, as of the time
+   * the document shows its assets as of (`asOf`, null or absent for now), such as an earlier
+   * version's.
+   */
+  resolveUrl(assetId: string, snapshotId?: string, at?: { readonly asOf: string | null }): string;
 }
 
 /** Code a URL names, such as a file of a repository with the lines its fragment names. */
@@ -191,12 +202,13 @@ export interface ReferenceSourceAdapter {
   search(query: string, signal?: AbortSignal): Promise<HostResult<ExternalReference[]>>;
   /**
    * Each citation, by the document and target it names, as the host has it now, in the order
-   * given; null for one whose document or target is gone.
+   * given; null for one whose document or target is gone, and `no-access` for one the reader may
+   * not read.
    */
   resolve?(
     citations: readonly { documentId: string; targetId: string | null }[],
     signal?: AbortSignal,
-  ): Promise<HostResult<(ReferenceBaseline | null)[]>>;
+  ): Promise<HostResult<(ReferenceBaseline | null | 'no-access')[]>>;
 }
 
 /** The glossary abbreviations cite. */
@@ -348,6 +360,18 @@ export interface ProoferAdapter {
 }
 
 /**
+ * The values of the variables the host knows, such as `document.name`, for the editor to show in
+ * page headers and footers and in the text. The editor gives `page.current`, `page.total` and
+ * `date.current` itself.
+ */
+export interface VariablesAdapter {
+  /** A variable's text; null or undefined shows none. */
+  value(key: string): string | null | undefined;
+  /** Calls `onChange` whenever a value may have changed, until the returned function is called. */
+  subscribe?(onChange: () => void): () => void;
+}
+
+/**
  * Everything the editor needs from its host. Identity, permissions and the document store are
  * required; the rest are optional and leave their features off when absent.
  */
@@ -366,4 +390,5 @@ export interface EditorHost {
   feedback?: FeedbackAdapter | undefined;
   telemetry?: TelemetryAdapter | undefined;
   proofer?: ProoferAdapter | undefined;
+  variables?: VariablesAdapter | undefined;
 }

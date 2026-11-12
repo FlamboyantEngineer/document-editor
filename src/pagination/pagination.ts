@@ -15,10 +15,11 @@ import {
 } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
 import { footnoteAnchor, restoreFootnoteSelection } from './footnote-selection.js';
+import { followDocument } from './ghost-view.js';
 import { type DocumentLayoutOptions, layoutDocument, type PageMetric } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { remeasureOn, settleEdits } from './layout-triggers.js';
-import { createMeasureCache, type MeasureCache } from './measure-blocks.js';
+import { frameIn, type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
+import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
 /** How an editor's pages are kept laid out. */
@@ -102,33 +103,6 @@ export function layoutStats(tr: Transaction): PaginationStats | null {
   return (tr.getMeta(statsKey) as PaginationStats | undefined) ?? null;
 }
 
-function frame(run: () => void): () => void {
-  const handle = requestAnimationFrame(run);
-  return () => cancelAnimationFrame(handle);
-}
-
-// Moves the measuring view onto the whole document by the smallest replacement, so the blocks
-// around the change keep their nodes, their rendering and their cached measurements.
-function follow(measuring: EditorView, whole: ProseMirrorNode): void {
-  const { state } = measuring;
-  const current = state.doc;
-  const start = current.content.findDiffStart(whole.content);
-  if (start === null) return;
-  const end = current.content.findDiffEnd(whole.content);
-  let endA = end?.a ?? current.content.size;
-  let endB = end?.b ?? whole.content.size;
-  const overlap = start - Math.min(endA, endB);
-  if (overlap > 0) {
-    endA += overlap;
-    endB += overlap;
-  }
-  const tr = state.tr.replace(start, endA, whole.slice(start, endB));
-  const next = tr.doc.eq(whole)
-    ? state.apply(tr)
-    : EditorState.create({ doc: whole, plugins: state.plugins });
-  measuring.updateState(next);
-}
-
 interface Runner {
   editor: EditorView | null;
   measuring: EditorView | null;
@@ -199,9 +173,12 @@ function paginationPlugin(
     readonly changed: () => void;
     readonly request: () => void;
   },
+  fragmentRules: FragmentRules,
 ): Plugin<boolean> {
   return new Plugin<boolean>({
     key: paginationKey,
+    // The rules its pages join by, for the page map of the document it keeps paged (`pageMap`).
+    fragmentRules,
     state: {
       init: () => true,
       apply: (tr, due) => (isPaginationTransaction(tr) ? false : due || tr.docChanged),
@@ -239,15 +216,22 @@ function layOutFrom(
   if (runner.restart) {
     runner.restart = false;
     measuring.updateState(EditorState.create({ doc: whole, plugins: measuring.state.plugins }));
-  } else follow(measuring, whole);
+  } else followDocument(measuring, whole);
   const tr = stepOntoPages({ editor, measuring }, options, counter);
   runner.passes = tr.docChanged ? runner.passes + 1 : 0;
+}
+
+// Forgets what a remeasure asks for: every block after a width change, otherwise the blocks of the
+// elements that changed size.
+function forget(cache: MeasureCache, measuring: EditorView | null, change: Remeasure): void {
+  if (change.width || !measuring) cache.clear();
+  else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
 }
 
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
 export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
-  const schedule = options.schedule ?? frame;
+  const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
   const counter = { cache, ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
@@ -285,34 +269,38 @@ export function createPagination(options: PaginationOptions): Pagination {
     readiness.pending();
   };
 
-  const plugin = paginationPlugin(runner, {
-    // The cached measurements read the measuring view they were taken in: a new one, as when the
-    // host remounts the editor, measures again.
-    mount(editor) {
-      cache.clear();
-      runner.measuring = measuringView(
-        options,
-        joinDocumentPages(editor.state.doc, fragmentRules).doc,
-      );
-      const unwatch = edits.watch(editor);
-      const unlisten = remeasureOn(options.measureIn, () => {
+  const plugin = paginationPlugin(
+    runner,
+    {
+      // The cached measurements read the measuring view they were taken in: a new one, as when the
+      // host remounts the editor, measures again.
+      mount(editor) {
         cache.clear();
+        runner.measuring = measuringView(
+          options,
+          joinDocumentPages(editor.state.doc, fragmentRules).doc,
+        );
+        const unwatch = edits.watch(editor);
+        const unlisten = remeasureOn(options.measureIn, (change) => {
+          forget(cache, runner.measuring, change);
+          request();
+        });
+        change();
         request();
-      });
-      change();
-      request();
-      return () => {
-        unwatch();
-        unlisten();
-        readiness.destroy();
-      };
+        return () => {
+          unwatch();
+          unlisten();
+          readiness.destroy();
+        };
+      },
+      changed() {
+        change();
+        edits.request();
+      },
+      request,
     },
-    changed() {
-      change();
-      edits.request();
-    },
-    request,
-  });
+    fragmentRules,
+  );
 
   return {
     plugin,

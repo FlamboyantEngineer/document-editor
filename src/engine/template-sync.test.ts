@@ -32,7 +32,7 @@ const TEMPLATE: TemplateFile = {
 };
 
 const read = (...sections: { name: string | null; content: StoredNode[] }[]) =>
-  readDocumentFile({ formatVersion: 1, sections }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections }, documentSchema).doc;
 
 // Each section as its name and its blocks' text.
 const outline = (doc: Node) =>
@@ -106,5 +106,84 @@ describe('template sections', () => {
     expect(isLocked(doc, body + 1)).toBe(false);
     expect(state.apply(state.tr.insertText('x', cover + 1)).doc.eq(doc)).toBe(true);
     expect(state.apply(state.tr.insertText('x', body + 1)).doc.eq(doc)).toBe(false);
+  });
+
+  it('DOCE-SECTIONS-4.1 ignores element identity and script output, but not settings', () => {
+    const script = (source: string, ...content: StoredNode[]): StoredNode => ({
+      type: 'script',
+      attrs: { source },
+      content,
+    });
+    const template: TemplateFile = {
+      ...BASE_TEMPLATE,
+      sections: [
+        {
+          name: 'cover',
+          editable: false,
+          content: [paragraph('Cover text'), script('return rows();')],
+        },
+      ],
+    };
+    const ran = read({
+      name: 'cover',
+      content: [
+        {
+          type: 'paragraph',
+          attrs: { id: 'a1b2c3d4' },
+          content: [{ type: 'text', text: 'Cover text' }],
+        },
+        {
+          ...script('return rows();', paragraph('Row one')),
+          attrs: { source: 'return rows();', renderedAt: '2026-01-01T00:00:00Z' },
+        },
+      ],
+    });
+    expect(templateSectionDrift(ran, template)).toEqual([]);
+    const changed = read({
+      name: 'cover',
+      content: [paragraph('Cover text'), script('return other();', paragraph('Row one'))],
+    });
+    expect(templateSectionDrift(changed, template)).toEqual([{ kind: 'stale', name: 'cover' }]);
+    const restyled = read({
+      name: 'cover',
+      content: [
+        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Cover text' }] },
+        script('return rows();'),
+      ],
+    });
+    expect(templateSectionDrift(restyled, template)).toEqual([{ kind: 'stale', name: 'cover' }]);
+  });
+
+  it('DOCE-SECTIONS-4.2 keeps the output of each script the template still has', () => {
+    const script = (source: string, ...content: StoredNode[]): StoredNode => ({
+      type: 'script',
+      attrs: { source },
+      content,
+    });
+    const template: TemplateFile = {
+      ...BASE_TEMPLATE,
+      sections: [
+        {
+          name: 'cover',
+          editable: false,
+          content: [paragraph('Cover text'), script('return rows();'), script('return totals();')],
+        },
+      ],
+    };
+    let state = EditorState.create({
+      doc: read({
+        name: 'cover',
+        content: [paragraph('Edited'), script('return rows();', paragraph('Row one'))],
+      }),
+    });
+    state = run(state, syncTemplateSections(template));
+    const scripts = writeDocumentFile(state.doc).sections[0]?.content.filter(
+      (block) => block.type === 'script',
+    );
+    expect(scripts).toEqual([
+      script('return rows();', paragraph('Row one')),
+      { type: 'script', attrs: { source: 'return totals();' } },
+    ]);
+    expect(templateSectionDrift(state.doc, template)).toEqual([]);
   });
 });

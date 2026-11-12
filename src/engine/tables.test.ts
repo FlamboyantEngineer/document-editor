@@ -3,9 +3,17 @@ import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { addRowBefore, CellSelection, findTable } from 'prosemirror-tables';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { readDocumentFile, type StoredNode, TABLE_BORDER_1PX_CLASS } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
-import { insertTable, moveTableLine, selectTableLine, tableKeys, withTableLine } from './tables.js';
+import {
+  createTableEditing,
+  insertTable,
+  moveTableLine,
+  selectTableLine,
+  tableKeys,
+  withTableLine,
+} from './tables.js';
+import { markRemote } from './transaction-kind.js';
 
 const cell = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
   type: 'tableCell',
@@ -15,7 +23,7 @@ const cell = (value: string, attrs: Record<string, unknown> = {}): StoredNode =>
 const row = (...cells: StoredNode[]): StoredNode => ({ type: 'tableRow', content: cells });
 const table = (...rows: StoredNode[]): StoredNode => ({ type: 'table', content: rows });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 const grid = () =>
   read(table(row(cell('A1'), cell('B1'), cell('C1')), row(cell('A2'), cell('B2'), cell('C2'))));
@@ -224,6 +232,7 @@ describe('inserting tables', () => {
     expect(table.child(0).child(0).type.name).toBe('table_header');
     expect(table.child(1).childCount).toBe(2);
     expect(after.selection.$from.node(-1).type.name).toBe('table_header');
+    expect(table.attrs.tableBorderClass).toBe(TABLE_BORDER_1PX_CLASS);
     const empty = read({ type: 'paragraph' });
     const state = EditorState.create({ doc: empty });
     const replaced = run(state, insertTable({ rows: 1, columns: 1 }));
@@ -250,5 +259,18 @@ describe('tables split across pages', () => {
     const moved = run(state, moveTableLine({ table: at, axis: 'column', index: 0 }, 1));
     expect(tables(moved)).toHaveLength(1);
     expect(moved.doc.child(0).childCount).toBe(1);
+  });
+});
+
+describe('remote changes', () => {
+  it('DOCE-TABLES-1.7 repairs a table after the writer’s change only, not after a remote one', () => {
+    const state = EditorState.create({ doc: grid(), plugins: createTableEditing() });
+    // Removes the last cell of the second row, leaving that row narrower than the table.
+    const removeLast = () => {
+      const $c2 = state.doc.resolve(positionOf(state.doc, 'C2'));
+      return state.tr.delete($c2.before($c2.depth - 1), $c2.after($c2.depth - 1));
+    };
+    expect(rows(state.applyTransaction(markRemote(removeLast())).state)[1]).toEqual(['A2', 'B2']);
+    expect(rows(state.applyTransaction(removeLast()).state)[1]).toEqual(['A2', 'B2', '']);
   });
 });

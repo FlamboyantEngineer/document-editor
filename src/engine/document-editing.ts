@@ -44,8 +44,11 @@ import { createMathViews } from './math-views.js';
 import { insertCodeBlock } from './object-commands.js';
 import { createObjectViews } from './object-views.js';
 import { createScripts } from './scripts.js';
+import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing, insertTable } from './tables.js';
+import { includeAppended } from './transaction-kind.js';
+import { createVariableTokens } from './variable-tokens.js';
 import { createWordPaste } from './word-paste.js';
 
 /** What a document's editing depends on. */
@@ -160,14 +163,16 @@ export function documentKeys(
     'Mod-Alt-f': insertFootnote(),
     'Mod-Alt-t': insertTable({ rows: 3, columns: 3 }),
     'Shift-Enter': inFootnoteEntry,
-    Enter: chainCommands(
-      inFootnoteEntry,
-      newlineInCode,
-      listKey(splitListItem),
-      createParagraphNear,
-      deleteSelection,
-      liftEmptyBlock,
-      splitBlockKeepingLevel,
+    Enter: keepIdentityWithContent(
+      chainCommands(
+        inFootnoteEntry,
+        newlineInCode,
+        listKey(splitListItem),
+        createParagraphNear,
+        deleteSelection,
+        liftEmptyBlock,
+        splitBlockKeepingLevel,
+      ),
     ),
     Backspace: chainCommands(
       deleteSelection,
@@ -211,7 +216,8 @@ export function createDocumentEditing(
   schema: Schema,
   options: DocumentEditingOptions = {},
 ): Plugin[] {
-  const { template, author, isRemote, history: keepHistory = true } = options;
+  const { template, author, history: keepHistory = true } = options;
+  const isRemote = options.isRemote && includeAppended(options.isRemote);
   return [
     ...(keepHistory ? [history()] : []),
     createElementIds({ author, isRemote }),
@@ -221,13 +227,22 @@ export function createDocumentEditing(
     createObjectViews(),
     createWordPaste(),
     createScripts(),
-    ...(template ? [createCustomStyles({ template }), createTableWidth(tableWidth(template))] : []),
-    ...createTableEditing(),
+    ...(template ? [createCustomStyles({ template })] : []),
+    createVariableTokens(),
+    ...(template ? [createTableWidth({ ...tableWidth(template), isRemote })] : []),
+    ...createTableEditing({ isRemote }),
     gapCursor(),
     keymap(documentKeys(schema, template)),
     keymap(baseKeymap),
   ];
 }
+
+// Typed `{{key}}` tokens becoming variables, before the table and key handling.
+const VARIABLE_TOKENS_PLUGIN = {
+  name: 'variable-tokens',
+  priority: 840,
+  build: () => [createVariableTokens()],
+};
 
 /**
  * The editing plugins as a kit extension: the history first, the element ids among the
@@ -237,7 +252,8 @@ export function createDocumentEditing(
 export function createDocumentEditingExtension<C = unknown>(
   options: DocumentEditingOptions = {},
 ): RichTextExtension<C> {
-  const { template, author, isRemote, history: keepHistory = true } = options;
+  const { template, author, history: keepHistory = true } = options;
+  const isRemote = options.isRemote && includeAppended(options.isRemote);
   return {
     name: 'document-editing',
     plugins: [
@@ -288,16 +304,17 @@ export function createDocumentEditingExtension<C = unknown>(
         when: () => Boolean(template),
         build: () => (template ? [createCustomStyles({ template })] : []),
       },
+      VARIABLE_TOKENS_PLUGIN,
       {
         name: 'table-width',
         priority: 845,
         when: () => Boolean(template),
-        build: () => (template ? [createTableWidth(tableWidth(template))] : []),
+        build: () => (template ? [createTableWidth({ ...tableWidth(template), isRemote })] : []),
       },
       {
         name: 'tables',
         priority: 850,
-        build: () => createTableEditing(),
+        build: () => createTableEditing({ isRemote }),
       },
       {
         name: 'gap-cursor',

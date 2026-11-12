@@ -3,55 +3,7 @@
 
 export * from './contents/document-catalog.js';
 export * from './document-words.js';
-export type {
-  DocumentFile,
-  StoredContent,
-  StoredMark,
-  StoredNode,
-  StoredSection,
-  StoredTypeMapping,
-} from './format/document-format.js';
-export {
-  DOCUMENT_FORMAT_VERSION,
-  STORED_MARK_TYPES,
-  STORED_NODE_TYPES,
-} from './format/document-format.js';
-export {
-  type DocumentFormatError,
-  type DocumentWriteOptions,
-  isDocumentFormatError,
-  readDocumentFile,
-  readStoredContent,
-  writeDocumentFile,
-  writeStoredContent,
-} from './format/document-format-convert.js';
-export type { DocxOptions } from './format/docx.js';
-export { writeDocx } from './format/docx.js';
-export { cleanWordHtml, isWordHtml, readHtml, writeHtml } from './format/html.js';
-export type { MarkdownOptions } from './format/markdown.js';
-export { writeMarkdown } from './format/markdown.js';
-export type * from './format/template-format.js';
-export { TEMPLATE_FORMAT_VERSION } from './format/template-format.js';
-export type { TemplateResolutionOptions } from './format/template-format-resolve.js';
-export {
-  hasTemplateParentCycle,
-  hasTemplateParentCycleAsync,
-  mergeTemplateFiles,
-  mergeTemplateSettings,
-  resolveSectionRegion,
-  resolveTemplateFile,
-  resolveTemplateFileAsync,
-} from './format/template-format-resolve.js';
-export type { SettingShape } from './format/template-format-shape.js';
-export { TEMPLATE_SHAPE } from './format/template-format-shape.js';
-export type { TemplateValidationOptions } from './format/template-format-validate.js';
-export {
-  isTemplateColor,
-  isTemplateLength,
-  validateTemplateFile,
-} from './format/template-format-validate.js';
-export type { ZipEntry } from './format/zip.js';
-export { crc32, writeZip } from './format/zip.js';
+export * from './format/index.js';
 export type { AbbreviationReferenceAttrs, GlossaryEntry } from './glossary.js';
 export {
   ABBREVIATION_CACHE_REFRESH_META,
@@ -114,13 +66,7 @@ export {
   paragraphNumberingIndentationStyle,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
-export type { ChildLayout, ContainerMeasurement } from './pagination/container-split.js';
-export {
-  isContainerMeasurement,
-  splitBlockquote,
-  splitList,
-  splitListItem,
-} from './pagination/container-split.js';
+export * from './pagination/container-split.js';
 export * from './pagination/contents-split.js';
 export type { BlockRun, FragmentRule, FragmentRules } from './pagination/fragments.js';
 export {
@@ -132,11 +78,13 @@ export {
   joinFragments,
   makeWhole,
 } from './pagination/fragments.js';
+export { splitLayoutSection } from './pagination/layout-section-split.js';
 export type {
   LayoutBlock,
   LayoutRule,
   LayoutRuleOptions,
   LayoutRules,
+  MeasureInput,
   PageHeight,
   PageLayoutOptions,
   SplitBlock,
@@ -211,6 +159,7 @@ export {
   createDocumentSchema,
   createDocumentSchemaExtensions,
 } from './schema/document-schema.js';
+export * from './schema/document-structure.js';
 export type { DomAttributes } from './schema/dom-attributes.js';
 export {
   appendContributorAttrs,
@@ -231,6 +180,7 @@ export {
   TABLE_BORDER_NONE_CLASS,
   TABLE_CAPTION_TEXT_ATTR,
 } from './schema/dom-attributes.js';
+export type { IdentityAttribute, IdentityAttributeCopy } from './schema/element-attributes.js';
 export {
   MAX_PARAGRAPH_LEVEL,
   normalizeParagraphLevel,
@@ -244,6 +194,7 @@ export {
   findDocumentLayoutPreset,
   normalizeDocumentLayoutPresetId,
 } from './schema/layout-presets.js';
+export * from './schema/mark-order.js';
 export { DOCUMENT_MARK_ORDER, DOCUMENT_NODE_ORDER } from './schema/node-order.js';
 export type { ObjectLayout } from './schema/object-layout.js';
 export {
@@ -257,22 +208,11 @@ export {
 } from './schema/object-layout.js';
 export type { DocumentSchemaOptions, ResolvedSchemaOptions } from './schema/schema-options.js';
 export { resolveSchemaOptions } from './schema/schema-options.js';
-export type {
-  SignatureMatrix,
-  SignaturePath,
-  SignatureVector,
-  SignatureVectorParseResult,
-} from './signature-vector.js';
-export {
-  normalizeSignatureVector,
-  parseSignatureVector,
-  SIGNATURE_VECTOR_LIMITS,
-  validateSignaturePathData,
-} from './signature-vector.js';
+export * from './signature-vector.js';
 export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';
 export { setPageRegions } from './templates/page-regions.js';
-export { CONTENTS_TOKENS, readTemplateContent } from './templates/template-content.js';
+export * from './templates/template-content.js';
 export * from './templates/template-css-values.js';
 export * from './templates/template-numbering.js';
 export * from './templates/template-preview.js';
@@ -298,3 +238,4 @@ export {
   sectionRestartsNumbering,
 } from './templates/template-scopes.js';
 export { findTemplateSection, requiredTemplateSections } from './templates/template-sections.js';
+export * from './templates/template-settings.js';

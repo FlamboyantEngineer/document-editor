@@ -40,7 +40,7 @@ function viewWith(scriptText: string) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   return new EditorView(document.createElement('div'), {
     state: EditorState.create({
       doc,
@@ -92,6 +92,49 @@ describe('script blocks', () => {
     );
     expect(await runScripts(view, runner)).toEqual(['a0000001']);
     expect(scriptsState(view.state).failed.get('a0000001')).toBe('Broken');
+    view.destroy();
+  });
+
+  it('DOCE-OBJECTS-4.2 gives an output the same element ids on every run, and leaves an identical rerun alone', async () => {
+    const first = viewWith('one');
+    const second = viewWith('one');
+    await runScripts(first, runner);
+    await runScripts(second, runner);
+    const idOf = (view: EditorView) =>
+      listScriptBlocks(view.state.doc)[0]?.node.firstChild?.attrs.dataId as unknown;
+    expect(idOf(first)).toMatch(/^[0-9a-f]{8}$/);
+    expect(idOf(second)).toBe(idOf(first));
+    const before = first.state.doc;
+    await runScripts(first, runner, { now: () => new Date('2027-01-01T00:00:00Z') });
+    expect(first.state.doc).toBe(before);
+    first.destroy();
+    second.destroy();
+  });
+
+  it('DOCE-OBJECTS-4.2 compares an output without its element ids, but with its other attributes', async () => {
+    let level = 1;
+    const headings = {
+      run: () =>
+        Promise.resolve({
+          ok: true as const,
+          value: [
+            {
+              type: 'heading',
+              attrs: { level, id: 'ffffffff' },
+              content: [{ type: 'text', text: 'Results' }],
+            },
+          ],
+        }),
+    };
+    const view = viewWith('one');
+    await runScripts(view, headings);
+    const before = view.state.doc;
+    // Another id from the script is identity, not content.
+    await runScripts(view, headings);
+    expect(view.state.doc).toBe(before);
+    level = 2;
+    await runScripts(view, headings);
+    expect(listScriptBlocks(view.state.doc)[0]?.node.firstChild?.attrs.level).toBe(2);
     view.destroy();
   });
 

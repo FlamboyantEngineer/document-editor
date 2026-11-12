@@ -55,14 +55,14 @@ Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-HOST-1.8 - Assets and linked code
 
-The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from. The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
+The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from (`resolveUrl(assetId, snapshotId, { asOf })`, as of the time the document shows its assets as of, null for now). The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.9 - Citations and the glossary
 
-The host's `references` adapter shall find citations of other documents, or of targets in them, by a query, each with its reference type, what it records of the document cited and its label, and may resolve citations, by the document and target they name, as they are now, null for one that is gone. The host's `glossary` adapter shall find entries by their abbreviation or expansion, add an entry and return it with its id, and resolve entries by id as they are now.
+The host's `references` adapter shall find citations of other documents, or of targets in them, by a query, each with its reference type, what it records of the document cited and its label, and may resolve citations, by the document and target they name, as they are now, null for one that is gone and `no-access` for one the reader may not read. The host's `glossary` adapter shall find entries by their abbreviation or expansion, add an entry and return it with its id, and resolve entries by id as they are now.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -80,6 +80,13 @@ The host's `scripts` adapter shall run a script block's script against the docum
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-1.12 - Variables
+
+The host's `variables` adapter shall give the text of each variable it knows (`value`), such as `document.name`, beside `page.current`, `page.total` and `date.current`, which the editor gives itself; null or undefined shows none. It may tell the editor whenever a value may have changed (`subscribe`) until the editor unsubscribes.
+
+Implementation: `src/host/adapters.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/components/document-editor/document-editor.test.tsx`
 
 ## DOCE-HOST-2 - Capabilities
 

@@ -1,8 +1,9 @@
 // Script blocks: scripts the host runs, each block showing the content its script produced last.
 // Running takes every script, or the ones asked for, in document order, one at a time, and puts
 // what they produced in as one change the writer can undo; a block whose script changed meanwhile
-// keeps its output, and an output that is the same is left alone. The output is the script's: the
-// writer cannot edit it.
+// keeps its output, and an output that is the same, its element ids aside, is left alone. An
+// output's elements take ids made from the block's id and their place, so a rerun gives the same
+// ids. The output is the script's: the writer cannot edit it.
 
 import { Fragment, Mark, type Node as ProseMirrorNode } from 'prosemirror-model';
 import {
@@ -94,6 +95,57 @@ export function scriptsState(state: EditorState): ScriptsState {
   return scriptsKey.getState(state) ?? { running: new Set(), failed: new Map() };
 }
 
+// The attributes that identify an element rather than say what it holds.
+const IDENTITY_ATTRS = new Set(['dataId', 'dataAuthor', 'dataAiSession', 'captionDataId']);
+
+// Whether two nodes hold the same: the same types, text, marks and attributes, identity aside.
+function sameOutput(a: ProseMirrorNode, b: ProseMirrorNode): boolean {
+  if (a.type !== b.type || !Mark.sameSet(a.marks, b.marks)) return false;
+  if (a.isText) return a.text === b.text;
+  const keys = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
+  for (const key of keys) {
+    if (!IDENTITY_ATTRS.has(key) && a.attrs[key] !== b.attrs[key]) return false;
+  }
+  return sameOutputContent(a.content, b.content);
+}
+
+function sameOutputContent(a: Fragment, b: Fragment): boolean {
+  if (a.childCount !== b.childCount) return false;
+  for (let index = 0; index < a.childCount; index += 1) {
+    if (!sameOutput(a.child(index), b.child(index))) return false;
+  }
+  return true;
+}
+
+// The element id of the output element at a place, counted in document order from 0, of the
+// script block with an id: the same block and place always give the same id (FNV-1a, 32 bits).
+function scriptOutputId(blockId: string, place: number): string {
+  let hash = 0x811c9dc5;
+  for (const character of `${blockId}:${String(place)}`) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+// The output with each element that takes an id given the one its block and place make.
+function identifyOutput(blockId: string, content: Fragment): Fragment {
+  let place = 0;
+  const identify = (node: ProseMirrorNode): ProseMirrorNode => {
+    if (node.isText) return node;
+    const attrs =
+      'dataId' in node.attrs
+        ? { ...node.attrs, dataId: scriptOutputId(blockId, place++) }
+        : node.attrs;
+    const children: ProseMirrorNode[] = [];
+    node.content.forEach((child) => children.push(identify(child)));
+    return node.type.create(attrs, Fragment.from(children), node.marks);
+  };
+  const nodes: ProseMirrorNode[] = [];
+  content.forEach((node) => nodes.push(identify(node)));
+  return Fragment.from(nodes);
+}
+
 /** The outputs a run produced, by block id, put in as one change. */
 export function applyScriptOutputs(
   outputs: ReadonlyMap<string, { script: string; content: Fragment }>,
@@ -105,8 +157,9 @@ export function applyScriptOutputs(
       const output = outputs.get(block.id);
       // A script changed while it ran keeps the output it had.
       if (!output || output.script !== block.node.attrs.script) continue;
-      if (block.node.content.eq(output.content)) continue;
-      tr.replaceWith(block.pos + 1, block.pos + block.node.nodeSize - 1, output.content);
+      if (sameOutputContent(block.node.content, output.content)) continue;
+      const content = identifyOutput(block.id, output.content);
+      tr.replaceWith(block.pos + 1, block.pos + block.node.nodeSize - 1, content);
       tr.setNodeMarkup(block.pos, undefined, { ...block.node.attrs, renderedAt });
     }
     if (!tr.docChanged) return false;
