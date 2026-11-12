@@ -3,8 +3,9 @@
 // its type's split, which the editor provides because splitting measures text.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { splitBlockquote, splitList, splitListItem } from './container-split.js';
+import { splitContainer, splitList, splitListItem } from './container-split.js';
 import { splitContents } from './contents-split.js';
+import { splitLayoutSection } from './layout-section-split.js';
 import { splitTableWith } from './table-split.js';
 import { splitCode, splitParagraph } from './text-split.js';
 
@@ -15,8 +16,6 @@ export interface LayoutBlock {
   readonly height: number;
   readonly marginTop: number;
   readonly marginBottom: number;
-  /** The height of its first line, which a heading before it keeps on its page. */
-  readonly leadLineHeight?: number | null | undefined;
   /** Whether it starts a new page, as the fragments after a split's first do. */
   readonly breakBefore?: boolean | undefined;
   /** What the editor measured it from, for its split to read. */
@@ -41,15 +40,31 @@ export interface SplitBlock {
   tail: LayoutBlock[];
 }
 
+/** What a rule measures a block from: the element the editor rendered it as. */
+export interface MeasureInput {
+  readonly node: ProseMirrorNode;
+  readonly element: HTMLElement;
+  /** How much the view is scaled on screen; sizes read from the element divide by it. */
+  readonly scale: number;
+}
+
 /** How one node type is laid out. */
 export interface LayoutRule {
-  /** Whether a heading before the block stays on the block's page. */
+  /**
+   * Whether a heading before the block stays on the block's page. The heading stays when the block
+   * fits after it whole, or its split places a first fragment there: the block's lead.
+   */
   readonly keepsWithHeading?: boolean | undefined;
   /** Whether the page ends after the block, as a page break's does. */
   readonly endsPage?: boolean | undefined;
   /** The block split to fit a height, or null when it cannot split there. */
   readonly split?:
     ((block: LayoutBlock, height: number, context: SplitContext) => SplitBlock | null) | undefined;
+  /**
+   * What the block's split reads (`LayoutBlock.measurement`), measured from its element in place
+   * of the editor's own measuring, for a host's node type.
+   */
+  readonly measure?: ((input: MeasureInput) => unknown) | undefined;
 }
 
 /** Layout rules by node type name. */
@@ -71,6 +86,7 @@ export const PAGE_SAFETY_MARGIN_PX = 2;
 const KEEPS_WITH_HEADING: LayoutRule = { keepsWithHeading: true };
 const CODE: LayoutRule = { keepsWithHeading: true, split: splitCode };
 const LIST: LayoutRule = { keepsWithHeading: true, split: splitList };
+const CONTAINER: LayoutRule = { keepsWithHeading: true, split: splitContainer };
 
 /** What the layout rules follow from a document's template. */
 export interface LayoutRuleOptions {
@@ -89,7 +105,9 @@ export function createLayoutRules({
   return Object.freeze({
     paragraph: { keepsWithHeading: true, split: splitParagraph },
     heading: KEEPS_WITH_HEADING,
-    blockquote: { keepsWithHeading: true, split: splitBlockquote },
+    blockquote: CONTAINER,
+    script_block: CONTAINER,
+    layout_section: { keepsWithHeading: true, split: splitLayoutSection },
     bullet_list: LIST,
     ordered_list: LIST,
     list_item: { split: splitListItem },
@@ -156,16 +174,6 @@ function headingGroup(blocks: readonly LayoutBlock[], rules: LayoutRules): Layou
   return group;
 }
 
-// A splittable block a heading keeps with needs only its first line on the heading's page.
-function headingGroupHeight(group: readonly LayoutBlock[], rules: LayoutRules): number {
-  const last = group.at(-1);
-  const lead = last?.leadLineHeight;
-  if (!last || !ruleFor(rules, last.node).split || !lead || !Number.isFinite(lead) || lead <= 0) {
-    return stackedHeight(group);
-  }
-  return stackedHeight([...group.slice(0, -1), { ...last, height: lead, marginBottom: 0 }]);
-}
-
 interface PageFill {
   readonly blocks: LayoutBlock[];
   readonly index: number;
@@ -195,12 +203,39 @@ function fittingHeight(remaining: number): number {
   return Math.max(0, remaining - PAGE_SAFETY_MARGIN_PX);
 }
 
+function splitContext(page: PageFill, pageHeight: number, remaining: number): SplitContext {
+  return {
+    pageIndex: page.index,
+    pageHeight,
+    remainingHeight: remaining,
+    rules: page.rules,
+    context: page.options.context,
+  };
+}
+
+// Whether the block a heading keeps with leaves no lead below the headings: it neither fits whole
+// nor splits with a first fragment there, so the split's own limits, such as a paragraph's two
+// lines on each side or a table's header and first row, decide.
+function leadMissing(page: PageFill, headings: readonly LayoutBlock[], block: LayoutBlock) {
+  const placed = { ...page, blocks: [...page.blocks, ...headings] };
+  const { pageHeight, remaining } = remainingHeight(placed, [block]);
+  const fitting = fittingHeight(remaining);
+  if (block.height <= fitting) return false;
+  const split = ruleFor(page.rules, block.node).split;
+  return fitting <= 0 || !split?.(block, fitting, splitContext(placed, pageHeight, remaining));
+}
+
 // Whether a heading, and what it keeps with, would leave the page for the next one.
 function headingMovesOn(page: PageFill, queue: readonly LayoutBlock[]): boolean {
   if (!page.blocks.length || headingLevel(queue[0]?.node) === null) return false;
   const group = headingGroup(queue, page.rules);
   const { remaining } = remainingHeight(page, group);
-  return headingGroupHeight(group, page.rules) > fittingHeight(remaining);
+  if (stackedHeight(group) <= fittingHeight(remaining)) return false;
+  const last = group.at(-1);
+  if (!last || headingLevel(last.node) !== null) return true;
+  const headings = group.slice(0, -1);
+  const { remaining: headingRoom } = remainingHeight(page, headings);
+  return stackedHeight(headings) > fittingHeight(headingRoom) || leadMissing(page, headings, last);
 }
 
 function pageEndsBefore(page: PageFill, queue: readonly LayoutBlock[]): boolean {
@@ -221,12 +256,7 @@ function placeNext(page: PageFill, queue: LayoutBlock[]): boolean {
     queue.shift();
     return !rule.endsPage;
   }
-  const context = { pageIndex: page.index, pageHeight, remainingHeight: remaining };
-  const parts = rule.split?.(block, fitting, {
-    ...context,
-    rules: page.rules,
-    context: page.options.context,
-  });
+  const parts = rule.split?.(block, fitting, splitContext(page, pageHeight, remaining));
   if (parts) {
     page.blocks.push(parts.head);
     queue.splice(0, 1, ...parts.tail);

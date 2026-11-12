@@ -31,7 +31,7 @@ describe('template preview', () => {
   it('DOCE-TEMPLATES-8.2 shows every style a template sets, then each of its sections', () => {
     const file = templatePreviewDocument(TEMPLATE);
     expect(file.sections.map((section) => section.name)).toEqual([null, 'appendix', 'approvals']);
-    const doc = readDocumentFile(file, documentSchema);
+    const doc = readDocumentFile(file, documentSchema).doc;
     expect([...types(doc)]).toEqual(
       expect.arrayContaining([
         'heading',

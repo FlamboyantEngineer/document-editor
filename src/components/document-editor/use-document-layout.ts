@@ -22,7 +22,7 @@ import {
   searchKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
-import type { FontsAdapter } from '../../host/index.js';
+import type { FontsAdapter, VariablesAdapter } from '../../host/index.js';
 import {
   createLayoutRules,
   findTemplateSection,
@@ -33,11 +33,13 @@ import {
 } from '../../model/index.js';
 import {
   createPageDebug,
+  createPageVariables,
   createPagination,
   type LayoutState,
   loadTemplateFonts,
   pageDebugKey,
   type PageDebugParts,
+  pageVariablesKey,
   type Pagination,
   type PaginationStats,
 } from '../../pagination/index.js';
@@ -49,6 +51,7 @@ export type DocumentLayout = 'page' | 'web';
 function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
   return [
     createPageDebug({ shown: () => latest.current.debug ?? {} }),
+    createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
     createSearch(),
     createAuthorship(),
     createRegionEditing({
@@ -113,6 +116,8 @@ export interface DocumentLayoutOptions {
   readonly fonts?: FontsAdapter | undefined;
   /** Edits the pages' headers and footers in place, handing each edit here. */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
+  /** The host's variables, shown in the headers, footers and text (`createPageVariables`). */
+  readonly variables?: VariablesAdapter | undefined;
 }
 
 /** An older version to show a document's changes from, as change bars or marked in place. */
@@ -149,6 +154,28 @@ const restyleSections = (state: EditorState) =>
 
 // A state compared with the older version again, out of the history.
 const recompare = (state: EditorState) => state.apply(refreshVersionChanges(state.tr));
+
+// A state showing the variables' values again, out of the history.
+const revalue = (state: EditorState) =>
+  state.apply(state.tr.setMeta(pageVariablesKey, true).setMeta('addToHistory', false));
+
+// The host's variables shown again, and the pages measured again, whenever the host says they
+// changed, and when it hands in other variables.
+function useHostVariables(options: DocumentLayoutOptions, refresh: RefObject<(() => void) | null>) {
+  const { variables, onStateChange } = options;
+  const latest = useRef(onStateChange);
+  useEffect(() => {
+    latest.current = onStateChange;
+  });
+  useEffect(() => {
+    const show = () => {
+      latest.current(revalue);
+      refresh.current?.();
+    };
+    show();
+    return variables?.subscribe?.(show);
+  }, [variables, refresh]);
+}
 
 // A state with each section's pages joined into one, out of the history.
 function joinPages(state: EditorState): EditorState {
@@ -282,6 +309,7 @@ export function useDocumentLayout(
     latest.current.onStateChange(recompare);
     refresh.current?.();
   }, [previous, display, suggestions]);
+  useHostVariables(options, refresh);
   useLayoutDebug(options.debug, options.onStateChange);
   useRegionsEditable(Boolean(options.onRegionChange), options.onStateChange);
   return useLayoutProgress(active);

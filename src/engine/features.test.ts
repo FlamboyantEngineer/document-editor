@@ -90,6 +90,8 @@ describe('fragment rule registry', () => {
       linked_code_block: { whole: { ...part, codeBlockContinued: false }, ...joined },
       table: { whole: part, ...joined },
       blockquote: { whole: part, ...joined },
+      script_block: { whole: part, ...joined },
+      layout_section: { whole: part, ...joined },
       bullet_list: { whole: part, ...joined },
       ordered_list: { whole: part, ...joined },
       list_item: { whole: { ...part, orphanedListContinuation: false }, ...joined },

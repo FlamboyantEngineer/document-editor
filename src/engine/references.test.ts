@@ -49,7 +49,7 @@ function stateOf(...content: StoredNode[]) {
   const doc = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [createReferences({ template: () => TEMPLATE })] });
 }
 
@@ -182,7 +182,7 @@ describe('external references', () => {
     const doc = readDocumentFile(
       { formatVersion: 1, sections: [{ name: null, content: [paragraph('See .')] }] },
       documentSchema,
-    );
+    ).doc;
     const source = { search: () => Promise.resolve({ ok: true as const, value: [] }) };
     let state = EditorState.create({ doc, plugins: [createReferenceStatus({ source })] });
     state = at(state, '.');
@@ -219,7 +219,7 @@ describe('external references', () => {
     const doc = readDocumentFile(
       { formatVersion: 1, sections: [{ name: null, content: [paragraph('See .')] }] },
       documentSchema,
-    );
+    ).doc;
     const source = { search: () => Promise.resolve({ ok: true as const, value: [] }) };
     let state = EditorState.create({ doc, plugins: [createReferenceStatus({ source })] });
     const cited = { ...baseline('A'), target };

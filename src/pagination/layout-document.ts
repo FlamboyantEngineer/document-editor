@@ -190,7 +190,7 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
     const regionsHeight = regions.reduce((sum, pos) => sum + regionHeight(view, pos, ratio), 0);
     const before = measuredSoFar();
-    const blocks = measureChildBlocks(view, content, { scale, cache });
+    const blocks = measureChildBlocks(view, content, { scale, cache, rules: options.rules });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnotes === null ? null : measureFootnotes(view, footnotes, { scale });
     const fill = { blocks, area, baseHeight: pageHeight - regionsHeight, shown };

@@ -64,7 +64,7 @@ function mount(sections: readonly (readonly string[])[], options: Partial<Pagina
       sections: sections.map((texts) => ({ content: texts.map(paragraph) })),
     },
     documentSchema,
-  );
+  ).doc;
   const view = new EditorView(document.createElement('div'), {
     state: EditorState.create({ doc, plugins: [pagination.plugin] }),
   });

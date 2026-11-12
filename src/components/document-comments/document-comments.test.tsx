@@ -51,7 +51,7 @@ function initial(select?: string) {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   let selection: TextSelection | undefined;
   doc.descendants((node, pos) => {
     const at = select && node.isText ? (node.text?.indexOf(select) ?? -1) : -1;

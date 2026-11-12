@@ -3,55 +3,7 @@
 
 export * from './contents/document-catalog.js';
 export * from './document-words.js';
-export type {
-  DocumentFile,
-  StoredContent,
-  StoredMark,
-  StoredNode,
-  StoredSection,
-  StoredTypeMapping,
-} from './format/document-format.js';
-export {
-  DOCUMENT_FORMAT_VERSION,
-  STORED_MARK_TYPES,
-  STORED_NODE_TYPES,
-} from './format/document-format.js';
-export {
-  type DocumentFormatError,
-  type DocumentWriteOptions,
-  isDocumentFormatError,
-  readDocumentFile,
-  readStoredContent,
-  writeDocumentFile,
-  writeStoredContent,
-} from './format/document-format-convert.js';
-export { type DocxOptions, writeDocx } from './format/docx.js';
-export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './format/html.js';
-export type { MarkdownOptions } from './format/markdown.js';
-export { writeMarkdown } from './format/markdown.js';
-export type * from './format/template-format.js';
-export { TEMPLATE_FORMAT_VERSION } from './format/template-format.js';
-export type { TemplateResolutionOptions } from './format/template-format-resolve.js';
-export {
-  hasTemplateParentCycle,
-  hasTemplateParentCycleAsync,
-  mergeTemplateFiles,
-  mergeTemplateSettings,
-  resolveSectionRegion,
-  resolveTemplateFile,
-  resolveTemplateFileAsync,
-} from './format/template-format-resolve.js';
-export type { SettingShape } from './format/template-format-shape.js';
-export { TEMPLATE_SHAPE } from './format/template-format-shape.js';
-export type { TemplateValidationOptions } from './format/template-format-validate.js';
-export {
-  isTemplateColor,
-  isTemplateLength,
-  validateTemplateFile,
-} from './format/template-format-validate.js';
-export * from './format/template-format-validate.js';
-export type { ZipEntry } from './format/zip.js';
-export { crc32, writeZip } from './format/zip.js';
+export * from './format/index.js';
 export type { AbbreviationReferenceAttrs, GlossaryEntry } from './glossary.js';
 export {
   ABBREVIATION_CACHE_REFRESH_META,
@@ -114,13 +66,7 @@ export {
   paragraphNumberingIndentationStyle,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
-export type { ChildLayout, ContainerMeasurement } from './pagination/container-split.js';
-export {
-  isContainerMeasurement,
-  splitBlockquote,
-  splitList,
-  splitListItem,
-} from './pagination/container-split.js';
+export * from './pagination/container-split.js';
 export * from './pagination/contents-split.js';
 export type { BlockRun, FragmentRule, FragmentRules } from './pagination/fragments.js';
 export {
@@ -132,11 +78,13 @@ export {
   joinFragments,
   makeWhole,
 } from './pagination/fragments.js';
+export { splitLayoutSection } from './pagination/layout-section-split.js';
 export type {
   LayoutBlock,
   LayoutRule,
   LayoutRuleOptions,
   LayoutRules,
+  MeasureInput,
   PageHeight,
   PageLayoutOptions,
   SplitBlock,

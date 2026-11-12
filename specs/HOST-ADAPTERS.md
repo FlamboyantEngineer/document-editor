@@ -81,7 +81,14 @@ The host's `scripts` adapter shall run a script block's script against the docum
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
-### DOCE-HOST-1.12 - Fonts
+### DOCE-HOST-1.12 - Variables
+
+The host's `variables` adapter shall give the text of each variable it knows (`value`), such as `document.name`, beside `page.current`, `page.total` and `date.current`, which the editor gives itself; null or undefined shows none. It may tell the editor whenever a value may have changed (`subscribe`) until the editor unsubscribes.
+
+Implementation: `src/host/adapters.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/components/document-editor/document-editor.test.tsx`
+
+### DOCE-HOST-1.13 - Fonts
 
 The host's optional `fonts` adapter shall load the faces of the font families a document's template names and resolve, within the timeout it is given, with the families that loaded. The document editor's pages stay pending until it resolves, and measure again once faces load (DOCE-PAGINATION-5.6).
 
