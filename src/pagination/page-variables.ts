@@ -66,8 +66,8 @@ function pagesOf(doc: ProseMirrorNode): { places: Map<number, Place> } {
 function widget(pos: number, text: string, key: string) {
   return Decoration.widget(
     pos,
-    () => {
-      const span = document.createElement('span');
+    (view) => {
+      const span = view.dom.ownerDocument.createElement('span');
       span.textContent = text;
       return span;
     },
