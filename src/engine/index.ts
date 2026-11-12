@@ -37,6 +37,7 @@ export {
   OBJECT_BLOCK_TYPES,
   objectBlockAt,
 } from './block-commands.js';
+export { canInsertBlock } from './block-place.js';
 export { setTextblockType } from './block-type.js';
 export type { CaptionedObject } from './captions.js';
 export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
@@ -98,6 +99,7 @@ export {
   wrapInListAndJoin,
 } from './editing-commands.js';
 export type { ElementIdsOptions } from './element-ids.js';
+export type { RepairElementIdsOptions } from './element-ids.js';
 export {
   assignElementIds,
   createElementId,
