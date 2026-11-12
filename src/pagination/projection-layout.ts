@@ -20,7 +20,8 @@ import { projectionSelection } from './selection-mirror.js';
 
 /** The views and state a layout reads. */
 export interface LayoutSource {
-  readonly view: EditorView;
+  /** The projection's state, stepped onto the new pages. */
+  readonly projection: EditorState;
   readonly ghost: EditorView;
   readonly canonical: EditorState;
   readonly cache: MeasureCache;
@@ -36,7 +37,7 @@ export interface ProjectionLayoutOptions {
 
 /** The projection transaction onto the canonical document's pages, and the map after it. */
 export function layOutProjection(
-  { view, ghost, canonical, cache }: LayoutSource,
+  { projection, ghost, canonical, cache }: LayoutSource,
   options: ProjectionLayoutOptions,
 ): { readonly tr: Transaction; readonly map: ProjectionMap } {
   followDocument(ghost, canonical.doc);
@@ -47,10 +48,10 @@ export function layOutProjection(
     cache,
   });
   const target = projectDocument(ghost.state.doc, sections, options);
-  const tr = view.state.tr;
+  const tr = projection.tr;
   repaginate(tr, target, options.fragmentRules);
   const map = createProjectionMap(tr.doc, options.fragmentRules);
-  const near = view.state.selection.map(tr.doc, tr.mapping);
+  const near = projection.selection.map(tr.doc, tr.mapping);
   tr.setSelection(projectionSelection(map, canonical.selection, near));
   return { tr, map };
 }

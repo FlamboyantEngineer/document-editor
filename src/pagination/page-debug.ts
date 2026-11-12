@@ -4,7 +4,8 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { type Decoration, DecorationSet } from 'prosemirror-view';
+import { viewOnlyNode } from '../utils/view-only-decorations.js';
 import type { PageMetric } from './layout-document.js';
 import { pageMetrics } from './pagination.js';
 
@@ -30,10 +31,13 @@ function decoratePage(
   const decorations: Decoration[] = [];
   if (parts.pages) {
     decorations.push(
-      Decoration.node(pos, pos + node.nodeSize, {
-        'data-debug-used': String(Math.round(metric.used)),
-        'data-debug-free': String(Math.round(metric.available - metric.used)),
-      }),
+      viewOnlyNode(
+        { from: pos, to: pos + node.nodeSize },
+        {
+          'data-debug-used': String(Math.round(metric.used)),
+          'data-debug-free': String(Math.round(metric.available - metric.used)),
+        },
+      ),
     );
   }
   if (!parts.blocks) return decorations;
@@ -45,9 +49,12 @@ function decoratePage(
       if (height === undefined) return;
       const from = start + blockOffset;
       decorations.push(
-        Decoration.node(from, from + block.nodeSize, {
-          'data-debug-height': String(Math.round(height)),
-        }),
+        viewOnlyNode(
+          { from, to: from + block.nodeSize },
+          {
+            'data-debug-height': String(Math.round(height)),
+          },
+        ),
       );
     });
   });

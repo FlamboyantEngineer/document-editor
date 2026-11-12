@@ -359,6 +359,27 @@ Verification: `src/pagination/projection-view.test.ts`, `e2e/spike-projection.sp
 Implementation: `src/pagination/projection-mirror.ts`, `src/pagination/projection-view.ts`
 Verification: `src/pagination/projection-view.test.ts`
 
+### DOCE-PAGINATION-7.13 - Canonical decorations on the pages
+
+The projection shall draw every decoration the canonical state's plugins draw (search, proofing, comments, changes), mapped onto its pages, including one that crosses a page break; a decoration on content only the projection holds, such as a repeated header row, is not drawn there. Whatever renders the projection (`createPagedProjection`, without a view of its own) shall render it with the plugins its state carries, pass each of its transactions to `receive`, and take each new projection state from `onProjection`.
+
+Implementation: `src/pagination/canonical-decorations.ts`, `src/pagination/projection.ts`
+Verification: `src/pagination/projection-view.test.ts`
+
+### DOCE-PAGINATION-7.14 - The pages' view as a canonical view
+
+`canonicalView(view, { canonical, map, dispatch })` shall give the view that renders the projection as a view of the canonical state, for toolbars, menus and commands: its `state` is the canonical state, `dispatch` takes canonical transactions, and `coordsAtPos`, `domAtPos`, `nodeDOM`, `posAtDOM` and `posAtCoords` take and give canonical positions; everything else is the projection view's.
+
+Implementation: `src/pagination/canonical-view.ts`
+Verification: `src/pagination/projection-view.test.ts`
+
+### DOCE-PAGINATION-7.15 - The canonical plugins run through the pages
+
+The canonical state's plugins shall run on the canonical view of the view that renders the projection (DOCE-PAGINATION-7.14), as they would on a view of their own. Their plugin views shall start with it and be updated with each new canonical state, and what they dispatch shall reach the canonical state and the pages at once. Their key handlers shall run after an arrow key's move across a page break and the host's `keys`, and before Enter, Backspace and Delete; their paste handlers before the projection's paste. Their text input, click, double- and triple-click handlers shall take canonical positions, and their handlers of DOM events other than a press shall see those events. Input shall have the projection's selection mirrored onto the canonical state first. A press stays the projection's: it places the caret on the pages, or starts a cell drag across them.
+
+Implementation: `src/pagination/canonical-plugins.ts`, `src/pagination/projection.ts`, `src/pagination/projection-input.ts`
+Verification: `src/pagination/projection-view.test.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

@@ -13,6 +13,8 @@
             "source": "sample-script",
             "refresh": "sample-refreshPolicy",
             "renderedAt": "sample-renderedAt",
+            "provenance": { "source": "catalog/count", "revision": "r2", "inputs": "k1" },
+            "signatures": [{ "person": "person-1", "label": "Sam Lee", "revision": "r2" }],
             "id": "script-1",
             "author": "author-1",
             "aiSession": "session-1"

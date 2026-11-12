@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode, parseMarkup, roundTrip } from '../../../test/document-markup.js';
-import { createDocumentSchema, type IdentityAttribute, normalizeParagraphLevel } from '../index.js';
+import {
+  createDocumentSchema,
+  DOCUMENT_FORMAT_VERSION,
+  type DocumentFile,
+  type IdentityAttribute,
+  normalizeParagraphLevel,
+  readDocumentFile,
+  writeDocumentFile,
+} from '../index.js';
 import {
   clearIdentityAttrs,
   identityAttributesOf,
@@ -122,4 +130,42 @@ describe('element attributes', () => {
       paragraphLevel: 3,
     });
   });
+
+  it('DOCE-SCHEMA-2.3 stores a host identity attribute under its stored name', () => {
+    const state: IdentityAttribute = {
+      name: 'reviewState',
+      dom: 'data-review-state',
+      stored: 'state',
+      onCopy: 'clear',
+    };
+    const origin: IdentityAttribute = { name: 'origin', dom: 'data-origin', onCopy: 'keep' };
+    const schema = createDocumentSchema({ schema: { identityAttributes: [state, origin] } });
+    const file: DocumentFile = {
+      formatVersion: DOCUMENT_FORMAT_VERSION,
+      sections: [
+        {
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { state: 'done', origin: 'import' },
+              content: [{ type: 'text', text: 'Text' }],
+            },
+          ],
+        },
+      ],
+    };
+    const { doc } = readDocumentFile(file, schema);
+    const paragraph = findNode(doc, 'paragraph');
+    expect(paragraph?.attrs).toMatchObject({ reviewState: 'done', origin: 'import' });
+    expect(findStored(writeDocumentFile(doc))).toMatchObject({
+      attrs: { state: 'done', origin: 'import' },
+    });
+  });
 });
+
+// The first stored paragraph of a stored document.
+function findStored(file: DocumentFile) {
+  return file.sections
+    .flatMap((section) => section.content)
+    .find((node) => node.type === 'paragraph');
+}

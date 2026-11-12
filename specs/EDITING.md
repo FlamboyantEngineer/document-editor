@@ -46,6 +46,13 @@ Verification: `src/engine/element-ids.test.ts`
 Implementation: `src/model/format/document-format-ids.ts`
 Verification: `src/model/format/document-format-ids.test.ts`
 
+### DOCE-EDITING-1.7 - An element lifecycle
+
+A host shall be able to build an element lifecycle of its own (states, stamping and gating) from the library's parts, as `docs/recipes/element-lifecycle.md` shows: the state declared as an identity attribute that a copy clears (DOCE-SCHEMA-2.3), a plugin stamping elements without a state, and the edit lock (DOCE-EDITING-4.1) refusing edits inside, and joins into, an element in a frozen state. The library holds no states or transitions.
+
+Implementation: `src/model/schema/element-attributes.ts`, `src/engine/edit-lock.ts`
+Verification: `test/element-lifecycle.test.ts`
+
 ## DOCE-EDITING-2 - Keys
 
 ### DOCE-EDITING-2.1 - Formatting and block types
@@ -115,7 +122,7 @@ Verification: `src/engine/block-place.test.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), word processor paste (510, DOCE-FORMAT-6.2), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`
 Verification: `src/engine/document-editing.test.ts`
@@ -135,16 +142,67 @@ Verification: `src/engine/transaction-kind.test.ts`
 
 ### DOCE-EDITING-3.3 - No derived writes on remote changes
 
-A plugin that writes to the document in response to other changes (element ids, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
+A plugin that writes to the document in response to other changes (element ids, footnote numbering, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
 
-Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/document-editing.ts`
+Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/footnotes.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/two-state-collab.test.ts`
+
+### DOCE-EDITING-3.4 - Typing without walking the document
+
+A plugin whose state follows the whole document shall not walk it for a change that only types or deletes text (`isInlineTextOnly`, DOCE-EDITING-3.2): it maps what it holds through the change instead. Custom styles (DOCE-TEMPLATES-7.1) do so for every such change; sections (DOCE-SECTIONS-1.1) do so, and append no page regions, when the text is in the pages' content and its block holds text before and after the change, so a section placeholder still appears and goes as its block empties and fills.
+
+Implementation: `src/engine/custom-styles.ts`, `src/engine/document-sections.ts`
+Verification: `src/engine/hot-path.test.ts`
 
 ## DOCE-EDITING-4 - Locked positions
 
 ### DOCE-EDITING-4.1 - The edit lock
 
-`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records, that replaces or inserts at a position `isLocked(doc, pos)` reports locked: the first or last character a step replaces, or the point it inserts at. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
+`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records that is neither remote, derived nor a system change (DOCE-EDITING-3.2), when any of its steps changes a position `isLocked(doc, pos)` reports locked: any position of a range it replaces or marks, the inside of every block and inline node that range covers, the edges a structure change replaces around the content it keeps, the inside of a node it sets attributes or marks on, or the point it inserts at. A step that spans a locked block between two open ones is refused. A comment's highlight may be added to and removed from locked content. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, and system changes pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
 
 Implementation: `src/engine/edit-lock.ts`
 Verification: `src/engine/edit-lock.test.ts`
+
+### DOCE-EDITING-4.2 - Locked sections by default
+
+The editing (`createDocumentEditing`, `createDocumentEditingExtension`) shall install the edit lock whenever it is given the template, locking the sections the template, or the section itself, does not let the writer edit (`lockedTemplateSections`, DOCE-SECTIONS-4.3), together with the host's own lock given as `isLocked` (`anyLock`). Without the template or a lock it installs none. A host that locks positions passes its lock here rather than adding a second edit lock.
+
+Implementation: `src/engine/document-editing.ts`
+Verification: `src/engine/document-editing.test.ts`
+
+## DOCE-EDITING-5 - Clipboard
+
+### DOCE-EDITING-5.1 - One paste pipeline
+
+`createClipboard({ filters, template })` shall run every paste and every drop through one pipeline. A paste, or a drop of content from elsewhere or of content dragged within the document with the platform's copy modifier held, becomes a copy (DOCE-EDITING-5.2); content dragged within the document without it is moved, and keeps what it is. Then filters run in order on every pasted and dropped slice, each given the state with the selection where the slice lands, and each returns the slice to paste: the library's own first, which fit footnote markers and entries (`flattenFootnotePaste`, DOCE-FOOTNOTES-1.6) and references (`repairPastedReferences`, DOCE-REFERENCES-1.6) to where they land, then the given `filters`. Word processor HTML is cleaned first (DOCE-FORMAT-6.2). The editing extension installs the clipboard with the template and its `pasteFilters` option.
+
+Implementation: `src/engine/clipboard.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.2 - Pasted copies
+
+A pasted copy shall leave out the nodes whose type's spec says `pastable: false`, which a signature's does, so a paste never shows an approval nobody gave there. It shall leave out text and inline nodes a suggestion deletes, take the comment and suggested-insertion marks off the rest, so a copy never shares a comment's anchor or a suggestion's id with its original, and make its elements new (DOCE-EDITING-1.5). A suggestion made while pasting marks the copy as the paster's own insertion.
+
+Implementation: `src/engine/clipboard-copies.ts`, `src/model/schema/inline-atom-nodes.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.3 - Plain text
+
+Pasted plain text shall become one paragraph for each of its lines, an empty line an empty paragraph, with the marks at the paste position. In code, it stays one run of text.
+
+Implementation: `src/engine/clipboard-text.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.4 - Copied text
+
+The plain text a copy writes shall be the text alone for a selection within one block, such as a word, and otherwise one line for each block the selection touches, with the numbers the reader sees and the document's text does not hold: a heading copied from its start is led by its number as the template numbers it, the first block of a list item by its number (`3.`) or bullet (`•`), indented by a tab for each list around its list, and a list of contents is copied as its rows, each `number text`, then a tab standing for the leader and the page where the list shows pages. Content dragged out as a node writes the default text.
+
+Implementation: `src/engine/clipboard-text.ts`, `src/engine/contents.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.5 - Images in pasted content
+
+With the host's `assets`, pasted HTML with images whose bytes come with the paste shall be pasted once those images are uploaded, each as its own figure in its place (DOCE-EDITOR-4.6): an image written as a data URI is decoded, and a local file a word processor's HTML names is taken from the next PNG or JPEG picture of the paste's RTF, leaving out the metafile copies it writes beside them. The host's `feedback` says the images are uploading; an image that fails to upload, or whose bytes the paste does not carry, is left out and the feedback says so, and the rest is pasted. Pasted HTML whose images are only addresses is left to the editor.
+
+Implementation: `src/components/document-editor/figure-paste.ts`, `src/components/document-editor/pasted-images.ts`
+Verification: `src/components/document-editor/figure-paste.test.ts`

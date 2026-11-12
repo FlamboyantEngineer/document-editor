@@ -52,9 +52,9 @@ Verification: `src/model/schema/element-attributes.test.ts`
 
 ### DOCE-SCHEMA-2.3 - Identity attributes
 
-The attributes that say which element a node is, rather than how it looks, shall be declared on each node type as identity attributes (`IdentityAttribute`: `name`, `dom`, `scope`, `onCopy`), which `identityAttributesOf(type)` gives. The built-in ones are `dataId`, `dataAuthor`, `dataAiSession` and `splitPartIndex` on every type but text, and the suggestion split attributes on the types that carry them; a copy clears each of them. A host shall declare its own through `DocumentSchemaOptions.identityAttributes`, such as an element's review state: every type in its `scope` (every type but text when it names none) carries it, defaulting to null, reads it from and writes it to the `dom` attribute, and writes nothing when it is empty; a host attribute named as a built-in one shall be refused. `onCopy` says whether a pasted copy keeps the source's value (`keep`) or clears it (`clear`). `pickIdentityAttrs(type, attrs)` shall give a node's identity attributes, as a type change carries them over, and `clearIdentityAttrs(type, attrs)` its attributes with those a copy clears reset, as a new element's.
+The attributes that say which element a node is, rather than how it looks, shall be declared on each node type as identity attributes (`IdentityAttribute`: `name`, `dom`, `stored`, `scope`, `onCopy`), which `identityAttributesOf(type)` gives. The built-in ones are `dataId`, `dataAuthor`, `dataAiSession` and `splitPartIndex` on every type but text, and the suggestion split attributes on the types that carry them; a copy clears each of them. A host shall declare its own through `DocumentSchemaOptions.identityAttributes`, such as an element's review state: every type in its `scope` (every type but text when it names none) carries it, defaulting to null, reads it from and writes it to the `dom` attribute, and writes nothing when it is empty; the stored document format keeps it under `stored`, or its `name` when that is left out; a host attribute named as a built-in one shall be refused. `onCopy` says whether a pasted copy keeps the source's value (`keep`) or clears it (`clear`). `pickIdentityAttrs(type, attrs)` shall give a node's identity attributes, as a type change carries them over, and `clearIdentityAttrs(type, attrs)` its attributes with those a copy clears reset, as a new element's.
 
-Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/schema-options.ts`
+Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/schema-options.ts`, `src/model/format/document-format.ts`
 Verification: `src/model/schema/element-attributes.test.ts`
 
 ## DOCE-SCHEMA-3 - Stored markup
@@ -117,7 +117,7 @@ Verification: `src/model/schema/marks.test.ts`
 
 ### DOCE-SCHEMA-3.9 - Script blocks
 
-A script block (`section[data-block-type="scripted-content"]`) shall keep its script (`data-script`), its refresh policy, `manual` or `open` (`data-refresh-policy`), and when its output was produced (`data-rendered-at`), and hold the blocks its script produced last in its output (`.script-output`). It is stored as a `script` node, with `source`, `refresh` and `renderedAt`.
+A script block (`section[data-block-type="scripted-content"]`) shall keep its script (`data-script`), its refresh policy, `manual` or `open` (`data-refresh-policy`), and when its output was produced (`data-rendered-at`), where its output came from (`provenance`, a `ScriptProvenance`: what ran it, the script's revision and its inputs' key, as JSON in `data-provenance`), and the signatures its output carries (`signatures`, `ScriptSignature`s of who signed, their name and the signed revision, as JSON in `data-signatures`), reading none from markup that is not of that shape, and hold the blocks its script produced last in its output (`.script-output`). It is stored as a `script` node, with `source`, `refresh`, `renderedAt`, `provenance` and `signatures`. The library keeps them; the host checks them.
 
 Implementation: `src/model/schema/script-nodes.ts`, `src/model/format/document-format.ts`
 Verification: `src/model/schema/script-nodes.test.ts`
@@ -172,7 +172,7 @@ Verification: `src/model/schema/document-structure.test.ts`
 
 ### DOCE-SCHEMA-6.3 - The region at a position
 
-`regionAt($pos)` shall give the region holding a position, with its kind, node, start, depth and section, and `sectionAt($pos)` the section holding it; each shall give null outside one.
+`regionAt($pos)` shall give the region holding a position, with its kind, node, start, depth and section, `sectionAt($pos)` the section holding it, and `regionBeside($pos, kind)` the region of a kind on the same page of a paged document or in the same section of the canonical one; each shall give null outside one.
 
 Implementation: `src/model/schema/document-structure.ts`
 Verification: `src/model/schema/document-structure.test.ts`

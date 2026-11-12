@@ -245,11 +245,14 @@ export interface KeyRouting {
   run(command: Command): boolean;
   /** Moves the caret a character across a page break inside a split block; false elsewhere. */
   across(move: { readonly direction: -1 | 1; readonly extend: boolean }): boolean;
+  /** The canonical plugins' own keys, after the host's and before Enter, Backspace and Delete. */
+  delegate?: ((event: KeyboardEvent) => boolean) | undefined;
 }
 
 /**
- * The projection's key handler: Enter, Backspace, Delete and the host's keys run on the canonical
- * state, and arrows cross a page break inside a split block by a character.
+ * The projection's key handler: arrows cross a page break inside a split block by a character;
+ * then the host's keys, the canonical plugins' keys, and Enter, Backspace and Delete run on the
+ * canonical state.
  */
 export function projectionKeys(routing: KeyRouting) {
   const canonical =
@@ -259,18 +262,27 @@ export function projectionKeys(routing: KeyRouting) {
   const across = (direction: -1 | 1, extend: boolean) => () =>
     routing.across({ direction, extend });
   const keep = () => false;
-  return keydownHandler({
-    ...Object.fromEntries(
-      Object.entries(routing.keys ?? {}).map(([key, command]) => [key, canonical(command)]),
-    ),
-    Enter: canonical(baseKeymap.Enter ?? keep),
-    Backspace: canonical(chainCommands(baseKeymap.Backspace ?? keep, deleteCharacter(-1))),
-    Delete: canonical(chainCommands(baseKeymap.Delete ?? keep, deleteCharacter(1))),
+  const arrows = keydownHandler({
     ArrowLeft: across(-1, false),
     ArrowRight: across(1, false),
     'Shift-ArrowLeft': across(-1, true),
     'Shift-ArrowRight': across(1, true),
   });
+  const hostKeys = keydownHandler(
+    Object.fromEntries(
+      Object.entries(routing.keys ?? {}).map(([key, command]) => [key, canonical(command)]),
+    ),
+  );
+  const baseKeys = keydownHandler({
+    Enter: canonical(baseKeymap.Enter ?? keep),
+    Backspace: canonical(chainCommands(baseKeymap.Backspace ?? keep, deleteCharacter(-1))),
+    Delete: canonical(chainCommands(baseKeymap.Delete ?? keep, deleteCharacter(1))),
+  });
+  return (view: EditorView, event: KeyboardEvent): boolean =>
+    arrows(view, event) ||
+    hostKeys(view, event) ||
+    (routing.delegate?.(event) ?? false) ||
+    baseKeys(view, event);
 }
 
 /** Carries a projection transaction's meta, such as a composition's, over to its routed mirror. */

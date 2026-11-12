@@ -20,6 +20,8 @@ export interface ProjectionMap {
   toCanonical(pos: number, assoc?: -1 | 1): number | null;
   /** A canonical position in the projection, as `PageMap.toProjection`. */
   toProjection(pos: number, assoc?: -1 | 1): number | null;
+  /** The mapping from canonical positions to projection positions, as a decoration set maps by. */
+  toProjectionMapping(): Mapping;
   /** A step on one document as the same edit on the other; null when it cannot be placed. */
   mapStep(step: Step, direction: MapDirection): Step | null;
   /** The map after the same edit made on both documents: `projection` and `canonical` after it. */
@@ -92,6 +94,7 @@ function mapFrom(
     toCanonical: (pos, assoc) =>
       mapPosition(positions(), { pos, assoc: assoc ?? textSide(projection, pos) }, 'toCanonical'),
     toProjection: (pos, assoc = 1) => mapPosition(positions(), { pos, assoc }, 'toProjection'),
+    toProjectionMapping: () => positions().backward,
     mapStep: (step, direction) =>
       mapStepRange(step, {
         direction,

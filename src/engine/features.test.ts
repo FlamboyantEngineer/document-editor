@@ -24,11 +24,11 @@ const EDITING_KEYS = [
   'comment-draft',
   'math-views',
   'object-views',
-  'word-paste',
+  'clipboard',
   'scripts',
 ];
 // Column resizing, cell selection, the table pointer and the table keys.
-const TABLE_KEYS = ['tableColumnResizing', 'selectingCells', 'table-pointer', 'plugin'];
+const TABLE_KEYS = ['table-column-resize', 'selectingCells', 'table-pointer', 'plugin'];
 // The gap cursor, the document's keys and the base keymap.
 const LAST_KEYS = ['plugin', 'plugin', 'plugin'];
 
@@ -43,8 +43,11 @@ describe('plugin order', () => {
   });
 
   it('DOCE-FORMAT-7.3 places the template plugins before table editing', () => {
+    const [first, ...rest] = EDITING_KEYS;
     expect(keysOf(createDocumentEditing(documentSchema, { template: () => TEMPLATE }))).toEqual([
-      ...EDITING_KEYS,
+      first,
+      'edit-lock',
+      ...rest,
       'custom-styles',
       'variable-tokens',
       'table-width',

@@ -10,7 +10,6 @@ import { type Command, Plugin, TextSelection, type Transaction } from 'prosemirr
 import {
   addRowAfter,
   CellSelection,
-  columnResizing,
   findTable,
   goToNextCell,
   moveTableColumn,
@@ -24,6 +23,7 @@ import { TABLE_BORDER_1PX_CLASS } from '../model/index.js';
 import { newBlockRange } from './block-place.js';
 import { appendTransaction, captureTransaction, inWholeTable } from './table-parts.js';
 import { createTablePointer } from './table-pointer.js';
+import { createColumnResize } from './table-resize.js';
 import { isRemoteTransaction } from './transaction-kind.js';
 
 // Where a new block goes, which the table commands share with every block command.
@@ -226,14 +226,14 @@ function localTableEditing(isRemote: (tr: Transaction) => boolean): Plugin {
 }
 
 /**
- * The plugins that edit tables: column widths dragged by the cell borders, cell selections and the
- * table keys. They run before the document's keys, so Tab moves between cells in a table.
+ * The plugins that edit tables: column widths dragged by the cell borders in pairs, cell
+ * selections and the table keys. They run before the document's keys, so Tab moves between cells in a table.
  */
 export function createTableEditing({
   isRemote = isRemoteTransaction,
 }: TableEditingOptions = {}): Plugin[] {
   return [
-    columnResizing({ View: null, cellMinWidth: DEFAULT_TABLE_CELL_MIN_WIDTH }),
+    createColumnResize(),
     localTableEditing(isRemote),
     createTablePointer(),
     keymap(tableKeys()),
