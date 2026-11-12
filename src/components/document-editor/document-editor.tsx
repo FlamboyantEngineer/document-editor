@@ -23,6 +23,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { shortcutsOf } from '../../engine/index.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
@@ -43,7 +44,6 @@ import {
   templateProperties,
 } from '../../model/index.js';
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
-import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
