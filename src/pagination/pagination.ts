@@ -16,7 +16,13 @@ import {
 import { readDomSelection } from '../utils/dom-selection.js';
 import { footnoteAnchor, restoreFootnoteSelection } from './footnote-selection.js';
 import { followDocument } from './ghost-view.js';
-import { type DocumentLayoutOptions, layoutDocument, type PageMetric } from './layout-document.js';
+import {
+  createLayoutMemory,
+  type DocumentLayoutOptions,
+  layoutDocument,
+  type LayoutMemory,
+  type PageMetric,
+} from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import { frameIn, type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
 import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
@@ -122,6 +128,7 @@ function layOutPages(measuring: EditorView, options: PaginationOptions, counter:
     ...options,
     scale: options.scale?.(),
     cache: counter.cache,
+    memory: counter.memory,
     onPage: (page) => metrics.push(page),
     onSection: counter.section,
   });
@@ -132,7 +139,10 @@ function layOutPages(measuring: EditorView, options: PaginationOptions, counter:
 const unmounted = { editor: null, measuring: null, cancel: null, restart: false } as const;
 
 // What a layout counts with: the measure cache, and the pagination's counters.
-type LayoutCounter = { readonly cache: MeasureCache } & ReturnType<typeof createPaginationCounter>;
+type LayoutCounter = {
+  readonly cache: MeasureCache;
+  readonly memory: LayoutMemory;
+} & ReturnType<typeof createPaginationCounter>;
 
 // The options a layout reads, with the fragment rules settled.
 type LayoutContext = PaginationOptions & { readonly fragmentRules: FragmentRules };
@@ -233,7 +243,7 @@ export function createPagination(options: PaginationOptions): Pagination {
   const fragmentRules = options.fragmentRules ?? FRAGMENT_RULES;
   const schedule = options.schedule ?? frameIn(options.measureIn);
   const cache = createMeasureCache();
-  const counter = { cache, ...createPaginationCounter(cache) };
+  const counter = { cache, memory: createLayoutMemory(), ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
   const runner: Runner = { ...unmounted, changed: true, passes: 0 };
 
