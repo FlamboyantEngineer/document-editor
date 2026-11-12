@@ -229,6 +229,8 @@ export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
 export { replaceDocumentContent } from './replace-document-content.js';
 export { revealRange, selectionAddress } from './reveal.js';
+export type { ReviewChange } from './review-changes.js';
+export { isReviewOnlyChange, reviewChangeOf } from './review-changes.js';
 export type { SectionFootnoteNumbersOptions } from './section-footnote-numbers.js';
 export {
   createSectionFootnoteNumbers,
