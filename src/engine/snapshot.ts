@@ -10,6 +10,7 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
+import { copyCodeHighlights } from './code-highlighting.js';
 import {
   applySuggestionMarkup,
   editorMarkup,
@@ -39,6 +40,16 @@ const EDITING_ATTRIBUTES = ['contenteditable', 'spellcheck', 'draggable', 'tabin
 const EDITING_ELEMENTS = '.ProseMirror-gapcursor, .ProseMirror-separator';
 const ROOT_CLASS = 'de-document-editor';
 const SHEET_ATTRIBUTE = 'data-print-sheet';
+// The inherited text properties a snapshot takes from around the editor's pages.
+const INHERITED_TEXT = [
+  'font-family',
+  'font-size',
+  'font-weight',
+  'font-style',
+  'line-height',
+  'letter-spacing',
+  'color',
+];
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -81,13 +92,15 @@ function printRules(template: TemplateFile, sizes: readonly string[]): string {
 }
 
 // The document's pages as markup, without the editing state or view-only decorations, with the
-// suggestions the markup shows, each section marked with its sheet.
+// code highlights the view paints and the suggestions the markup shows, each section marked with
+// its sheet.
 function pagesMarkup(
   view: EditorView,
   sections: readonly number[],
   markup: SnapshotMarkup,
 ): string {
   const copy = view.dom.cloneNode(true) as HTMLElement;
+  copyCodeHighlights(view, copy);
   for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
   removeViewOnlyDecorations(copy, view);
   applySuggestionMarkup(copy, markup);
@@ -101,6 +114,25 @@ function pagesMarkup(
   return copy.outerHTML;
 }
 
+// The language the pages are shown in, the closest one around them, which picks their fonts'
+// fallbacks, hyphenation and quotes; none when nothing around them names one.
+function languageAttribute(view: EditorView): string {
+  const language = view.dom.closest('[lang]')?.getAttribute('lang');
+  return language ? ` lang="${escapeHtml(language)}"` : '';
+}
+
+// The text style the pages inherit in the editor, from the page it is on, so text the template
+// and stylesheets leave unstyled prints as it shows there rather than in the browser's default.
+function inheritedText(view: EditorView): string {
+  const around = view.dom.parentElement;
+  const computed = around && view.dom.ownerDocument.defaultView?.getComputedStyle(around);
+  if (!computed) return '';
+  return INHERITED_TEXT.map((name) => [name, computed.getPropertyValue(name)] as const)
+    .filter(([, value]) => value)
+    .map(([name, value]) => `${name}: ${value};`)
+    .join(' ');
+}
+
 // The editor root's hooks around the pages, so stylesheets scoped to the editor style them too,
 // without the ones that describe the view; the snapshot is read, never edited, shows the markup
 // it was made with, and is marked as print (`data-print`) for a stylesheet's print overrides.
@@ -112,7 +144,8 @@ function rootMarkup(view: EditorView, pages: string, markup: SnapshotMarkup): st
     .map(({ name, value }) => ` ${name}="${escapeHtml(value)}"`)
     .join('');
   const hooks = `data-mode="reading" data-markup="${markup}" data-print="true"`;
-  return `<div class="${ROOT_CLASS}" ${hooks}${data}>${pages}</div>`;
+  const style = escapeHtml(inheritedText(view));
+  return `<div class="${ROOT_CLASS}" ${hooks}${data} style="${style}">${pages}</div>`;
 }
 
 /**
@@ -131,7 +164,7 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
   const styles = (options.styles ?? []).map((css) => `<style>${css}</style>`).join('');
   return [
     '<!doctype html>',
-    '<html><head><meta charset="utf-8">',
+    `<html${languageAttribute(view)}><head><meta charset="utf-8">`,
     `<title>${escapeHtml(options.title ?? '')}</title>`,
     `<style>${printRules(options.template, sizes)} :root { ${properties} }</style>`,
     links,
