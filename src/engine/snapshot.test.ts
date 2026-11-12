@@ -258,4 +258,33 @@ describe('documentSnapshot', () => {
     );
     view.destroy();
   });
+
+  it('DOCE-EDITOR-6.15 takes off the view-only hooks its markup names, whatever state drew them', () => {
+    const { view, template: sectioned } = sectionedView();
+    // A view-only decoration another state drew, as a projection's pages are: only the markup
+    // names what it added.
+    const paragraph = view.dom.querySelector('p');
+    const drawn = document.createElement('span');
+    drawn.setAttribute('data-de-view-only', 'data-flagged .flagged');
+    drawn.setAttribute('data-flagged', 'yes');
+    drawn.className = 'flagged';
+    drawn.append(...(paragraph?.childNodes ?? []));
+    paragraph?.append(drawn);
+    const snapshot = parse(documentSnapshot(view, { template: sectioned }));
+    expect(snapshot.body.querySelector('[data-flagged], .flagged, [data-de-view-only]')).toBeNull();
+    expect(snapshot.body.querySelector('p')?.innerHTML).toBe('Body');
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-6.19 prints with the text style the pages inherit in the editor', () => {
+    const { view, template: sectioned } = sectionedView();
+    const around = view.dom.parentElement;
+    around?.style.setProperty('font-family', 'Georgia');
+    around?.style.setProperty('color', 'rgb(1, 2, 3)');
+    const snapshot = parse(documentSnapshot(view, { template: sectioned }));
+    const root = snapshot.body.firstElementChild as HTMLElement | null;
+    expect(root?.style.getPropertyValue('font-family')).toBe('Georgia');
+    expect(root?.style.getPropertyValue('color')).toBe('rgb(1, 2, 3)');
+    view.destroy();
+  });
 });

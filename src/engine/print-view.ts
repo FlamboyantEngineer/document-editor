@@ -15,10 +15,19 @@ const VIEW_STATE_ATTRIBUTES = new Set([
   'data-debug-measure',
 ]);
 
-// The attributes and classes the view's view-only decorations add, from every decoration source.
-function viewOnlyHooks(view: EditorView) {
+// The attributes and classes view-only decorations add: as the hooks in the markup name them,
+// and as the view's decorations record them. The markup's hooks cover a view whose decorations
+// another state draws, as on a projection; the recorded ones cover two decorations PM merged
+// onto one element, which keeps only one of their hooks.
+function viewOnlyHooks(view: EditorView, copy: Element) {
   const attributes = new Set<string>();
   const classes = new Set<string>();
+  for (const element of copy.querySelectorAll(`[${VIEW_ONLY_ATTRIBUTE}]`)) {
+    for (const token of (element.getAttribute(VIEW_ONLY_ATTRIBUTE) ?? '').split(/\s+/)) {
+      if (token.startsWith('.')) classes.add(token.slice(1));
+      else if (token.startsWith('data-') || token === 'style') attributes.add(token);
+    }
+  }
   const collect = (set: DecorationSet) => {
     for (const decoration of set.find()) {
       const hooks = viewOnlyHooksOf(decoration);
@@ -68,7 +77,7 @@ export function applySuggestionMarkup(copy: Element, markup: SnapshotMarkup): vo
  * wrapper an inline one drew once nothing else is left on it.
  */
 export function removeViewOnlyDecorations(copy: Element, view: EditorView): void {
-  const { attributes, classes } = viewOnlyHooks(view);
+  const { attributes, classes } = viewOnlyHooks(view, copy);
   for (const element of copy.querySelectorAll(`[${VIEW_ONLY_ATTRIBUTE}]`)) {
     if (element.classList.contains('ProseMirror-widget')) {
       element.remove();

@@ -42,6 +42,9 @@ function initialName(): RegressionDocumentName {
 }
 
 // The layout the query names: pages, or the web layout (`layout=web`).
+// `?projection` shows the pages as a projection of the state (DOCE-PAGINATION-7.17).
+const PROJECTION = new URLSearchParams(window.location.search).has('projection');
+
 const LAYOUT: DocumentLayout =
   new URLSearchParams(window.location.search).get('layout') === 'web' ? 'web' : 'page';
 
@@ -104,6 +107,7 @@ function RegressionLab() {
         onStateChange={setState}
         template={template}
         layout={LAYOUT}
+        projection={PROJECTION}
         scrollable
         statusBar
         className="lab-document-editor"

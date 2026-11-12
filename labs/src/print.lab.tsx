@@ -75,6 +75,9 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// `?projection` shows the pages as a projection of the state (DOCE-PAGINATION-7.17).
+const PROJECTION = new URLSearchParams(window.location.search).has('projection');
+
 // The lab's own stylesheet, so the preview is styled as the editor is.
 const stylesheet = () => new URL('build/reference.css', window.location.href).href;
 
@@ -146,6 +149,7 @@ function Lab() {
         state={state}
         onStateChange={setState}
         template={TEMPLATE}
+        projection={PROJECTION}
         toolbar
         find
         debug={debug}

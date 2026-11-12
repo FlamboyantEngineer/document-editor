@@ -35,5 +35,7 @@ jobs:
       - run: npm ci
       # The browser tests need Playwright's own Chromium, which the runner image does not carry.
       - run: npx playwright install --with-deps chromium
+      # The print tests read each printed sheet's text with pdftotext.
+      - run: sudo apt-get install -y poppler-utils
       - name: Checks
         run: npm run check

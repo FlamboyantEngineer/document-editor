@@ -1,5 +1,6 @@
 // What the regression lab shows its scenarios (`e2e/regression.spec.ts`) on `window.regressionLab`:
-// the document as it would be stored, and a caret put at a split block's fragment boundary. The
+// the document as it would be stored, a caret put at a split block's fragment boundary, and the
+// pages as a snapshot for printing. The
 // scenarios read pages from the page's DOM and the document from here, so they do not depend on
 // how the editing state holds the pages.
 
@@ -32,7 +33,12 @@ export interface RegressionProbe {
    * whether the position is in a text block.
    */
   caretAtJoined(at: number): boolean;
+  /** The pages as a snapshot for printing (`exportSnapshot`), or null before the editor shows. */
+  snapshot(options?: SnapshotProbeOptions): string | null;
 }
+
+/** What the probe's snapshot takes: the editor's snapshot options. */
+export type SnapshotProbeOptions = Parameters<DocumentEditorHandle['exportSnapshot']>[0];
 
 /** Where a caret went at a fragment boundary. */
 export interface FragmentCaret {
@@ -137,6 +143,7 @@ export function useRegressionProbe(handle: RefObject<DocumentEditorHandle | null
         placeCaret(view, at);
         return view.state.doc.resolve(at).parent.isTextblock;
       },
+      snapshot: (options) => handle.current?.exportSnapshot(options) ?? null,
     };
     Object.assign(window, { regressionLab: probe });
   }, [handle]);
