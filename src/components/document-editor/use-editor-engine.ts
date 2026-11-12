@@ -5,7 +5,7 @@
 import type { RichTextEngineEvents } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { automationActor, proofingUpdate, suggestTransaction } from '../../engine/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
 import { isContentChange } from './use-host-events.js';
@@ -118,4 +118,26 @@ export function useEngineView(
     [],
   );
   return { view, events: withView };
+}
+
+/**
+ * Renders nothing; placed before the engine, it has the view take the selection the browser shows
+ * and has not reported yet before the engine draws a render that keeps the state, such as one for
+ * the pages settling: the engine would draw the state's selection back over one a key extended a
+ * moment before (DOCE-EDITOR-1.4). A render with a new state draws that state's selection.
+ */
+export function SelectionFirst({
+  view,
+  state,
+}: {
+  readonly view: EditorView | null;
+  readonly state: EditorState;
+}): null {
+  const drawn = useRef(state);
+  useLayoutEffect(() => {
+    const kept = drawn.current === state;
+    drawn.current = state;
+    if (kept && view) readDomSelection(view);
+  });
+  return null;
 }

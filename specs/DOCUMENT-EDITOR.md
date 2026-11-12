@@ -27,10 +27,10 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/st
 
 ### DOCE-EDITOR-1.4 - The caret the writer placed
 
-The browser reports a click's or a key's new caret a moment after it moves. Before a key or typed text acts, and before a layout of the pages or proofing results commit, the view shall take the selection and changes the browser shows, so keys act where the writer put the caret and no committed state draws an older selection back over it.
+The browser reports a click's or a key's new caret a moment after it moves. Before a key or typed text acts, before a layout of the pages or proofing results commit, and before the editor draws a render that keeps its state (such as one for the pages settling), the view shall take the selection and changes the browser shows. Keys then act where the writer put the caret, and nothing drawn puts an older selection back over it, such as a word that a key selected a moment before a toolbar control acts on it.
 
-Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/document-editor.tsx`, `src/pagination/pagination.ts`, `src/engine/proofing.ts`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/pagination/pagination.ts`, `src/engine/proofing.ts`
+Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`, `e2e/references.spec.ts`
 
 ## DOCE-EDITOR-2 - Layouts in the browser
 
