@@ -18,6 +18,7 @@ import {
   type StoredTypeMapping,
   type StoredTypeSpec,
 } from './document-format.js';
+import { convertBlockRecord, writeRecordedMarks } from './format-records.js';
 import type { RegionSettings, TemplatePin } from './template-format.js';
 
 type Attrs = Record<string, unknown>;
@@ -66,6 +67,7 @@ function writeAttrs(
 function writeMark(mark: Mark): StoredMark {
   const mapping = STORED_MARK_TYPES[mark.type.name];
   const attrs = writeAttrs(mark.attrs, mark.type.spec, mapping);
+  if (attrs?.before) attrs.before = writeRecordedMarks(attrs.before, mark.type.schema, writeMark);
   return { type: mapping?.type ?? mark.type.name, ...(attrs ? { attrs } : {}) };
 }
 
@@ -92,6 +94,15 @@ function writeElement(node: ProseMirrorNode, context: WriteContext): StoredNode 
   const name = node.type.name;
   const mapping = STORED_NODE_TYPES[name];
   const attrs = writeAttrs(node.attrs, node.type.spec as StoredTypeSpec, mapping);
+  if (attrs?.suggestionFormat) {
+    attrs.suggestionFormat = convertBlockRecord(attrs.suggestionFormat, (shape) => {
+      const type = node.type.schema.nodes[shape.type];
+      const stored = STORED_NODE_TYPES[shape.type];
+      if (!type) return null;
+      const written = writeAttrs(shape.attrs ?? {}, type.spec as StoredTypeSpec, stored);
+      return { type: stored?.type ?? shape.type, attrs: written };
+    });
+  }
   const stored: StoredNode = { type: mapping?.type ?? name, ...(attrs ? { attrs } : {}) };
   if (MATH_TYPES.has(name)) {
     stored.attrs = { ...stored.attrs, source: node.textContent };

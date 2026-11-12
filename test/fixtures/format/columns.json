@@ -15,12 +15,24 @@
             "author": "author-1",
             "aiSession": "session-1",
             "suggestionKind": "sample-suggestionSplitKind",
-            "suggestionId": "sample-suggestionSplitId"
+            "suggestionId": "sample-suggestionSplitId",
+            "suggestionFormat": {
+              "id": "sample-suggestionFormat",
+              "author": "sample-dataAuthor",
+              "type": "paragraph",
+              "attrs": {
+                "level": 2
+              }
+            }
           },
           "content": [
             {
               "type": "column",
-              "attrs": { "id": "column-2", "author": "author-1", "aiSession": "session-1" },
+              "attrs": {
+                "id": "column-2",
+                "author": "author-1",
+                "aiSession": "session-1"
+              },
               "content": [
                 {
                   "type": "paragraph",
@@ -31,6 +43,14 @@
                     "aiSession": "session-1",
                     "suggestionKind": "sample-suggestionSplitKind",
                     "suggestionId": "sample-suggestionSplitId",
+                    "suggestionFormat": {
+                      "id": "sample-suggestionFormat",
+                      "author": "sample-dataAuthor",
+                      "type": "paragraph",
+                      "attrs": {
+                        "level": 2
+                      }
+                    },
                     "level": 3
                   }
                 }

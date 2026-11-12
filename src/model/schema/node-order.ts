@@ -61,5 +61,6 @@ export const DOCUMENT_MARK_ORDER = Object.freeze({
   comment_highlight: 90,
   insertion: 100,
   deletion: 110,
+  format_change: 115,
   reference: 120,
 });
