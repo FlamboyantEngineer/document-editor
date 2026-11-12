@@ -19,6 +19,8 @@ export interface ThreadFilter {
   readonly audience?: CommentsAudience | undefined;
   /** Splits a comment's text into text and mentions. */
   readonly parse: (text: string) => readonly CommentTextSegment[];
+  /** A thread the reader was taken to, which shows whatever the filter keeps. */
+  readonly revealed?: string | null | undefined;
 }
 
 /** Whether a thread's comments mention the reader by name. */
@@ -48,7 +50,7 @@ export function isThreadShown(
   { resolved }: { resolved: boolean },
 ): boolean {
   if (filter.audience && !filter.audience(thread, filter.me)) return false;
-  if (filter.filter === 'all') return true;
+  if (filter.filter === 'all' || thread.id === filter.revealed) return true;
   if (thread.state !== 'open' && (filter.filter === 'open' || !resolved)) return false;
   return filter.filter === 'open' || isOwnThread(thread, filter);
 }

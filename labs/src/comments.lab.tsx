@@ -3,7 +3,9 @@
 // thread of their own. Reading, the margin shows the threads without composers or decisions. The
 // reader edits and deletes their own comments, reacts to any, shows resolved threads to reopen
 // them, and opens a thread through the editor's handle. The margin filters to the reader's own
-// threads, reads comments as Markdown, keeps to an audience and shows mentions without cards.
+// threads, reads comments as Markdown, keeps to an audience and shows mentions without cards. The
+// threads may live in the comments panel alone, and the handle opens a thread at a comment with a
+// reply started, or starts a thread with its text.
 
 import { EditorState } from 'prosemirror-state';
 import { useRef, useState } from 'react';
@@ -128,6 +130,7 @@ function Lab() {
   const [reading, setReading] = useState(false);
   const [resolved, setResolved] = useState(false);
   const [panel, setPanel] = useState(false);
+  const [pane, setPane] = useState(false);
   const [mine, setMine] = useState(false);
   const [markdown, setMarkdown] = useState(false);
   const [audience, setAudience] = useState(false);
@@ -138,6 +141,7 @@ function Lab() {
     format: markdown ? ('markdown-inline' as const) : ('plain' as const),
     audience: audience ? onlyMine : undefined,
     mentionCard: plainChips ? null : undefined,
+    placement: pane ? ('pane' as const) : ('margin' as const),
   };
   const filter = mine ? 'mine' : resolved ? 'all' : 'open';
   return (
@@ -207,8 +211,31 @@ function Lab() {
           />{' '}
           Mentions without cards
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="pane"
+            checked={pane}
+            onChange={(event) => setPane(event.currentTarget.checked)}
+          />{' '}
+          Comments in the pane only
+        </label>
         <button type="button" onClick={() => handle.current?.openThread('c0ffee01')}>
           Open the first thread
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            handle.current?.openThread('c0ffee01', { entryId: 'e1', reply: 'From the detection.' })
+          }
+        >
+          Answer the first comment
+        </button>
+        <button
+          type="button"
+          onClick={() => handle.current?.startComment({ text: 'Please confirm this.' })}
+        >
+          Ask to confirm the selection
         </button>
       </fieldset>
       <DocumentEditor
@@ -235,7 +262,7 @@ function Lab() {
           },
         }}
       >
-        {panel && comments ? (
+        {(panel || pane) && comments ? (
           <aside className="lab-panels">
             <DocumentCommentsPanel
               store={comments}

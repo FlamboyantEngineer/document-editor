@@ -11,7 +11,7 @@ import {
 } from '@flamboyantengineer/ui-components/inline-text-diff';
 import type { Suggestion } from '../../engine/index.js';
 import type { CommentThread as StoredThread } from '../../host/index.js';
-import { type CardContext, DraftComposer, Entries } from './comment-cards.js';
+import { type CardContext, DraftComposer, renderEntries } from './comment-cards.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
 
 // What a suggestion changes, as the removed and the added text; whitespace alone shows by name.
@@ -105,7 +105,7 @@ export function SuggestionCard({
           isReadOnly={!canComment}
           isSelected={isActive}
         >
-          {thread ? <Entries thread={thread} context={context} /> : null}
+          {thread ? renderEntries({ thread, context }) : null}
         </CommentThread>
       ) : null}
     </Card>

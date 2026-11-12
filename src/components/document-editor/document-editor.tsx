@@ -53,7 +53,7 @@ import {
   type EditorContext,
   type ObjectDialog,
 } from './editor-context.js';
-import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
+import { type DocumentEditorHandle, useCommentRefs, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { EditorScope } from './editor-scope.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
@@ -334,10 +334,11 @@ export function DocumentEditor(props: DocumentEditorProps) {
     if (view && layout === 'web') ready.signal();
   }, [view, layout, ready]);
   useElementIdRepair(editable ? view : null, state, props.repairIds);
-  const startCommentRef = useRef<(() => void) | null>(null);
+  const refs = useCommentRefs();
+  const { startCommentRef } = refs;
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress });
+  useEditorHandle(props.handleRef, view, { ...refs, template, layout: progress });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(
@@ -357,7 +358,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
       view={view}
       paged={progress.paged}
       labels={labels}
-      startCommentRef={startCommentRef}
+      commentRefs={refs}
       onFind={openFind}
       onDialog={editable ? setDialog : null}
     />

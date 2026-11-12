@@ -106,7 +106,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.6 - Commenting from the keyboard
 
-Mod-Alt-M, the context menu's Comment and the handle's `startComment()` shall start a thread on the selected text, or, without a selection, on the text block holding the caret, while the editor shows comments and the reader may comment.
+Mod-Alt-M, the context menu's Comment and the handle's `startComment()` shall start a thread on the selected text, or, without a selection, on the text block holding the caret, while the editor shows comments and the reader may comment; `startComment({ text })` starts its opening comment with the text (DOCE-COMMENTS-4.9).
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-comments/document-comments.tsx`
 Verification: `e2e/comments.spec.ts`
@@ -127,7 +127,7 @@ Verification: `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.9 - Opening a thread
 
-The handle's `openThread(threadId)` shall put the caret in the thread's anchor and scroll it into view, which makes its card the active one; it is refused for a thread the document does not anchor.
+The handle's `openThread(threadId)` shall put the caret in the thread's anchor and scroll it into view, which makes its card the active one; it is refused for a thread the document does not anchor and the comments do not hold (DOCE-COMMENTS-4.8).
 
 Implementation: `src/components/document-editor/editor-handle.ts`
 Verification: `e2e/comments.spec.ts`
@@ -254,6 +254,27 @@ The panel's card of the thread or suggestion the caret is in shall be the active
 
 Implementation: `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comment-items.tsx`
 Verification: `src/components/document-comments/comments-panel.test.tsx`
+
+### DOCE-COMMENTS-4.7 - Threads in the pane alone
+
+With `placement: 'pane'`, the editor shall show no margin, leaving the document its whole width, and a comments panel given the same placement shall hold the threads alone: Mod-Alt-M, the context menu's Comment and the handle's `startComment()` start a thread whose composer shows in the panel, and the panel offers Comment on a selection.
+
+Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`
+Verification: `src/components/document-comments/comment-focus.test.tsx`, `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-4.8 - Opening a thread at a comment
+
+The handle's `openThread(threadId, { entryId })` shall take the reader to the thread wherever it shows: it puts the caret in its anchor, centred in view, makes its card the active one in the margin and the panel, which scrolls it into view, shows it whatever their filter keeps, and points at the comment `entryId` names (`data-highlighted` on its reply), showing hidden replies. A thread the document no longer anchors opens in the panel.
+
+Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-comments/comment-focus.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/comments-panel.tsx`
+Verification: `src/components/document-comments/comment-focus.test.tsx`, `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-4.9 - Prefilled drafts
+
+`startComment({ text })` shall start the new thread's opening comment with the text, and `openThread(threadId, { reply })` shall start a reply with it in the thread's composers; a composer started so keeps no draft (DOCE-COMMENTS-2.12), since a kept one would hide the host's text.
+
+Implementation: `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-focus.test.tsx`
 
 ## Hooks
 

@@ -266,4 +266,38 @@ test.describe('comments lab', () => {
     await page.getByLabel('Threads I wrote in only').check();
     await expect(card(page, 'Is one second measured')).toHaveCount(0);
   });
+
+  test('DOCE-COMMENTS-4.7 keeps the threads in the pane and starts one there with Mod-Alt-M', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments in the pane only').check();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    await expect(panel).toContainText('Is one second measured');
+    await expect(margin(page)).toHaveCount(0);
+    await selectText(page, 'operator console');
+    await page.keyboard.press('ControlOrMeta+Alt+m');
+    const composer = panel.getByRole('textbox').last();
+    await expect(composer).toBeFocused();
+    await page.keyboard.type('Which one?');
+    await panel.getByRole('button', { name: 'Comment', exact: true }).click();
+    await expect(panel).toContainText('Which one?');
+  });
+
+  test('DOCE-COMMENTS-4.8 DOCE-COMMENTS-4.9 opens a thread at a comment with a reply started', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments panel').check();
+    await page.getByRole('button', { name: 'Answer the first comment' }).click();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    const thread = card(page, 'Is one second measured');
+    await expect(thread).toHaveAttribute('data-active', 'true');
+    await expect(panel.locator('[data-highlighted="true"]')).toContainText(
+      'Is one second measured',
+    );
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveText('From the detection.');
+  });
 });

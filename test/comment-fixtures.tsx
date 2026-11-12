@@ -2,13 +2,14 @@
 // a suggestion, kept by an in-memory host whose reader is Ada.
 
 import { EditorState, TextSelection } from 'prosemirror-state';
-import { useEffect, useState } from 'react';
+import { type Ref, useEffect, useState } from 'react';
 import {
   DocumentCommentsPanel,
   type DocumentCommentsPanelProps,
 } from '../src/components/document-comments/comments-panel.js';
 import type { DocumentCommentsOptions } from '../src/components/document-comments/document-comments.js';
 import { DocumentEditor } from '../src/components/document-editor/document-editor.js';
+import type { DocumentEditorHandle } from '../src/components/document-editor/editor-handle.js';
 import { createDocumentEditing } from '../src/engine/index.js';
 import { type CommentThread, createMemoryHost, type EditorHost } from '../src/host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../src/model/index.js';
@@ -97,6 +98,8 @@ export function Harness(props: {
   panel?: boolean | Partial<DocumentCommentsPanelProps>;
   /** The paragraph's content, in place of `PARAGRAPH`. */
   content?: readonly StoredNode[];
+  /** Receives the editor's handle. */
+  handleRef?: Ref<DocumentEditorHandle>;
 }) {
   const [state, setState] = useState(() => initial(props.select, props.content));
   useEffect(() => {
@@ -111,6 +114,7 @@ export function Harness(props: {
       layout="web"
       editable={props.editable}
       aria-label="Report"
+      handleRef={props.handleRef}
       comments={
         comments
           ? {

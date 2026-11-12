@@ -19,6 +19,7 @@ import { UserCard } from '@flamboyantengineer/ui-components/user-card';
 import type { ReactNode } from 'react';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import type { OpenedComment } from './comment-focus.js';
 import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
 import type { CommentThreads } from './use-comment-threads.js';
@@ -48,6 +49,17 @@ export interface CardContext {
    * identity gives, and none with null.
    */
   readonly mentionCard?: ((target: MentionTarget) => ReactNode) | null | undefined;
+  /** Where the cards show, which keeps their comments' element ids apart. */
+  readonly scope: 'margin' | 'panel';
+  /** The comment the reader was taken to, which its thread points at. */
+  readonly opened?: OpenedComment | null | undefined;
+  /** The text a thread being started begins with. */
+  readonly newText?: string | null | undefined;
+}
+
+/** The element id of a comment where the cards show. */
+function entryElementId(context: CardContext, entryId: string): string {
+  return `de-comment-${context.scope}-${entryId}`;
 }
 
 /**
@@ -59,17 +71,24 @@ export function DraftComposer({
   draftKey,
   first,
   onSubmit,
+  defaultValue,
 }: {
   context: CardContext;
   draftKey: string;
   first: boolean;
   onSubmit: (text: string) => Promise<unknown>;
+  /** The text to begin with, such as a reply a link starts. */
+  defaultValue?: string | undefined;
 }) {
   const { labels } = context;
   return (
     <CommentComposer
       mentions={context.mentions}
-      persistKey={`de-comments:${context.documentId}:${draftKey}`}
+      defaultValue={defaultValue}
+      // A kept draft would hide the text a host starts the reply with.
+      persistKey={
+        defaultValue === undefined ? `de-comments:${context.documentId}:${draftKey}` : undefined
+      }
       label={first ? labels.addComment : labels.reply}
       submitLabel={first ? labels.comment : labels.reply}
       onSubmit={onSubmit}
@@ -143,7 +162,10 @@ function mentionCardOf(context: CardContext): CommentTextProps['renderCard'] {
   );
 }
 
-export function Entries({
+/**
+ * A thread's comments, as the thread's own children, so it finds the one it points at by its id.
+ */
+export function renderEntries({
   thread,
   context,
   onRemove,
@@ -157,6 +179,7 @@ export function Entries({
   return thread.entries.map((entry, index) => (
     <CommentThreadReply
       key={entry.id}
+      id={entryElementId(context, entry.id)}
       author={people.get(entry.author) ?? { name: context.labels.someone }}
       time={entry.createdAt}
       text={entry.text}
@@ -190,26 +213,31 @@ export function ThreadCard({
   onRemove: () => Promise<void>;
 }) {
   const { canComment, comments } = context;
+  const opened = context.opened?.threadId === thread.id ? context.opened : null;
   return (
     <CommentThread
       mentions={context.mentions}
       quote={thread.quote}
+      highlightedId={opened?.entryId ? entryElementId(context, opened.entryId) : undefined}
       isResolved={thread.state === 'resolved'}
       onResolvedChange={canComment ? (resolved) => void onResolve(resolved) : undefined}
       composer={
         canComment ? (
           <DraftComposer
+            // A reply a link starts takes the composer's place, with the text it begins with.
+            key={opened?.reply === undefined ? 'draft' : `opened-${String(opened.sequence)}`}
             context={context}
             draftKey={thread.id}
             first={thread.entries.length === 0}
             onSubmit={(text) => comments.reply(thread.id, text)}
+            defaultValue={opened?.reply}
           />
         ) : undefined
       }
       isReadOnly={!canComment}
       isSelected={isActive}
     >
-      <Entries thread={thread} context={context} onRemove={onRemove} />
+      {renderEntries({ thread, context, onRemove })}
     </CommentThread>
   );
 }
@@ -237,7 +265,8 @@ export function PendingCard({
           ref={composer}
           mentions={context.mentions}
           autoFocus
-          persistKey={`de-comments:${context.documentId}:new`}
+          defaultValue={context.newText ?? undefined}
+          persistKey={context.newText == null ? `de-comments:${context.documentId}:new` : undefined}
           submitLabel={context.labels.comment}
           onSubmit={onSubmit}
           onCancel={onCancel}
