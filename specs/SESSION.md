@@ -175,6 +175,71 @@ When the host's `lifecycle` adapter says the page is hidden or being left, the s
 Implementation: `src/session/session-follow.ts`, `src/session/store-saving.ts`
 Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
 
+## DOCE-SESSION-6 - Drafts and offline
+
+### DOCE-SESSION-6.1 - Keeping store-mode drafts
+
+In store mode, while the document has unsaved changes, the session shall keep its content in the stored format, with its template pin and the revision it was edited from, through the host's `drafts` adapter once changes pause for `draftDelay` milliseconds (300 by default), so a reload or a crash does not lose it. Once a save leaves nothing unsaved, the session shall remove the draft.
+
+Implementation: `src/session/drafts.ts`, `src/session/store-session.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.2 - Offering a draft
+
+When a document opens and the `drafts` adapter holds a draft for it, the session's `draft` store shall offer it (`savedAt`, `outdated`) until it is restored or discarded, and no later change replaces the offered draft meanwhile. `restoreDraft()` shall show the draft's content and template in place of the stored ones, as a change to save.
+
+Implementation: `src/session/drafts.ts`, `src/session/store-session.ts`
+Verification: `src/session/drafts.test.ts`, `e2e/offline.spec.ts`
+
+### DOCE-SESSION-6.3 - Drafts the store already holds
+
+A draft whose content and template pin the store already holds, compared as DOCE-SESSION-2.1 compares them, shall not be offered, and the session shall remove it.
+
+Implementation: `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.4 - Drafts from an older revision
+
+A draft edited from an older revision than the store holds shall be offered as `outdated`. Once restored, it shall be saved against the revision it was edited from, with that revision's content (`versions.load`) as its base, so the store refuses it as a `conflict` and the session merges it into the newer save (DOCE-SESSION-4) rather than losing either; blocks both changed wait for the reader.
+
+Implementation: `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.5 - Discarding a draft
+
+`discardDraft()` shall end the offer and remove the draft, keeping the stored content.
+
+Implementation: `src/session/store-session.ts`, `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`, `e2e/offline.spec.ts`
+
+### DOCE-SESSION-6.6 - Drafts when the page goes away
+
+When the host's `lifecycle` adapter says the page is hidden or being left, the session shall keep its draft at once, before it flushes, so a save that fails then still leaves the draft.
+
+Implementation: `src/session/store-session.ts`, `src/session/drafts.ts`
+Verification: `src/session/drafts.test.ts`
+
+### DOCE-SESSION-6.7 - Keeping room-mode drafts
+
+In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left: the document's state, the changes the room has not confirmed, the last state the room had confirmed all of (`confirmed`), and the room's generation.
+
+Implementation: `src/collab/offline.ts`
+Verification: `src/collab/offline.test.ts`
+
+### DOCE-SESSION-6.8 - Replaying room-mode drafts
+
+`restoreRoomDraft` shall apply a draft's state and unconfirmed changes to a new shared document as one merged update, which keeps causal order whatever order they were kept in (DOCE-COLLAB-4.6), and say whether Yjs integrated it whole. Handed to the connection as its unconfirmed update, the draft's local changes reach the room once it connects again, and `whenStored` resolves once the room has stored them.
+
+Implementation: `src/collab/offline.ts`
+Verification: `src/collab/offline.test.ts`
+
+### DOCE-SESSION-6.9 - Merging a room draft into a new generation
+
+When a shared room has started a new generation since a draft was kept, `mergeRoomDraft` shall merge what the draft holds beyond the last state the room confirmed into the new generation's document, by element id (DOCE-SESSION-4): a block only the draft changed takes the draft's version, as one change the binding sends to the room. A block both changed, or one changed and the other removed, keeps the new generation's version and is reported as a leftover with the draft's version. A draft with no unconfirmed changes merges nothing, and a draft with no confirmed state reports every block that differs.
+
+Implementation: `src/collab/offline.ts`
+Verification: `src/collab/offline.test.ts`
+
 ## DOCE-SESSION-7 - Refreshing from the store
 
 ### DOCE-SESSION-7.1 - Following the store's saves
