@@ -35,6 +35,7 @@ import {
   type SectionLayoutRules,
   type SectionPageHeight,
 } from './layout-document.js';
+import { wantsLayoutNow } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import {
   awaitReady,
@@ -43,6 +44,7 @@ import {
   remeasureOn,
   settleEdits,
 } from './layout-triggers.js';
+import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
@@ -62,6 +64,7 @@ import {
   type Session,
   showCanonical,
   take,
+  takeCaretBefore,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
 
@@ -105,13 +108,15 @@ export interface PagedProjectionOptions {
   readonly dispatch?: ((tr: Transaction) => void) | undefined;
   /** Receives each new projection state, for whatever renders it. */
   readonly onProjection: (state: EditorState) => void;
+  /** How much the pages are scaled on screen, such as by a zoom, for the check of drawn pages. */
+  readonly scale?: (() => number) | undefined;
   /** Milliseconds without an edit before the pages are laid out again; 150 by default. */
   readonly settle?: number | undefined;
   /** Runs a layout soon and returns how to cancel it; by default on the next animation frame. */
   readonly schedule?: ((run: () => void) => () => void) | undefined;
   /**
    * Called after each layout with the projection transaction that moved onto the new pages,
-   * marked as a pagination's (`isPaginationTransaction`, `layoutStats`).
+   * marked as a layout's (`isPaginationTransaction`, `layoutStats`).
    */
   readonly onLayout?: ((tr: Transaction) => void) | undefined;
   /** Tells of each change of the layout state (`PagedProjection.layoutState`). */
@@ -123,7 +128,7 @@ export interface PagedProjectionOptions {
   readonly ready?: PromiseLike<unknown> | undefined;
 }
 
-/** What a projection has done since it was made: what its layouts did, as a pagination's. */
+/** What a projection has done since it was made: what its layouts did. */
 export interface ProjectionStats extends PaginationStats {
   /** Projection edits refused, as a step did not map onto the canonical state. */
   readonly refused: number;
@@ -244,6 +249,7 @@ function projectionState(options: PagedProjectionOptions, session: () => Session
         map: () => session().map,
       }),
       canonicalDecorations(source),
+      checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
       ...(options.plugins ?? []),
     ],
@@ -279,6 +285,12 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
       restart: false,
       memory: createLayoutMemory(),
       ready: awaitReady(options.ready, () => refreshLayout(session(), true)),
+      draws: checkDraws({
+        scale: options.scale,
+        cache,
+        count: (pages) => session().pace.counter.overflow(pages),
+        request: () => requestLayout(session()),
+      }),
     },
     canonical: options.state,
     projection: projectionState(options, session),
@@ -335,7 +347,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       const replugged = state.plugins !== live.canonical.plugins;
       live.canonical = state;
       if (replugged) replug(live);
-      quietly(live, () => showCanonical(live, tr ?? null));
+      quietly(live, () => showCanonical(live, tr ?? null, tr ? wantsLayoutNow(tr) : false));
     },
     run: (command) => runCommand(live, command),
     dispatch: (tr) => dispatchCanonical(live, tr),

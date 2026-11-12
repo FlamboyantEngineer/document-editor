@@ -7,7 +7,7 @@ import { type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { type Decoration, DecorationSet } from 'prosemirror-view';
 import { viewOnlyNode } from '../utils/view-only-decorations.js';
 import type { PageMetric } from './layout-document.js';
-import { pageMetrics } from './pagination.js';
+import { pageMetrics } from './layout-marks.js';
 
 /** What the layout debugging shows. */
 export interface PageDebugParts {
