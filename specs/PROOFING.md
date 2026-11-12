@@ -136,10 +136,10 @@ Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-PROOFING-3.6 - Revealing and announcing issues
 
-Once the proofing status has selected the next issue, the editor shall centre the issue in the window as far as the document scrolls and mark it with `data-proofing-flash` for `PROOFING_FLASH` milliseconds (`revealSelectedProofingIssue`), and read out its message, or kind, its text and where it stands among the issues (`proofingIssueAnnouncement`) through the editor's live regions (DOCE-EDITOR-5.6). Each issue count the proofers settle on after the first is read out (`proofingStatus`).
+Once the proofing status has selected the next issue, the editor shall centre the issue in the window as far as the document scrolls and mark it with `data-proofing-flash` for `PROOFING_FLASH` milliseconds (`revealSelectedProofingIssue`), as a decoration of the proofing state that the view draws, so the view drawing the issue again keeps the mark, and read out its message, or kind, its text and where it stands among the issues (`proofingIssueAnnouncement`) through the editor's live regions (DOCE-EDITOR-5.6). Each issue count the proofers settle on after the first is read out (`proofingStatus`).
 
 Implementation: `src/engine/proofing-commands.ts`, `src/components/document-editor/status-items.tsx`, `src/components/document-editor/editor-labels.ts`
-Verification: `e2e/proofing.spec.ts`
+Verification: `e2e/proofing.spec.ts`, `src/engine/proofing.test.ts`
 
 ## Hooks
 
