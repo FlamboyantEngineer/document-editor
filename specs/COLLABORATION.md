@@ -121,7 +121,7 @@ Verification: `src/collab/yjs-pending.test.ts`
 
 ### DOCE-COLLAB-6.1 - Room layout and write rules
 
-A shared room shall hold the canonical whole-document state in the top-level type `content`, the comment and suggestion threads in `comments`, one attribute per thread keyed by its id, and the stored format version and template pin as attributes of `meta` (`docs/collaboration.md`). The documented write rules shall let a connection write `content` when its reader may edit or suggest, `meta` when they may edit, `comments` when they may edit, suggest or comment, and no type outside the layout, deciding each update by the types it changes alone, so a commenter writes only `comments`.
+A shared room shall hold the canonical whole-document state in the top-level type `content`, the comment and suggestion threads in `comments`, one attribute per thread keyed by its id, and the stored format version and template pin as attributes of `meta` (`docs/collaboration.md`). The documented write rules shall let a connection write `content` when its reader may edit, suggest or decide on suggestions, `meta` when they may edit, `comments` when they may edit, suggest, decide or comment, and no type outside the layout, deciding each update by the types it changes alone, so a commenter writes only `comments`.
 
 Implementation: `docs/collaboration.md`
 Verification: `test/shared-room-rules.test.ts`

@@ -167,6 +167,16 @@ test.describe('comments lab', () => {
     await expect(card(page, 'Is one second measured')).toHaveAttribute('data-active', 'true');
   });
 
+  test('DOCE-COMMENTS-3.6 draws the anchor holding the caret as active', async ({ lab, page }) => {
+    await lab.open('comments');
+    const active = content(page).locator('[data-comment-active="true"]');
+    await expect(active).toHaveCount(0);
+    await page.getByRole('button', { name: 'Open the first thread' }).click();
+    await expect(active).toHaveText('one second');
+    await selectText(page, 'detecting');
+    await expect(active).toHaveCount(0);
+  });
+
   test('DOCE-COMMENTS-2.11 lists every thread in the panel, filtered, and goes to one', async ({
     lab,
     page,

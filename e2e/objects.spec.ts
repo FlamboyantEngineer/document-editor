@@ -85,6 +85,7 @@ test.describe('objects', () => {
   }) => {
     await newParagraph(page, 'Power', '');
     await toolbar(page).getByRole('button', { name: 'Figure' }).click();
+    await item(page, 'Image…').click();
     await expect(page.locator('[data-dialog="figure"]')).toHaveCount(1);
     await dialog(page)
       .locator('input[type="file"]')
@@ -98,6 +99,57 @@ test.describe('objects', () => {
     await item(page, 'Align').click();
     await choice(page, 'Center').click();
     await expect(figure).toHaveAttribute('data-object-layout', 'center');
+  });
+
+  test('DOCE-OBJECTS-1.4 places a chosen image clamped to the page and resizes it in proportion', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await toolbar(page).getByRole('button', { name: 'Figure' }).click();
+    await item(page, 'Image…').click();
+    await dialog(page).getByRole('button', { name: 'Choose an image…' }).click();
+    const picker = page.getByRole('group', { name: 'Choose an image…' });
+    await picker.getByRole('searchbox').fill('wide');
+    await picker.getByRole('row', { name: 'Wide panel' }).click();
+    await picker.getByRole('button', { name: 'Insert' }).click();
+    const width = dialog(page).getByRole('textbox', { name: 'Width (px)' });
+    const height = dialog(page).getByRole('textbox', { name: 'Height (px)' });
+    // The 800 by 400 image is narrower than the page's content once placed.
+    const placed = Number((await width.inputValue()).replace(/,/g, ''));
+    expect(placed).toBeLessThan(800);
+    await expect(height).toHaveValue(String(Math.round(placed / 2)));
+    await width.fill('300');
+    await width.press('Tab');
+    await expect(height).toHaveValue('150');
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    const figure = content(page).locator('figure[data-file-asset-id="library-wide"]');
+    await expect(figure).toHaveAttribute('data-figure-width', '300');
+    await expect(figure).toHaveAttribute('data-figure-height', '150');
+  });
+
+  test('DOCE-OBJECTS-1.4 inserts a diagram from the host diagram editor, then edits it', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await toolbar(page).getByRole('button', { name: 'Figure' }).click();
+    await item(page, 'Diagram…').click();
+    await expect(page.locator('[data-dialog="figure"]')).toHaveAttribute(
+      'data-figure-type',
+      'diagram',
+    );
+    await dialog(page).getByRole('button', { name: 'Draw diagram…' }).click();
+    await dialog(page).getByRole('textbox', { name: 'Caption' }).fill('The flow');
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    const figure = content(page).locator('figure[data-figure-type="diagram"]', {
+      hasText: 'The flow',
+    });
+    await expect(figure).toHaveAttribute('data-figure-width', '480');
+    const first = await figure.getAttribute('data-file-asset-id');
+    await figure.click({ button: 'right' });
+    await item(page, 'Edit figure…').click();
+    await dialog(page).getByRole('button', { name: 'Edit diagram…' }).click();
+    await dialog(page).getByRole('button', { name: 'Apply' }).click();
+    await expect(figure).not.toHaveAttribute('data-file-asset-id', first ?? '');
   });
 
   test('DOCE-EDITOR-4.6 uploads a pasted image as a figure', async ({ page }) => {

@@ -1,5 +1,6 @@
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
+import { CellSelection } from 'prosemirror-tables';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
@@ -75,6 +76,62 @@ describe('comment anchors', () => {
     ]);
   });
 
+  it('DOCE-COMMENTS-1.4 gives a new anchor an element id, one for all its ranges', () => {
+    const next = run(
+      selected('blue', 'Gamma'),
+      addCommentAnchor('t1', { newId: () => 'c0ffee01' }),
+    );
+    const ids = new Set<unknown>();
+    next?.doc.descendants((node) => {
+      for (const mark of node.marks) if (mark.attrs.commentId === 't1') ids.add(mark.attrs.dataId);
+    });
+    expect([...ids]).toEqual(['c0ffee01']);
+    const random = run(selected('blue', 'blue'), addCommentAnchor('t2'));
+    const mark = random?.doc.nodeAt(positionOf(random.doc, 'blue'))?.marks[0];
+    expect(mark?.attrs.dataId).toMatch(/^[a-f0-9]{8}$/);
+  });
+
+  it('DOCE-COMMENTS-1.2 anchors a cell selection with one range per selected cell', () => {
+    const cell = (value: string): StoredNode => ({
+      type: 'tableCell',
+      content: [paragraph(value)],
+    });
+    const doc = read({
+      type: 'table',
+      content: [
+        { type: 'tableRow', content: [cell('A1'), cell('B1')] },
+        { type: 'tableRow', content: [cell('A2'), cell('B2')] },
+      ],
+    });
+    // The first column: A1 and A2, leaving B1 between them unmarked.
+    const $anchor = doc.resolve(positionOf(doc, 'A1') - 2);
+    const $head = doc.resolve(positionOf(doc, 'A2') - 2);
+    const state = EditorState.create({ doc, selection: new CellSelection($anchor, $head) });
+    expect(selectedText(state)).toBe('A1 A2');
+    const next = run(state, addCommentAnchor('t1'));
+    expect(next && listCommentAnchors(next.doc)).toEqual([
+      expect.objectContaining({
+        thread: 't1',
+        text: 'A1 A2',
+        ranges: [
+          { from: positionOf(doc, 'A1'), to: positionOf(doc, 'A1') + 2 },
+          { from: positionOf(doc, 'A2'), to: positionOf(doc, 'A2') + 2 },
+        ],
+      }),
+    ]);
+    // A draft on the cells anchors the same ranges.
+    const drafting = EditorState.create({
+      doc,
+      selection: state.selection,
+      plugins: [createCommentDraft()],
+    });
+    const started = run(drafting, startCommentDraft('t2'));
+    expect(started && commentDraft(started)?.ranges).toHaveLength(2);
+    const committed =
+      started && run(started, commitCommentDraft('t2', { newId: () => 'd0000002' }));
+    expect(committed && listCommentAnchors(committed.doc)[0]?.text).toBe('A1 A2');
+  });
+
   it('DOCE-COMMENTS-1.1 refuses an empty or blank selection', () => {
     const doc = read(paragraph('Alpha blue'));
     const caret = EditorState.create({ doc, selection: TextSelection.create(doc, 3) });
@@ -87,9 +144,11 @@ describe('comment anchors', () => {
 
   it('DOCE-COMMENTS-1.7 gives the same document whichever thread is anchored first', () => {
     const state = selected('Alpha', 'Gamma');
+    // Each thread's anchor keeps its own element id, whoever anchors it.
+    const ids: Record<string, string> = { t1: 'a0000001', t2: 'a0000002' };
     const anchor = (first: string, second: string) => {
-      const once = run(state, addCommentAnchor(first));
-      return once && run(once, addCommentAnchor(second));
+      const once = run(state, addCommentAnchor(first, { newId: () => ids[first] ?? '' }));
+      return once && run(once, addCommentAnchor(second, { newId: () => ids[second] ?? '' }));
     };
     const ab = anchor('t1', 't2');
     const ba = anchor('t2', 't1');
@@ -100,7 +159,10 @@ describe('comment anchors', () => {
 
   it('DOCE-COMMENTS-1.7 keeps anchors in order when a thread is resolved or reopened', () => {
     const state = selected('Alpha', 'Gamma');
-    const both = run(run(state, addCommentAnchor('t1')) ?? state, addCommentAnchor('t2'));
+    const both = run(
+      run(state, addCommentAnchor('t1', { newId: () => 'a0000001' })) ?? state,
+      addCommentAnchor('t2', { newId: () => 'a0000002' }),
+    );
     const resolved = both && run(both, setCommentState('t1', 'resolved'));
     const reopened = resolved && run(resolved, setCommentState('t1', 'open'));
     expect(reopened && both && reopened.doc.eq(both.doc)).toBe(true);
@@ -164,7 +226,10 @@ describe('comment anchors', () => {
     const file = resolved ? writeDocumentFile(resolved.doc) : null;
     const [first] = file?.sections[0]?.content ?? [];
     expect(first?.content?.find((child) => child.text === 'blue')?.marks).toEqual([
-      { type: 'comment', attrs: { thread: 't1', state: 'resolved' } },
+      {
+        type: 'comment',
+        attrs: { id: expect.stringMatching(/^[a-f0-9]{8}$/), thread: 't1', state: 'resolved' },
+      },
     ]);
     const again = file ? readDocumentFile(file, documentSchema).doc : null;
     expect(again && resolved?.doc.eq(again)).toBe(true);

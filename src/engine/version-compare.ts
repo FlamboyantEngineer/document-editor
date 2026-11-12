@@ -4,16 +4,25 @@
 // suggestion rejected, and the blocks a suggestion inserts are not compared, or, when asked, with
 // every suggestion accepted.
 
-import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { regionKind } from '../model/index.js';
 import { commonSubsequence } from './common-subsequence.js';
 import { diffText, type TextSegment } from './text-diff.js';
+import {
+  type CompareSuggestions,
+  containersOf,
+  readVersionBlock,
+  type VersionBlockReading,
+} from './version-blocks.js';
+import { pairBlocksWithoutIds } from './version-pairing.js';
 
-/** How the versions' suggestions count: as if every one were rejected, or accepted. */
-export type CompareSuggestions = 'rejected' | 'accepted';
+export type { CompareSuggestions } from './version-blocks.js';
 
 /** How a block changed between two versions. */
 export type VersionChangeKind = 'insertion' | 'deletion' | 'modification' | 'formatting' | 'move';
+
+/** A target a block's runs point to: a link's address, or what a reference cites. */
+export type VersionChangeTarget = 'link' | 'reference';
 
 /** One block's change, placed in the newer version. */
 export interface VersionChange {
@@ -35,34 +44,41 @@ export interface VersionChange {
   readonly segments: readonly TextSegment[];
   /** Each character of `text`'s position in the newer version; none for a deletion. */
   readonly positions: readonly number[];
-  /** For a block whose text changed: whether its formatting changed too. */
+  /** For a modification: whether its formatting or its containers changed too. */
   readonly formatChanged?: boolean | undefined;
+  /** For a block both versions hold: whether the containers it sits in changed. */
+  readonly structureChanged?: boolean | undefined;
+  /** For a block both versions hold: the kinds of target whose address changed. */
+  readonly targets?: readonly VersionChangeTarget[] | undefined;
+  /** For a modification: whether only values the document generates changed. */
+  readonly generated?: boolean | undefined;
 }
 
-/** A block of a version: its identity, its parts, its text and how it is formatted. */
-export interface VersionBlock {
-  readonly key: string;
+/** A block of a version: its identity, its parts, how it reads and the containers it sits in. */
+export interface VersionBlock extends VersionBlockReading {
+  key: string;
   readonly id: string | null;
+  /** Its node type's name. */
+  readonly type: string;
   readonly parts: { from: number; to: number }[];
   text: string;
-  /** Each character of `text`'s position in the document. */
   readonly positions: number[];
-  format: string;
+  authored: string;
+  generated: string;
+  /** Its containers, outermost first, by kind and attributes. */
+  readonly container: string;
 }
 
-// The attributes that say where a block is or who wrote it, not how it looks.
-const VOLATILE_ATTRS = new Set([
-  'dataId',
-  'dataAuthor',
-  'dataAiSession',
-  'splitPartIndex',
-  'suggestionSplitKind',
-  'suggestionSplitId',
-  'orphanedListContinuation',
-]);
-
-// The marks that record a review rather than formatting.
-const REVIEW_MARKS = new Set(['comment_highlight', 'insertion', 'deletion', 'contributor']);
+/** How two versions are compared. */
+export interface CompareOptions {
+  /** How the versions' suggestions count. Defaults to rejected. */
+  readonly suggestions?: CompareSuggestions | undefined;
+  /**
+   * Whether a block whose only change is in values the document generates counts as modified.
+   * Defaults to false.
+   */
+  readonly generated?: boolean | undefined;
+}
 
 // The regions drawn around the document's content, which no version holds.
 const isPageChrome = (node: ProseMirrorNode) => {
@@ -70,43 +86,20 @@ const isPageChrome = (node: ProseMirrorNode) => {
   return kind !== null && kind !== 'content';
 };
 
-function attrsFormat(node: ProseMirrorNode): string {
-  const kept = Object.entries(node.attrs).filter(([name]) => !VOLATILE_ATTRS.has(name));
-  return `${node.type.name}${JSON.stringify(kept)}`;
-}
+// A block's formatting without its runs' lengths, which change with its text.
+const withoutLengths = (format: string) => format.replace(/\|\d+:/g, '|');
 
-function marksFormat(marks: readonly Mark[]): string {
-  return marks
-    .filter((mark) => !REVIEW_MARKS.has(mark.type.name))
-    .map((mark) => `${mark.type.name}${JSON.stringify(mark.attrs)}`)
-    .join(',');
-}
-
-// Whether a suggestion leaves the text out: an insertion rejected, or a deletion accepted.
-const isLeftOut = (node: ProseMirrorNode, suggestions: CompareSuggestions) =>
-  node.marks.some(
-    (mark) => mark.type.name === (suggestions === 'rejected' ? 'insertion' : 'deletion'),
-  );
-
-// A text block's or leaf block's text and formatting, from a position. The formatting is the
-// block's attributes and its runs of text by their marks, review marks left out.
-function readBlock(node: ProseMirrorNode, pos: number, suggestions: CompareSuggestions) {
-  const positions: number[] = [];
-  const runs: { format: string; length: number }[] = [];
-  let text = '';
-  node.forEach((child, offset) => {
-    if (isLeftOut(child, suggestions)) return;
-    const value = child.isText ? (child.text ?? '') : child.isLeaf ? '\uFFFC' : child.textContent;
-    const format = marksFormat(child.marks) + (child.isText ? '' : attrsFormat(child));
-    const last = runs.at(-1);
-    if (last?.format === format) last.length += value.length;
-    else runs.push({ format, length: value.length });
-    for (let index = 0; index < value.length; index += 1) positions.push(pos + 1 + offset + index);
-    text += value;
-  });
-  const format =
-    attrsFormat(node) + runs.map((run) => `|${String(run.length)}:${run.format}`).join('');
-  return { text, positions, format };
+// A later part of a split block: its text and positions join the first part's.
+function joinPart(
+  block: VersionBlock,
+  read: VersionBlockReading,
+  part: { from: number; to: number },
+) {
+  block.parts.push(part);
+  block.text += read.text;
+  block.authored += read.authored;
+  block.generated += read.generated;
+  block.positions.push(...read.positions);
 }
 
 /**
@@ -124,23 +117,19 @@ export function collectVersionBlocks(
     if (!node.isBlock || !(node.isTextblock || node.isAtom)) return true;
     if (suggestions === 'rejected' && node.attrs.suggestionSplitKind === 'insertion') return false;
     const id = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : null;
-    const read = readBlock(node, pos, suggestions);
+    const { container, generated } = containersOf(doc.resolve(pos));
+    const read = readVersionBlock(node, { pos, suggestions, generated });
+    const part = { from: pos, to: pos + node.nodeSize };
     const last = blocks.at(-1);
     if (id && last?.id === id && node.attrs.splitPartIndex !== null) {
-      last.parts.push({ from: pos, to: pos + node.nodeSize });
-      last.text += read.text;
-      last.positions.push(...read.positions);
+      joinPart(last, read, part);
       return false;
     }
-    const base = id ?? `#${read.format}#${read.text}`;
+    const base = id ?? `#${withoutLengths(read.format)}#${read.authored}`;
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
-    blocks.push({
-      key: count ? `${base}#${String(count)}` : base,
-      id,
-      parts: [{ from: pos, to: pos + node.nodeSize }],
-      ...read,
-    });
+    const key = count ? `${base}#${String(count)}` : base;
+    blocks.push({ ...read, key, id, type: node.type.name, parts: [part], container });
     return false;
   });
   return blocks;
@@ -151,18 +140,41 @@ function keptInOrder(older: readonly string[], newer: readonly string[]): Set<st
   return new Set(commonSubsequence(older, newer).map(([index]) => older[index] ?? ''));
 }
 
-// A block's formatting without its runs' lengths, which change with its text.
-const withoutLengths = (format: string) => format.replace(/\|\d+:/g, '|');
+// The kinds of target whose address changed between a block's versions.
+function changedTargets(newer: VersionBlock, older: VersionBlock): VersionChangeTarget[] {
+  const targets: VersionChangeTarget[] = [];
+  if (newer.links !== older.links) targets.push('link');
+  if (newer.references !== older.references) targets.push('reference');
+  return targets;
+}
 
-function changeOf(newer: VersionBlock, older: VersionBlock, moved: boolean): VersionChange | null {
+// How a block both versions hold changed: moved; its own text or a target changed; its formatting
+// or containers changed; or, when asked, only what the document generates in it changed.
+function kindOf(
+  facts: { moved: boolean; edited: boolean; formatted: boolean; generated: boolean },
+  options: CompareOptions,
+): VersionChangeKind | null {
+  if (facts.moved) return 'move';
+  if (facts.edited) return 'modification';
+  if (facts.formatted) return 'formatting';
+  return facts.generated && options.generated ? 'modification' : null;
+}
+
+function changeOf(
+  newer: VersionBlock,
+  older: VersionBlock,
+  { moved, options }: { moved: boolean; options: CompareOptions },
+): VersionChange | null {
   const textChanged = newer.text !== older.text;
-  const kind: VersionChangeKind | null = moved
-    ? 'move'
-    : textChanged
-      ? 'modification'
-      : newer.format !== older.format
-        ? 'formatting'
-        : null;
+  const targets = changedTargets(newer, older);
+  const structureChanged = newer.container !== older.container;
+  const formatChanged =
+    structureChanged || withoutLengths(newer.format) !== withoutLengths(older.format);
+  const edited = newer.authored !== older.authored || targets.length > 0;
+  const generated = textChanged || newer.generated !== older.generated;
+  // Without a text change, runs that changed length were formatted apart or together.
+  const formatted = formatChanged || (!textChanged && newer.format !== older.format);
+  const kind = kindOf({ moved, edited, formatted, generated }, options);
   if (!kind) return null;
   return {
     kind,
@@ -173,7 +185,10 @@ function changeOf(newer: VersionBlock, older: VersionBlock, moved: boolean): Ver
     previousText: older.text,
     segments: textChanged ? diffText(older.text, newer.text) : [],
     positions: newer.positions,
-    formatChanged: textChanged && withoutLengths(newer.format) !== withoutLengths(older.format),
+    formatChanged: kind === 'modification' && formatChanged,
+    structureChanged,
+    targets,
+    generated: kind === 'modification' && !edited,
   };
 }
 
@@ -212,18 +227,31 @@ function deletionsOf(
 const firstPart = (block: VersionBlock) => block.parts[0] ?? { from: 0, to: 0 };
 const lastPart = (block: VersionBlock) => block.parts.at(-1) ?? { from: 0, to: 0 };
 
+const insertionOf = (block: VersionBlock): VersionChange => ({
+  kind: 'insertion',
+  id: block.id,
+  parts: block.parts,
+  at: null,
+  text: block.text,
+  previousText: null,
+  segments: [],
+  positions: block.positions,
+});
+
 /**
  * The changes from an older version of a document to a newer one, in the newer one's order:
- * blocks inserted, deleted, moved, with changed text or with changed formatting only. Both
+ * blocks inserted, deleted, moved, with changed text or targets, or with changed formatting or
+ * containers only. Blocks without element ids that are alike enough compare as one block. Both
  * versions' suggestions count as rejected, or as accepted when asked.
  */
 export function compareVersions(
   older: ProseMirrorNode,
   newer: ProseMirrorNode,
-  { suggestions = 'rejected' }: { readonly suggestions?: CompareSuggestions | undefined } = {},
+  options: CompareOptions = {},
 ): VersionChange[] {
-  const before = collectVersionBlocks(older, suggestions);
-  const after = collectVersionBlocks(newer, suggestions);
+  const before = collectVersionBlocks(older, options.suggestions);
+  const after = collectVersionBlocks(newer, options.suggestions);
+  pairBlocksWithoutIds(before, after);
   const olderByKey = new Map(before.map((block) => [block.key, block]));
   const newerByKey = new Map(after.map((block) => [block.key, block]));
   const kept = keptInOrder(
@@ -234,17 +262,8 @@ export function compareVersions(
   for (const block of after) {
     const previous = olderByKey.get(block.key);
     const change = previous
-      ? changeOf(block, previous, !kept.has(block.key))
-      : {
-          kind: 'insertion' as const,
-          id: block.id,
-          parts: block.parts,
-          at: null,
-          text: block.text,
-          previousText: null,
-          segments: [],
-          positions: block.positions,
-        };
+      ? changeOf(block, previous, { moved: !kept.has(block.key), options })
+      : insertionOf(block);
     if (change) changes.push(change);
   }
   changes.push(...deletionsOf(before, newerByKey, after.at(-1)));
