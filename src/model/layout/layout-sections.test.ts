@@ -22,7 +22,7 @@ const columns = (preset: string, ...texts: string[]): StoredNode => ({
   content: texts.map((text) => ({ type: 'column', content: [paragraph(text)] })),
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 // The page content's top-level blocks: a section as its preset and columns' text, a block as its text.
 const outline = (doc: ReturnType<typeof read>) =>

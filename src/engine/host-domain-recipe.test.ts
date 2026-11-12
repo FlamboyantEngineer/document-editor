@@ -88,7 +88,7 @@ const STORED: StoredNode[] = [
 ];
 
 const read = (): Node =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content: STORED }] }, schema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content: STORED }] }, schema).doc;
 
 describe('host domain nodes', () => {
   it('DOCE-SCHEMA-1.3 stores a refined table and an inline atom under their extension names', () => {

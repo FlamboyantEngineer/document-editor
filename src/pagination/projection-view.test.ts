@@ -35,7 +35,7 @@ function canonicalState(): EditorState {
       ],
     },
     documentSchema,
-  );
+  ).doc;
   return EditorState.create({ doc, plugins: [history()] });
 }
 

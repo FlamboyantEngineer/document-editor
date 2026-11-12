@@ -16,9 +16,20 @@ function readSectionAttrs(dom: HTMLElement) {
     editable: dom.getAttribute('data-section-editable') !== 'false',
     sectionName: dom.getAttribute('data-section-name') || null,
     sectionCssVars: dom.getAttribute('data-section-css-vars') || null,
-    pageHeader: dom.getAttribute('data-page-header'),
-    pageFooter: dom.getAttribute('data-page-footer'),
+    pageHeader: readRegion(dom.getAttribute('data-page-header')),
+    pageFooter: readRegion(dom.getAttribute('data-page-footer')),
   };
+}
+
+// A section's own page header or footer, written as JSON (DOCE-FORMAT-1.6).
+function readRegion(value: string | null): unknown {
+  if (!value) return null;
+  try {
+    const region = JSON.parse(value) as unknown;
+    return region && typeof region === 'object' && !Array.isArray(region) ? region : null;
+  } catch {
+    return null;
+  }
 }
 
 function writeSectionAttrs(node: ProseMirrorNode): DomAttributes {
@@ -30,10 +41,8 @@ function writeSectionAttrs(node: ProseMirrorNode): DomAttributes {
     attrs.contenteditable = 'false';
   }
   if (sectionCssVars) attrs['data-section-css-vars'] = String(sectionCssVars);
-  if (pageHeader !== null && pageHeader !== undefined)
-    attrs['data-page-header'] = String(pageHeader);
-  if (pageFooter !== null && pageFooter !== undefined)
-    attrs['data-page-footer'] = String(pageFooter);
+  if (pageHeader) attrs['data-page-header'] = JSON.stringify(pageHeader);
+  if (pageFooter) attrs['data-page-footer'] = JSON.stringify(pageFooter);
   return attrs;
 }
 
