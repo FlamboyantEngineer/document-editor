@@ -252,6 +252,7 @@ describe('createMemoryHost', () => {
           savedAt: '2026-01-02T03:04:05.000Z',
           author: 'p1',
           label: null,
+          template: null,
         },
         {
           revision: 'rev-1',
@@ -259,6 +260,7 @@ describe('createMemoryHost', () => {
           savedAt: '2026-01-02T03:04:05.000Z',
           author: 'p1',
           label: null,
+          template: null,
         },
       ],
     });
@@ -438,7 +440,8 @@ describe('createMemoryHost session parts', () => {
     const host = createMemoryHost({ documents: [{ id: 'a', content: CONTENT }] });
     const versions = host.versions;
     if (!versions?.create || !versions.rename || !versions.restore) throw new Error('No versions.');
-    const named = await versions.create('a', { content: CONTENT, label: 'Draft' });
+    const changed: DocumentFile = { formatVersion: 1, sections: [] };
+    const named = await versions.create('a', { content: changed, label: 'Draft' });
     expect(named).toMatchObject({ ok: true, value: { revision: 'rev-2', label: 'Draft' } });
     await expect(versions.rename('a', 'rev-2', 'Final')).resolves.toMatchObject({
       value: { label: 'Final' },
@@ -447,8 +450,16 @@ describe('createMemoryHost session parts', () => {
       ok: true,
       value: { revision: 'rev-3', sequence: 3 },
     });
+    // Naming the content the document holds names its latest saved state.
+    await expect(
+      versions.create('a', { content: CONTENT, label: 'Restored' }),
+    ).resolves.toMatchObject({ value: { revision: 'rev-3', label: 'Restored' } });
     const listed = await versions.list('a');
-    expect(listed.ok && listed.value.map(({ label }) => label)).toEqual([null, 'Final', null]);
+    expect(listed.ok && listed.value.map(({ label }) => label)).toEqual([
+      'Restored',
+      'Final',
+      null,
+    ]);
   });
 
   it('DOCE-HOST-1.19 keeps one draft per document and mode, as copies', async () => {

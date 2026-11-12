@@ -8,3 +8,15 @@ export type { BuiltInPane, DocumentPane, DocumentSidePanelProps } from './docume
 export { DocumentSidePanel } from './document-side-panel.js';
 export type { DocumentPanelsLabels } from './panel-labels.js';
 export { DEFAULT_PANELS_LABELS } from './panel-labels.js';
+export type {
+  DocumentHistoryBannerProps,
+  DocumentHistoryProps,
+  HistoricalEditorProps,
+} from './document-history.js';
+export {
+  DocumentHistory,
+  DocumentHistoryBanner,
+  historicalEditorProps,
+} from './document-history.js';
+export type { DocumentHistoryLabels } from './history-labels.js';
+export { DEFAULT_HISTORY_LABELS } from './history-labels.js';

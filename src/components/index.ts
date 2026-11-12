@@ -64,6 +64,18 @@ export {
   DocumentSidePanel,
 } from './document-panels/index.js';
 export type {
+  DocumentHistoryBannerProps,
+  DocumentHistoryLabels,
+  DocumentHistoryProps,
+  HistoricalEditorProps,
+} from './document-panels/index.js';
+export {
+  DEFAULT_HISTORY_LABELS,
+  DocumentHistory,
+  DocumentHistoryBanner,
+  historicalEditorProps,
+} from './document-panels/index.js';
+export type {
   DocumentSessionBoundaryProps,
   DocumentSessionEditorProps,
 } from './document-session/index.js';
