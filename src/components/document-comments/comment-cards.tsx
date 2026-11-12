@@ -21,6 +21,7 @@ import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
 import type { Suggestion } from '../../engine/index.js';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { activityRows } from './comment-activity-rows.js';
 import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
 import type { CommentThreads } from './use-comment-threads.js';
@@ -135,17 +136,20 @@ function Entries({
   onRemove?: (() => Promise<void>) | undefined;
 }) {
   const { people } = context.comments;
-  return thread.entries.map((entry, index) => (
-    <CommentThreadReply
-      key={entry.id}
-      author={people.get(entry.author) ?? { name: context.labels.someone }}
-      time={entry.createdAt}
-      text={entry.text}
-      isEdited={Boolean(entry.editedAt)}
-      reactions={<Reactions thread={thread} entry={entry} context={context} />}
-      {...entryActions(thread, { entry, index }, { context, onRemove })}
-    />
-  ));
+  // A reply still being written, or that failed, shows as an activity row instead.
+  return thread.entries.map((entry, index) =>
+    entry.status ? null : (
+      <CommentThreadReply
+        key={entry.id}
+        author={people.get(entry.author) ?? { name: context.labels.someone }}
+        time={entry.createdAt}
+        text={entry.text}
+        isEdited={Boolean(entry.editedAt)}
+        reactions={<Reactions thread={thread} entry={entry} context={context} />}
+        {...entryActions(thread, { entry, index }, { context, onRemove })}
+      />
+    ),
+  );
 }
 
 /** An open thread on the document's text. */
@@ -182,6 +186,7 @@ export function ThreadCard({
       }
       isReadOnly={!canComment}
       isSelected={isActive}
+      activity={activityRows(comments.activity.get(thread.id), context)}
     >
       <Entries thread={thread} context={context} onRemove={onRemove} />
     </CommentThread>

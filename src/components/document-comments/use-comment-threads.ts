@@ -14,12 +14,14 @@ import type {
   IdentityAdapter,
   NewCommentThread,
 } from '../../host/index.js';
-
-/** A comment of a thread, by the thread's id and its own. */
-interface EntryChange {
-  readonly threadId: string;
-  readonly entryId: string;
-}
+import {
+  type EntryChange,
+  threadActions,
+  type ThreadChange,
+  type ThreadDecision,
+} from './comment-thread-actions.js';
+import { useThreadList } from './comment-thread-list.js';
+import { type ThreadActivity, useThreadActivity } from './use-thread-activity.js';
 
 /** The threads of a document and the changes the reader can make to them. */
 export interface CommentThreads {
@@ -27,20 +29,39 @@ export interface CommentThreads {
   readonly threads: ReadonlyMap<string, CommentThread>;
   /** Who wrote each comment, by person id. */
   readonly people: ReadonlyMap<string, AvatarIdentity>;
-  /** Why the threads could not be listed, if they could not. */
+  /** Why the threads could not be listed, if they could not; the threads listed before stay. */
   readonly error: string | null;
+  /** What is happening in each thread besides its comments, by thread id. */
+  readonly activity: ReadonlyMap<string, readonly ThreadActivity[]>;
   create(thread: NewCommentThread): Promise<CommentThread>;
-  reply(threadId: string, text: string): Promise<CommentThread>;
+  /** Posts a reply; a failure shows as the thread's activity, with Retry, and resolves `null`. */
+  reply(threadId: string, text: string): Promise<CommentThread | null>;
   setState(threadId: string, state: CommentThread['state']): Promise<CommentThread>;
   remove(threadId: string): Promise<void>;
   /** Changes the reader's own comment, while the store can. */
   edit: ((change: EntryChange & { text: string }) => Promise<CommentThread>) | null;
   /** Deletes the reader's own reply, while the store can. */
   removeEntry: ((entry: EntryChange) => Promise<CommentThread>) | null;
-  /** Adds or takes back the reader's reaction to a comment, while the store can. */
+  /** Adds or takes back the reader's reaction to a comment, or to the thread without `entryId`. */
   react:
-    | ((reaction: EntryChange & { emoji: string; reacted: boolean }) => Promise<CommentThread>)
+    | ((reaction: {
+        threadId: string;
+        entryId?: string | undefined;
+        emoji: string;
+        reacted: boolean;
+      }) => Promise<CommentThread>)
     | null;
+  /** Records how a thread's suggestion was decided and resolves it, while the store can. */
+  decide: ((decision: ThreadDecision) => Promise<CommentThread>) | null;
+  /** Changes a thread's quote, target or change, while the store can. */
+  update:
+    | ((
+        threadId: string,
+        fields: Partial<Pick<CommentThread, 'quote' | 'target' | 'change'>>,
+      ) => Promise<CommentThread>)
+    | null;
+  /** Tells others the reader is writing in a thread, or has stopped, while the store can. */
+  setTyping: ((threadId: string, isTyping: boolean) => void) | null;
 }
 
 /** Where a document's threads are kept, and who the reader is. */
@@ -122,63 +143,29 @@ export function useCommentThreads({
   identity,
   failed,
 }: CommentThreadsOptions): CommentThreads {
-  const [threads, setThreads] = useState<ReadonlyMap<string, CommentThread>>(new Map());
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    void store.list(documentId, controller.signal).then((result) => {
-      if (controller.signal.aborted) return;
-      setError(result.ok ? null : (result.error.message ?? failed));
-      setThreads(new Map(result.ok ? result.value.map((thread) => [thread.id, thread]) : []));
-    });
-    // A store that tells of changes keeps the threads current, whoever changes them.
-    const stop = store.subscribe?.(documentId, (threads) => {
-      if (!controller.signal.aborted) {
-        setThreads(new Map(threads.map((thread) => [thread.id, thread])));
-      }
-    });
-    return () => {
-      controller.abort();
-      stop?.();
-    };
-  }, [store, documentId, failed]);
-  const keep = useCallback(
-    (result: HostResult<CommentThread> | undefined) => {
-      if (!result) throw new Error(failed);
-      const thread = valueOf(result, failed);
-      setThreads((current) => new Map(current).set(thread.id, thread));
-      return thread;
-    },
-    [failed],
-  );
+  const { threads, error, write, settle } = useThreadList(store, { documentId, failed });
+  const { activity, track } = useThreadActivity(store, { documentId, threads, failed });
   const people = useCommentPeople(identity, { threads, others: NO_AUTHORS, known: NO_PEOPLE });
+  // Makes a change to a thread: noted before the store is asked, kept as the store returns it,
+  // and shown as the thread's activity while it is made and when it fails.
+  const change = useCallback<ThreadChange>(
+    async (threadId, ask, tracked = {}) => {
+      write(threadId);
+      try {
+        const asked = ask().then((result) => valueOf(result, failed));
+        const thread = await track(threadId, tracked, asked);
+        settle(threadId, thread);
+        return thread;
+      } catch (cause) {
+        settle(threadId, undefined);
+        throw cause;
+      }
+    },
+    [write, settle, track, failed],
+  );
   return useMemo(
-    () => ({
-      threads,
-      people,
-      error,
-      create: async (thread) => keep(await store.create(documentId, thread)),
-      reply: async (threadId, text) => keep(await store.reply(documentId, threadId, text)),
-      setState: async (threadId, state) => keep(await store.setState(documentId, threadId, state)),
-      edit: store.edit
-        ? async (change) => keep(await store.edit?.call(store, documentId, change))
-        : null,
-      removeEntry: store.removeEntry
-        ? async (entry) => keep(await store.removeEntry?.call(store, documentId, entry))
-        : null,
-      react: store.react
-        ? async (reaction) => keep(await store.react?.call(store, documentId, reaction))
-        : null,
-      remove: async (threadId) => {
-        valueOf(await store.remove(documentId, threadId), failed);
-        setThreads((current) => {
-          const next = new Map(current);
-          next.delete(threadId);
-          return next;
-        });
-      },
-    }),
-    [threads, people, error, keep, store, documentId, failed],
+    () => threadActions({ store, documentId, change }, { threads, people, error, activity }),
+    [store, documentId, change, threads, people, error, activity],
   );
 }
 
