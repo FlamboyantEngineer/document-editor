@@ -17,8 +17,8 @@ import type { CommentRefs } from './editor-handle.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
-import { canDecideSuggestions } from './save-status-item.js';
 import { useOpeningScripts } from './script-entries.js';
+import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { TableHandles } from './table-handles.js';
 import {
   READ_SELECTION_FIRST,
@@ -197,11 +197,7 @@ export function EditorBody({
             {...props.comments}
             state={state}
             onStateChange={onStateChange}
-            canDecide={canDecideSuggestions({
-              editable,
-              suggesting,
-              capabilities: props.capabilities,
-            })}
+            suggestionPolicy={editorSuggestionPolicy(props)}
             startRef={startCommentRef}
             openRef={openThreadRef}
           >
