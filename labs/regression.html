@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="A document of the regression set on its template's pages, for the pagination scenarios."
+    />
+    <title>Regression documents · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/regression.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" class="lab-fill">
+      <h1>Regression documents</h1>
+      <p>
+        A document of the regression set on its template's pages: long lists, tables, code, quotes,
+        footnotes, headings and mixed page sizes. The pagination scenarios read and edit these
+        pages.
+      </p>
+      <div id="lab-editor" class="lab-editor"></div>
+    </main>
+  </body>
+</html>

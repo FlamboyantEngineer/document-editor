@@ -57,7 +57,7 @@ Verification: `e2e/stress.spec.ts`
 
 ### DOCE-LABS-2.3 - Budgets
 
-`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target, as a table and in `test-results/performance.json`. The budgets are targets: the harness records and does not fail on them yet. Time budgets are measured on the development machine; counter budgets do not depend on it.
+`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target and whether it meets it, as a table and in `test-results/performance.json`. The budgets are targets until the pagination phase ends: the harness records and does not fail on a missed budget. Time budgets are measured on the development machine; counter budgets do not depend on it.
 
 | Budget                         | Metric                                                                                                                         | Target                            |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
@@ -71,7 +71,7 @@ Verification: `e2e/stress.spec.ts`
 
 Two budgets wait for their phases: typing beside 500 comment threads on 300 pages, and a text-only change walking no untouched section, which a unit test will check.
 
-Implementation: `e2e/performance.spec.ts`, `labs/src/stress/stress-probe.ts`, `playwright.config.ts`, `package.json`
+Implementation: `e2e/budgets.ts`, `e2e/performance.spec.ts`, `labs/src/stress/stress-probe.ts`, `playwright.config.ts`, `package.json`
 Verification: `e2e/performance.spec.ts`
 
 ### DOCE-LABS-2.4 - Scale lab
@@ -80,6 +80,13 @@ The `stress-scale` lab shall show the documents the budgets name, picked by its 
 
 Implementation: `labs/src/stress-scale.lab.tsx`, `labs/stress-scale.html`, `labs/src/stress/scale-documents.ts`, `labs/src/stress/stress-probe.ts`, `labs/src/stress/stress-lab.tsx`
 Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`
+
+### DOCE-LABS-2.5 - Counter budgets
+
+The budgets counted in layouts, sections, blocks and restyled elements rather than time do not depend on the machine, and `npm run test:labs` shall hold them on every pull request, measured as the harness measures them (`e2e/budgets.ts`): after an edit in the middle of 25 sections, at most four layouts and 24 template regions drawn again, and at least 23 sections reused per layout; a remote keystroke in 1600 blocks relays at most one section and measures at most five blocks; at most three browser layouts per wheel event on 5 pages and on 40; and a keystroke on 40 pages restyles at most three times as many elements as on 5. A budget not met yet is an expected failure naming its gap in the port plan.
+
+Implementation: `e2e/budgets.ts`
+Verification: `e2e/budget-counters.performance.spec.ts`
 
 ## DOCE-LABS-3 - Editor labs
 
@@ -96,3 +103,77 @@ The full editor lab shall show the document editor with every feature on, as a h
 
 Implementation: `labs/src/full-editor.lab.tsx`, `labs/full-editor.html`
 Verification: `e2e/full-editor.spec.ts`
+
+## DOCE-LABS-4 - Regression labs
+
+The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.
+
+### DOCE-LABS-4.1 - The regression lab
+
+The `regression` lab shall show a document of the regression set on its template's pages, the template resolved through the set's templates on the base template, in the document editor with its scrolling frame and status bar, picked by its Document picker or the page's `document` query parameter, and in the web layout when the `layout` query parameter is `web`. It shows the scenarios the document as it would be stored and puts a caret at a split block's fragment boundary, by the position the caret has once the pages are joined whole (`window.regressionLab`). Every document lays out on pages that hold their content, as many as the status bar counts.
+
+Implementation: `labs/src/regression.lab.tsx`, `labs/regression.html`, `labs/src/regression/regression-lab.tsx`, `labs/src/regression/regression-documents.ts`, `labs/src/regression/regression-probe.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.2 - Edits at fragment boundaries
+
+Typing and Enter on either side of a fragment boundary, Delete at a head fragment's end and Backspace at a continuation's start shall give the same stored document, element ids aside, whether the block is split across pages or shown whole in the web layout, for a paragraph, a list item, an ordered and a nested list, tables with a repeated header, one header and none, a code block and a quote; the pages still hold their content after the edit.
+
+Implementation: `labs/src/regression/regression-probe.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.3 - Lists
+
+A long ordered list shall split between items, each item shown once and numbered on from page to page; a nested list and an item longer than a page split and show every stored item; and a split item's continuation draws no empty line where it opens.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.4 - Tables
+
+A long table shall split between rows, each body row on one page only, with its header rows on every page when its section repeats them, on the first page when it does not, and on none when it has none; a continuation without a repeated header repeats the caption; both header modes, merged cells and rich cells lay out.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.5 - Code
+
+A 150-line listing shall split at line breaks, each line on one page only, each fragment numbering its lines on from the last; a quoted code block longer than a page splits inside its quote.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.6 - Quotes
+
+A quote of twelve paragraphs shall split across pages, each paragraph shown once, and be stored as one quote of twelve paragraphs.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.7 - Headings keep with what they head
+
+No page shall end with a heading; a heading keeps with at least two lines of the paragraph it leads, and with the first rows of the table it leads.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.8 - Corner cases
+
+Every page break, two in a row included, shall start a new page; a paragraph longer than a page fills each page it runs over; every empty section has one page of its own; each footer shows its page's number and the page count; and a long mixed document lays out again on pages that hold their content after an edit and its undo, on as many pages as before.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.9 - Footnotes
+
+Each footnote shall show on the page that marks it, in paragraphs, lists, table cells and quotes, and a template that numbers footnotes per page numbers each page's marks from 1, each entry with its mark's number.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.10 - Mixed geometry
+
+Each section shall lay out on pages of its template section's size and orientation, in order (A5 portrait, US Legal portrait, A4 landscape); an appendix that restarts numbering numbers its first heading `A.` each time it repeats; Roman front matter numbers sixty headings `i.` to their last and their subheadings `i.a`; and one document numbers a Roman body and an alphabetic annex.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`
