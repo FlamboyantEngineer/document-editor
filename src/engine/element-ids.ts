@@ -60,16 +60,16 @@ function isRepeatedHeaderRow(node: ProseMirrorNode, parent: ProseMirrorNode | nu
   return found;
 }
 
-// A step that only changes text or marks inside text blocks, which adds no element.
+// A step that only changes text or marks inside text blocks, which adds no element: an inline atom,
+// such as a mention or an equation, is an element of its own.
 function isTextStep(step: Step): boolean {
   if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) return true;
   if (!(step instanceof ReplaceStep)) return false;
-  let inline = true;
-  step.slice.content.descendants((node) => {
-    if (!node.isInline) inline = false;
-    return inline;
+  let text = true;
+  step.slice.content.forEach((node) => {
+    if (!node.isText) text = false;
   });
-  return inline;
+  return text;
 }
 
 /**
@@ -157,6 +157,14 @@ export function createElementIds({
 /** Marks the change that repairs a document's element ids when it opens. */
 export const ELEMENT_IDS_REPAIR = 'elementIdsRepair';
 
+/** How `repairElementIds` repairs a document. */
+export interface RepairElementIdsOptions {
+  /** The writer the repaired elements without one are attributed to, such as a system account. */
+  readonly author?: string | null | undefined;
+  /** Makes a fresh id; random by default. */
+  readonly newId?: (() => string) | undefined;
+}
+
 /**
  * The change that gives a document opened with missing, invalid or repeated element ids valid ones,
  * out of the undo history; null when every element already has one. A server can run it on a
@@ -164,10 +172,10 @@ export const ELEMENT_IDS_REPAIR = 'elementIdsRepair';
  */
 export function repairElementIds(
   state: EditorState,
-  options: { readonly newId?: (() => string) | undefined } = {},
+  options: RepairElementIdsOptions = {},
 ): Transaction | null {
   const tr = state.tr;
-  if (!assignElementIds(tr, { newId: options.newId })) return null;
+  if (!assignElementIds(tr, options)) return null;
   return tr.setMeta('addToHistory', false).setMeta(ELEMENT_IDS_REPAIR, true);
 }
 

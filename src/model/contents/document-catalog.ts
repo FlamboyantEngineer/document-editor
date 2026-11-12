@@ -1,10 +1,12 @@
-// What a document lists in its contents. Each kind of list names the nodes it lists, such as
-// headings, figures, tables, code blocks and equations, or any node type a host adds; the catalog
+// What a document lists in its contents. Each kind of list names the nodes or marks it lists, such
+// as headings, figures, tables, code blocks, equations, cited documents and abbreviations, or any
+// node or mark type a host adds; the catalog
 // gives each kind its entries in reading order, each with its number as the stylesheet prints it,
 // its text, its level, its position and its page.
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
+import { compareAbbreviations } from '../glossary.js';
 import { headingNumberText, objectNumberText } from '../numbering/numbering-text.js';
 import {
   NUMBERED_OBJECT_KINDS,
@@ -18,35 +20,58 @@ import { templateScopeStyles } from '../templates/template-properties.js';
 import { sectionRestartsNumbering } from '../templates/template-scopes.js';
 import { findTemplateSection } from '../templates/template-sections.js';
 
-/** One kind of list: the nodes it lists and how it shows them. */
+/**
+ * One kind of list: the nodes or marks it lists and how it shows them. For a mark, each run of text
+ * that carries it is one entry, and the callbacks get the run's first text node and the mark.
+ */
 export interface ContentsKind {
   /** The node type names it lists. */
   readonly nodes: readonly string[];
-  /** Whether it lists a node of those types; every one by default. */
-  readonly include?: ((node: ProseMirrorNode) => boolean) | undefined;
-  /** An entry's text: a node's caption, or its text, by default. */
-  readonly text?: ((node: ProseMirrorNode) => string) | undefined;
+  /** The mark type names it lists. */
+  readonly marks?: readonly string[] | undefined;
+  /** Whether it lists a node or mark of those types; every one by default. */
+  readonly include?: ((node: ProseMirrorNode, mark?: Mark) => boolean) | undefined;
+  /** An entry's text: a node's caption, or its text, or a mark's text, by default. */
+  readonly text?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
   /**
    * An entry's level, which a list's depth limits: a heading's level by default, and 0, which
    * every depth shows, for other nodes.
    */
-  readonly level?: ((node: ProseMirrorNode) => number) | undefined;
+  readonly level?: ((node: ProseMirrorNode, mark?: Mark) => number) | undefined;
   /**
    * An entry's number for a node the template does not number. The template numbers headings and
    * its numbered objects, and their entries show its numbers.
    */
-  readonly number?: ((node: ProseMirrorNode) => string) | undefined;
+  readonly number?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
   /** Whether a list shows only the entries after it, as a table of contents does. */
   readonly after?: boolean | undefined;
   /** Orders the entries, such as by their text for a glossary; document order by default. */
   readonly sort?: ((a: CatalogEntry, b: CatalogEntry) => number) | undefined;
-  /** Lists only the first entry of each text, such as one per term. Defaults to false. */
+  /**
+   * Lists only the first entry of each number and text, such as one per term or one per cited
+   * document. Defaults to false.
+   */
   readonly unique?: boolean | undefined;
   /** Whether an entry shows its page number. Defaults to true. */
   readonly showPage?: boolean | undefined;
   /** Whether an entry draws a leader to its page number. Defaults to true. */
   readonly leader?: boolean | undefined;
 }
+
+const attrText = (value: unknown) => (typeof value === 'string' ? value : '');
+
+// A cited document's number and title, or a catalogue entry's label, as a citation recorded them.
+const isExternal = (_node: ProseMirrorNode, mark?: Mark) =>
+  !String(mark?.attrs.refType ?? '').startsWith('internal-');
+const citedNumber = (_node: ProseMirrorNode, mark?: Mark) => attrText(mark?.attrs.docNumber);
+const citedTitle = (node: ProseMirrorNode, mark?: Mark) =>
+  attrText(mark?.attrs.docTitle) || attrText(mark?.attrs.libraryLabel) || node.textContent;
+
+const byAbbreviation = (a: CatalogEntry, b: CatalogEntry) =>
+  compareAbbreviations(
+    { abbr: a.number, expansion: a.text, entryId: '' },
+    { abbr: b.number, expansion: b.text, entryId: '' },
+  );
 
 /** The kinds of list a document has unless a host gives others, keyed by a list's `tocType`. */
 export const DEFAULT_CONTENTS_KINDS = {
@@ -55,6 +80,27 @@ export const DEFAULT_CONTENTS_KINDS = {
   tables: { nodes: ['table'], include: (node) => node.attrs.captionEnabled !== false },
   codeBlocks: { nodes: ['code_block', 'linked_code_block'] },
   equations: { nodes: ['math_display'] },
+  // Each document cited from this one, once, in the order it is first cited.
+  references: {
+    nodes: [],
+    marks: ['reference'],
+    include: isExternal,
+    number: citedNumber,
+    text: citedTitle,
+    unique: true,
+    showPage: false,
+    leader: false,
+  },
+  // Each abbreviation used, once, in alphabetical order, with its expansion.
+  abbreviations: {
+    nodes: ['abbreviation_reference'],
+    number: (node) => attrText(node.attrs.abbr),
+    text: (node) => attrText(node.attrs.expansion),
+    unique: true,
+    sort: byAbbreviation,
+    showPage: false,
+    leader: false,
+  },
 } as const satisfies Record<string, ContentsKind>;
 
 /** An entry of a list. */
@@ -95,6 +141,8 @@ interface Counting {
   objects: Record<NumberedObjectKind, number>;
   page: number;
   readonly kinds: readonly (readonly [string, ContentsKind])[];
+  /** Whether a kind lists marks or inline nodes, so the walk enters textblocks. */
+  readonly inline: boolean;
   readonly catalog: Record<string, CatalogEntry[]>;
 }
 
@@ -180,6 +228,35 @@ function list(
   }
 }
 
+// Adds an entry for each run of a textblock's text that carries a mark a kind lists.
+function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
+  for (const [key, kind] of counting.kinds) {
+    if (!kind.marks?.length) continue;
+    let open: { mark: Mark; node: ProseMirrorNode; pos: number; text: string } | null = null;
+    const close = () => {
+      if (!open || kind.include?.(open.node, open.mark) === false) return;
+      counting.catalog[key]?.push({
+        kind: key,
+        level: kind.level?.(open.node, open.mark) ?? 0,
+        number: kind.number?.(open.node, open.mark) ?? '',
+        text: kind.text?.(open.node, open.mark) ?? open.text,
+        pos: open.pos,
+        page: counting.page,
+      });
+    };
+    block.forEach((child, offset) => {
+      const mark = child.marks.find((each) => kind.marks?.includes(each.type.name));
+      if (open && mark && open.mark.eq(mark)) {
+        open.text += child.textContent;
+        return;
+      }
+      close();
+      open = mark ? { mark, node: child, pos: start + offset, text: child.textContent } : null;
+    });
+    close();
+  }
+}
+
 /** Blocks whose headings are text set as headings, not the document's structure. */
 const UNSTRUCTURED_PARENTS = new Set(['list_item', 'table_cell', 'table_header']);
 
@@ -193,9 +270,18 @@ function countBlocks(content: ProseMirrorNode, start: number, counting: Counting
     const numbered =
       node.type.name === 'heading' ? countHeading(node, counting) : countObject(node, counting);
     list([node, start + offset, numbered], counting);
-    return !node.isTextblock;
+    if (node.isTextblock && counting.inline) listMarks(node, start + offset + 1, counting);
+    return !node.isTextblock || counting.inline;
   });
 }
+
+// Whether a kind lists marks or inline nodes, which lie inside textblocks.
+const listsInline = (doc: ProseMirrorNode, kinds: Readonly<Record<string, ContentsKind>>) =>
+  Object.values(kinds).some(
+    (kind) =>
+      Boolean(kind.marks?.length) ||
+      kind.nodes.some((name) => doc.type.schema.nodes[name]?.isInline === true),
+  );
 
 /**
  * Each kind of list's entries in a document under a resolved template, numbered as its stylesheet
@@ -213,6 +299,7 @@ export function catalogDocument(
     objects: zeroObjects(),
     page: 0,
     kinds: Object.entries(kinds),
+    inline: listsInline(doc, kinds),
     catalog: Object.fromEntries(Object.keys(kinds).map((key) => [key, []])),
   };
   doc.forEach((section, sectionOffset) => {
@@ -245,7 +332,10 @@ function arrangeEntries(
       let arranged = [...entries];
       if (kind?.unique) {
         const seen = new Set<string>();
-        arranged = arranged.filter((entry) => !seen.has(entry.text) && seen.add(entry.text));
+        arranged = arranged.filter((entry) => {
+          const key = `${entry.number}\u0000${entry.text}`;
+          return !seen.has(key) && seen.add(key);
+        });
       }
       if (kind?.sort) arranged.sort(kind.sort);
       return [key, arranged];

@@ -6,13 +6,7 @@
 import { chainCommands } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import {
-  type Command,
-  type EditorState,
-  type Plugin,
-  TextSelection,
-  type Transaction,
-} from 'prosemirror-state';
+import { type Command, type Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import {
   addRowAfter,
   CellSelection,
@@ -26,9 +20,12 @@ import {
   TableMap,
 } from 'prosemirror-tables';
 import { Mapping } from 'prosemirror-transform';
-import { isInPageRegion, topLevelBlockEnd } from './block-place.js';
+import { newBlockRange } from './block-place.js';
 import { appendTransaction, captureTransaction, inWholeTable } from './table-parts.js';
 import { createTablePointer } from './table-pointer.js';
+
+// Where a new block goes, which the table commands share with every block command.
+export { newBlockRange } from './block-place.js';
 
 /** A table's rows or its columns. */
 export type TableAxis = 'row' | 'column';
@@ -153,21 +150,6 @@ export function moveSelectedTableLine(axis: TableAxis, direction: -1 | 1): Comma
     if (!found) return false;
     return inWholeTable(found.pos, moveSelection(axis, target))(state, dispatch, view);
   };
-}
-
-/**
- * Where a new block goes: in place of the empty paragraph holding the caret, or after the
- * top-level block of the body holding it; null in a page header, footer or footnote area.
- */
-export function newBlockRange(state: EditorState): { from: number; to: number } | null {
-  const { $from } = state.selection;
-  if (isInPageRegion($from)) return null;
-  const parent = $from.parent;
-  if (parent.type.name === 'paragraph' && parent.childCount === 0) {
-    return { from: $from.before(), to: $from.after() };
-  }
-  const end = topLevelBlockEnd($from);
-  return end === null ? null : { from: end, to: end };
 }
 
 /**
