@@ -174,6 +174,38 @@ function joinListItems(tr: Transform, pos: number, rules: FragmentRules) {
   joinFacingChildren(tr, inner, rules);
 }
 
+// A column holding only the empty paragraph a layout section's split leaves where it had nothing.
+function holdsOnlyPlaceholder(column: ProseMirrorNode): boolean {
+  return column.childCount === 1 && isContinuationPlaceholder(column.firstChild);
+}
+
+// Each column of the section that starts at `pos` joins its column in the section before, in order,
+// and their facing blocks join when they are one block's fragments. The second section's content
+// moves, so positions in it map to where it was.
+function joinLayoutSections(tr: Transform, pos: number, rules: FragmentRules) {
+  const { nodeBefore: previous, nodeAfter: next } = tr.doc.resolve(pos);
+  if (!previous || !next) return;
+  const start = pos - previous.nodeSize;
+  tr.delete(pos, pos + next.nodeSize);
+  let columnPos = start + 1;
+  children(next).forEach((extra, index) => {
+    const column = index < previous.childCount ? tr.doc.nodeAt(columnPos) : null;
+    if (!column) {
+      tr.insert(columnPos, extra);
+      columnPos += extra.nodeSize;
+      return;
+    }
+    const end = columnPos + column.nodeSize - 1;
+    if (holdsOnlyPlaceholder(column)) {
+      tr.replaceWith(columnPos + 1, end, extra.content);
+    } else if (!holdsOnlyPlaceholder(extra)) {
+      tr.insert(end, extra.content);
+      joinFacingChildren(tr, end, rules);
+    }
+    columnPos += tr.doc.nodeAt(columnPos)?.nodeSize ?? 0;
+  });
+}
+
 function isHeaderRow(row: ProseMirrorNode): boolean {
   return row.childCount > 0 && children(row).every((cell) => cell.type.name === 'table_header');
 }
@@ -234,6 +266,8 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   linked_code_block: { whole: { ...PART, codeBlockContinued: false }, join: joinLinkedCode },
   table: { whole: PART, join: joinTables },
   blockquote: { whole: PART, join: joinContainers },
+  script_block: { whole: PART, join: joinContainers },
+  layout_section: { whole: PART, join: joinLayoutSections },
   bullet_list: { whole: PART, join: joinContainers },
   ordered_list: { whole: PART, join: joinContainers },
   list_item: { whole: { ...PART, orphanedListContinuation: false }, join: joinListItems },

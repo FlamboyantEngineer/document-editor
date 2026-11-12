@@ -53,6 +53,13 @@ A host whose own node types split shall add their rules to `FRAGMENT_RULES`, eac
 Implementation: `src/model/pagination/fragments.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/pagination/fragments.test.ts`
 
+### DOCE-PAGINATION-1.8 - Script blocks and layout sections
+
+A script block's fragments shall join their output blocks as a quote's do. A layout section's fragments shall join column by column: each column of the later fragment shall join the column at its place in the earlier one, its facing blocks joining when they are one block's fragments, and a column that holds only the empty paragraph a split leaves (DOCE-PAGINATION-4.7) shall give way to the other side's blocks. The later fragment's content moves, so positions in it shall map to where it was.
+
+Implementation: `src/model/pagination/fragments.ts`
+Verification: `src/model/pagination/fragments.test.ts`, `src/model/pagination/container-split.test.ts`
+
 ## DOCE-PAGINATION-2 - Page layout
 
 ### DOCE-PAGINATION-2.1 - Filling pages
@@ -85,7 +92,7 @@ Verification: `src/model/pagination/page-layout.test.ts`
 
 ### DOCE-PAGINATION-2.5 - Headings keep with what they head
 
-A heading shall move to the next page with the deeper headings directly under it and the block they head, when that block's type keeps with a heading (`keepsWithHeading`) and the group does not fit. Of a splittable block, only its first line (`leadLineHeight`) shall need to fit. A document title shall rank above every heading level.
+A heading shall move to the next page with the deeper headings directly under it and the block they head, when that block's type keeps with a heading (`keepsWithHeading`) and the group does not fit. A splittable block shall need only its lead to fit: the first fragment its own split (`LayoutRule.split`) places in the height left below the headings. So the split's limits decide, and a heading over a paragraph that cannot keep two lines on each side of a split, or over a table whose caption, header rows and first body row do not fit, moves with it. A document title shall rank above every heading level.
 
 Implementation: `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/page-layout.test.ts`
@@ -159,7 +166,7 @@ Verification: `src/model/pagination/container-split.test.ts`
 
 ### DOCE-PAGINATION-4.4 - Quotes
 
-A measured quote shall split between or through its blocks as a list does (`splitBlockquote`), and its fragments shall join back (DOCE-PAGINATION-1.1).
+A measured quote shall split between or through its blocks as a list does (`splitContainer`), and its fragments shall join back (DOCE-PAGINATION-1.1). A container's measured `overhead`, the height it takes beyond its children's span, shall count in each fragment: the children shall fit the height less it, and each fragment's height shall include it.
 
 Implementation: `src/model/pagination/container-split.ts`, `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/container-split.test.ts`
@@ -171,6 +178,20 @@ A measured table shall split after its last body row that fits with its height b
 Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/container-split.test.ts`
 
+### DOCE-PAGINATION-4.6 - Script blocks
+
+A measured script block shall split its output between or through its blocks as a quote does, keep with a heading before it, and each fragment shall keep the block's script and settings.
+
+Implementation: `src/model/pagination/page-layout.ts`, `src/model/pagination/container-split.ts`
+Verification: `src/model/pagination/container-split.test.ts`, `e2e/layout-rules.spec.ts`
+
+### DOCE-PAGINATION-4.7 - Layout sections
+
+A measured layout section (`ContainerMeasurement`: where each column sits, each with its own blocks' layouts) shall split by splitting every column at the same height (`splitLayoutSection`): a column that fits stays whole on the first fragment, one whose blocks split there splits between or through them, and one with no block that fits moves whole to the second. A column with nothing on one side shall hold an empty paragraph there. A column's height shall be its blocks' span and its overhead, not the height a grid stretched it to beside a taller column. The section shall not split when no column has a block that fits, and shall keep with a heading before it.
+
+Implementation: `src/model/pagination/layout-section-split.ts`, `src/model/pagination/page-layout.ts`
+Verification: `src/model/pagination/container-split.test.ts`, `e2e/layout-rules.spec.ts`
+
 ## DOCE-PAGINATION-5 - Measuring
 
 ### DOCE-PAGINATION-5.1 - Measured blocks
@@ -180,12 +201,12 @@ Verification: `src/model/pagination/container-split.test.ts`
 Implementation: `src/pagination/measure-blocks.ts`
 Verification: `e2e/pagination.spec.ts`
 
-### DOCE-PAGINATION-5.2 - First lines
+### DOCE-PAGINATION-5.2 - Containers and host rules
 
-A block's `leadLineHeight` shall be how far its first line of text reaches below its top, through a container's first child, so a heading stays on the page where the block it heads begins. Blocks laid out from measurements shall split across pages and join back into the measured document.
+A measured container other than a table, including a script block, a layout section and a layout column, shall carry its `overhead`: how far its first child sits below its top, plus its bottom padding and border. A layout rule's `measure` shall measure its node type from the element it renders as (`MeasureInput`), in place of the built-in measuring, when the rules are passed to the measuring (`MeasureOptions.rules`, and through `createPagination`'s `rules`), so a host's own splittable type brings its measure, split and fragment rule. Blocks laid out from measurements shall split across pages, keep headings with what they head, and join back into the measured document.
 
-Implementation: `src/pagination/measure-blocks.ts`
-Verification: `e2e/pagination.spec.ts`
+Implementation: `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`, `src/model/pagination/page-layout.ts`, `labs/src/layout-rules.lab.ts`
+Verification: `e2e/pagination.spec.ts`, `e2e/layout-rules.spec.ts`
 
 ### DOCE-PAGINATION-5.3 - Measurement cache
 

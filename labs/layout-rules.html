@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="Headings kept with what they head, script output and layout columns split across pages, and a host node type with its own layout rule."
+    />
+    <title>Layout rules · Labs</title>
+    <style>
+      body {
+        font:
+          16px/1.5 Georgia,
+          serif;
+      }
+      :root {
+        --lab-width: 480px;
+        --lab-page: 360;
+      }
+      .lab-measure {
+        --lab-page: 360;
+        position: absolute;
+        left: -10000px;
+        top: 0;
+      }
+      /* The page, not only its content, takes the width, so its footnote area wraps to it too. */
+      .lab-measure,
+      .lab-pages .pm-page {
+        width: var(--lab-width);
+      }
+      .lab-pages .pm-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+      }
+      .lab-pages .pm-page {
+        display: flex;
+        flex-direction: column;
+        box-sizing: content-box;
+        height: 360px;
+        padding: 32px;
+        background: #fff;
+        color: #1d2129;
+        box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+      }
+      .lab-pages .pm-page-content {
+        flex: 1;
+      }
+      .pm-page-footnotes {
+        border-top: 1px solid #c4c8cf;
+        padding-top: 6px;
+        font-size: 13px;
+        line-height: 18px;
+      }
+      .pm-footnote-entry {
+        margin: 0 0 4px;
+      }
+      .pm-footnote-entry-number {
+        margin-right: 6px;
+      }
+      .footnote-reference {
+        font-size: 11px;
+        line-height: 0;
+      }
+      .ProseMirror {
+        outline: none;
+      }
+      .pm-page-header,
+      .pm-page-footer,
+      .pm-page-footnotes:empty {
+        display: none;
+      }
+      .pm-page-content > :first-child {
+        margin-top: 0;
+      }
+      .pm-page-content > :last-child {
+        margin-bottom: 0;
+      }
+      p,
+      pre,
+      ul,
+      ol,
+      blockquote,
+      table {
+        margin: 0 0 12px;
+      }
+      h1,
+      h2 {
+        margin: 16px 0 8px;
+        line-height: 1.2;
+      }
+      pre {
+        padding: 8px;
+        background: #f3f4f6;
+        font: 14px/20px monospace;
+        white-space: pre-wrap;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      td,
+      th {
+        border: 1px solid #c4c8cf;
+        padding: 4px 8px;
+      }
+      td > p,
+      th > p {
+        margin: 0;
+      }
+      caption {
+        padding: 4px 0;
+        font-style: italic;
+      }
+      .lab-log ol {
+        margin: 0 0 12px;
+        padding-left: 32px;
+      }
+    </style>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/layout-rules.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Layout rules</h1>
+      <p>
+        Pages 360 pixels tall. A heading stays on the page where the block it heads begins: a short
+        paragraph that cannot split moves with it, and a captioned table keeps its caption, header
+        and first row under it. A script block's output and a layout section's columns split across
+        pages, and the numbered log is a host's own node type, with its own measure, split and join.
+      </p>
+      <div class="lab-measure" aria-hidden="true"></div>
+      <div class="lab-pages"></div>
+    </main>
+  </body>
+</html>

@@ -55,7 +55,7 @@ Verification: `src/engine/proofing.test.ts`
 
 ### DOCE-HOST-1.8 - Assets and linked code
 
-The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from. The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
+The host's `assets` adapter shall store an uploaded file, such as a figure's image, and give its id, the snapshot a document names with it and the URL it renders from (`resolveUrl(assetId, snapshotId, { asOf })`, as of the time the document shows its assets as of, null for now). The host's `codeSource` adapter shall resolve the code a URL names, the lines its fragment names (`#L10-L20`), with its language and first line when it knows them.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`

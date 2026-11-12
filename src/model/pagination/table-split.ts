@@ -85,7 +85,6 @@ export function splitTableWith(repeatHeader: boolean) {
           ...block,
           node: create(part + 1, [...header, ...rows.slice(last + 1)]),
           height: overhead + headerSpan + span - next.top,
-          leadLineHeight: null,
           breakBefore: true,
           measurement: {
             children: [...headerLayouts, ...shift(layouts.slice(last + 1), next.top - headerSpan)],

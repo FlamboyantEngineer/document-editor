@@ -6,6 +6,7 @@ import {
   layoutPages,
   type LayoutRules,
   stackedHeight,
+  type TextMeasurement,
 } from '../index.js';
 
 function block(name: string, height: number, extra: Partial<LayoutBlock> = {}): LayoutBlock {
@@ -21,6 +22,20 @@ function block(name: string, height: number, extra: Partial<LayoutBlock> = {}): 
 const paragraph = (height: number, extra: Partial<LayoutBlock> = {}) =>
   block('paragraph', height, extra);
 const heading = (level: number, height = 20) => block('heading', height, { measurement: level });
+// Two words to a ten-pixel line.
+const lines = (): TextMeasurement => ({
+  offset: 0,
+  measure: (from, to) => {
+    const count = Math.max(1, Math.ceil((to - from) / 8));
+    return { height: count * 10, lines: count };
+  },
+});
+const row = (cell: string, text: string) =>
+  documentSchema.node('table_row', null, [
+    documentSchema.node(cell, null, [
+      documentSchema.node('paragraph', null, [documentSchema.text(text)]),
+    ]),
+  ]);
 const heights = (pages: LayoutBlock[][]) => pages.map((page) => page.map((entry) => entry.height));
 
 // A paragraph split into a head that fills the height and a tail that starts the next page.
@@ -86,11 +101,52 @@ describe('page layout', () => {
       [60, 20],
       [20, 40],
     ]);
-    const lead = [paragraph(60), heading(1), paragraph(100, { leadLineHeight: 10 })];
+    const lead = [paragraph(60), heading(1), paragraph(100)];
     expect(heights(layoutPages(lead, { pageHeight: 102, rules: splitting }))).toEqual([
       [60, 20, 20],
       [80],
     ]);
+    expect(heights(layoutPages(lead, { pageHeight: 90, rules: splitting }))).toEqual([
+      [60],
+      [20, 68],
+      [32],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-2.5 moves a heading with a three-line paragraph that cannot split under it', () => {
+    const text = documentSchema.text('w00 w01 w02 w03 w04 w05');
+    const short = {
+      ...paragraph(30),
+      node: documentSchema.node('paragraph', null, [text]),
+      measurement: lines(),
+    };
+    expect(heights(layoutPages([paragraph(60), heading(1), short], { pageHeight: 102 }))).toEqual([
+      [60],
+      [20, 30],
+    ]);
+    expect(heights(layoutPages([paragraph(50), heading(1), short], { pageHeight: 102 }))).toEqual([
+      [50, 20, 30],
+    ]);
+  });
+
+  it('DOCE-PAGINATION-2.5 keeps a heading with a captioned table when its caption, header and first row fit', () => {
+    const table = documentSchema.node('table', { caption: 'Readings', captionEnabled: true }, [
+      row('table_header', 'Room'),
+      row('table_cell', 'One'),
+      row('table_cell', 'Two'),
+      row('table_cell', 'Three'),
+    ]);
+    const layouts = Array.from({ length: 4 }, (_, index) => ({
+      top: index * 20,
+      bottom: (index + 1) * 20,
+    }));
+    const captioned = { ...block('table', 95), node: table, measurement: { children: layouts } };
+    expect(
+      heights(layoutPages([paragraph(123), heading(1), captioned], { pageHeight: 200 })),
+    ).toEqual([[123, 20, 55], [75]]);
+    expect(
+      heights(layoutPages([paragraph(128), heading(1), captioned], { pageHeight: 200 })),
+    ).toEqual([[128], [20, 95]]);
   });
 
   it('DOCE-PAGINATION-2.6 asks the page height for the blocks that would be on the page', () => {
