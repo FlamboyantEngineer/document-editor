@@ -2,7 +2,6 @@
 // document's keymap.
 
 import { toggleMark } from 'prosemirror-commands';
-import { redo, undo } from 'prosemirror-history';
 import type { Schema } from 'prosemirror-model';
 import type { Command } from 'prosemirror-state';
 import { setTextblockType } from './block-type.js';
@@ -16,6 +15,7 @@ import { insertFootnote } from './footnotes.js';
 import { insertCodeBlock } from './object-commands.js';
 import type { ShortcutId, ShortcutTable } from './shortcuts.js';
 import { insertTable } from './tables.js';
+import { redoCommand, undoCommand } from './undo-commands.js';
 
 // The commands of the table's document actions the schema has, by id.
 function markCommands(schema: Schema): Partial<Record<ShortcutId, Command>> {
@@ -54,8 +54,8 @@ function shortcutCommands(schema: Schema): Partial<Record<ShortcutId, Command>> 
   return {
     ...markCommands(schema),
     ...blockCommands(schema),
-    undo,
-    redo,
+    undo: undoCommand,
+    redo: redoCommand,
     'select-all': selectBody,
     'clear-formatting': clearFormatting,
     'page-break': insertPageBreak,
