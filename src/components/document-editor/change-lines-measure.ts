@@ -18,7 +18,7 @@ import {
   strongerChange,
   versionChanges,
 } from '../../engine/index.js';
-import { findTemplateSection, type TemplateFile } from '../../model/index.js';
+import { findTemplateSection, sectionAt, type TemplateFile } from '../../model/index.js';
 
 interface Band {
   top: number;
@@ -111,11 +111,8 @@ const SHOW_ALL: ShownChange = () => true;
  * position's section, or else the template, turns it off.
  */
 export function shownChangesAt(template: TemplateFile, $pos: ResolvedPos): ShownChange {
-  let name: string | null = null;
-  for (let depth = $pos.depth; depth > 0 && name === null; depth -= 1) {
-    const node = $pos.node(depth);
-    if (node.type.name === 'page_section') name = (node.attrs.sectionName as string | null) ?? '';
-  }
+  const section = sectionAt($pos);
+  const name = section ? (section.name ?? '') : null;
   const own = findTemplateSection(template, name)?.changeBars;
   return (kind) => {
     const setting = SETTINGS[kind];

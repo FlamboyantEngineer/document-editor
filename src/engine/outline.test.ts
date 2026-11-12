@@ -37,7 +37,7 @@ describe('outline', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     let state = EditorState.create({ doc });
     let second = -1;
     doc.descendants((node, pos) => {

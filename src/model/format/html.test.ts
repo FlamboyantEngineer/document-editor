@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { writeDocumentFile } from './document-format-convert.js';
-import { cleanWordHtml, isWordHtml, readHtml, writeHtml } from './html.js';
+import { writeDocumentFile } from './document-format-write.js';
+import { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
 
 const WORD = [
   '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><style>p.MsoNormal{margin:0}</style></head><body>',
@@ -37,5 +37,25 @@ describe('HTML interchange', () => {
     expect(clean.replace(/\s+/g, '')).toContain(
       '<ul><li><p>One</p><ul><li><p>Nested</p></li></ul></li><li><p>Two</p></li></ul>',
     );
+  });
+
+  it('DOCE-FORMAT-6.3 reads HTML as stored content for a region or a section', () => {
+    const content = readHtmlContent(
+      'Page <span data-template-variable="page.current"></span> of {{page.total}}<h2>Scope</h2><script>alert(1)</script>',
+      documentSchema,
+      document,
+    );
+    expect(content).toEqual([
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Page ' },
+          { type: 'variable', attrs: { key: 'page.current' } },
+          { type: 'text', text: ' of {{page.total}}' },
+        ],
+      },
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Scope' }] },
+    ]);
+    expect(readHtmlContent('', documentSchema, document)).toEqual([]);
   });
 });

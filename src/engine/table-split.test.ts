@@ -17,7 +17,7 @@ const read = (...rows: StoredNode[]) =>
   readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content: [{ type: 'table', content: rows }] }] },
     documentSchema,
-  );
+  ).doc;
 
 const grid = () =>
   read(
@@ -110,7 +110,7 @@ describe('splitting cells', () => {
         ],
       },
       documentSchema,
-    );
+    ).doc;
     expect(splitTableCell('column')(stateAt(paragraph, 'A1'))).toBe(false);
   });
 });
