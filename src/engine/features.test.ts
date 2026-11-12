@@ -28,7 +28,7 @@ const EDITING_KEYS = [
   'scripts',
 ];
 // Column resizing, cell selection, the table pointer and the table keys.
-const TABLE_KEYS = ['tableColumnResizing', 'selectingCells', 'table-pointer', 'plugin'];
+const TABLE_KEYS = ['table-column-resize', 'selectingCells', 'table-pointer', 'plugin'];
 // The gap cursor, the document's keys and the base keymap.
 const LAST_KEYS = ['plugin', 'plugin', 'plugin'];
 
