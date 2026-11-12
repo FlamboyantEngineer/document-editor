@@ -2,13 +2,14 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { useEffect, useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing, listCommentAnchors, listSuggestions } from '../../engine/index.js';
 import { type CommentThread, createMemoryHost, type EditorHost } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
+import { DocumentCommentsPanel } from './comments-panel.js';
 import type { DocumentCommentsOptions } from './document-comments.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
@@ -81,6 +82,8 @@ function Harness(props: {
   canComment?: boolean;
   editable?: boolean;
   decide?: DocumentCommentsOptions['decide'];
+  /** Shows the comments panel inside the editor too. */
+  panel?: boolean;
 }) {
   const [state, setState] = useState(() => initial(props.select));
   useEffect(() => {
@@ -106,7 +109,11 @@ function Harness(props: {
             }
           : undefined
       }
-    />
+    >
+      {props.panel && comments ? (
+        <DocumentCommentsPanel store={comments} documentId="doc" identity={identity} />
+      ) : null}
+    </DocumentEditor>
   );
 }
 
@@ -235,5 +242,25 @@ describe('DocumentComments', () => {
     expect(
       within(margin).queryByRole('button', { name: /Comment|Accept|Resolve/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-2.14 shares one thread state between the margin and the panel', async () => {
+    const user = userEvent.setup();
+    const store = host();
+    const comments = store.comments;
+    if (!comments) throw new Error('The host should keep comments.');
+    // A store that lists threads but tells no one of changes, so only shared state shows them.
+    const list = vi.fn(comments.list.bind(comments));
+    const quiet = { ...comments, list, subscribe: undefined };
+    render(<Harness host={{ ...store, comments: quiet }} panel />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const panel = screen.getByRole('region', { name: 'All comments' });
+    await within(margin).findByText('Is blue right?');
+    const [thread] = within(panel).getAllByRole('group', { name: 'Comment thread' });
+    if (!thread) throw new Error('The panel should list the open thread.');
+    await user.type(within(thread).getByRole('textbox', { name: 'Reply' }), 'From the panel');
+    await user.click(within(thread).getByRole('button', { name: 'Reply' }));
+    expect(await within(margin).findByText('From the panel')).toBeInTheDocument();
+    expect(list).toHaveBeenCalledTimes(1);
   });
 });

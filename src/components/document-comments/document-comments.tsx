@@ -24,7 +24,6 @@ import {
 import {
   canStartComment,
   createElementId,
-  listSuggestions,
   startCommentDraft,
   type Suggestion,
 } from '../../engine/index.js';
@@ -44,7 +43,10 @@ import {
 } from './comment-cards.js';
 import { type CommentItem, listCommentItems, renderCommentCard } from './comment-items.js';
 import { useCommentMentions } from './comment-mentions.js';
-import { useCommentThreads } from './use-comment-threads.js';
+import { WithCommentThreads } from './comment-threads-provider.js';
+import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
+
+export { EditorCommentThreads } from './comment-threads-provider.js';
 
 /** Where a document's comments are kept and what the reader may do with them. */
 export interface DocumentCommentsOptions {
@@ -195,29 +197,25 @@ function caretKey(items: readonly CommentItem[], state: EditorState): string | n
   return (inside ?? items.find((item) => item.kind === 'draft'))?.key ?? null;
 }
 
-// The people who made the document's suggestions, the same list while they stay the same.
-function useSuggestionAuthors(state: EditorState): readonly string[] {
-  const doc = state.doc;
-  const key = useMemo(
-    () =>
-      [...new Set(listSuggestions(doc).flatMap(({ author }) => (author ? [author] : [])))]
-        .sort()
-        .join('\n'),
-    [doc],
-  );
-  return useMemo(() => (key ? key.split('\n') : []), [key]);
-}
-
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread
  * and each suggestion level with its text, and, while text is selected, a button that starts a
- * thread on it. Resolved threads are hidden; their anchors stay in the document.
+ * thread on it. Resolved threads are hidden; their anchors stay in the document. The threads are
+ * those of the provider around it, or of its own.
  */
 export function DocumentComments(props: DocumentCommentsProps) {
+  const failed = props.labels?.failed ?? DEFAULT_COMMENTS_LABELS.failed;
+  return (
+    <WithCommentThreads {...props} failed={failed}>
+      <CommentsMargin {...props} />
+    </WithCommentThreads>
+  );
+}
+
+function CommentsMargin(props: DocumentCommentsProps) {
   const { state, onStateChange, canDecide, children, canComment = true } = props;
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
-  const authors = useSuggestionAuthors(state);
-  const comments = useCommentThreads({ ...props, failed: labels.failed, authors });
+  const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
   const run = useRunCommand(onStateChange);
