@@ -452,9 +452,9 @@ Verification: `e2e/projection-editor.spec.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-PAGINATION-7.18 - The pages' layout without joining them
 
-The layout of a canonical document a projection shows (`pageMap`, DOCE-PAGINATION-7.17) shall map its positions through the map the projection keeps between its pages and that document (DOCE-PAGINATION-7.9), so reading pages and positions on each keystroke joins no pages; `createPageMap(paged, rules, positions)` shall do so for any paged document whose positions are known. Only a document the pages do not show exactly, as while an edit typed on the pages is on its way to the canonical state, shall map through the page transform, and a document shown before keeps the pages it was shown on. Joining a section's pages, and measuring a parent's blocks, each block's element found from the one before it, shall take time linear in its blocks.
+The layout of a canonical document a projection shows (`pageMap`, DOCE-PAGINATION-7.17) shall map its positions through the map the projection keeps between its pages and that document (DOCE-PAGINATION-7.9), so reading pages and positions on each keystroke joins no pages; `createPageMap(paged, rules, positions)` shall do so for any paged document whose positions are known. Only a document the pages do not show exactly, as while an edit typed on the pages is on its way to the canonical state, shall map through the page transform, and a document shown before keeps the pages it was shown on. Joining a section's pages shall join them in pairs, round after round, so each block is copied a number of times that grows with the log of the pages, and the fragments that meet shall then join in time linear in the blocks; measuring a parent's blocks shall find each block's element from the one before it.
 
-Implementation: `src/pagination/page-map.ts`, `src/pagination/projection-session.ts`, `src/model/pagination/fragments.ts`, `src/pagination/block-elements.ts`
+Implementation: `src/pagination/page-map.ts`, `src/pagination/projection-session.ts`, `src/model/pagination/fragments.ts`, `src/model/pagination/page-transform.ts`, `src/pagination/block-elements.ts`
 Verification: `src/pagination/page-map.test.ts`, `src/pagination/projection-view.test.ts`
 
 ## DOCE-PAGINATION-8 - Page headers and footers
