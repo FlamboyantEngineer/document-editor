@@ -91,7 +91,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@flamboyantengineer/collaboration-tools": "git+https://github.com/FlamboyantEngineer/collaboration-tools.git#8e3b096b0b8bab90858c4d4bdc56a2e7118989b0",
-    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#7d662b4f12c8ecefd4059e2426197f7e1935bc40",
+    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#ca18bdc560b422f3e5e44e789a7b8217edb57c6d",
     "@handlewithcare/react-prosemirror": "^3.2.11",
     "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
