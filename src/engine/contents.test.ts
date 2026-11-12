@@ -1,5 +1,5 @@
 import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { DecorationSet, EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
@@ -8,7 +8,7 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../model/index.js';
-import { createContents } from './contents.js';
+import { contentsCatalog, contentsKey, createContents } from './contents.js';
 
 const heading = (level: number, text: string): StoredNode => ({
   type: 'heading',
@@ -146,5 +146,30 @@ describe('contents anchors', () => {
     );
     expect(handled).toBeFalsy();
     view.destroy();
+  });
+});
+
+describe('contents on each keystroke', () => {
+  it('DOCE-CONTENTS-2.7 draws no lists in a document without one, and catalogs it once asked', () => {
+    const doc = readDocumentFile(
+      { formatVersion: 1, sections: [{ content: [heading(1, 'Scope'), heading(2, 'Detail')] }] },
+      documentSchema,
+    ).doc;
+    let state = EditorState.create({
+      doc,
+      plugins: [createContents({ template: () => BASE_TEMPLATE })],
+    });
+    let scope = 0;
+    state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Scope') scope = pos;
+    });
+    state = state.apply(state.tr.insertText('Wide ', scope));
+    expect(contentsKey.getState(state)?.decorations).toBe(DecorationSet.empty);
+    expect(contentsCatalog(state)?.toc?.map((entry) => entry.text)).toEqual([
+      'Wide Scope',
+      'Detail',
+    ]);
+    const listed = state.apply(state.tr.insert(scope - 1, documentSchema.node('toc_block')));
+    expect(contentsKey.getState(listed)?.decorations.find()).toHaveLength(1);
   });
 });
