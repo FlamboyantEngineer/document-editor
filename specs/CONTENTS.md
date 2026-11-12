@@ -6,10 +6,10 @@ A list of contents (`toc_block`, stored as `contents`) lists one kind of a docum
 
 ### DOCE-CONTENTS-1.1 - Headings
 
-`catalogDocument(doc, template, kinds)` shall give each kind of list its entries. With the default kinds (`DEFAULT_CONTENTS_KINDS`), the `toc` kind shall list every heading in document order with its level, its text, its position, the page it is on and the number it shows, as its template scope's heading numbering prints it (DOCE-NUMBERING-5.1). A section whose template section restarts numbering shall start its headings' counters again. A heading inside a list or a table is text set as a heading: it is neither numbered nor listed, and the reference stylesheet does not count it.
+`catalogDocument(doc, template, kinds)` shall give each kind of list its entries. With the default kinds (`DEFAULT_CONTENTS_KINDS`), the `toc` kind shall list every heading in document order with its level, its text, its position, the page it is on and the number it shows, as its template scope's heading numbering prints it (DOCE-NUMBERING-5.1). A section whose template section restarts numbering shall start its headings' counters again. Only the document's structural headings are numbered and listed (`isStructuralHeading`), and the reference stylesheet counts the same ones (DOCE-NUMBERING-5.1): a heading in a list, a table cell or header, a quote, or a page header or footer, at any depth, is text set as a heading, and the document's title stands above the structure. The headings of a script's output count where the script block stands in the body, as do those of a layout column. The outline shows the same headings (DOCE-OUTLINE-1.1).
 
-Implementation: `src/model/contents/document-catalog.ts`, `src/model/templates/template-numbering.ts`
-Verification: `src/model/contents/document-catalog.test.ts`
+Implementation: `src/model/contents/document-catalog.ts`, `src/model/contents/structural-heading.ts`, `src/model/templates/template-numbering.ts`
+Verification: `src/model/contents/document-catalog.test.ts`, `src/model/contents/structural-heading.test.ts`, `src/engine/outline.test.ts`, `test/structural-headings.test.ts`
 
 ### DOCE-CONTENTS-1.2 - Captioned objects
 

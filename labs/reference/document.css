@@ -915,10 +915,13 @@
   outline: 2px solid color-mix(in srgb, var(--ref-accent, #0969da) 30%, transparent);
 }
 
-/* A heading inside a list or a table is text set as a heading: it is neither counted nor numbered. */
+/*
+ * A heading inside a list, a table or a quote, at any depth, is text set as a heading: it is
+ * neither counted nor numbered (`isStructuralHeading`). A script's output keeps its headings.
+ */
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  :is(li, td, th)
+  :is(li, td, th, blockquote)
   :is(h1, h2, h3, h4, h5, h6) {
   counter-increment: none;
   counter-set: none;
@@ -926,7 +929,7 @@
 
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  :is(li, td, th)
+  :is(li, td, th, blockquote)
   :is(h1, h2, h3, h4, h5, h6)::before {
   content: none;
 }

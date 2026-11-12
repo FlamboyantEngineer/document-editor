@@ -1,7 +1,12 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
+import {
+  BASE_TEMPLATE,
+  catalogDocument,
+  readDocumentFile,
+  type StoredNode,
+} from '../model/index.js';
 import { documentOutline } from './outline.js';
 
 const heading = (id: string, level: number, value: string): StoredNode => ({
@@ -56,5 +61,44 @@ describe('outline', () => {
       '1.',
       '1.1.',
     ]);
+  });
+
+  it('DOCE-OUTLINE-1.1 DOCE-CONTENTS-1.1 shows the headings the catalog numbers, and no others', () => {
+    const set = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
+      type: 'heading',
+      attrs: { level: 1, ...attrs },
+      content: [{ type: 'text', text: value }],
+    });
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              set('Title', { title: true }),
+              set('Scope'),
+              { type: 'blockquote', content: [set('Quoted')] },
+              {
+                type: 'bulletList',
+                content: [{ type: 'listItem', content: [paragraph('Item'), set('Listed')] }],
+              },
+              { type: 'script', content: [set('Output')] },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    const state = EditorState.create({ doc });
+    const catalog = catalogDocument(doc, BASE_TEMPLATE).toc ?? [];
+    const outline = documentOutline(state, BASE_TEMPLATE);
+    expect(outline.map((each) => [each.text, each.number])).toEqual([
+      ['Scope', '1.'],
+      ['Output', '2.'],
+    ]);
+    expect(catalog.map((each) => [each.text, each.number.trim()])).toEqual(
+      outline.map((each) => [each.text, each.number]),
+    );
   });
 });

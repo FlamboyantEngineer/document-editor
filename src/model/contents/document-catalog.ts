@@ -19,6 +19,7 @@ import {
 import { templateScopeStyles } from '../templates/template-properties.js';
 import { sectionRestartsNumbering } from '../templates/template-scopes.js';
 import { findTemplateSection } from '../templates/template-sections.js';
+import { isStructuralHeading } from './structural-heading.js';
 
 /**
  * One kind of list: the nodes or marks it lists and how it shows them. For a mark, each run of text
@@ -144,6 +145,7 @@ interface Counting {
   /** Whether a kind lists marks or inline nodes, so the walk enters textblocks. */
   readonly inline: boolean;
   readonly catalog: Record<string, CatalogEntry[]>;
+  readonly doc: ProseMirrorNode;
 }
 
 function scopeOf(template: TemplateFile, section: TemplateSection | null): Scope {
@@ -257,19 +259,15 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
   }
 }
 
-/** Blocks whose headings are text set as headings, not the document's structure. */
-const UNSTRUCTURED_PARENTS = new Set(['list_item', 'table_cell', 'table_header']);
-
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
-  content.descendants((node, offset, parent) => {
+  content.descendants((node, offset) => {
     if (isContinuation(node)) return !node.isTextblock;
-    // A heading inside a list or a table is neither numbered nor listed.
-    if (node.type.name === 'heading' && parent && UNSTRUCTURED_PARENTS.has(parent.type.name)) {
-      return false;
+    const isHeading = node.type.name === 'heading';
+    // The title and a heading set in a list, a table or a quote are neither numbered nor listed.
+    if (!isHeading || isStructuralHeading(counting.doc, start + offset)) {
+      const numbered = isHeading ? countHeading(node, counting) : countObject(node, counting);
+      list([node, start + offset, numbered], counting);
     }
-    const numbered =
-      node.type.name === 'heading' ? countHeading(node, counting) : countObject(node, counting);
-    list([node, start + offset, numbered], counting);
     if (node.isTextblock && counting.inline) listMarks(node, start + offset + 1, counting);
     return !node.isTextblock || counting.inline;
   });
@@ -301,6 +299,7 @@ export function catalogDocument(
     kinds: Object.entries(kinds),
     inline: listsInline(doc, kinds),
     catalog: Object.fromEntries(Object.keys(kinds).map((key) => [key, []])),
+    doc,
   };
   doc.forEach((section, sectionOffset) => {
     if (section.type.name !== 'page_section') return;
