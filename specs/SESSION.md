@@ -57,7 +57,7 @@ Verification: `src/session/document-session.test.ts`, `src/components/document-s
 
 ### DOCE-SESSION-2.2 - Saving
 
-`save()` shall write the document in the stored format with its template pin and save it against the revision it was edited from, one save at a time, the save status going `saving` and then `saved`. A change made during a save stays to save. A refused save, such as a `conflict`, shall set the status to `error` with the host's error and keep the change to save again.
+`save()` shall write the document in the stored format with its template pin and save it against the revision it was edited from, one save at a time, the save status going `saving` and then `saved`. A change made during a save stays to save. A refused save shall set the status to `error` with the host's error and keep the change to save again; a save refused as `conflict` is then merged (DOCE-SESSION-4).
 
 Implementation: `src/session/store-saving.ts`
 Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
@@ -92,6 +92,31 @@ A store-mode session, and everything the session entry loads when it loads, shal
 Implementation: `src/session/index.ts`
 Verification: `src/session/store-bundle.test.ts`
 
+## DOCE-SESSION-4 - Merging another writer's saves
+
+In store mode two readers can edit the same stored document. When a save is refused as `conflict`, or the store tells of a save made elsewhere (DOCE-SESSION-7), the session merges the reader's unsaved changes into the stored document (D28) rather than asking the reader to choose a whole document.
+
+### DOCE-SESSION-4.1 - Three-way merge by element id
+
+`mergeDocuments({ base, mine, theirs })` shall merge two stored documents edited from the same base by element id: a block only one side changed, inserted or deleted takes that side's change; a container both sides changed, such as a section, a list or a table, merges its own settings and then its children the same way; blocks either side inserted are placed after the block before them on that side; and the order follows the side that moved blocks, the reader's when both did. The template pin merges the same way, the reader's winning when both changed it. When a save conflicts (`HostError.current`, or the stored document loaded again when the host gives none), the session shall show the merged document, take the stored document as its new baseline and save the merge against it, with no prompt when no block conflicts. The caret and the blocks that did not change stay as they were (DOCE-SESSION-7.2).
+
+Implementation: `src/session/merge.ts`, `src/session/store-refresh.ts`, `src/session/store-saving.ts`
+Verification: `src/session/merge.test.ts`, `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
+
+### DOCE-SESSION-4.2 - Conflicts
+
+A block both sides changed differently, or one side deleted while the other changed it, shall be a conflict (`MergeConflict`: its id, the reader's version and the stored one, null for a deletion). The merged document shows the reader's version, or the changed one over a deletion. While conflicts remain, the session's `conflicts` store lists them, its status is `error` with a `conflict` error, and it does not save, so `flush()` resolves false. `resolveConflict(id, choice)` settles one: `mine` keeps the reader's block as it is now, `theirs` puts the stored one in its place, a deletion on the chosen side removing it, and `both` (for two blocks with text, `canKeepBoth`) keeps the reader's block with the stored one after it under new element ids (`resolveMergeConflict`). Once none remains, the session saves again.
+
+Implementation: `src/session/merge.ts`, `src/session/merge-conflicts.ts`, `src/session/store-refresh.ts`, `src/session/store-saving.ts`
+Verification: `src/session/merge.test.ts`, `src/session/store-refresh.test.ts`
+
+### DOCE-SESSION-4.3 - The conflict prompt
+
+`MergeConflicts` shall show, for a session's conflicts, one warning per block, titled by whether both changed it or one deleted it, with the word changes from the reader's text to the stored one (`InlineTextDiff`) and a group of buttons, named by the title, to keep mine, keep theirs and, where both hold text, keep both. It renders nothing while there is no conflict. Its text comes from `labels`.
+
+Implementation: `src/components/document-session/merge-conflicts.tsx`
+Verification: `src/components/document-session/merge-conflicts.test.tsx`, `e2e/session.spec.ts`
+
 ## DOCE-SESSION-5 - Unsaved changes
 
 ### DOCE-SESSION-5.1 - The unsaved-changes reader
@@ -107,3 +132,27 @@ When the host's `lifecycle` adapter says the page is hidden or being left, the s
 
 Implementation: `src/session/session-follow.ts`, `src/session/store-saving.ts`
 Verification: `src/session/document-session.test.ts`, `e2e/session.spec.ts`
+
+## DOCE-SESSION-7 - Refreshing from the store
+
+### DOCE-SESSION-7.1 - Following the store's saves
+
+When the host's document store tells of a save (`documents.subscribe`) newer than the one the session holds, the session shall wait for its own save in flight, load the stored document and take it in: shown as it is when the reader has no unsaved changes, merged with them otherwise (DOCE-SESSION-4), and taken as the new baseline. Its own saves are not taken in again.
+
+Implementation: `src/session/store-refresh.ts`
+Verification: `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
+
+### DOCE-SESSION-7.2 - Replacing the content in place
+
+`replaceDocumentContent(state, doc)` shall give a transaction that turns the state's document into `doc` by changing only the blocks, matched by element id, and the runs of text that differ, so the selection and every unchanged block stay. Page headers and footers are left for the section plugins to derive. The transaction is a system change (`markSystemChange`) outside the history.
+
+Implementation: `src/engine/replace-document-content.ts`
+Verification: `src/engine/replace-document-content.test.ts`, `src/session/store-refresh.test.ts`
+
+## Hooks
+
+| Hook                           | Kind      | Values               | Description                                        |
+| ------------------------------ | --------- | -------------------- | -------------------------------------------------- |
+| `de-merge-conflicts`           | root      |                      | The conflict prompt (DOCE-SESSION-4.3).            |
+| `de-merge-conflicts__conflict` | slot      |                      | One block's warning.                               |
+| `data-kind`                    | attribute | `changed`, `deleted` | On a conflict: both changed it, or one deleted it. |

@@ -66,9 +66,12 @@ export {
 export type {
   DocumentSessionBoundaryProps,
   DocumentSessionEditorProps,
+  MergeConflictsLabels,
+  MergeConflictsProps,
 } from './document-session/index.js';
 export {
   DocumentSessionBoundary,
+  MergeConflicts,
   useDocumentSession,
   useSessionValue,
 } from './document-session/index.js';
