@@ -1,27 +1,27 @@
-// The cards of the comments margin: an open thread, a thread being started, a suggestion with its
-// discussion and decision, and the offer to comment on the selection.
+// The cards of the comments margin and panel: an open thread, a thread being started and the offer
+// to comment on the selection, and the parts a suggestion's card shares (`suggestion-card.tsx`).
 
 import { Button } from '@flamboyantengineer/ui-components/button';
-import { ButtonGroup } from '@flamboyantengineer/ui-components/button-group';
-import { Card } from '@flamboyantengineer/ui-components/card';
 import {
   CommentComposer,
   type CommentMentions,
 } from '@flamboyantengineer/ui-components/comment-composer';
 import {
+  CommentText,
+  type CommentTextFormat,
+  type CommentTextProps,
   CommentThread,
   CommentThreadReply,
 } from '@flamboyantengineer/ui-components/comment-thread';
 import { ChatBubblePlusGlyph } from '@flamboyantengineer/ui-components/core';
-import {
-  InlineTextDiff,
-  type InlineTextDiffSegment,
-} from '@flamboyantengineer/ui-components/inline-text-diff';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
-import type { Suggestion } from '../../engine/index.js';
+import { UserCard } from '@flamboyantengineer/ui-components/user-card';
+import type { ReactNode } from 'react';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { activityRows } from './comment-activity-rows.js';
+import type { OpenedComment } from './comment-focus.js';
 import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
 import type { CommentThreads } from './use-comment-threads.js';
@@ -29,6 +29,16 @@ import type { CommentThreads } from './use-comment-threads.js';
 export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments-labels.js';
 
 export const hooks = createHooks('document-comments', ['margin', 'card']);
+
+/** What a mention's chip names: a person, a group, or another kind the host mentions. */
+export type MentionCardTarget = Parameters<NonNullable<CommentTextProps['renderCard']>>[0];
+
+/** The comment a menu action is for: the thread's opening comment (`index` 0) or a reply. */
+export interface CommentActionTarget {
+  readonly thread: StoredThread;
+  readonly entry: CommentEntry;
+  readonly index: number;
+}
 
 /** What every card reads: the threads, the reader and the labels. */
 export interface CardContext {
@@ -41,28 +51,55 @@ export interface CardContext {
   readonly documentId: string;
   /** Mentions of the people the host's identity finds. */
   readonly mentions?: CommentMentions | undefined;
+  /** How comments read: as plain text (the default) or as inline Markdown. */
+  readonly format?: CommentTextFormat | undefined;
+  /**
+   * The card a mention's chip opens; by default a `UserCard` with the name and the picture the
+   * identity gives, and none with null.
+   */
+  readonly mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
+  /** The host's own actions in a comment's menu, before Edit and Delete. */
+  readonly commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
+  /** Where the cards show, which keeps their comments' element ids apart. */
+  readonly scope: 'margin' | 'panel';
+  /** The comment the reader was taken to, which its thread points at. */
+  readonly opened?: OpenedComment | null | undefined;
+  /** The text a thread being started begins with. */
+  readonly newText?: string | null | undefined;
+}
+
+/** The element id of a comment where the cards show. */
+function entryElementId(context: CardContext, entryId: string): string {
+  return `de-comment-${context.scope}-${entryId}`;
 }
 
 /**
  * The composer of a thread's next comment, its draft kept in the provider's storage under the
  * thread, so it survives the card going and the page loading again.
  */
-function DraftComposer({
+export function DraftComposer({
   context,
   draftKey,
   first,
   onSubmit,
+  defaultValue,
 }: {
   context: CardContext;
   draftKey: string;
   first: boolean;
   onSubmit: (text: string) => Promise<unknown>;
+  /** The text to begin with, such as a reply a link starts. */
+  defaultValue?: string | undefined;
 }) {
   const { labels } = context;
   return (
     <CommentComposer
       mentions={context.mentions}
-      persistKey={`de-comments:${context.documentId}:${draftKey}`}
+      defaultValue={defaultValue}
+      // A kept draft would hide the text a host starts the reply with.
+      persistKey={
+        defaultValue === undefined ? `de-comments:${context.documentId}:${draftKey}` : undefined
+      }
       label={first ? labels.addComment : labels.reply}
       submitLabel={first ? labels.comment : labels.reply}
       onSubmit={onSubmit}
@@ -126,7 +163,20 @@ function entryActions(
   };
 }
 
-function Entries({
+// The card a mention's chip opens, as the context asks.
+function mentionCardOf(context: CardContext): CommentTextProps['renderCard'] {
+  const { mentionCard, comments } = context;
+  if (mentionCard === null) return undefined;
+  return (
+    mentionCard ??
+    ((target) => <UserCard name={target.name} src={comments.people.get(target.id)?.src} />)
+  );
+}
+
+/**
+ * A thread's comments, as the thread's own children, so it finds the one it points at by its id.
+ */
+export function renderEntries({
   thread,
   context,
   onRemove,
@@ -136,18 +186,28 @@ function Entries({
   onRemove?: (() => Promise<void>) | undefined;
 }) {
   const { people } = context.comments;
+  const renderCard = mentionCardOf(context);
   // A reply still being written, or that failed, shows as an activity row instead.
   return thread.entries.map((entry, index) =>
     entry.status ? null : (
       <CommentThreadReply
         key={entry.id}
+        id={entryElementId(context, entry.id)}
         author={people.get(entry.author) ?? { name: context.labels.someone }}
         time={entry.createdAt}
         text={entry.text}
         isEdited={Boolean(entry.editedAt)}
         reactions={<Reactions thread={thread} entry={entry} context={context} />}
+        actions={context.commentActions?.({ thread, entry, index })}
         {...entryActions(thread, { entry, index }, { context, onRemove })}
-      />
+      >
+        <CommentText
+          text={entry.text}
+          format={context.format}
+          parse={context.mentions?.parse}
+          renderCard={renderCard}
+        />
+      </CommentThreadReply>
     ),
   );
 }
@@ -168,19 +228,24 @@ export function ThreadCard({
   onRemove: () => Promise<void>;
 }) {
   const { canComment, comments } = context;
+  const opened = context.opened?.threadId === thread.id ? context.opened : null;
   return (
     <CommentThread
       mentions={context.mentions}
       quote={thread.quote}
+      highlightedId={opened?.entryId ? entryElementId(context, opened.entryId) : undefined}
       isResolved={thread.state === 'resolved'}
       onResolvedChange={canComment ? (resolved) => void onResolve(resolved) : undefined}
       composer={
         canComment ? (
           <DraftComposer
+            // A reply a link starts takes the composer's place, with the text it begins with.
+            key={opened?.reply === undefined ? 'draft' : `opened-${String(opened.sequence)}`}
             context={context}
             draftKey={thread.id}
             first={thread.entries.length === 0}
             onSubmit={(text) => comments.reply(thread.id, text)}
+            defaultValue={opened?.reply}
           />
         ) : undefined
       }
@@ -188,7 +253,7 @@ export function ThreadCard({
       isSelected={isActive}
       activity={activityRows(comments.activity.get(thread.id), context)}
     >
-      <Entries thread={thread} context={context} onRemove={onRemove} />
+      {renderEntries({ thread, context, onRemove })}
     </CommentThread>
   );
 }
@@ -216,110 +281,14 @@ export function PendingCard({
           ref={composer}
           mentions={context.mentions}
           autoFocus
-          persistKey={`de-comments:${context.documentId}:new`}
+          defaultValue={context.newText ?? undefined}
+          persistKey={context.newText == null ? `de-comments:${context.documentId}:new` : undefined}
           submitLabel={context.labels.comment}
           onSubmit={onSubmit}
           onCancel={onCancel}
         />
       }
     />
-  );
-}
-
-// What a suggestion changes, as the removed and the added text.
-function changeOf(suggestion: Suggestion): InlineTextDiffSegment[] {
-  return [
-    ...(suggestion.deleted ? [{ kind: 'removed' as const, text: suggestion.deleted }] : []),
-    ...(suggestion.inserted ? [{ kind: 'added' as const, text: suggestion.inserted }] : []),
-  ];
-}
-
-// Who suggested the change, and what it does.
-function summaryOf(suggestion: Suggestion, context: CardContext) {
-  const { labels, comments } = context;
-  // Until the host names its author, a suggestion says someone made it, never showing an id.
-  const author =
-    (suggestion.author ? comments.people.get(suggestion.author)?.name : undefined) ??
-    labels.someone;
-  const split = suggestion.inserted !== '' && suggestion.inserted === suggestion.deleted;
-  const action = split
-    ? labels.split
-    : suggestion.deleted && suggestion.inserted
-      ? labels.replace
-      : suggestion.deleted
-        ? labels.remove
-        : labels.insert;
-  return { author, split, action };
-}
-
-/**
- * A suggestion: what it changes, Accept and Reject for a reader who may decide, and its thread,
- * which an active card offers to start.
- */
-export function SuggestionCard({
-  suggestion,
-  thread,
-  isActive,
-  context,
-  canDecide,
-  onDecide,
-  onReply,
-}: {
-  suggestion: Suggestion;
-  thread: StoredThread | null;
-  isActive: boolean;
-  context: CardContext;
-  /** Whether the reader may accept the suggestion, and reject it. */
-  canDecide: { readonly accept: boolean; readonly reject: boolean };
-  onDecide: (accept: boolean) => void;
-  onReply: (text: string) => Promise<unknown>;
-}) {
-  const { canComment, labels } = context;
-  const { author, split, action } = summaryOf(suggestion, context);
-  return (
-    <Card
-      density="compact"
-      isSelected={isActive}
-      title={author}
-      description={action}
-      footer={
-        canDecide.accept || canDecide.reject ? (
-          <ButtonGroup aria-label={labels.decide}>
-            {canDecide.accept ? (
-              <Button size="sm" variant="primary" onPress={() => onDecide(true)}>
-                {labels.accept}
-              </Button>
-            ) : null}
-            {canDecide.reject ? (
-              <Button size="sm" onPress={() => onDecide(false)}>
-                {labels.reject}
-              </Button>
-            ) : null}
-          </ButtonGroup>
-        ) : null
-      }
-    >
-      {split ? null : <InlineTextDiff segments={changeOf(suggestion)} />}
-      {thread || (canComment && isActive) ? (
-        <CommentThread
-          mentions={context.mentions}
-          composer={
-            canComment ? (
-              <DraftComposer
-                context={context}
-                draftKey={`suggestion:${suggestion.id}`}
-                first={!thread?.entries.length}
-                onSubmit={onReply}
-              />
-            ) : undefined
-          }
-          isReadOnly={!canComment}
-          isSelected={isActive}
-        >
-          {thread ? <Entries thread={thread} context={context} /> : null}
-        </CommentThread>
-      ) : null}
-    </Card>
   );
 }
 
