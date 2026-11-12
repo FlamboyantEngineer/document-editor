@@ -308,6 +308,20 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/do
 Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `labs/reference/document.css`, `labs/src/document-editor.lab.tsx`
 Verification: `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-6.14 - Section sheet sizes
+
+A snapshot shall print each section's pages on its template section's sheet size and orientation (`templatePageMetrics`), the document's own for a section the template does not name: a named print page (`@page de-sheet-<n>`) for each sheet size its sections use, in order of first use, chosen by the section's `data-print-sheet`, beside the template's sheet as the default print page, and a sheet break after every page but the last. In print, the pages shall sit edge to edge on their sheets, without the margins and gaps a stylesheet puts around and between them on screen, so each page fills one sheet. The print lab (`labs/print.html`) shows the snapshot in a print preview frame.
+
+Implementation: `src/engine/snapshot.ts`, `labs/src/print.lab.tsx`
+Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.15 - View-only decorations
+
+A decoration drawn only for the person working in the editor (search matches, proofing issues, other people's selections and the layout debugging) shall be made view-only (`viewOnlyInline`, `viewOnlyNode`), which puts the common hook `data-de-view-only` on the element it draws or decorates and records in its spec the attributes and classes it adds. A snapshot shall take those attributes, classes and the hook off every element carrying it, unwrap an inline decoration's wrapper left with no attributes, and keep the decorations that are not view-only. It shall also leave out the editor root's data attributes that describe the view rather than the document (`data-suggesting`, `data-scrollable`, `data-layout-state`, `data-debug`, `data-debug-blocks`, `data-debug-measure`). Widgets stay left out, apart from the values variables show (DOCE-EDITOR-6.9).
+
+Implementation: `src/engine/print-view.ts`, `src/utils/view-only-decorations.ts`, `src/engine/search.ts`, `src/engine/proofing.ts`, `src/engine/presence.ts`, `src/pagination/page-debug.ts`
+Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                 | Description                                                                             |
@@ -360,3 +374,5 @@ Verification: `e2e/document-editor.spec.ts`
 | `data-debug-used`                       | attribute |                                                        | On a page while debugging: the height its blocks take, in CSS pixels.                   |
 | `data-debug-free`                       | attribute |                                                        | On a page while debugging: the height left for blocks, in CSS pixels.                   |
 | `data-debug-height`                     | attribute |                                                        | On a block while debugging: its measured height, in CSS pixels.                         |
+| `data-de-view-only`                     | attribute | `true`                                                 | On an element a view-only decoration draws or decorates; a snapshot leaves it out.      |
+| `data-print-sheet`                      | attribute |                                                        | In a snapshot, on a section: the index of the sheet size it prints on.                  |
