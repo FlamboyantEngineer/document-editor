@@ -18,6 +18,7 @@ import {
   type Ref,
   type RefObject,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,7 +46,12 @@ import type { DocumentCommentsOptions } from '../document-comments/document-comm
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { EditorBody } from './editor-body.js';
 import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
-import { createEditorContext, DocumentEditorContext, type ObjectDialog } from './editor-context.js';
+import {
+  createEditorContext,
+  DocumentEditorContext,
+  type EditorContext,
+  type ObjectDialog,
+} from './editor-context.js';
 import { type DocumentEditorHandle, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
@@ -267,12 +273,18 @@ function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
   };
 }
 
+// Where the pages are measured, and the editor's context, which the ghost's node views read too.
+interface EditorLayoutRefs {
+  readonly measureIn: RefObject<HTMLDivElement | null>;
+  readonly context: RefObject<EditorContext | null>;
+}
+
 // The editor's layout, and the view its chrome acts on: the engine's, or, while the pages are a
 // projection of the state, the engine's view as a view of the state.
 function useEditorLayout(
   props: DocumentEditorProps,
   engine: ReturnType<typeof useEngineView>,
-  measureIn: RefObject<HTMLDivElement | null>,
+  { measureIn, context }: EditorLayoutRefs,
 ) {
   const { state, editable = true } = props;
   const paging = usePagedEditor({
@@ -290,6 +302,9 @@ function useEditorLayout(
     onLayoutStateChange: setLayoutState,
     onCanonical: paging.onCanonical,
     onLayout: paging.onLayout,
+    wrapGhost: (shown) => (
+      <DocumentEditorContext value={context.current}>{shown}</DocumentEditorContext>
+    ),
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
   return { progress, view, layoutState };
@@ -309,7 +324,11 @@ export function DocumentEditor(props: DocumentEditorProps) {
   useWheelZoom(root, props);
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props.onContentChange, tap);
-  const { progress, view, layoutState } = useEditorLayout(props, engine, measureIn);
+  const editorContext = useRef<EditorContext | null>(null);
+  const { progress, view, layoutState } = useEditorLayout(props, engine, {
+    measureIn,
+    context: editorContext,
+  });
   useEffect(() => {
     if (view && layout === 'web') ready.signal();
   }, [view, layout, ready]);
@@ -324,6 +343,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
     () => createEditorContext(view, state, { editable, labels, openDialog: setDialog }),
     [view, state, editable, labels],
   );
+  useLayoutEffect(() => {
+    editorContext.current = context;
+  }, [context]);
   const [finding, setFinding] = useState(false);
   const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
   const chrome = { props, context, view, templateStyle, startCommentRef, openFind };

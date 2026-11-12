@@ -1,6 +1,10 @@
 // Starts laying a document editor's pages out, in page layout: by a pagination of the editor's
 // state, or by a projection of it on pages (DOCE-PAGINATION-7.17), which the editor renders.
 
+import {
+  mountRichTextView,
+  withoutReactKeys,
+} from '@flamboyantengineer/ui-components/rich-text-editor';
 import { reactKeys } from '@handlewithcare/react-prosemirror';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Plugin, PluginKey } from 'prosemirror-state';
@@ -21,6 +25,8 @@ import {
   type LayoutState,
   listStartsKey,
   loadTemplateFonts,
+  type MeasuringView,
+  type MeasuringViewOptions,
   pageDebugKey,
   type PagedProjection,
   pageVariablesKey,
@@ -112,7 +118,13 @@ export function startPaging(
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
   };
   const { refresh, active, ownPlugins, paginationPlugin } = refs;
-  if (latest.current.projection) return startProjectionOf(setup, latest, { refs, setPaged });
+  if (latest.current.projection) {
+    const start = () => startProjectionOf(setup, latest, { refs, setPaged });
+    if (!ghostWith(latest)) return start();
+    // Pending until the ghost has mounted, so nothing reads the pages as settled before then.
+    setup.onLayoutStateChange('pending');
+    return afterCommit(start);
+  }
   const pagination = createPagination({
     ...setup,
     plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
@@ -199,10 +211,12 @@ function startProjection(
     ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
     // The engine renders the projection's states with React node identities kept.
     plugins: [reactKeys(), ...pages],
+    // The ghost takes the projection's React keys, not those the engine gave the state.
     ghostPlugins: withOwn(
-      latest.current.state.plugins.filter((plugin) => !pages.includes(plugin)),
+      withoutReactKeys(latest.current.state).plugins.filter((plugin) => !pages.includes(plugin)),
       own,
     ),
+    mountGhost: ghostWith(latest),
     dispatch: (tr) => latest.current.onCanonical?.(tr),
     onProjection: (state) => {
       if (made) setPaged({ projection: made, state });
@@ -213,4 +227,42 @@ function startProjection(
   setPaged({ projection, state: projection.projection });
   setup.onLayoutStateChange?.(projection.layoutState());
   return projection;
+}
+
+// How the ghost mounts: with the host's React node views, which it renders as the pages do, under
+// the providers the editor's own views read, so a block they draw is measured as it shows; a plain
+// view without them. The node views are those the pages mount with: a host that swaps them has the
+// ghost keep the old ones until the pages mount again.
+function ghostWith(
+  latest: RefObject<DocumentLayoutOptions>,
+): ((element: HTMLElement, options: MeasuringViewOptions) => MeasuringView) | undefined {
+  const { nodeViews } = latest.current;
+  if (!nodeViews || Object.keys(nodeViews).length === 0) return undefined;
+  return (element, { state }) => {
+    const mounted = mountRichTextView(element, {
+      state,
+      nodeViews,
+      wrap: (shown) => latest.current.wrapGhost?.(shown) ?? shown,
+    });
+    return {
+      view: mounted.view,
+      show: (next) => mounted.update(next),
+      destroy: () => mounted.destroy(),
+    };
+  };
+}
+
+// Starts something once React has left the commit it was asked in, as a projection whose ghost
+// mounts a React root of its own, drawn at once, which React cannot do inside an effect; returns
+// how to stop it, started or not.
+function afterCommit(start: () => () => void): () => void {
+  let stop: (() => void) | null = null;
+  let cancelled = false;
+  queueMicrotask(() => {
+    if (!cancelled) stop = start();
+  });
+  return () => {
+    cancelled = true;
+    stop?.();
+  };
 }

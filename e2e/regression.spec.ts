@@ -508,6 +508,28 @@ test.describe('split-paragraph repagination matrix on the projection', () => {
   }
 });
 
+test.describe('host views on the projection', () => {
+  test('DOCE-LABS-4.2 DOCE-PAGINATION-7.17 measures blocks a host view draws as the pages draw them', async ({
+    page,
+  }) => {
+    await openDocument(page, 'blockquotes', { projection: true });
+    const plain = (await pagesOf(page)).length;
+    await page.goto('regression.html?document=blockquotes&layout=page&projection&hostViews');
+    await waitForLab(page);
+    await expect(page.locator('.pm-page blockquote[data-host-view]').first()).toBeVisible();
+    // The ghost draws the host's view too, in the editor's measuring element.
+    const measuring = page.locator('.de-document-editor__measure .ProseMirror');
+    await expect(measuring.locator('blockquote[data-host-view]').first()).toBeAttached();
+    // Under the editor's own providers, as the pages draw it.
+    await expect(measuring.locator('blockquote[data-in-editor="false"]')).toHaveCount(0);
+    await expect(page.locator('.pm-page blockquote[data-in-editor="false"]')).toHaveCount(0);
+    // The taller quotes take more pages, and every page holds what it shows.
+    const pages = await pagesOf(page);
+    expect(pages.length).toBeGreaterThan(plain);
+    expectPagesHoldContent(pages);
+  });
+});
+
 test.describe('list split stress', () => {
   test('DOCE-LABS-4.3 DOCE-PAGINATION-4.1 splits a long ordered list between items, each item once', async ({
     page,

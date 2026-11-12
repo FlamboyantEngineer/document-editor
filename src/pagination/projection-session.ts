@@ -9,6 +9,7 @@ import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
 import type { holdCellSelection } from './cell-drag.js';
+import type { MeasuringView } from './ghost-view.js';
 import type { LayoutMemory } from './layout-document.js';
 import type { createLayoutReadiness } from './layout-readiness.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
@@ -58,7 +59,7 @@ export interface Session {
   readonly cache: MeasureCache;
   readonly cells: ReturnType<typeof holdCellSelection>;
   readonly counts: { refused: number; relaid: number };
-  readonly ghost: EditorView;
+  readonly ghost: MeasuringView;
   readonly edits: ReturnType<typeof settleEdits>;
   readonly pace: LayoutPace;
   canonical: EditorState;
@@ -176,7 +177,8 @@ function layOutPages(session: Session) {
   const { ghost, canonical, projection, cache, options, rules, pace } = session;
   if (pace.restart) {
     pace.restart = false;
-    ghost.updateState(EditorState.create({ doc: ghost.state.doc, plugins: ghost.state.plugins }));
+    const { doc, plugins } = ghost.view.state;
+    ghost.show(EditorState.create({ doc, plugins }));
   }
   return layOutProjection(
     { projection, ghost, canonical, cache, memory: pace.memory, onSection: pace.counter.section },
@@ -193,7 +195,7 @@ export function layout(session: Session): void {
   session.cancelLayout = null;
   session.edits.cancel();
   const { view, ghost, pace } = session;
-  if (view?.isDestroyed || ghost.isDestroyed) return;
+  if (view?.isDestroyed || ghost.view.isDestroyed) return;
   if (view?.composing) return requestLayout(session);
   // The selection the browser shows and has not reported yet is the one the new pages keep
   // (DOCE-EDITOR-1.4), not the one the layout would draw back over it.

@@ -3,10 +3,21 @@
 // it out after every change, each section on pages of its own size; in the web layout each section
 // is one page, so leaving the pages joins them back.
 
-import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type {
+  RichTextNodeViewProps,
+  RichTextStateUpdate,
+} from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState, Plugin, Transaction } from 'prosemirror-state';
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ComponentType,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   type CompareSuggestions,
   createAuthorship,
@@ -153,6 +164,13 @@ export interface DocumentLayoutOptions {
    * (DOCE-PAGINATION-7.17), rather than paginating the state itself.
    */
   readonly projection?: boolean | undefined;
+  /**
+   * The host's React node views, which a projection's ghost renders as the pages do, read when the
+   * pages mount.
+   */
+  readonly nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
+  /** Wraps the ghost's React node views in the providers the editor's own views render under. */
+  readonly wrapGhost?: ((view: ReactNode) => ReactNode) | undefined;
   /** Takes each canonical transaction input on the projection's pages makes. */
   readonly onCanonical?: ((tr: Transaction) => void) | undefined;
   /** Told of each layout of the projection's pages. */
