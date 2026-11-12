@@ -9,7 +9,6 @@ import type {
   RichTextNodeViewProps,
   RichTextStateUpdate,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
-import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorState } from 'prosemirror-state';
 import {
   type ComponentType,
@@ -47,12 +46,13 @@ import {
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
+import { type DocumentBanner, useReportedFonts } from './banners.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import type { HostDialogProps } from './dialog-parts.js';
 import { useFindBar } from './document-find-bar.js';
 import type { DocumentStatusBarOptions } from './document-status-bar.js';
 import { EditorBody } from './editor-body.js';
-import { BottomChrome, TopChrome, useWheelZoom } from './editor-chrome.js';
+import { useWheelZoom } from './editor-chrome.js';
 import {
   DocumentEditorContext,
   type DocumentMarkup,
@@ -63,6 +63,7 @@ import {
 import { type DocumentEditorHandle, useCommentRefs, useEditorHandle } from './editor-handle.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import { EditorScope } from './editor-scope.js';
+import { EditorSurface } from './editor-surface.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
@@ -256,6 +257,11 @@ export interface DocumentEditorProps
   dialogs?: Readonly<Record<string, ComponentType<HostDialogProps>>> | undefined;
   /** The text of the editor's menus and table handles, beside the defaults. */
   labels?: Partial<DocumentEditorLabels> | undefined;
+  /**
+   * Banners above the document, before the editor's own: the document out of step with its
+   * template, and the template's fonts that did not load.
+   */
+  banners?: readonly DocumentBanner[] | undefined;
   /** Chrome inside the editor's engine, such as a toolbar reading its state. */
   children?: ReactNode;
   /**
@@ -268,31 +274,11 @@ export interface DocumentEditorProps
 const hooks = createHooks('document-editor', [
   'measure',
   'toolbar',
-  'viewport',
-  'workspace',
   'body',
   'content',
   'status-bar',
   'find',
 ]);
-
-// The document between the panels beside it, when there are any.
-function Workspace({
-  panels,
-  children,
-}: {
-  panels: DocumentEditorProps['panels'];
-  children: ReactNode;
-}) {
-  if (!panels?.start && !panels?.end) return children;
-  return (
-    <div {...hooks.slot('workspace')}>
-      {panels.start}
-      {children}
-      {panels.end}
-    </div>
-  );
-}
 
 // The parts of the layout debugging shown: `true` shows the pages'.
 function debugParts(debug: DocumentEditorProps['debug']): DocumentEditorDebug {
@@ -339,8 +325,10 @@ function useEditorLayout(
     events: engine.events,
   });
   const [layoutState, setLayoutState] = useState<LayoutState>('pending');
+  const reported = useReportedFonts(props.fonts);
   const progress = useDocumentLayout(measureIn, {
     ...props,
+    fonts: reported.fonts,
     layout: props.layout ?? 'page',
     compare: props.compare ?? null,
     debug: debugParts(props.debug),
@@ -353,7 +341,7 @@ function useEditorLayout(
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
-  return { progress, view, layoutState };
+  return { progress, view, layoutState, missingFonts: reported.missing };
 }
 
 /**
@@ -372,7 +360,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props.onContentChange, tap);
   const editorContext = useRef<EditorContext | null>(null);
-  const { progress, view, layoutState } = useEditorLayout(props, engine, {
+  const { progress, view, layoutState, missingFonts } = useEditorLayout(props, engine, {
     measureIn,
     context: editorContext,
   });
@@ -417,17 +405,16 @@ export function DocumentEditor(given: DocumentEditorProps) {
         {layout === 'page' ? (
           <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
         ) : null}
-        <TopChrome {...chrome} findRequest={find.request} onFindClose={find.close} />
-        <Workspace panels={props.panels}>
-          {props.scrollable ? (
-            <ScrollRegion {...hooks.slot('viewport')} axis="both" scrollbar="overlay" tabIndex={-1}>
-              {body}
-            </ScrollRegion>
-          ) : (
-            body
-          )}
-        </Workspace>
-        <BottomChrome {...chrome} openDialog={setDialog} />
+        <EditorSurface
+          chrome={chrome}
+          root={root}
+          findRequest={find.request}
+          onFindClose={find.close}
+          openDialog={setDialog}
+          missingFonts={missingFonts}
+        >
+          {body}
+        </EditorSurface>
         <ObjectDialogs
           {...props}
           dialog={editable ? dialog : null}

@@ -362,6 +362,31 @@ test.describe('document editor lab', () => {
     await expect.poll(onScreen).toBeGreaterThan(5);
   });
 
+  test('DOCE-EDITOR-7.1 DOCE-EDITOR-7.4 shows the host banner once a press ends and dismisses it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const notices = page.getByRole('region', { name: 'Document notices' });
+    await expect(notices).toHaveCount(0);
+    const target = heading(page, 'Scope');
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
+    if (!box) throw new Error('The heading should show.');
+    await page.mouse.move(box.x + 4, box.y + box.height / 2);
+    await page.mouse.down();
+    // The host adds its banner while the reader still presses in the document.
+    await page.getByLabel('Banner').evaluate((input) => (input as HTMLInputElement).click());
+    await expect(page.getByLabel('Banner')).toBeChecked();
+    await expect(notices).toHaveCount(0);
+    await page.mouse.up();
+    const banner = notices.locator('[data-banner="review"]');
+    await expect(banner).toContainText('In review');
+    await banner.getByRole('button', { name: /dismiss/i }).click();
+    await expect(notices).toHaveCount(0);
+    await expect(page.getByLabel('Banner')).not.toBeChecked();
+  });
+
   test('DOCE-EDITOR-4.3 DOCE-EDITOR-4.4 adds the host items, controls and arrangement to the toolbar', async ({
     lab,
     page,

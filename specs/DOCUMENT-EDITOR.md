@@ -420,6 +420,36 @@ Verification: `src/engine/snapshot.test.ts`, `src/engine/code-highlighting.test.
 Implementation: `src/components/document-editor/visible-elements.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
 Verification: `src/components/document-editor/visible-elements.test.ts`, `e2e/document-editor.spec.ts`
 
+## DOCE-EDITOR-7 - Banners
+
+### DOCE-EDITOR-7.1 - The banner region
+
+`banners` shall show the host's banners (`DocumentBanner`: `id`, `tone`, `title`, `description`, `actions`, `onDismiss`) between the chrome above the document and the document, each the base library's `Banner` carrying its `id` in `data-banner`, followed by the editor's own (`EDITOR_BANNERS`), in a region (`de-document-editor__banners`) named by the `banners` label; without banners the region is not rendered. A banner with `onDismiss` offers to dismiss it, and the base library's banner announces it politely, or at once for `danger`.
+
+Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/banner-labels.ts`
+Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-7.2 - Out of step with the template
+
+While the writer can edit, once the document has rested for half a second the editor shall check it against its template (`templateSectionDrift`, DOCE-SECTIONS-4.2) and, when sections drifted, show a `warning` banner (`template-drift`, `templateDrift`) naming each section and how it drifted, with an action that brings them back in line (`syncTemplateSections`, `updateFromTemplate`). Dismissed, it stays hidden until the drift changes.
+
+Implementation: `src/components/document-editor/banners.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`
+
+### DOCE-EDITOR-7.3 - Fonts that did not load
+
+When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing.
+
+Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`
+
+### DOCE-EDITOR-7.4 - Banners wait for gestures
+
+Banners that come or go while the reader presses a pointer inside the editor, as when dragging, selecting or resizing, shall wait until the pointer is released or the gesture is cancelled, so the document does not move under the pointer.
+
+Implementation: `src/components/document-editor/banners.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-editor.spec.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                                 | Description                                                                             |
@@ -446,6 +476,8 @@ Verification: `src/components/document-editor/visible-elements.test.ts`, `e2e/do
 | `de-document-editor__block-style`       | slot      |                                                                        | The toolbar's text style field.                                                         |
 | `de-document-editor__style-preview`     | slot      |                                                                        | A text style's name in the list, in that style.                                         |
 | `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`, `custom`                      | On a preview, or the text style field: the style it shows.                              |
+| `de-document-editor__banners`           | slot      |                                                                        | The banner region above the document (DOCE-EDITOR-7.1).                                 |
+| `data-banner`                           | attribute | `EDITOR_BANNERS`, the host's ids                                       | On a banner: which it is.                                                               |
 | `de-document-editor__status-bar`        | slot      |                                                                        | The editor's status bar, with `statusBar`.                                              |
 | `de-document-editor__status-start`      | slot      |                                                                        | The items at the status bar's start.                                                    |
 | `de-document-editor__status-end`        | slot      |                                                                        | The items at the status bar's end, the layout switch and the zoom by default.           |

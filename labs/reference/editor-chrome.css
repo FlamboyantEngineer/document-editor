@@ -658,3 +658,13 @@
 .de-merge-conflicts__conflict {
   max-width: 120ch;
 }
+
+/* The banner region between the chrome and the document. */
+.de-document-editor__banners {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ref-border, #d0d7de);
+}

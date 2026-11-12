@@ -3,7 +3,7 @@
 // between authoring and reading without losing its state, with or without its toolbar, its
 // scrolling frame and its status bar, which shows the page in view. Right-click anywhere in the
 // document for its context menu, and hover a table for the handles that drag its rows and columns.
-// The lab adds its own toolbar items and arranges the status bar, as a host does
+// The lab adds its own toolbar items, a banner and arranges the status bar, as a host does
 // (`host-toolbar.tsx`). A word-list proofer marks a few misspellings and
 // a grammar slip, which the context menu corrects.
 
@@ -132,6 +132,7 @@ function Lab() {
   const [debug, setDebug] = useState<DocumentEditorDebug>({});
   const [statusBar, setStatusBar] = useState(true);
   const [hostItems, setHostItems] = useState(true);
+  const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
   const handle = useRef<DocumentEditorHandle>(null);
   const host = useHostPanel();
@@ -221,6 +222,15 @@ function Lab() {
           <label>
             <input
               type="checkbox"
+              name="banner"
+              checked={banner}
+              onChange={(event) => setBanner(event.currentTarget.checked)}
+            />{' '}
+            Banner
+          </label>
+          <label>
+            <input
+              type="checkbox"
               name="collaborators"
               checked={collaborators}
               onChange={(event) => setCollaborators(event.currentTarget.checked)}
@@ -255,6 +265,19 @@ function Lab() {
         scrollable={scrollable}
         debug={debug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
+        banners={
+          banner
+            ? [
+                {
+                  id: 'review',
+                  tone: 'info',
+                  title: 'In review',
+                  description: 'Reviewers are reading this version.',
+                  onDismiss: () => setBanner(false),
+                },
+              ]
+            : undefined
+        }
         find
         repairIds
         zoom={zoom}

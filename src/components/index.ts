@@ -42,11 +42,13 @@ export type {
 } from './document-editor/index.js';
 export type { ChangeBar } from './document-editor/index.js';
 export type { ContentChangeCause } from './document-editor/index.js';
+export type { DocumentBanner } from './document-editor/index.js';
 export type {
   DocumentStatusBarOptions,
   StatusBarItem,
   VisibleElement,
 } from './document-editor/index.js';
+export { EDITOR_BANNERS } from './document-editor/index.js';
 export {
   DocumentModeStatus,
   DocumentPageStatus,

@@ -1,3 +1,5 @@
+export type { DocumentBanner } from './banners.js';
+export { EDITOR_BANNERS } from './banners.js';
 export type { ContextMenuGroup } from './context-entries.js';
 export { CONTEXT_MENU_GROUPS } from './context-entries.js';
 export type {
