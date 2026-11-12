@@ -144,6 +144,22 @@ test.describe('objects', () => {
     await expect(dialog(page).getByRole('button', { name: 'Apply' })).toBeDisabled();
   });
 
+  test('DOCE-OBJECTS-3.3 highlights a code block in the language it is set to', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '');
+    await page.keyboard.press('ControlOrMeta+Alt+C');
+    await page.keyboard.type('const size = 4;');
+    const code = content(page).locator('pre', { hasText: 'const size = 4;' });
+    await expect(code.locator('.de-code-token')).toHaveCount(0);
+    await code.click({ button: 'right' });
+    await item(page, 'Language').click();
+    await choice(page, 'typescript').click();
+    await expect(code.locator('.de-code-token[data-token="keyword"]')).toHaveText('const');
+    await expect(code.locator('.de-code-token[data-token="number"]')).toHaveText('4');
+    await expect(code.locator('code')).toHaveText('const size = 4;');
+  });
+
   test('DOCE-EDITOR-4.5 inserts a list of figures, a code block and a symbol', async ({ page }) => {
     await newParagraph(page, 'Power', 'Tolerance ');
     await toolbar(page).getByRole('button', { name: 'Symbol' }).click();

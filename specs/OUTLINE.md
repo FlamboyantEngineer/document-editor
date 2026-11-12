@@ -6,7 +6,7 @@ The document's outline, for a host's navigation panel: its headings and the one 
 
 ### DOCE-OUTLINE-1.1 - Headings
 
-`documentOutline(state)` shall list the document's headings in order, page headers and footers and headings inside a list or a table left out, and each once though the pages split it, with its element id, level, text and position, and mark the one the selection is under: the last heading at or before the selection's head. A host takes the reader to a heading with the editor's handle (DOCE-EDITOR-6.3).
+`documentOutline(state)` shall list the document's headings in order, only its structural headings (`isStructuralHeading`, DOCE-CONTENTS-1.1): not the document's title, nor a heading in a list, a table, a quote or a page header or footer, and each once though the pages split it, with its element id, level, text and position, and mark the one the selection is under: the last heading at or before the selection's head. A host takes the reader to a heading with the editor's handle (DOCE-EDITOR-6.3).
 
 Implementation: `src/engine/outline.ts`
 Verification: `src/engine/outline.test.ts`
@@ -26,3 +26,19 @@ Verification: `src/engine/outline.test.ts`
 
 Implementation: `src/components/document-panels/document-outline.tsx`
 Verification: `e2e/document-panels.spec.ts`
+
+## DOCE-OUTLINE-3 - Content addresses
+
+### DOCE-OUTLINE-3.1 - The selection's address
+
+`selectionAddress(state)` shall give the selection's address: the text block holding it, by element id, with the selection's offsets in its text, each inline object counting as one; for a selection across blocks, the nearest element with an id holding both, without offsets; null when there is none. A host keeps it to come back to the same text.
+
+Implementation: `src/engine/reveal.ts`
+Verification: `src/engine/reveal.test.ts`
+
+### DOCE-OUTLINE-3.2 - Revealing a range
+
+`revealRange(view, address, options)` shall scroll the range of an element's text an address names into view, as `revealElement` does, selecting it when asked, and return false when the document has no such element or range.
+
+Implementation: `src/engine/reveal.ts`
+Verification: `src/engine/reveal.test.ts`

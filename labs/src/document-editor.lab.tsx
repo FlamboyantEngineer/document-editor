@@ -21,7 +21,6 @@ import {
   assignElementIds,
   createContents,
   createDocumentEditing,
-  createEditLock,
   createPresence,
   createProofing,
 } from '../../src/engine/index.js';
@@ -88,9 +87,12 @@ function initialState(): EditorState {
     plugins: [
       createContents({ template: () => TEMPLATE }),
       createProofing({ proofer: [PROOFER, ABBREVIATIONS], language: 'en', delay: 200 }),
-      createEditLock({ isLocked: isLockedParagraph }),
       createPresence(),
-      ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
+      ...createDocumentEditing(schema, {
+        template: () => TEMPLATE,
+        author: () => 'lab',
+        isLocked: isLockedParagraph,
+      }),
     ],
   });
   const tr = state.tr;
