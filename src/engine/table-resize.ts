@@ -7,7 +7,6 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { cellAround, TableMap } from 'prosemirror-tables';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
-import { inWholeTable } from './table-parts.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
 
 // How close to a cell's side border the pointer picks the border, in pixels.
@@ -171,7 +170,7 @@ export function setColumnWidths(table: number, widths: readonly number[]): Comma
       done?.(tr);
       return true;
     };
-    return inWholeTable(table, set)(state, dispatch, view);
+    return set(state, dispatch, view);
   };
 }
 

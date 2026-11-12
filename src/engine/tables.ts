@@ -1,7 +1,6 @@
 // Table editing: cell selections, Tab between cells, column widths dragged by their borders, and
 // the commands that change a table's rows and columns, including moving a row or column to
-// another place in its table, which a drag and the Alt+Shift+arrow keys do. A change to the
-// structure of a table the pages split runs on the whole table (`inWholeTable`).
+// another place in its table, which a drag and the Alt+Shift+arrow keys do.
 
 import { chainCommands } from 'prosemirror-commands';
 import { keymap } from 'prosemirror-keymap';
@@ -21,7 +20,7 @@ import {
 import { Mapping } from 'prosemirror-transform';
 import { TABLE_BORDER_1PX_CLASS } from '../model/index.js';
 import { newBlockRange } from './block-place.js';
-import { appendTransaction, captureTransaction, inWholeTable } from './table-parts.js';
+import { appendTransaction, captureTransaction } from './table-parts.js';
 import { createTablePointer } from './table-pointer.js';
 import { createColumnResize } from './table-resize.js';
 import { isRemoteTransaction } from './transaction-kind.js';
@@ -91,7 +90,7 @@ export function withTableLine(line: TableLine, command: Command): Command {
       state.tr.setSelection(TextSelection.near(state.doc.resolve(cell + 1))),
     );
     const done = dispatch && ((tr: Transaction) => dispatch(appendTransaction(state.tr, tr)));
-    return inWholeTable(line.table, command)(caret, done, view);
+    return command(caret, done, view);
   };
 }
 
@@ -134,7 +133,7 @@ function moveSelection(axis: TableAxis, target: (first: number, end: number) => 
 /**
  * Moves a row or column of a table to the index `to`, taking the rows or columns a merged cell
  * spans along, and selects it where it lands. Refuses a move that stays in place or lands inside
- * the rows or columns it moves. In a table the pages split, the indexes are the part's.
+ * the rows or columns it moves.
  */
 export function moveTableLine(line: TableLine, to: number): Command {
   const offset = to - line.index;
@@ -150,7 +149,7 @@ export function moveSelectedTableLine(axis: TableAxis, direction: -1 | 1): Comma
   return (state, dispatch, view) => {
     const found = findTable(state.selection.$from);
     if (!found) return false;
-    return inWholeTable(found.pos, moveSelection(axis, target))(state, dispatch, view);
+    return moveSelection(axis, target)(state, dispatch, view);
   };
 }
 

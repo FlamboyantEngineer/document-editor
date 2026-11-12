@@ -64,7 +64,7 @@ Verification: `src/engine/math-input.test.ts`, `e2e/math-input.spec.ts`
 
 ### DOCE-OBJECTS-2.1 - A caption's text
 
-`captionedAt(state)` shall find the table, figure or code block selected or holding the selection; `setCaption(text)` sets its caption text, with its spaces collapsed, and shows its caption, and `toggleCaption(shown)` shows or hides it, toggling it by default, on the whole table when the pages split one. The context menu offers editing the caption in a dialog and showing or hiding it (DOCE-EDITOR-3.8).
+`captionedAt(state)` shall find the table, figure or code block selected or holding the selection; `setCaption(text)` sets its caption text, with its spaces collapsed, and shows its caption, and `toggleCaption(shown)` shows or hides it, toggling it by default. The context menu offers editing the caption in a dialog and showing or hiding it (DOCE-EDITOR-3.8).
 
 Implementation: `src/engine/captions.ts`
 Verification: `src/engine/table-format.test.ts`, `e2e/captions.spec.ts`

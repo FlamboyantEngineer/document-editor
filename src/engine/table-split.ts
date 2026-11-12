@@ -5,7 +5,6 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, TextSelection, type Transaction } from 'prosemirror-state';
 import { CellSelection, findTable, selectionCell, splitCell, TableMap } from 'prosemirror-tables';
-import { inWholeTable } from './table-parts.js';
 import type { TableAxis } from './tables.js';
 
 // The cell the split runs on: the one holding the caret or the one cell selected.
@@ -124,6 +123,6 @@ const splitPlain =
 export function splitTableCell(axis: TableAxis): Command {
   return (state, dispatch, view) => {
     const found = findTable(state.selection.$from);
-    return found ? inWholeTable(found.pos, splitPlain(axis))(state, dispatch, view) : false;
+    return found ? splitPlain(axis)(state, dispatch, view) : false;
   };
 }

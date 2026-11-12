@@ -13,7 +13,7 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.2 - Editing text
 
-`applyEdits(state, edits, { actor, mode })` shall make a batch of edits as one change marked with its actor (`automationActor(tr)`): `insertText` at an offset of an element's text, or its end; `replaceText` and `deleteText` over a range of it, the whole text by default. An element the pages split is edited whole: the pages its parts sit on join first, in the same change. Text an actor that is not a person writes carries the contributor mark with its id and session.
+`applyEdits(state, edits, { actor, mode })` shall make a batch of edits as one change marked with its actor (`automationActor(tr)`): `insertText` at an offset of an element's text, or its end; `replaceText` and `deleteText` over a range of it, the whole text by default. An element the pages split is edited whole, as the editing state holds it. Text an actor that is not a person writes carries the contributor mark with its id and session.
 
 Implementation: `src/engine/automation.ts`, `src/engine/automation-address.ts`
 Verification: `src/engine/automation.test.ts`

@@ -16,7 +16,6 @@ import {
 import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import { applyHeaders, headerKey, selectedLines, tableHeaders } from './table-headers.js';
-import { inWholeTable } from './table-parts.js';
 import { MIN_ROW_HEIGHT } from './table-pointer.js';
 import type { TableAxis } from './tables.js';
 
@@ -111,7 +110,7 @@ const distribute: Command = (state, dispatch) => {
 export const distributeColumns: Command = (state, dispatch, view) => {
   const found = findTable(state.selection.$from);
   if (!found) return false;
-  return inWholeTable(found.pos, distribute)(state, dispatch, view);
+  return distribute(state, dispatch, view);
 };
 
 // The rows the selection covers when it spans more than one, or every row of its table.
@@ -175,7 +174,7 @@ export const distributeRows: Command = (state, dispatch, view) => {
     Math.round(heights.reduce((sum, each) => sum + each, 0) / heights.length),
   );
   if (heights.every((each) => each === height)) return false;
-  return inWholeTable(found.pos, setRowsHeight(height))(state, dispatch, view);
+  return setRowsHeight(height)(state, dispatch, view);
 };
 
 /**
@@ -216,6 +215,6 @@ export function insertTableLines(axis: TableAxis, side: 'before' | 'after'): Com
   };
   return (state, dispatch, view) => {
     const found = findTable(state.selection.$from);
-    return found ? inWholeTable(found.pos, insert)(state, dispatch, view) : false;
+    return found ? insert(state, dispatch, view) : false;
   };
 }

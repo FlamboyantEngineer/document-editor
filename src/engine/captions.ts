@@ -5,7 +5,6 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import { normalizeCaptionText } from '../model/index.js';
-import { inWholeTable } from './table-parts.js';
 
 /** The node types that carry a caption. */
 export const CAPTIONED_TYPES: readonly string[] = ['table', 'figure', 'code_block'];
@@ -30,9 +29,9 @@ export function captionedAt(state: EditorState): CaptionedObject | null {
   return null;
 }
 
-// Changes the captioned object's attributes, on every part of a table the pages split.
+// Changes the captioned object's attributes.
 function setCaptionAttrs(change: (node: ProseMirrorNode) => Record<string, unknown>): Command {
-  const command: Command = (state, dispatch) => {
+  return (state, dispatch) => {
     const found = captionedAt(state);
     if (!found) return false;
     const next = { ...found.node.attrs, ...change(found.node) };
@@ -40,11 +39,6 @@ function setCaptionAttrs(change: (node: ProseMirrorNode) => Record<string, unkno
     if (same) return false;
     dispatch?.(state.tr.setNodeMarkup(found.pos, undefined, next));
     return true;
-  };
-  return (state, dispatch, view) => {
-    const found = captionedAt(state);
-    if (found?.node.type.name !== 'table') return command(state, dispatch, view);
-    return inWholeTable(found.pos, command)(state, dispatch, view);
   };
 }
 

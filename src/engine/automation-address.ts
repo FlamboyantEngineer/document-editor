@@ -1,10 +1,9 @@
-// Addressing a live document by element id: finding an element, made whole when the pages split
-// it into parts, and turning offsets in its text into document positions. An element's text counts
-// each character of its text and each inline object, such as a footnote marker, as one.
+// Addressing a live document by element id: finding an element, and turning offsets in its text
+// into document positions. An element's text counts each character of its text and each inline
+// object, such as a footnote marker, as one.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
-import { joinSectionPages } from '../model/index.js';
 
 /** Where an edit acts: an element, and a range of its text when it holds text. */
 export interface EditAddress {
@@ -26,42 +25,18 @@ export interface FoundElement {
   readonly pos: number;
 }
 
-function partsOf(doc: ProseMirrorNode, id: string): FoundElement[] {
-  const found: FoundElement[] = [];
-  doc.descendants((node, pos) => {
-    if (node.attrs.dataId === id) {
-      found.push({ node, pos });
-      return false;
-    }
-    return true;
-  });
-  return found;
-}
-
-// The section and page index a position is on.
-function pageOf(doc: ProseMirrorNode, pos: number) {
-  const $pos = doc.resolve(pos);
-  if ($pos.depth < 2 || $pos.node(1).type.name !== 'page_section') return null;
-  return { section: $pos.before(1), page: $pos.index(1) };
-}
-
 /**
- * The element with an id in the transaction's document, joining the pages its parts sit on first
- * when the pages split it; null when the document has no such element.
+ * The element with an id in the transaction's document, whole in the editing state however the
+ * pages split it; null when the document has no such element.
  */
 export function wholeElement(tr: Transaction, id: string): FoundElement | null {
-  const parts = partsOf(tr.doc, id);
-  const first = parts[0];
-  const last = parts.at(-1);
-  if (!first || !last) return null;
-  if (parts.length > 1) {
-    const start = pageOf(tr.doc, first.pos);
-    const end = pageOf(tr.doc, last.pos);
-    if (start && end && start.section === end.section) {
-      joinSectionPages(tr, start.section, { from: start.page, to: end.page });
-    }
-  }
-  return partsOf(tr.doc, id)[0] ?? null;
+  let found: FoundElement | null = null;
+  tr.doc.descendants((node, pos) => {
+    if (found) return false;
+    if (node.attrs.dataId === id) found = { node, pos };
+    return !found;
+  });
+  return found;
 }
 
 /** The text of a text block, each inline object as a space, and each character's position. */
