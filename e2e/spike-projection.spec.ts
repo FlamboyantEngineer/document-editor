@@ -209,10 +209,15 @@ test.describe('paged projection spike', () => {
     await expect.poll(async () => (await canonical(page)).before).toMatch(/か$/);
     await expect(page.locator('.lab-pages').getByText('か')).toHaveCount(1);
 
-    // At the end of the first part, while the pages are due to be laid out again.
+    // At the end of the first part, while the pages are due to be laid out again. Whether the
+    // pages show the first composition at the end of the first part or the start of the second
+    // depends on when they were last laid out, so the caret goes after the text they show there.
+    const { end } = await breakText(page);
     await caretAtBreak(page, 'end');
     await compose(['n', 'に'], 'に');
-    await expect.poll(async () => (await canonical(page)).before).toMatch(/ に$/);
+    await expect
+      .poll(async () => (await canonical(page)).before)
+      .toMatch(new RegExp(`${end.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}に$`));
     await expect(page.locator('.lab-pages').getByText('に')).toHaveCount(1);
 
     await expectInSync(page);
