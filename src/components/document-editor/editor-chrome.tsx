@@ -69,9 +69,7 @@ export const FollowingTopChrome = memo(function FollowingTopChrome(chrome: TopCh
 });
 
 /** The chrome below the document as it follows the editor, as `FollowingTopChrome`. */
-export const FollowingBottomChrome = memo(function FollowingBottomChrome(
-  chrome: BottomChromeProps,
-) {
+const FollowingBottomChrome = memo(function FollowingBottomChrome(chrome: BottomChromeProps) {
   return (
     <DocumentEditorContext value={chrome.context}>
       <BottomChrome {...chrome} />
@@ -157,8 +155,8 @@ function TopChrome({
   );
 }
 
-/** The status bar below the document, and the context menu. */
-function BottomChrome({ props, context, view, startCommentRef, openDialog }: BottomChromeProps) {
+/** The status bar below the document. */
+function BottomChrome({ props, context, view }: BottomChromeProps) {
   const { layout = 'page', editable = true, suggesting = false } = props;
   return (
     <>
@@ -176,25 +174,56 @@ function BottomChrome({ props, context, view, startCommentRef, openDialog }: Bot
           onLayoutChange={props.onLayoutChange}
         />
       ) : null}
-      {props.contextMenu === false ? null : (
-        <DocumentContextMenu
-          view={view}
-          labels={context.labels}
-          editable={editable}
-          canDecide={canDecideSuggestions({
-            editable,
-            suggesting,
-            capabilities: props.capabilities,
-          })}
-          startCommentRef={startCommentRef}
-          openDialog={openDialog}
-          linkedCode={Boolean(props.codeSource)}
-          codeLanguages={props.codeLanguages}
-          scriptRunner={props.scriptRunner}
-          options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
-        />
-      )}
     </>
+  );
+}
+
+/**
+ * The chrome below the document: the status bar as it follows the editor, and the context menu,
+ * which follows it at once, as it acts on the input that opens it (DOCE-EDITOR-1.6).
+ */
+export function EditorBottom({
+  following,
+  now,
+}: {
+  following: BottomChromeProps;
+  now: BottomChromeProps;
+}) {
+  return (
+    <>
+      <FollowingBottomChrome {...following} />
+      <EditorContextMenu {...now} />
+    </>
+  );
+}
+
+// The editor's context menu, on the editor's latest props.
+function EditorContextMenu({
+  props,
+  context,
+  view,
+  startCommentRef,
+  openDialog,
+}: BottomChromeProps) {
+  const { editable = true, suggesting = false } = props;
+  if (props.contextMenu === false) return null;
+  return (
+    <DocumentContextMenu
+      view={view}
+      labels={context.labels}
+      editable={editable}
+      canDecide={canDecideSuggestions({
+        editable,
+        suggesting,
+        capabilities: props.capabilities,
+      })}
+      startCommentRef={startCommentRef}
+      openDialog={openDialog}
+      linkedCode={Boolean(props.codeSource)}
+      codeLanguages={props.codeLanguages}
+      scriptRunner={props.scriptRunner}
+      options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
+    />
   );
 }
 

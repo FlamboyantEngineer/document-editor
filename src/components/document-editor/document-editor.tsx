@@ -52,7 +52,7 @@ import type { DocumentContextMenuOptions } from './context-providers.js';
 import type { HostDialogProps } from './dialog-parts.js';
 import { useFindBar } from './document-find-bar.js';
 import { EditorBody } from './editor-body.js';
-import { FollowingBottomChrome, FollowingTopChrome, useWheelZoom } from './editor-chrome.js';
+import { EditorBottom, FollowingTopChrome, useWheelZoom } from './editor-chrome.js';
 import {
   DocumentEditorContext,
   type DocumentMarkup,
@@ -428,7 +428,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
             body
           )}
         </Workspace>
-        <FollowingBottomChrome {...bottom} />
+        <EditorBottom following={bottom} now={{ ...chrome, openDialog: setDialog }} />
         <ObjectDialogs
           {...props}
           dialog={editable ? dialog : null}
