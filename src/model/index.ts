@@ -245,6 +245,7 @@ export {
   findDocumentLayoutPreset,
   normalizeDocumentLayoutPresetId,
 } from './schema/layout-presets.js';
+export * from './schema/mark-order.js';
 export { DOCUMENT_MARK_ORDER, DOCUMENT_NODE_ORDER } from './schema/node-order.js';
 export type { ObjectLayout } from './schema/object-layout.js';
 export {
