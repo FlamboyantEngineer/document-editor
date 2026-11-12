@@ -206,4 +206,45 @@ describe('DocumentComments', () => {
     const margin = screen.getByRole('list', { name: 'Comments' });
     expect(await within(margin).findByText('(2 spaces)')).toBeInTheDocument();
   });
+
+  it('DOCE-COMMENTS-2.19 records a decision on the thread of the suggestion in the store', async () => {
+    const user = userEvent.setup();
+    const store = host();
+    render(<Harness host={store} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('epsilon')).closest('[role="listitem"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show.');
+    await user.click(within(card).getByText('epsilon'));
+    await user.type(within(card).getByRole('textbox', { name: 'Add a comment' }), 'Hmm');
+    await user.click(within(card).getByRole('button', { name: 'Comment' }));
+    await within(card).findByText('Hmm');
+    await user.click(within(card).getByRole('button', { name: 'Reject' }));
+    await waitFor(async () => {
+      const listed = await store.comments?.list('doc');
+      const decided = listed?.ok ? listed.value.find((each) => each.suggestion === 's1') : null;
+      expect(decided).toMatchObject({
+        state: 'resolved',
+        decision: { decision: 'reject', suggestion: 's1', by: 'ada' },
+      });
+    });
+  });
+
+  it('DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause', async () => {
+    const store = host();
+    render(<Harness host={store} options={{ suggestionThreads: { delay: 0 } }} />);
+    await waitFor(() =>
+      expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(expect.any(String)),
+    );
+    const [suggestion] = seen.state ? listSuggestions(seen.state.doc) : [];
+    const listed = await store.comments?.list('doc');
+    expect(listed?.ok && listed.value.find((each) => each.id === suggestion?.thread)).toMatchObject(
+      {
+        suggestion: 's1',
+        quote: 'epsilon',
+        automatic: true,
+        change: { kind: 'insert', inserted: 'epsilon' },
+        entries: [],
+      },
+    );
+  });
 });

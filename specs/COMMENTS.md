@@ -167,6 +167,55 @@ The document editor given `comments` shall keep one state of the document's thre
 Implementation: `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
+### DOCE-COMMENTS-2.15 - Changes the store refuses
+
+A change the comment store refuses shall show on its thread as an error row (the base library's `CommentThread` activity) with the store's message, or the `failed` label, until the reader dismisses it, and leave the thread as it was. A refused reply resolves with nothing and offers Retry, which posts it again; every other refused change also rejects, so its caller leaves the document's anchors as they were. A listing that fails gives its message and keeps the threads listed before.
+
+Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-thread-actions.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-activity-rows.ts`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.16 - Stale listings
+
+A listing asked for before the reader changed a thread shall keep that thread as the change left it, and a store's report of its threads shall keep the threads whose changes it has not answered yet, so a thread the reader just started or answered does not vanish.
+
+Implementation: `src/components/document-comments/comment-thread-list.ts`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.17 - Activity in a thread
+
+A thread's card shall show, after its comments, a row for the reader's reply while it is posted, for each reply the store is still writing for the reader, such as an assistant's (an entry with `status` `pending`, with Cancel) or could not (`failed`, with Retry and Cancel, through `settleEntry`), and for each person the store says is writing in it (`subscribeActivity`); such entries show only as rows.
+
+Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.18 - Deciding, updating and reacting to threads
+
+While the store can, the thread state shall record how a thread's suggestion was decided (`decide`), change a thread's quote, target or change (`update`), react to a whole thread (`react` without a comment) and tell others the reader is writing (`setTyping`), each keeping the thread as the store returns it.
+
+Implementation: `src/components/document-comments/comment-thread-actions.ts`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+
+### DOCE-COMMENTS-2.19 - Decisions recorded on threads
+
+Every decision on suggestions the reader makes in the editor, from a suggestion's card, the context menu, the handle or a host's command (`suggestionDecisionOf`), shall be recorded on the thread of each suggestion it decided and of each suggestion it removed with them (`dependsOn`), through the store's `decide`, which resolves the thread; with a store that records no decisions, the threads are resolved. Another writer's decision, arriving as a remote change, is not recorded again.
+
+Implementation: `src/components/document-comments/use-decision-records.ts`, `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/editor-scope.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/use-decision-records.test.ts`
+
+### DOCE-COMMENTS-2.20 - Threads in a shared room
+
+In room mode, `createRoomCommentStore({ doc, identity })` from `./collab` shall keep the threads in the shared document's `comments` type (decision D29), which a commenter may write while the rest is refused to them, and tell each subscriber every change, by anyone. Each thread's own fields, each comment and each reaction is one attribute of that type, keyed by a JSON array: `["thread", thread]` holds the thread's fields without its comments and reactions, `["entry", thread, comment]` a comment without its reactions, and `["reaction", thread, comment, emoji, person]` a reaction, with an empty comment id for one to the whole thread; so replies, reactions and edits that writers make at once to one thread all stay. It attributes changes to the reader, refuses changing another person's comment and starting a thread twice, records decisions, and removes a thread with its comments and reactions.
+
+Implementation: `src/collab/comment-store.ts`
+Verification: `src/collab/comment-store.test.ts`
+
+### DOCE-COMMENTS-2.21 - Threads for suggestions
+
+With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes, what it does (`change`: insert, delete or replace) and `automatic`, and name it on the suggestion's marks outside the reader's history; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions are left to that writer's editor (`planSuggestionThreads`).
+
+Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

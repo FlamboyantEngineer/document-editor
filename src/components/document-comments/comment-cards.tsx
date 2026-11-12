@@ -19,6 +19,7 @@ import { UserCard } from '@flamboyantengineer/ui-components/user-card';
 import type { ReactNode } from 'react';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { activityRows } from './comment-activity-rows.js';
 import type { OpenedComment } from './comment-focus.js';
 import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
@@ -176,25 +177,28 @@ export function renderEntries({
 }) {
   const { people } = context.comments;
   const renderCard = mentionCardOf(context);
-  return thread.entries.map((entry, index) => (
-    <CommentThreadReply
-      key={entry.id}
-      id={entryElementId(context, entry.id)}
-      author={people.get(entry.author) ?? { name: context.labels.someone }}
-      time={entry.createdAt}
-      text={entry.text}
-      isEdited={Boolean(entry.editedAt)}
-      reactions={<Reactions thread={thread} entry={entry} context={context} />}
-      {...entryActions(thread, { entry, index }, { context, onRemove })}
-    >
-      <CommentText
+  // A reply still being written, or that failed, shows as an activity row instead.
+  return thread.entries.map((entry, index) =>
+    entry.status ? null : (
+      <CommentThreadReply
+        key={entry.id}
+        id={entryElementId(context, entry.id)}
+        author={people.get(entry.author) ?? { name: context.labels.someone }}
+        time={entry.createdAt}
         text={entry.text}
-        format={context.format}
-        parse={context.mentions?.parse}
-        renderCard={renderCard}
-      />
-    </CommentThreadReply>
-  ));
+        isEdited={Boolean(entry.editedAt)}
+        reactions={<Reactions thread={thread} entry={entry} context={context} />}
+        {...entryActions(thread, { entry, index }, { context, onRemove })}
+      >
+        <CommentText
+          text={entry.text}
+          format={context.format}
+          parse={context.mentions?.parse}
+          renderCard={renderCard}
+        />
+      </CommentThreadReply>
+    ),
+  );
 }
 
 /** An open thread on the document's text. */
@@ -236,6 +240,7 @@ export function ThreadCard({
       }
       isReadOnly={!canComment}
       isSelected={isActive}
+      activity={activityRows(comments.activity.get(thread.id), context)}
     >
       {renderEntries({ thread, context, onRemove })}
     </CommentThread>

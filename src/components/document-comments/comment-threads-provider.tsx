@@ -12,6 +12,7 @@ import {
   useCommentThreads,
   useSharedCommentThreads,
 } from './use-comment-threads.js';
+import { type TransactionSource, useDecisionRecords } from './use-decision-records.js';
 
 /** The store and document whose threads a provider keeps. */
 export interface CommentThreadsProviderProps {
@@ -20,6 +21,8 @@ export interface CommentThreadsProviderProps {
   readonly identity: IdentityAdapter;
   /** The message a failed change shows when the store gives none. */
   readonly failed?: string | undefined;
+  /** The editor's transactions, whose decisions on suggestions are recorded on their threads. */
+  readonly transactions?: TransactionSource | undefined;
   readonly children: ReactNode;
 }
 
@@ -27,9 +30,11 @@ export interface CommentThreadsProviderProps {
 export function CommentThreadsProvider({
   children,
   failed = DEFAULT_COMMENTS_LABELS.failed,
+  transactions,
   ...options
 }: CommentThreadsProviderProps) {
   const threads = useCommentThreads({ ...options, failed });
+  useDecisionRecords(threads, transactions);
   const { store, documentId } = options;
   const shared = useMemo(() => ({ store, documentId, threads }), [store, documentId, threads]);
   return (
@@ -41,7 +46,7 @@ export function CommentThreadsProvider({
 
 /** Its children inside a provider of the store's threads, unless one around them keeps them. */
 export function WithCommentThreads({ children, ...props }: CommentThreadsProviderProps) {
-  const { store, documentId, identity, failed } = props;
+  const { store, documentId, identity, failed, transactions } = props;
   const shared = useSharedCommentThreads(props);
   if (shared) return children;
   return (
@@ -50,23 +55,29 @@ export function WithCommentThreads({ children, ...props }: CommentThreadsProvide
       documentId={documentId}
       identity={identity}
       failed={failed}
+      transactions={transactions}
     >
       {children}
     </CommentThreadsProvider>
   );
 }
 
-/** The editor's comments, for the parts inside it to share; its children alone without them. */
+/**
+ * The editor's comments, for the parts inside it to share, recording the decisions its
+ * transactions make; its children alone without them.
+ */
 export function EditorCommentThreads({
   comments,
+  transactions,
   children,
 }: {
   readonly comments: DocumentCommentsOptions | undefined;
+  readonly transactions: TransactionSource;
   readonly children: ReactNode;
 }) {
   if (!comments) return children;
   return (
-    <WithCommentThreads {...comments} failed={comments.labels?.failed}>
+    <WithCommentThreads {...comments} failed={comments.labels?.failed} transactions={transactions}>
       {children}
     </WithCommentThreads>
   );

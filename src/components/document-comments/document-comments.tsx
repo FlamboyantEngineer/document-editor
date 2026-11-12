@@ -49,6 +49,7 @@ import { caretKey, listCommentItems, renderCommentCard } from './comment-items.j
 import { useCommentMentions } from './comment-mentions.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
+import { useSuggestionThreads } from './use-suggestion-threads.js';
 
 export type {
   CommentTarget,
@@ -95,6 +96,11 @@ export interface DocumentCommentsOptions {
    * its whole width.
    */
   placement?: 'margin' | 'pane' | undefined;
+  /**
+   * Starts a thread for each of the reader's suggestions once they pause, `delay` milliseconds
+   * (800 by default), and keeps it to what the suggestion does. Off by default.
+   */
+  suggestionThreads?: boolean | { delay?: number | undefined } | undefined;
   /**
    * Whether the reader may accept a suggestion, and reject it, while they may decide at all; both
    * by default.
@@ -237,7 +243,7 @@ export function DocumentComments(props: DocumentCommentsProps) {
 // The document alone, its threads shown in the comments panel, which the editor still reaches.
 function PaneComments(props: DocumentCommentsProps) {
   const comments = useProvidedCommentThreads(props);
-  useCommentControls({ ...props, canComment: props.canComment ?? true, threads: comments.threads });
+  useCommentControls({ ...props, canComment: props.canComment ?? true, comments });
   return props.children;
 }
 
@@ -252,9 +258,10 @@ function CommentsMargin(props: DocumentCommentsProps) {
   const { run, startThread } = useCommentControls({
     ...props,
     canComment,
-    threads: comments.threads,
+    comments,
     onStart: setActive,
   });
+  useSuggestionThreads({ state, comments, run, options: props });
   // A thread the reader is taken to becomes the active card.
   const [lastOpened, setLastOpened] = useState(opened);
   if (opened !== lastOpened) {
