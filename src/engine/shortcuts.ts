@@ -38,6 +38,7 @@ export const DEFAULT_SHORTCUTS = {
   comment: ['Mod-Alt-m'],
   find: ['Mod-f'],
   replace: ['Mod-h'],
+  save: ['Mod-s'],
 } as const satisfies Readonly<Record<string, readonly string[]>>;
 
 /** An action the shortcut table binds. */

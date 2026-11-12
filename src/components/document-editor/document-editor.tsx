@@ -23,11 +23,13 @@ import {
   useRef,
   useState,
 } from 'react';
+import { shortcutsOf } from '../../engine/index.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
   DiagramAdapter,
   EditingMode,
+  EditorCapabilities,
   FeedbackAdapter,
   FontsAdapter,
   GlossaryAdapter,
@@ -62,6 +64,7 @@ import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-label
 import { EditorScope } from './editor-scope.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
+import { type EditorSession, useSaveShortcut } from './save-status-item.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
@@ -145,6 +148,16 @@ export interface DocumentEditorProps
   statusBar?: boolean | undefined;
   /** The host's own items at the end of the status bar. */
   statusItems?: ReactNode;
+  /**
+   * The document's session (`createDocumentSession`): the status bar shows where its changes stand,
+   * with Retry after a failed save, and Mod-S saves it.
+   */
+  session?: EditorSession | undefined;
+  /**
+   * What the reader may do, as the session's live capabilities say: without `decide` the editor
+   * offers no accept or reject. Defaults to every capability.
+   */
+  capabilities?: EditorCapabilities | undefined;
   /** Switches the layout: the status bar then offers a switch between pages and the web layout. */
   onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
   /** The document's zoom, in percent. Defaults to 100. */
@@ -347,11 +360,11 @@ function useEditorLayout(
  */
 export function DocumentEditor(given: DocumentEditorProps) {
   const props = useActiveProps(given);
-  const { state, template, layout = 'page', editable = true } = props;
-  const { className } = props;
+  const { state, template, layout = 'page', editable = true, className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
+  useSaveShortcut(root, { session: props.session, shortcuts: shortcutsOf(state) });
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props, tap);
   const editorContext = useRef<EditorContext | null>(null);
