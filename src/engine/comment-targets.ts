@@ -5,7 +5,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
-import { commentAnchors, placeCommentAnchors,type PlacedAnchor } from './comment-anchors.js';
+import { commentAnchors, placeCommentAnchors, type PlacedAnchor } from './comment-anchors.js';
 import {
   anchorCommentRanges,
   type AnchorOptions,
