@@ -6,7 +6,7 @@
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
-import { compareAbbreviations } from '../glossary.js';
+import { abbreviationTargetId, compareAbbreviations } from '../glossary.js';
 import { headingNumberText, objectNumberText } from '../numbering/numbering-text.js';
 import {
   NUMBERED_OBJECT_KINDS,
@@ -57,6 +57,11 @@ export interface ContentsKind {
   readonly showPage?: boolean | undefined;
   /** Whether an entry draws a leader to its page number. Defaults to true. */
   readonly leader?: boolean | undefined;
+  /**
+   * The element id an entry's row carries, so links to it resolve, such as an abbreviation's link
+   * to its entry in a list of abbreviations; none by default.
+   */
+  readonly anchor?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
 }
 
 const attrText = (value: unknown) => (typeof value === 'string' ? value : '');
@@ -97,6 +102,7 @@ export const DEFAULT_CONTENTS_KINDS = {
     nodes: ['abbreviation_reference'],
     number: (node) => attrText(node.attrs.abbr),
     text: (node) => attrText(node.attrs.expansion),
+    anchor: (node) => abbreviationTargetId(attrText(node.attrs.entryId)),
     unique: true,
     sort: byAbbreviation,
     showPage: false,
@@ -117,6 +123,8 @@ export interface CatalogEntry {
   readonly pos: number;
   /** The page it is on, counted through the document from 1. */
   readonly page: number;
+  /** The element id its row carries (`ContentsKind.anchor`), when its kind gives one. */
+  readonly anchor?: string | undefined;
 }
 
 /** A document's entries for each kind of list, each in reading order. */
@@ -226,6 +234,7 @@ function list(
       text: kind.text?.(node) ?? defaultText(node),
       pos,
       page: counting.page,
+      ...(kind.anchor ? { anchor: kind.anchor(node) } : {}),
     });
   }
 }
@@ -244,6 +253,7 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
         text: kind.text?.(open.node, open.mark) ?? open.text,
         pos: open.pos,
         page: counting.page,
+        ...(kind.anchor ? { anchor: kind.anchor(open.node, open.mark) } : {}),
       });
     };
     block.forEach((child, offset) => {

@@ -83,6 +83,13 @@ The kinds a host gives `createContents` shall be listed alongside the default on
 Implementation: `src/engine/contents.ts`, `labs/src/contents.lab.ts`
 Verification: `e2e/contents.spec.ts`
 
+### DOCE-CONTENTS-2.6 - Anchors
+
+A kind may give each entry's row an element id (`anchor`), so links to it resolve; the `abbreviations` kind gives each abbreviation's entry the id its link names (`abbreviationTargetId`). A click on an abbreviation in a read document, or a Ctrl or Cmd click in an edited one, shall scroll its entry in a list of abbreviations into view, and does nothing when no list shows it.
+
+Implementation: `src/model/contents/document-catalog.ts`, `src/engine/contents.ts`
+Verification: `src/engine/contents.test.ts`
+
 ## Hooks
 
 | Hook                  | Kind      | Values                                                                               | Description                                     |
