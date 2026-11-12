@@ -25,8 +25,13 @@ import {
 } from './store-session.js';
 import { createValueStore } from './value-store.js';
 
-// Room mode opens on its draft by itself, so it offers none to restore.
-const NO_DRAFT_OFFER: Pick<DocumentSession, 'draft' | 'restoreDraft' | 'discardDraft'> = {
+// Room mode opens on its draft by itself, so it offers none to restore, and the room merges every
+// writer's changes, so no conflict is left to settle.
+const NO_DRAFT_OFFER: Pick<
+  DocumentSession,
+  'draft' | 'restoreDraft' | 'discardDraft' | 'resolveConflict'
+> = {
+  resolveConflict: () => Promise.resolve(),
   draft: createValueStore<DraftOffer | null>(null),
   restoreDraft: () => Promise.resolve(false),
   discardDraft: () => undefined,
@@ -136,6 +141,8 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     mode: 'room',
     status,
     document,
+    // A shared room merges every writer's changes itself: nothing is left to settle.
+    conflicts: stores.conflicts,
     ready: load(),
     update: (update) => {
       const shown = document.get();

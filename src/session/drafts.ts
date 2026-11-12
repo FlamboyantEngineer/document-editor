@@ -12,6 +12,7 @@ import { storedContentKey } from './dirty.js';
 import type { SessionDocument } from './document-session.js';
 import { readStored } from './open-document.js';
 import type { SessionStatus } from './status.js';
+import type { createStoreSaving } from './store-saving.js';
 import { createValueStore, type ValueStore, type WritableStore } from './value-store.js';
 
 /** A draft kept from an earlier visit, which the reader may restore or discard. */
@@ -137,17 +138,65 @@ export interface SessionDraftsContext {
   createState: (doc: ProseMirrorNode) => EditorState;
   setTemplate: (pin: TemplatePin | null) => Promise<boolean>;
   /** The session's saving, once the document is loaded. */
-  saving: () => {
-    revision(): string;
-    rebase(revision: string): void;
-    changed(doc: ProseMirrorNode, pin: TemplatePin | null): void;
-    hasUnsavedChanges(): boolean;
-  } | null;
+  saving: () => Pick<StoreSaving, 'baseline' | 'rebase' | 'changed' | 'hasUnsavedChanges'> | null;
+}
+
+type StoreSaving = ReturnType<typeof createStoreSaving>;
+
+/**
+ * The document as stored at the revision a draft was edited from, through the host's versions,
+ * as the base a later conflict merges the draft from; null when the host cannot give it.
+ */
+async function draftBase(context: SessionDraftsContext, draft: StoreDraft) {
+  const loaded = await context.host.versions?.load(context.documentId, draft.baseRevision);
+  if (!loaded?.ok) return null;
+  const read = readStored(loaded.value, context.schema);
+  return read.ok ? { content: loaded.value, doc: read.value.doc } : null;
 }
 
 const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
   (one?.id ?? null) === (other?.id ?? null) &&
   (one?.revision ?? null) === (other?.revision ?? null);
+
+// Saving from the revision a draft was edited from: a draft from an older one then conflicts with
+// the newer save and merges into it from that base, rather than overwriting it.
+function rebaseOnDraft(
+  saving: NonNullable<ReturnType<SessionDraftsContext['saving']>>,
+  draft: StoreDraft & { documentId: string },
+  base: { content: DocumentFile; doc: ProseMirrorNode },
+) {
+  const stored = {
+    id: draft.documentId,
+    content: base.content,
+    revision: draft.baseRevision,
+    sequence: saving.baseline().sequence - 1,
+  };
+  saving.rebase(stored, { doc: base.doc, hold: false });
+}
+
+// Shows a draft in place of the stored content, as a change to save; false when it cannot, or
+// when `current` says the draft is no longer offered.
+async function showDraft(
+  context: SessionDraftsContext,
+  draft: StoreDraft,
+  current: () => boolean,
+): Promise<boolean> {
+  const { document, saving } = context;
+  const read = readStored(draft.content, context.schema);
+  if (!read.ok) return false;
+  const pin = draft.content.template ?? null;
+  const pinned = samePin(document.get()?.pin ?? null, pin) || (await context.setTemplate(pin));
+  const outdated = saving()?.baseline().revision !== draft.baseRevision;
+  const base = pinned && outdated ? await draftBase(context, draft) : null;
+  const shown = document.get();
+  const saver = saving();
+  if (!pinned || !shown || !saver || !current()) return false;
+  const state = context.createState(read.value.doc);
+  document.set({ ...shown, state });
+  if (base) rebaseOnDraft(saver, { ...draft, documentId: context.documentId }, base);
+  saver.changed(state.doc, pin);
+  return true;
+}
 
 /**
  * A store-mode session's drafts: kept while changes are unsaved, offered when the document opens,
@@ -164,7 +213,7 @@ export function createSessionDrafts(context: SessionDraftsContext) {
       if (!shown || !unsaved()) return null;
       return writeDocumentFile(shown.state.doc, { template: shown.pin });
     },
-    revision: () => saving()?.revision() ?? '',
+    revision: () => saving()?.baseline().revision ?? '',
   });
   const unsaved = () => saving()?.hasUnsavedChanges() ?? false;
   // A new document is kept after a pause while unsaved, and a saved one's draft removed.
@@ -188,32 +237,25 @@ export function createSessionDrafts(context: SessionDraftsContext) {
     kept.release(discard);
   };
 
+  const restore = async () => {
+    const draft = offered;
+    const restored = draft ? await showDraft(context, draft, () => offered === draft) : false;
+    if (restored) end(false);
+    return restored;
+  };
   return {
-    offer: offer as ValueStore<DraftOffer | null>,
+    members: {
+      draft: offer as ValueStore<DraftOffer | null>,
+      restoreDraft: restore,
+      discardDraft: () => {
+        if (offered) end(true);
+      },
+    },
     /** Reads the draft kept for the stored document, to offer it. */
     load: async (stored: StoredDocument) => {
       const read = await kept.read(stored);
       offered = read?.draft ?? null;
       offer.set(read?.offer ?? null);
-    },
-    restore: async () => {
-      const draft = offered;
-      const read = draft ? readStored(draft.content, context.schema) : null;
-      if (!draft || !read?.ok) return false;
-      const pin = draft.content.template ?? null;
-      const pinned = samePin(document.get()?.pin ?? null, pin) || (await context.setTemplate(pin));
-      const shown = document.get();
-      const current = saving();
-      if (!pinned || !shown || !current || offered !== draft) return false;
-      const state = context.createState(read.value.doc);
-      document.set({ ...shown, state });
-      end(false);
-      current.rebase(draft.baseRevision);
-      current.changed(state.doc, pin);
-      return true;
-    },
-    discard: () => {
-      if (offered) end(true);
     },
     close: () => {
       for (const stop of stops) stop();

@@ -59,6 +59,11 @@ const keptDraft = async (host: EditorHost) => {
   return read?.ok ? read.value : null;
 };
 
+const storedJson = async (host: EditorHost) => {
+  const loaded = await host.documents.load('doc');
+  return loaded.ok ? JSON.stringify(loaded.value.content) : '';
+};
+
 // A session edited and then lost before it saved, as in a crash.
 async function crashAfterTyping(host: EditorHost, typed: string) {
   const session = open(host);
@@ -139,18 +144,54 @@ describe('store-mode drafts', () => {
     expect(await keptDraft(host)).toBeNull();
   });
 
-  it('DOCE-SESSION-6.4 saves a draft from an older revision against it, as a conflict', async () => {
+  it('DOCE-SESSION-6.4 merges a draft from an older revision into the newer save', async () => {
     vi.useFakeTimers();
     const host = hostWith();
     await crashAfterTyping(host, 'Oh ');
-    await host.documents.save('doc', { content: DOCUMENT, baseRevision: 'rev-1' });
+    const added: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            ...(DOCUMENT.sections[0]?.content ?? []),
+            {
+              type: 'paragraph',
+              attrs: { id: 'a0000002' },
+              content: [{ type: 'text', text: 'Bye' }],
+            },
+          ],
+        },
+      ],
+    };
+    await host.documents.save('doc', { content: added, baseRevision: 'rev-1' });
     const session = open(host);
     await session.ready;
     expect(session.draft.get()).toMatchObject({ outdated: true });
+    expect(await session.restoreDraft()).toBe(true);
+    await session.save();
+    await session.save();
+    expect(session.conflicts.get()).toEqual([]);
+    expect(session.hasUnsavedChanges()).toBe(false);
+    const stored = await storedJson(host);
+    expect(stored).toContain('HOh ello');
+    expect(stored).toContain('Bye');
+  });
+
+  it('DOCE-SESSION-6.4 leaves a block both changed for the reader to settle', async () => {
+    vi.useFakeTimers();
+    const host = hostWith();
+    await crashAfterTyping(host, 'Oh ');
+    const changed = JSON.parse(
+      JSON.stringify(DOCUMENT).replace('Hello', 'Hello there'),
+    ) as DocumentFile;
+    await host.documents.save('doc', { content: changed, baseRevision: 'rev-1' });
+    const session = open(host);
+    await session.ready;
     await session.restoreDraft();
     await session.save();
-    expect(session.status.get()).toMatchObject({ save: 'error', error: { kind: 'conflict' } });
-    expect(session.hasUnsavedChanges()).toBe(true);
+    expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]);
+    expect(await storedJson(host)).not.toContain('HOh ello');
   });
 
   it('DOCE-SESSION-6.5 discards the offered draft', async () => {

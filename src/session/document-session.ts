@@ -7,6 +7,8 @@ import type { EditorHost, SavedState } from '../host/adapters.js';
 import type { EditingMode, EditorCapabilities } from '../host/capabilities.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
 import type { DraftOffer } from './drafts.js';
+import type { MergeConflict } from './merge.js';
+import type { MergeChoice } from './merge-conflicts.js';
 import { createRoomSession } from './room-session.js';
 import type { SessionStatusStore } from './status.js';
 import { createStoreSession } from './store-session.js';
@@ -93,10 +95,17 @@ export interface DocumentSession {
   restoreDraft(): Promise<boolean>;
   /** Removes the offered draft, keeping the stored content. */
   discardDraft(): void;
+  /**
+   * The blocks both the reader and another writer changed, which wait for the reader to settle
+   * them before the document saves again; empty when there are none.
+   */
+  readonly conflicts: ValueStore<readonly MergeConflict[]>;
   /** Commits an editor state: the editor's `onStateChange`. */
   update(update: SessionStateUpdate): void;
   /** Pins another template, or another revision of it, which is then a change to save. */
   setTemplate(pin: TemplatePin | null): Promise<boolean>;
+  /** Settles one of `conflicts` by the reader's choice, by its block's element id. */
+  resolveConflict(id: string, choice: MergeChoice): Promise<void>;
   /** Keeps the document's changes now, and resolves once they are kept or failed. */
   save(): Promise<void>;
   /**

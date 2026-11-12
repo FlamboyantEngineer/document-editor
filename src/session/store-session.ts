@@ -14,8 +14,10 @@ import type {
   DocumentSessionOptions,
   SessionDocument,
   SessionStateContext,
+  SessionStateUpdate,
 } from './document-session.js';
 import { createSessionDrafts } from './drafts.js';
+import type { MergeConflict } from './merge.js';
 import {
   loadPinnedTemplate,
   type OpenedDocument,
@@ -24,6 +26,7 @@ import {
 } from './open-document.js';
 import { followSession } from './session-follow.js';
 import type { SessionStatus } from './status.js';
+import { createStoreRefresh } from './store-refresh.js';
 import { createStoreSaving, storeBaseline } from './store-saving.js';
 import { createValueStore } from './value-store.js';
 
@@ -78,6 +81,7 @@ export function createSessionStores(
     dirty: false,
   });
   const document = createValueStore<SessionDocument | null>(null);
+  const conflicts = createValueStore<readonly MergeConflict[]>([]);
   // The template a state is made in reads the loaded one until the document shows.
   let loaded: TemplateFile | null = null;
   const context: SessionStateContext = {
@@ -95,7 +99,7 @@ export function createSessionStores(
   const setLoaded = (template: TemplateFile) => {
     loaded = template;
   };
-  return { status, document, context, current, setLoaded };
+  return { status, document, conflicts, context, current, setLoaded };
 }
 
 export type SessionStores = ReturnType<typeof createSessionStores>;
@@ -115,21 +119,42 @@ export async function changeTemplate(
   return { doc: shown.state.doc, saved: loaded.value.saved };
 }
 
-// The session's drafts, of what it shows and saves (DOCE-SESSION-6).
-function sessionDrafts(
+// What a session takes in and keeps beside saving: other writers' saves (DOCE-SESSION-4, 7) and its
+// drafts (DOCE-SESSION-6).
+function sessionParts(
   options: DocumentSessionOptions & { schema: Schema },
   stores: SessionStores,
-  { session, saving }: { session: () => DocumentSession; saving: () => StoreSaving | null },
+  parts: {
+    signal: AbortSignal;
+    session: () => DocumentSession;
+    saving: () => StoreSaving | null;
+  },
 ) {
   const { schema } = options;
-  return createSessionDrafts({
+  const { signal, saving } = parts;
+  const drafts = createSessionDrafts({
     ...options,
     ...stores,
     delay: options.draftDelay ?? DEFAULT_DRAFT_DELAY,
     createState: (doc) => (options.createState ?? defaultState(schema))(doc, stores.context),
-    setTemplate: (pin) => session().setTemplate(pin),
+    setTemplate: (pin) => parts.session().setTemplate(pin),
     saving,
   });
+  const refresh = createStoreRefresh({ ...options, ...stores, schema, signal, saving });
+  return { drafts, refresh };
+}
+
+// Commits the editor's new state, measuring a changed document for saving.
+function commitState(
+  { document, saving }: { document: SessionStores['document']; saving: StoreSaving | null },
+  update: SessionStateUpdate,
+) {
+  const shown = document.get();
+  if (!shown) return;
+  const state = typeof update === 'function' ? update(shown.state) : update;
+  if (state === shown.state) return;
+  document.set({ ...shown, state });
+  if (state.doc !== shown.state.doc) saving?.changed(state.doc, shown.pin);
 }
 
 /** Opens a document from the host's document store (DOCE-SESSION-1, DOCE-SESSION-2). */
@@ -138,9 +163,10 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
   const schema = options.schema ?? createDocumentSchema();
   const controller = new AbortController();
   const stores = createSessionStores(options);
-  const { status, document } = stores;
+  const { status, document, conflicts } = stores;
   let saving: StoreSaving | null = null;
-  const drafts = sessionDrafts({ ...options, schema }, stores, {
+  const { drafts, refresh } = sessionParts({ ...options, schema }, stores, {
+    signal: controller.signal,
     session: () => session,
     saving: () => saving,
   });
@@ -165,19 +191,26 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     document.set(read.value);
     const autosaveDelay = options.autosaveDelay ?? DEFAULT_AUTOSAVE_DELAY;
     saving = createStoreSaving(
-      { host, documentId, status, current: stores.current, autosaveDelay },
-      storeBaseline(read.value.state.doc, {
-        revision: opened.value.stored.revision,
-        pin: read.value.pin,
-      }),
+      {
+        host,
+        documentId,
+        status,
+        current: stores.current,
+        autosaveDelay,
+        onConflict: refresh.onConflict,
+      },
+      storeBaseline(read.value.state.doc, opened.value.stored),
     );
     follow.followTemplate(read.value.pin, opened.value.template.saved);
+    stopRefresh = refresh.follow();
     status.set({ ...status.get(), load: 'ready' });
     return true;
   };
 
+  let stopRefresh = () => undefined as void;
   const close = () => {
     controller.abort();
+    stopRefresh();
     saving?.close();
     drafts.close();
     follow.stop();
@@ -189,15 +222,9 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     mode: 'store',
     status,
     document,
+    conflicts,
     ready: load(),
-    update: (update) => {
-      const shown = document.get();
-      if (!shown) return;
-      const state = typeof update === 'function' ? update(shown.state) : update;
-      if (state === shown.state) return;
-      document.set({ ...shown, state });
-      if (state.doc !== shown.state.doc) saving?.changed(state.doc, shown.pin);
-    },
+    update: (update) => commitState({ document, saving }, update),
     setTemplate: async (pin) => {
       const changed = await changeTemplate({ host, signal: controller.signal }, stores, pin);
       if (!changed) return false;
@@ -205,11 +232,10 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
       saving?.changed(changed.doc, pin);
       return true;
     },
-    draft: drafts.offer,
-    restoreDraft: drafts.restore,
-    discardDraft: drafts.discard,
+    ...drafts.members,
     save: () => saving?.save() ?? Promise.resolve(),
     flush: () => saving?.flush() ?? Promise.resolve(true),
+    resolveConflict: refresh.resolve,
     hasUnsavedChanges: () => saving?.hasUnsavedChanges() ?? false,
     close,
   };

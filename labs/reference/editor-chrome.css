@@ -646,3 +646,15 @@
   height: 100%;
   font: inherit;
 }
+
+/* The conflict prompt above a session's editor: one warning per block, stacked. */
+.de-merge-conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.de-merge-conflicts__conflict {
+  max-width: 120ch;
+}
