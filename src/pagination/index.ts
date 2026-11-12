@@ -24,6 +24,8 @@ export {
   paginationKey,
 } from './pagination.js';
 export type { PaginationStats } from './pagination-stats.js';
+export type { PagedProjection, PagedProjectionOptions, ProjectionStats } from './projection.js';
+export { createPagedProjection } from './projection.js';
 export type { ProjectionMap } from './projection-map.js';
-export type { ProjectionStats, ProjectionView, ProjectionViewOptions } from './projection-view.js';
+export type { ProjectionView, ProjectionViewOptions } from './projection-view.js';
 export { createProjectionView } from './projection-view.js';
