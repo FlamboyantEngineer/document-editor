@@ -491,6 +491,8 @@ const PASSING_ON_PROJECTION = new Set([
   'table-long-repeated-header table continuation-start type',
   'table-long-repeated-header table continuation-start Enter',
   'table-long-repeated-header table continuation-start Backspace',
+  'table-long-single-header table continuation-start Enter',
+  'code-blocks code_block head-end Delete',
 ]);
 
 test.describe('split-paragraph repagination matrix on the projection', () => {
