@@ -44,6 +44,7 @@ export const DOCUMENT_NODE_ORDER = Object.freeze({
   script_block: 430,
   kept_block: 440,
   kept_inline: 450,
+  embed: 460,
 });
 
 /** The ordinal of each built-in mark type. */

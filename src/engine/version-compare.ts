@@ -5,6 +5,7 @@
 // every suggestion accepted.
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
+import { regionKind } from '../model/index.js';
 import { commonSubsequence } from './common-subsequence.js';
 import { diffText, type TextSegment } from './text-diff.js';
 
@@ -63,8 +64,11 @@ const VOLATILE_ATTRS = new Set([
 // The marks that record a review rather than formatting.
 const REVIEW_MARKS = new Set(['comment_highlight', 'insertion', 'deletion', 'contributor']);
 
-// The blocks drawn around the document's content, which no version holds.
-const PAGE_CHROME = new Set(['page_header', 'page_footer', 'page_footnotes']);
+// The regions drawn around the document's content, which no version holds.
+const isPageChrome = (node: ProseMirrorNode) => {
+  const kind = regionKind(node);
+  return kind !== null && kind !== 'content';
+};
 
 function attrsFormat(node: ProseMirrorNode): string {
   const kept = Object.entries(node.attrs).filter(([name]) => !VOLATILE_ATTRS.has(name));
@@ -116,7 +120,7 @@ export function collectVersionBlocks(
   const blocks: VersionBlock[] = [];
   const seen = new Map<string, number>();
   doc.descendants((node, pos) => {
-    if (PAGE_CHROME.has(node.type.name)) return false;
+    if (isPageChrome(node)) return false;
     if (!node.isBlock || !(node.isTextblock || node.isAtom)) return true;
     if (suggestions === 'rejected' && node.attrs.suggestionSplitKind === 'insertion') return false;
     const id = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : null;

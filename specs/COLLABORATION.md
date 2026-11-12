@@ -57,6 +57,13 @@ The document editor's `authorship` shall show who wrote what, the editor running
 Implementation: `src/components/document-editor/use-change-notifications.ts`, `src/components/document-editor/use-document-layout.ts`, `labs/reference/editor-chrome.css`
 Verification: `e2e/full-editor.spec.ts`
 
+### DOCE-COLLAB-3.3 - Contributor marks
+
+The text each of the writer's own changes inserts, typed or pasted, shall read as the writer's (`markContributors`, which the element ids plugin runs with its `author`; decision D1). A run that reads as another known writer's, by a contributor mark it took from the text before it (the mark is inclusive) or by its block's writer, loses that mark and takes the writer's, unless its block is the writer's, whose unmarked text already reads as theirs; so a person typing right after an agent's text is the writer of what they type, and typing in one's own blocks adds no marks. With no writer known, the inserted text shall only lose a mark it took from another writer. A reference's text, which is its target's, and text in page headers, footers and footnote areas are left as they are, and so are changes that lay pages out. Remote, derived and system changes, changes out of the history, and the automation API's changes, which mark their own text (DOCE-AUTOMATION), shall be left as they are.
+
+Implementation: `src/engine/provenance.ts`, `src/engine/element-ids.ts`
+Verification: `src/engine/provenance.test.ts`
+
 ## Hooks
 
 | Hook                       | Kind      | Values  | Description                                      |

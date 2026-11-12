@@ -10,6 +10,8 @@ export {
   setChangeLines,
   strongerChange,
 } from './change-lines.js';
+export type { ClipboardOptions, PasteFilter } from './clipboard.js';
+export { createClipboard } from './clipboard.js';
 export {
   convertMath,
   insertCharacter,
@@ -215,4 +217,3 @@ export type {
   VersionChangeKind,
 } from './version-compare.js';
 export { collectVersionBlocks, compareVersions } from './version-compare.js';
-export { createWordPaste } from './word-paste.js';

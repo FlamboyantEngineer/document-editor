@@ -88,7 +88,14 @@ The host's `variables` adapter shall give the text of each variable it knows (`v
 Implementation: `src/host/adapters.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`
 
-### DOCE-HOST-1.13 - Fonts
+### DOCE-HOST-1.13 - Embedded content
+
+The host's `embeds` adapter shall name the kinds of content it embeds (`kinds`), resolve embeds, by their kind and source, to the state of their content as it is now, its id (`snapshot`) and its name (`label`), in the order given, null for content that is gone and `no-access` for content the reader may not read, and load an embed's content as it is now, with its state and name, as stored content (DOCE-EMBEDS-3).
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/engine/embeds.test.ts`
+
+### DOCE-HOST-1.14 - Fonts
 
 The host's optional `fonts` adapter shall load the faces of the font families a document's template names and resolve, within the timeout it is given, with the families that loaded. The document editor's pages stay pending until it resolves, and measure again once faces load (DOCE-PAGINATION-5.6).
 

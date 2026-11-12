@@ -876,6 +876,8 @@
         "script": { "default": "" },
         "refreshPolicy": { "default": "manual" },
         "renderedAt": { "default": null },
+        "provenance": { "default": null },
+        "signatures": { "default": null },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
@@ -890,7 +892,7 @@
       ],
       "toDOM": {
         "defaults": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"\" data-refresh-policy=\"manual\"><div class=\"script-output\"></div></section>",
-        "filled": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"sample-script\" data-refresh-policy=\"manual\" data-rendered-at=\"sample-renderedAt\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><div class=\"script-output\"></div></section>"
+        "filled": "<section class=\"script-block\" data-block-type=\"scripted-content\" data-script=\"sample-script\" data-refresh-policy=\"manual\" data-rendered-at=\"sample-renderedAt\" data-provenance=\"&quot;sample-provenance&quot;\" data-signatures=\"&quot;sample-signatures&quot;\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"><div class=\"script-output\"></div></section>"
       }
     },
     {
@@ -931,6 +933,29 @@
       "toDOM": {
         "defaults": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\"></span>",
         "filled": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></span>"
+      }
+    },
+    {
+      "name": "embed",
+      "ordinal": 40,
+      "group": "block",
+      "content": "(paragraph | heading | bullet_list | ordered_list | table | figure | math_display | code_block | horizontal_rule)+",
+      "marks": null,
+      "flags": { "isolating": true },
+      "attrs": {
+        "kind": { "default": "", "validate": "string" },
+        "source": { "default": "", "validate": "string" },
+        "snapshot": { "default": null },
+        "label": { "default": "", "validate": "string" },
+        "dataId": { "default": null },
+        "dataAuthor": { "default": null },
+        "dataAiSession": { "default": null },
+        "splitPartIndex": { "default": null }
+      },
+      "parseDOM": [{ "tag": "div[data-embed-kind]", "getAttrs": "function" }],
+      "toDOM": {
+        "defaults": "<div class=\"de-embed\" data-embed-kind=\"\" data-embed-source=\"\" data-embed-label=\"\"></div>",
+        "filled": "<div class=\"de-embed\" data-embed-kind=\"sample-kind\" data-embed-source=\"sample-source\" data-embed-label=\"sample-label\" data-embed-snapshot=\"sample-snapshot\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
       }
     }
   ],

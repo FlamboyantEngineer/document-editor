@@ -18,7 +18,7 @@ describe('template fonts', () => {
     expect(templateFontFamilies({} as TemplateFile)).toEqual([]);
   });
 
-  it('DOCE-PAGINATION-5.6 DOCE-HOST-1.13 asks the host to load them, within the timeout', async () => {
+  it('DOCE-PAGINATION-5.6 DOCE-HOST-1.14 asks the host to load them, within the timeout', async () => {
     const load = vi.fn<FontsAdapter['load']>(async (families) => ({ ok: true, value: families }));
     await loadTemplateFonts({ load }, template);
     expect(load).toHaveBeenCalledWith(['Sample Serif', 'Sample Sans', 'Sample Mono'], {

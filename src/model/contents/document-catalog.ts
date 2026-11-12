@@ -6,8 +6,9 @@
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
-import { compareAbbreviations } from '../glossary.js';
+import { abbreviationTargetId, compareAbbreviations } from '../glossary.js';
 import { headingNumberText, objectNumberText } from '../numbering/numbering-text.js';
+import { documentSections, type RegionKind, sectionRegions } from '../schema/document-structure.js';
 import {
   NUMBERED_OBJECT_KINDS,
   type NumberedObjectKind,
@@ -19,6 +20,9 @@ import {
 import { templateScopeStyles } from '../templates/template-properties.js';
 import { sectionRestartsNumbering } from '../templates/template-scopes.js';
 import { findTemplateSection } from '../templates/template-sections.js';
+import { isStructuralHeading } from './structural-heading.js';
+
+export { isStructuralHeading } from './structural-heading.js';
 
 /**
  * One kind of list: the nodes or marks it lists and how it shows them. For a mark, each run of text
@@ -56,6 +60,11 @@ export interface ContentsKind {
   readonly showPage?: boolean | undefined;
   /** Whether an entry draws a leader to its page number. Defaults to true. */
   readonly leader?: boolean | undefined;
+  /**
+   * The element id an entry's row carries, so links to it resolve, such as an abbreviation's link
+   * to its entry in a list of abbreviations; none by default.
+   */
+  readonly anchor?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
 }
 
 const attrText = (value: unknown) => (typeof value === 'string' ? value : '');
@@ -96,6 +105,7 @@ export const DEFAULT_CONTENTS_KINDS = {
     nodes: ['abbreviation_reference'],
     number: (node) => attrText(node.attrs.abbr),
     text: (node) => attrText(node.attrs.expansion),
+    anchor: (node) => abbreviationTargetId(attrText(node.attrs.entryId)),
     unique: true,
     sort: byAbbreviation,
     showPage: false,
@@ -116,12 +126,16 @@ export interface CatalogEntry {
   readonly pos: number;
   /** The page it is on, counted through the document from 1. */
   readonly page: number;
+  /** The element id its row carries (`ContentsKind.anchor`), when its kind gives one. */
+  readonly anchor?: string | undefined;
 }
 
 /** A document's entries for each kind of list, each in reading order. */
 export type DocumentCatalog = Readonly<Record<string, readonly CatalogEntry[]>>;
 
 /** The node types each numbered object kind numbers. */
+const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
+
 const OBJECT_TYPES: Readonly<Record<string, NumberedObjectKind>> = {
   figure: 'figure',
   table: 'table',
@@ -144,6 +158,7 @@ interface Counting {
   /** Whether a kind lists marks or inline nodes, so the walk enters textblocks. */
   readonly inline: boolean;
   readonly catalog: Record<string, CatalogEntry[]>;
+  readonly doc: ProseMirrorNode;
 }
 
 function scopeOf(template: TemplateFile, section: TemplateSection | null): Scope {
@@ -224,6 +239,7 @@ function list(
       text: kind.text?.(node) ?? defaultText(node),
       pos,
       page: counting.page,
+      ...(kind.anchor ? { anchor: kind.anchor(node) } : {}),
     });
   }
 }
@@ -242,6 +258,7 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
         text: kind.text?.(open.node, open.mark) ?? open.text,
         pos: open.pos,
         page: counting.page,
+        ...(kind.anchor ? { anchor: kind.anchor(open.node, open.mark) } : {}),
       });
     };
     block.forEach((child, offset) => {
@@ -257,19 +274,15 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
   }
 }
 
-/** Blocks whose headings are text set as headings, not the document's structure. */
-const UNSTRUCTURED_PARENTS = new Set(['list_item', 'table_cell', 'table_header']);
-
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
-  content.descendants((node, offset, parent) => {
+  content.descendants((node, offset) => {
     if (isContinuation(node)) return !node.isTextblock;
-    // A heading inside a list or a table is neither numbered nor listed.
-    if (node.type.name === 'heading' && parent && UNSTRUCTURED_PARENTS.has(parent.type.name)) {
-      return false;
+    const isHeading = node.type.name === 'heading';
+    // The title and a heading set in a list, a table or a quote are neither numbered nor listed.
+    if (!isHeading || isStructuralHeading(counting.doc, start + offset)) {
+      const numbered = isHeading ? countHeading(node, counting) : countObject(node, counting);
+      list([node, start + offset, numbered], counting);
     }
-    const numbered =
-      node.type.name === 'heading' ? countHeading(node, counting) : countObject(node, counting);
-    list([node, start + offset, numbered], counting);
     if (node.isTextblock && counting.inline) listMarks(node, start + offset + 1, counting);
     return !node.isTextblock || counting.inline;
   });
@@ -301,23 +314,21 @@ export function catalogDocument(
     kinds: Object.entries(kinds),
     inline: listsInline(doc, kinds),
     catalog: Object.fromEntries(Object.keys(kinds).map((key) => [key, []])),
+    doc,
   };
-  doc.forEach((section, sectionOffset) => {
-    if (section.type.name !== 'page_section') return;
-    const scope = findTemplateSection(template, section.attrs.sectionName as string | null);
+  for (const section of documentSections(doc)) {
+    const scope = findTemplateSection(template, section.name);
     counting.scope = scopeOf(template, scope);
     if (sectionRestartsNumbering(scope)) {
       counting.headings = [0, 0, 0, 0, 0, 0];
       counting.objects = zeroObjects();
     }
-    section.forEach((page, pageOffset) => {
+    // Each content region of a paged document is a page's.
+    for (const content of sectionRegions(section, CONTENT)) {
       counting.page += 1;
-      page.forEach((region, regionOffset) => {
-        if (region.type.name !== 'page_content') return;
-        countBlocks(region, sectionOffset + pageOffset + regionOffset + 3, counting);
-      });
-    });
-  });
+      countBlocks(content.node, content.pos + 1, counting);
+    }
+  }
   return arrangeEntries(counting.catalog, kinds);
 }
 

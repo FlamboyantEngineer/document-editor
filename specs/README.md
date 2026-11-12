@@ -23,6 +23,7 @@ Each file in this directory specifies one component, one family of components, o
 | [FOOTNOTES.md](FOOTNOTES.md)             | Inserting footnotes, keeping entries with markers, numbering them.              |
 | [OBJECTS.md](OBJECTS.md)                 | Inserting and changing code, math, figures, lists of contents and characters.   |
 | [REFERENCES.md](REFERENCES.md)           | References to the document's targets and to other documents, and abbreviations. |
+| [EMBEDS.md](EMBEDS.md)                   | Embeds of a host's content: locked, with its status and updates.                |
 | [PROOFING.md](PROOFING.md)               | Proofing the document's text with the host's proofer, and its issues.           |
 | [AUTOMATION.md](AUTOMATION.md)           | Reading and changing a live document by element id, for agents and scripts.     |
 | [COLLABORATION.md](COLLABORATION.md)     | Other people's carets and selections, their avatars, and remote changes.        |

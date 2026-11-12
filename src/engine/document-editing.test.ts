@@ -290,13 +290,15 @@ describe('the editing extension', () => {
     const kit = createDocumentKit({ extensions: [createDocumentEditingExtension()] });
     expect(kit.pluginOrder).toEqual([
       'history',
+      'edit-lock',
       'element-ids',
       'footnotes',
       'comment-draft',
       'math-views',
       'object-views',
-      'word-paste',
+      'clipboard',
       'scripts',
+      'embeds',
       'custom-styles',
       'variable-tokens',
       'table-width',
@@ -304,11 +306,43 @@ describe('the editing extension', () => {
       'gap-cursor',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(16);
+    expect(kit.buildPlugins(undefined)).toHaveLength(17);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(15);
+    expect(shared.buildPlugins(undefined)).toHaveLength(16);
+  });
+
+  it('DOCE-EDITING-4.2 locks the sections the template does not let be edited, beside the host lock', () => {
+    const template: TemplateFile = {
+      formatVersion: 1,
+      id: 'locked',
+      sections: [{ name: 'cover', editable: false }],
+    };
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          { name: 'cover', content: [paragraph('Cover')] },
+          { name: null, content: [paragraph('Body'), paragraph('Held')] },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const isLocked = (at: Node, pos: number) => at.resolve(pos).parent.textContent === 'Held';
+    const state = EditorState.create({
+      doc,
+      plugins: createDocumentEditing(documentSchema, { template: () => template, isLocked }),
+    });
+    const typedAt = (value: string) =>
+      state.apply(state.tr.insertText('!', positionOf(doc, value) + 1)).doc.textContent;
+    expect(typedAt('Cover')).not.toContain('!');
+    expect(typedAt('Held')).not.toContain('!');
+    expect(typedAt('Body')).toContain('B!ody');
+    const unlocked = EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) });
+    const typed = unlocked.apply(unlocked.tr.insertText('!', positionOf(doc, 'Cover') + 1)).doc;
+    const typedText = typed.textContent;
+    expect(typedText).toMatch(/C!over/);
   });
 
   it('DOCE-EDITING-2.7 selects an object before deleting it', () => {

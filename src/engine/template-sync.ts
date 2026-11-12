@@ -8,9 +8,14 @@
 import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import type { Command } from 'prosemirror-state';
 import {
+  type DocumentSection,
+  documentSections,
   findTemplateSection,
   joinDocumentPages,
   readTemplateContent,
+  type RegionKind,
+  sectionAt,
+  sectionRegions,
   type TemplateContentOptions,
   type TemplateFile,
 } from '../model/index.js';
@@ -29,16 +34,18 @@ export interface SectionDrift {
   readonly name: string;
 }
 
+const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
+
+// The content of a whole section, or null for a section without one.
+const contentOf = (section: DocumentSection): ProseMirrorNode | null =>
+  sectionRegions(section, CONTENT)[0]?.node ?? null;
+
 // The document's sections, each one whole: by name, with their content's blocks.
 function sectionsOf(doc: ProseMirrorNode) {
-  const whole = joinDocumentPages(doc).doc;
-  const sections: { name: string | null; content: ProseMirrorNode | null }[] = [];
-  whole.forEach((section) => {
-    if (section.type.name !== 'page_section') return;
-    const content = section.firstChild?.child(1) ?? null;
-    sections.push({ name: (section.attrs.sectionName as string | null) ?? null, content });
-  });
-  return sections;
+  return documentSections(joinDocumentPages(doc).doc).map((section) => ({
+    name: section.name,
+    content: contentOf(section),
+  }));
 }
 
 const SCRIPT = 'script_block';
@@ -168,17 +175,15 @@ export function syncTemplateSections(
     const unexpected = new Set(
       drift.filter((each) => each.kind === 'unexpected').map((each) => each.name),
     );
-    const sections: { node: ProseMirrorNode; pos: number }[] = [];
-    tr.doc.forEach((node, pos) => sections.push({ node, pos }));
-    for (const { node, pos } of sections.reverse()) {
-      const name = node.attrs.sectionName as string | null;
+    for (const section of documentSections(tr.doc).reverse()) {
+      const { node, pos, name } = section;
       if (name && stale.has(name)) {
         const blocks = templateContent(
           tr.doc.type.schema,
           findTemplateSection(template, name)?.content,
           options,
         );
-        const content = carryScriptOutput(blocks, blocksOf(node.firstChild?.child(1) ?? null));
+        const content = carryScriptOutput(blocks, blocksOf(contentOf(section)));
         tr.replaceWith(pos, pos + node.nodeSize, sectionOf(node, node.attrs, content));
       } else if (name && unexpected.has(name)) {
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, sectionName: null });
@@ -221,13 +226,10 @@ function insertMissing(
  */
 export function lockedTemplateSections(template: () => TemplateFile): EditLockOptions['isLocked'] {
   return (doc, pos) => {
-    const $pos = doc.resolve(pos);
-    if ($pos.depth < 1) return false;
-    const section = $pos.node(1);
-    if (section.type.name !== 'page_section') return false;
-    if (section.attrs.editable === false) return true;
-    const name = section.attrs.sectionName as string | null;
-    return findTemplateSection(template(), name)?.editable === false;
+    const section = sectionAt(doc.resolve(pos));
+    if (!section) return false;
+    if (section.node.attrs.editable === false) return true;
+    return findTemplateSection(template(), section.name)?.editable === false;
   };
 }
 

@@ -105,3 +105,25 @@ describe('lenient reading', () => {
     ).toThrow('formatVersion: must be 1');
   });
 });
+
+describe('mark order on reading', () => {
+  it('DOCE-FORMAT-1.2 reads overlapping marks of one type in canonical order', () => {
+    const comment = (thread: string) => ({ type: 'comment', attrs: { thread } });
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Shared', marks: [comment('t2'), comment('t1')] }],
+            },
+          ],
+        },
+      ],
+    };
+    const { doc } = readDocumentFile(file, documentSchema);
+    const written = writeDocumentFile(doc).sections[0]?.content[0]?.content?.[0];
+    expect(written?.marks).toEqual([comment('t1'), comment('t2')]);
+  });
+});

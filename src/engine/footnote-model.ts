@@ -3,6 +3,7 @@
 
 import type { Fragment, Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
+import { regionBeside, regionKind } from '../model/index.js';
 
 /** Where a footnote is, its marker in the text and its entry. */
 export interface FootnoteAt {
@@ -110,19 +111,9 @@ export function numberFootnotes(tr: Transaction): boolean {
   return changed;
 }
 
-/** The position of the footnote area of the page holding a position, or null. */
+/** The position of the footnote area beside a position (`regionBeside`), or null. */
 export function footnoteAreaAt(doc: ProseMirrorNode, pos: number): number | null {
-  const $pos = doc.resolve(pos);
-  for (let depth = $pos.depth; depth > 0; depth -= 1) {
-    const node = $pos.node(depth);
-    if (node.type.name !== 'page') continue;
-    let area: number | null = null;
-    node.forEach((region, offset) => {
-      if (region.type.name === 'page_footnotes') area = $pos.start(depth) + offset;
-    });
-    return area;
-  }
-  return null;
+  return regionBeside(doc.resolve(pos), 'footnotes')?.pos ?? null;
 }
 
 /** The places a footnote may be cited in, as the footnote plugin was given them. */
@@ -134,9 +125,9 @@ export function citingPlacesOf(state: EditorState): ReadonlySet<string> {
 export function canCiteAt($pos: ResolvedPos, places: ReadonlySet<string>): boolean {
   if ($pos.parent.type.name !== 'paragraph') return false;
   for (let depth = $pos.depth - 1; depth > 0; depth -= 1) {
-    const name = $pos.node(depth).type.name;
-    if (name === 'page_content') return true;
-    if (!places.has(name)) return false;
+    const node = $pos.node(depth);
+    if (regionKind(node) === 'content') return true;
+    if (!places.has(node.type.name)) return false;
   }
   return false;
 }

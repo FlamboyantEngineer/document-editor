@@ -1,5 +1,18 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type {
+  AbbreviationHealthOptions,
+  AbbreviationIssue,
+  AbbreviationIssueKind,
+  GlossaryAnswer,
+  ResolvedGlossaryEntry,
+} from './abbreviation-health.js';
+export {
+  abbreviationIssueAt,
+  abbreviationIssues,
+  createAbbreviationHealth,
+  recordGlossaryEntries,
+} from './abbreviation-health.js';
 export type { AbbreviationDisplay, AbbreviationEntry } from './abbreviations.js';
 export {
   abbreviationAt,
@@ -109,6 +122,29 @@ export {
   repairElementIds,
 } from './element-ids.js';
 export { clearCopiedIdentity } from './element-ids.js';
+export type { EmbedStatus, EmbedStatusOptions } from './embed-status.js';
+export {
+  applyEmbedUpdate,
+  createEmbedStatus,
+  embedSourceKey,
+  embedStatus,
+  embedStatusAt,
+  pasteEmbedsOfKinds,
+  refreshEmbedStatus,
+  resolveEmbeds,
+  updateEmbed,
+} from './embed-status.js';
+export type { EmbedAt } from './embeds.js';
+export {
+  createEmbedNode,
+  createEmbeds,
+  embedAt,
+  embedsKey,
+  insertEmbed,
+  listEmbeds,
+  touchesEmbed,
+  unwrapPastedEmbeds,
+} from './embeds.js';
 export * from './features.js';
 export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
@@ -148,11 +184,19 @@ export {
 } from './layout-sections.js';
 export type { MathViewsOptions } from './math-views.js';
 export { createMathViews } from './math-views.js';
+export { cancelMathEditing, commitMathEditing, mathEditingAt } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
+export {
+  cancelCaptionEditing,
+  captionEditingAt,
+  commitCaptionEditing,
+  editCaption,
+} from './object-views.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
+export { revealRange, selectionAddress } from './reveal.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

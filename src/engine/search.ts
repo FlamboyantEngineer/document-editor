@@ -12,8 +12,9 @@ import {
   TextSelection,
   type Transaction,
 } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { DecorationSet } from 'prosemirror-view';
 import { type RegionKind, regionKind, type TemplateFile } from '../model/index.js';
+import { viewOnlyInline } from '../utils/view-only-decorations.js';
 import { isPositionLocked } from './edit-lock.js';
 import { documentOutline } from './outline.js';
 
@@ -102,7 +103,7 @@ function decorate(doc: ProseMirrorNode, matches: readonly SearchMatch[], current
   return DecorationSet.create(
     doc,
     matches.map((match, index) =>
-      Decoration.inline(match.from, match.to, {
+      viewOnlyInline(match, {
         [SEARCH_MATCH_ATTR]: index === current ? 'current' : 'match',
       }),
     ),

@@ -24,7 +24,10 @@ export function abbreviationAt(state: EditorState): { node: ProseMirrorNode; pos
     : null;
 }
 
-/** Inserts an abbreviation of a glossary entry in place of the selection, and selects it. */
+/**
+ * Inserts an abbreviation of a glossary entry in place of the selection, carrying the marks of the
+ * text it replaces, or those at the caret, and selects it.
+ */
 export function insertAbbreviation(
   entry: AbbreviationEntry,
   display: AbbreviationDisplay = 'full',
@@ -35,12 +38,13 @@ export function insertAbbreviation(
     if (!type || !$from.parent.inlineContent) return false;
     if (!$from.parent.canReplaceWith($from.index(), $from.indexAfter(), type)) return false;
     if (dispatch) {
-      const node = type.create({
-        entryId: entry.id,
-        display,
-        abbr: entry.abbreviation,
-        expansion: entry.expansion,
-      });
+      const { $to, empty } = state.selection;
+      const marks = (empty ? state.storedMarks : $from.marksAcross($to)) ?? $from.marks();
+      const node = type.create(
+        { entryId: entry.id, display, abbr: entry.abbreviation, expansion: entry.expansion },
+        null,
+        $from.parent.type.allowedMarks(marks),
+      );
       const tr = state.tr.replaceSelectionWith(node, false);
       const pos = tr.mapping.map(state.selection.from, -1);
       tr.setSelection(NodeSelection.create(tr.doc, pos));
@@ -68,15 +72,14 @@ export function setAbbreviationDisplay(display?: AbbreviationDisplay): Command {
   };
 }
 
-/** Turns the abbreviation selected into plain text, as it reads. */
+/** Turns the abbreviation selected into plain text, as it reads, keeping its marks. */
 export const unlinkAbbreviation: Command = (state, dispatch) => {
   const found = abbreviationAt(state);
   if (!found) return false;
   const text = abbreviationDisplayText(found.node.attrs);
   if (dispatch) {
-    const marks = state.doc.resolve(found.pos).marks();
     const tr = text
-      ? state.tr.replaceWith(found.pos, found.pos + 1, state.schema.text(text, marks))
+      ? state.tr.replaceWith(found.pos, found.pos + 1, state.schema.text(text, found.node.marks))
       : state.tr.delete(found.pos, found.pos + 1);
     dispatch(tr.scrollIntoView());
   }

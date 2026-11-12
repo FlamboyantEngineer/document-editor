@@ -186,6 +186,7 @@ export {
   normalizeParagraphLevel,
   withElementOutput,
 } from './schema/element-attributes.js';
+export { EMBED_NODE, isEmbed } from './schema/embed-nodes.js';
 export { mentionPresentation } from './schema/inline-atom-nodes.js';
 export type { DocumentLayoutPreset, DocumentLayoutPresetId } from './schema/layout-presets.js';
 export {
@@ -208,6 +209,7 @@ export {
 } from './schema/object-layout.js';
 export type { DocumentSchemaOptions, ResolvedSchemaOptions } from './schema/schema-options.js';
 export { resolveSchemaOptions } from './schema/schema-options.js';
+export type { ScriptProvenance, ScriptSignature } from './schema/script-nodes.js';
 export * from './signature-vector.js';
 export { storedText, textOf } from './stored-text.js';
 export { BASE_TEMPLATE, BASE_TEMPLATE_ID } from './templates/base-template.js';

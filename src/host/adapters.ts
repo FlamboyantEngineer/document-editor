@@ -223,6 +223,43 @@ export interface ReferenceSourceAdapter {
   ): Promise<HostResult<(ReferenceBaseline | null | 'no-access')[]>>;
 }
 
+/** What an embed shows: content the host keeps elsewhere, by its kind and the host's id for it. */
+export interface EmbedSource {
+  /** The host's kind of content, such as `data-set`. */
+  kind: string;
+  /** The host's id of the content within its kind. */
+  source: string;
+}
+
+/** An embedded content's state as the host has it now: the state's id and the content's name. */
+export interface EmbedSnapshot {
+  /** The host's id of this state of the content, such as a revision. */
+  snapshot: string;
+  /** How the editor names the content. */
+  label: string;
+}
+
+/** An embedded content's state, with what it holds as stored content. */
+export interface EmbedContent extends EmbedSnapshot {
+  content: StoredContent;
+}
+
+/** Where embedded content comes from: content the host keeps, shown in the document locked. */
+export interface EmbedSourceAdapter {
+  /** The kinds of content the host embeds; an embed of another kind is pasted as its content. */
+  readonly kinds: readonly string[];
+  /**
+   * Each embed's content state as the host has it now, in the order given; null for content that
+   * is gone, and `no-access` for content the reader may not read.
+   */
+  resolve(
+    embeds: readonly EmbedSource[],
+    signal?: AbortSignal,
+  ): Promise<HostResult<(EmbedSnapshot | null | 'no-access')[]>>;
+  /** An embed's content as it is now. */
+  load(embed: EmbedSource, signal?: AbortSignal): Promise<HostResult<EmbedContent>>;
+}
+
 /** The glossary abbreviations cite. */
 export interface GlossaryAdapter {
   /** The entries whose abbreviation or expansion matches the query. */
@@ -396,6 +433,7 @@ export interface EditorHost {
   fonts?: FontsAdapter | undefined;
   codeSource?: CodeSourceAdapter | undefined;
   references?: ReferenceSourceAdapter | undefined;
+  embeds?: EmbedSourceAdapter | undefined;
   glossary?: GlossaryAdapter | undefined;
   scripts?: ScriptRunnerAdapter | undefined;
   comments?: CommentStoreAdapter | undefined;

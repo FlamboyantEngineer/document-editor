@@ -915,10 +915,13 @@
   outline: 2px solid color-mix(in srgb, var(--ref-accent, #0969da) 30%, transparent);
 }
 
-/* A heading inside a list or a table is text set as a heading: it is neither counted nor numbered. */
+/*
+ * A heading inside a list, a table or a quote, at any depth, is text set as a heading: it is
+ * neither counted nor numbered (`isStructuralHeading`). A script's output keeps its headings.
+ */
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  :is(li, td, th)
+  :is(li, td, th, blockquote)
   :is(h1, h2, h3, h4, h5, h6) {
   counter-increment: none;
   counter-set: none;
@@ -926,7 +929,7 @@
 
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  :is(li, td, th)
+  :is(li, td, th, blockquote)
   :is(h1, h2, h3, h4, h5, h6)::before {
   content: none;
 }
@@ -974,6 +977,38 @@
   user-select: none;
 }
 
+/* Highlighted code: each token kind in its colour. */
+.de-code-token[data-token='keyword'] {
+  color: #7c3aed;
+}
+
+.de-code-token[data-token='string'] {
+  color: #047857;
+}
+
+.de-code-token[data-token='number'],
+.de-code-token[data-token='literal'] {
+  color: #b45309;
+}
+
+.de-code-token[data-token='comment'] {
+  color: #64748b;
+  font-style: italic;
+}
+
+.de-code-token[data-token='key'] {
+  color: #1d4ed8;
+}
+
+.de-code-token[data-token='punctuation'] {
+  color: #475569;
+}
+
+.de-code-token[data-token='link'] {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
 /* A signature: its strokes over the signer's name; an unsigned one is a line to sign on. */
 .de-signature {
   display: inline-flex;
@@ -1015,6 +1050,30 @@
 @media print {
   .script-block {
     outline: none;
+  }
+}
+
+/* An embed: the host's content, marked on the screen as locked; changed, gone or out of reach. */
+.de-embed {
+  position: relative;
+  outline: 1px solid #94a3b8;
+  outline-offset: 2px;
+}
+
+.de-embed[data-embed-status='update'] {
+  outline-color: #b45309;
+}
+
+.de-embed[data-embed-status='unavailable'],
+.de-embed[data-embed-status='no-access'] {
+  outline-color: #b91c1c;
+  opacity: 0.7;
+}
+
+@media print {
+  .de-embed {
+    outline: none;
+    opacity: 1;
   }
 }
 
