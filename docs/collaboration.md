@@ -76,3 +76,24 @@ const server = createRoomServer({
 Decide by the lists alone. Collaboration-tools reads only the update and the room items it touches to apply them, which costs about 12 µs an update in a room of a megabyte. Do not add a `check` that calls `change.simulate`: it copies the whole room for every update (about 47 ms at that size). A refused update closes the writer's socket with `unauthorized-write`, which the client shows as `state.refusal`.
 
 The room server cannot tell a suggestion from a direct edit by the types an update changes: both write `content`. Suggesting is enforced by the editor, which turns a suggester's changes into suggestions (`specs/SUGGESTIONS.md`). A host that must also enforce it on the server pays for a `check` that reads the change.
+
+## Seeds and server reads
+
+`./collab` converts between a stored document (`DocumentFile`) and a room without the editor or a DOM, so a room server runs it in Node (DOCE-COLLAB-6.2):
+
+- `documentToYjs(file, { schema })` gives the Yjs update that builds a room holding the document, for the server's seeds adapter. An element without its own valid id gets one in the seed, as the editor gives it when it opens the document. A room seeded without them would have every writer send them with their first change, each with ids of their own, and a document stored without any ids would send about a megabyte.
+- `yjsToDocument(update, { schema })` gives the stored document a room's state holds, for readers outside the room, such as a store that keeps the document beside the room, or `null` for a room without one.
+- `writeRoomDocument(doc, file, { schema })` and `readRoomDocument(doc, { schema })` do the same on a Yjs document the host already has.
+
+Use the schema the editors in the room use. With collaboration-tools, the seeds adapter is:
+
+```ts
+const seeds = {
+  async seed(room: string) {
+    const file = await loadStoredDocument(room); // the host's own store
+    return file ? documentToYjs(file, { schema }) : null;
+  },
+};
+```
+
+and a stored room state reads back with `yjsToDocument(state.update, { schema })`.

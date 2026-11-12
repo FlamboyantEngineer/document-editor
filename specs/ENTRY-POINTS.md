@@ -1,6 +1,6 @@
 # Entry Points
 
-The package has one entry for the browser editor and three entries a server imports: the document model, the operations on whole documents, and the host contracts. The server entries read no DOM when they load, so a service reads, checks and changes the documents the editor makes without a browser.
+The package has one entry for the browser editor, three entries a server imports (the document model, the operations on whole documents, and the host contracts) and the shared-room entry, whose conversion a room server runs. The server entries read no DOM when they load, so a service reads, checks and changes the documents the editor makes without a browser.
 
 ## DOCE-ENTRY-1 - Server entries
 
@@ -16,4 +16,11 @@ Verification: `test/node-entry.test.ts`
 `./model`, `./document` and `./host` shall import in Node with no `document` or `window` global, and none of them shall define one.
 
 Implementation: `src/model/index.ts`, `src/document/index.ts`, `src/host/index.ts`
+Verification: `test/node-entry.test.ts`
+
+### DOCE-ENTRY-1.3 - Room conversion on a server
+
+`@flamboyantengineer/document-editor/collab` shall import in Node with no `document` or `window` global, and its `documentToYjs` and `yjsToDocument` (DOCE-COLLAB-6.2) shall seed a room from a document read with `./model` and read it back there.
+
+Implementation: `src/collab/index.ts`, `package.json`
 Verification: `test/node-entry.test.ts`
