@@ -13,7 +13,7 @@ import {
   textRange,
   wholeElement,
 } from './automation-address.js';
-import { anchorCommentRange } from './comments.js';
+import { anchorCommentRanges } from './comments.js';
 import { isLockedIn } from './edit-lock.js';
 import { createElementId } from './element-ids.js';
 import { suggestTransaction } from './suggestions.js';
@@ -169,7 +169,7 @@ function applyText(batch: Batch, edit: TextEdit): Refusal | null {
   if (isRefusal(found)) return found;
   if (edit.op === 'comment') {
     const id = (options.newId ?? createElementId)();
-    if (!anchorCommentRange(tr, found, id)) {
+    if (!anchorCommentRanges(tr, { thread: id, ranges: [found] }, { newId: options.newId })) {
       return refuse('invalid', 'Nothing to comment on');
     }
     batch.threads.push({ id, quote: found.text, text: edit.text, actor: options.actor });

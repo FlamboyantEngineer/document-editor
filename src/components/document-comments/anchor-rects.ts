@@ -9,18 +9,52 @@ export type AnchorTarget =
   | { readonly kind: 'suggestion'; readonly id: string }
   | { readonly kind: 'selection' };
 
-function selectorOf(target: AnchorTarget): string | null {
-  if (target.kind === 'selection') return null;
-  const id = CSS.escape(target.id);
-  return target.kind === 'comment'
-    ? `mark[data-comment-id="${id}"]`
-    : `ins[data-id="${id}"], del[data-id="${id}"], [data-suggestion-split-id="${id}"]`;
+// The elements that mark each comment and suggestion in a layer, found in one pass over it rather
+// than one query per annotation, so a document with many threads is measured in one walk.
+interface Marking {
+  readonly comment: ReadonlyMap<string, Element[]>;
+  readonly suggestion: ReadonlyMap<string, Element[]>;
 }
 
+function group(
+  found: Map<string, Element[]>,
+  { elements, name }: { readonly elements: Iterable<Element>; readonly name: string },
+) {
+  for (const element of elements) {
+    const id = element.getAttribute(name);
+    if (!id) continue;
+    const known = found.get(id);
+    if (known) known.push(element);
+    else found.set(id, [element]);
+  }
+  return found;
+}
+
+function markingOf(layer: HTMLElement): Marking {
+  return {
+    comment: group(new Map(), {
+      elements: layer.querySelectorAll('mark[data-comment-id]'),
+      name: 'data-comment-id',
+    }),
+    suggestion: group(
+      group(new Map(), {
+        elements: layer.querySelectorAll('ins[data-id], del[data-id]'),
+        name: 'data-id',
+      }),
+      {
+        elements: layer.querySelectorAll('[data-suggestion-split-id]'),
+        name: 'data-suggestion-split-id',
+      },
+    ),
+  };
+}
+
+const elementsOf = (marking: Marking, target: AnchorTarget): readonly Element[] =>
+  target.kind === 'selection' ? [] : (marking[target.kind].get(target.id) ?? []);
+
 // The element an anchor starts in: its first marking element, else the selection's start.
-function anchorElement(layer: HTMLElement, target: AnchorTarget): Element | null {
-  const selector = selectorOf(target);
-  if (selector) return layer.querySelector(selector);
+function anchorElement(layer: HTMLElement, marking: Marking, target: AnchorTarget): Element | null {
+  if (target.kind !== 'selection') return elementsOf(marking, target)[0] ?? null;
   const selection = layer.ownerDocument.getSelection();
   if (!selection?.rangeCount) return null;
   const { startContainer } = selection.getRangeAt(0);
@@ -46,8 +80,9 @@ export function measureCardOffsets(
   // The layer's own scale, when an ancestor scales it: the card moves in the layer's pixels.
   const scale = layer.offsetWidth ? layer.getBoundingClientRect().width / layer.offsetWidth : 1;
   const start = margin.getBoundingClientRect().left;
+  const marking = markingOf(layer);
   for (const [key, target] of targets) {
-    const page = anchorElement(layer, target)?.closest('.pm-page');
+    const page = anchorElement(layer, marking, target)?.closest('.pm-page');
     if (!page) continue;
     offsets.set(
       key,
@@ -75,7 +110,10 @@ function selectionBoxes(layer: HTMLElement): DOMRect[] {
   return first ? [new DOMRect(first.left, first.top, 0, first.height)] : [];
 }
 
-/** Measures each target's anchor inside a layer, by annotation key; a missing anchor has none. */
+/**
+ * Measures each target's anchor inside a layer, by annotation key; a missing anchor has none. The
+ * marking elements are found in one pass over the layer, however many targets there are.
+ */
 export function measureAnchors(
   layer: HTMLElement,
   targets: ReadonlyMap<string, AnchorTarget>,
@@ -84,11 +122,12 @@ export function measureAnchors(
   const left = frame.left + layer.clientLeft - layer.scrollLeft;
   const top = frame.top + layer.clientTop - layer.scrollTop;
   const measured = new Map<string, AnnotationRect[]>();
+  const marking = markingOf(layer);
   for (const [key, target] of targets) {
-    const selector = selectorOf(target);
-    const boxes = selector
-      ? [...layer.querySelectorAll(selector)].flatMap((element) => [...element.getClientRects()])
-      : selectionBoxes(layer);
+    const boxes =
+      target.kind === 'selection'
+        ? selectionBoxes(layer)
+        : elementsOf(marking, target).flatMap((element) => [...element.getClientRects()]);
     measured.set(
       key,
       boxes.map((box) => ({
