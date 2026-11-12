@@ -44,6 +44,7 @@ export type {
   VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
+export type { AssetSearchPage, DiagramAdapter, FoundAsset, StoredDiagram } from './adapters.js';
 export type {
   ConnectionAccess,
   EditingMode,

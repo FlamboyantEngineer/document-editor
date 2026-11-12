@@ -50,6 +50,19 @@ export interface ObjectLabels {
   /** Converts the math selected to a block or to inline math. */
   readonly convertMath: (toDisplay: boolean) => string;
   readonly figure: string;
+  /** The figure menu's entries, which insert an image or a diagram. */
+  readonly imageFigure: string;
+  readonly diagramFigure: string;
+  /** Names the choice between an image and a diagram, and each kind. */
+  readonly figureType: string;
+  readonly figureTypes: Readonly<Record<'image' | 'diagram', string>>;
+  readonly chooseImage: string;
+  /** Opens the host's diagram editor on a new diagram, or on the figure's. */
+  readonly drawDiagram: (existing: boolean) => string;
+  readonly diagramEditing: string;
+  readonly diagramFailed: string;
+  readonly height: string;
+  readonly keepProportions: string;
   readonly editFigure: string;
   readonly figureFile: string;
   readonly figureAddress: string;
@@ -185,6 +198,16 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   mathSource: 'LaTeX',
   convertMath: (toDisplay) => (toDisplay ? 'Convert to display math' : 'Convert to inline math'),
   figure: 'Figure',
+  imageFigure: 'Image…',
+  diagramFigure: 'Diagram…',
+  figureType: 'Figure type',
+  figureTypes: { image: 'Image', diagram: 'Diagram' },
+  chooseImage: 'Choose an image…',
+  drawDiagram: (existing) => (existing ? 'Edit diagram…' : 'Draw diagram…'),
+  diagramEditing: 'Editing the diagram…',
+  diagramFailed: 'The diagram could not be saved.',
+  height: 'Height (px)',
+  keepProportions: 'Keep proportions',
   editFigure: 'Edit figure…',
   figureFile: 'Upload an image',
   figureAddress: 'Image address',

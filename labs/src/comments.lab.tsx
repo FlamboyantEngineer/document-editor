@@ -75,7 +75,12 @@ function initialState(): EditorState {
                 {
                   type: 'text',
                   text: 'one second',
-                  marks: [{ type: 'comment', attrs: { thread: 'c0ffee01', state: 'open' } }],
+                  marks: [
+                    {
+                      type: 'comment',
+                      attrs: { id: '5eed0001', thread: 'c0ffee01', state: 'open' },
+                    },
+                  ],
                 },
                 text(' of detecting it.'),
               ],

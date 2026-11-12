@@ -5,11 +5,11 @@ import type { ReactNode } from 'react';
 import {
   acceptSuggestion,
   clearCommentDraft,
+  commentAnchors,
   commentDraft,
   commitCommentDraft,
   createElementId,
   linkSuggestionThread,
-  listCommentAnchors,
   listSuggestions,
   rejectSuggestion,
   removeCommentAnchor,
@@ -57,7 +57,7 @@ export interface CommentItemsOptions {
 
 function threadItems(state: EditorState, { threads, filter, mineResolved }: CommentItemsOptions) {
   const items: CommentItem[] = [];
-  for (const anchor of listCommentAnchors(state.doc)) {
+  for (const anchor of commentAnchors(state)) {
     const thread = threads.get(anchor.thread);
     if (!thread || !isThreadShown(thread, filter, { resolved: mineResolved ?? false })) continue;
     const key = `comment:${anchor.thread}`;
