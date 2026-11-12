@@ -4,7 +4,6 @@
 
 import { EditorState } from 'prosemirror-state';
 import { Transform } from 'prosemirror-transform';
-import { EditorView } from 'prosemirror-view';
 import {
   BASE_TEMPLATE,
   BASE_TEMPLATE_ID,
@@ -15,13 +14,9 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../../src/model/index.js';
-import {
-  createPageVariables,
-  createPagination,
-  isPaginationTransaction,
-  refreshPageVariables,
-} from '../../src/pagination/index.js';
+import { createPageVariables, pageVariablesKey } from '../../src/pagination/index.js';
 import { applyTemplate, bodyHeight, sampleDocument, text, variable } from './lab-document.js';
+import { labMounts, showOnPages } from './lab-pages.js';
 
 const line = (...content: StoredNode[]): StoredNode => ({ type: 'paragraph', content });
 
@@ -52,45 +47,34 @@ function regionsTemplate(tall: boolean): TemplateFile {
 const SAMPLE = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power', 'Storage']);
 
 function render(): void {
-  const measureIn = document.querySelector<HTMLElement>('.de-document-editor__measure');
-  const pagesRoot = document.querySelector('.lab-pages');
+  const mounts = labMounts();
   const name = document.querySelector<HTMLInputElement>('input[name="document-name"]');
   const tall = document.querySelector<HTMLInputElement>('input[name="tall-header"]');
-  if (!measureIn || !pagesRoot || !name || !tall) return;
+  if (!mounts || !name || !tall) return;
   let template = regionsTemplate(false);
   let applied = applyTemplate(template, []);
+  // The variables read the pages, so they run on them, as in the document editor.
   const variables = createPageVariables({
     value: (key) => (key === 'document.name' ? name.value : null),
   });
-  const pagination = createPagination({
-    measureIn,
+  const doc = readDocumentFile(SAMPLE, createDocumentSchema()).doc;
+  const pages = showOnPages(mounts, {
+    state: EditorState.create({ doc: setPageRegions(new Transform(doc), template).doc }),
     pageHeight: () => bodyHeight(template),
     plugins: [variables],
-  });
-  const doc = readDocumentFile(SAMPLE, createDocumentSchema()).doc;
-  const editor: EditorView = new EditorView(pagesRoot, {
-    state: EditorState.create({
-      doc: setPageRegions(new Transform(doc), template).doc,
-      plugins: [pagination.plugin, variables],
-    }),
-    dispatchTransaction(tr) {
-      editor.updateState(editor.state.apply(tr));
-      if (!isPaginationTransaction(tr)) return;
-      const { dataset } = document.documentElement;
-      dataset.labPages = String(pagesRoot.querySelectorAll('.pm-page').length);
-      dataset.labLaidOut = template.id;
-      dataset.labReady = 'true';
+    onLayout: () => {
+      document.documentElement.dataset.labLaidOut = template.id;
     },
   });
   // A longer name can wrap the header onto another line, so the pages are measured again.
   name.addEventListener('input', () => {
-    refreshPageVariables(editor);
-    pagination.refresh({ remeasure: true });
+    pages.redraw(pageVariablesKey);
+    pages.refresh({ remeasure: true });
   });
   tall.addEventListener('change', () => {
     template = regionsTemplate(tall.checked);
     applied = applyTemplate(template, applied);
-    editor.dispatch(setPageRegions(editor.state.tr, template).setMeta('addToHistory', false));
+    pages.dispatch(setPageRegions(pages.state.tr, template).setMeta('addToHistory', false));
   });
 }
 

@@ -374,7 +374,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
     />
   );
   return (
-    <EditorScope context={context} comments={props.comments}>
+    <EditorScope context={context} comments={props.comments} transactions={engine.transactions}>
       <div
         ref={root}
         {...hooks.root({ className, props, data: rootData(props, layoutState) })}

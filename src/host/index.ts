@@ -1,9 +1,5 @@
 export type {
-  AssetAdapter,
   CodeSourceAdapter,
-  CommentEntry,
-  CommentStoreAdapter,
-  CommentThread,
   CompletionAdapter,
   DocumentSave,
   DocumentStoreAdapter,
@@ -22,7 +18,6 @@ export type {
   HostError,
   HostResult,
   IdentityAdapter,
-  NewCommentThread,
   PermissionsAdapter,
   ReferenceSourceAdapter,
   ResolvedCode,
@@ -30,7 +25,6 @@ export type {
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptVocabularyEntry,
-  StoredAsset,
   StoredDocument,
   StoredTemplate,
   TelemetryAdapter,
@@ -39,7 +33,14 @@ export type {
   VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
-export type { AssetSearchPage, DiagramAdapter, FoundAsset, StoredDiagram } from './adapters.js';
+export type {
+  AssetAdapter,
+  AssetSearchPage,
+  DiagramAdapter,
+  FoundAsset,
+  StoredAsset,
+  StoredDiagram,
+} from './asset-adapters.js';
 export type {
   ConnectionAccess,
   EditingMode,
@@ -52,6 +53,17 @@ export {
   READ_ONLY_CAPABILITIES,
   resolveEditingMode,
 } from './capabilities.js';
+export type {
+  CommentActivity,
+  CommentChange,
+  CommentDecision,
+  CommentEntry,
+  CommentStoreAdapter,
+  CommentTarget,
+  CommentTargetRange,
+  CommentThread,
+  NewCommentThread,
+} from './comment-adapters.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHost, MemoryHostOptions } from './memory-host.js';
