@@ -106,11 +106,11 @@ A room-mode session's save status shall follow the connection's state: `offline`
 Implementation: `src/session/room-status.ts`, `src/session/room-session.ts`, `src/session/room-open.ts`
 Verification: `src/session/room-status.test.ts`, `src/session/room-session.test.ts`
 
-### DOCE-SESSION-3.4 - The room's access
+### DOCE-SESSION-3.4 - The connection's gate
 
-While the room grants the connection read-only access, the document's editing mode shall be `read`, whatever the reader's capabilities, since the room would drop the reader's changes; while access is pending, a reader who may edit edits.
+The document's capabilities shall be those the host grants, narrowed by the gate of the connection's phase (`connectionGate`, `gateCapabilities`, DOCE-COLLAB-5.2), and its editing mode the one they give, again whenever the phase or the granted capabilities change. A document opened on a draft, or that has synced, stays editable while the connection reconnects or is offline; one that has not stays read-only until the first sync; a read-only connection allows comments only; a refused connection or a room of another generation locks every surface.
 
-Implementation: `src/session/session-follow.ts`, `src/session/room-session.ts`
+Implementation: `src/session/room-follow.ts`, `src/session/session-follow.ts`, `src/session/room-session.ts`
 Verification: `src/session/room-session.test.ts`
 
 ### DOCE-SESSION-3.5 - The room's template
@@ -132,6 +132,20 @@ Verification: `src/session/room-session.test.ts`
 `roomConnection(provider)` (`./collab`) shall give a room provider, such as collaboration-tools', as the connection a collaboration adapter returns: its document, awareness, state and receipts; `whenSynced` resolving at the first sync and rejecting on a refusal or a close; and `close()` destroying the provider.
 
 Implementation: `src/collab/room-connection.ts`
+Verification: `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.8 - The connection's phase
+
+A session's `connection` store shall hold the room connection's phase (`connectionPhase`, DOCE-COLLAB-5.1) and its gate, for a connection status: `connecting` with nothing editable until the session connects, then the phase as the connection's state changes. It shall hold null in store mode.
+
+Implementation: `src/session/room-follow.ts`, `src/session/room-session.ts`, `src/session/store-session.ts`
+Verification: `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.9 - Presence in the room
+
+A room-mode session's editor state shall run the presence plugins on the room's awareness (`createPresence`, `createAwarenessPresence`, DOCE-COLLAB-1.5), with the reader as the host's identity names them and the host's page lifecycle, so each reader sees the others' carets and selections.
+
+Implementation: `src/session/room-binding.ts`, `src/session/room-open.ts`
 Verification: `src/session/room-session.test.ts`
 
 ## DOCE-SESSION-4 - Merging another writer's saves
