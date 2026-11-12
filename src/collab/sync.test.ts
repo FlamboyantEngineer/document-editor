@@ -127,6 +127,20 @@ describe('collab sync', () => {
     expect(a.state.selection.head).toBe(caret + 'Before. '.length);
   });
 
+  it('DOCE-COLLAB-4.1 binds one view at a time, so a second view replays nothing twice', async () => {
+    const { a, b, sync } = pair();
+    const plugin = b.state.plugins.find((each) => each.spec.measured === false);
+    const dispatched: unknown[] = [];
+    const hidden = { state: b.state, dispatch: (tr: unknown) => dispatched.push(tr) };
+    plugin?.spec.view?.(hidden as never);
+    typeAtEnd(a, 1, ' once');
+    sync();
+    await settle();
+    expect(dispatched).toEqual([]);
+    expect(textOf(block(b.state.doc, 1).node)).toBe('First paragraph. once');
+    expectConverged(a, b);
+  });
+
   it('DOCE-COLLAB-4.2 takes the shared document’s content over the editor’s when it joins', async () => {
     const a = headlessEditor(start());
     typeAtEnd(a, 1, ' Shared.');
