@@ -14,6 +14,7 @@ import {
   repaginate,
 } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
+import { caretPlace } from './caret.js';
 import { footnoteAnchor, restoreFootnoteSelection } from './footnote-selection.js';
 import { followDocument } from './ghost-view.js';
 import {
@@ -23,8 +24,16 @@ import {
   type LayoutMemory,
   type PageMetric,
 } from './layout-document.js';
+import { wantsLayoutNow } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { frameIn, type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
+import {
+  awaitReady,
+  frameIn,
+  type Remeasure,
+  remeasureOn,
+  settleEdits,
+} from './layout-triggers.js';
+import { checkDraws } from './layout-validation.js';
 import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
@@ -52,6 +61,12 @@ export interface PaginationOptions extends Omit<DocumentLayoutOptions, 'scale' |
   settle?: number | undefined;
   /** Tells of each change of the layout state (`Pagination.layoutState`). */
   onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
+  /**
+   * What the pages' measurements wait for, such as the host's font faces loading
+   * (`FontsAdapter.load`): the pages are laid out meanwhile but stay pending, and once it settles
+   * every block measures again.
+   */
+  ready?: PromiseLike<unknown> | undefined;
 }
 
 /** An editor's pagination: its plugin, and a way to lay the pages out again. */
@@ -84,6 +99,9 @@ const statsKey = new PluginKey<PaginationStats>('pagination-stats');
 // as not converging: a list of contents taking its page numbers takes one more, and an image
 // loading another.
 const LAYOUT_PASSES = 8;
+
+// Where the caret was on screen before each laid-out document was dispatched, until it is drawn.
+const drawing = new WeakMap<ProseMirrorNode, { readonly caret: number | null }>();
 
 // The pages each laid-out document was laid out as, in order.
 const laidOut = new WeakMap<ProseMirrorNode, readonly PageMetric[]>();
@@ -119,6 +137,8 @@ interface Runner {
   changed: boolean;
   /** The layouts in a row that moved the pages with no change in between. */
   passes: number;
+  /** Whether a change since the latest layout lays the pages out at once (`wantsLayoutNow`). */
+  now: boolean;
 }
 
 // Lays the measuring view's document out on pages, with what each page's blocks take of it.
@@ -136,7 +156,13 @@ function layOutPages(measuring: EditorView, options: PaginationOptions, counter:
 }
 
 // A runner with no editor mounted.
-const unmounted = { editor: null, measuring: null, cancel: null, restart: false } as const;
+const unmounted = {
+  editor: null,
+  measuring: null,
+  cancel: null,
+  restart: false,
+  now: false,
+} as const;
 
 // What a layout counts with: the measure cache, and the pagination's counters.
 type LayoutCounter = {
@@ -170,6 +196,7 @@ function stepOntoPages(
   laidOut.set(tr.doc, metrics);
   counter.layout(state.doc, tr.doc);
   tr.setMeta(statsKey, counter.stats());
+  drawing.set(tr.doc, { caret: tr.docChanged ? caretPlace(editor) : null });
   editor.dispatch(tr.setMeta(paginationKey, true).setMeta('addToHistory', false));
   return tr;
 }
@@ -182,6 +209,7 @@ function paginationPlugin(
     readonly mount: (editor: EditorView) => () => void;
     readonly changed: () => void;
     readonly request: () => void;
+    readonly drawn: (view: EditorView, caret: number | null) => void;
   },
   fragmentRules: FragmentRules,
 ): Plugin<boolean> {
@@ -193,12 +221,21 @@ function paginationPlugin(
       init: () => true,
       apply: (tr, due) => (isPaginationTransaction(tr) ? false : due || tr.docChanged),
     },
+    appendTransaction(transactions) {
+      const now = (tr: Transaction) => !isPaginationTransaction(tr) && wantsLayoutNow(tr);
+      if (transactions.some(now)) runner.now = true;
+      return null;
+    },
     view(editor) {
       runner.editor = editor;
       const unmount = on.mount(editor);
       return {
         update(view, previous) {
           runner.editor = view;
+          // A host that renders the editor through React draws a layout after the dispatch.
+          const laidOut = drawing.get(view.state.doc);
+          drawing.delete(view.state.doc);
+          if (laidOut) on.drawn(view, laidOut.caret);
           if (!paginationKey.getState(view.state)) return;
           if (view.state.doc.eq(previous.doc)) on.request();
           else on.changed();
@@ -231,11 +268,39 @@ function layOutFrom(
   runner.passes = tr.docChanged ? runner.passes + 1 : 0;
 }
 
-// Forgets what a remeasure asks for: every block after a width change, otherwise the blocks of the
-// elements that changed size.
-function forget(cache: MeasureCache, measuring: EditorView | null, change: Remeasure): void {
-  if (change.width || !measuring) cache.clear();
+// Forgets what a remeasure asks for, every block after a width change or loaded fonts, otherwise
+// the blocks of the elements that changed size, and asks for a layout.
+function forget(
+  { cache, measuring }: { readonly cache: MeasureCache; readonly measuring: EditorView | null },
+  change: Remeasure,
+  request: () => void,
+): void {
+  if (change.all || !measuring) cache.clear();
   else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
+  request();
+}
+
+// Asks for a layout once the writer pauses, or on the next frame after a change that wants one at
+// once.
+function settleOrNow(
+  runner: Runner,
+  edits: ReturnType<typeof settleEdits>,
+  request: () => void,
+): void {
+  if (!runner.now) return edits.request();
+  runner.now = false;
+  edits.cancel();
+  request();
+}
+
+// Runs a layout; one that throws fails the pages' layout state, and throws on.
+function failOnThrow(readiness: { fail(): void }, run: () => void): void {
+  try {
+    run();
+  } catch (error) {
+    readiness.fail();
+    throw error;
+  }
 }
 
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
@@ -245,8 +310,8 @@ export function createPagination(options: PaginationOptions): Pagination {
   const cache = createMeasureCache();
   const counter = { cache, memory: createLayoutMemory(), ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
+  const draws = checkDraws({ scale: options.scale, cache, count: counter.overflow, request });
   const runner: Runner = { ...unmounted, changed: true, passes: 0 };
-
   const context = { ...options, fragmentRules };
 
   const layOut = (): void => {
@@ -258,13 +323,8 @@ export function createPagination(options: PaginationOptions): Pagination {
     if (runner.changed) runner.passes = 0;
     else if (runner.passes >= LAYOUT_PASSES) return readiness.fail();
     runner.changed = false;
-    try {
-      layOutFrom({ editor, measuring, runner }, context, counter);
-    } catch (error) {
-      readiness.fail();
-      throw error;
-    }
-    readiness.laidOut(() => runner.cancel === null && !edits.waiting());
+    failOnThrow(readiness, () => layOutFrom({ editor, measuring, runner }, context, counter));
+    readiness.laidOut(() => runner.cancel === null && !edits.waiting() && !ready.waiting());
   };
 
   function request(): void {
@@ -276,8 +336,19 @@ export function createPagination(options: PaginationOptions): Pagination {
   // A change, or the host asking for a layout, starts the count of layouts in a row over.
   const change = () => {
     runner.changed = true;
+    draws.changed();
     readiness.pending();
   };
+  const refresh = ({ remeasure = false } = {}) => {
+    if (remeasure) {
+      cache.clear();
+      runner.restart = true;
+    }
+    change();
+    edits.cancel();
+    request();
+  };
+  const ready = awaitReady(options.ready, () => refresh({ remeasure: true }));
 
   const plugin = paginationPlugin(
     runner,
@@ -291,9 +362,8 @@ export function createPagination(options: PaginationOptions): Pagination {
           joinDocumentPages(editor.state.doc, fragmentRules).doc,
         );
         const unwatch = edits.watch(editor);
-        const unlisten = remeasureOn(options.measureIn, (change) => {
-          forget(cache, runner.measuring, change);
-          request();
+        const unlisten = remeasureOn(options.measureIn, (remeasure) => {
+          forget({ cache, measuring: runner.measuring }, remeasure, request);
         });
         change();
         request();
@@ -305,24 +375,17 @@ export function createPagination(options: PaginationOptions): Pagination {
       },
       changed() {
         change();
-        edits.request();
+        settleOrNow(runner, edits, request);
       },
       request,
+      drawn: draws.drawn,
     },
     fragmentRules,
   );
 
   return {
     plugin,
-    refresh({ remeasure = false } = {}) {
-      if (remeasure) {
-        cache.clear();
-        runner.restart = true;
-      }
-      change();
-      edits.cancel();
-      request();
-    },
+    refresh,
     layoutState: readiness.state,
     whenSettled: readiness.whenSettled,
     stats: counter.stats,

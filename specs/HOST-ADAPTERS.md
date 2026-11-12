@@ -95,6 +95,13 @@ The host's `embeds` adapter shall name the kinds of content it embeds (`kinds`),
 Implementation: `src/host/adapters.ts`
 Verification: `src/engine/embeds.test.ts`
 
+### DOCE-HOST-1.14 - Fonts
+
+The host's optional `fonts` adapter shall load the faces of the font families a document's template names and resolve, within the timeout it is given, with the families that loaded. The document editor's pages stay pending until it resolves, and measure again once faces load (DOCE-PAGINATION-5.6).
+
+Implementation: `src/host/adapters.ts`, `src/pagination/fonts.ts`
+Verification: `src/pagination/fonts.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles

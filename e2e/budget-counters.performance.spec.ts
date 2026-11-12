@@ -41,7 +41,6 @@ test.describe('counter budgets', () => {
     lab,
     page,
   }) => {
-    expectedMiss('PG-20', 'every layout lays out about half the sections again');
     const { sectionsReused } = await measureSectionsEdit(lab, page);
     expectMeets(BUDGETS.sectionsReused, sectionsReused);
   });
@@ -50,7 +49,6 @@ test.describe('counter budgets', () => {
     lab,
     page,
   }) => {
-    expectedMiss('PG-20', 'a remote keystroke relays and measures sections it does not touch');
     const { sectionsRelaid, blocksMeasured } = await measureRemoteKeystrokes(lab, page);
     expectMeets(BUDGETS.remoteSectionsRelaid, sectionsRelaid);
     expectMeets(BUDGETS.remoteBlocksMeasured, blocksMeasured);

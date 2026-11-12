@@ -1,5 +1,6 @@
+import { readFile } from 'node:fs/promises';
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.js';
+import { expect, test, waitForLab } from './fixtures.js';
 
 const PAGE_HEIGHT = 360;
 const NARROW_WIDTH = 300;
@@ -181,5 +182,50 @@ test.describe('pagination lab', () => {
       expect(shown).toBeGreaterThan(1);
       await expect(html).toHaveAttribute('data-lab-caret-page', String(shown));
     }
+  });
+
+  test('DOCE-PAGINATION-5.6 measures again once a delayed font loads, and the pages hold their content', async ({
+    // The lab fixture still collects the page's errors.
+    lab: _lab,
+    page,
+  }) => {
+    // A face far larger than its fallback, which the server holds back until the pages are laid out.
+    const face = await readFile('node_modules/katex/dist/fonts/KaTeX_Main-Regular.woff2');
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route('**/lab-fonts/delayed.woff2', async (route) => {
+      await held;
+      await route.fulfill({ body: face, contentType: 'font/woff2' });
+    });
+    await page.route('**/pagination.html', async (route) => {
+      const response = await route.fetch();
+      const style =
+        '<style>@font-face { font-family: LabDelayed; src: url(lab-fonts/delayed.woff2); size-adjust: 160% }' +
+        ' :is(.lab-pages, .lab-measure) p { font-family: LabDelayed, serif !important }</style>';
+      await route.fulfill({
+        response,
+        body: (await response.text()).replace('</head>', `${style}</head>`),
+      });
+    });
+    // The held face holds the page's load event back, so the lab is awaited without it.
+    await page.goto('pagination.html', { waitUntil: 'commit' });
+    await waitForLab(page);
+    const html = page.locator('html');
+    const before = Number(await html.getAttribute('data-lab-layouts'));
+    const pagesBefore = await pages(page).count();
+    release();
+    await expect
+      .poll(() => page.evaluate(() => document.fonts.check('16px LabDelayed')))
+      .toBe(true);
+    await expect
+      .poll(async () => Number(await html.getAttribute('data-lab-layouts')))
+      .toBeGreaterThan(before);
+    await expect.poll(() => pages(page).count()).toBeGreaterThan(pagesBefore);
+    await expect
+      .poll(async () => Math.max(...(await contentHeights(page))))
+      .toBeLessThanOrEqual(PAGE_HEIGHT + 1);
+    await expectPagesHoldContent(page);
   });
 });
