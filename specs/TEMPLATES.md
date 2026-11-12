@@ -154,6 +154,13 @@ Verification: `src/model/templates/template-properties.test.ts`
 Implementation: `src/model/templates/page-regions.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/templates/page-regions.test.ts`
 
+### DOCE-TEMPLATES-6.2 - A document section's own regions
+
+A document section's own page header and footer (DOCE-FORMAT-1.6) shall apply over its template section's region by the same field-by-field rule (DOCE-FORMAT-3.4): its own content where it sets some, the template's where it sets none or asks to inherit.
+
+Implementation: `src/model/templates/page-regions.ts`
+Verification: `src/model/templates/page-regions.test.ts`
+
 ## DOCE-TEMPLATES-7 - Custom styles
 
 ### DOCE-TEMPLATES-7.1 - Applying a custom style
