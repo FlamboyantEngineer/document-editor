@@ -1,6 +1,8 @@
 {
   "formatVersion": 1,
-  "template": "regression-footnotes",
+  "template": {
+    "id": "regression-footnotes"
+  },
   "sections": [
     {
       "name": "body",

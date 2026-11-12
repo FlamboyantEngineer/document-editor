@@ -90,8 +90,15 @@ export interface StoredTemplate extends SavedState {
   template: TemplateFile;
 }
 
+/** Which revision of a stored template to load. */
+export interface TemplateLoadOptions {
+  /** The revision a document pins (`DocumentFile.template.revision`); without one, the latest. */
+  revision?: string | undefined;
+  signal?: AbortSignal | undefined;
+}
+
 export interface TemplateSourceAdapter {
-  load(templateId: string, signal?: AbortSignal): Promise<HostResult<StoredTemplate>>;
+  load(templateId: string, options?: TemplateLoadOptions): Promise<HostResult<StoredTemplate>>;
 }
 
 /** An uploaded file the document references. */
@@ -191,12 +198,13 @@ export interface ReferenceSourceAdapter {
   search(query: string, signal?: AbortSignal): Promise<HostResult<ExternalReference[]>>;
   /**
    * Each citation, by the document and target it names, as the host has it now, in the order
-   * given; null for one whose document or target is gone.
+   * given; null for one whose document or target is gone, and `no-access` for one the reader may
+   * not read.
    */
   resolve?(
     citations: readonly { documentId: string; targetId: string | null }[],
     signal?: AbortSignal,
-  ): Promise<HostResult<(ReferenceBaseline | null)[]>>;
+  ): Promise<HostResult<(ReferenceBaseline | null | 'no-access')[]>>;
 }
 
 /** The glossary abbreviations cite. */

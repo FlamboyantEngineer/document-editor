@@ -46,6 +46,13 @@ Verification: `src/engine/comments.test.ts`
 Implementation: `src/engine/comment-draft.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/comments.test.ts`
 
+### DOCE-COMMENTS-1.7 - Anchors in canonical order
+
+Anchoring a thread, resolving or reopening it and linking a suggestion to a thread shall add their marks in canonical order (DOCE-SCHEMA-5.1), so text anchored to several threads holds them by thread id whichever was anchored first, and two people who anchor the same threads in another order hold equal documents.
+
+Implementation: `src/engine/comments.ts`
+Verification: `src/engine/comments.test.ts`
+
 ## DOCE-COMMENTS-2 - The comments margin
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document

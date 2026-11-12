@@ -131,4 +131,66 @@ describe('template properties', () => {
       '--doc-change-bar-insertions-color': '#00dd00',
     });
   });
+
+  it('DOCE-NUMBERING-2.6 reads switched-off numbering as an empty format, keeping the format', () => {
+    const off = { enabled: false } as const;
+    const properties = templateProperties({
+      ...BASE_TEMPLATE,
+      styles: {
+        ...BASE_TEMPLATE.styles,
+        heading1: { numbering: { ...BASE_TEMPLATE.styles?.heading1?.numbering, ...off } },
+        paragraph: { numbering: { ...BASE_TEMPLATE.styles?.paragraph?.numbering, ...off } },
+        table: { numbering: { ...BASE_TEMPLATE.styles?.table?.numbering, ...off } },
+      },
+    });
+    expect(properties['--doc-heading-1-numbering-enabled']).toBe('0');
+    expect(properties['--doc-paragraph-numbering-enabled']).toBe('0');
+    const blank = templateProperties({
+      ...BASE_TEMPLATE,
+      styles: { ...BASE_TEMPLATE.styles, table: { numbering: { prefix: 'Table ', format: '' } } },
+    });
+    expect(properties['--doc-table-counter-content']).toBe(blank['--doc-table-counter-content']);
+    expect(properties['--doc-heading-2-numbering-enabled']).toBe('1');
+  });
+
+  it('DOCE-TEMPLATES-10.2 writes a bullet keyword as a list style and other text as a string', () => {
+    const list = (bullet: string) =>
+      templateProperties({ formatVersion: 1, id: 'list', styles: { list: { bullet } } })[
+        '--doc-ul-list-style-type'
+      ];
+    expect(list('square')).toBe('square');
+    expect(list('–')).toBe('"– "');
+    expect(list('"</style>')).toBe('"\\"\\3C /style\\3E  "');
+  });
+
+  it('DOCE-TEMPLATES-10.5 writes leaders, their spacing and list number affixes', () => {
+    const properties = templateProperties({
+      formatVersion: 1,
+      id: 'lists',
+      styles: {
+        list: { format: 'a)', prefix: '(', suffix: ':' },
+        contents: {
+          leader: { character: '_', spacing: '2pt' },
+          levels: [null, { indentation: '12pt', leader: { spacing: '4pt' } }],
+        },
+      },
+    });
+    expect(properties).toMatchObject({
+      '--doc-ol-list-style-type': 'lower-alpha',
+      '--doc-ol-counter-content': '"(" counter(ordered-list, lower-alpha) ")" ":" " "',
+      '--doc-contents-leader': '"_"',
+      '--doc-contents-leader-spacing': '2pt',
+      '--doc-contents-level-2-indentation': '12pt',
+      '--doc-contents-level-2-leader-spacing': '4pt',
+    });
+    expect(properties).not.toHaveProperty('--doc-contents-level-1-leader-spacing');
+    const prefixOnly = templateProperties({
+      formatVersion: 1,
+      id: 'prefix',
+      styles: { list: { prefix: '#' } },
+    });
+    expect(prefixOnly['--doc-ol-counter-content']).toBe(
+      '"#" counter(ordered-list, decimal) "." " "',
+    );
+  });
 });

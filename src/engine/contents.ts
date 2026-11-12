@@ -16,6 +16,7 @@ import {
   type ContentsKind,
   DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
+  resolveContentsList,
   type TemplateFile,
 } from '../model/index.js';
 
@@ -34,6 +35,8 @@ export const CONTENTS_LABELS: Readonly<
   tables: { title: 'Table of Tables', empty: 'No tables found.' },
   codeBlocks: { title: 'Table of Code Blocks', empty: 'No code listings found.' },
   equations: { title: 'Table of Equations', empty: 'No equations found.' },
+  references: { title: 'References', empty: 'No references found.' },
+  abbreviations: { title: 'Abbreviations', empty: 'No abbreviations found.' },
 };
 
 /** The labels of a kind of list that neither the defaults nor the host label. */
@@ -115,12 +118,12 @@ function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): Co
 }
 
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
-function measureKey(node: ProseMirrorNode, { rows, labels, leader, showPage }: Drawing): string {
+function measureKey(node: ProseMirrorNode, { rows, labels, leaders, showPage }: Drawing): string {
   const text = [
     String(node.attrs.showTitle),
     labels.title,
     labels.empty,
-    String(leader),
+    leaders.map(String).join('|'),
     String(showPage),
     String(rows.empty),
     ...rows.entries.map(
@@ -152,8 +155,8 @@ function span(className: string, text: string): HTMLSpanElement {
 interface Drawing {
   readonly rows: ContentsRows;
   readonly labels: ContentsLabels;
-  /** The leader's character, or null for a kind without leaders. */
-  readonly leader: string | null;
+  /** Each level's leader character, from level 1, or null for none. */
+  readonly leaders: readonly (string | null)[];
   /** Whether the entries show their page numbers. */
   readonly showPage: boolean;
   /** Takes the reader to the entry at an index of the rows the list shows now. */
@@ -168,8 +171,9 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
   row.tabIndex = -1;
   if (entry.number) row.append(span('de-contents__number', entry.number));
   row.append(span('de-contents__text', entry.text));
-  if (drawing.leader !== null && drawing.showPage) {
-    const leader = span('de-contents__leader', drawing.leader.repeat(200));
+  const character = drawing.leaders[(entry.level || 1) - 1] ?? null;
+  if (character !== null && drawing.showPage) {
+    const leader = span('de-contents__leader', character.repeat(200));
     leader.setAttribute('aria-hidden', 'true');
     row.append(leader);
   }
@@ -240,10 +244,12 @@ export function createContents({
   ): Drawing => {
     const key = kinds.of(node);
     const kind = kinds.all[key];
+    const list = resolveContentsList(template().styles?.contents, key);
+    const label = { ...(defaults[key] ?? UNLABELLED), ...labels[key] };
     return {
       rows,
-      labels: { ...(defaults[key] ?? UNLABELLED), ...labels[key] },
-      leader: kind?.leader === false ? null : template().styles?.contents?.leader || '.',
+      labels: list.title ? { ...label, title: list.title } : label,
+      leaders: list.levels.map((level) => (kind?.leader === false ? null : level.leader)),
       showPage: kind?.showPage !== false,
       navigate,
     };

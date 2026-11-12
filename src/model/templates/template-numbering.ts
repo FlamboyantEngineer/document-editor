@@ -30,7 +30,7 @@ export const NUMBERED_OBJECT_KINDS: readonly NumberedObjectKind[] = [
 ];
 
 function configOf(numbering: NumberingSettings | null | undefined): NumberingStyleConfig {
-  const format = numbering?.format?.trim();
+  const format = numbering?.enabled === false ? '' : numbering?.format?.trim();
   return format ? parseNumberingStyle(format) : buildDisabledNumberingStyle();
 }
 

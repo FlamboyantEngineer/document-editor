@@ -128,15 +128,24 @@ function createMemoryVersions(history: History): VersionStoreAdapter {
   };
 }
 
+// Each template's revisions, oldest first: a template listed again is its next revision.
 function createMemoryTemplates(templates: readonly TemplateFile[]): TemplateSourceAdapter {
-  const byId = new Map<string, StoredTemplate>(
-    templates.map((template) => [template.id, { template, ...savedState(1) }]),
-  );
+  const byId = new Map<string, StoredTemplate[]>();
+  for (const template of templates) {
+    const revisions = byId.get(template.id) ?? [];
+    revisions.push({ template, ...savedState(revisions.length + 1) });
+    byId.set(template.id, revisions);
+  }
   return {
-    load: (templateId) => {
-      const template = byId.get(templateId);
+    load: (templateId, { revision } = {}) => {
+      const revisions = byId.get(templateId) ?? [];
+      const template = revision
+        ? revisions.find((each) => each.revision === revision)
+        : revisions.at(-1);
       return Promise.resolve(
-        template ? { ok: true, value: structuredClone(template) } : notFound(templateId),
+        template
+          ? { ok: true, value: structuredClone(template) }
+          : notFound(revision ?? templateId),
       );
     },
   };

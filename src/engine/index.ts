@@ -37,6 +37,7 @@ export {
   OBJECT_BLOCK_TYPES,
   objectBlockAt,
 } from './block-commands.js';
+export { canInsertBlock } from './block-place.js';
 export { setTextblockType } from './block-type.js';
 export type { CaptionedObject } from './captions.js';
 export { CAPTIONED_TYPES, captionedAt, setCaption, toggleCaption } from './captions.js';
@@ -98,6 +99,7 @@ export {
   wrapInListAndJoin,
 } from './editing-commands.js';
 export type { ElementIdsOptions } from './element-ids.js';
+export type { RepairElementIdsOptions } from './element-ids.js';
 export {
   assignElementIds,
   createElementId,
@@ -106,7 +108,9 @@ export {
   ELEMENT_IDS_REPAIR,
   repairElementIds,
 } from './element-ids.js';
+export { clearCopiedIdentity } from './element-ids.js';
 export * from './features.js';
+export { flattenFootnotePaste } from './footnote-paste.js';
 export type { FootnoteAt, FootnotesOptions } from './footnotes.js';
 export {
   canInsertFootnote,
@@ -145,3 +149,11 @@ export {
 export type { MathViewsOptions } from './math-views.js';
 export { createMathViews } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
+export { isReferencePlace, repairPastedReferences } from './reference-places.js';
+export { refreshReferenceStatus } from './reference-status.js';
+export { touchesReferences } from './reference-updates.js';
+export { refreshReferences } from './references.js';
+export { distributeRows } from './table-format.js';
+export { toggleHeaderLines } from './table-headers.js';
+export { splitTableCell } from './table-split.js';
+export type { TableEditingOptions } from './tables.js';
