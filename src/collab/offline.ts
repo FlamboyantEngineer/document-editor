@@ -3,6 +3,7 @@
 // edits with no connection and sends what it kept once connected again (D25).
 
 import * as Y from '@y/y';
+import type { Node } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { createElementId } from '../engine/element-ids.js';
 import { replaceDocumentContent } from '../engine/replace-document-content.js';
@@ -18,6 +19,8 @@ import { writeDocumentFile } from '../model/format/document-format-write.js';
 import { type MergeConflict, mergeDocuments } from '../session/merge.js';
 import { resolveMergeConflict } from '../session/merge-conflicts.js';
 import { readRoomDocument, type RoomReadOptions, yjsToDocument } from './convert.js';
+import { CONTENT_TYPE, readContent } from './delta.js';
+import { diffNodes } from './diff.js';
 
 /** A room-mode draft as the adapter keeps it. */
 export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
@@ -122,6 +125,8 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
 
   const onUpdate = () => schedule();
   doc.on('update', onUpdate);
+  // What the document holds already, such as changes made before keeping started.
+  schedule();
   const stopState = connection.subscribe((state) => {
     // The room confirmed every local change: what the document holds now is the base to keep.
     if (unconfirmedBefore && !state.hasUnconfirmedChanges) schedule();
@@ -183,6 +188,22 @@ export function mergeRoomDraft(
   const read = readDocumentFile(content, options.schema, { unknown: 'keep' });
   const transaction = replaceDocumentContent(state, read.doc);
   return { transaction: transaction.docChanged ? transaction : null, leftovers: merge.conflicts };
+}
+
+/**
+ * Writes `to` into a shared document that holds `from`, as one local change the connection sends,
+ * whether or not an editor is bound to it yet. When the shared document holds something else by now,
+ * the change is taken from what it holds.
+ */
+export function sendRoomDocument(doc: Y.Doc, from: Node, to: Node): void {
+  const type = doc.get(CONTENT_TYPE);
+  const held = readContent(to.type.schema, type);
+  const base = held && !held.eq(from) ? held : from;
+  if (base.eq(to)) return;
+  const change = diffNodes(base, to);
+  doc.transact(() => {
+    type.applyDelta(change as never);
+  });
 }
 
 // A shared document holding a draft's state and unconfirmed changes.
