@@ -114,10 +114,30 @@ function rebuildLists(body: HTMLElement, owner: Document) {
   for (const done of body.querySelectorAll('[data-word-list-item]')) done.remove();
 }
 
+// A word processor's tracked changes and comments, which never become suggestions or comments
+// (D12): the changes read as accepted, so deleted runs go and inserted runs keep their text, and the
+// comments' references, ranges and texts go.
+const reviewDropped = [
+  'del',
+  '.msoDel',
+  '.MsoCommentReference',
+  'a[href^="#_msocom"]',
+  '[style*="mso-element:comment"]',
+  '[style*="mso-element: comment"]',
+].join(', ');
+const reviewUnwrapped = 'ins, .msoIns';
+
+function dropReviewMarkup(body: HTMLElement) {
+  for (const element of body.querySelectorAll(reviewDropped)) element.remove();
+  for (const element of body.querySelectorAll(reviewUnwrapped)) {
+    element.replaceWith(...element.childNodes);
+  }
+}
+
 /**
  * HTML from a word processor without its own markup: conditional comments, Office elements and
- * styles, class names and the styles they carry are dropped, and its list paragraphs become
- * lists.
+ * styles, class names and the styles they carry are dropped, its tracked changes read as accepted
+ * and its comments left out, and its list paragraphs become lists.
  */
 export function cleanWordHtml(html: string, owner: Document): string {
   const stripped = html
@@ -127,6 +147,7 @@ export function cleanWordHtml(html: string, owner: Document): string {
   const body = inertBody(stripped, owner);
   for (const element of body.querySelectorAll('style, meta, link, xml, script, title'))
     element.remove();
+  dropReviewMarkup(body);
   rebuildLists(body, owner);
   for (const element of body.querySelectorAll('*')) {
     const name = element.tagName.toLowerCase();

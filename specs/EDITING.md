@@ -122,7 +122,7 @@ Verification: `src/engine/block-place.test.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), word processor paste (510, DOCE-FORMAT-6.2), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`
 Verification: `src/engine/document-editing.test.ts`
@@ -169,3 +169,40 @@ The editing (`createDocumentEditing`, `createDocumentEditingExtension`) shall in
 
 Implementation: `src/engine/document-editing.ts`
 Verification: `src/engine/document-editing.test.ts`
+
+## DOCE-EDITING-5 - Clipboard
+
+### DOCE-EDITING-5.1 - One paste pipeline
+
+`createClipboard({ filters, template })` shall run every paste and every drop through one pipeline. A paste, or a drop of content from elsewhere or of content dragged within the document with the platform's copy modifier held, becomes a copy (DOCE-EDITING-5.2); content dragged within the document without it is moved, and keeps what it is. Then filters run in order on every pasted and dropped slice, each given the state with the selection where the slice lands, and each returns the slice to paste: the library's own first, which fit footnote markers and entries (`flattenFootnotePaste`, DOCE-FOOTNOTES-1.6) and references (`repairPastedReferences`, DOCE-REFERENCES-1.6) to where they land, then the given `filters`. Word processor HTML is cleaned first (DOCE-FORMAT-6.2). The editing extension installs the clipboard with the template and its `pasteFilters` option.
+
+Implementation: `src/engine/clipboard.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.2 - Pasted copies
+
+A pasted copy shall leave out the nodes whose type's spec says `pastable: false`, which a signature's does, so a paste never shows an approval nobody gave there. It shall leave out text and inline nodes a suggestion deletes, take the comment and suggested-insertion marks off the rest, so a copy never shares a comment's anchor or a suggestion's id with its original, and make its elements new (DOCE-EDITING-1.5). A suggestion made while pasting marks the copy as the paster's own insertion.
+
+Implementation: `src/engine/clipboard-copies.ts`, `src/model/schema/inline-atom-nodes.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.3 - Plain text
+
+Pasted plain text shall become one paragraph for each of its lines, an empty line an empty paragraph, with the marks at the paste position. In code, it stays one run of text.
+
+Implementation: `src/engine/clipboard-text.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.4 - Copied text
+
+The plain text a copy writes shall be the text alone for a selection within one block, such as a word, and otherwise one line for each block the selection touches, with the numbers the reader sees and the document's text does not hold: a heading copied from its start is led by its number as the template numbers it, the first block of a list item by its number (`3.`) or bullet (`•`), indented by a tab for each list around its list, and a list of contents is copied as its rows, each `number text`, then a tab standing for the leader and the page where the list shows pages. Content dragged out as a node writes the default text.
+
+Implementation: `src/engine/clipboard-text.ts`, `src/engine/contents.ts`
+Verification: `src/engine/clipboard.test.ts`
+
+### DOCE-EDITING-5.5 - Images in pasted content
+
+With the host's `assets`, pasted HTML with images whose bytes come with the paste shall be pasted once those images are uploaded, each as its own figure in its place (DOCE-EDITOR-4.6): an image written as a data URI is decoded, and a local file a word processor's HTML names is taken from the next PNG or JPEG picture of the paste's RTF, leaving out the metafile copies it writes beside them. The host's `feedback` says the images are uploading; an image that fails to upload, or whose bytes the paste does not carry, is left out and the feedback says so, and the rest is pasted. Pasted HTML whose images are only addresses is left to the editor.
+
+Implementation: `src/components/document-editor/figure-paste.ts`, `src/components/document-editor/pasted-images.ts`
+Verification: `src/components/document-editor/figure-paste.test.ts`
