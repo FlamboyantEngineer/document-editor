@@ -26,3 +26,19 @@ Verification: `src/engine/outline.test.ts`
 
 Implementation: `src/components/document-panels/document-outline.tsx`
 Verification: `e2e/document-panels.spec.ts`
+
+## DOCE-OUTLINE-3 - Content addresses
+
+### DOCE-OUTLINE-3.1 - The selection's address
+
+`selectionAddress(state)` shall give the selection's address: the text block holding it, by element id, with the selection's offsets in its text, each inline object counting as one; for a selection across blocks, the nearest element with an id holding both, without offsets; null when there is none. A host keeps it to come back to the same text.
+
+Implementation: `src/engine/reveal.ts`
+Verification: `src/engine/reveal.test.ts`
+
+### DOCE-OUTLINE-3.2 - Revealing a range
+
+`revealRange(view, address, options)` shall scroll the range of an element's text an address names into view, as `revealElement` does, selecting it when asked, and return false when the document has no such element or range.
+
+Implementation: `src/engine/reveal.ts`
+Verification: `src/engine/reveal.test.ts`

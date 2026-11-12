@@ -8,6 +8,7 @@ import {
   abbreviationIssues,
   createAbbreviationHealth,
   recordGlossaryEntries,
+  type ResolvedGlossaryEntry,
 } from './abbreviation-health.js';
 import { type AbbreviationEntry, insertAbbreviation, unlinkAbbreviation } from './abbreviations.js';
 
@@ -66,7 +67,7 @@ describe('abbreviation health', () => {
   it('DOCE-REFERENCES-2.3 marks abbreviations whose entry is missing, archived or read twice', () => {
     const state = citing([GSE, OTHER_GSE, PDU]);
     const archived = { ...PDU, archivedAt: '2026-01-01T00:00:00Z' };
-    const answer = new Map([
+    const answer = new Map<string, ResolvedGlossaryEntry | null>([
       ['g1', { ...GSE, archivedAt: null }],
       ['g2', { ...OTHER_GSE, archivedAt: null }],
       ['g3', archived],
