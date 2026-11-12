@@ -843,6 +843,11 @@
   display: block;
 }
 
+/* DOCE-VERSIONS-3.6: blocks outside a scoped comparison are dimmed. */
+.de-document-editor [data-diff-scope='outside'] {
+  opacity: 0.45;
+}
+
 /*
  * The comments margin beside the pages: each card moves across to sit beside the page its text is
  * on (`--de-comment-offset`), so cards follow each page's edge whatever its size and orientation.

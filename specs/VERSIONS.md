@@ -92,7 +92,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-2.3 - In the document editor
 
-The document editor shall run the version changes in its view and its measuring view, compare the document with `compare.previous` in `compare.display`, marking its root with `data-comparing`, and lay the pages out again when either changes.
+The document editor shall run the version changes in its view and its measuring view, compare the document with `compare.previous` (an older version, or `opened` for the document as the editor opened it) in `compare.display`, within `compare.scope` when given, marking its root with `data-comparing`, and lay the pages out again when either changes.
 
 Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/versions.spec.ts`
@@ -103,6 +103,20 @@ Verification: `e2e/versions.spec.ts`
 
 Implementation: `src/engine/change-lines.ts`, `src/components/document-editor/change-lines-measure.ts`
 Verification: `src/engine/change-lines.test.ts`, `src/components/document-editor/change-lines-measure.test.ts`, `e2e/versions.spec.ts`
+
+### DOCE-VERSIONS-2.5 - Comparing only when needed
+
+`previous` may give `opened`: the document as it was when the version changes started. A document equal to the older version shall show no change without being compared. A transaction that only follows the layout shall keep the changes shown, mapped, without comparing again: one out of the history (`addToHistory: false`), a derived one, or, in a scoped comparison, one that only types or deletes text outside the scope. A remote change and a system change shall always be compared again.
+
+Implementation: `src/engine/version-changes.ts`, `src/engine/version-scope.ts`
+Verification: `src/engine/version-changes.test.ts`
+
+### DOCE-VERSIONS-2.6 - Scope and counts
+
+Given a scope (`scope`, element ids), the version changes shall show only the changes inside it: a heading covers its headed section (`headingSectionSpan`, DOCE-OUTLINE-1.3) and another block itself. Each text block and leaf block outside the scope shall be marked `data-diff-scope="outside"`. `versionChangeCounts(state)` shall count the changes shown by kind and in all.
+
+Implementation: `src/engine/version-changes.ts`, `src/engine/version-scope.ts`
+Verification: `src/engine/version-changes.test.ts`, `e2e/versions.spec.ts`
 
 ## DOCE-VERSIONS-3 - Versions in the browser
 
@@ -132,6 +146,20 @@ Verification: `e2e/versions.spec.ts`
 Showing changes shall draw, for a block whose text changed, a bar beside each line that changed instead of one beside the block, in the color of the strongest change on the line, the bars of successive lines meeting.
 
 Implementation: `labs/reference/document.css`, `src/engine/change-lines.ts`
+Verification: `e2e/versions.spec.ts`
+
+### DOCE-VERSIONS-3.5 - Comparing any two versions
+
+Selecting two versions in the history and comparing them shall show the newer, read-only, with its changes since the older; clearing the selection shall show the document again.
+
+Implementation: `labs/src/versions.lab.tsx`
+Verification: `e2e/versions.spec.ts`
+
+### DOCE-VERSIONS-3.6 - Scoped comparisons
+
+Scoping a comparison to a heading shall show only the changes in its headed section, with their counts by kind, and dim the blocks outside it.
+
+Implementation: `labs/src/versions.lab.tsx`, `labs/reference/document.css`
 Verification: `e2e/versions.spec.ts`
 
 ## DOCE-VERSIONS-4 - History
@@ -216,6 +244,7 @@ Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/v
 | `data-diff-change`        | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move` | On a changed block, an inserted word or a deleted text.         |
 | `data-diff-deletion`      | attribute | `before`, `after`                                             | On the block before which, or after which, blocks were deleted. |
 | `data-diff-block`         | attribute | `true`                                                        | On a deleted block's text.                                      |
+| `data-diff-scope`         | attribute | `outside`                                                     | On a block outside a scoped comparison.                         |
 | `data-diff-lines`         | attribute | `kept`, `formatting`                                          | On a block whose text changed: what its other lines show.       |
 | `data-diff-line`          | attribute | `insertion`, `deletion`, `modification`, `formatting`         | On a changed word, where text was deleted, or a line's bar.     |
 | `de-change-lines`         | root      |                                                               | The bars beside a block's changed lines.                        |

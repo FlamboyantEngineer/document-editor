@@ -81,6 +81,7 @@
     "@handlewithcare/react-prosemirror": "^3.2.11",
     "@y/y": "^14.0.0-rc.23",
     "katex": "^0.19.1",
+    "lib0": "1.0.0-rc.22",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-history": "^1.5.1",
     "prosemirror-inputrules": "^1.5.1",
@@ -145,6 +146,9 @@
       "optional": true
     },
     "katex": {
+      "optional": true
+    },
+    "lib0": {
       "optional": true
     }
   }
