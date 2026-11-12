@@ -251,6 +251,8 @@ describe('collab binding spike', () => {
       deliver(() => Infinity);
       expectConverged(...editors);
     },
+    // Each seed checks every step in sync, which takes seconds on a shared CI runner.
+    30_000,
   );
 });
 
