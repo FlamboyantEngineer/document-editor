@@ -223,6 +223,14 @@ export {
   paragraphNumberingKey,
   paragraphNumberText,
 } from './paragraph-numbering.js';
+export type { PresenceStatus } from './presence.js';
+export {
+  addressResolver,
+  pointAt,
+  type PresencePoint,
+  type PresenceRange,
+  presenceSelection,
+} from './presence-address.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';

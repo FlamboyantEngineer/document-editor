@@ -289,29 +289,135 @@ test.describe('document editor lab', () => {
     await expect(page.locator('.de-document-editor__viewport')).toHaveCount(0);
   });
 
-  test('DOCE-EDITOR-5.1 reports the page of the caret, the words and the mode in the status bar', async ({
+  test('DOCE-EDITOR-5.1 reports the page, the words and the mode in the status bar', async ({
     lab,
     page,
   }) => {
     await lab.open('document-editor');
     const status = page.getByRole('group', { name: 'Document status' });
-    const position = status.locator('.de-document-editor__status-item[data-status="position"]');
+    const pageItem = status.locator('.de-document-editor__status-item[data-status="page"]');
+    const wordsItem = status.locator('.de-document-editor__status-item[data-status="words"]');
     const total = await pages(page).count();
-    await expect(position).toContainText(`Page 1 of ${String(total)}`);
+    await expect(pageItem).toHaveText(`Page 1 of ${String(total)}`);
     const words = Number(
-      /([\d,]+) words/.exec((await position.textContent()) ?? '')?.[1]?.replace(',', ''),
+      /([\d,]+) words/.exec((await wordsItem.textContent()) ?? '')?.[1]?.replace(',', ''),
     );
     expect(words).toBeGreaterThan(100);
-    await heading(page, 'Power').click();
-    await expect(position).not.toContainText('Page 1 of');
     await selectText(page, 'Normal operation');
-    await expect(position).toContainText(/2 of [\d,]+ words/);
+    await expect(wordsItem).toContainText(/2 of [\d,]+ words/);
     const mode = status.locator('[data-status="mode"] > span');
     await expect(mode).toHaveText('Editing');
     await page.getByLabel('Authoring').uncheck();
     await expect(mode).toHaveText('Reading');
     await page.getByLabel('Status bar').uncheck();
     await expect(status).toHaveCount(0);
+  });
+
+  test('DOCE-EDITOR-5.4 reports the page in view as the reader scrolls, not the caret', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const status = page.getByRole('group', { name: 'Document status' });
+    const pageItem = status.locator('.de-document-editor__status-item[data-status="page"]');
+    const total = await pages(page).count();
+    expect(total).toBeGreaterThan(2);
+    await heading(page, 'Scope').click();
+    await expect(pageItem).toHaveText(`Page 1 of ${String(total)}`);
+    const viewport = page.locator('.de-document-editor__viewport .ui-scroll-region__viewport');
+    await viewport.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect(pageItem).toHaveText(`Page ${String(total)} of ${String(total)}`);
+    // The caret stays on the first page while the last one is in view.
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await expect(pageItem).toHaveText(`Page 1 of ${String(total)}`);
+    // Without its frame the editor scrolls with the page, and the status still follows it.
+    await page.getByLabel('Scrolling frame').uncheck();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(pageItem).toHaveText(`Page ${String(total)} of ${String(total)}`);
+  });
+
+  test('DOCE-EDITOR-5.5 shows the host arrangement of the status bar', async ({ lab, page }) => {
+    await lab.open('document-editor');
+    const status = page.getByRole('group', { name: 'Document status' });
+    const end = status.locator('.de-document-editor__status-end');
+    await expect(end.locator('[data-status="workflow"]')).toHaveText('Draft');
+    await expect(end.locator('[data-status="mode"]')).toHaveText('Editing');
+    await page.getByLabel('Host items').uncheck();
+    await expect(status.locator('[data-status="workflow"]')).toHaveCount(0);
+    await expect(
+      status.locator('.de-document-editor__status-start [data-status="mode"]'),
+    ).toHaveText('Editing');
+  });
+
+  test('DOCE-EDITOR-6.20 tells the host the elements on screen', async ({ lab, page }) => {
+    await lab.open('document-editor');
+    const report = page.getByRole('status', { name: 'Host report' });
+    const onScreen = async () =>
+      Number(/(\d+) elements on screen/.exec((await report.textContent()) ?? '')?.[1] ?? 0);
+    // The lead and the contents fill the first screen; the first chapter shows below them.
+    const viewport = page.locator('.de-document-editor__viewport .ui-scroll-region__viewport');
+    await viewport.evaluate((element) => {
+      element.scrollTop = 600;
+    });
+    await expect.poll(onScreen).toBeGreaterThan(5);
+  });
+
+  test('DOCE-EDITOR-7.1 DOCE-EDITOR-7.4 shows the host banner once a press ends and dismisses it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const notices = page.getByRole('region', { name: 'Document notices' });
+    await expect(notices).toHaveCount(0);
+    const target = heading(page, 'Scope');
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
+    if (!box) throw new Error('The heading should show.');
+    await page.mouse.move(box.x + 4, box.y + box.height / 2);
+    await page.mouse.down();
+    // The host adds its banner while the reader still presses in the document.
+    await page.getByLabel('Banner').evaluate((input) => (input as HTMLInputElement).click());
+    await expect(page.getByLabel('Banner')).toBeChecked();
+    await expect(notices).toHaveCount(0);
+    await page.mouse.up();
+    const banner = notices.locator('[data-banner="review"]');
+    await expect(banner).toContainText('In review');
+    await banner.getByRole('button', { name: /dismiss/i }).click();
+    await expect(notices).toHaveCount(0);
+    await expect(page.getByLabel('Banner')).not.toBeChecked();
+  });
+
+  test('DOCE-EDITOR-4.18 DOCE-EDITOR-4.19 shows the lead, then the pages, with the overview over the frame', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const viewport = page.locator('.de-document-editor__viewport');
+    await expect(viewport.locator('.de-document-editor__lead')).toHaveText(
+      'Sample document · draft',
+    );
+    await expect(page.locator('.de-document-editor__placeholder')).toHaveCount(0);
+    await expect(pages(page).first()).toBeVisible();
+    const overview = page.locator('.de-document-editor__overview');
+    await expect(overview).toHaveCount(1);
+    // The word-list proofer's issues are marked on the overview's track.
+    await expect(page.locator('[data-proofing-issue]').first()).toBeAttached();
+    await expect
+      .poll(() =>
+        overview.evaluate((element) =>
+          [element, ...element.querySelectorAll('*')].some((each) =>
+            getComputedStyle(each).backgroundImage.includes('gradient'),
+          ),
+        ),
+      )
+      .toBe(true);
+    await page.getByLabel('Scrolling frame').uncheck();
+    await expect(overview).toHaveCount(0);
+    await expect(page.locator('.de-document-editor__lead')).toBeVisible();
   });
 
   test('DOCE-EDITOR-4.3 DOCE-EDITOR-4.4 adds the host items, controls and arrangement to the toolbar', async ({

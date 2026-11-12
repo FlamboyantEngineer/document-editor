@@ -64,4 +64,50 @@ test.describe('document panels', () => {
     await page.getByLabel('Side panels').uncheck();
     await expect(page.getByRole('region', { name: 'Details' })).toHaveCount(0);
   });
+
+  test('DOCE-EDITOR-8.2 DOCE-EDITOR-8.3 reveals the comments pane through the handle', async ({
+    page,
+  }) => {
+    const details = page.getByRole('region', { name: 'Details' });
+    await details.getByRole('button', { name: /collapse/i }).click();
+    await page.getByRole('button', { name: 'Reveal comments' }).click();
+    await expect(page.getByLabel('Pane reveal')).toHaveText('Revealed comments');
+    const tab = details.getByRole('tab', { name: /Comments/ });
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
+    await expect(details.locator('[data-pane="comments"]')).toBeVisible();
+    await expect
+      .poll(() =>
+        details
+          .locator('[data-pane="comments"]')
+          .evaluate((pane) => pane.contains(document.activeElement)),
+      )
+      .toBe(true);
+  });
+
+  test('DOCE-EDITOR-8.4 shows the host rows, actions and sections in the properties', async ({
+    page,
+  }) => {
+    const details = page.getByRole('region', { name: 'Details' });
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await expect(details.getByText('Characters', { exact: true })).toBeVisible();
+    await expect(details.getByText('Review', { exact: true })).toBeVisible();
+    await expect(details.getByText('Draft', { exact: true })).toBeVisible();
+    await expect(details.getByRole('button', { name: 'Show' })).toBeVisible();
+  });
+
+  test('DOCE-COLLAB-3.4 lists the contributors and shows authorship from their pane', async ({
+    page,
+  }) => {
+    const details = page.getByRole('region', { name: 'Details' });
+    await details.getByRole('tab', { name: 'Contributors' }).click();
+    const pane = details.getByRole('region', { name: 'Contributors' });
+    await expect(pane.getByRole('listitem').first()).toBeVisible();
+    const editor = page.locator('.de-document-editor');
+    await expect(editor).not.toHaveAttribute('data-authorship', 'true');
+    await pane.getByText('Show who wrote what').click();
+    await expect(pane.getByRole('switch', { name: 'Show who wrote what' })).toBeChecked();
+    await expect(editor).toHaveAttribute('data-authorship', 'true');
+    await expect(content(page).locator('[data-author-slot]').first()).toBeVisible();
+    await expect(page.getByLabel('Authorship')).toBeChecked();
+  });
 });

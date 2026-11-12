@@ -46,6 +46,7 @@ import {
 } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-blocks.js';
+import { pageChromeDecorations } from './page-chrome.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
@@ -249,6 +250,7 @@ function projectionState(options: PagedProjectionOptions, session: () => Session
         map: () => session().map,
       }),
       canonicalDecorations(source),
+      pageChromeDecorations(),
       checkDrawnPages(() => session().pace.draws, takeCaretBefore),
       ...(options.resizeColumns === false ? [] : [columnResizing({ View: null })]),
       ...(options.plugins ?? []),
