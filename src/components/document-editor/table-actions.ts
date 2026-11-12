@@ -25,29 +25,20 @@ import {
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import type { MenuEntry, MenuItemEntry } from '@flamboyantengineer/ui-components/menu';
 import type { Command } from 'prosemirror-state';
-import {
-  addColumnAfter,
-  addColumnBefore,
-  addRowAfter,
-  addRowBefore,
-  deleteColumn,
-  deleteRow,
-  deleteTable,
-  mergeCells,
-  splitCell,
-  toggleHeaderColumn,
-  toggleHeaderRow,
-} from 'prosemirror-tables';
+import { deleteColumn, deleteRow, deleteTable, mergeCells } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
   deleteObject,
   distributeColumns,
+  distributeRows,
   insertParagraphBesideObject,
   insertTableLines,
   inWholeTable,
   moveTableLine,
   setCellAlignment,
+  splitTableCell,
   type TableLine,
+  toggleHeaderLines,
   withTableLine,
 } from '../../engine/index.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -83,8 +74,16 @@ function rowEntries(
 ) {
   const on = (command: Command) => withTableLine(line, command);
   return [
-    item(on(addRowBefore), { id: 'row-above', label: labels.rowAbove, icon: PlusGlyph }),
-    item(on(addRowAfter), { id: 'row-below', label: labels.rowBelow, icon: PlusGlyph }),
+    item(on(insertTableLines('row', 'before')), {
+      id: 'row-above',
+      label: labels.rowAbove,
+      icon: PlusGlyph,
+    }),
+    item(on(insertTableLines('row', 'after')), {
+      id: 'row-below',
+      label: labels.rowBelow,
+      icon: PlusGlyph,
+    }),
     separator('move'),
     item(moveTableLine(line, line.index - 1), {
       id: 'row-up',
@@ -98,7 +97,7 @@ function rowEntries(
       icon: ArrowDownGlyph,
       shortcut: 'Alt+Shift+↓',
     }),
-    item(on(toggleHeaderRow), { id: 'header-row', label: labels.headerRow }),
+    item(on(toggleHeaderLines('row')), { id: 'header-row', label: labels.headerRow }),
     separator('delete'),
     item(on(deleteRow), {
       id: 'delete-row',
@@ -117,8 +116,16 @@ function columnEntries(
 ) {
   const on = (command: Command) => withTableLine(line, command);
   return [
-    item(on(addColumnBefore), { id: 'column-left', label: labels.columnLeft, icon: PlusGlyph }),
-    item(on(addColumnAfter), { id: 'column-right', label: labels.columnRight, icon: PlusGlyph }),
+    item(on(insertTableLines('column', 'before')), {
+      id: 'column-left',
+      label: labels.columnLeft,
+      icon: PlusGlyph,
+    }),
+    item(on(insertTableLines('column', 'after')), {
+      id: 'column-right',
+      label: labels.columnRight,
+      icon: PlusGlyph,
+    }),
     separator('move'),
     item(moveTableLine(line, line.index - 1), {
       id: 'column-left-move',
@@ -132,7 +139,7 @@ function columnEntries(
       icon: ArrowRightGlyph,
       shortcut: 'Alt+Shift+→',
     }),
-    item(on(toggleHeaderColumn), { id: 'header-column', label: labels.headerColumn }),
+    item(on(toggleHeaderLines('column')), { id: 'header-column', label: labels.headerColumn }),
     separator('delete'),
     item(on(deleteColumn), {
       id: 'delete-column',
@@ -219,7 +226,15 @@ export function tableCellEntries(
       ],
     },
     item(mergeCells, { id: 'merge-cells', label: labels.mergeCells, icon: MergeCellsGlyph }),
-    item(splitCell, { id: 'split-cell', label: labels.splitCell, icon: UnmergeCellsGlyph }),
+    {
+      id: 'split-cell',
+      label: labels.splitCell,
+      icon: UnmergeCellsGlyph,
+      items: [
+        item(splitTableCell('column'), { id: 'split-columns', label: labels.splitCellColumns }),
+        item(splitTableCell('row'), { id: 'split-rows', label: labels.splitCellRows }),
+      ],
+    },
     {
       id: 'align-cells',
       label: labels.alignCells,
@@ -227,12 +242,13 @@ export function tableCellEntries(
       items: alignmentEntries(view, labels),
     },
     item(distributeColumns, { id: 'distribute-columns', label: labels.distributeColumns }),
+    item(distributeRows, { id: 'distribute-rows', label: labels.distributeRows }),
     {
       id: 'table-header',
       label: labels.header,
       items: [
-        item(toggleHeaderRow, { id: 'header-row', label: labels.headerRow }),
-        item(toggleHeaderColumn, { id: 'header-column', label: labels.headerColumn }),
+        item(toggleHeaderLines('row'), { id: 'header-row', label: labels.headerRow }),
+        item(toggleHeaderLines('column'), { id: 'header-column', label: labels.headerColumn }),
       ],
     },
     {

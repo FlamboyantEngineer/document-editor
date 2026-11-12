@@ -145,3 +145,7 @@ export {
 export type { MathViewsOptions } from './math-views.js';
 export { createMathViews } from './math-views.js';
 export type { FigureSource, LinkedCode } from './object-commands.js';
+export { distributeRows } from './table-format.js';
+export { toggleHeaderLines } from './table-headers.js';
+export { splitTableCell } from './table-split.js';
+export type { TableEditingOptions } from './tables.js';
