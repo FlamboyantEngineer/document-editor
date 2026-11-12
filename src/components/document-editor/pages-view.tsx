@@ -9,6 +9,7 @@ import type { EditorState, Transaction } from 'prosemirror-state';
 import { type DirectEditorProps, EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { type HostNodeViews, useHostNodeViews } from './host-node-views.js';
+import { insertTypedText } from './typed-text.js';
 import type { PagedEditor } from './use-paged-projection.js';
 
 type EngineEvents = Omit<RichTextEngineEvents, 'props' | 'dispatchTransaction'>;
@@ -28,19 +29,40 @@ export interface PagesViewProps {
   readonly nodeViews?: HostNodeViews | undefined;
 }
 
+// How the view's own props reach the pages: the dispatch that sends every transaction to the
+// projection, and what brings the view up to the projection's latest state before input acts.
+interface ViewTies {
+  readonly dispatch: (this: EditorView, tr: Transaction) => void;
+  readonly catchUp: (view: EditorView) => void;
+}
+
 // The view's props: the editor's, the document element's attributes over theirs, the host's node
-// views, and the dispatch that sends every transaction to the projection.
+// views, and the ties to the projection. A key or typed text acts on the projection's latest state,
+// which the host may have moved, as by rewriting the key before into a suggestion, before React
+// draws it (DOCE-PAGINATION-7.19); typed text the view inserts itself.
 function directProps(
   { viewProps, attributes }: Pick<PagesViewProps, 'viewProps' | 'attributes'>,
   nodeViews: DirectEditorProps['nodeViews'],
-  dispatchTransaction: (this: EditorView, tr: Transaction) => void,
+  { dispatch, catchUp }: ViewTies,
 ): Omit<DirectEditorProps, 'state'> {
   const own = typeof viewProps.attributes === 'object' ? viewProps.attributes : {};
+  const handlers = viewProps.handleDOMEvents;
   return {
     ...viewProps,
     attributes: { ...own, ...attributes },
     nodeViews: nodeViews ?? {},
-    dispatchTransaction,
+    handleDOMEvents: {
+      ...handlers,
+      keydown(view, event) {
+        catchUp(view);
+        return handlers?.keydown?.(view, event) === true;
+      },
+      beforeinput(view, event) {
+        catchUp(view);
+        return handlers?.beforeinput?.(view, event) === true || insertTypedText(view, event);
+      },
+    },
+    dispatchTransaction: dispatch,
   };
 }
 
@@ -72,6 +94,10 @@ export function PagesView(props: PagesViewProps) {
     current.projection.receive(tr);
     show(this, current.projection.projection, true);
   }).current;
+  const ties = useRef<ViewTies>({
+    dispatch,
+    catchUp: (view) => show(view, latest.current.paged.projection.projection, false),
+  }).current;
   const nodeViews = useRef(host.nodeViews);
   useLayoutEffect(() => {
     nodeViews.current = host.nodeViews;
@@ -81,7 +107,7 @@ export function PagesView(props: PagesViewProps) {
     if (!element) return undefined;
     const view = new EditorView(
       { mount: element },
-      { state: projection.projection, ...directProps(latest.current, nodeViews.current, dispatch) },
+      { state: projection.projection, ...directProps(latest.current, nodeViews.current, ties) },
     );
     viewRef.current = view;
     return () => {
@@ -89,7 +115,7 @@ export function PagesView(props: PagesViewProps) {
       latest.current.events.onUnmounted?.();
       view.destroy();
     };
-  }, [projection, dispatch]);
+  }, [projection, ties]);
   // The view is told mounted after the commit's other effects, and unmounted before them, so the
   // engine's view it takes over from, or hands over to, goes first and comes after.
   useEffect(() => {
@@ -101,8 +127,8 @@ export function PagesView(props: PagesViewProps) {
   }, [projection]);
   const { viewProps, attributes } = props;
   useLayoutEffect(() => {
-    viewRef.current?.setProps(directProps({ viewProps, attributes }, host.nodeViews, dispatch));
-  }, [viewProps, attributes, host.nodeViews, dispatch]);
+    viewRef.current?.setProps(directProps({ viewProps, attributes }, host.nodeViews, ties));
+  }, [viewProps, attributes, host.nodeViews, ties]);
   useLayoutEffect(() => {
     const view = viewRef.current;
     if (view) show(view, paged.state, false);

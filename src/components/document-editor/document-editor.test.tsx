@@ -249,6 +249,51 @@ describe('DocumentEditor', () => {
     await waitFor(() => expect(idsOf(held.current)).toEqual(given));
   });
 
+  it('DOCE-EDITOR-1.8 DOCE-PAGINATION-7.19 keeps each key typed as a suggestion before the host renders', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const held: { current: EditorState | null } = { current: null };
+    function Shown() {
+      const [state, setState] = useState(initial);
+      useEffect(() => {
+        held.current = state;
+      });
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={TEMPLATE}
+          suggesting
+          author="writer"
+          aria-label="Report"
+          handleRef={handle}
+        />
+      );
+    }
+    render(<Shown />);
+    await handle.current?.whenSettled();
+    const pages = screen.getByRole('textbox', { name: 'Report' });
+    const view = handle.current?.view();
+    const end = (view ? textStart(view.state) : 0) + 'Hello'.length;
+    handle.current?.run((state, dispatch) => {
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, end)));
+      return true;
+    });
+    // Each key comes before the host renders the one before it, as on a busy page.
+    for (const data of ' at') {
+      pages.dispatchEvent(
+        new InputEvent('beforeinput', { inputType: 'insertText', data, cancelable: true }),
+      );
+      await new Promise<void>((resolve) => {
+        queueMicrotask(resolve);
+      });
+    }
+    await waitFor(() => expect(held.current?.doc.textContent).toContain('Hello at'));
+    const suggested = held.current ? listSuggestions(held.current.doc) : [];
+    expect(suggested.map(({ inserted, author }) => ({ inserted, author }))).toEqual([
+      { inserted: ' at', author: 'writer' },
+    ]);
+  });
+
   it('DOCE-EDITOR-6.12 publishes the layout state and settles its pages', async () => {
     const handle = createRef<DocumentEditorHandle>();
     const { container } = render(<Harness editable layout="page" handleRef={handle} />);
