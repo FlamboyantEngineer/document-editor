@@ -21,6 +21,8 @@ import { sectionRestartsNumbering } from '../templates/template-scopes.js';
 import { findTemplateSection } from '../templates/template-sections.js';
 import { isStructuralHeading } from './structural-heading.js';
 
+export { isStructuralHeading } from './structural-heading.js';
+
 /**
  * One kind of list: the nodes or marks it lists and how it shows them. For a mark, each run of text
  * that carries it is one entry, and the callbacks get the run's first text node and the mark.

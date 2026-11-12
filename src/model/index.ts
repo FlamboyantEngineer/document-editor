@@ -2,7 +2,6 @@
 // DOM when it loads, so a server imports it to read, write and check the documents the editor makes.
 
 export * from './contents/document-catalog.js';
-export * from './contents/structural-heading.js';
 export * from './document-words.js';
 export type {
   DocumentFile,
