@@ -157,3 +157,4 @@ export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';
 export type { TableEditingOptions } from './tables.js';
+export { createVariableTokens, variableTokensKey } from './variable-tokens.js';

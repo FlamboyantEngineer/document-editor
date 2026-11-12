@@ -73,10 +73,10 @@ Verification: `src/model/schema/page-nodes.test.ts`
 
 ### DOCE-SCHEMA-3.3 - Figures and images
 
-A figure shall keep its type (`image` or `diagram`), caption, whether the caption shows, size and alignment, and write the size and alignment on its image so the caption spans the content width. An uploaded or pasted figure shall store its asset and snapshot ids and no address: the address it was written with is only a preview, and the host's `assetPreviewUrl` gives the one it shows. A diagram without a stored rendering shall show a placeholder image. An inline image shall keep its address, text and tooltip. An image a template places from its own files (`templateFile:<file>:<snapshot>` or the template image attributes) shall render in a wrapper that aligns it, at its stored size or 160 by 96 pixels.
+A figure shall keep its type (`image` or `diagram`), caption, whether the caption shows, size and alignment, and write the size and alignment on its image so the caption spans the content width. An uploaded or pasted figure shall store its asset and snapshot ids and no address: the address it was written with is only a preview, and the host's `assetPreviewUrl` gives the one it shows. A diagram without a stored rendering shall show a placeholder image. An inline image shall keep its address, text and tooltip. An image a template places from its own files (`templateFile:<file>:<snapshot>` or the template image attributes) shall render in a wrapper that aligns it, at its stored size or 160 by 96 pixels. It shall be stored by its asset and snapshot and never by an address, and render at the address the host's `assetPreviewUrl(file, snapshot, { asOf })` gives, where `asOf` is the time the host shows the document's assets as of (`assetsAsOf`, null for now); without an address its wrapper shall carry `data-image-missing="true"` so the host can style an image that was not found. `templateImageRefs(template)` shall list the assets a template's content shows (its own and its sections' headers, footers, content and placeholders), each once, and `templateImageErrors(template)` shall name every image there stored by an address or without an asset.
 
-Implementation: `src/model/schema/figure-nodes.ts`, `src/model/schema/image-node.ts`, `src/model/schema/object-layout.ts`
-Verification: `src/model/schema/figure-nodes.test.ts`
+Implementation: `src/model/schema/figure-nodes.ts`, `src/model/schema/image-node.ts`, `src/model/schema/object-layout.ts`, `src/model/schema/schema-options.ts`, `src/model/templates/template-content.ts`
+Verification: `src/model/schema/figure-nodes.test.ts`, `src/model/schema/image-node.test.ts`
 
 ### DOCE-SCHEMA-3.4 - Code and math
 
