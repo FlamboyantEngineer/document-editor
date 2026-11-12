@@ -486,3 +486,10 @@ Verification: `src/pagination/page-variables.test.ts`
 
 Implementation: `src/components/document-editor/use-document-layout.ts`, `src/pagination/page-variables.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`
+
+### DOCE-PAGINATION-8.5 - Repeated headers and footers
+
+On the pages of a projection, the header and footer of each page of a section after its first shall be hidden from assistive technology (`aria-hidden`), so a screen reader reads each section's header and footer once; they still show and print.
+
+Implementation: `src/pagination/page-chrome.ts`, `src/pagination/projection.ts`
+Verification: `src/pagination/projection-view.test.ts`, `e2e/a11y.spec.ts`

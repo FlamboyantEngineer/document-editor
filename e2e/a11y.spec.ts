@@ -32,3 +32,17 @@ test.describe('accessibility', () => {
     });
   }
 });
+
+test('DOCE-PAGINATION-8.5 DOCE-EDITOR-1.6 hides the measuring view and the repeated page chrome', async ({
+  lab,
+  page,
+}) => {
+  await lab.open('document-editor');
+  await expect(page.locator('.de-document-editor__measure')).toHaveAttribute('aria-hidden', 'true');
+  const pages = page.locator('.de-document-editor__content .pm-page');
+  expect(await pages.count()).toBeGreaterThan(1);
+  await expect(pages.first().locator('> .pm-page-header')).not.toHaveAttribute('aria-hidden');
+  await expect(pages.nth(1).locator('> .pm-page-header')).toHaveAttribute('aria-hidden', 'true');
+  await expect(pages.nth(1).locator('> .pm-page-footer')).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.getByRole('region', { name: 'Document view' })).toBeVisible();
+});
