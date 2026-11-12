@@ -117,7 +117,7 @@ Verification: `src/model/schema/marks.test.ts`
 
 ### DOCE-SCHEMA-3.9 - Script blocks
 
-A script block (`section[data-block-type="scripted-content"]`) shall keep its script (`data-script`), its refresh policy, `manual` or `open` (`data-refresh-policy`), and when its output was produced (`data-rendered-at`), and hold the blocks its script produced last in its output (`.script-output`). It is stored as a `script` node, with `source`, `refresh` and `renderedAt`.
+A script block (`section[data-block-type="scripted-content"]`) shall keep its script (`data-script`), its refresh policy, `manual` or `open` (`data-refresh-policy`), and when its output was produced (`data-rendered-at`), where its output came from (`provenance`, a `ScriptProvenance`: what ran it, the script's revision and its inputs' key, as JSON in `data-provenance`), and the signatures its output carries (`signatures`, `ScriptSignature`s of who signed, their name and the signed revision, as JSON in `data-signatures`), reading none from markup that is not of that shape, and hold the blocks its script produced last in its output (`.script-output`). It is stored as a `script` node, with `source`, `refresh`, `renderedAt`, `provenance` and `signatures`. The library keeps them; the host checks them.
 
 Implementation: `src/model/schema/script-nodes.ts`, `src/model/format/document-format.ts`
 Verification: `src/model/schema/script-nodes.test.ts`

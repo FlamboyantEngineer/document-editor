@@ -10,6 +10,7 @@ import type {
   Schema,
 } from 'prosemirror-model';
 import { cloneJson } from '../clone-json.js';
+import { orderDocumentMarks } from '../schema/mark-order.js';
 import {
   DOCUMENT_FORMAT_VERSION,
   type DocumentRead,
@@ -343,7 +344,8 @@ export function readDocumentFile(
   const sections = file.sections
     .map((section, index) => readSection(section, { context, path: `sections[${String(index)}]` }))
     .filter((section): section is ProseMirrorNode => section !== null);
-  const doc = schema.topNodeType.create(null, sections);
+  // Overlapping marks of one type read in canonical order, as the editor and a shared room keep them.
+  const doc = orderDocumentMarks(schema.topNodeType.create(null, sections));
   try {
     doc.check();
   } catch (error) {

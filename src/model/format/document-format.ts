@@ -203,7 +203,13 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
   layout_column: { type: 'column' },
   script_block: {
     type: 'script',
-    attrs: { script: 'source', refreshPolicy: 'refresh', renderedAt: 'renderedAt' },
+    attrs: {
+      script: 'source',
+      refreshPolicy: 'refresh',
+      renderedAt: 'renderedAt',
+      provenance: 'provenance',
+      signatures: 'signatures',
+    },
   },
   dynamic_template: {
     type: 'templateBlock',

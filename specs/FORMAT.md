@@ -1,6 +1,6 @@
 # Stored Formats
 
-The library stores documents and templates in formats of its own, as JSON a host keeps in its storage through the host adapters (DOCE-HOST-1.3). The formats hold content and settings only: no pages, no split parts and no rendered text, so a server reads them without the editor and the editor's own structure can change without changing what is stored. Each stored file carries `formatVersion`, the library's format number, which changes only when the format does; it is distinct from the host's revision of a saved state. Until the library's 1.0.0 release the formats are experimental and change without upgrades.
+The library stores documents and templates in formats of its own, as JSON a host keeps in its storage through the host adapters (DOCE-HOST-1.3). The formats hold content and settings only: no pages, no split parts and no rendered text, so a server reads them without the editor and the editor's own structure can change without changing what is stored. Each stored file carries `formatVersion`, the library's format number, which changes only when the format does; it is distinct from the host's revision of a saved state. Until the owner's switch to the library the formats change without upgrades; from the switch on, they freeze and change only by a version step (DOCE-FORMAT-8).
 
 ## DOCE-FORMAT-1 - Documents
 
@@ -13,10 +13,10 @@ Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documen
 
 ### DOCE-FORMAT-1.2 - Read for the editor
 
-`readDocumentFile(file, schema, options)` shall give `{ doc, problems }`: the editor's document, each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
+`readDocumentFile(file, schema, options)` shall give `{ doc, problems }`: the editor's document, each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. Overlapping marks of one type shall be read in canonical order (`orderDocumentMarks`, DOCE-SCHEMA-5.1), whatever order they are stored in, so a document read from storage equals the same document built by editing. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
 
 Implementation: `src/model/format/document-format-convert.ts`
-Verification: `src/model/format/document-format.test.ts`
+Verification: `src/model/format/document-format.test.ts`, `src/model/format/document-format-convert.test.ts`
 
 ### DOCE-FORMAT-1.3 - Content only
 
@@ -185,3 +185,21 @@ The editing plugins (DOCE-EDITING-3.1) shall run in a recorded order of plugin k
 
 Implementation: `src/engine/document-editing.ts`, `src/model/pagination/fragments.ts`
 Verification: `src/engine/features.test.ts`
+
+## DOCE-FORMAT-8 - Format versions
+
+The stored formats freeze at version 1 on the day of the owner's switch to the library (D11). Until then a change to them needs only the matching spec change and updated snapshots (DOCE-FORMAT-7). From then on, a change to a stored name also steps `DOCUMENT_FORMAT_VERSION` or `TEMPLATE_FORMAT_VERSION` and adds an upgrade step.
+
+### DOCE-FORMAT-8.1 - Upgrades
+
+`upgradeDocumentFile(file)` and `upgradeTemplateFile(file)` shall bring a stored file to the current format version, one version step at a time, before it is read (`readDocumentFile`) or validated (`validateTemplateFile`). A file already at the current version shall be given back as it is, and one whose version has no step, or that is not an object, shall be given back for the reader to refuse. Until the freeze there is no step.
+
+Implementation: `src/model/format/format-upgrade.ts`
+Verification: `src/model/format/format-upgrade.test.ts`
+
+### DOCE-FORMAT-8.2 - Freeze guard
+
+A test shall record the stored names of both formats, the document's node and mark types with their attributes (`STORED_NODE_TYPES`, `STORED_MARK_TYPES`) and every template setting path (`TEMPLATE_SHAPE`), and, once switched on, compare them with the record committed for the current versions in `test/fixtures/format-versions/`, so a change to a stored name without a version step fails. It is switched off until the freeze. To freeze, set `FROZEN` in the test, run it once to write the record for version 1, and commit the record; to step a version later, add the upgrade step, step the version and commit the new record the test writes beside the old ones.
+
+Implementation: `src/model/format/document-format.ts`, `src/model/format/template-format-shape.ts`
+Verification: `src/model/format/format-upgrade.test.ts`
