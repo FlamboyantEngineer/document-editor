@@ -125,6 +125,18 @@ export interface AssetAdapter {
   resolveUrl(assetId: string, snapshotId?: string, at?: { readonly asOf: string | null }): string;
 }
 
+/** Font faces the host serves itself, which a template's text styles name by family. */
+export interface FontsAdapter {
+  /**
+   * Loads the faces of the font families a document's template names. Resolves once they loaded or
+   * failed, or `timeout` milliseconds passed, with the families that loaded.
+   */
+  load(
+    families: readonly string[],
+    options: { timeout: number; signal?: AbortSignal | undefined },
+  ): Promise<HostResult<readonly string[]>>;
+}
+
 /** Code a URL names, such as a file of a repository with the lines its fragment names. */
 export interface ResolvedCode {
   code: string;
@@ -418,6 +430,7 @@ export interface EditorHost {
   documents: DocumentStoreAdapter;
   templates?: TemplateSourceAdapter | undefined;
   assets?: AssetAdapter | undefined;
+  fonts?: FontsAdapter | undefined;
   codeSource?: CodeSourceAdapter | undefined;
   references?: ReferenceSourceAdapter | undefined;
   embeds?: EmbedSourceAdapter | undefined;

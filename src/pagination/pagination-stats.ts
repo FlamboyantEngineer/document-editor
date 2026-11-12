@@ -21,6 +21,8 @@ export interface PaginationStats {
   readonly sectionsReused: number;
   /** Pages broken from their blocks; a layout reuses the others from the one before it. */
   readonly pagesLaidOut: number;
+  /** Pages the editor drew taller than they are after a layout (`findPageOverflow`), summed. */
+  readonly overflowPages: number;
   /** Pages a layout kept as they were. */
   readonly pagesReused: number;
   /** Pages a layout built anew. */
@@ -29,7 +31,13 @@ export interface PaginationStats {
 
 type LayoutCounts = Pick<
   PaginationStats,
-  'layouts' | 'sectionsRelaid' | 'sectionsReused' | 'pagesLaidOut' | 'pagesReused' | 'pagesRebuilt'
+  | 'layouts'
+  | 'sectionsRelaid'
+  | 'sectionsReused'
+  | 'pagesLaidOut'
+  | 'overflowPages'
+  | 'pagesReused'
+  | 'pagesRebuilt'
 >;
 
 // The pages of a paged document, each section's in order.
@@ -51,6 +59,7 @@ export function createPaginationCounter(cache: MeasureCache) {
     sectionsRelaid: 0,
     sectionsReused: 0,
     pagesLaidOut: 0,
+    overflowPages: 0,
     pagesReused: 0,
     pagesRebuilt: 0,
   };
@@ -60,6 +69,10 @@ export function createPaginationCounter(cache: MeasureCache) {
       counts.pagesLaidOut += pagesLaidOut;
       if (blocksMeasured > 0) counts.sectionsRelaid += 1;
       else counts.sectionsReused += 1;
+    },
+    /** Counts the pages a layout's check found drawn taller than they are. */
+    overflow(pages: number) {
+      counts.overflowPages += pages;
     },
     /** Counts a layout that moved the editor from one document's pages onto another's. */
     layout(before: ProseMirrorNode, after: ProseMirrorNode) {

@@ -6,6 +6,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { createPagination, type LayoutState, type PaginationOptions } from './index.js';
+import { layoutNow } from './layout-latency.js';
 
 const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
@@ -39,10 +40,17 @@ function stubLayout(height = 0) {
     getBoundingClientRect: () => new DOMRect(),
     getClientRects: (): DOMRect[] => [],
   });
+  const rect = (element: HTMLElement) =>
+    new DOMRect(0, 0, 100, element.tagName === 'P' ? height : 0);
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement,
   ) {
-    return new DOMRect(0, 0, 100, this.tagName === 'P' ? height : 0);
+    return rect(this);
+  });
+  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return [rect(this)] as unknown as DOMRectList;
   });
 }
 
@@ -109,6 +117,7 @@ describe('pagination stats', () => {
       sectionsRelaid: 0,
       sectionsReused: 0,
       pagesLaidOut: 0,
+      overflowPages: 0,
       pagesReused: 0,
       pagesRebuilt: 0,
     });
@@ -135,6 +144,7 @@ describe('pagination stats', () => {
       sectionsRelaid: 3,
       sectionsReused: 1,
       pagesLaidOut: 3,
+      overflowPages: 0,
       pagesReused: first.pagesReused + 2,
       pagesRebuilt: first.pagesRebuilt,
     });
@@ -233,6 +243,60 @@ describe('layout state', () => {
     frames.drain();
     expect(pagination.stats().layouts).toBe(9);
     expect(pagination.layoutState()).toBe('settled');
+    view.destroy();
+  });
+});
+
+describe('pagination waiting for fonts', () => {
+  it('DOCE-PAGINATION-5.6 lays out meanwhile, stays pending, then measures every block again', async () => {
+    stubLayout();
+    let load: (value: unknown) => void = () => undefined;
+    const ready = new Promise((resolve) => {
+      load = resolve;
+    });
+    const { pagination, view, frames } = mount([['One', 'Two']], { ready });
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 1, blocksMeasured: 2 });
+    expect(pagination.layoutState()).toBe('pending');
+    load(undefined);
+    await ready;
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4 });
+    expect(pagination.layoutState()).toBe('settled');
+    view.destroy();
+  });
+});
+
+describe('pagination latency', () => {
+  it('DOCE-PAGINATION-5.7 lays out on the next frame after a change of structure, but settles typing', () => {
+    stubLayout();
+    const { pagination, view, frames } = mount([['One', 'Two']], { settle: 150 });
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(1);
+    view.dispatch(view.state.tr.insertText('Typed ', firstText(view.state.doc)));
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(1);
+    view.dispatch(view.state.tr.split(firstText(view.state.doc) + 3));
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(2);
+    view.dispatch(layoutNow(view.state.tr.insertText('x', firstText(view.state.doc))));
+    frames.drain();
+    expect(pagination.stats().layouts).toBe(3);
+    view.destroy();
+  });
+});
+
+describe('pagination validation', () => {
+  it('DOCE-PAGINATION-5.9 measures again once after a change when a page overflows', () => {
+    // The test DOM draws pages with no height, so a page of two paragraphs overflows.
+    stubLayout(100);
+    const { pagination, view, frames } = mount([['One', 'Two']]);
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4, overflowPages: 2 });
+    expect(pagination.layoutState()).toBe('settled');
+    view.dispatch(view.state.tr.insertText('First ', firstText(view.state.doc)));
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 4, overflowPages: 4 });
     view.destroy();
   });
 });
