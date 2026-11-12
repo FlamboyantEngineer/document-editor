@@ -114,6 +114,22 @@ export function pageMetrics(state: EditorState): readonly PageMetric[] | null {
   return laidOut.get(state.doc) ?? null;
 }
 
+/**
+ * Records how the pages of a laid-out document were laid out (`pageMetrics`), and marks the
+ * transaction that moved onto them as a layout's, with what the layouts had done (`layoutStats`),
+ * out of the undo history.
+ */
+export function markLayout(
+  tr: Transaction,
+  laid: { readonly metrics: readonly PageMetric[]; readonly stats: PaginationStats },
+): Transaction {
+  laidOut.set(tr.doc, laid.metrics);
+  return tr
+    .setMeta(statsKey, laid.stats)
+    .setMeta(paginationKey, true)
+    .setMeta('addToHistory', false);
+}
+
 /** Whether a transaction moved the editor onto new pages, rather than changing its content. */
 export function isPaginationTransaction(tr: Transaction): boolean {
   return tr.getMeta(paginationKey) === true;

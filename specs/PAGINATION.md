@@ -436,6 +436,13 @@ The canonical state's plugins shall run on the canonical view of the view that r
 Implementation: `src/pagination/canonical-plugins.ts`, `src/pagination/projection.ts`, `src/pagination/projection-input.ts`
 Verification: `src/pagination/projection-view.test.ts`
 
+### DOCE-PAGINATION-7.16 - How the projection's layouts go
+
+A projection shall tell how its layouts go as a pagination does. `layoutState()`, `whenSettled()` and `onLayoutStateChange` behave as in DOCE-PAGINATION-7.6, including failing when a layout throws or layouts keep moving the pages with no change in between. `refresh({ remeasure })` behaves as `Pagination.refresh`. The ghost's content changing size shall measure again, as in DOCE-PAGINATION-7.1. `stats()` shall count what its layouts did, as `Pagination.stats` does, beside `refused` and `relaid`. Each layout's projection transaction shall be marked as a pagination's (`isPaginationTransaction`, `layoutStats`), shall record its pages' metrics (`pageMetrics`), and shall be handed to `onLayout`.
+
+Implementation: `src/pagination/projection.ts`, `src/pagination/projection-session.ts`, `src/pagination/projection-layout.ts`
+Verification: `src/pagination/projection-view.test.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers

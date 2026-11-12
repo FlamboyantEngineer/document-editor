@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { joinDocumentPages, readDocumentFile, sameStructure } from '../model/index.js';
 import { canonicalView } from './canonical-view.js';
+import { isPaginationTransaction, layoutStats, pageMetrics } from './pagination.js';
 import { createProjectionView, type ProjectionViewOptions } from './projection-view.js';
 
 const PARAGRAPH_HEIGHT = 400;
@@ -93,7 +94,7 @@ describe('projection view', () => {
     expect(pageCount(projection.state.doc)).toBe(1);
     expect(pageCount(projection.view.state.doc)).toBe(3);
     expect(inSync(projection)).toBe(true);
-    expect(projection.stats()).toEqual({ layouts: 1, refused: 0, relaid: 0 });
+    expect(projection.stats()).toMatchObject({ layouts: 1, refused: 0, relaid: 0 });
   });
 
   it('DOCE-PAGINATION-7.10 refuses a change to the pages that is not an edit of the canonical state', () => {
@@ -249,6 +250,30 @@ describe('projection view', () => {
     expect(textOf(view.state.doc)).toContain('DeltaQ→ four');
     expect(inSync(projection)).toBe(true);
     expect(seen.at(-1)).toBe(projection.state);
+  });
+
+  it('DOCE-PAGINATION-7.16 tells how its layouts go, as a pagination does', async () => {
+    const laid: Transaction[] = [];
+    const states: string[] = [];
+    const { projection, drain } = mount({
+      onLayout: (tr) => laid.push(tr),
+      onLayoutStateChange: (state) => states.push(state),
+    });
+    expect(projection.layoutState()).toBe('pending');
+    drain();
+    expect(projection.layoutState()).toBe('settled');
+    await expect(projection.whenSettled()).resolves.toBe('settled');
+    const [first] = laid;
+    if (!first) throw new Error('no layout');
+    expect(isPaginationTransaction(first)).toBe(true);
+    expect(layoutStats(first)).toMatchObject({ layouts: 1, pagesRebuilt: 3 });
+    expect(pageMetrics(projection.view.state)).toHaveLength(3);
+    projection.refresh({ remeasure: true });
+    expect(projection.layoutState()).toBe('pending');
+    drain();
+    expect(laid).toHaveLength(2);
+    expect(projection.stats()).toMatchObject({ layouts: 2, pagesReused: 3, refused: 0 });
+    expect(states).toEqual(['settled', 'pending', 'settled']);
   });
 });
 

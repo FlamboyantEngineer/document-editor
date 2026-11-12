@@ -13,7 +13,7 @@ import {
   repaginate,
 } from '../model/index.js';
 import { followDocument } from './ghost-view.js';
-import { layoutDocument, type SectionPageHeight } from './layout-document.js';
+import { layoutDocument, type PageMetric, type SectionPageHeight } from './layout-document.js';
 import type { MeasureCache } from './measure-blocks.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { projectionSelection } from './selection-mirror.js';
@@ -25,6 +25,8 @@ export interface LayoutSource {
   readonly ghost: EditorView;
   readonly canonical: EditorState;
   readonly cache: MeasureCache;
+  /** Told of each section laid out, by how many of its blocks were measured again. */
+  readonly onSection?: ((section: { readonly blocksMeasured: number }) => void) | undefined;
 }
 
 /** How the pages are laid out. */
@@ -35,17 +37,28 @@ export interface ProjectionLayoutOptions {
   readonly fragmentRules: FragmentRules;
 }
 
+/** A layout: the projection transaction onto the new pages, the map after it, and the pages. */
+export interface ProjectionLayout {
+  readonly tr: Transaction;
+  readonly map: ProjectionMap;
+  /** How each page was laid out, in order. */
+  readonly metrics: readonly PageMetric[];
+}
+
 /** The projection transaction onto the canonical document's pages, and the map after it. */
 export function layOutProjection(
-  { projection, ghost, canonical, cache }: LayoutSource,
+  { projection, ghost, canonical, cache, onSection }: LayoutSource,
   options: ProjectionLayoutOptions,
-): { readonly tr: Transaction; readonly map: ProjectionMap } {
+): ProjectionLayout {
   followDocument(ghost, canonical.doc);
+  const metrics: PageMetric[] = [];
   const sections = layoutDocument(ghost, {
     pageHeight: options.pageHeight,
     rules: options.rules,
     footnoteNumbering: options.footnoteNumbering,
     cache,
+    onPage: (page) => metrics.push(page),
+    onSection,
   });
   const target = projectDocument(ghost.state.doc, sections, options);
   const tr = projection.tr;
@@ -53,5 +66,5 @@ export function layOutProjection(
   const map = createProjectionMap(tr.doc, options.fragmentRules);
   const near = projection.selection.map(tr.doc, tr.mapping);
   tr.setSelection(projectionSelection(map, canonical.selection, near));
-  return { tr, map };
+  return { tr, map, metrics };
 }

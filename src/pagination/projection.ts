@@ -23,13 +23,16 @@ import {
 } from './canonical-plugins.js';
 import { holdCellSelection } from './cell-drag.js';
 import type { SectionPageHeight } from './layout-document.js';
-import { settleEdits } from './layout-triggers.js';
+import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
+import { forgetRemeasured, frameIn, remeasureOn, settleEdits } from './layout-triggers.js';
 import { createMeasureCache } from './measure-blocks.js';
+import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import {
   dispatchCanonical,
   layout,
+  markChanged,
   moveAcrossBreak,
   prepare,
   receive,
@@ -69,15 +72,18 @@ export interface PagedProjectionOptions {
   readonly settle?: number | undefined;
   /** Runs a layout soon and returns how to cancel it; by default on the next animation frame. */
   readonly schedule?: ((run: () => void) => () => void) | undefined;
-  /** Called after each layout. */
-  readonly onLayout?: (() => void) | undefined;
+  /**
+   * Called after each layout with the projection transaction that moved onto the new pages,
+   * marked as a pagination's (`isPaginationTransaction`, `layoutStats`).
+   */
+  readonly onLayout?: ((tr: Transaction) => void) | undefined;
+  /** Tells of each change of the layout state (`PagedProjection.layoutState`). */
+  readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
 }
 
-/** What a projection has done since it was made. */
-export interface ProjectionStats {
-  /** The layouts run. */
-  readonly layouts: number;
-  /** PagedProjection edits refused, as a step did not map onto the canonical state. */
+/** What a projection has done since it was made: what its layouts did, as a pagination's. */
+export interface ProjectionStats extends PaginationStats {
+  /** Projection edits refused, as a step did not map onto the canonical state. */
   readonly refused: number;
   /** Canonical changes that could not be mirrored, after which the pages were laid out at once. */
   readonly relaid: number;
@@ -101,6 +107,15 @@ export interface PagedProjection {
   run(command: Command): boolean;
   /** Lays the pages out now. */
   layout(): void;
+  /**
+   * Lays the pages out again soon. `remeasure` forgets every measurement and starts the ghost's
+   * plugins over, as after a width change or a change to a value a plugin shows.
+   */
+  refresh(options?: { readonly remeasure?: boolean }): void;
+  /** Whether the pages are being laid out, are settled, or could not be laid out. */
+  layoutState(): LayoutState;
+  /** Resolves with `settled` or `failed` once no layout is pending. */
+  whenSettled(): Promise<LayoutState>;
   stats(): ProjectionStats;
   destroy(): void;
 }
@@ -176,50 +191,71 @@ function projectionState(options: PagedProjectionOptions, session: () => Session
   });
 }
 
+// The session of a new projection: the ghost, the pace of its layouts, and the first states.
+function startSession(options: PagedProjectionOptions, session: () => Session): Session {
+  const rules = options.fragmentRules ?? FRAGMENT_RULES;
+  const schedule = options.schedule ?? frameIn(options.measureIn);
+  const cache = createMeasureCache();
+  const ghost = new EditorView(options.measureIn, {
+    state: EditorState.create({ doc: options.state.doc, plugins: [...(options.plugins ?? [])] }),
+    editable: () => false,
+    nodeViews: options.nodeViews ?? {},
+  });
+  return {
+    options,
+    rules,
+    cache,
+    cells: holdCellSelection(),
+    counts: { refused: 0, relaid: 0 },
+    ghost,
+    edits: settleEdits(options, () => requestLayout(session())),
+    pace: {
+      counter: createPaginationCounter(cache),
+      readiness: createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange }),
+      changed: true,
+      passes: 0,
+      restart: false,
+    },
+    canonical: options.state,
+    projection: projectionState(options, session),
+    shown: options.state.doc,
+    map: createProjectionMap(options.state.doc, rules),
+    view: null,
+    cancelLayout: null,
+  };
+}
+
+// What the projection's measuring asks: measure the blocks that changed size again, and lay out.
+function remeasureGhost(live: Session): () => void {
+  return remeasureOn(live.options.measureIn, (change) => {
+    forgetRemeasured(live.cache, live.ghost, change);
+    requestLayout(live);
+  });
+}
+
 /** Lays a canonical state out on pages, routing input on them back to it. */
 export function createPagedProjection(options: PagedProjectionOptions): PagedProjection {
-  const rules = options.fragmentRules ?? FRAGMENT_RULES;
   // The plugins' handlers run only once the session holds them.
   let current: Session | null = null;
   const session = (): Session => {
     if (!current) throw new Error('The projection is not made yet.');
     return current;
   };
-  const map = createProjectionMap(options.state.doc, rules);
-  const projection = projectionState(options, session);
-  const ghost = new EditorView(options.measureIn, {
-    state: EditorState.create({ doc: options.state.doc, plugins: [...(options.plugins ?? [])] }),
-    editable: () => false,
-    nodeViews: options.nodeViews ?? {},
-  });
-  current = {
-    options,
-    rules,
-    cache: createMeasureCache(),
-    cells: holdCellSelection(),
-    counts: { layouts: 0, refused: 0, relaid: 0 },
-    ghost,
-    edits: settleEdits(options, () => requestLayout(session())),
-    canonical: options.state,
-    projection,
-    shown: options.state.doc,
-    map,
-    view: null,
-    cancelLayout: null,
-  };
-  layout(current);
+  const live = startSession(options, session);
+  current = live;
+  const unlisten = remeasureGhost(live);
+  layout(live);
   return {
     get state() {
-      return session().canonical;
+      return live.canonical;
     },
     get projection() {
-      return session().projection;
+      return live.projection;
     },
     get map() {
-      return session().map;
+      return live.map;
     },
     attach(view) {
-      const live = session();
       live.view = view;
       const unwatch = live.edits.watch(view);
       return () => {
@@ -227,20 +263,32 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
         if (live.view === view) live.view = null;
       };
     },
-    receive: (tr) => receive(session(), tr),
+    receive: (tr) => receive(live, tr),
     update(state, tr) {
-      const live = session();
       if (state === live.canonical) return;
       live.canonical = state;
       showCanonical(live, tr ?? null);
     },
-    run: (command) => runCommand(session(), command),
-    layout: () => layout(session()),
-    stats: () => ({ ...session().counts }),
+    run: (command) => runCommand(live, command),
+    layout: () => layout(live),
+    refresh({ remeasure = false } = {}) {
+      if (remeasure) {
+        live.cache.clear();
+        live.pace.restart = true;
+      }
+      markChanged(live);
+      live.edits.cancel();
+      requestLayout(live);
+    },
+    layoutState: live.pace.readiness.state,
+    whenSettled: live.pace.readiness.whenSettled,
+    stats: () => ({ ...live.pace.counter.stats(), ...live.counts }),
     destroy() {
-      session().cancelLayout?.();
-      session().edits.cancel();
-      ghost.destroy();
+      unlisten();
+      live.cancelLayout?.();
+      live.edits.cancel();
+      live.pace.readiness.destroy();
+      live.ghost.destroy();
     },
   };
 }
