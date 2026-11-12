@@ -84,9 +84,9 @@ The `./collab` entry binds the editor state to a shared Yjs document (`@y/y` 14,
 
 ### DOCE-COLLAB-4.1 - Keeping in sync
 
-`createCollabSync({ doc })` shall give a plugin that keeps the editor's document and the shared document's `content` type the same, both ways. Each local change goes to the shared document as one delta, from the nodes it changed, when the editor's plugin views update; each change of the shared document comes back as steps on the nodes it changed, so the selection and positions held elsewhere map through it. The plugin runs as a plugin view, so it binds the canonical state of the paged layout, whose plugin views run on a view of that state (DOCE-PAGINATION-7.15), as it binds any editor view. Marks that may overlap themselves come back in canonical order (DOCE-SCHEMA-5.1).
+`createCollabSync({ doc })` shall give a plugin that keeps the editor's document and the shared document's `content` type the same, both ways. Each local change goes to the shared document as one delta, from the nodes it changed, when the editor's plugin views update; each change of the shared document comes back as steps on the nodes it changed, so the selection and positions held elsewhere map through it. The plugin runs as a plugin view, so it binds the canonical state of the paged layout, whose plugin views run on a view of that state (DOCE-PAGINATION-7.15), as it binds any editor view. It binds one view at a time, and stays out of the paged layout's hidden measuring view (its spec says `measured: false`), so no change is replayed twice. Marks that may overlap themselves come back in canonical order (DOCE-SCHEMA-5.1).
 
-Implementation: `src/collab/sync.ts`, `src/collab/sync-binding.ts`, `src/collab/delta.ts`, `src/collab/diff.ts`, `src/collab/replay.ts`
+Implementation: `src/collab/sync.ts`, `src/components/document-editor/start-paging.ts`, `src/collab/sync-binding.ts`, `src/collab/delta.ts`, `src/collab/diff.ts`, `src/collab/replay.ts`
 Verification: `src/collab/sync.test.ts`
 
 ### DOCE-COLLAB-4.2 - Joining a shared document

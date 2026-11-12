@@ -1,16 +1,21 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { EditorState, type Transaction } from 'prosemirror-state';
+import type { Node } from 'prosemirror-model';
+import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { createRef, type Ref, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import {
+  addCommentAnchor,
   createDocumentEditing,
   ELEMENT_ID_PATTERN,
   ELEMENT_IDS_REPAIR,
+  listCommentAnchors,
+  listSuggestions,
   markRemote,
   repairElementIds,
+  type ReviewChange,
 } from '../../engine/index.js';
 import type { VariablesAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode, type TemplateFile } from '../../model/index.js';
@@ -67,6 +72,17 @@ function Harness({
 
 installEditorDom();
 
+// The position of a text in a document.
+function findText(doc: Node, value: string): number {
+  let found = -1;
+  doc.descendants((node, pos) => {
+    if (found < 0 && node.isText && node.text?.includes(value))
+      found = pos + node.text.indexOf(value);
+    return found < 0;
+  });
+  return found;
+}
+
 describe('DocumentEditor', () => {
   it('DOCE-EDITOR-1.1 shows the document with its layout, mode and template values', () => {
     const { container } = render(<Harness editable layout="web" />);
@@ -121,6 +137,41 @@ describe('DocumentEditor', () => {
     );
     await expect(handle.current?.whenSettled()).resolves.toBe('settled');
     expect(handle.current?.layoutStats()).toBeNull();
+  });
+
+  it('DOCE-EDITOR-6.1 tells the host of review-only changes, never made suggestions', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const reviews: ReviewChange[] = [];
+    function Reviewing() {
+      const [state, setState] = useState(initial);
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          onReviewChange={(change) => reviews.push(change)}
+          template={TEMPLATE}
+          layout="web"
+          suggesting
+          author="writer"
+          aria-label="Report"
+          handleRef={handle}
+        />
+      );
+    }
+    render(<Reviewing />);
+    const selectHello: Command = (state, dispatch) => {
+      const from = findText(state.doc, 'Hello');
+      dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, from, from + 5)));
+      return true;
+    };
+    expect(handle.current?.run(selectHello)).toBe(true);
+    expect(handle.current?.run(addCommentAnchor('t1'))).toBe(true);
+    await waitFor(() => expect(reviews).toEqual([{ threads: ['t1'], suggestions: [] }]));
+    const view = handle.current?.view();
+    expect(view && listCommentAnchors(view.state.doc).map((anchor) => anchor.thread)).toEqual([
+      't1',
+    ]);
+    expect(view && listSuggestions(view.state.doc)).toEqual([]);
   });
 
   it('DOCE-EDITOR-1.5 keeps the state it last showed while inactive', () => {
