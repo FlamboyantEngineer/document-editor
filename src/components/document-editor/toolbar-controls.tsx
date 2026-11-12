@@ -13,7 +13,6 @@ import {
 import { GridSizePicker } from '@flamboyantengineer/ui-components/grid-size-picker';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
-import { redo, undo } from 'prosemirror-history';
 import type { Schema } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { type CSSProperties, useMemo, useState } from 'react';
@@ -22,12 +21,14 @@ import {
   DEFAULT_SHORTCUTS,
   insertPageBreak,
   insertTable,
+  redoCommand,
   setCustomStyle,
   setTextblockType,
   type ShortcutId,
   shortcutLabel,
   shortcutsOf,
   type ShortcutTable,
+  undoCommand,
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
@@ -169,7 +170,7 @@ const historyGroup = (labels: DocumentEditorLabels, shortcuts: ShortcutTable): T
         icon: UndoGlyph,
         shortcut: shortcutLabel(shortcuts, 'undo'),
       },
-      undo,
+      undoCommand,
     ),
     commandItem(
       {
@@ -178,7 +179,7 @@ const historyGroup = (labels: DocumentEditorLabels, shortcuts: ShortcutTable): T
         icon: RedoGlyph,
         shortcut: shortcutLabel(shortcuts, 'redo'),
       },
-      redo,
+      redoCommand,
     ),
   ],
 });

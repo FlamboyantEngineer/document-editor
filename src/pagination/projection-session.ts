@@ -97,8 +97,17 @@ function chain(from: ProseMirrorNode, transactions: readonly Transaction[]): Tra
 // The projection's new state, told to whatever renders it.
 function setProjection(session: Session, state: EditorState): void {
   session.projection = state;
-  showOnPages(session.canonical.doc, { pages: state.doc, rules: session.rules });
+  showPages(session, session.canonical.doc);
   session.options.onProjection(state);
+}
+
+// Records the pages a canonical document is shown on, with the session's map when it holds the
+// positions between them, so reading the pages joins none of them (DOCE-PAGINATION-7.18).
+function showPages(session: Session, canonical: ProseMirrorNode): void {
+  const { map, rules } = session;
+  const pages = session.projection.doc;
+  const exact = map.projection === pages && canonical === session.shown;
+  showOnPages(canonical, { pages, rules, positions: exact ? map : undefined });
 }
 
 // The view that renders the projection, when a transaction may go through it now: not while it
@@ -297,10 +306,12 @@ function routeInput(session: Session, tr: Transaction): void {
   if (!routed) return refuse(session);
   const { doc } = routed.projection;
   session.map = routed.atBreak ? createProjectionMap(doc, rules) : routed.map.on(doc);
+  // The pages now show the routed document, which the canonical state takes next.
+  session.shown = routed.canonical.doc;
   copyMeta(tr, routed.projection);
   take(session, routed.projection);
   const made = send(session, routed.canonical);
-  session.shown = routed.canonical.doc;
+  showPages(session, session.shown);
   // What the canonical plugins appended, or a change they refused, is mirrored after the edit.
   if (session.canonical.doc !== session.shown) {
     const appended = made[0] === routed.canonical ? made.slice(1) : null;

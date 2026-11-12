@@ -32,6 +32,7 @@ export { CODE_LANGUAGES } from './element-entries.js';
 export type { DocumentMenu, DocumentMenubarOptions } from './menubar-menus.js';
 export { menubarMenus } from './menubar-menus.js';
 export type { ObjectLabels } from './object-labels.js';
+export type { EditorSession } from './save-status-item.js';
 export { DEFAULT_SYMBOLS } from './symbols.js';
 export type {
   DocumentToolbarOptions,
