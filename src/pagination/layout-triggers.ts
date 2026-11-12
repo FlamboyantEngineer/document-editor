@@ -3,6 +3,7 @@
 
 import type { EditorView } from 'prosemirror-view';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
+import { forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import type { PaginationOptions } from './pagination.js';
 
 /**
@@ -135,6 +136,19 @@ export function remeasureOn(
     container.removeEventListener('load', onImage, true);
     container.removeEventListener('error', onImage, true);
   };
+}
+
+/**
+ * Forgets what a remeasure asks for: every block after a width change or loaded fonts, otherwise
+ * the blocks of the elements that changed size in the view `measuring`.
+ */
+export function forgetRemeasured(
+  cache: MeasureCache,
+  measuring: EditorView | null,
+  change: Remeasure,
+): void {
+  if (change.all || !measuring) cache.clear();
+  else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
 }
 
 /** Runs on the next animation frame of the window an element is in: a layout's default schedule. */

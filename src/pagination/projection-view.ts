@@ -50,7 +50,12 @@ export function createProjectionView(options: ProjectionViewOptions): Projection
     receive: projection.receive,
     update: projection.update,
     run: projection.run,
+    dispatch: projection.dispatch,
+    canonicalView: projection.canonicalView,
     layout: projection.layout,
+    refresh: projection.refresh,
+    layoutState: projection.layoutState,
+    whenSettled: projection.whenSettled,
     stats: projection.stats,
     destroy() {
       detach();

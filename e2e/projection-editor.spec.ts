@@ -1,0 +1,43 @@
+import type { Page } from '@playwright/test';
+import { expect, test, waitForLab } from './fixtures.js';
+
+const content = (page: Page) => page.locator('.de-document-editor__content');
+
+// The full editor lab with its pages as a projection of the whole document.
+async function openProjected(page: Page) {
+  await page.goto('full-editor.html?projection');
+  await waitForLab(page);
+  await expect(content(page).locator('.pm-page').first()).toBeVisible();
+}
+
+test.describe('DocumentEditor on the projection', () => {
+  test('DOCE-PAGINATION-7.17 types, splits and formats on the pages', async ({ lab, page }) => {
+    await openProjected(page);
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' supply');
+    await expect(content(page).locator('h1', { hasText: 'Power supply' })).toHaveCount(1);
+    // Enter leaves the caret in the new paragraph after the heading.
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Projected text');
+    await expect(content(page).locator('p', { hasText: 'Projected text' })).toHaveCount(1);
+    // Formatting and undo act on the whole document.
+    await page.keyboard.press('Shift+Home');
+    await page.keyboard.press('ControlOrMeta+b');
+    await expect(content(page).locator('strong', { hasText: 'Projected text' })).toHaveCount(1);
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(content(page).locator('strong', { hasText: 'Projected text' })).toHaveCount(0);
+    await expect(content(page).locator('p', { hasText: 'Projected text' })).toHaveCount(1);
+    expect(lab.errors).toEqual([]);
+  });
+
+  test('DOCE-PAGINATION-7.17 types math on the pages', async ({ page }) => {
+    await openProjected(page);
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    const before = await content(page).locator('.de-math').count();
+    await page.keyboard.type('Energy $E=mc^2$');
+    await expect(content(page).locator('.de-math')).toHaveCount(before + 1);
+  });
+});

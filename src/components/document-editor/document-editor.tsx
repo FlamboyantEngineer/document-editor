@@ -16,6 +16,7 @@ import {
   type CSSProperties,
   type ReactNode,
   type Ref,
+  type RefObject,
   useEffect,
   useMemo,
   useRef,
@@ -51,9 +52,10 @@ import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs } from './object-dialogs.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
-import { useEngineView } from './use-editor-engine.js';
+import { useDispatchBody, useEngineView } from './use-editor-engine.js';
 import { useLayoutTap } from './use-editor-telemetry.js';
 import { type DocumentEditorNotifications, useElementIdRepair } from './use-host-events.js';
+import { usePagedEditor, usePagedView } from './use-paged-projection.js';
 
 /** How suggestions show in the document. */
 export type DocumentMarkup = 'all' | 'simple' | 'final' | 'original';
@@ -88,6 +90,12 @@ export interface DocumentEditorProps
   template: TemplateFile;
   /** On pages (the default), or as one page per section that fills the surface. */
   layout?: DocumentLayout | undefined;
+  /**
+   * Shows the pages as a projection of `state`, which stays the whole document with each section
+   * on one page, rather than paginating `state` itself (DOCE-PAGINATION-7.17). Experimental: it
+   * becomes the only way once it covers every part of the editor.
+   */
+  projection?: boolean | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
   editable?: boolean | undefined;
   /** Whether an editable document takes changes as suggestions (`suggestTransaction`). */
@@ -259,6 +267,34 @@ function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
   };
 }
 
+// The editor's layout, and the view its chrome acts on: the engine's, or, while the pages are a
+// projection of the state, the engine's view as a view of the state.
+function useEditorLayout(
+  props: DocumentEditorProps,
+  engine: ReturnType<typeof useEngineView>,
+  measureIn: RefObject<HTMLDivElement | null>,
+) {
+  const { state, editable = true } = props;
+  const paging = usePagedEditor({
+    state,
+    onStateChange: props.onStateChange,
+    body: useDispatchBody(props, editable && (props.suggesting ?? false), props.author ?? null),
+    events: engine.events,
+  });
+  const [layoutState, setLayoutState] = useState<LayoutState>('pending');
+  const progress = useDocumentLayout(measureIn, {
+    ...props,
+    layout: props.layout ?? 'page',
+    compare: props.compare ?? null,
+    debug: debugParts(props.debug),
+    onLayoutStateChange: setLayoutState,
+    onCanonical: paging.onCanonical,
+    onLayout: paging.onLayout,
+  });
+  const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
+  return { progress, view, layoutState };
+}
+
 /**
  * Shows and edits a document. In page layout the pages follow every change; the template's values
  * are set on the editor as `--doc-*` properties for the stylesheet. Optionally the editor shows
@@ -267,41 +303,36 @@ function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
  */
 export function DocumentEditor(props: DocumentEditorProps) {
   const { state, template, layout = 'page', editable = true } = props;
-  const { className, compare = null } = props;
+  const { className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props.onContentChange, tap);
+  const { progress, view, layoutState } = useEditorLayout(props, engine, measureIn);
   useEffect(() => {
-    if (engine.view && layout === 'web') ready.signal();
-  }, [engine.view, layout, ready]);
-  useElementIdRepair(editable ? engine.view : null, state, props.repairIds);
+    if (view && layout === 'web') ready.signal();
+  }, [view, layout, ready]);
+  useElementIdRepair(editable ? view : null, state, props.repairIds);
   const startCommentRef = useRef<(() => void) | null>(null);
-  useReviewNotifications(engine.view, props);
+  useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
-  const [layoutState, setLayoutState] = useState<LayoutState>('pending');
-  const progress = useDocumentLayout(measureIn, {
-    ...props,
-    layout,
-    compare,
-    debug: debugParts(props.debug),
-    onLayoutStateChange: setLayoutState,
-  });
-  useEditorHandle(props.handleRef, engine.view, { startCommentRef, template, layout: progress });
+  useEditorHandle(props.handleRef, view, { startCommentRef, template, layout: progress });
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useMemo(
-    () => createEditorContext(engine.view, state, { editable, labels, openDialog: setDialog }),
-    [engine.view, state, editable, labels],
+    () => createEditorContext(view, state, { editable, labels, openDialog: setDialog }),
+    [view, state, editable, labels],
   );
   const [finding, setFinding] = useState(false);
   const openFind = useMemo(() => (props.find ? () => setFinding(true) : null), [props.find]);
-  const chrome = { props, context, view: engine.view, templateStyle, startCommentRef, openFind };
+  const chrome = { props, context, view, templateStyle, startCommentRef, openFind };
   const body = (
     <EditorBody
       props={props}
       engine={engine}
+      view={view}
+      paged={progress.paged}
       labels={labels}
       startCommentRef={startCommentRef}
       onFind={openFind}
@@ -334,7 +365,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
         <ObjectDialogs
           {...props}
           dialog={editable ? dialog : null}
-          view={engine.view}
+          view={view}
           labels={labels}
           onClose={() => setDialog(null)}
         />
