@@ -2,7 +2,7 @@
 // though the pages split it, and the one the selection is under, for a host's navigation panel.
 
 import type { EditorState } from 'prosemirror-state';
-import { catalogDocument, type TemplateFile } from '../model/index.js';
+import { catalogDocument, regionKind, type TemplateFile } from '../model/index.js';
 
 /** A heading of the outline. */
 export interface OutlineEntry {
@@ -30,7 +30,7 @@ export function documentOutline(state: EditorState, template?: TemplateFile): Ou
   const found: Omit<OutlineEntry, 'active'>[] = [];
   const seen = new Set<string>();
   state.doc.descendants((node, pos, parent) => {
-    if (node.type.name === 'page_header' || node.type.name === 'page_footer') return false;
+    if (regionKind(node) === 'header' || regionKind(node) === 'footer') return false;
     // A heading inside a list or a table is not part of the outline.
     if (parent && ['list_item', 'table_cell', 'table_header'].includes(parent.type.name)) {
       return false;

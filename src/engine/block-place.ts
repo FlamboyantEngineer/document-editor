@@ -5,31 +5,33 @@
 
 import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
+import { isSectionNode, isStructureNode, regionAt, regionKind } from '../model/index.js';
 
-const REGIONS: ReadonlySet<string> = new Set(['page_header', 'page_footer', 'page_footnotes']);
+// Whether a node holds pages or regions rather than blocks.
+const holdsStructure = (node: ProseMirrorNode) =>
+  node.firstChild !== null && isStructureNode(node.firstChild);
 
 /** Whether a node holds the body's top-level blocks: a page's content, or an unpaged section. */
 export const isBodyParent = (parent: ProseMirrorNode | null): boolean =>
-  parent?.type.name === 'page_content' || parent?.type.name === 'page_section';
+  parent !== null &&
+  (regionKind(parent) === 'content' || (isSectionNode(parent) && !holdsStructure(parent)));
 
 /** Whether a position is in a page header, footer or footnote area. */
 export function isInPageRegion($pos: ResolvedPos): boolean {
-  for (let depth = $pos.depth; depth > 0; depth -= 1) {
-    if (REGIONS.has($pos.node(depth).type.name)) return true;
-  }
-  return false;
+  const kind = regionAt($pos)?.kind;
+  return kind !== undefined && kind !== 'content';
 }
 
-// The end of a top-level block of the body, or null when the node there is a page, not a block.
+// The end of a top-level block of the body, or null when the node there is a page or a region.
 const blockEnd = (node: ProseMirrorNode | null | undefined, end: number) =>
-  node?.type.name === 'page' ? null : end;
+  node && isStructureNode(node) ? null : end;
 
 /**
  * The end of the top-level block of the body (or of a document without pages) holding a position;
  * null in a page region, between a page's regions or outside any block.
  */
 export function topLevelBlockEnd($pos: ResolvedPos): number | null {
-  if (isInPageRegion($pos) || $pos.parent.type.name === 'page') return null;
+  if (isInPageRegion($pos) || holdsStructure($pos.parent)) return null;
   // Between top-level blocks, as a selected object's start is: the end of the block after it.
   if ($pos.depth > 0 && isBodyParent($pos.parent))
     return blockEnd($pos.nodeAfter, $pos.pos + ($pos.nodeAfter?.nodeSize ?? 0));

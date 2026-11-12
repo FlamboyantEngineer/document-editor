@@ -170,7 +170,7 @@ Verification: `src/model/schema/document-structure.test.ts`
 
 ### DOCE-SCHEMA-6.3 - The region at a position
 
-`regionAt($pos)` shall give the region holding a position, with its kind, node, start, depth and section, and `sectionAt($pos)` the section holding it; each shall give null outside one.
+`regionAt($pos)` shall give the region holding a position, with its kind, node, start, depth and section, `sectionAt($pos)` the section holding it, and `regionBeside($pos, kind)` the region of a kind on the same page of a paged document or in the same section of the canonical one; each shall give null outside one.
 
 Implementation: `src/model/schema/document-structure.ts`
 Verification: `src/model/schema/document-structure.test.ts`

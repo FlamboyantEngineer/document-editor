@@ -5,6 +5,7 @@
 import { Fragment, type Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 import { Mapping } from 'prosemirror-transform';
+import { regionKind } from '../model/index.js';
 import {
   footnoteAreaAt,
   type FootnoteAt,
@@ -39,7 +40,7 @@ interface Scan {
 function scan(doc: ProseMirrorNode): Scan {
   const found: Scan = { markers: [], entries: new Map(), areas: [] };
   doc.descendants((node, pos) => {
-    if (node.type.name === 'page_footnotes') found.areas.push({ pos, node });
+    if (regionKind(node) === 'footnotes') found.areas.push({ pos, node });
     const id = idOf(node);
     if (isFootnoteMarker(node) && id) found.markers.push({ id, pos, node });
     if (node.type.name === 'footnote_entry' && id)
