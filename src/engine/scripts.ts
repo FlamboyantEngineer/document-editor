@@ -128,8 +128,11 @@ function scriptOutputId(blockId: string, place: number): string {
   return hash.toString(16).padStart(8, '0');
 }
 
-// The output with each element that takes an id given the one its block and place make.
-function identifyOutput(blockId: string, content: Fragment): Fragment {
+/**
+ * Content with each element that takes an id given the one its block's id and its place make, so
+ * the same block and place always give the same id.
+ */
+export function identifyOutput(blockId: string, content: Fragment): Fragment {
   let place = 0;
   const identify = (node: ProseMirrorNode): ProseMirrorNode => {
     if (node.isText) return node;

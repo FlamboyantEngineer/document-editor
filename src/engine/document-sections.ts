@@ -17,10 +17,17 @@ import {
 import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import {
+  type DocumentSection,
+  documentSections,
   findTemplateSection,
+  isStructureNode,
   joinDocumentPages,
   readStoredContent,
   readTemplateContent,
+  regionAt,
+  type RegionKind,
+  regionKind,
+  sectionRegions,
   sectionRestartsNumbering,
   setPageRegions,
   type TemplateFile,
@@ -42,6 +49,9 @@ export interface DocumentSectionsOptions {
 /** The sections plugin; a transaction with its meta sets every section's values again. */
 export const documentSectionsKey = new PluginKey<DecorationSet>('document-sections');
 
+const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
+const HEADER_FOOTER: ReadonlySet<RegionKind | null> = new Set(['header', 'footer']);
+
 // The attributes a section's element takes from its template section.
 function sectionAttrs(template: TemplateFile, section: TemplateSection): Record<string, string> {
   const properties = Object.entries(templateProperties(template, { section }));
@@ -56,34 +66,32 @@ function sectionAttrs(template: TemplateFile, section: TemplateSection): Record<
 function decorate(doc: ProseMirrorNode, template: TemplateFile): DecorationSet {
   const known = new Map<string, Record<string, string>>();
   const decorations: Decoration[] = [];
-  doc.forEach((node, pos) => {
-    const name =
-      node.type.name === 'page_section' ? (node.attrs.sectionName as string | null) : null;
+  for (const each of documentSections(doc)) {
+    const { node, pos, name } = each;
     const section = findTemplateSection(template, name);
-    if (!name || !section) return;
+    if (!name || !section) continue;
     const attrs = known.get(name) ?? sectionAttrs(template, section);
     known.set(name, attrs);
     decorations.push(Decoration.node(pos, pos + node.nodeSize, attrs));
-    const placeholder = placeholderOf(node, pos, section);
+    const placeholder = placeholderOf(each, section);
     if (placeholder) decorations.push(placeholder);
-  });
+  }
   return DecorationSet.create(doc, decorations);
 }
 
 // The text of a section's placeholder, drawn in its first block while the section is empty: one
-// page holding one empty text block.
-function placeholderOf(
-  section: ProseMirrorNode,
-  pos: number,
-  template: TemplateSection,
-): Decoration | null {
-  const content = section.childCount === 1 ? section.firstChild?.child(1) : null;
-  const block = content?.childCount === 1 ? content.firstChild : null;
-  if (!template.placeholder?.length || !block?.isTextblock || block.content.size > 0) return null;
-  const text = readStoredContent(template.placeholder, section.type.schema)
+// content region holding one empty text block.
+function placeholderOf(section: DocumentSection, template: TemplateSection): Decoration | null {
+  const contents = sectionRegions(section, CONTENT);
+  const content = contents.length === 1 ? contents[0] : null;
+  const block = content?.node.childCount === 1 ? content.node.firstChild : null;
+  if (!content || !template.placeholder?.length || !block?.isTextblock || block.content.size > 0)
+    return null;
+  const text = readStoredContent(template.placeholder, section.node.type.schema)
     .map((node) => node.textContent)
     .join(' ');
-  const at = pos + 3 + (section.firstChild?.firstChild?.nodeSize ?? 0) + 1;
+  const at = content.pos + 2;
+  const { pos } = section;
   return viewOnlyWidget(
     at,
     (view) => {
@@ -97,8 +105,6 @@ function placeholderOf(
   );
 }
 
-const REGION_TYPES = new Set(['page_header', 'page_footer']);
-
 /**
  * Whether a change only types or deletes text in the pages' content, in blocks that hold text
  * before and after it: it changes no section, no page region and no section placeholder, so the
@@ -111,7 +117,7 @@ function isBodyTyping(tr: Transaction): boolean {
     if (!doc || !(step instanceof ReplaceStep)) return false;
     const $from = doc.resolve(step.from);
     for (let depth = $from.depth; depth > 0; depth -= 1)
-      if (REGION_TYPES.has($from.node(depth).type.name)) return false;
+      if (HEADER_FOOTER.has(regionKind($from.node(depth)))) return false;
     const before = $from.parent.content.size;
     const after = before - (step.to - step.from) + step.slice.size;
     return before > 0 && after > 0;
@@ -152,13 +158,6 @@ export function createDocumentSections({
   });
 }
 
-/** A document section and its position. */
-interface SectionAt {
-  readonly node: ProseMirrorNode;
-  readonly pos: number;
-  readonly index: number;
-}
-
 /** A transaction with every section's pages joined, so each section is one page. */
 export function joinedTransaction(state: EditorState): Transaction {
   const tr = state.tr;
@@ -166,35 +165,53 @@ export function joinedTransaction(state: EditorState): Transaction {
   return tr;
 }
 
-// The section a position is in, and the index of the top-level block of its page content.
-function sectionAt(doc: ProseMirrorNode, pos: number): (SectionAt & { block: number }) | null {
+// The content region holding a position, with its section and the index of its top-level block
+// there.
+function contentAt(doc: ProseMirrorNode, pos: number) {
   const $pos = doc.resolve(pos);
-  if ($pos.depth < 4 || $pos.node(1).type.name !== 'page_section') return null;
-  if ($pos.node(3).type.name !== 'page_content') return null;
-  return { node: $pos.node(1), pos: $pos.before(1), index: $pos.index(0), block: $pos.index(3) };
+  const region = regionAt($pos);
+  if (region?.kind !== 'content' || $pos.depth <= region.depth) return null;
+  return { region, section: region.section, block: $pos.index(region.depth) };
 }
 
-// Where the content of a section's first page starts.
+// The content of a whole section: its one content region.
+const contentOf = (section: DocumentSection | undefined) =>
+  section ? (sectionRegions(section, CONTENT)[0]?.node.content ?? null) : null;
+
+// Where the content of a section placed at a position starts.
 function contentStart(section: ProseMirrorNode, pos: number): number {
-  return pos + 3 + (section.firstChild?.firstChild?.nodeSize ?? 0);
+  let start = pos + 1;
+  section.descendants((node, offset) => {
+    if (regionKind(node) === 'content') start = pos + offset + 2;
+    return start === pos + 1 && isStructureNode(node);
+  });
+  return start;
 }
 
-/** A section holding one page with content, its other regions empty; pagination fills them. */
+/**
+ * A section in the shape of another, holding the content, its other regions empty; pagination
+ * fills them. A section of pages gets one page.
+ */
 export function sectionOf(
   like: ProseMirrorNode,
   attrs: object,
   content: Fragment,
 ): ProseMirrorNode {
-  const page = like.firstChild;
-  const regions: ProseMirrorNode[] = [];
-  page?.forEach((region) =>
-    regions.push(
-      region.type.name === 'page_content'
-        ? region.type.create(region.attrs, content)
-        : (region.type.createAndFill() ?? region.type.create()),
-    ),
-  );
-  return like.type.create(attrs, page ? page.type.create(page.attrs, regions) : null);
+  const fill = (holder: ProseMirrorNode) => {
+    const regions: ProseMirrorNode[] = [];
+    holder.forEach((region) =>
+      regions.push(
+        regionKind(region) === 'content'
+          ? region.type.create(region.attrs, content)
+          : (region.type.createAndFill() ?? region.type.create()),
+      ),
+    );
+    return regions;
+  };
+  const first = like.firstChild;
+  const paged = first !== null && isStructureNode(first) && regionKind(first) === null;
+  if (!first) return like.type.create(attrs);
+  return like.type.create(attrs, paged ? first.type.create(first.attrs, fill(first)) : fill(like));
 }
 
 // The content a new section starts with: its template section's, or an empty paragraph.
@@ -223,21 +240,22 @@ export function insertDocumentSection(template: TemplateFile, name: string | nul
     const scope = insertable(template, name);
     if (scope === false) return false;
     const tr = joinedTransaction(state);
-    const at = sectionAt(tr.doc, tr.mapping.map(state.selection.from));
-    const content = at?.node.firstChild?.child(1).content;
+    const at = contentAt(tr.doc, tr.mapping.map(state.selection.from));
+    const content = at?.region.node.content;
     if (!at || !content) return false;
     if (!dispatch) return true;
     const blocks: ProseMirrorNode[] = [];
     content.forEach((block) => blocks.push(block));
     const after = Fragment.from(blocks.slice(at.block + 1));
-    const before = sectionOf(at.node, at.node.attrs, Fragment.from(blocks.slice(0, at.block + 1)));
+    const { node, pos } = at.section;
+    const before = sectionOf(node, node.attrs, Fragment.from(blocks.slice(0, at.block + 1)));
     const added = sectionOf(
-      at.node,
+      node,
       { sectionName: name },
       after.size ? after : startingContent(state, scope),
     );
-    tr.replaceWith(at.pos, at.pos + at.node.nodeSize, [before, added]);
-    const start = contentStart(added, at.pos + before.nodeSize);
+    tr.replaceWith(pos, pos + node.nodeSize, [before, added]);
+    const start = contentStart(added, pos + before.nodeSize);
     dispatch(tr.setSelection(Selection.near(tr.doc.resolve(start))).scrollIntoView());
     return true;
   };
@@ -250,17 +268,18 @@ export function insertDocumentSection(template: TemplateFile, name: string | nul
 export function joinDocumentSectionBackward(template: TemplateFile): Command {
   return (state, dispatch) => {
     const tr = joinedTransaction(state);
-    const at = sectionAt(tr.doc, tr.mapping.map(state.selection.from));
+    const at = contentAt(tr.doc, tr.mapping.map(state.selection.from))?.section;
     if (!at || at.index === 0) return false;
-    const name = at.node.attrs.sectionName as string | null;
-    if (findTemplateSection(template, name)?.required === true) return false;
-    const previous = tr.doc.child(at.index - 1);
-    const earlier = previous.firstChild?.child(1).content;
-    const later = at.node.firstChild?.child(1).content;
-    if (previous.type.name !== 'page_section' || !earlier || !later) return false;
+    if (findTemplateSection(template, at.name)?.required === true) return false;
+    const sections = documentSections(tr.doc);
+    const previous = sections[at.index - 1];
+    const earlier = contentOf(previous);
+    const later = contentOf(sections[at.index]);
+    if (!previous || previous.pos + previous.node.nodeSize !== at.pos || !earlier || !later)
+      return false;
     if (!dispatch) return true;
-    const from = at.pos - previous.nodeSize;
-    const joined = sectionOf(previous, previous.attrs, earlier.append(later));
+    const from = previous.pos;
+    const joined = sectionOf(previous.node, previous.node.attrs, earlier.append(later));
     tr.replaceWith(from, at.pos + at.node.nodeSize, joined);
     const caret = contentStart(joined, from) + earlier.size;
     dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(caret))).scrollIntoView());

@@ -8,6 +8,7 @@ import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
 import { abbreviationTargetId, compareAbbreviations } from '../glossary.js';
 import { headingNumberText, objectNumberText } from '../numbering/numbering-text.js';
+import { documentSections, type RegionKind, sectionRegions } from '../schema/document-structure.js';
 import {
   NUMBERED_OBJECT_KINDS,
   type NumberedObjectKind,
@@ -133,6 +134,8 @@ export interface CatalogEntry {
 export type DocumentCatalog = Readonly<Record<string, readonly CatalogEntry[]>>;
 
 /** The node types each numbered object kind numbers. */
+const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
+
 const OBJECT_TYPES: Readonly<Record<string, NumberedObjectKind>> = {
   figure: 'figure',
   table: 'table',
@@ -313,22 +316,19 @@ export function catalogDocument(
     catalog: Object.fromEntries(Object.keys(kinds).map((key) => [key, []])),
     doc,
   };
-  doc.forEach((section, sectionOffset) => {
-    if (section.type.name !== 'page_section') return;
-    const scope = findTemplateSection(template, section.attrs.sectionName as string | null);
+  for (const section of documentSections(doc)) {
+    const scope = findTemplateSection(template, section.name);
     counting.scope = scopeOf(template, scope);
     if (sectionRestartsNumbering(scope)) {
       counting.headings = [0, 0, 0, 0, 0, 0];
       counting.objects = zeroObjects();
     }
-    section.forEach((page, pageOffset) => {
+    // Each content region of a paged document is a page's.
+    for (const content of sectionRegions(section, CONTENT)) {
       counting.page += 1;
-      page.forEach((region, regionOffset) => {
-        if (region.type.name !== 'page_content') return;
-        countBlocks(region, sectionOffset + pageOffset + regionOffset + 3, counting);
-      });
-    });
-  });
+      countBlocks(content.node, content.pos + 1, counting);
+    }
+  }
   return arrangeEntries(counting.catalog, kinds);
 }
 

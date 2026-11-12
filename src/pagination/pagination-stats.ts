@@ -2,6 +2,7 @@
 // host's telemetry can tell a layout that measured and rebuilt little from one that did it all.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { SectionReport } from './layout-document.js';
 import { type MeasureCache, measureCacheCounts } from './measure-blocks.js';
 
 /** A pagination's counters since it was made (`Pagination.stats`). */
@@ -18,6 +19,8 @@ export interface PaginationStats {
   readonly sectionsRelaid: number;
   /** Sections laid out from cached measurements alone. */
   readonly sectionsReused: number;
+  /** Pages broken from their blocks; a layout reuses the others from the one before it. */
+  readonly pagesLaidOut: number;
   /** Pages a layout kept as they were. */
   readonly pagesReused: number;
   /** Pages a layout built anew. */
@@ -26,7 +29,7 @@ export interface PaginationStats {
 
 type LayoutCounts = Pick<
   PaginationStats,
-  'layouts' | 'sectionsRelaid' | 'sectionsReused' | 'pagesReused' | 'pagesRebuilt'
+  'layouts' | 'sectionsRelaid' | 'sectionsReused' | 'pagesLaidOut' | 'pagesReused' | 'pagesRebuilt'
 >;
 
 // The pages of a paged document, each section's in order.
@@ -47,12 +50,14 @@ export function createPaginationCounter(cache: MeasureCache) {
     layouts: 0,
     sectionsRelaid: 0,
     sectionsReused: 0,
+    pagesLaidOut: 0,
     pagesReused: 0,
     pagesRebuilt: 0,
   };
   return {
-    /** Counts a section laid out, by how many of its blocks were measured again. */
-    section({ blocksMeasured }: { readonly blocksMeasured: number }) {
+    /** Counts a section laid out, by how many of its blocks were measured and pages laid out. */
+    section({ blocksMeasured, pagesLaidOut }: SectionReport) {
+      counts.pagesLaidOut += pagesLaidOut;
       if (blocksMeasured > 0) counts.sectionsRelaid += 1;
       else counts.sectionsReused += 1;
     },

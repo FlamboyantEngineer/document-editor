@@ -88,6 +88,13 @@ The host's `variables` adapter shall give the text of each variable it knows (`v
 Implementation: `src/host/adapters.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`
 
+### DOCE-HOST-1.13 - Embedded content
+
+The host's `embeds` adapter shall name the kinds of content it embeds (`kinds`), resolve embeds, by their kind and source, to the state of their content as it is now, its id (`snapshot`) and its name (`label`), in the order given, null for content that is gone and `no-access` for content the reader may not read, and load an embed's content as it is now, with its state and name, as stored content (DOCE-EMBEDS-3).
+
+Implementation: `src/host/adapters.ts`
+Verification: `src/engine/embeds.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles

@@ -101,7 +101,7 @@ Verification: `e2e/objects.spec.ts`
 
 ### DOCE-OBJECTS-3.3 - Highlighting
 
-The object views shall highlight the text of each code block and the code of linked code in their language, in every view: `highlightCode(code, language)` splits code into its tokens through the base library's code tokenizer (`resolveCodeTokenizer`), for JavaScript (`js`), TypeScript (`ts`), Python (`py`), C, C++ (`c++`), JSON, XML, HTML, CSS, YAML (`yml`), SQL, shell (`bash`, `sh`) and Markdown (`md`), and gives none for plain text or another language. Each token with a kind is marked `de-code-token` with its kind in `data-token` (`keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link`); the text stays as it is. A change highlights again the code blocks it touched, its text or its language, and no other.
+The object views shall highlight the text of each code block and the code of linked code in their language, in every view: `highlightCode(code, language)` splits code into its tokens through the base library's code tokenizer (`resolveCodeTokenizer`), for JavaScript (`js`), TypeScript (`ts`), Python (`py`), C, C++ (`c++`), JSON, XML, HTML, CSS, YAML (`yml`), SQL, shell (`bash`, `sh`) and Markdown (`md`), and gives none for plain text or another language. Each token with a kind (`keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link`, `invalid`), a run of tokens of one kind as one, shall be painted, in a code block, with the window's named highlight `de-code-<kind>` (`CSS.highlights`, `codeHighlightName`), which leaves the block's DOM as the editor draws it, and shall be marked, in linked code, `de-code-token` with its kind in `data-token`; the text stays as it is, and token styles shall not change layout. A code block shall be painted again when its text, its language or the elements that draw it change, and no other; a block of thousands of tokens shall not slow the pages' layout. Without named highlights in the window, code blocks shall show unpainted.
 
 Implementation: `src/engine/code-highlighting.ts`, `src/engine/object-views.ts`
 Verification: `src/engine/code-highlighting.test.ts`, `e2e/objects.spec.ts`
@@ -131,15 +131,15 @@ Verification: `src/engine/scripts.test.ts`, `e2e/full-editor.spec.ts`
 
 ## Hooks
 
-| Hook                 | Kind      | Values                                                                            | Description                               |
-| -------------------- | --------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
-| `de-math`            | root      |                                                                                   | A math node, typeset.                     |
-| `data-display`       | attribute | `inline`, `display`                                                               | On math: inline or a block.               |
-| `data-state`         | state     | `pending`, `ready`, `invalid`                                                     | On math: whether it is typeset yet.       |
-| `de-code-gutter`     | root      |                                                                                   | The line numbers beside code.             |
-| `de-code-token`      | root      |                                                                                   | A token of highlighted code.              |
-| `data-token`         | attribute | `keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link` | On a code token: its kind.                |
-| `de-signature`       | root      |                                                                                   | A signature.                              |
-| `de-signature__name` | slot      |                                                                                   | The signer's name.                        |
-| `data-signed`        | state     | `true`, `false`                                                                   | On a signature: whether it holds strokes. |
-| `data-script-state`  | state     | `running`, `error`, `empty`                                                       | On a script block: its last run.          |
+| Hook                 | Kind      | Values                                                                                       | Description                                                                                                      |
+| -------------------- | --------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `de-math`            | root      |                                                                                              | A math node, typeset.                                                                                            |
+| `data-display`       | attribute | `inline`, `display`                                                                          | On math: inline or a block.                                                                                      |
+| `data-state`         | state     | `pending`, `ready`, `invalid`                                                                | On math: whether it is typeset yet.                                                                              |
+| `de-code-gutter`     | root      |                                                                                              | The line numbers beside code.                                                                                    |
+| `de-code-token`      | root      |                                                                                              | A token of highlighted linked code; a code block's tokens are painted with the highlight `de-code-<kind>` (3.3). |
+| `data-token`         | attribute | `keyword`, `string`, `number`, `comment`, `key`, `literal`, `punctuation`, `link`, `invalid` | On a code token: its kind.                                                                                       |
+| `de-signature`       | root      |                                                                                              | A signature.                                                                                                     |
+| `de-signature__name` | slot      |                                                                                              | The signer's name.                                                                                               |
+| `data-signed`        | state     | `true`, `false`                                                                              | On a signature: whether it holds strokes.                                                                        |
+| `data-script-state`  | state     | `running`, `error`, `empty`                                                                  | On a script block: its last run.                                                                                 |
