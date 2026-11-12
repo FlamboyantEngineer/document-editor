@@ -3,6 +3,13 @@
 
 import type { IdentityAttribute } from './element-attributes.js';
 
+/** The address a stored file asset's snapshot is previewed at, as of a time or as it is now. */
+export type AssetPreviewUrl = (
+  fileAssetId: string,
+  snapshotId: string,
+  at?: { readonly asOf: string | null },
+) => string;
+
 /** The host's choices for the document schema's rendered output. */
 export interface DocumentSchemaOptions {
   /**
@@ -17,11 +24,17 @@ export interface DocumentSchemaOptions {
   /** The text a new page footer holds until its template sets one. */
   footerPlaceholder?: string | undefined;
   /**
-   * The address a stored file asset's snapshot is previewed at, such as a figure's image; an empty
-   * string when the host has none. Defaults to none, so only figures with an address of their own
+   * The address a stored file asset's snapshot is previewed at, such as a figure's or a template
+   * image's; an empty string when the host has none. `asOf` is the time the document shows its
+   * assets as of (`assetsAsOf`). Defaults to none, so only figures with an address of their own
    * show an image.
    */
-  assetPreviewUrl?: ((fileAssetId: string, snapshotId: string) => string) | undefined;
+  assetPreviewUrl?: AssetPreviewUrl | undefined;
+  /**
+   * The time the document shows its assets as of, such as an earlier version's: null, the default,
+   * for the assets as they are now. Read each time an image renders.
+   */
+  assetsAsOf?: (() => string | null) | undefined;
   /**
    * The host's own external reference types, beside `external-document`, such as entries of a
    * catalogue it keeps. A reference of one renders its format key for templates to style.
@@ -47,6 +60,7 @@ export function resolveSchemaOptions(options: DocumentSchemaOptions = {}): Resol
     headerPlaceholder: options.headerPlaceholder ?? 'Header (Template)',
     footerPlaceholder: options.footerPlaceholder ?? 'Footer (Template)',
     assetPreviewUrl: options.assetPreviewUrl ?? (() => ''),
+    assetsAsOf: options.assetsAsOf ?? (() => null),
     referenceTypes: options.referenceTypes ?? [],
     identityAttributes: options.identityAttributes ?? [],
   };

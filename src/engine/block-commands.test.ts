@@ -14,7 +14,7 @@ const table: StoredNode = {
   content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph('Cell')] }] }],
 };
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 function positionOf(doc: Node, value: string): number {
   let found = -1;

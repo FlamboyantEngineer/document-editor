@@ -58,6 +58,7 @@ Generic stored documents (`DocumentFile`, [FORMAT.md](../../../specs/FORMAT.md))
 | `paragraph-levels-and-styles`       | `regression-base`           | Paragraph levels 1 to 6 and custom paragraph styles.                                                                       |
 | `people-and-abbreviations`          | `regression-base`           | Mentions, full and short abbreviations, and a signed and an unsigned signature.                                            |
 | `roman-and-alpha-numbering`         | `regression-numbering`      | Roman front matter with a list of contents, a Roman body of 25 chapters, and an alphabetic annex with numbered paragraphs. |
+| `section-settings`                  | `regression-mixed-geometry` | Section ids, a locked section, and sections with their own header, an inherited footer and an empty header.                |
 | `roman-numbering-stress`            | `regression-numbering`      | Sixty Roman-numbered headings in the front matter.                                                                         |
 | `scripts`                           | `regression-base`           | Script blocks with generated content, refreshed on open or by hand, and an empty one.                                      |
 | `table-both-header-modes`           | `regression-tables`         | Two long tables, one in each header mode.                                                                                  |

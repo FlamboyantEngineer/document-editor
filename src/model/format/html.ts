@@ -8,6 +8,8 @@ import {
   type Node as ProseMirrorNode,
   type Schema,
 } from 'prosemirror-model';
+import type { StoredContent } from './document-format.js';
+import { writeStoredContent } from './document-format-write.js';
 
 /** The markup a document's content writes, as HTML text. */
 export function writeHtml(doc: ProseMirrorNode, owner: Document): string {
@@ -32,6 +34,19 @@ function inertBody(html: string, owner: Document): HTMLElement {
 export function readHtml(html: string, schema: Schema, owner: Document): ProseMirrorNode {
   const body = inertBody(isWordHtml(html) ? cleanWordHtml(html, owner) : html, owner);
   return DOMParser.fromSchema(schema).parse(body);
+}
+
+/**
+ * Stored content read from HTML, such as a template region's or section's content a host keeps as
+ * markup: its blocks as the schema reads them, inline text in paragraphs, word processor markup
+ * cleaned. Variables stay live, and `{{key}}` tokens stay text for `readTemplateContent` to read.
+ */
+export function readHtmlContent(html: string, schema: Schema, owner: Document): StoredContent {
+  const body = inertBody(isWordHtml(html) ? cleanWordHtml(html, owner) : html, owner);
+  // Blocks are read into a region of a page, which holds any block a document's body holds.
+  const container = (schema.nodes.page_content ?? schema.topNodeType).create();
+  const content = DOMParser.fromSchema(schema).parse(body, { topNode: container });
+  return writeStoredContent(content.content);
 }
 
 /** Whether HTML comes from a word processor that writes its own Office markup. */

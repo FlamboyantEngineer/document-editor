@@ -68,7 +68,7 @@ function initialState(): EditorState {
       ],
     },
     schema,
-  );
+  ).doc;
   const state = EditorState.create({
     doc,
     plugins: createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),

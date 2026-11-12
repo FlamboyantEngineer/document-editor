@@ -108,7 +108,7 @@ function render(): void {
   const schema = createDocumentSchema();
   const editor: EditorView = new EditorView(pagesRoot, {
     state: EditorState.create({
-      doc: readDocumentFile(sample(), schema),
+      doc: readDocumentFile(sample(), schema).doc,
       plugins: [pagination.plugin, contents],
     }),
     dispatchTransaction(tr) {

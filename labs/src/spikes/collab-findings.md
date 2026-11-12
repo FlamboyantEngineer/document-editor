@@ -59,8 +59,8 @@ In Chromium, in the lab through the in-process room at 150 chapters: both provid
 
 Besides C1 to C3, which are under way:
 
-- **C4. A browser-safe server entry.** `./server` imports `node:crypto` (only `randomUUID`, which `globalThis.crypto` has in Node 22 and browsers) and `node:buffer` (only in the WebSocket attachment). The lab resolves both to small page versions in `scripts/build-labs.mjs`; a server entry without them, or the attachment in its own entry, would remove that.
-- **C5. An exported in-process socket pair.** Its own tests pair client sockets with `server.connect` (`test/server-sockets.ts`); the spike wrote the same thing (`collab-room.ts`). Exporting it, for example from a `./testing` entry, would serve every consumer's tests and labs.
+- **C4. A browser-safe server entry.** `./server` imports `node:crypto` (only `randomUUID`, which `globalThis.crypto` has in Node 22 and browsers) and `node:buffer` (only in the WebSocket attachment). The lab resolves both to small page versions in `scripts/build-labs.mjs`; a server entry without them, or the attachment in its own entry, would remove that. Done in collaboration-tools PR #2: `./server` imports no Node module and the attachment moved to `./server/websocket`, so the lab build has no shims.
+- **C5. An exported in-process socket pair.** Its own tests pair client sockets with `server.connect` (`test/server-sockets.ts`); the spike wrote the same thing (`collab-room.ts`). Exporting it, for example from a `./testing` entry, would serve every consumer's tests and labs. Done in the same PR: `connectToServer` from `./testing`, which `collab-room.ts` now uses.
 
 ## What W4.3 needs
 

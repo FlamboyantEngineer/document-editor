@@ -32,7 +32,7 @@ const bullets = (...values: string[]): StoredNode => ({
   content: values.map(item),
 });
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 function positionOf(doc: Node, value: string): number {
   let found = -1;
@@ -298,16 +298,17 @@ describe('the editing extension', () => {
       'clipboard',
       'scripts',
       'custom-styles',
+      'variable-tokens',
       'table-width',
       'tables',
       'gap-cursor',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(15);
+    expect(kit.buildPlugins(undefined)).toHaveLength(16);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(14);
+    expect(shared.buildPlugins(undefined)).toHaveLength(15);
   });
 
   it('DOCE-EDITING-2.7 selects an object before deleting it', () => {

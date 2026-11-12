@@ -27,7 +27,7 @@ const item = (value: string): StoredNode => ({
 });
 
 const read = (...content: StoredNode[]) =>
-  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema);
+  readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
 
 // The position of a text's first character, or of the character `offset` after it.
 function at(doc: ProseMirrorNode, value: string, offset = 0): number {
@@ -149,7 +149,7 @@ describe('the paste pipeline', () => {
         doc: readDocumentFile(
           { formatVersion: 1, sections: [{ name: null, content: [] }] },
           documentSchema,
-        ),
+        ).doc,
       }),
     });
     pasteHtml(source, REVIEWED);

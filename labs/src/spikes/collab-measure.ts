@@ -58,7 +58,7 @@ const round = (value: number) => Math.round(value * 100) / 100;
 /** Measures the binding on a document, typing `keystrokes` characters. */
 export function measure(file: DocumentFile, keystrokes = 300): Measurements {
   const schema = createDocumentSchema();
-  const doc = readDocumentFile(file, schema);
+  const doc = readDocumentFile(file, schema).doc;
   let characters = 0;
   doc.descendants((node) => {
     if (node.isText) characters += node.text?.length ?? 0;

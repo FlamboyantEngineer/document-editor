@@ -39,6 +39,13 @@ Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.tes
 Implementation: `src/engine/element-ids.ts`
 Verification: `src/engine/element-ids.test.ts`
 
+### DOCE-EDITING-1.6 - Stored ids
+
+`checkStoredIds(file)` shall list, in document order, each element of a stored document (every stored node but text, outside a footnote's own text) whose id is missing, not of the id form (DOCE-EDITING-1.1) or held by an earlier element, with its path; a footnote's element id is its `elementId`. `assignStoredIds(file, { newId, author })` shall give a copy in which each of those elements has a fresh id from `newId` that no other element holds, attributed as DOCE-EDITING-1.2 says: an element that repeated an earlier id is a copy, so it takes `author` and drops its assistant session, and any other keeps its author or takes `author` when it has none. The same `newId` sequence shall give the same document.
+
+Implementation: `src/model/format/document-format-ids.ts`
+Verification: `src/model/format/document-format-ids.test.ts`
+
 ## DOCE-EDITING-2 - Keys
 
 ### DOCE-EDITING-2.1 - Formatting and block types
@@ -108,9 +115,9 @@ Verification: `src/engine/block-place.test.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), custom styles when given the template (515, DOCE-TEMPLATES-7.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one.
 
-Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`
 Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-3.2 - Transaction kinds
