@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
-import { type Remeasure, remeasureOn } from './layout-triggers.js';
+import { awaitReady, type Remeasure, remeasureOn } from './layout-triggers.js';
 
 // Runs animation frames when the test says, so the events of one frame gather.
 function stubFrames() {
@@ -23,7 +23,7 @@ describe('remeasure triggers', () => {
     image.dispatchEvent(new Event('load'));
     image.dispatchEvent(new Event('error'));
     drain();
-    expect(changes).toEqual([{ targets: [math, image, image], width: false }]);
+    expect(changes).toEqual([{ targets: [math, image, image], all: false }]);
     stop();
     math.dispatchEvent(new Event(REMEASURE_EVENT, { bubbles: true }));
     drain();
@@ -57,7 +57,35 @@ describe('remeasure triggers', () => {
     width = 500;
     resized([], {} as ResizeObserver);
     drain();
-    expect(changes).toEqual([{ targets: [], width: true }]);
+    expect(changes).toEqual([{ targets: [], all: true }]);
     stop();
+  });
+
+  it("DOCE-PAGINATION-5.6 tells of font faces loading in the container's document", () => {
+    const drain = stubFrames();
+    const fonts = new EventTarget();
+    Object.defineProperty(document, 'fonts', { value: fonts, configurable: true });
+    const container = document.createElement('div');
+    const changes: Remeasure[] = [];
+    const stop = remeasureOn(container, (change) => changes.push(change));
+    fonts.dispatchEvent(new Event('loadingdone'));
+    drain();
+    expect(changes).toEqual([{ targets: [], all: true }]);
+    stop();
+    fonts.dispatchEvent(new Event('loadingdone'));
+    drain();
+    expect(changes).toHaveLength(1);
+    Reflect.deleteProperty(document, 'fonts');
+  });
+
+  it('DOCE-PAGINATION-5.6 waits for what the measurements wait for, loaded or failed', async () => {
+    const settled: string[] = [];
+    expect(awaitReady(undefined, () => settled.push('none')).waiting()).toBe(false);
+    const loaded = awaitReady(Promise.resolve(), () => settled.push('loaded'));
+    const failed = awaitReady(Promise.reject(new Error('offline')), () => settled.push('failed'));
+    expect([loaded.waiting(), failed.waiting()]).toEqual([true, true]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect([loaded.waiting(), failed.waiting()]).toEqual([false, false]);
+    expect(settled).toEqual(['loaded', 'failed']);
   });
 });

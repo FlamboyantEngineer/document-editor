@@ -13,6 +13,7 @@ export type {
   ExternalReference,
   FeedbackAdapter,
   FeedbackTone,
+  FontsAdapter,
   GlossaryAdapter,
   HostError,
   HostResult,

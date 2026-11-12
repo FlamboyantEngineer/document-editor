@@ -81,6 +81,13 @@ The host's `scripts` adapter shall run a script block's script against the docum
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
 
+### DOCE-HOST-1.12 - Fonts
+
+The host's optional `fonts` adapter shall load the faces of the font families a document's template names and resolve, within the timeout it is given, with the families that loaded. The document editor's pages stay pending until it resolves, and measure again once faces load (DOCE-PAGINATION-5.6).
+
+Implementation: `src/host/adapters.ts`, `src/pagination/fonts.ts`
+Verification: `src/pagination/fonts.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles

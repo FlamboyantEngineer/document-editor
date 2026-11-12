@@ -25,6 +25,7 @@ import type {
   AssetAdapter,
   CodeSourceAdapter,
   FeedbackAdapter,
+  FontsAdapter,
   GlossaryAdapter,
   ReferenceSourceAdapter,
   ScriptRunnerAdapter,
@@ -132,6 +133,11 @@ export interface DocumentEditorProps
   markup?: DocumentMarkup | undefined;
   /** The host's telemetry, which the editor reports its layout times to. */
   telemetry?: TelemetryAdapter | undefined;
+  /**
+   * The host's font faces: the pages load the families the template names through it and stay
+   * pending until they load, fail or time out (DOCE-PAGINATION-5.6).
+   */
+  fonts?: FontsAdapter | undefined;
   /**
    * Shows the pages' layout for debugging: `true` shows what each page's blocks take and what is
    * left; the parts name what else shows.

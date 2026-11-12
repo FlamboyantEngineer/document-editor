@@ -22,6 +22,7 @@ import {
   searchKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
+import type { FontsAdapter } from '../../host/index.js';
 import {
   createLayoutRules,
   findTemplateSection,
@@ -34,6 +35,7 @@ import {
   createPageDebug,
   createPagination,
   type LayoutState,
+  loadTemplateFonts,
   pageDebugKey,
   type PageDebugParts,
   type Pagination,
@@ -107,6 +109,8 @@ export interface DocumentLayoutOptions {
   readonly debug?: PageDebugParts | undefined;
   /** Tells of each change of the layout state; the web layout is always settled. */
   readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
+  /** The host's font faces, which the pages wait for (DOCE-PAGINATION-5.6). */
+  readonly fonts?: FontsAdapter | undefined;
   /** Edits the pages' headers and footers in place, handing each edit here. */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
 }
@@ -243,6 +247,7 @@ export function useDocumentLayout(
       plugins: withOwn(latest.current.state.plugins, ownPlugins.current),
       rules: createLayoutRules({ repeatTableHeader }),
       footnoteNumbering,
+      ready: loadTemplateFonts(latest.current.fonts, latest.current.template),
       onLayoutStateChange: (state) => latest.current.onLayoutStateChange?.(state),
     });
     latest.current.onLayoutStateChange?.(pagination.layoutState());

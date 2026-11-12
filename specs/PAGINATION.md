@@ -208,6 +208,13 @@ Given a layout memory (`createLayoutMemory`, `layoutDocument`'s `memory`), layin
 Implementation: `src/pagination/incremental-layout.ts`, `src/pagination/layout-document.ts`, `src/pagination/pagination.ts`
 Verification: `src/pagination/incremental-layout.test.ts`, `src/pagination/pagination.test.ts`
 
+### DOCE-PAGINATION-5.6 - Fonts
+
+When font faces load in the measuring view's document, every block shall measure again and the pages be laid out again (`remeasureOn`). Given what the measurements wait for (`PaginationOptions.ready`), the pages shall be laid out meanwhile but stay pending until it settles, loaded or failed, and then measure every block again. The document editor's `fonts` adapter (DOCE-HOST-1.12) shall be asked to load the families the template names (`templateFontFamilies`, `loadTemplateFonts`) within `FONT_TIMEOUT` milliseconds, and the pages wait for it. After a delayed font loads, the pages shall hold their content.
+
+Implementation: `src/pagination/layout-triggers.ts`, `src/pagination/fonts.ts`, `src/pagination/pagination.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/pagination/layout-triggers.test.ts`, `src/pagination/fonts.test.ts`, `src/pagination/pagination.test.ts`, `e2e/pagination.spec.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document

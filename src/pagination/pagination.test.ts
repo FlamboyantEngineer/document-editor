@@ -236,3 +236,23 @@ describe('layout state', () => {
     view.destroy();
   });
 });
+
+describe('pagination waiting for fonts', () => {
+  it('DOCE-PAGINATION-5.6 lays out meanwhile, stays pending, then measures every block again', async () => {
+    stubLayout();
+    let load: (value: unknown) => void = () => undefined;
+    const ready = new Promise((resolve) => {
+      load = resolve;
+    });
+    const { pagination, view, frames } = mount([['One', 'Two']], { ready });
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 1, blocksMeasured: 2 });
+    expect(pagination.layoutState()).toBe('pending');
+    load(undefined);
+    await ready;
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4 });
+    expect(pagination.layoutState()).toBe('settled');
+    view.destroy();
+  });
+});

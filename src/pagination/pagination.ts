@@ -23,7 +23,7 @@ import {
   type PageMetric,
 } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
-import { type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
+import { awaitReady, type Remeasure, remeasureOn, settleEdits } from './layout-triggers.js';
 import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
@@ -51,6 +51,12 @@ export interface PaginationOptions extends Omit<DocumentLayoutOptions, 'scale' |
   settle?: number | undefined;
   /** Tells of each change of the layout state (`Pagination.layoutState`). */
   onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
+  /**
+   * What the pages' measurements wait for, such as the host's font faces loading
+   * (`FontsAdapter.load`): the pages are laid out meanwhile but stay pending, and once it settles
+   * every block measures again.
+   */
+  ready?: PromiseLike<unknown> | undefined;
 }
 
 /** An editor's pagination: its plugin, and a way to lay the pages out again. */
@@ -262,11 +268,16 @@ function layOutFrom(
   runner.passes = tr.docChanged ? runner.passes + 1 : 0;
 }
 
-// Forgets what a remeasure asks for: every block after a width change, otherwise the blocks of the
-// elements that changed size.
-function forget(cache: MeasureCache, measuring: EditorView | null, change: Remeasure): void {
-  if (change.width || !measuring) cache.clear();
+// Forgets what a remeasure asks for, every block after a width change or loaded fonts, otherwise
+// the blocks of the elements that changed size, and asks for a layout.
+function forget(
+  { cache, measuring }: { readonly cache: MeasureCache; readonly measuring: EditorView | null },
+  change: Remeasure,
+  request: () => void,
+): void {
+  if (change.all || !measuring) cache.clear();
   else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
+  request();
 }
 
 /** Keeps an editor's pages laid out from a hidden view that measures its whole document. */
@@ -277,7 +288,6 @@ export function createPagination(options: PaginationOptions): Pagination {
   const counter = { cache, memory: createLayoutMemory(), ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
   const runner: Runner = { ...unmounted, changed: true, passes: 0 };
-
   const context = { ...options, fragmentRules };
 
   const layOut = (): void => {
@@ -295,7 +305,7 @@ export function createPagination(options: PaginationOptions): Pagination {
       readiness.fail();
       throw error;
     }
-    readiness.laidOut(() => runner.cancel === null && !edits.waiting());
+    readiness.laidOut(() => runner.cancel === null && !edits.waiting() && !ready.waiting());
   };
 
   function request(): void {
@@ -309,6 +319,16 @@ export function createPagination(options: PaginationOptions): Pagination {
     runner.changed = true;
     readiness.pending();
   };
+  const refresh = ({ remeasure = false } = {}) => {
+    if (remeasure) {
+      cache.clear();
+      runner.restart = true;
+    }
+    change();
+    edits.cancel();
+    request();
+  };
+  const ready = awaitReady(options.ready, () => refresh({ remeasure: true }));
 
   const plugin = paginationPlugin(
     runner,
@@ -322,9 +342,8 @@ export function createPagination(options: PaginationOptions): Pagination {
           joinDocumentPages(editor.state.doc, fragmentRules).doc,
         );
         const unwatch = edits.watch(editor);
-        const unlisten = remeasureOn(options.measureIn, (change) => {
-          forget(cache, runner.measuring, change);
-          request();
+        const unlisten = remeasureOn(options.measureIn, (remeasure) => {
+          forget({ cache, measuring: runner.measuring }, remeasure, request);
         });
         change();
         request();
@@ -345,15 +364,7 @@ export function createPagination(options: PaginationOptions): Pagination {
 
   return {
     plugin,
-    refresh({ remeasure = false } = {}) {
-      if (remeasure) {
-        cache.clear();
-        runner.restart = true;
-      }
-      change();
-      edits.cancel();
-      request();
-    },
+    refresh,
     layoutState: readiness.state,
     whenSettled: readiness.whenSettled,
     stats: counter.stats,

@@ -73,27 +73,27 @@ export function settleEdits(options: PaginationOptions, request: () => void) {
 export interface Remeasure {
   /** The elements that changed size, such as an image that loaded; their blocks measure again. */
   readonly targets: readonly Node[];
-  /** Whether the content's width changed, so every block measures again. */
-  readonly width: boolean;
+  /** Whether the content's width changed or font faces loaded, so every block measures again. */
+  readonly all: boolean;
 }
 
 /**
  * Measures again, once a frame, when the measuring view's content changes size after it was drawn:
  * math typeset or an image loaded or failed, naming the elements it came from, or the container's
- * width changed.
+ * width changed or font faces loaded in its document.
  */
 export function remeasureOn(
   container: HTMLElement,
   remeasure: (change: Remeasure) => void,
 ): () => void {
   const owner = container.ownerDocument.defaultView;
-  const due = { frame: false, targets: [] as Node[], width: false };
+  const due = { frame: false, targets: [] as Node[], all: false };
   const flush = () => {
     if (due.frame || !owner) return;
     due.frame = true;
     owner.requestAnimationFrame(() => {
-      const change = { targets: due.targets, width: due.width };
-      Object.assign(due, { frame: false, targets: [], width: false });
+      const change = { targets: due.targets, all: due.all };
+      Object.assign(due, { frame: false, targets: [], all: false });
       remeasure(change);
     });
   };
@@ -111,18 +111,40 @@ export function remeasureOn(
         const next = container.getBoundingClientRect().width;
         if (Math.abs(next - width) < 0.5) return;
         width = next;
-        due.width = true;
+        due.all = true;
         flush();
       })
     : null;
   observer?.observe(container);
+  const fonts = container.ownerDocument.fonts as FontFaceSet | undefined;
+  const onFonts = () => {
+    due.all = true;
+    flush();
+  };
+  fonts?.addEventListener('loadingdone', onFonts);
   container.addEventListener(REMEASURE_EVENT, listener);
   container.addEventListener('load', onImage, true);
   container.addEventListener('error', onImage, true);
   return () => {
     observer?.disconnect();
+    fonts?.removeEventListener('loadingdone', onFonts);
     container.removeEventListener(REMEASURE_EVENT, listener);
     container.removeEventListener('load', onImage, true);
     container.removeEventListener('error', onImage, true);
   };
+}
+
+/**
+ * Follows what the pages' measurements wait for, such as the host's font faces: whether it is
+ * still due, and a call once it settles, loaded or not.
+ */
+export function awaitReady(ready: PromiseLike<unknown> | undefined, settled: () => void) {
+  let waiting = Boolean(ready);
+  const done = () => {
+    if (!waiting) return;
+    waiting = false;
+    settled();
+  };
+  ready?.then(done, done);
+  return { waiting: () => waiting };
 }
