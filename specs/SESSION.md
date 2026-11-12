@@ -221,7 +221,7 @@ Verification: `src/session/drafts.test.ts`
 
 ### DOCE-SESSION-6.7 - Keeping room-mode drafts
 
-In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left: the document's state, the changes the room has not confirmed, the last state the room had confirmed all of (`confirmed`), and the room's generation.
+In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left: the document's state, the changes the room has not confirmed, the last state the room had confirmed all of (`confirmed`), taken as soon as the room confirms, and the room's generation.
 
 Implementation: `src/collab/offline.ts`
 Verification: `src/collab/offline.test.ts`
@@ -239,6 +239,13 @@ When a shared room has started a new generation since a draft was kept, `mergeRo
 
 Implementation: `src/collab/offline.ts`
 Verification: `src/collab/offline.test.ts`
+
+### DOCE-SESSION-6.10 - Room-mode drafts in a session
+
+A room-mode session shall open on the room's draft when the host keeps one, so the reader edits with no connection, and send the draft's unconfirmed changes once it connects. While connected, it shall keep the room's draft (DOCE-SESSION-6.7) and stop keeping it when closed. When the room refuses the draft for belonging to an older generation, the session shall open the room again without it and merge the draft into the new generation's document (DOCE-SESSION-6.9), sending the merge to the room, through the editor when one is bound; its leftovers are the session's `conflicts`, and the draft stays kept until they are settled. `resolveConflict` settles a leftover in the room's document: `mine` puts the draft's version in its place, `theirs` keeps the room's, and `both` keeps the room's with the draft's after it under new ids. The offline module, and with it the realtime library, loads only when the session needs it (DOCE-SESSION-3.1).
+
+Implementation: `src/session/room-drafts.ts`, `src/session/room-session.ts`, `src/session/room-open.ts`
+Verification: `src/session/room-drafts.test.ts`, `e2e/offline.spec.ts`
 
 ## DOCE-SESSION-7 - Refreshing from the store
 
