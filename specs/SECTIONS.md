@@ -50,7 +50,7 @@ Verification: `src/engine/document-sections.test.ts`
 
 ### DOCE-SECTIONS-2.4 - Paged sections
 
-Both commands shall work on a section laid out on several pages: its pages are joined first, so the blocks a section keeps or moves are whole, and the pagination lays the sections out again.
+Both commands shall work on the whole document, where each section is one page of whole blocks however many pages the layout shows it on, so the blocks a section keeps or moves are whole; the pages are then laid out again.
 
 Implementation: `src/engine/document-sections.ts`
 Verification: `src/engine/document-sections.test.ts`

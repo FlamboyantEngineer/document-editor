@@ -108,8 +108,11 @@ export function createMemoryDocuments(history: MemoryHistory): DocumentStoreAdap
   };
 }
 
-const listed = ({ content: _, ...version }: StoredVersion): DocumentVersion =>
-  structuredClone(version);
+const listed = ({ content, ...version }: StoredVersion): DocumentVersion =>
+  structuredClone({ ...version, template: content.template ?? null });
+
+const sameContent = (one: DocumentFile, other: DocumentFile) =>
+  JSON.stringify(one) === JSON.stringify(other);
 
 /** The versions of a history: every saved state is a version, named or not. */
 export function createMemoryVersions(history: MemoryHistory): VersionStoreAdapter {
@@ -127,8 +130,16 @@ export function createMemoryVersions(history: MemoryHistory): VersionStoreAdapte
         version ? { ok: true, value: structuredClone(version.content) } : notFound(revision),
       );
     },
+    // Naming the content the document holds names its latest saved state, so the revision an open
+    // session saves against stays the latest.
     create: (documentId, { content, label }) => {
-      if (!history.versions(documentId)) return Promise.resolve(notFound(documentId));
+      const latest = history.versions(documentId)?.at(-1);
+      if (!latest) return Promise.resolve(notFound(documentId));
+      if (sameContent(latest.content, content)) {
+        latest.label = label;
+        history.touch(documentId);
+        return Promise.resolve({ ok: true, value: listed(latest) });
+      }
       return Promise.resolve({
         ok: true,
         value: listed(history.record(documentId, content, label)),

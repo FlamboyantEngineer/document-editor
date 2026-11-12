@@ -16,6 +16,7 @@ export {
   connectionPhase,
   gateCapabilities,
 } from './connection.js';
+export { roomConnection, type RoomProviderLike } from './room-connection.js';
 export {
   type CollabChange,
   type CollabChangeKind,

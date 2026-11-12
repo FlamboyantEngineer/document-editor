@@ -92,7 +92,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-2.3 - In the document editor
 
-The document editor shall run the version changes in its view and its measuring view, compare the document with `compare.previous` in `compare.display`, marking its root with `data-comparing`, and lay the pages out again when either changes.
+The document editor shall run the version changes in its view and its measuring view, compare the document with `compare.previous` (an older version, or `opened` for the document as the editor opened it) in `compare.display`, within `compare.scope` when given, marking its root with `data-comparing`, and lay the pages out again when either changes.
 
 Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/versions.spec.ts`
@@ -103,6 +103,20 @@ Verification: `e2e/versions.spec.ts`
 
 Implementation: `src/engine/change-lines.ts`, `src/components/document-editor/change-lines-measure.ts`
 Verification: `src/engine/change-lines.test.ts`, `src/components/document-editor/change-lines-measure.test.ts`, `e2e/versions.spec.ts`
+
+### DOCE-VERSIONS-2.5 - Comparing only when needed
+
+`previous` may give `opened`: the document as it was when the version changes started. A document equal to the older version shall show no change without being compared. A transaction that only follows the layout shall keep the changes shown, mapped, without comparing again: one out of the history (`addToHistory: false`), a derived one, or, in a scoped comparison, one that only types or deletes text outside the scope. A remote change and a system change shall always be compared again.
+
+Implementation: `src/engine/version-changes.ts`, `src/engine/version-scope.ts`
+Verification: `src/engine/version-changes.test.ts`
+
+### DOCE-VERSIONS-2.6 - Scope and counts
+
+Given a scope (`scope`, element ids), the version changes shall show only the changes inside it: a heading covers its headed section (`headingSectionSpan`, DOCE-OUTLINE-1.3) and another block itself. Each text block and leaf block outside the scope shall be marked `data-diff-scope="outside"`. `versionChangeCounts(state)` shall count the changes shown by kind and in all.
+
+Implementation: `src/engine/version-changes.ts`, `src/engine/version-scope.ts`
+Verification: `src/engine/version-changes.test.ts`, `e2e/versions.spec.ts`
 
 ## DOCE-VERSIONS-3 - Versions in the browser
 
@@ -134,6 +148,94 @@ Showing changes shall draw, for a block whose text changed, a bar beside each li
 Implementation: `labs/reference/document.css`, `src/engine/change-lines.ts`
 Verification: `e2e/versions.spec.ts`
 
+### DOCE-VERSIONS-3.5 - Comparing any two versions
+
+Selecting two versions in the history and comparing them shall show the newer, read-only, with its changes since the older; clearing the selection shall show the document again.
+
+Implementation: `labs/src/versions.lab.tsx`
+Verification: `e2e/versions.spec.ts`
+
+### DOCE-VERSIONS-3.6 - Scoped comparisons
+
+Scoping a comparison to a heading shall show only the changes in its headed section, with their counts by kind, and dim the blocks outside it.
+
+Implementation: `labs/src/versions.lab.tsx`, `labs/reference/document.css`
+Verification: `e2e/versions.spec.ts`
+
+## DOCE-VERSIONS-4 - History
+
+### DOCE-VERSIONS-4.1 - Following the versions
+
+`createDocumentVersions({ host, session })`, or `useDocumentVersions` for as long as a component shows it, shall list the open document's versions through the host's `versions` adapter, newest first, and list them again whenever the host tells of a change (`versions.subscribe`), until it is closed. A list that fails, or a host without versions, shall be reported as failed with the host's reason.
+
+Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
+Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`
+
+### DOCE-VERSIONS-4.2 - Grouped history
+
+`groupVersions(versions)` shall group versions listed newest first: each named version shall fold the automatic versions older than it, up to the next older named version, newest first. Automatic versions newer than every named one, and every version of a history without a named one, shall stand on their own.
+
+Implementation: `src/session/version-groups.ts`
+Verification: `src/session/versions.test.ts`
+
+### DOCE-VERSIONS-4.3 - Saving a named version
+
+`saveVersion(label)` shall first keep the session's changes (`flush`), then save the document's content, with the template it pins, as a version named `label` (`versions.create`). A `beforeVersion` hook shall see the version first and may change it, or save none by returning null. A version shall be refused with the host's reason when the changes cannot be kept or the host cannot save versions.
+
+Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
+Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+
+### DOCE-VERSIONS-4.4 - Renaming
+
+`rename(revision, label)` shall name a version, or take its name away with null, and list the versions again.
+
+Implementation: `src/session/versions.ts`
+Verification: `src/session/versions.test.ts`
+
+### DOCE-VERSIONS-4.5 - Restoring
+
+`restore(revision)` shall make a version's content and the template it pins the document's, as one change the reader may undo that is neither a suggestion nor refused by locked content (`markSystemChange`), and save it. The session keeps the revision it saves against.
+
+Implementation: `src/session/versions.ts`
+Verification: `src/session/versions.test.ts`, `e2e/history.spec.ts`
+
+### DOCE-VERSIONS-4.6 - The history pane
+
+`DocumentHistory` shall show the versions on the base library's VersionHistory, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2). It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
+
+Implementation: `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
+Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+
+## DOCE-VERSIONS-5 - Historical view
+
+### DOCE-VERSIONS-5.1 - Viewing a version
+
+`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own, read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. The document's own state and saving shall go on unchanged.
+
+Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
+Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+
+### DOCE-VERSIONS-5.2 - Comparing two versions
+
+With `compareWith`, the view shall also hold the older version, and the editor shall show the viewed version's changes from it (DOCE-VERSIONS-2.3).
+
+Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
+Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`
+
+### DOCE-VERSIONS-5.3 - Returning
+
+`returnFromView()` shall end the view and give back what the reader had when the first view of a run of views opened (`returnTo`), such as their mode, markup and comments, for the host to put back.
+
+Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
+Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+
+### DOCE-VERSIONS-5.4 - The banner
+
+`DocumentHistoryBanner` shall show, while a view is open, which version shows (or which two are compared), the template it pins, and an action that returns.
+
+Implementation: `src/components/document-panels/document-history.tsx`
+Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+
 ## Hooks
 
 | Hook                      | Kind      | Values                                                        | Description                                                     |
@@ -142,6 +244,7 @@ Verification: `e2e/versions.spec.ts`
 | `data-diff-change`        | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move` | On a changed block, an inserted word or a deleted text.         |
 | `data-diff-deletion`      | attribute | `before`, `after`                                             | On the block before which, or after which, blocks were deleted. |
 | `data-diff-block`         | attribute | `true`                                                        | On a deleted block's text.                                      |
+| `data-diff-scope`         | attribute | `outside`                                                     | On a block outside a scoped comparison.                         |
 | `data-diff-lines`         | attribute | `kept`, `formatting`                                          | On a block whose text changed: what its other lines show.       |
 | `data-diff-line`          | attribute | `insertion`, `deletion`, `modification`, `formatting`         | On a changed word, where text was deleted, or a line's bar.     |
 | `de-change-lines`         | root      |                                                               | The bars beside a block's changed lines.                        |

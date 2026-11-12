@@ -1,6 +1,6 @@
 # Session
 
-A document session opens one document by id through the host and keeps its changes, with no framework: `createDocumentSession({ host, documentId, mode })`. It loads the document, the template it pins and the reader's capabilities, gives the editor its state, measures changes against what the store holds, saves them, and reports its status. Store mode loads and saves through the host's document store and never loads the realtime library (D27).
+A document session opens one document by id through the host and keeps its changes, with no framework: `createDocumentSession({ host, documentId, mode })`. It loads the document, the template it pins and the reader's capabilities, gives the editor its state, keeps its changes, and reports its status. Store mode loads and saves through the host's document store, measuring changes against what the store holds, and never loads the realtime library (D27). Room mode opens the document in its shared room through the host's `collaboration` adapter, and the room keeps it.
 
 ## DOCE-SESSION-1 - Loading and status
 
@@ -89,8 +89,50 @@ Verification: `src/session/document-session.test.ts`
 
 A store-mode session, and everything the session entry loads when it loads, shall import no realtime library.
 
-Implementation: `src/session/index.ts`
+Implementation: `src/session/index.ts`, `src/session/room-open.ts`, `src/session/room-binding.ts`
 Verification: `src/session/store-bundle.test.ts`
+
+### DOCE-SESSION-3.2 - Opening a document in its room
+
+A room-mode session shall connect the document's room through the host's `collaboration` adapter, loading the realtime library only then, with the reader's room draft (`drafts`) when there is one, and the reader's capabilities. Its status shall go from `connecting` to `syncing` and, once the connection first synced, to `ready`; with a draft it shall be ready at once, without waiting for the sync. Its `document` store shall hold the content the room holds, the template the room's `meta` type pins, and an editor state that runs the room's sync plugin with no undo history of its own, so every reader of the room edits the same document. A host without rooms, a refused connection or a template that cannot load shall make the status `failed` with the error, and `ready` resolve false.
+
+Implementation: `src/session/room-session.ts`, `src/session/room-open.ts`, `src/session/room-binding.ts`, `src/session/store-session.ts`
+Verification: `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.3 - The room's status
+
+A room-mode session's save status shall follow the connection's state: `offline` while disconnected, `saving` while the room has not confirmed a local change or is storing, `dirty` while the room holds changes it has not stored, `saved` once it stored them, and `idle` before it says; a refusal shall make it `error`, a room of another generation as a `conflict`. The document is dirty, and `hasUnsavedChanges()` true, while the room has not confirmed a local change. `save()` and `flush()` shall wait until the room has stored every change made so far, or the connection is lost, and `flush()` resolve whether nothing is left unconfirmed.
+
+Implementation: `src/session/room-status.ts`, `src/session/room-session.ts`, `src/session/room-open.ts`
+Verification: `src/session/room-status.test.ts`, `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.4 - The room's access
+
+While the room grants the connection read-only access, the document's editing mode shall be `read`, whatever the reader's capabilities, since the room would drop the reader's changes; while access is pending, a reader who may edit edits.
+
+Implementation: `src/session/session-follow.ts`, `src/session/room-session.ts`
+Verification: `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.5 - The room's template
+
+`setTemplate(pin)` in room mode shall show the template and write the pin to the room's `meta` type, for a reader who edits; when another reader pins another template, the session shall show it.
+
+Implementation: `src/session/room-session.ts`, `src/session/room-binding.ts`
+Verification: `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.6 - Closing a room session
+
+Closing a room-mode session shall end its connection, also when it closes while connecting.
+
+Implementation: `src/session/room-session.ts`, `src/session/room-open.ts`
+Verification: `src/session/room-session.test.ts`
+
+### DOCE-SESSION-3.7 - Room providers
+
+`roomConnection(provider)` (`./collab`) shall give a room provider, such as collaboration-tools', as the connection a collaboration adapter returns: its document, awareness, state and receipts; `whenSynced` resolving at the first sync and rejecting on a refusal or a close; and `close()` destroying the provider.
+
+Implementation: `src/collab/room-connection.ts`
+Verification: `src/session/room-session.test.ts`
 
 ## DOCE-SESSION-5 - Unsaved changes
 

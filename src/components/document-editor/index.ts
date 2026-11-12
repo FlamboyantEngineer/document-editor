@@ -12,6 +12,8 @@ export type {
   DocumentContextMenuOptions,
 } from './context-providers.js';
 export type { ContextKind, ContextTarget } from './context-target.js';
+export type { DialogProps, HostDialogProps } from './dialog-parts.js';
+export { EditorModal } from './dialog-parts.js';
 export type {
   DocumentEditorDebug,
   DocumentEditorIdRepair,
@@ -19,6 +21,7 @@ export type {
   DocumentMarkup,
 } from './document-editor.js';
 export { DocumentEditor } from './document-editor.js';
+export type { FindBarMode } from './document-find-bar.js';
 export { ZOOM_LEVELS } from './document-status-bar.js';
 export type { EditorContext, ObjectDialog } from './editor-context.js';
 export { useDocumentEditor } from './editor-context.js';
@@ -37,6 +40,7 @@ export type {
   ToolbarGroup,
   ToolbarItem,
   ToolbarMenuItem,
+  ToolbarOverflow,
 } from './toolbar-items.js';
 export { TOOLBAR_GROUPS } from './toolbar-items.js';
 export type { ChangeBar } from './use-change-notifications.js';

@@ -9,13 +9,14 @@ import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { DocumentContextMenu } from './document-context-menu.js';
 import type { DocumentEditorProps } from './document-editor.js';
-import { DocumentFindBar } from './document-find-bar.js';
+import { DocumentFindBar, type FindBarMode, type FindRequest } from './document-find-bar.js';
 import { DocumentMenubar } from './document-menubar.js';
 import { DocumentStatusBar, type EditorZoom, ZOOM_LEVELS } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
 import type { EditorContext, ObjectDialog } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
+import type { ShellFeatures } from './mode-controls.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 
@@ -33,8 +34,8 @@ export interface ChromeProps {
   view: EditorView | null;
   templateStyle: Readonly<Record<string, string>>;
   startCommentRef: RefObject<(() => void) | null>;
-  /** Opens the find bar, while the editor has one. */
-  openFind?: (() => void) | null | undefined;
+  /** Opens the find bar at a box, while the editor has one. */
+  openFind?: ((mode?: FindBarMode) => void) | null | undefined;
 }
 
 /** The toolbar and the find bar above the document. */
@@ -42,12 +43,12 @@ export function TopChrome({
   props,
   context,
   templateStyle,
-  finding,
+  findRequest,
   onFindClose,
   view,
   openFind = null,
 }: ChromeProps & {
-  finding: boolean;
+  findRequest: FindRequest | null;
   onFindClose: () => void;
 }) {
   const linkedCode = Boolean(props.codeSource);
@@ -70,6 +71,11 @@ export function TopChrome({
     }),
     [linkedCode, symbols, glossary, custom, props.template, scripts, references, diagrams],
   );
+  const { onModeChange, modeReasons, onMarkupChange } = props;
+  const shell = useMemo<ShellFeatures>(
+    () => ({ onModeChange, modeReasons, onMarkupChange }),
+    [onModeChange, modeReasons, onMarkupChange],
+  );
   return (
     <>
       {props.menubar ? (
@@ -80,11 +86,14 @@ export function TopChrome({
           options={props.menubar === true ? NO_MENUBAR_OPTIONS : props.menubar}
           menus={{
             view,
-            openFind,
+            openFind: openFind ? () => openFind('find') : null,
             layout: props.layout ?? 'page',
             onLayoutChange: props.onLayoutChange,
             zoom: editorZoom(props),
             scriptRunner: props.scriptRunner,
+            glossary: props.glossary,
+            template: props.template,
+            shell,
           }}
         />
       ) : null}
@@ -95,10 +104,16 @@ export function TopChrome({
           options={props.toolbar === true ? NO_TOOLBAR_OPTIONS : props.toolbar}
           templateStyle={templateStyle}
           features={features}
+          shell={shell}
         />
       ) : null}
-      {props.find && finding ? (
-        <DocumentFindBar {...hooks.slot('find')} context={context} onClose={onFindClose} />
+      {props.find && findRequest ? (
+        <DocumentFindBar
+          {...hooks.slot('find')}
+          context={context}
+          request={findRequest}
+          onClose={onFindClose}
+        />
       ) : null}
     </>
   );

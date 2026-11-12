@@ -213,6 +213,86 @@ test.describe('full editor lab', () => {
     await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText('Saved');
   });
 
+  test('DOCE-EDITOR-4.12 DOCE-EDITOR-4.4 switches the editing mode and the markup', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const root = page.locator('.de-document-editor');
+    const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+    await toolbar.locator('[data-item="mode"]').click();
+    await page.getByRole('menuitemcheckbox', { name: 'Suggesting' }).click();
+    await expect(root).toHaveAttribute('data-suggesting', 'true');
+    await expect(page.getByLabel('Suggesting')).toBeChecked();
+    await toolbar.locator('[data-item="mode"]').click();
+    await page.getByRole('menuitemcheckbox', { name: 'Reading' }).click();
+    await expect(root).toHaveAttribute('data-mode', 'reading');
+    await toolbar.locator('[data-item="mode"]').click();
+    await page.getByRole('menuitemcheckbox', { name: 'Editing' }).click();
+    await expect(root).toHaveAttribute('data-mode', 'authoring');
+    // A mode the host does not offer now is disabled, saying why.
+    await page.getByLabel('Restrict editing').check();
+    await toolbar.locator('[data-item="mode"]').click();
+    await page.getByRole('menuitemcheckbox', { name: 'Suggesting' }).click();
+    await toolbar.locator('[data-item="mode"]').click();
+    const editing = page.getByRole('menuitemcheckbox', { name: /Editing/ });
+    await expect(editing).toBeDisabled();
+    await expect(editing).toContainText('The host lets this writer only suggest');
+    await page.keyboard.press('Escape');
+    // The markup control, from no markup to inline.
+    await toolbar.locator('[data-item="markup"]').click();
+    await page.getByRole('menuitemcheckbox', { name: 'Change bars' }).click();
+    await expect(root).toHaveAttribute('data-markup', 'simple');
+    const menubar = page.getByRole('menubar', { name: 'Menu' });
+    await menubar.getByRole('menuitem', { name: 'View' }).click();
+    await page.getByRole('menuitem', { name: 'Markup' }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'No markup' }).click();
+    await expect(root).toHaveAttribute('data-markup', 'final');
+  });
+
+  test('DOCE-EDITOR-4.13 DOCE-EDITOR-4.14 lays out columns and says why a control is off', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await toolbar.getByRole('button', { name: 'Layout' }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'Three columns' }).click();
+    await expect(content(page).locator('[data-layout-preset="thirds"]')).toHaveCount(1);
+    await toolbar.getByRole('button', { name: 'Layout' }).click();
+    await page.getByRole('menuitem', { name: 'Remove the layout section' }).click();
+    await expect(content(page).locator('[data-layout-preset="thirds"]')).toHaveCount(0);
+    // While the document is read, a control stays focusable and says why it is off.
+    await toolbar.locator('[data-item="mode"]').click();
+    await page.getByRole('menuitemcheckbox', { name: 'Reading' }).click();
+    const bold = toolbar.getByRole('button', { name: 'Bold' });
+    await expect(bold).toBeDisabled();
+    await bold.hover();
+    await expect(page.getByRole('tooltip')).toContainText('The document is open for reading');
+  });
+
+  test('DOCE-EDITOR-4.15 DOCE-EDITOR-4.16 scrolls the toolbar and opens the host dialogs', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    await expect(page.locator('.de-document-editor__toolbar')).toHaveAttribute(
+      'data-overflow',
+      'scroll',
+    );
+    await content(page).locator('h1', { hasText: 'Timing' }).click();
+    await page.keyboard.press('End');
+    await page.getByRole('button', { name: 'Insert note' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Note' });
+    await expect(dialog.getByRole('textbox', { name: 'Note' })).toHaveValue('Check');
+    await dialog.getByRole('button', { name: 'Insert' }).click();
+    await expect(content(page).locator('h1', { hasText: 'Note: Check' })).toHaveCount(1);
+    await expect(content(page)).toBeFocused();
+  });
+
   test('DOCE-COMMENTS-3.5 keeps each card beside its own page, portrait or landscape', async ({
     lab,
     page,

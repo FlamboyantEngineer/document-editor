@@ -3,9 +3,10 @@
 
 import type { ProofingKind } from '../../host/index.js';
 import { DEFAULT_OBJECT_LABELS, type ObjectLabels } from './object-labels.js';
+import { DEFAULT_SHELL_LABELS, type ShellLabels } from './shell-labels.js';
 
 /** The text of the editor's toolbar, menus and handles. */
-export interface DocumentEditorLabels extends ObjectLabels {
+export interface DocumentEditorLabels extends ObjectLabels, ShellLabels {
   readonly toolbar: string;
   readonly undo: string;
   readonly redo: string;
@@ -84,8 +85,12 @@ export interface DocumentEditorLabels extends ObjectLabels {
   /** Names the avatars of the other people in the document. */
   readonly presence: string;
   readonly find: string;
+  /** Names the search pane's query box, apart from the find bar's. */
+  readonly searchDocument: string;
   readonly matchCase: string;
   readonly wholeWord: string;
+  /** Announces how many matches Replace all replaced. */
+  readonly replacedCount: (count: number) => string;
   readonly zoom: string;
   /** The proofing status: checking, or how many issues are marked. */
   readonly proofingStatus: (issues: number, pending: boolean) => string;
@@ -168,8 +173,10 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   proofingDegraded: 'Proofing partly unavailable',
   presence: 'People in this document',
   find: 'Find in document',
+  searchDocument: 'Search the document',
   matchCase: 'Match case',
   wholeWord: 'Whole words',
+  replacedCount: (count) => `Replaced ${count} ${count === 1 ? 'match' : 'matches'}`,
   zoom: 'Zoom',
   proofingStatus: (issues, pending) => {
     if (pending && issues === 0) return 'Checking…';
@@ -178,4 +185,5 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   },
   nextIssue: 'Go to the next issue',
   ...DEFAULT_OBJECT_LABELS,
+  ...DEFAULT_SHELL_LABELS,
 };

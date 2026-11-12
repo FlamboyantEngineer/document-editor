@@ -54,6 +54,8 @@ const NOT_TRACKING: LocalSteps = { base: null, steps: [] };
 export function createCollabSync({
   doc,
   isRemoteOrigin = () => true,
+  // Called as a function of its own: the platform's `queueMicrotask` throws when called on another
+  // object, as the binding calls its source's scheduler.
   schedule = (run) => queueMicrotask(run),
 }: CollabSyncOptions): Plugin<LocalSteps> {
   const type = doc.get(CONTENT_TYPE);

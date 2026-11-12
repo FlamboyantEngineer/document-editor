@@ -438,7 +438,8 @@
   font-weight: 600;
 }
 
-/* The find bar below the toolbar, and the matches it finds: the current one stronger. */
+/* The find bar below the toolbar, and the matches it finds: the current one stronger. The search
+   pane's matches are told apart by a cooler colour, so both searches can show at once. */
 .de-document-editor__find {
   flex: none;
   padding: 4px 8px;
@@ -453,6 +454,15 @@
 .de-document-editor [data-search-match='current'] {
   background: #ffc94d;
   outline: 1px solid #b07d00;
+}
+
+.de-document-editor [data-search-result] {
+  background: #d6ecff;
+}
+
+.de-document-editor [data-search-result='current'] {
+  background: #9fd0ff;
+  outline: 1px solid #1f6fb2;
 }
 
 /* The document zoomed: its pages, not the chrome around them. */
