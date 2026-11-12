@@ -5,13 +5,18 @@ export { FONT_TIMEOUT, loadTemplateFonts, templateFontFamilies } from './fonts.j
 export type { DocumentLayoutOptions, SectionPageHeight } from './layout-document.js';
 export type { PageMetric } from './layout-document.js';
 export { layoutDocument } from './layout-document.js';
+export { LAYOUT_NOW_META, layoutNow, wantsLayoutNow } from './layout-latency.js';
 export type { LayoutState } from './layout-readiness.js';
+export type { PageOverflow } from './layout-validation.js';
+export { findPageOverflow } from './layout-validation.js';
 export type { MeasureCache, MeasureOptions } from './measure-blocks.js';
 export { createMeasureCache, measureBlock, measureChildBlocks } from './measure-blocks.js';
 export type { FootnoteArea } from './measure-footnotes.js';
 export { footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 export type { PageDebugParts } from './page-debug.js';
 export { createPageDebug, pageDebugKey } from './page-debug.js';
+export type { PageBox } from './page-geometry.js';
+export { pageAtPoint, pageBoxes, pageElements } from './page-geometry.js';
 export type { LaidOutPage, PageMap } from './page-map.js';
 export { createPageMap, pageMap } from './page-map.js';
 export type { PageVariablesOptions, VariableValue } from './page-variables.js';

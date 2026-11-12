@@ -33,6 +33,7 @@ import {
   remeasureOn,
   settleEdits,
 } from './layout-triggers.js';
+import { findPageOverflow } from './layout-validation.js';
 import { createMeasureCache, forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 
@@ -135,6 +136,8 @@ interface Runner {
   passes: number;
   /** Whether a change since the latest layout lays the pages out at once (`wantsLayoutNow`). */
   now: boolean;
+  /** Whether a layout since the latest change measured again for a page that overflowed. */
+  corrected: boolean;
 }
 
 // Lays the measuring view's document out on pages, with what each page's blocks take of it.
@@ -249,7 +252,7 @@ function layOutFrom(
   { editor, measuring, runner }: { editor: EditorView; measuring: EditorView; runner: Runner },
   options: LayoutContext,
   counter: LayoutCounter,
-): void {
+): boolean {
   readDomSelection(editor);
   const whole = joinDocumentPages(editor.state.doc, options.fragmentRules).doc;
   if (runner.restart) {
@@ -258,6 +261,22 @@ function layOutFrom(
   } else followDocument(measuring, whole);
   const tr = stepOntoPages({ editor, measuring }, options, counter);
   runner.passes = tr.docChanged ? runner.passes + 1 : 0;
+  return checkOverflow(editor, { options, counter, runner });
+}
+
+// Checks the pages the editor drew (`findPageOverflow`), counting those drawn taller than they
+// are; once after each change, a page that overflows forgets every measurement, so the layout it
+// asks for measures again. Returns whether it asks for one.
+function checkOverflow(
+  editor: EditorView,
+  { options, counter, runner }: { options: LayoutContext; counter: LayoutCounter; runner: Runner },
+): boolean {
+  const overflow = findPageOverflow(editor, { scale: options.scale?.() });
+  counter.overflow(overflow.length);
+  if (!overflow.length || runner.corrected) return false;
+  runner.corrected = true;
+  counter.cache.clear();
+  return true;
 }
 
 // Forgets what a remeasure asks for, every block after a width change or loaded fonts, otherwise
@@ -292,7 +311,7 @@ export function createPagination(options: PaginationOptions): Pagination {
   const cache = createMeasureCache();
   const counter = { cache, memory: createLayoutMemory(), ...createPaginationCounter(cache) };
   const readiness = createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange });
-  const runner: Runner = { ...unmounted, changed: true, passes: 0 };
+  const runner: Runner = { ...unmounted, changed: true, passes: 0, corrected: false };
   const context = { ...options, fragmentRules };
 
   const layOut = (): void => {
@@ -301,11 +320,11 @@ export function createPagination(options: PaginationOptions): Pagination {
     // A layout due as the editor goes, such as when the host remounts it, has nothing to lay out.
     if (!editor || !measuring || editor.isDestroyed || measuring.isDestroyed) return;
     if (editor.composing) return request();
-    if (runner.changed) runner.passes = 0;
+    if (runner.changed) Object.assign(runner, { passes: 0, corrected: false });
     else if (runner.passes >= LAYOUT_PASSES) return readiness.fail();
     runner.changed = false;
     try {
-      layOutFrom({ editor, measuring, runner }, context, counter);
+      if (layOutFrom({ editor, measuring, runner }, context, counter)) request();
     } catch (error) {
       readiness.fail();
       throw error;

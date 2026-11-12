@@ -110,6 +110,7 @@ describe('pagination stats', () => {
       sectionsRelaid: 0,
       sectionsReused: 0,
       pagesLaidOut: 0,
+      overflowPages: 0,
       pagesReused: 0,
       pagesRebuilt: 0,
     });
@@ -136,6 +137,7 @@ describe('pagination stats', () => {
       sectionsRelaid: 3,
       sectionsReused: 1,
       pagesLaidOut: 3,
+      overflowPages: 0,
       pagesReused: first.pagesReused + 2,
       pagesRebuilt: first.pagesRebuilt,
     });
@@ -273,6 +275,21 @@ describe('pagination latency', () => {
     view.dispatch(layoutNow(view.state.tr.insertText('x', firstText(view.state.doc))));
     frames.drain();
     expect(pagination.stats().layouts).toBe(3);
+    view.destroy();
+  });
+});
+
+describe('pagination validation', () => {
+  it('DOCE-PAGINATION-5.9 measures again once after a change when a page overflows', () => {
+    // The test DOM draws pages with no height, so a page of two paragraphs overflows.
+    stubLayout(100);
+    const { pagination, view, frames } = mount([['One', 'Two']]);
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4, overflowPages: 2 });
+    expect(pagination.layoutState()).toBe('settled');
+    view.dispatch(view.state.tr.insertText('First ', firstText(view.state.doc)));
+    frames.drain();
+    expect(pagination.stats()).toMatchObject({ layouts: 4, overflowPages: 4 });
     view.destroy();
   });
 });
