@@ -64,7 +64,7 @@ export type BottomChromeProps = ChromeProps & { openDialog: (dialog: ObjectDialo
  * The chrome above the document as it follows the editor: given the editor's values deferred
  * (`useDeferredValue`), it draws each state in a render after the one that draws the document,
  * which React may interrupt, and its controls read the editor's context as it draws them
- * (DOCE-EDITOR-1.6).
+ * (DOCE-EDITOR-1.7).
  */
 export const FollowingTopChrome = memo(function FollowingTopChrome(chrome: TopChromeProps) {
   return (
@@ -185,7 +185,7 @@ function BottomChrome({ props, context }: BottomChromeProps) {
 
 /**
  * The editor's context menu, on the editor's latest props rather than after them as the rest of the
- * chrome: it acts on the input that opens it (DOCE-EDITOR-1.6).
+ * chrome: it acts on the input that opens it (DOCE-EDITOR-1.7).
  */
 export function EditorContextMenu({
   props,

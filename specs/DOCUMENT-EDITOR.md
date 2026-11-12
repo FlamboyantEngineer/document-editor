@@ -39,21 +39,19 @@ While `active` is false, such as for an editor in a background tab, the editor s
 Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`
 
-<<<<<<< HEAD
-### DOCE-EDITOR-1.6 - The document first, the chrome after
-
-A state the host commits shall be drawn on the document before the chrome follows it: the toolbar, the menubar, the find bar and the status bar, and the host's controls inside them, shall take each new state and the editor's context (`useDocumentEditor`) in a render after the one that draws the document, which React may interrupt for the next key, so a keystroke does not wait for the chrome to draw. The chrome shall follow each layout of the pages too, so the status bar counts the pages shown. The context menu shall follow the document at once, as it acts on the click or key that opens it.
-
-Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-chrome.tsx`
-Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
-=======
 ### DOCE-EDITOR-1.6 - Accessibility
 
 The editor shall be usable with assistive technology: its scrolling frame is a named region that takes keyboard focus, so a read document scrolls from the keyboard (DOCE-EDITOR-4.2); the measuring view is hidden from it (DOCE-EDITOR-1.3); its parts announce through its live regions (DOCE-EDITOR-5.6). Every lab shall pass an axe scan with no serious or critical violation.
 
 Implementation: `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/a11y.spec.ts`
->>>>>>> origin/dev
+
+### DOCE-EDITOR-1.7 - The document first, the chrome after
+
+A state the host commits shall be drawn on the document before the chrome follows it: the toolbar, the menubar, the find bar and the status bar, and the host's controls inside them, shall take each new state and the editor's context (`useDocumentEditor`) in a render after the one that draws the document, which React may interrupt for the next key, so a keystroke does not wait for the chrome to draw. The chrome shall follow each layout of the pages too, so the status bar counts the pages shown. The context menu shall follow the document at once, as it acts on the click or key that opens it.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-chrome.tsx`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
 
 ## DOCE-EDITOR-2 - Layouts in the browser
 

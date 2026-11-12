@@ -111,7 +111,7 @@ describe('DocumentEditor', () => {
     expect(read).toHaveTextContent(/(?=.*Hello)(?=.*More)/);
   });
 
-  it('DOCE-EDITOR-1.6 has the chrome follow each state the pages show', async () => {
+  it('DOCE-EDITOR-1.7 has the chrome follow each state the pages show', async () => {
     const user = userEvent.setup();
     function Shown() {
       const editor = useDocumentEditor();
