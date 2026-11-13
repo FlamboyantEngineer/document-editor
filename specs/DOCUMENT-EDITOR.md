@@ -122,10 +122,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.6 - The host's entries
 
-`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `element`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context, and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
+`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `element`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context (DOCE-EDITOR-4.4), which says the editor's mode, markup, layout and zoom on the state the menu opens on, that the writer cannot edit at a locked position, and opens a dialog for an entry (`openDialog`), and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
 
 Implementation: `src/components/document-editor/context-target.ts`, `src/components/document-editor/context-providers.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/document-context-menu.tsx`, `labs/src/host-context-menu.ts`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.7 - Locked positions
 
@@ -166,10 +166,10 @@ Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/too
 
 ### DOCE-EDITOR-4.4 - The editor context
 
-The editor shall hand its context, the engine's view, the state shown, whether the writer can edit, the editing mode (`mode`: `edit`, `suggest`, `comment` while the document is read and its comments may be written, or `read`), whether changes are suggested, the markup, the layout, the zoom and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
+The editor shall hand its context, the engine's view, the state shown, whether the writer can edit, the editing mode (`mode`: `edit`, `suggest`, `comment` while the document is read and its comments may be written, or `read`), whether changes are suggested, the markup, the layout, the zoom and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items, to its context menu's providers (DOCE-EDITOR-3.6) and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
 
-Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `src/components/document-editor/mode-controls.test.tsx`, `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/document-context-menu.tsx`
+Verification: `src/components/document-editor/mode-controls.test.tsx`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.5 - Inserting objects
 

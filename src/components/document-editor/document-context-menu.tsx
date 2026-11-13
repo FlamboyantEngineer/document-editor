@@ -16,7 +16,7 @@ import { isFocusLost } from '../../utils/composed-focus.js';
 import type { ContextEntriesOptions } from './context-entries.js';
 import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
 import { resolveContextTarget } from './context-target.js';
-import { createEditorContext } from './editor-context.js';
+import { createEditorContext, type EditorContextOptions } from './editor-context.js';
 
 interface DocumentContextMenuProps extends Omit<ContextEntriesOptions, 'startComment'> {
   view: EditorView | null;
@@ -24,6 +24,11 @@ interface DocumentContextMenuProps extends Omit<ContextEntriesOptions, 'startCom
   startCommentRef: RefObject<(() => void) | null>;
   /** The host's providers and arrangement. */
   options: DocumentContextMenuOptions;
+  /**
+   * What the context handed to the providers says of the editor beside its view and state: its
+   * mode, markup, layout and zoom, and how it opens a dialog.
+   */
+  shown: EditorContextOptions;
 }
 
 // Whether a document position is inside the selection, a selected cell included.
@@ -84,12 +89,14 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner) return undefined;
     const show = (anchor: MenuPoint, pos: number) => {
-      const { startCommentRef, options: menu, ...options } = latest.current;
+      const { startCommentRef, options: menu, shown, ...options } = latest.current;
       const { state } = view;
       const target = resolveContextTarget(state, pos, options.editable);
+      // The providers get the editor as its other controls see it, on the state the menu opens
+      // on; at a locked position the writer cannot edit.
       const context = createEditorContext(view, state, {
+        ...shown,
         editable: options.editable && !target.locked,
-        labels: options.labels,
       });
       const entries = { ...options, startComment: startCommentRef.current };
       const items = composeContextMenu(view, target, { context, entries, menu });

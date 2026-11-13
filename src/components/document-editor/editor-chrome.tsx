@@ -19,7 +19,12 @@ import {
   ZOOM_LEVELS,
 } from './document-status-bar.js';
 import { DocumentToolbar } from './document-toolbar.js';
-import { DocumentEditorContext, type EditorContext, type ObjectDialog } from './editor-context.js';
+import {
+  contextOptionsOf,
+  DocumentEditorContext,
+  type EditorContext,
+  type ObjectDialog,
+} from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
@@ -247,6 +252,7 @@ export function EditorContextMenu({
       scriptRunner={props.scriptRunner}
       suggesting={editable && (props.suggesting ?? false)}
       options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
+      shown={contextOptionsOf(props, { labels: context.labels, openDialog })}
     />
   );
 }
