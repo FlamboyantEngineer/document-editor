@@ -36,7 +36,7 @@ const stamp = new Plugin({
 
 ## 3. Gate edits and merges with the edit lock
 
-The edit lock (DOCE-EDITING-4.1) refuses a writer's change that touches a locked position. Lock every position inside an element in a frozen state. A join of a draft paragraph into an approved one deletes the boundary at the approved paragraph's end, which is locked, so merging across states is refused too, while the draft stays editable. A list or a quote put around an approved paragraph, a lift out of one and a list item's indent are refused as well: they keep the paragraph's content but move it, so the lock checks the content they keep.
+The edit lock (DOCE-EDITING-4.1) refuses a writer's change that touches a locked position. Lock every position inside an element in a frozen state. A join of a draft paragraph into an approved one deletes the boundary at the approved paragraph's end, which is locked, so merging across states is refused too, while the draft stays editable. A list or a quote put around an approved paragraph, a lift out of one and a list item's indent are refused as well: they keep the paragraph's content but move it, so the lock checks the content they keep. An undo is the writer's change too: one that would take back an edit made to a paragraph before it was approved is refused, undo stops there, and `undoCommand` answers false once the writer has tried.
 
 ```ts
 const lock = createEditLock({

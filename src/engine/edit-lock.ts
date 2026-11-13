@@ -23,6 +23,18 @@ export interface EditLockOptions {
   readonly isLocked: (doc: ProseMirrorNode, pos: number) => boolean;
 }
 
+/** The history's undo or redo. */
+export type HistoryDirection = 'undo' | 'redo';
+
+/** What a state's lock holds: how the host locks positions, and the undo it last refused. */
+export interface EditLockState extends EditLockOptions {
+  /**
+   * The undo or redo of the history the lock was found to refuse (`undoCommand`), until the
+   * history has another change to offer; else null.
+   */
+  readonly refused: HistoryDirection | null;
+}
+
 type Locked = EditLockOptions['isLocked'];
 
 interface Range {
@@ -30,8 +42,11 @@ interface Range {
   readonly to: number;
 }
 
-/** The lock a document runs with. */
-export const editLockKey = new PluginKey<EditLockOptions>('edit-lock');
+/**
+ * The lock a document runs with. A transaction with this meta, an undo or a redo by name, reports
+ * that the lock refuses what the history offers there.
+ */
+export const editLockKey = new PluginKey<EditLockState>('edit-lock');
 
 // Whether the writer may not change anything in a range: its first and last position, or the
 // point it is at when empty, and the inside of every block and inline node it covers, so a step
@@ -122,12 +137,25 @@ export function touchesLock(tr: Transaction, isLocked: Locked): boolean {
 export const isWritersChange = (tr: Transaction) =>
   tr.getMeta('addToHistory') !== false && isLocalEdit(tr);
 
+/** Whether a lock refuses a transaction: a writer's change that touches a locked position. */
+export const isRefusedBy = (lock: EditLockOptions, tr: Transaction): boolean =>
+  isWritersChange(tr) && touchesLock(tr, lock.isLocked);
+
+// The refused undo a transaction leaves: the one it reports, or none once a change the history
+// records gives it another to offer; a change kept out of the history leaves the same one on offer.
+function refusedAfter(tr: Transaction, value: EditLockState): EditLockState {
+  const reported = tr.getMeta(editLockKey) as HistoryDirection | undefined;
+  const recorded = tr.docChanged && tr.getMeta('addToHistory') !== false;
+  const refused = reported ?? (recorded ? null : value.refused);
+  return refused === value.refused ? value : { ...value, refused };
+}
+
 /** The plugin refusing a writer's change to a locked position. */
-export function createEditLock(options: EditLockOptions): Plugin<EditLockOptions> {
-  return new Plugin<EditLockOptions>({
+export function createEditLock(options: EditLockOptions): Plugin<EditLockState> {
+  return new Plugin<EditLockState>({
     key: editLockKey,
-    state: { init: () => options, apply: (_, value) => value },
-    filterTransaction: (tr) => !isWritersChange(tr) || !touchesLock(tr, options.isLocked),
+    state: { init: () => ({ ...options, refused: null }), apply: refusedAfter },
+    filterTransaction: (tr) => !isRefusedBy(options, tr),
   });
 }
 

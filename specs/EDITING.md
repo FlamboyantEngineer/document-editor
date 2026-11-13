@@ -160,8 +160,10 @@ Verification: `src/engine/hot-path.test.ts`
 
 `createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records that is neither remote, derived nor a system change (DOCE-EDITING-3.2), when any of its steps changes a position `isLocked(doc, pos)` reports locked: any position of a range it replaces or marks, the inside of every block and inline node that range covers, the edges a structure change replaces around the content it keeps, the inside of a node it sets attributes or marks on, or the point it inserts at. A step that spans a locked block between two open ones is refused. A structure change that moves the content it keeps into or out of a block, as a list or a quote put around it, a lift out of one and a list item's indent do, is refused when that content holds a locked position, since the edges of such a change lie between blocks; a change of the type or the attributes of a block around a locked one changes only that block, and is judged by its own positions. A comment's highlight may be added to and removed from locked content. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, and system changes pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
 
-Implementation: `src/engine/edit-lock.ts`
-Verification: `src/engine/edit-lock.test.ts`
+An undo or a redo of the history is a writer's change, so one that would change a position locked since is refused, and the history, which a refused change leaves as it was, offers the same one again: undo stops at that change until the lock opens. `undoCommand` and `redoCommand`, run on the history under a lock, shall then dispatch no such change but a transaction that reports it to the lock (`editLockKey` meta, `undo` or `redo`), still handling their key, and asked without a dispatch they shall answer false from then on, so a control that asks shows undo as unavailable, until a change the history records gives it another to offer. The lock's state holds what it refused (`refused`).
+
+Implementation: `src/engine/edit-lock.ts`, `src/engine/undo-commands.ts`
+Verification: `src/engine/edit-lock.test.ts`, `src/engine/undo-commands.test.ts`
 
 ### DOCE-EDITING-4.2 - Locked sections by default
 
