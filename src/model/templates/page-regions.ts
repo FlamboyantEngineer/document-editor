@@ -3,7 +3,12 @@
 // content: a stored document never holds them, so a host sets them after reading a document and
 // again when its template changes.
 
-import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
+import {
+  Fragment,
+  type Node as ProseMirrorNode,
+  type NodeType,
+  type Schema,
+} from 'prosemirror-model';
 import type { Transform } from 'prosemirror-transform';
 import type { RegionSettings, TemplateFile } from '../format/template-format.js';
 import { resolveSectionRegion } from '../format/template-format-resolve.js';
@@ -28,9 +33,23 @@ function ownRegion(section: ProseMirrorNode, region: 'header' | 'footer'): Regio
   return own && typeof own === 'object' ? (own as RegionSettings) : null;
 }
 
+// A region's content as its page region holds it, or null when the region cannot hold it: content
+// that cannot be read, or that a header or footer does not allow, such as a column layout.
+function regionFragment(content: unknown, type: NodeType | undefined): Fragment | null {
+  if (!type) return null;
+  try {
+    const fragment = Fragment.from(readTemplateContent(content, type.schema));
+    return type.validContent(fragment) ? fragment : null;
+  } catch {
+    return null;
+  }
+}
+
+type RegionContents = Record<RegionName, Fragment | null>;
+
 function regionContents(template: TemplateFile, schema: Schema) {
-  const known = new Map<string | null, Record<RegionName, Fragment>>();
-  return (section: ProseMirrorNode): Record<RegionName, Fragment> => {
+  const known = new Map<string | null, RegionContents>();
+  return (section: ProseMirrorNode): RegionContents => {
     const sectionName = (section.attrs.sectionName as string | null) ?? null;
     const own = { header: ownRegion(section, 'header'), footer: ownRegion(section, 'footer') };
     const shared = !own.header && !own.footer;
@@ -38,16 +57,17 @@ function regionContents(template: TemplateFile, schema: Schema) {
     if (cached) return cached;
     const scope = findTemplateSection(template, sectionName);
     // The document section's own region over its template section's, field by field.
-    const read = (region: 'header' | 'footer') => {
+    const read = (name: RegionName) => {
+      const region = REGIONS[name];
       const inherited = resolveSectionRegion(template, scope, region);
       const resolved = resolveSectionRegion(
         { [region]: inherited },
         { [region]: own[region] },
         region,
       );
-      return Fragment.from(readTemplateContent(resolved?.content ?? [], schema));
+      return regionFragment(resolved?.content ?? [], schema.nodes[name]);
     };
-    const contents = { page_header: read('header'), page_footer: read('footer') };
+    const contents = { page_header: read('page_header'), page_footer: read('page_footer') };
     if (shared) known.set(sectionName, contents);
     return contents;
   };
@@ -76,7 +96,7 @@ export interface PageRegionOptions {
 /**
  * Sets every page's header and footer to its section's template regions, read-only unless asked,
  * and returns the transform. Regions that already hold them are left alone, so setting them again
- * changes nothing.
+ * changes nothing, and so is a region that cannot hold its content.
  */
 export function setPageRegions<T extends Transform>(
   tr: T,
@@ -93,7 +113,12 @@ export function setPageRegions<T extends Transform>(
         const name = node.type.name;
         if (!isRegion(name)) return;
         const sectionName = (section.attrs.sectionName as string | null) ?? null;
-        const content = edits?.get(`${sectionName ?? ''}\u0000${REGIONS[name]}`) ?? contents[name];
+        // A region keeps what it holds when it cannot hold its content: building it would throw
+        // in the transaction that sets the regions, and no edit could be made.
+        const content =
+          edits?.get(`${sectionName ?? ''}\u0000${REGIONS[name]}`) ??
+          contents[name] ??
+          node.content;
         const shown = editable ? withParagraph(content, node.type.schema) : content;
         const kept =
           node.content.eq(shown) || (isEmptyParagraph(shown) && isEmptyParagraph(node.content));

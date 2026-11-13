@@ -6,7 +6,8 @@
 
 import { StatusBar } from '@flamboyantengineer/ui-components/layout';
 import { ZoomControl } from '@flamboyantengineer/ui-components/zoom-control';
-import type { ReactNode } from 'react';
+import type { EditorState } from 'prosemirror-state';
+import { memo, type ReactNode } from 'react';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { ConnectionStatusItem, type EditorSession, SaveStatusItem } from './save-status-item.js';
@@ -77,6 +78,11 @@ interface DocumentStatusBarProps {
   zoom?: EditorZoom | null;
   /** Switches the layout, which the bar then offers. */
   onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
+  /**
+   * The pages' state while they are a projection of the editor's state: the bar's items follow
+   * each layout of it, as the page count.
+   */
+  pages?: EditorState | null | undefined;
   className?: string | undefined;
 }
 
@@ -147,8 +153,12 @@ function itemsAt(items: readonly StatusBarItem[], side: StatusBarItem['side']) {
     ));
 }
 
-/** The editor's status bar, reporting on the editor it is in. */
-export function DocumentStatusBar(props: DocumentStatusBarProps) {
+/**
+ * The editor's status bar, reporting on the editor it is in: its items follow the editor
+ * themselves, so the bar is drawn again only when its own props change, as for each layout of the
+ * pages (DOCE-EDITOR-1.7).
+ */
+export const DocumentStatusBar = memo(function DocumentStatusBar(props: DocumentStatusBarProps) {
   const { options, labels, className } = props;
   const builtIn = editorItems(props);
   const items = options.arrange ? options.arrange(builtIn) : builtIn;
@@ -158,4 +168,4 @@ export function DocumentStatusBar(props: DocumentStatusBarProps) {
       <span {...hooks.slot('status-end')}>{itemsAt(items, 'end')}</span>
     </StatusBar>
   );
-}
+});

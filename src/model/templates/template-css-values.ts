@@ -97,7 +97,7 @@ export function resolveFontStack(
   fallback = '',
   fontStacks: Readonly<Record<string, string>> = {},
 ): string {
-  const raw = font?.trim() || fallback;
+  const raw = (typeof font === 'string' ? font.trim() : '') || fallback;
   const hosted = Object.hasOwn(fontStacks, raw) ? fontStacks[raw] : undefined;
   if (hosted) return hosted;
   return raw.split(',').map(sanitizeFontFamily).filter(Boolean).join(', ') || fallback;

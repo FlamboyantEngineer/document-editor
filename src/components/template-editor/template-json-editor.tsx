@@ -37,11 +37,14 @@ const NO_ERRORS: readonly string[] = [];
 
 // The errors of a text as a template: not JSON, or the template's own.
 function errorsOf(text: string, labels: TemplateJsonEditorLabels): readonly string[] {
+  let parsed: unknown;
   try {
-    return validateTemplateFile(JSON.parse(text));
+    parsed = JSON.parse(text);
   } catch {
     return [labels.notJson];
   }
+  // Outside the catch, so a failure of validation is never shown as text that is not JSON.
+  return validateTemplateFile(parsed);
 }
 
 /** Edits a template as JSON, handing each valid template to the host. */

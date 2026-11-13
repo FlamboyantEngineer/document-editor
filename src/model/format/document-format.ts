@@ -25,7 +25,7 @@ export interface StoredNode {
   content?: StoredNode[];
   /** A text node's text. */
   text?: string;
-  /** A text node's marks. */
+  /** The node's marks: a text's, or those of another node, such as a mention suggested deleted. */
   marks?: StoredMark[];
 }
 

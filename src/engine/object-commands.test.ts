@@ -178,4 +178,11 @@ describe('object commands', () => {
     expect(state.doc.textBetween(0, state.doc.content.size)).toContain('https://c.examplehere');
     expect(setLink('')(select(state, 'See'))).toBe(false);
   });
+
+  it('DOCE-OBJECTS-1.6 refuses an address that could run script', () => {
+    const state = select(stateOf(paragraph('See the spec here.')), 'spec', 4);
+    expect(setLink('javascript:alert(1)')(state)).toBe(false);
+    expect(setLink(' JavaScript:alert(1)')(state)).toBe(false);
+    expect(setLink('mailto:ada@example.com')(state)).toBe(true);
+  });
 });
