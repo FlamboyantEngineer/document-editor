@@ -198,6 +198,28 @@ describe('template properties', () => {
     });
   });
 
+  it('DOCE-TEMPLATES-5.9 merges a section change bars over the document kind by kind', () => {
+    const template: TemplateFile = {
+      formatVersion: 1,
+      id: 'bars',
+      changeBars: {
+        insertions: { enabled: false, color: '#00dd00' },
+        deletions: { color: '#dd0000' },
+      },
+    };
+    // A section that sets only a colour keeps whether the document shows the kind.
+    const recoloured = templateProperties(template, {
+      section: { name: 'annex', changeBars: { insertions: { color: '#008800' }, deletions: null } },
+    });
+    expect(recoloured['--doc-change-bar-insertions-color']).toBe('transparent');
+    // A kind the section leaves unset, or sets to nothing, is the document's.
+    expect(recoloured['--doc-change-bar-deletions-color']).toBe('#dd0000');
+    const shown = templateProperties(template, {
+      section: { name: 'annex', changeBars: { insertions: { enabled: true } } },
+    });
+    expect(shown['--doc-change-bar-insertions-color']).toBe('#00dd00');
+  });
+
   it('DOCE-NUMBERING-2.6 reads switched-off numbering as an empty format, keeping the format', () => {
     const off = { enabled: false } as const;
     const properties = templateProperties({

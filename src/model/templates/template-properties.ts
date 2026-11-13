@@ -185,10 +185,11 @@ export function templateProperties(
     ...textStyleProperties(styles, fontStacks),
     ...numberingProperties(styles),
     ...buildCaptionPlacementVariables(styles),
-    // A section with change bars of its own sets them over the document's; one without inherits.
+    // A section with change bars of its own sets them over the document's, setting by setting,
+    // as every other section scope does; one without inherits.
     ...changeBarProperties(
       section
-        ? section.changeBars && { ...template.changeBars, ...section.changeBars }
+        ? section.changeBars && mergeTemplateSettings(template.changeBars, section.changeBars)
         : template.changeBars,
     ),
   };
