@@ -32,8 +32,15 @@ const hooks = createHooks('script-editor', ['source', 'aside']);
 // How long the script stays unchanged before the host checks it, in milliseconds.
 const CHECK_DELAY = 400;
 
-// The problems the host's check finds in the script, a moment after it stops changing.
-function useScriptCheck(runner: ScriptRunnerAdapter, script: string): readonly CodeDiagnostic[] {
+interface ScriptCheck {
+  readonly diagnostics: readonly CodeDiagnostic[];
+  /** Whether the host checks scripts and has not yet answered for this one. */
+  readonly pending: boolean;
+}
+
+// The problems the host's check finds in the script, a moment after it stops changing. A check
+// that fails finds none, so it never keeps the script from being applied.
+function useScriptCheck(runner: ScriptRunnerAdapter, script: string): ScriptCheck {
   const [found, setFound] = useState<{ script: string; diagnostics: CodeDiagnostic[] }>({
     script: '',
     diagnostics: [],
@@ -41,11 +48,14 @@ function useScriptCheck(runner: ScriptRunnerAdapter, script: string): readonly C
   useEffect(() => {
     if (!runner.check || !script.trim()) return undefined;
     const controller = new AbortController();
+    const answer = (diagnostics: CodeDiagnostic[]) => {
+      if (!controller.signal.aborted) setFound({ script, diagnostics });
+    };
     const timer = setTimeout(() => {
-      void runner.check?.(script, controller.signal).then((result) => {
-        if (controller.signal.aborted) return;
-        setFound({ script, diagnostics: result.ok ? [...result.value] : [] });
-      });
+      runner.check?.(script, controller.signal).then(
+        (result) => answer(result.ok ? [...result.value] : []),
+        () => answer([]),
+      );
     }, CHECK_DELAY);
     return () => {
       clearTimeout(timer);
@@ -53,7 +63,11 @@ function useScriptCheck(runner: ScriptRunnerAdapter, script: string): readonly C
     };
   }, [runner, script]);
   // Problems found in an older script no longer hold.
-  return found.script === script ? found.diagnostics : [];
+  const answered = found.script === script;
+  return {
+    diagnostics: answered ? found.diagnostics : [],
+    pending: Boolean(runner.check) && Boolean(script.trim()) && !answered,
+  };
 }
 
 type OpenedBlock = NonNullable<ReturnType<typeof scriptBlockAt>>;
@@ -171,7 +185,7 @@ export function ScriptDialog({
   const [found] = useState(() => scriptBlockAt(view.state));
   const [script, setScript] = useState(String(found?.node.attrs.script ?? ''));
   const { preview, refresh, reset } = useScriptPreview(view, runner, { script, labels });
-  const diagnostics = useScriptCheck(runner, script);
+  const { diagnostics, pending } = useScriptCheck(runner, script);
   const vocabulary = useMemo(
     () => [...(runner.vocabulary ?? []), ...SCRIPT_STANDARD_VOCABULARY],
     [runner],
@@ -186,7 +200,7 @@ export function ScriptDialog({
       title={titleOf(found ? labels.editScript : labels.script)}
       primaryAction={{
         label: labels.applyAndRun,
-        isDisabled: !script.trim() || blocked,
+        isDisabled: !script.trim() || blocked || pending,
         // The dialog closes once the script is in the document: while its block is gone the
         // dialog stays, saying so, with the script the writer would otherwise lose.
         onPress: (close: () => void) => {

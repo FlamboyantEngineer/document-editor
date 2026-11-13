@@ -91,4 +91,42 @@ describe('ScriptDialog', () => {
     expect(host.run).not.toHaveBeenCalled();
     expect(shown.state.doc).toBe(before);
   });
+
+  it("DOCE-EDITOR-4.9 keeps Apply and run disabled until the host's check of the script answers", async () => {
+    const user = userEvent.setup();
+    let answer: (diagnostics: []) => void = () => undefined;
+    const host = {
+      ...runner(),
+      check: vi.fn<NonNullable<ScriptRunnerAdapter['check']>>(
+        () =>
+          new Promise((resolve) => {
+            answer = (value) => resolve({ ok: true, value });
+          }),
+      ),
+    };
+    openDialog(host);
+    await writeScript(user, 'fresh()');
+    const apply = screen.getByRole('button', { name: 'Apply and run' });
+    expect(apply).toBeDisabled();
+    await waitFor(() => expect(host.check).toHaveBeenCalled());
+    expect(apply).toBeDisabled();
+    act(() => answer([]));
+    await waitFor(() => expect(apply).toBeEnabled());
+  });
+
+  it('DOCE-EDITOR-4.9 lets a script be applied when the check fails', async () => {
+    const user = userEvent.setup();
+    const host = {
+      ...runner(),
+      check: vi.fn<NonNullable<ScriptRunnerAdapter['check']>>(() =>
+        Promise.reject(new Error('offline')),
+      ),
+    };
+    openDialog(host);
+    await writeScript(user, 'fresh()');
+    await waitFor(() => expect(host.check).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Apply and run' })).toBeEnabled(),
+    );
+  });
 });
