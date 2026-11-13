@@ -17,10 +17,12 @@ import { DecorationSet, type EditorView } from 'prosemirror-view';
 import { viewOnlyInline } from '../utils/view-only-decorations.js';
 import {
   findMatches,
+  findMatchesInBlocks,
   isMatchReplaceable,
   type SearchMatch,
   type SearchOptions,
 } from './search-text.js';
+import { isInlineTextOnly } from './transaction-kind.js';
 
 export type { SearchMatch, SearchOptions } from './search-text.js';
 export { isMatchReplaceable, searchSeed } from './search-text.js';
@@ -66,12 +68,13 @@ const attributes: Readonly<Record<SearchScope, string>> = {
   pane: SEARCH_RESULT_ATTR,
 };
 
+const decorationOf = (scope: SearchScope, match: SearchMatch, current: boolean) =>
+  viewOnlyInline(match, { [attributes[scope]]: current ? 'current' : 'match' });
+
 function decorate(doc: ProseMirrorNode, scope: SearchScope, value: SearchState) {
   return DecorationSet.create(
     doc,
-    value.matches.map((match, index) =>
-      viewOnlyInline(match, { [attributes[scope]]: index === value.current ? 'current' : 'match' }),
-    ),
+    value.matches.map((match, index) => decorationOf(scope, match, index === value.current)),
   );
 }
 
@@ -107,7 +110,80 @@ function apply(scope: SearchScope, tr: Transaction, value: SearchState): SearchS
   // behind it: by its start a match is never one the replacement holds, nor the match before it.
   const near = value.matches[value.current]?.from;
   const start = meta ? meta.after : near === undefined ? 0 : tr.mapping.map(near);
-  return searched({ doc, scope, from: (match) => match.from >= start }, value);
+  const from = (match: SearchMatch) => match.from >= start;
+  if (!meta && isInlineTextOnly(tr)) return typed({ tr, scope, from }, value);
+  return searched({ doc, scope, from }, value);
+}
+
+// The start of each text block a typing change touched, in the document after it.
+function typedBlocks(tr: Transaction): number[] {
+  const starts = new Set<number>();
+  tr.steps.forEach((step, index) => {
+    const rest = tr.mapping.slice(index + 1);
+    step.getMap().forEach((...[, , start, end]) => {
+      for (const pos of [rest.map(start, -1), rest.map(end, 1)]) {
+        const $pos = tr.doc.resolve(pos);
+        if ($pos.parent.isTextblock) starts.add($pos.before());
+      }
+    });
+  });
+  return [...starts].sort((one, other) => one - other);
+}
+
+/**
+ * After a change that only types text: the matches of other blocks mapped, those of the blocks
+ * it touched found again, and the decorations changed only there and where the current match was
+ * or now is (DOCE-SEARCH-1.1), so typing never walks the document.
+ */
+function typed(
+  {
+    tr,
+    scope,
+    from,
+  }: { tr: Transaction; scope: SearchScope; from: (match: SearchMatch) => boolean },
+  value: SearchState,
+): SearchState {
+  const { doc } = tr;
+  const blocks = typedBlocks(tr).map((pos) => ({
+    from: pos,
+    to: pos + (doc.nodeAt(pos)?.nodeSize ?? 0),
+  }));
+  const inTyped = (pos: number) => blocks.some((block) => pos > block.from && pos < block.to);
+  const kept: SearchMatch[] = [];
+  for (const match of value.matches) {
+    const start = tr.mapping.mapResult(match.from, 1);
+    const end = tr.mapping.mapResult(match.to, -1);
+    if (start.deleted || end.deleted || end.pos <= start.pos || inTyped(start.pos)) continue;
+    kept.push({ from: start.pos, to: end.pos });
+  }
+  const found = findMatchesInBlocks(
+    doc,
+    blocks.map((block) => block.from),
+    value,
+  );
+  const matches = [...kept, ...found].sort((one, other) => one.from - other.from);
+  const current = matches.length === 0 ? -1 : Math.max(matches.findIndex(from), 0);
+  const next = { ...value, matches, current };
+  // Drawn again: the typed blocks, and the matches that were or are now current.
+  const was = value.matches[value.current];
+  const dirty = [...blocks];
+  if (was) dirty.push({ from: tr.mapping.map(was.from, 1), to: tr.mapping.map(was.to, -1) });
+  const now = matches[current];
+  if (now) dirty.push(now);
+  let decorations = value.decorations.map(tr.mapping, doc);
+  const redrawn = new Set<number>();
+  for (const range of dirty) {
+    decorations = decorations.remove(decorations.find(range.from, range.to));
+    matches.forEach((match, index) => {
+      if (match.to >= range.from && match.from <= range.to) redrawn.add(index);
+    });
+  }
+  const one = (index: number) => {
+    const match = matches[index];
+    return match && decorationOf(scope, match, index === current);
+  };
+  const added = [...redrawn].map(one).filter((each) => each !== undefined);
+  return { ...next, decorations: decorations.add(doc, added) };
 }
 
 /** The plugin of one search, the find bar's by default. */

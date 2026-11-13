@@ -79,25 +79,55 @@ export function searchedText(
   return { text, spans };
 }
 
+type Query = { readonly query: string; readonly options: SearchOptions };
+
+// Each match of a pattern in one text block.
+function blockMatches(node: ProseMirrorNode, pos: number, regexp: RegExp): SearchMatch[] {
+  const { text, spans } = searchedText(node, pos);
+  const matches: SearchMatch[] = [];
+  for (const match of text.matchAll(regexp)) {
+    const first = spans[match.index];
+    const last = spans[match.index + match[0].length - 1];
+    if (first && last) matches.push({ from: first.from, to: last.to });
+  }
+  return matches;
+}
+
 /** Each match of a query in the document's text blocks, page headers and footers left out. */
-export function findMatches(
-  doc: ProseMirrorNode,
-  { query, options }: { query: string; options: SearchOptions },
-): SearchMatch[] {
+export function findMatches(doc: ProseMirrorNode, { query, options }: Query): SearchMatch[] {
   const regexp = pattern(query, options);
   if (!regexp) return [];
   const matches: SearchMatch[] = [];
   doc.descendants((node, pos) => {
     if (skipped.has(regionKind(node))) return false;
     if (!node.isTextblock) return true;
-    const { text, spans } = searchedText(node, pos);
-    for (const match of text.matchAll(regexp)) {
-      const first = spans[match.index];
-      const last = spans[match.index + match[0].length - 1];
-      if (first && last) matches.push({ from: first.from, to: last.to });
-    }
+    matches.push(...blockMatches(node, pos, regexp));
     return false;
   });
+  return matches;
+}
+
+/**
+ * Each match of a query in the text blocks at some positions, in their order, those in page
+ * headers and footers left out; as `findMatches` finds them, without walking the document.
+ */
+export function findMatchesInBlocks(
+  doc: ProseMirrorNode,
+  blocks: readonly number[],
+  { query, options }: Query,
+): SearchMatch[] {
+  const regexp = pattern(query, options);
+  if (!regexp) return [];
+  const matches: SearchMatch[] = [];
+  for (const pos of blocks) {
+    const node = doc.nodeAt(pos);
+    const $pos = doc.resolve(pos);
+    let shown = Boolean(node?.isTextblock);
+    for (let depth = $pos.depth; shown && depth > 0; depth -= 1) {
+      if (skipped.has(regionKind($pos.node(depth)))) shown = false;
+    }
+    if (node && shown) matches.push(...blockMatches(node, pos, regexp));
+  }
   return matches;
 }
 

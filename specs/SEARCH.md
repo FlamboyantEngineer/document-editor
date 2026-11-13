@@ -6,7 +6,7 @@ Finding and replacing text in a document. Two searches run side by side, each a 
 
 ### DOCE-SEARCH-1.1 - Matches
 
-`createSearch()` shall keep a query (`setSearch(query, { caseSensitive, wholeWord })`, out of the history) and its matches in every text block of the document, page headers and footers left out, an inline node read as the text it shows (DOCE-SEARCH-1.6) and matched whole, ignoring case unless asked and matching whole words only when asked; each match is marked by a decoration carrying `data-search-match`, `current` for the current match and `match` otherwise. The first current match is the first at or after the selection, and the matches follow every change. An empty query clears them.
+`createSearch()` shall keep a query (`setSearch(query, { caseSensitive, wholeWord })`, out of the history) and its matches in every text block of the document, page headers and footers left out, an inline node read as the text it shows (DOCE-SEARCH-1.6) and matched whole, ignoring case unless asked and matching whole words only when asked; each match is marked by a decoration carrying `data-search-match`, `current` for the current match and `match` otherwise. The first current match is the first at or after the selection, and the matches follow every change; a change that only types text (`isInlineTextOnly`) searches again only the text blocks it touched and maps the other matches, walking no other block. An empty query clears them.
 
 Implementation: `src/engine/search.ts`, `src/engine/search-text.ts`
 Verification: `src/engine/search.test.ts`, `src/engine/host-domain-recipe.test.ts`

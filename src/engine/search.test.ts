@@ -1,6 +1,7 @@
+import { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
@@ -55,6 +56,42 @@ describe('search', () => {
     expect(searchKey.getState(state)?.matches).toHaveLength(2);
     state = run(state, setSearch(''));
     expect(searchKey.getState(state)?.matches).toEqual([]);
+  });
+
+  it('DOCE-SEARCH-1.1 follows typed text by searching again only the blocks it changed', () => {
+    let state = run(stateOf('log one', 'two', 'log three', 'log four'), setSearch('log'));
+    state = run(state, selectNextMatch);
+    let typedAt = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'two') typedAt = pos + 3;
+    });
+    const descendants = vi.spyOn(Node.prototype, 'descendants');
+    const typed = state.apply(state.tr.insertText('lo', typedAt).insertText('g', typedAt + 2));
+    const walked = descendants.mock.contexts.filter(
+      (node) => (node as Node).type.name === 'doc',
+    ).length;
+    descendants.mockRestore();
+    expect(walked).toBe(0);
+    const fresh = run(
+      EditorState.create({ doc: typed.doc, plugins: [createSearch()] }),
+      setSearch('log'),
+    );
+    const found = searchState(typed);
+    expect(found?.matches).toEqual(searchState(fresh)?.matches);
+    expect(found?.matches).toHaveLength(4);
+    const marks = (each: EditorState) =>
+      (searchKey.getState(each)?.decorations.find() ?? []).map((decoration) => [
+        decoration.from,
+        decoration.to,
+        (decoration as unknown as { type: { attrs: Record<string, string> } }).type.attrs[
+          SEARCH_MATCH_ATTR
+        ],
+      ]);
+    expect(marks(typed).map(([from, to]) => [from, to])).toEqual(
+      found?.matches.map((match) => [match.from, match.to]),
+    );
+    expect(marks(typed).filter(([, , kind]) => kind === 'current')).toHaveLength(1);
+    expect(marks(typed)[found?.current ?? -1]?.[2]).toBe('current');
   });
 
   it('DOCE-SEARCH-1.2 moves between matches, wrapping around', () => {
