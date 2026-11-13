@@ -5,7 +5,7 @@
 //   node scripts/check-references.mjs              scan tracked and untracked, non-ignored files
 //   node scripts/check-references.mjs --dir <path> scan every file under <path> (e.g. an unpacked tarball)
 //   node scripts/check-references.mjs --encode <regex> [flags]   print a denylist entry
-//   --denylist <path> reads another denylist file of the same shape (the script's own tests use one)
+//   --denylist <path> reads another denylist file of the same shape
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
