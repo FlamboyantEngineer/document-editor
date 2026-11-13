@@ -8,6 +8,9 @@ import { type TemplatePreview, TemplateWorkspace } from './template-workspace.js
 
 // The whole template editor renders in each test, which takes seconds on a shared CI runner.
 const SLOW = 45_000;
+// Opening a template loads it from the store and renders the editor again, which a busy runner
+// can take over a second to finish: waits on that use a longer window than the default second.
+const LOADED = { timeout: 10_000 };
 
 const REPORT: TemplateFile = { formatVersion: 1, id: 'report', name: 'Report' };
 const LETTER: TemplateFile = { formatVersion: 1, id: 'letter', name: 'Letter', parent: 'report' };
@@ -237,15 +240,19 @@ describe('TemplateWorkspace', () => {
       const dialog = await screen.findByRole('alertdialog');
       expect(within(dialog).getByText('Changes to Unsaved')).toBeInTheDocument();
       await user.click(within(dialog).getByRole('button', { name: /Stay/ }));
-      await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+      await waitFor(
+        () => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+        LOADED,
+      );
       expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Unsaved');
       await user.click(screen.getByRole('button', { name: /Template/ }));
       await user.click(await screen.findByRole('option', { name: /Letter/ }));
       await user.click(
         within(await screen.findByRole('alertdialog')).getByRole('button', { name: /Discard/ }),
       );
-      await waitFor(() =>
-        expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Letter'),
+      await waitFor(
+        () => expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Letter'),
+        LOADED,
       );
     },
     SLOW,

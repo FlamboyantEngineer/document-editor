@@ -43,7 +43,7 @@ Verification: `labs/src/chrome/settings.test.ts`, `e2e/labs.spec.ts`
 
 ### DOCE-LABS-2.1 - Stress documents
 
-The stress labs shall show a generated document, the same on every load, in the document editor with its toolbar, status bar and scrolling frame, proofed by a word-list proofer, filling the window below their controls: `stress-long`, a very long document of varied content (headings at three levels, text with footnotes, nested lists, tables, code, quotes and rules after a table of contents) in sizes up to a few hundred pages; `stress-tables`, many kinds of tables (small, wide, tall across pages, merged cells, sized columns, long cell text, back to back and in runs) in sets; and `stress-pagination`, the cases pagination finds hardest (a paragraph, a code block, a list and a quote longer than a page, a run of headings, many and long footnotes on one page, page breaks in a row, empty paragraphs, a table row taller than a page and many short blocks). Every page holds its content.
+The stress labs shall show a generated document, the same on every load, in the document editor with its toolbar, status bar and scrolling frame, proofed by a word-list proofer and completed inline by a provider that offers the same words after every pause, filling the window below their controls: `stress-long`, a very long document of varied content (headings at three levels, text with footnotes, nested lists, tables, code, quotes and rules after a table of contents) in sizes up to a few hundred pages; `stress-tables`, many kinds of tables (small, wide, tall across pages, merged cells, sized columns, long cell text, back to back and in runs) in sets; and `stress-pagination`, the cases pagination finds hardest (a paragraph, a code block, a list and a quote longer than a page, a run of headings, many and long footnotes on one page, page breaks in a row, empty paragraphs, a table row taller than a page and many short blocks). Every page holds its content.
 
 Implementation: `labs/src/stress/stress-documents.ts`, `labs/src/stress/stress-lab.tsx`, `labs/src/stress-long.lab.tsx`, `labs/src/stress-tables.lab.tsx`, `labs/src/stress-pagination.lab.tsx`
 Verification: `e2e/stress.spec.ts`
@@ -93,7 +93,7 @@ Verification: `e2e/budget-counters.performance.spec.ts`
 
 ### DOCE-LABS-3.1 - The template editor beside a document
 
-The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once.
+The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once. Host options mark the template as never saved, fail its parent's load, disable the editor and lock the parent in the JSON text; the lab offers its own fonts and reports section renames and whether the JSON text reads as a template.
 
 Implementation: `labs/src/template-editor.lab.tsx`, `labs/template-editor.html`
 Verification: `e2e/template-editor.spec.ts`
@@ -121,7 +121,7 @@ Verification: `e2e/import-export.spec.ts`
 
 ### DOCE-LABS-3.5 - Automation on stored documents
 
-The automation lab shall mimic a host's server over the in-memory store: an agent, person or system reads the stored document and sends a batch of edits against the revision it read, directly or as suggestions, and the host saves the result and keeps the threads the batch opened. Another writer saving first makes the batch a conflict, and a locked section or text that moved refuses it. The host runs the document's scripts, accepts or rejects every suggestion, lists what changed since the save before and shows the JSON Schemas it offers an agent.
+The automation lab shall mimic a host's server over the in-memory store: an agent, person or system reads the stored document and sends a batch of edits against the revision it read, directly or as suggestions, and the host saves the result and keeps the threads the batch opened. Another writer saving first makes the batch a conflict, and a locked section or text that moved refuses it. The host runs the document's scripts, accepts or rejects every suggestion, lists what changed since the save before and shows the JSON Schemas it offers an agent. The stored-file readers run on the stored document without an editor: the element with an id, the text, the citations, the reference targets, the required sections a stricter template lacks and the thread anchors; the host moves the document to that template and accepts one suggestion on the stored file.
 
 Implementation: `labs/src/automation.lab.tsx`, `labs/automation.html`
 Verification: `e2e/automation-lab.spec.ts`
@@ -132,6 +132,13 @@ The side panels lab shall show the panel at the document's start controlled by t
 
 Implementation: `labs/src/panels.lab.tsx`, `labs/panels.html`
 Verification: `e2e/panels.spec.ts`
+
+### DOCE-LABS-3.7 - Template content in place
+
+The template content lab shall show a template's preview in parts beside the template as JSON: a read-only sample, then each template section's content and placeholder, edited in place with the toolbar and its variable menu, and the headers and footers, each edit written into the template.
+
+Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
+Verification: `e2e/template-content.spec.ts`
 
 ## DOCE-LABS-4 - Regression labs
 

@@ -74,21 +74,33 @@ function regionsOf(doc: ProseMirrorNode): RegionAt[] {
   }));
 }
 
+// The range a step changed, in the document after it: what it replaced, or the text it marked or
+// the node whose attributes it set, which change no positions.
+function stepRange(tr: Transaction, index: number): readonly [number, number][] {
+  const step = tr.steps[index] as { from?: unknown; to?: unknown; pos?: unknown } | undefined;
+  const ranges: [number, number][] = [];
+  tr.mapping.maps[index]?.forEach((...range: number[]) =>
+    ranges.push([range[2] ?? 0, range[3] ?? 0]),
+  );
+  if (ranges.length) return ranges;
+  if (typeof step?.from === 'number' && typeof step.to === 'number') return [[step.from, step.to]];
+  return typeof step?.pos === 'number' ? [[step.pos, step.pos + 1]] : [];
+}
+
 // The regions a writer's change edited, by key, with their content now.
 function editedRegions(tr: Transaction): Map<string, Fragment> {
   const edited = new Map<string, Fragment>();
   const regions = regionsOf(tr.doc);
-  tr.mapping.maps.forEach((map, index) => {
+  tr.steps.forEach((_step, index) => {
     const later = tr.mapping.slice(index + 1);
-    // The range a step changed, in the step's own document: its old and its new ends.
-    map.forEach((...range: number[]) => {
-      const start = later.map(range[2] ?? 0, -1);
-      const end = later.map(range[3] ?? 0, 1);
+    for (const [from, to] of stepRange(tr, index)) {
+      const start = later.map(from, -1);
+      const end = later.map(to, 1);
       for (const region of regions) {
         const inside = start > region.pos && end < region.pos + region.node.nodeSize;
         if (inside) edited.set(region.key, region.node.content);
       }
-    });
+    }
   });
   return edited;
 }
