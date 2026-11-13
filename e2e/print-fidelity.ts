@@ -6,6 +6,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type BrowserContext, expect, type Locator, type Page, test } from '@playwright/test';
+import { printSnapshot } from '../src/document/index.js';
 
 /** The share of a page's pixels that may differ between the editor and print. */
 export const PIXEL_TOLERANCE = 0.005;
@@ -245,11 +246,10 @@ export async function expectPrintEqualsEditor(
   }
 
   const printed = await context.newPage();
-  await printed.setContent(await snapshot(), { waitUntil: 'load' });
-  await printed.evaluate(async () => {
-    await document.fonts.ready;
-  });
-  const pdf = await printed.pdf({ preferCSSPageSize: true });
+  // The headless print a server runs: loaded, its fonts and images ready, each page on its sheet.
+  const result = await printSnapshot(printed, await snapshot());
+  if (!result.ok) throw new Error(`The snapshot did not print: ${result.reason}`);
+  const pdf = Buffer.from(result.pdf);
   const sheets = pdfSheets(pdf);
   expect(sheets, 'one sheet per page').toHaveLength(count);
   sheets.forEach((sheet, index) => {

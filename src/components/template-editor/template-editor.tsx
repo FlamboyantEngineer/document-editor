@@ -8,12 +8,10 @@
 
 import { PropertyFilter } from '@flamboyantengineer/ui-components/property-filter';
 import { PropertySection } from '@flamboyantengineer/ui-components/property-panel';
-import { Fragment } from 'react';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
-import { MarginsRow } from './margins-row.js';
-import { CustomStyleSection, TextStyleSection } from './style-sections.js';
+import type { DocumentLayout } from '../document-editor/document-editor.js';
 import {
   extensionRows,
   ExtensionSections,
@@ -25,11 +23,10 @@ import {
   type TemplateIdentityLabels,
   type TemplateParentOption,
 } from './template-identity.js';
-import { type Rows, rows, type Target } from './template-rows.js';
+import { type Rows, SettingSections, type Target } from './template-rows.js';
 import {
   DEFAULT_TEMPLATE_SCOPE_LABELS,
   ScopePicker,
-  SECTION_SCOPED,
   SectionRows,
   type TemplateScopeLabels,
   withListedSections,
@@ -40,12 +37,17 @@ import {
   useTemplateScope,
 } from './template-scope-state.js';
 import { withNamedSection } from './template-section-list.js';
-import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
+import {
+  DEFAULT_TEMPLATE_SETTINGS_LABELS,
+  type TemplateSettingsLabels,
+  withSetting,
+} from './template-settings.js';
 
 const hooks = createHooks('template-editor');
 
 /** The template editor's own text. */
-export interface TemplateEditorLabels extends TemplateScopeLabels, TemplateIdentityLabels {
+export interface TemplateEditorLabels
+  extends TemplateScopeLabels, TemplateIdentityLabels, TemplateSettingsLabels {
   readonly panel: string;
   readonly filter: string;
   readonly textStyles: string;
@@ -69,8 +71,6 @@ export interface TemplateEditorLabels extends TemplateScopeLabels, TemplateIdent
   /** Marks a custom style the template inherits. */
   readonly inheritedStyle: string;
   readonly noCustomStyles: string;
-  readonly margins: string;
-  readonly marginSides: Readonly<Record<'top' | 'right' | 'bottom' | 'left', string>>;
   readonly numberPrefix: string;
   readonly numberSuffix: string;
   /** Where a section's inherited values come from. */
@@ -78,12 +78,11 @@ export interface TemplateEditorLabels extends TemplateScopeLabels, TemplateIdent
   readonly customStyle: string;
   readonly addCustomStyle: string;
   readonly deleteCustomStyle: string;
-  /** Takes a row's own value away, so it inherits again. */
-  readonly useInherited: string;
 }
 
 /** The template editor's English text. */
 export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
+  ...DEFAULT_TEMPLATE_SETTINGS_LABELS,
   ...DEFAULT_TEMPLATE_IDENTITY_LABELS,
   ...DEFAULT_TEMPLATE_SCOPE_LABELS,
   panel: 'Template settings',
@@ -107,20 +106,12 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   overrideCustomStyle: 'Override the inherited style',
   inheritedStyle: 'inherited',
   noCustomStyles: 'No custom styles yet.',
-  margins: 'Margins',
-  marginSides: {
-    top: 'Top margin',
-    right: 'Right margin',
-    bottom: 'Bottom margin',
-    left: 'Left margin',
-  },
   numberPrefix: 'Before the number',
   numberSuffix: 'After the number',
   documentSettings: 'the document settings',
   customStyle: 'Custom styles',
   addCustomStyle: 'Add a style',
   deleteCustomStyle: 'Delete the style',
-  useInherited: 'Use the inherited value',
   inherited: (value, source) =>
     source ? `Inherited from ${source}: ${value}` : `Inherited: ${value}`,
 };
@@ -149,8 +140,15 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly isNew?: boolean | undefined;
   /** The host's own settings, kept in the template's `extensions`. */
   readonly extensions?: TemplateExtensionSlots | undefined;
+  /**
+   * The layout the template is for: on pages, or the web layout, which has no page size,
+   * orientation, header or footer rows. Defaults to pages.
+   */
+  readonly layout?: DocumentLayout | undefined;
   /** The fonts the font fields suggest; others may be typed. */
   readonly fonts?: readonly string[] | undefined;
+  /** The fonts the code font fields suggest, monospace ones; others may be typed. */
+  readonly codeFonts?: readonly string[] | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly className?: string | undefined;
@@ -242,9 +240,6 @@ export function TemplateEditor(props: TemplateEditorProps) {
   };
   // A host's own settings are the document's: a template section has no `extensions`.
   const slots = scope === null ? extensions : undefined;
-  const sections = TEMPLATE_SECTIONS.filter(
-    (section) => scope === null || SECTION_SCOPED.has(section.id),
-  );
   return (
     <PropertyFilter
       {...hooks.root({
@@ -270,30 +265,16 @@ export function TemplateEditor(props: TemplateEditorProps) {
         <ScopePicker {...scoped} />
       </PropertySection>
       <SectionRows {...scoped} />
-      {sections.map((section) => (
-        <Fragment key={section.id}>
-          <PropertySection id={section.id} title={section.title}>
-            {rows(
-              context,
-              section.scope,
-              scope === null
-                ? section.settings
-                : section.settings.filter((setting) => !setting.documentOnly),
-            )}
-            {section.id === 'page' ? <MarginsRow context={context} /> : null}
-            {slots?.rows?.[section.id]
-              ? extensionRows(context, slots.rows[section.id] ?? [])
-              : null}
-          </PropertySection>
-          {section.id === 'page' ? (
-            <>
-              <TextStyleSection context={context} />
-              <CustomStyleSection context={context} />
-            </>
-          ) : null}
-        </Fragment>
-      ))}
+      <SettingSections
+        context={context}
+        inSection={scope !== null}
+        onPages={props.layout !== 'web'}
+        extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
+      />
       {slots ? <ExtensionSections context={context} slots={slots} /> : null}
     </PropertyFilter>
   );
 }
+
+export { templateIdOf } from './template-identity.js';
+export type { TemplateScope } from './template-scope-state.js';

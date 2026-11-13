@@ -80,6 +80,9 @@ function initialState(file?: DocumentFile): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// `?document=none` shows the settings alone, for tests that set hundreds of them.
+const WITH_DOCUMENT = new URLSearchParams(window.location.search).get('document') !== 'none';
+
 // The element id of the first block of the named section, which revealing the section shows.
 function sectionElement(state: EditorState, name: TemplateScope): string | null {
   let id: string | null = null;
@@ -165,24 +168,26 @@ function Lab() {
           />
         )}
       </div>
-      <DocumentEditor
-        state={state}
-        onStateChange={setState}
-        handleRef={handle}
-        template={resolved}
-        layout={layout}
-        onLayoutChange={setLayout}
-        onRegionChange={(change) =>
-          setOwn((template) => withRegionChange(template, change, resolve(template)))
-        }
-        zoom={zoom}
-        onZoomChange={setZoom}
-        toolbar
-        scrollable
-        statusBar
-        className="lab-document-editor"
-        aria-label="Sample document"
-      />
+      {WITH_DOCUMENT ? (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          handleRef={handle}
+          template={resolved}
+          layout={layout}
+          onLayoutChange={setLayout}
+          onRegionChange={(change) =>
+            setOwn((template) => withRegionChange(template, change, resolve(template)))
+          }
+          zoom={zoom}
+          onZoomChange={setZoom}
+          toolbar
+          scrollable
+          statusBar
+          className="lab-document-editor"
+          aria-label="Sample document"
+        />
+      ) : null}
     </div>
   );
 }
@@ -190,5 +195,6 @@ function Lab() {
 const container = document.querySelector('#lab-editor');
 if (container) {
   createRoot(container).render(<Lab />);
-  markReadyWhenSettled();
+  if (WITH_DOCUMENT) markReadyWhenSettled();
+  else document.documentElement.dataset.labReady = 'true';
 }

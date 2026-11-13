@@ -28,8 +28,6 @@ export interface SettingRowProps {
   /** The fonts a font field suggests. */
   readonly fonts?: readonly string[] | undefined;
   readonly isDisabled?: boolean | undefined;
-  /** Labels the button that takes the own value away while the row inherits one; none without it. */
-  readonly useInheritedLabel?: string | undefined;
 }
 
 // A length: a number and a unit, such as `12pt` or `20mm`.
@@ -209,7 +207,9 @@ function TextControl({ setting, value, onChange, common, placeholder }: ControlP
     <TextField
       {...common}
       value={shown(value)}
-      placeholder={placeholder}
+      // An own empty value shows empty, not the inherited value it replaces.
+      placeholder={isUnset(value) ? placeholder : undefined}
+      errorMessage={setting.check?.(value) ?? undefined}
       // A numbering format keeps what it may hold; text is kept as typed, spaces too.
       onChange={(text) => onChange(numbering ? cleanNumbering(text) : text)}
     />
@@ -247,6 +247,8 @@ const CONTROLS = {
   text: TextControl,
   length: LengthControl,
   numbering: TextControl,
+  // Four sides have a row of their own (`SidesRow`).
+  sides: TextControl,
 } as const;
 
 /** A setting's field. */
