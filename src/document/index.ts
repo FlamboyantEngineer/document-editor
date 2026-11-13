@@ -33,3 +33,13 @@ export type {
   VersionChangeTarget,
 } from '../engine/version-compare.js';
 export { compareVersions } from '../engine/version-compare.js';
+export type { ScriptText, ScriptTextRun } from './script-output.js';
+export {
+  buildScriptHeading,
+  buildScriptList,
+  buildScriptParagraph,
+  buildScriptTable,
+  buildScriptText,
+} from './script-output.js';
+export type { StoredScriptsOptions, StoredScriptsRun } from './scripts.js';
+export { runStoredScripts } from './scripts.js';
