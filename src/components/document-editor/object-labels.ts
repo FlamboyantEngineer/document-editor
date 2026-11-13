@@ -2,12 +2,18 @@
 // code, math, figures, links, lists of contents, captions, references and abbreviations, and the
 // dialogs that do it. Part of the editor's labels (`DocumentEditorLabels`).
 
+import type { EditorVariable } from '../../engine/index.js';
+
 /** The text of the editor's object controls, menus and dialogs. */
 export interface ObjectLabels {
   /** Names the outline panel. */
   readonly outline: string;
   readonly updateReference: string;
   readonly section: string;
+  /** Names the variable menu, which inserts a live variable at the caret. */
+  readonly variable: string;
+  /** The names the variable menu gives the editor's own variables. */
+  readonly editorVariables: Readonly<Record<EditorVariable, string>>;
   readonly script: string;
   readonly editScript: string;
   readonly scriptSource: string;
@@ -159,6 +165,12 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   outline: 'Outline',
   updateReference: 'Update reference',
   section: 'Section',
+  variable: 'Variable',
+  editorVariables: {
+    'page.current': 'Page number',
+    'page.total': 'Page count',
+    'date.current': "Today's date",
+  },
   script: 'Script…',
   editScript: 'Edit script…',
   scriptSource: 'Script',
