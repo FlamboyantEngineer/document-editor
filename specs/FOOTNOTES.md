@@ -24,6 +24,7 @@ After each of the writer's changes, `createFootnotes()`, which the editing plugi
 
 - an entry whose marker is gone is deleted, and its text kept for the session, so a marker that is cut and pasted gets its text back;
 - a marker with no entry gets one in its page's footnote area, with its kept text or empty;
+- a marker in another section than its entry, as after its paragraph is moved there, takes the entry to its own footnote area, with its text;
 - a marker repeated for one id, as a copy and paste makes, keeps its id where the original was, and each copy becomes a footnote of its own with a new id and a copy of the text;
 - an entry repeated for one id is deleted;
 - each footnote area lists its entries in marker order;
