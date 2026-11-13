@@ -239,6 +239,7 @@ function sourceOf(session: () => Session): CanonicalPluginsSource {
   return {
     canonical: () => session().canonical,
     map: () => session().map,
+    rules: () => session().rules,
     dispatch: (tr) => dispatchCanonical(session(), tr),
     prepare: (options) => prepare(session(), options),
   };

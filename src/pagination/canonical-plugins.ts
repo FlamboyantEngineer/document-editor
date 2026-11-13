@@ -8,6 +8,7 @@ import type { Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, type PluginView, type Transaction } from 'prosemirror-state';
 import { tableEditingKey } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
+import type { FragmentRules } from '../model/index.js';
 import { canonicalClipboard } from './canonical-clipboard.js';
 import { canonicalView } from './canonical-view.js';
 import type { ProjectionMap } from './projection-map.js';
@@ -16,6 +17,8 @@ import type { ProjectionMap } from './projection-map.js';
 export interface CanonicalPluginsSource {
   canonical(): EditorState;
   map(): ProjectionMap;
+  /** The rules the pages' fragments join by. */
+  rules(): FragmentRules;
   /** Takes a canonical transaction and shows it on the pages at once. */
   dispatch(tr: Transaction): void;
   /**
