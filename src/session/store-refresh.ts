@@ -11,9 +11,10 @@ import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { SessionDocument } from './document-session.js';
 import { type MergeConflict, mergeDocuments } from './merge.js';
-import { type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
+import { findElement, type MergeChoice, resolveMergeConflict } from './merge-conflicts.js';
 import { loadPinnedTemplate, readStored } from './open-document.js';
 import type { createStoreSaving } from './store-saving.js';
+import { sameStored } from './stored-equality.js';
 import type { WritableStore } from './value-store.js';
 
 type StoreSaving = ReturnType<typeof createStoreSaving>;
@@ -49,23 +50,42 @@ async function showContent(context: StoreRefreshContext, content: DocumentFile) 
   return true;
 }
 
+// The conflicts left to settle once another save is taken in: the merge's own, and each earlier
+// one whose stored block is as it was. The stored document is the merge's base by then, so the
+// merge reads such a block as the reader's change alone, and saving it would overwrite the other
+// writer's without asking. A block the store changed again was judged anew by the merge.
+function unsettled(
+  before: readonly MergeConflict[],
+  found: readonly MergeConflict[],
+  theirs: DocumentFile,
+): MergeConflict[] {
+  const kept = before.filter(
+    (old) =>
+      !found.some((each) => each.id === old.id) &&
+      sameStored(findElement(theirs, old.id), old.theirs),
+  );
+  return [...kept, ...found];
+}
+
 // Takes in a stored document newer than the baseline, merging the reader's changes into it.
 async function takeIn(context: StoreRefreshContext, stored: StoredDocument) {
   const saving = context.saving();
   const shown = context.document.get();
   if (!saving || !shown || stored.sequence <= saving.baseline().sequence) return;
-  const theirs = readStored(stored.content, context.schema);
-  if (!theirs.ok) return;
+  const read = readStored(stored.content, context.schema);
+  if (!read.ok) return;
+  const theirs = writeDocumentFile(read.value.doc, { template: stored.content.template ?? null });
   const merge = saving.hasUnsavedChanges()
     ? mergeDocuments({
         base: saving.baseline().content,
         mine: writeDocumentFile(shown.state.doc, { template: shown.pin }),
-        theirs: writeDocumentFile(theirs.value.doc, { template: stored.content.template ?? null }),
+        theirs,
       })
     : { content: stored.content, conflicts: [] };
   if (!(await showContent(context, merge.content))) return;
-  context.conflicts.set(merge.conflicts);
-  saving.rebase(stored, { doc: theirs.value.doc, hold: merge.conflicts.length > 0 });
+  const conflicts = unsettled(context.conflicts.get(), merge.conflicts, theirs);
+  context.conflicts.set(conflicts);
+  saving.rebase(stored, { doc: read.value.doc, hold: conflicts.length > 0 });
 }
 
 /** Takes in another writer's saves for a store-mode session, and settles their conflicts. */

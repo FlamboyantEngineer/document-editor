@@ -4,6 +4,7 @@
 // the same way; a block both sides changed differently is a conflict for the reader to settle.
 
 import type { DocumentFile, StoredNode, StoredSection } from '../model/format/document-format.js';
+import { sameStored as same } from './stored-equality.js';
 
 /** A block both sides changed differently, or one side changed and the other deleted. */
 export interface MergeConflict {
@@ -42,17 +43,6 @@ interface Element {
 }
 
 type Merged = StoredNode | StoredSection;
-
-// JSON text with object keys sorted, so two values compare equal whatever order they were built in.
-function stableKey(value: unknown): string {
-  return JSON.stringify(value, (_key, each: unknown) =>
-    each && typeof each === 'object' && !Array.isArray(each)
-      ? Object.fromEntries(Object.entries(each).sort(([a], [b]) => (a < b ? -1 : 1)))
-      : each,
-  );
-}
-
-const same = (one: unknown, other: unknown) => stableKey(one) === stableKey(other);
 
 // A footnote stores its footnote id as `id`, so its element id is `elementId`.
 function elementIdOf(node: StoredNode): string | null {

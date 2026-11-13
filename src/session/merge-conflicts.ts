@@ -53,6 +53,24 @@ function replaceElement(
   );
 }
 
+/** The element with an id, wherever the document holds it; null when it holds none. */
+export function findElement(content: DocumentFile, id: string): StoredNode | null {
+  const within = (nodes: readonly StoredNode[]): StoredNode | null => {
+    for (const node of nodes) {
+      if (node.type === 'text') continue;
+      if (node.attrs?.[idKey(node)] === id) return node;
+      const found = node.type !== 'footnote' && node.content ? within(node.content) : null;
+      if (found) return found;
+    }
+    return null;
+  };
+  for (const section of content.sections) {
+    const found = within(section.content);
+    if (found) return found;
+  }
+  return null;
+}
+
 // What a choice puts where the merged block is: it shows the reader's version, or the edited one
 // over a deletion.
 function settled(

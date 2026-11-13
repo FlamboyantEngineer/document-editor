@@ -145,6 +145,33 @@ describe('store-mode merges', () => {
     expect(await session.flush()).toBe(true);
     expect(await storedText(host)).toContain('First, mine');
   });
+
+  it('DOCE-SESSION-4.2 keeps a conflict not yet settled when another save is taken in', async () => {
+    const host = createMemoryHost({ documents: [{ id: 'doc', content: DOCUMENT }] });
+    const session = open(host);
+    await session.ready;
+    typeAt(session, 'First', ', mine');
+    await saveAsAnotherWriter(host, 'a0000001', 'First, theirs');
+    await vi.waitFor(() => expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]));
+    await saveAsAnotherWriter(host, 'a0000002', 'Second, theirs');
+    await vi.waitFor(() => expect(paragraphs(session)).toEqual(['First, mine', 'Second, theirs']));
+    expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]);
+    expect(session.status.get()).toMatchObject({ save: 'error', error: { kind: 'conflict' } });
+    expect(await session.flush()).toBe(false);
+    expect(await storedText(host)).not.toContain('First, mine');
+  });
+
+  it('DOCE-SESSION-4.2 drops a conflict when a later save holds the reader’s version', async () => {
+    const host = createMemoryHost({ documents: [{ id: 'doc', content: DOCUMENT }] });
+    const session = open(host);
+    await session.ready;
+    typeAt(session, 'First', ', mine');
+    await saveAsAnotherWriter(host, 'a0000001', 'First, theirs');
+    await vi.waitFor(() => expect(session.conflicts.get()).toHaveLength(1));
+    await saveAsAnotherWriter(host, 'a0000001', 'First, mine');
+    await vi.waitFor(() => expect(session.conflicts.get()).toEqual([]));
+    expect(session.status.get()).toMatchObject({ error: null, dirty: false });
+  });
 });
 
 describe('store-mode refresh', () => {
