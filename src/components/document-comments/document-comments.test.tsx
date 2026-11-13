@@ -298,24 +298,32 @@ describe('DocumentComments', () => {
     expect(within(card).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
-  it('DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause', async () => {
-    const store = host();
-    render(<Harness host={store} options={{ suggestionThreads: { delay: 0 } }} />);
-    await waitFor(() =>
-      expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(expect.any(String)),
-    );
-    const [suggestion] = seen.state ? listSuggestions(seen.state.doc) : [];
-    const listed = await store.comments?.list('doc');
-    expect(listed?.ok && listed.value.find((each) => each.id === suggestion?.thread)).toMatchObject(
-      {
+  it.each([
+    ['margin', {}],
+    ['pane', { placement: 'pane' as const }],
+  ])(
+    'DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause, in the %s',
+    async (_where, placed) => {
+      const store = host();
+      render(<Harness host={store} options={{ suggestionThreads: { delay: 0 }, ...placed }} />);
+      await waitFor(() =>
+        expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(
+          expect.any(String),
+        ),
+      );
+      const [suggestion] = seen.state ? listSuggestions(seen.state.doc) : [];
+      const listed = await store.comments?.list('doc');
+      expect(
+        listed?.ok && listed.value.find((each) => each.id === suggestion?.thread),
+      ).toMatchObject({
         suggestion: 's1',
         quote: 'epsilon',
         automatic: true,
         change: { kind: 'insert', inserted: 'epsilon' },
         entries: [],
-      },
-    );
-  });
+      });
+    },
+  );
 
   it('DOCE-COMMENTS-4.11 offers the host’s own actions in a comment’s menu', async () => {
     const user = userEvent.setup();

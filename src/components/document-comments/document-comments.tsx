@@ -209,13 +209,15 @@ export function DocumentComments(props: DocumentCommentsProps) {
 function PaneComments(props: DocumentCommentsProps) {
   const comments = useProvidedCommentThreads(props);
   const { onReveal } = props;
-  useCommentControls({
+  const { run } = useCommentControls({
     ...props,
     canComment: props.canComment ?? true,
     comments,
     onStart: onReveal,
     onOpen: onReveal,
   });
+  // The reader's suggestions get their threads wherever the threads are shown.
+  useSuggestionThreads({ state: props.state, comments, run, options: props });
   return props.children;
 }
 
