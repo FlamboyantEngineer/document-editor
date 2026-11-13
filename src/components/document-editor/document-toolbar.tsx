@@ -10,7 +10,17 @@ import {
   ToolbarRowSeparator,
 } from '@flamboyantengineer/ui-components/layout';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
-import { Fragment, memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  Fragment,
+  memo,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
@@ -23,6 +33,7 @@ import {
   type DocumentToolbarOptions,
   isItemEnabled,
   type ToolbarButtonItem,
+  type ToolbarGroup,
   type ToolbarItem,
   type ToolbarMenuItem,
 } from './toolbar-items.js';
@@ -141,7 +152,13 @@ function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorCon
   );
 }
 
-function Item({ item, context }: { item: ToolbarItem; context: EditorContext }) {
+// The context the toolbar's items read, so that only they draw again for each state while the row
+// and its groups stay as they were.
+const ItemContext = createContext<EditorContext | null>(null);
+
+function Item({ item }: { item: ToolbarItem }) {
+  const context = useContext(ItemContext);
+  if (!context) return null;
   if (item.kind === 'button') return <ButtonItem item={item} context={context} />;
   if (item.kind === 'menu') return <MenuItem item={item} context={context} />;
   return item.render(context);
@@ -162,23 +179,40 @@ function useGroups({ context, options, templateStyle, features, shell }: Documen
   );
 }
 
-/** The editor's toolbar, reading the state shown and running its commands on the view. */
-export function DocumentToolbar(props: DocumentToolbarProps) {
-  const { context, options, className } = props;
-  const groups = useGroups(props).map((group) => ({
-    ...group,
-    items: group.items.filter((item) => item.isVisible?.(context) ?? true),
-  }));
-  const shown = groups.filter((group) => group.items.length > 0);
+// The groups with the items the context shows, the same groups while the items shown stay the same.
+function useShownGroups(groups: readonly ToolbarGroup[], context: EditorContext) {
+  const visible = groups
+    .flatMap((group) => group.items.map((item) => ((item.isVisible?.(context) ?? true) ? 1 : 0)))
+    .join('');
+  return useMemo(() => {
+    let index = 0;
+    return groups
+      .map((group) => ({ ...group, items: group.items.filter(() => visible[index++] === '1') }))
+      .filter((group) => group.items.length > 0);
+  }, [groups, visible]);
+}
+
+// The row of groups, drawn again only when the groups shown change (DOCE-EDITOR-1.7).
+const ToolbarGroups = memo(function ToolbarGroups({
+  groups,
+  options,
+  label,
+  className,
+}: {
+  groups: readonly ToolbarGroup[];
+  options: DocumentToolbarOptions;
+  label: string;
+  className: string | undefined;
+}) {
   return (
     <ToolbarRow
       className={className}
-      aria-label={context.labels.toolbar}
+      aria-label={label}
       justify="start"
       overflow={options.overflow ?? 'wrap'}
     >
       {options.start ? <div {...hooks.slot('toolbar-start')}>{options.start}</div> : null}
-      {shown.map((group, index) => (
+      {groups.map((group, index) => (
         <Fragment key={group.id}>
           {index > 0 ? <ToolbarRowSeparator /> : null}
           <ToolbarRowGroup
@@ -187,14 +221,28 @@ export function DocumentToolbar(props: DocumentToolbarProps) {
             data-group={group.id}
           >
             {group.items.map((item) => (
-              <Fragment key={item.id}>
-                <Item item={item} context={context} />
-              </Fragment>
+              <Item key={item.id} item={item} />
             ))}
           </ToolbarRowGroup>
         </Fragment>
       ))}
       {options.end ? <div {...hooks.slot('toolbar-end')}>{options.end}</div> : null}
     </ToolbarRow>
+  );
+});
+
+/** The editor's toolbar, reading the state shown and running its commands on the view. */
+export function DocumentToolbar(props: DocumentToolbarProps) {
+  const { context, options, className } = props;
+  const groups = useShownGroups(useGroups(props), context);
+  return (
+    <ItemContext value={context}>
+      <ToolbarGroups
+        groups={groups}
+        options={options}
+        label={context.labels.toolbar}
+        className={className}
+      />
+    </ItemContext>
   );
 }
