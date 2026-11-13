@@ -25,6 +25,8 @@ export type { DocxOptions } from './docx.js';
 export { writeDocx } from './docx.js';
 export * from './format-upgrade.js';
 export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
+export type { SuggestionsMode } from './left-out.js';
+export { isLeftOut, keptContent } from './left-out.js';
 export type { MarkdownOptions } from './markdown.js';
 export { writeMarkdown } from './markdown.js';
 export type * from './template-format.js';
@@ -48,5 +50,7 @@ export {
   validateTemplateFile,
 } from './template-format-validate.js';
 export * from './template-format-validate.js';
+export type { WriterAsset, WriterValues } from './writer-values.js';
+export { assetAddress, variableText } from './writer-values.js';
 export type { ZipEntry } from './zip.js';
 export { crc32, writeZip } from './zip.js';
