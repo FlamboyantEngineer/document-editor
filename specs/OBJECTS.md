@@ -131,6 +131,20 @@ The scripts plugin, which the editing plugins install, shall refuse the writer's
 Implementation: `src/engine/scripts.ts`
 Verification: `src/engine/scripts.test.ts`, `e2e/full-editor.spec.ts`
 
+### DOCE-OBJECTS-4.4 - Scripts on a stored document
+
+`runStoredScripts(file, { schema, runner, ids, signal, now })`, in the server-safe `./document` entry, shall run the scripts of a stored document, or those of the blocks with the ids given, with no editor and no DOM: one at a time in document order, each against the document as stored, then put what they produced in their blocks as DOCE-OBJECTS-4.2 says, with the same element ids and `renderedAt`, an output the same as the one shown leaving its block as it is. It resolves with the document, the one given when nothing changed and otherwise the one given with its sections written again, content the schema does not know kept as stored, and with the blocks that failed, by id with their messages: a script the runner could not run or that threw, or an output the schema cannot read, which keeps the output it had. The signal goes to the runner with each script; once it aborts, the run stops and rejects with its reason, changing nothing.
+
+Implementation: `src/document/scripts.ts`
+Verification: `src/document/scripts.test.ts`
+
+### DOCE-OBJECTS-4.5 - Building a script's output
+
+The script output builders, in `./document`, shall write the stored content a script gives without the stored format's names: `buildScriptText(text)` the inline content of plain text or runs, each run bold, italic, code or linking to `href` as it says, empty runs left out; `buildScriptParagraph(text)` a paragraph; `buildScriptHeading(text, { level })` a heading of level 1 to 6, a level outside them taking the nearer; `buildScriptList(items, { ordered })` a bulleted or numbered list with a paragraph in each item; and `buildScriptTable(rows, { header })` a table with a paragraph in each cell, its first row of header cells when `header`. What they build is content the document reads.
+
+Implementation: `src/document/script-output.ts`
+Verification: `src/document/script-output.test.ts`
+
 ## Hooks
 
 | Hook                 | Kind      | Values                                                                                       | Description                                                                                                      |
