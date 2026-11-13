@@ -45,3 +45,13 @@ export type {
 } from './automation.js';
 export { applyStoredEdits, describeDocument } from './automation.js';
 export { AUTOMATION_SCHEMAS } from './automation-schemas.js';
+export type { ScriptText, ScriptTextRun } from './script-output.js';
+export {
+  buildScriptHeading,
+  buildScriptList,
+  buildScriptParagraph,
+  buildScriptTable,
+  buildScriptText,
+} from './script-output.js';
+export type { StoredScriptsOptions, StoredScriptsRun } from './scripts.js';
+export { runStoredScripts } from './scripts.js';
