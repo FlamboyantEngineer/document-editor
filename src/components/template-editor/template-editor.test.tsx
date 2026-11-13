@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { StoredContent, TemplateFile } from '../../model/index.js';
 import { TemplateEditor, withRegionChange } from './template-editor.js';
 import { TemplateJsonEditor } from './template-json-editor.js';
-import { sectionNameOf } from './template-scope.js';
+import { sectionNameOf, withListedSections } from './template-scope.js';
 import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
 
 const CONTENT: StoredContent = [{ type: 'paragraph', content: [{ type: 'text', text: 'Top' }] }];
@@ -57,6 +57,20 @@ describe('withRegionChange', () => {
     const next = withRegionChange(template, change);
     expect(next.header?.content).toEqual(CONTENT);
     expect(next.sections?.[0]?.header?.content).toEqual([]);
+  });
+
+  it('DOCE-TEMPLATE-EDITOR-1.4 writes into the own region of a section the template inherits', () => {
+    const template: TemplateFile = { formatVersion: 1, id: 'child', parent: 'house' };
+    const resolved: TemplateFile = {
+      ...template,
+      sections: [{ name: 'cover' }, { name: 'annex', header: { content: [] } }],
+    };
+    const next = withRegionChange(template, change, resolved);
+    expect(next.header).toBeUndefined();
+    expect(next.sections).toEqual([
+      { name: 'cover' },
+      { name: 'annex', header: { content: CONTENT } },
+    ]);
   });
 });
 
@@ -110,4 +124,40 @@ describe('TemplateEditor', () => {
     expect(changes.at(-1)).not.toHaveProperty('page');
     // The whole editor renders here, which takes over 5 s on a shared CI runner.
   }, 15_000);
+
+  it('DOCE-TEMPLATE-EDITOR-1.3 adds a section after the sections the template inherits', async () => {
+    const user = userEvent.setup();
+    const changes: TemplateFile[] = [];
+    const template: TemplateFile = { formatVersion: 1, id: 'child', parent: 'house' };
+    const inherited = [
+      { name: 'cover', required: true, editable: false },
+      { name: 'body', label: 'Body' },
+    ];
+    render(
+      <TemplateEditor
+        template={template}
+        resolved={{ ...template, sections: inherited }}
+        onChange={(next) => changes.push(next)}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Add a section' }));
+    // A list replaces the parent's whole, so the template takes the inherited sections with it.
+    expect(changes.at(-1)?.sections).toEqual([...inherited, { name: 'section_3' }]);
+  }, 15_000);
+});
+
+describe('withListedSections', () => {
+  const inherited = [{ name: 'cover', required: true }, { name: 'body' }];
+  const resolved: TemplateFile = { formatVersion: 1, id: 'child', sections: inherited };
+
+  it('DOCE-TEMPLATE-EDITOR-1.3 lists the inherited sections while the template has no list', () => {
+    const template: TemplateFile = { formatVersion: 1, id: 'child', parent: 'house' };
+    expect(withListedSections(template, resolved).sections).toEqual(inherited);
+    expect(withListedSections(template, undefined)).toBe(template);
+  });
+
+  it('DOCE-TEMPLATE-EDITOR-1.3 lists the template’s own sections, even none', () => {
+    const own: TemplateFile = { formatVersion: 1, id: 'child', sections: [] };
+    expect(withListedSections(own, resolved)).toBe(own);
+  });
 });
