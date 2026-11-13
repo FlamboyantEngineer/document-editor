@@ -1,6 +1,7 @@
 import { EditorState } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
+import { createEditLock } from '../../engine/index.js';
 import { createEditorContext } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { menubarMenus } from './menubar-menus.js';
@@ -39,5 +40,41 @@ describe('menubarMenus', () => {
     const { zoomIn, zoomOut } = zoomEntries(150, [50, 100, 150]);
     expect(zoomIn.isDisabled).toBe(true);
     expect(zoomOut.isDisabled).toBe(false);
+  });
+
+  it('DOCE-EDITOR-4.10 says why the text styles and the table cannot be used, locked or read', () => {
+    const locked = EditorState.create({
+      schema: documentSchema,
+      plugins: [createEditLock({ isLocked: () => true })],
+    });
+    const plain = EditorState.create({ schema: documentSchema });
+    const entriesOf = (state: EditorState, editable: boolean) => {
+      const context = createEditorContext(null, state, {
+        editable,
+        labels: DEFAULT_EDITOR_LABELS,
+      });
+      const menus = menubarMenus(context, {
+        view: null,
+        groups: [],
+        openFind: null,
+        layout: 'page',
+        zoom: null,
+      });
+      const entry = (menu: string, id: string) =>
+        menus.find((each) => each.id === menu)?.entries.find((each) => each.id === id);
+      return [entry('format', 'text-style'), entry('insert', 'insert-table')];
+    };
+    for (const [state, editable, reason] of [
+      [locked, true, DEFAULT_EDITOR_LABELS.reasonLocked],
+      [plain, false, DEFAULT_EDITOR_LABELS.reasonReading],
+    ] as const) {
+      for (const entry of entriesOf(state, editable)) {
+        expect(entry).toMatchObject({
+          isDisabled: true,
+          focusableWhenDisabled: true,
+          description: reason,
+        });
+      }
+    }
   });
 });
