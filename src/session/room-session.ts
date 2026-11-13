@@ -205,12 +205,15 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
   };
   const room = () => run.current.room;
   const close = () => {
+    options.signal?.removeEventListener('abort', close);
     controller.abort();
     follow.stop();
     run.drafts.close();
     leaveRoom(run);
   };
-  options.signal?.addEventListener('abort', close, { once: true });
+  // A signal aborted before the session was made closes it at once, before it connects.
+  if (options.signal?.aborted) close();
+  else options.signal?.addEventListener('abort', close, { once: true });
 
   return {
     documentId,
@@ -221,7 +224,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     // blocks a new generation of the room changed too (DOCE-SESSION-6.10).
     conflicts: stores.conflicts,
     connection: stores.connection,
-    ready: loadRoom(run),
+    ready: signal.aborted ? Promise.resolve(false) : loadRoom(run),
     update: roomUpdate(run),
     setTemplate: async (pin) => {
       const opened = room();

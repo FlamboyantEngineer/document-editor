@@ -217,13 +217,16 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
 
   let stopRefresh = () => undefined as void;
   const close = () => {
+    options.signal?.removeEventListener('abort', close);
     controller.abort();
     stopRefresh();
     saving?.close();
     drafts.close();
     follow.stop();
   };
-  options.signal?.addEventListener('abort', close, { once: true });
+  // A signal aborted before the session was made closes it at once, before it opens anything.
+  if (options.signal?.aborted) close();
+  else options.signal?.addEventListener('abort', close, { once: true });
 
   const session: DocumentSession = {
     documentId,
@@ -232,7 +235,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     document,
     conflicts,
     connection: stores.connection,
-    ready: load(),
+    ready: controller.signal.aborted ? Promise.resolve(false) : load(),
     update: (update) => commitState({ document, saving }, update),
     setTemplate: async (pin) => {
       const changed = await changeTemplate({ host, signal: controller.signal }, stores, pin);

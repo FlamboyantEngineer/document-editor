@@ -20,10 +20,10 @@ Verification: `src/session/document-session.test.ts`
 
 ### DOCE-SESSION-1.3 - Closing
 
-Aborting the session's `signal`, or `close()`, shall abort what it is loading, stop its automatic saves and stop following the host; `ready` then resolves false if the document had not loaded.
+Aborting the session's `signal`, or `close()`, shall abort what it is loading, stop its automatic saves and stop following the host; `ready` then resolves false if the document had not loaded. A session made with a signal aborted already shall open nothing, its `ready` resolving false, and closing shall remove the listener it put on the signal.
 
-Implementation: `src/session/store-session.ts`, `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`
+Implementation: `src/session/store-session.ts`, `src/session/room-session.ts`, `src/session/store-saving.ts`
+Verification: `src/session/document-session.test.ts`, `src/session/room-session.test.ts`
 
 ### DOCE-SESSION-1.4 - Live capabilities
 

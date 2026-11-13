@@ -100,6 +100,32 @@ describe('createDocumentSession in store mode', () => {
     expect(session.document.get()).toBeNull();
   });
 
+  it('DOCE-SESSION-1.3 opens nothing on a signal aborted already, and leaves no listener on it', async () => {
+    const host = hostWith();
+    const read = vi.spyOn(host.documents, 'load');
+    const aborted = new AbortController();
+    aborted.abort();
+    const closed = createDocumentSession({
+      host,
+      documentId: 'doc',
+      mode: 'store',
+      signal: aborted.signal,
+    });
+    expect(await closed.ready).toBe(false);
+    expect(read).not.toHaveBeenCalled();
+    const live = new AbortController();
+    const remove = vi.spyOn(live.signal, 'removeEventListener');
+    const session = createDocumentSession({
+      host,
+      documentId: 'doc',
+      mode: 'store',
+      signal: live.signal,
+    });
+    await session.ready;
+    session.close();
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
   it('DOCE-SESSION-1.4 follows the capabilities the host changes', async () => {
     const host = hostWith();
     const listeners: ((capabilities: typeof FULL_CAPABILITIES) => void)[] = [];

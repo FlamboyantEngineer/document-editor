@@ -104,6 +104,23 @@ describe('createDocumentSession in room mode', () => {
     expect(session.status.get().load).toBe('ready');
   });
 
+  it('DOCE-SESSION-1.3 connects to no room on a signal aborted already', async () => {
+    const room = roomsFor();
+    const adapter = room.adapter('ada');
+    const connect = vi.spyOn(adapter, 'connect');
+    const aborted = new AbortController();
+    aborted.abort();
+    const session = createDocumentSession({
+      host: { ...createMemoryHost(), collaboration: adapter },
+      documentId: 'doc',
+      mode: 'room',
+      signal: aborted.signal,
+    });
+    sessions.push(session);
+    expect(await session.ready).toBe(false);
+    expect(connect).not.toHaveBeenCalled();
+  });
+
   it('DOCE-SESSION-3.2 reports a host with no rooms and a refused connection', async () => {
     const session = createDocumentSession({
       host: createMemoryHost(),
