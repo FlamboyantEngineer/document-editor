@@ -70,6 +70,7 @@ export {
   EDITOR_COUNTS,
   EDITOR_MEASURES,
   EditorModal,
+  inlineCompletionItem,
   isContentChange,
   menubarMenus,
   TOOLBAR_GROUPS,

@@ -68,6 +68,36 @@ test.describe('full editor lab', () => {
     ).toHaveCount(1);
   });
 
+  test('DOCE-AUTOMATION-3.5 DOCE-AUTOMATION-3.9 attributes a taken completion to the agent, and turns off from the toolbar', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    await content(page).locator('h1', { hasText: 'Power' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Recovery takes');
+    await expect(content(page).locator('.de-inline-completion')).toHaveCount(1);
+    await page.keyboard.press('Tab');
+    await expect(
+      content(page).locator('span[data-ai="lab-completion"]', {
+        hasText: 'less than one second.',
+      }),
+    ).toHaveCount(1);
+    const toggle = page
+      .getByRole('toolbar', { name: 'Formatting' })
+      .locator('[data-item="inline-completion"]');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await content(page).locator('p', { hasText: 'Recovery takes less' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Recovery takes');
+    await page.waitForTimeout(600);
+    await expect(content(page).locator('.de-inline-completion')).toHaveCount(0);
+  });
+
   test('DOCE-FORMAT-6.2 pastes word processor lists as lists', async ({ lab, page }) => {
     await lab.open('full-editor');
     await content(page).locator('h1', { hasText: 'Power' }).click();

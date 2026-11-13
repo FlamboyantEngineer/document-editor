@@ -151,12 +151,24 @@ The editor's comments may take a `mentions` adapter (`MentionsAdapter`), which s
 Implementation: `src/host/mention-adapters.ts`
 Verification: `src/components/document-comments/comment-mentions.test.tsx`
 
+<<<<<<< HEAD
+
 ### DOCE-HOST-1.22 - Exports
 
 The host's optional `exports` adapter shall list the exports File > Export offers (`entries`: each a `DocumentExport` with its `id`, `label` and `run`), each run given the document as stored (`content`), its print snapshot once the pages are ready (`snapshot`) and a signal aborted when the editor unmounts, and answering with a `HostResult` (DOCE-EDITOR-6.28).
 
 Implementation: `src/host/adapters.ts`, `src/host/export-adapters.ts`
 Verification: `src/components/document-editor/use-document-exports.test.tsx`
+
+> > > > > > > origin/dev
+
+### DOCE-HOST-1.23 - Completion
+
+The host's `completion` adapter shall answer the text that may follow the caret, given the text before it, the rest of its block and the block's element id and type, with the automated session that wrote it. It names the agent a taken completion is attributed to, and may say whether completion can be asked now, and why not, and call back when that changes.
+
+Implementation: `src/host/completion-adapters.ts`, `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+=======
 
 ## DOCE-HOST-2 - Capabilities
 
@@ -252,3 +264,10 @@ The in-memory host's `memory` controls shall make each store request (document l
 
 Implementation: `src/host/memory-session.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.11 - In-memory completion
+
+The in-memory host shall answer completion requests with `options.complete`, as the agent `memory-completion`, each answer its own session, or with an `unavailable` failure with the message of what it throws; without `options.complete` it has no completion provider.
+
+Implementation: `src/host/memory-completion.ts`, `src/host/memory-host.ts`
+Verification: `src/host/memory-completion.test.ts`

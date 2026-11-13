@@ -1,6 +1,5 @@
 export type {
   CodeSourceAdapter,
-  CompletionAdapter,
   DocumentSave,
   DocumentStoreAdapter,
   DocumentVersion,
@@ -65,6 +64,12 @@ export type {
   CommentThread,
   NewCommentThread,
 } from './comment-adapters.js';
+export type {
+  CompletionAdapter,
+  CompletionAnswer,
+  CompletionAvailability,
+  CompletionContext,
+} from './completion-adapters.js';
 export type {
   DocumentExport,
   ExportRequest,
