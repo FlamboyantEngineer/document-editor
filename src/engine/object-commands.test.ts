@@ -88,6 +88,17 @@ describe('object commands', () => {
     expect(outline(state)).toEqual(['paragraph:Text', 'code_block:']);
   });
 
+  it('DOCE-OBJECTS-1.1 takes the whole text of the blocks a selection only partly covers', () => {
+    let state = stateOf(paragraph('Keep this. let a = 1;'), paragraph('let b = 2; keep that.'));
+    const from = find(state, 'let a');
+    const to = find(state, 'let b') + 'let b = 2;'.length;
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
+    state = run(state, insertCodeBlock());
+    expect(outline(state)).toEqual(['code_block:Keep this. let a = 1;\nlet b = 2; keep that.']);
+    // The caret ends after the code, where the writer goes on typing.
+    expect(state.selection.$from.parentOffset).toBe(state.selection.$from.parent.content.size);
+  });
+
   it('DOCE-OBJECTS-1.2 inserts linked code and reads the lines a URL names', () => {
     const state = run(
       select(stateOf(paragraph('Intro')), 'Intro'),

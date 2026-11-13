@@ -6,7 +6,7 @@ Inserting and changing the document's objects: code blocks and linked code, inli
 
 ### DOCE-OBJECTS-1.1 - Code blocks
 
-`insertCodeBlock(language)` shall turn the selected text blocks into one code block holding their text, line by line, or insert an empty code block where a new block goes, with the caret in it; Mod-Alt-C inserts one. `setCodeLanguage(language)` sets the language of the code block or linked code holding, or selected at, the selection.
+`insertCodeBlock(language)` shall turn the text blocks the selection covers, even in part, into one code block holding their whole text, line by line, or insert an empty code block where a new block goes, with the caret in it; Mod-Alt-C inserts one. `setCodeLanguage(language)` sets the language of the code block or linked code holding, or selected at, the selection.
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`

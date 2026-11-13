@@ -37,8 +37,8 @@ function selectedBlocks(state: EditorState) {
 }
 
 /**
- * Inserts a code block: around the selected text, which it takes in, line by line, or empty where
- * a new block goes, with the caret in it.
+ * Inserts a code block: in place of the text blocks the selection covers, whose text it takes in,
+ * line by line, or empty where a new block goes, with the caret in it.
  */
 export function insertCodeBlock(language = 'plaintext'): Command {
   return (state, dispatch) => {
@@ -47,7 +47,8 @@ export function insertCodeBlock(language = 'plaintext'): Command {
     const blocks = selectedBlocks(state);
     if (!blocks) return insertBlock(type.create({ language }))(state, dispatch);
     if (dispatch) {
-      const text = state.doc.textBetween(state.selection.from, state.selection.to, '\n', ' ');
+      // The blocks go whole, so the code takes all their text, not only what is selected of it.
+      const text = state.doc.textBetween(blocks.from, blocks.to, '\n', ' ');
       const node = type.create({ language }, text ? state.schema.text(text) : null);
       const tr = state.tr.replaceWith(blocks.from, blocks.to, node);
       tr.setSelection(TextSelection.create(tr.doc, blocks.from + 1 + text.length));
