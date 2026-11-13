@@ -12,7 +12,8 @@ import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing
 import * as Y from '@y/y';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type CommentThread, createMemoryHost } from '../host/index.js';
-import { createRoomCommentStore, readRoomThreads } from './comment-store.js';
+import { readRoomThreads } from './comment-records.js';
+import { createRoomCommentStore } from './comment-store.js';
 
 // The write rules of docs/collaboration.md: a commenter may write the `comments` type only.
 const writeRules: RoomWriteRules = {
@@ -218,5 +219,52 @@ describe('createRoomCommentStore', () => {
       ok: false,
       error: { kind: 'not-found' },
     });
+  });
+});
+
+// Two writers' documents, which take each other's changes when asked, as a room relays them.
+function writers() {
+  const [first, second] = [new Y.Doc(), new Y.Doc()];
+  const exchange = () => {
+    Y.applyUpdate(second, Y.encodeStateAsUpdate(first, Y.encodeStateVector(second)));
+    Y.applyUpdate(first, Y.encodeStateAsUpdate(second, Y.encodeStateVector(first)));
+  };
+  const storeOf = (doc: Y.Doc, name: string) => {
+    let ids = 0;
+    return createRoomCommentStore({
+      doc,
+      identity: createMemoryHost({ person: { id: name, name } }).identity,
+      now: () => new Date('2026-01-02T03:04:05Z'),
+      createId: () => `${name}-${String((ids += 1))}`,
+    });
+  };
+  return { first, second, exchange, ada: storeOf(first, 'ada'), bea: storeOf(second, 'bea') };
+}
+
+const attribute = (doc: Y.Doc, key: readonly string[], record: unknown) =>
+  doc.get('comments').setAttr(JSON.stringify(key), record);
+
+describe('readRoomThreads', () => {
+  it('DOCE-COMMENTS-2.20 leaves out what is not a thread or a comment, keeping the rest', async () => {
+    const { first, second, exchange, ada } = writers();
+    const told: CommentThread[][] = [];
+    ada.subscribe?.('doc', (threads) => told.push(threads));
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    exchange();
+    // What another writer's document may hold: any value under any key.
+    attribute(second, ['entry', 't1', 'no-fields'], { id: 'no-fields' });
+    attribute(second, ['entry', 't1', 'not-a-record'], 'Second');
+    attribute(second, ['thread', 'no-quote'], { id: 'no-quote', state: 'open' });
+    attribute(second, ['thread', 'not-a-record'], 7);
+    attribute(second, ['thread', 'renamed'], { id: 'another', quote: 'red', target: 'here' });
+    exchange();
+    const listed = value(await ada.list('doc'));
+    expect(listed).toEqual([
+      expect.objectContaining({ id: 't1', entries: [expect.objectContaining({ text: 'First' })] }),
+      // A thread is the one its key names, whatever its record says.
+      { id: 'renamed', quote: 'red', suggestion: null, state: 'open', entries: [] },
+    ]);
+    expect(told.at(-1)).toEqual(listed);
+    expect(readRoomThreads(first.get('comments'))).toEqual(listed);
   });
 });

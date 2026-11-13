@@ -11,6 +11,7 @@ import type {
   CommentThread,
   HostResult,
 } from '../host/index.js';
+import { keyOf, parseKey, plain, readRoomThreads } from './comment-records.js';
 
 /** The room's shared document and how the store tells time and makes ids. */
 export interface RoomCommentStoreOptions {
@@ -26,76 +27,13 @@ export interface RoomCommentStoreOptions {
 type ThreadFields = Omit<CommentThread, 'entries' | 'reactions'>;
 type EntryFields = Omit<CommentEntry, 'reactions'>;
 
-// The attributes of the `comments` type, by kind: a thread, one of its comments, a reaction.
-type Key =
-  | readonly ['thread', string]
-  | readonly ['entry', string, string]
-  | readonly ['reaction', string, string, string, string];
-
 const COMMENTS = 'comments';
-
-const keyOf = (key: Key) => JSON.stringify(key);
-
-function parseKey(text: string): Key | null {
-  try {
-    const key: unknown = JSON.parse(text);
-    if (!Array.isArray(key) || !key.every((part) => typeof part === 'string')) return null;
-    const [kind] = key;
-    const length = { thread: 2, entry: 3, reaction: 5 }[String(kind)];
-    return length === key.length ? (key as unknown as Key) : null;
-  } catch {
-    return null;
-  }
-}
 
 function missing<T>(id: string): HostResult<T> {
   return { ok: false, error: { kind: 'not-found', message: `No thread with id ${id}.` } };
 }
 
 const denied: HostResult<CommentThread> = { ok: false, error: { kind: 'denied' } };
-
-function addReaction(
-  reactions: Record<string, string[]> | undefined,
-  { emoji, person }: { emoji: string; person: string },
-): Record<string, string[]> {
-  const next = { ...reactions };
-  next[emoji] = [...(next[emoji] ?? []), person].sort();
-  return next;
-}
-
-/** Every thread the `comments` type holds, comments oldest first. */
-export function readRoomThreads(type: Y.Type): CommentThread[] {
-  const threads = new Map<string, CommentThread>();
-  const entries = new Map<string, CommentEntry>();
-  const reactions: (readonly [string, string, string, string])[] = [];
-  type.forEachAttr((value: unknown, name: string | number) => {
-    const key = parseKey(String(name));
-    if (key?.[0] === 'thread') threads.set(key[1], { ...(value as ThreadFields), entries: [] });
-    if (key?.[0] === 'entry') entries.set(keyOf(key), { ...(value as EntryFields) });
-    if (key?.[0] === 'reaction') reactions.push([key[1], key[2], key[3], key[4]]);
-  });
-  for (const [threadId, entryId, emoji, person] of reactions) {
-    const target = entryId
-      ? entries.get(keyOf(['entry', threadId, entryId]))
-      : threads.get(threadId);
-    if (target) target.reactions = addReaction(target.reactions, { emoji, person });
-  }
-  for (const [name, entry] of entries) {
-    const key = parseKey(name);
-    if (key?.[0] === 'entry') threads.get(key[1])?.entries.push(entry);
-  }
-  for (const thread of threads.values()) {
-    thread.entries.sort(
-      (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
-    );
-  }
-  return [...threads.values()];
-}
-
-// A record without the fields that hold nothing, as the shared document keeps plain values only.
-function plain<T extends object>(record: T): T {
-  return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)) as T;
-}
 
 /** What the store's changes act through: the type, the writer, the reader and the time. */
 interface Room {
