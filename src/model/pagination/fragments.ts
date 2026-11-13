@@ -3,7 +3,12 @@
 // stored document and the editing document never hold pages' parts. Each splittable type has a rule.
 // Joins are steps on a transform, so positions in the fragments map onto the whole block.
 
-import { Fragment, type Node as ProseMirrorNode, type NodeType } from 'prosemirror-model';
+import {
+  Fragment,
+  type Node as ProseMirrorNode,
+  type NodeType,
+  type Schema,
+} from 'prosemirror-model';
 import { Transform } from 'prosemirror-transform';
 
 type Attrs = Record<string, unknown>;
@@ -168,10 +173,21 @@ function joinContainers(tr: Transform, pos: number, rules: FragmentRules) {
 
 /**
  * Whether a node is the empty paragraph a split leaves where a fragment has nothing of its own: at
- * the start of a list item's continuation, or in a column with no block on that side.
+ * the start of a list item's continuation, or in a column with no block on that side. The split
+ * marks it (`continuationPlaceholder`), so an empty paragraph of the document is never taken
+ * for one.
  */
 export function isContinuationPlaceholder(node: ProseMirrorNode | null | undefined): boolean {
-  return node?.type.name === 'paragraph' && node.content.size === 0 && !node.attrs.dataId;
+  return (
+    node?.type.name === 'paragraph' &&
+    node.content.size === 0 &&
+    node.attrs.continuationPlaceholder === true
+  );
+}
+
+/** The empty paragraph a split leaves where a fragment has nothing of its own, marked as such. */
+export function continuationPlaceholder(schema: Schema): ProseMirrorNode | null {
+  return schema.nodes.paragraph?.create({ continuationPlaceholder: true }) ?? null;
 }
 
 function joinListItems(tr: Transform, pos: number, rules: FragmentRules) {
@@ -268,7 +284,7 @@ function sameContentsSettings(previous: ProseMirrorNode, next: ProseMirrorNode):
 
 /** The fragment rules of the document schema's splittable types. */
 export const FRAGMENT_RULES: FragmentRules = Object.freeze({
-  paragraph: { whole: PART },
+  paragraph: { whole: { ...PART, continuationPlaceholder: false } },
   code_block: {
     whole: { ...PART, codeBlockContinued: false, codeLineStart: 1 },
     join: joinCodeBlocks,

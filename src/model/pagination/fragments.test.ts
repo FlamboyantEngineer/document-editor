@@ -93,6 +93,27 @@ describe('split block fragments', () => {
     expect(joined?.child(1).textContent).toBe('Second');
   });
 
+  it('DOCE-PAGINATION-1.5 keeps an empty paragraph of the document that opens a continuation', () => {
+    const empty = node('paragraph');
+    const head = node('bullet_list', { splitPartIndex: 0 }, [
+      item({ splitPartIndex: 0 }, [paragraph(null, 'First')]),
+    ]);
+    const tail = node('bullet_list', { splitPartIndex: 1 }, [
+      item({ splitPartIndex: 1, orphanedListContinuation: true }, [empty, paragraph(null, 'Next')]),
+    ]);
+    const [joined] = joinFragments([head, tail]);
+    expect(joined?.child(0).childCount).toBe(3);
+    // The paragraph a split leaves, marked as such, is the one the join drops.
+    const placeholder = node('paragraph', { continuationPlaceholder: true });
+    const marked = node('bullet_list', { splitPartIndex: 1 }, [
+      item({ splitPartIndex: 1, orphanedListContinuation: true }, [
+        placeholder,
+        node('bullet_list'),
+      ]),
+    ]);
+    expect(joinFragments([head, marked])[0]?.child(0).childCount).toBe(2);
+  });
+
   it('DOCE-PAGINATION-1.6 joins the parts of a table of contents with the same settings', () => {
     const part = (attrs: Attrs) => node('toc_block', { tocType: 'toc', minLevel: 3, ...attrs });
     const joined = joinFragments([
@@ -128,7 +149,7 @@ describe('split block fragments', () => {
     expect(output?.childCount).toBe(2);
     expect(output?.attrs).toMatchObject({ script: 'run()', splitPartIndex: null });
     const column = (id: string, content: Node[]) => node('layout_column', { dataId: id }, content);
-    const empty = () => node('paragraph');
+    const empty = () => node('paragraph', { continuationPlaceholder: true });
     const section = (part: number, columns: Node[]) =>
       node('layout_section', { dataId: 'ls1', splitPartIndex: part }, columns);
     const head = section(0, [

@@ -34,7 +34,7 @@ Verification: `src/model/pagination/fragments.test.ts`
 
 ### DOCE-PAGINATION-1.5 - Lists
 
-A list's fragments shall join their items, and an item split across them shall join its facing children the same way, without the empty paragraph a continuation opens with. The joined list shall keep its first fragment's start number.
+A list's fragments shall join their items, and an item split across them shall join its facing children the same way, without the empty paragraph a continuation opens with, which the split marks (`continuationPlaceholder`); an empty paragraph of the document, with or without an id, is kept. The joined list shall keep its first fragment's start number.
 
 Implementation: `src/model/pagination/fragments.ts`
 Verification: `src/model/pagination/fragments.test.ts`
@@ -159,7 +159,7 @@ Verification: `src/model/pagination/container-split.test.ts`
 
 ### DOCE-PAGINATION-4.3 - Item continuations
 
-An item's second fragment that starts with a block other than a paragraph shall open with an empty paragraph and be marked continued. The empty paragraph has no id and takes no room on the page; the reference stylesheet hides it (`data-orphaned-list-continuation`). An item shall not split where either fragment would hold only that empty paragraph.
+An item's second fragment that starts with a block other than a paragraph shall open with an empty paragraph and be marked continued. The empty paragraph has no id, is marked `continuationPlaceholder` (`data-continuation-placeholder`), and takes no room on the page; the reference stylesheet hides it (`data-orphaned-list-continuation`). An item shall not split where either fragment would hold only that empty paragraph.
 
 Implementation: `src/model/pagination/container-split.ts`
 Verification: `src/model/pagination/container-split.test.ts`, `e2e/regression.spec.ts`
@@ -187,7 +187,7 @@ Verification: `src/model/pagination/container-split.test.ts`, `e2e/layout-rules.
 
 ### DOCE-PAGINATION-4.7 - Layout sections
 
-A measured layout section (`ContainerMeasurement`: where each column sits, each with its own blocks' layouts) shall split by splitting every column at the same height (`splitLayoutSection`): a column that fits stays whole on the first fragment, one whose blocks split there splits between or through them, and one with no block that fits moves whole to the second. A column with nothing on one side shall hold an empty paragraph there. A column's height shall be its blocks' span and its overhead, not the height a grid stretched it to beside a taller column. The section shall not split when no column has a block of its own that fits, or none has one left for the next page; a column that holds only a split's empty paragraph has none, so a section whose column starts with a block taller than a page stays whole on a page of its own rather than splitting page after page. It shall keep with a heading before it.
+A measured layout section (`ContainerMeasurement`: where each column sits, each with its own blocks' layouts) shall split by splitting every column at the same height (`splitLayoutSection`): a column that fits stays whole on the first fragment, one whose blocks split there splits between or through them, and one with no block that fits moves whole to the second. A column with nothing on one side shall hold an empty paragraph there, marked `continuationPlaceholder` as an item's continuation marks it (DOCE-PAGINATION-4.3). A column's height shall be its blocks' span and its overhead, not the height a grid stretched it to beside a taller column. The section shall not split when no column has a block of its own that fits, or none has one left for the next page; a column that holds only a split's empty paragraph has none, so a section whose column starts with a block taller than a page stays whole on a page of its own rather than splitting page after page. It shall keep with a heading before it.
 
 Implementation: `src/model/pagination/layout-section-split.ts`, `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/container-split.test.ts`, `e2e/layout-rules.spec.ts`

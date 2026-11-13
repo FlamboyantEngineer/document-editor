@@ -10,7 +10,7 @@ import {
   isContainerMeasurement,
   splitContainer,
 } from './container-split.js';
-import { isContinuationPlaceholder } from './fragments.js';
+import { continuationPlaceholder, isContinuationPlaceholder } from './fragments.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
 
 // One side of a split column: its blocks, and where they sit.
@@ -80,7 +80,7 @@ function placeholderHeight(other: ColumnPart | null): number {
 }
 
 function columnNode(column: ProseMirrorNode, content: readonly ProseMirrorNode[] | undefined) {
-  const placeholder = column.type.schema.nodes.paragraph?.create();
+  const placeholder = continuationPlaceholder(column.type.schema);
   const children = content ?? (placeholder ? [placeholder] : []);
   return column.type.create(column.attrs, children, column.marks);
 }

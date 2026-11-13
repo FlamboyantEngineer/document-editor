@@ -88,7 +88,11 @@ describe('fragment rule registry', () => {
     const part = { splitPartIndex: null };
     const joined = { join: true, continues: false };
     expect(registry).toEqual({
-      paragraph: { whole: part, join: false, continues: false },
+      paragraph: {
+        whole: { ...part, continuationPlaceholder: false },
+        join: false,
+        continues: false,
+      },
       code_block: {
         whole: { ...part, codeBlockContinued: false, codeLineStart: 1 },
         ...joined,
