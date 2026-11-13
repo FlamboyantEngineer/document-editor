@@ -83,24 +83,28 @@ export function isTemplateColor(value: unknown): boolean {
   return typeof value === 'string' && COLOR.test(value);
 }
 
+/** Whether a value is a line height: a positive multiple of the font size. */
+export function isTemplateLineHeight(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/** Whether a value is a font weight: a whole number from 1 to 1000. */
+export function isTemplateWeight(value: unknown): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 1000;
+}
+
 const LEAF_CHECKS: Readonly<Record<string, [(value: unknown) => boolean, string]>> = {
   length: [isTemplateLength, 'must be a length with a unit, such as 12pt'],
   color: [isTemplateColor, 'must be a hex color'],
   text: [(value) => typeof value === 'string', 'must be text'],
   boolean: [(value) => typeof value === 'boolean', 'must be true or false'],
-  lineHeight: [
-    (value) => typeof value === 'number' && Number.isFinite(value) && value > 0,
-    'must be a positive number',
-  ],
+  lineHeight: [isTemplateLineHeight, 'must be a positive number'],
   numbering: [
     isNumberingFormat,
     'must be a numbering format: up to six of 1, a, A, i or I, each with its separators',
   ],
   bullet: [isTemplateBullet, 'must be disc, circle, square, none or up to 8 characters of text'],
-  weight: [
-    (value) => Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 1000,
-    'must be a font weight from 1 to 1000',
-  ],
+  weight: [isTemplateWeight, 'must be a font weight from 1 to 1000'],
   any: [() => true, ''],
 };
 

@@ -52,16 +52,16 @@ Verification: `src/model/templates/template-scopes.test.ts`
 
 ### DOCE-TEMPLATES-3.2 - Footnote properties
 
-`buildFootnoteCssVarEntries(settings, fontStacks)` shall set the `--doc-footnote-*` custom properties of the suffix (an escaped CSS string), the separator border, the spacings, and the marker and text typography, each with its default.
+`buildFootnoteCssVarEntries(settings, fontStacks)` shall set the `--doc-footnote-*` custom properties of the suffix (an escaped CSS string), the separator border, the spacings, and the marker and text typography, each with its default, which a value that is not of its setting's kind (DOCE-TEMPLATES-5.2) takes too.
 
-Implementation: `src/model/templates/template-scopes.ts`
+Implementation: `src/model/templates/template-scopes.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-scopes.test.ts`
 
 ### DOCE-TEMPLATES-3.3 - Caption properties
 
-`buildCaptionCssVarEntries(styles, fontStacks)` shall set the caption label and text font family, size, weight and style of tables, figures and code blocks (`--doc-<kind>-caption-<label|text>-font-*`, kind `table`, `figure` or `code`) the table caption alignment (`--doc-table-caption-text-align`), and the text after the caption of a later part of a split object (`--doc-<kind>-caption-continued`, as CSS content, without a leading dash). An unset value shall be null, so a section inherits the document's and a caption falls back from label to text to paragraph.
+`buildCaptionCssVarEntries(styles, fontStacks)` shall set the caption label and text font family, size, weight and style of tables, figures and code blocks (`--doc-<kind>-caption-<label|text>-font-*`, kind `table`, `figure` or `code`) the table caption alignment (`--doc-table-caption-text-align`), and the text after the caption of a later part of a split object (`--doc-<kind>-caption-continued`, as CSS content, without a leading dash). An unset value, or one that is not of its setting's kind (DOCE-TEMPLATES-5.2), shall be null, so a section inherits the document's and a caption falls back from label to text to paragraph.
 
-Implementation: `src/model/templates/template-scopes.ts`
+Implementation: `src/model/templates/template-scopes.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-scopes.test.ts`
 
 ## DOCE-TEMPLATES-4 - Sections
@@ -91,9 +91,9 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.2 - Style properties
 
-`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies.
+`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies. The properties are joined into `style` attributes and a style element, and a template a host loads may not have been validated, so a value that is not of its setting's kind, as validation knows it (DOCE-FORMAT-2.2: a length, a hex color, a font weight, a line height, an alignment), shall be left out too, and text that is not such a value never reaches a style.
 
-Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`
+Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.3 - Numbering properties
@@ -133,7 +133,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.8 - Change bar properties
 
-`templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
+`templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind and left out when it is not a hex color, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
 
 Implementation: `src/model/templates/template-properties.ts`
 Verification: `src/model/templates/template-properties.test.ts`

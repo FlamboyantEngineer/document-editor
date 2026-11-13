@@ -54,6 +54,72 @@ describe('template properties', () => {
     expect(properties['--doc-figure-caption-order']).toBe('1');
   });
 
+  it('DOCE-TEMPLATES-5.2 DOCE-TEMPLATES-5.8 leaves out a value that is not of its setting kind', () => {
+    // A stored template as a host parses it, never validated: each value carries text of its own.
+    const stored = JSON.parse(`{
+      "formatVersion": 1,
+      "id": "unchecked",
+      "styles": {
+        "paragraph": {
+          "color": "red;}</style><script>alert(1)</script>",
+          "size": "1px; position: fixed",
+          "weight": 400,
+          "lineHeight": -1,
+          "alignment": "left; inset: 0",
+          "spaceBefore": "1px}",
+          "spaceAfter": "6pt",
+          "indentation": "calc(1px); top: 0"
+        },
+        "heading1": { "weight": "bold; color: red", "lineHeight": 1.2 },
+        "heading2": { "font": 5 },
+        "codeBlock": { "background": "url(https://example.com/a)" },
+        "list": { "indentation": "1em; color: red", "spaceBefore": "2px" },
+        "table": {
+          "border": { "width": "thick; top: 0", "color": "#cbd5e1" },
+          "cellPadding": "2px;",
+          "header": { "background": "red;", "weight": 7000 },
+          "rows": { "odd": "#fff", "even": "white; top: 0" }
+        },
+        "contents": { "leader": { "spacing": "1px;" }, "levels": [{ "indentation": "1em;" }] }
+      },
+      "changeBars": { "insertions": { "color": "red; position: fixed" } }
+    }`) as TemplateFile;
+    const properties = templateProperties(stored);
+    for (const [name, value] of Object.entries(properties)) {
+      expect(`${name}: ${value}`).not.toMatch(/[;{}<>]|fixed|url/);
+    }
+    for (const name of [
+      '--doc-paragraph-color',
+      '--doc-paragraph-font-size',
+      '--doc-paragraph-line-height',
+      '--doc-paragraph-text-align',
+      '--doc-paragraph-margin-top',
+      '--doc-paragraph-indentation',
+      '--doc-heading-1-font-weight',
+      '--doc-heading-2-font-family',
+      '--doc-code-background',
+      '--doc-list-indentation',
+      '--doc-table-border-width',
+      '--doc-table-cell-padding',
+      '--doc-table-header-background',
+      '--doc-table-header-font-weight',
+      '--doc-table-row-even-background',
+      '--doc-contents-leader-spacing',
+      '--doc-contents-level-1-indentation',
+      '--doc-change-bar-insertions-color',
+    ]) {
+      expect(properties).not.toHaveProperty(name);
+    }
+    expect(properties).toMatchObject({
+      '--doc-paragraph-font-weight': '400',
+      '--doc-paragraph-margin-bottom': '6pt',
+      '--doc-heading-1-line-height': '1.2',
+      '--doc-list-margin-top': '2px',
+      '--doc-table-border-color': '#cbd5e1',
+      '--doc-table-row-odd-background': '#fff',
+    });
+  });
+
   it('DOCE-TEMPLATES-5.3 writes numbering as counter content and restarts objects by heading', () => {
     const base = templateProperties(BASE_TEMPLATE);
     expect(base['--doc-heading-2-counter-content']).toBe(
