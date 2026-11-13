@@ -229,6 +229,16 @@ function layOutPages(session: Session) {
   );
 }
 
+// The selection the browser shows and has not reported yet is the one the new pages keep
+// (DOCE-EDITOR-1.4), not the one the layout would draw back over it; but pages that do not show
+// the canonical document yet, as when a change could not be mirrored, hold no selection of it;
+// nor do pages no view shows yet, which hold the canonical selection they started from.
+function keepShownSelection(session: Session): void {
+  if (!session.view || session.shown !== session.canonical.doc) return;
+  readDom(session);
+  syncSelection(session);
+}
+
 /**
  * Lays the pages out from the ghost, steps the projection onto them and builds the map again;
  * fails when layouts keep moving the pages with no change in between.
@@ -240,13 +250,7 @@ export function layout(session: Session): void {
   const { view, ghost, pace } = session;
   if (view?.isDestroyed || ghost.view.isDestroyed) return;
   if (view?.composing) return requestLayout(session);
-  // The selection the browser shows and has not reported yet is the one the new pages keep
-  // (DOCE-EDITOR-1.4), not the one the layout would draw back over it; but pages that do not show
-  // the canonical document yet, as when a change could not be mirrored, hold no selection of it.
-  if (session.shown === session.canonical.doc) {
-    readDom(session);
-    syncSelection(session);
-  }
+  keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
   else if (pace.passes >= LAYOUT_PASSES) return pace.readiness.fail();
   pace.changed = false;

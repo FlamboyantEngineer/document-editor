@@ -1,7 +1,15 @@
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
-import { edit, mount, positionOf, textOf } from '../../test/projection-fixtures.js';
+import {
+  canonicalState,
+  edit,
+  mount,
+  positionOf,
+  stubLayout,
+  textOf,
+} from '../../test/projection-fixtures.js';
+import { createPagedProjection } from './projection.js';
 
 // Counts the times a focused view of the pages scrolls to its selection.
 function countScrolls(view: EditorView): () => number {
@@ -46,5 +54,29 @@ describe('scrolling to the selection on the pages', () => {
     expect(scrolls()).toBe(2);
     edit(projection, (state) => state.tr.insertText('y').scrollIntoView());
     expect(scrolls()).toBe(3);
+  });
+});
+
+describe('starting the projection', () => {
+  it('DOCE-PAGINATION-7.10 dispatches nothing as it starts, and keeps the canonical selection', () => {
+    stubLayout({});
+    const start = canonicalState();
+    const at = positionOf(start.doc, 'Delta');
+    const state = start.apply(start.tr.setSelection(TextSelection.create(start.doc, at)));
+    const dispatched: Transaction[] = [];
+    const projection = createPagedProjection({
+      measureIn: document.body.appendChild(document.createElement('div')),
+      state,
+      pageHeight: 1000,
+      settle: 0,
+      schedule: () => () => undefined,
+      dispatch: (tr) => dispatched.push(tr),
+      onProjection: () => undefined,
+    });
+    expect(dispatched).toHaveLength(0);
+    expect(projection.state.selection.head).toBe(at);
+    const { map } = projection;
+    expect(map.toCanonical(projection.projection.selection.head)).toBe(at);
+    projection.destroy();
   });
 });

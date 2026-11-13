@@ -245,12 +245,13 @@ function sourceOf(session: () => Session): CanonicalPluginsSource {
   };
 }
 
-// The projection's first state: the canonical document, with the plugins that route input to the
+// The projection's first state: the canonical document and selection, with the plugins that route input to the
 // canonical state and draw what it draws, and the host's.
 function projectionState(options: PagedProjectionOptions, session: () => Session): EditorState {
   const source = sourceOf(session);
   return EditorState.create({
     doc: options.state.doc,
+    selection: options.state.selection,
     plugins: [
       inputPlugin(session, source),
       canonicalPlugins(source),
