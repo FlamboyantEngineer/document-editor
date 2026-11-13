@@ -7,3 +7,4 @@ package-lock.json
 CHANGELOG.md
 .changeset/*.md
 labs/build/
+test/fixtures/markdown/
