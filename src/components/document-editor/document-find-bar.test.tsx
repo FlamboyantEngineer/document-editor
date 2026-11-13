@@ -72,6 +72,32 @@ describe('DocumentFindBar', () => {
     expect(box).toHaveValue('');
   });
 
+  it('DOCE-SEARCH-2.1 DOCE-EDITOR-1.7 keeps the caret where the writer edits the query', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const box = await openFindBar(user);
+    await user.keyboard('here');
+    expect(box).toHaveValue('here');
+    await user.type(box, 'T', { initialSelectionStart: 0, initialSelectionEnd: 0 });
+    await user.keyboard(' ');
+    expect(box).toHaveValue('T here');
+    await user.keyboard('{Backspace}{Backspace}t');
+    expect(box).toHaveValue('there');
+    expect(await screen.findByText('1 of 1')).toBeInTheDocument();
+  });
+
+  it('DOCE-SEARCH-2.1 shows a search a host sets over what the writer typed', async () => {
+    const user = userEvent.setup();
+    const handleRef = createRef<DocumentEditorHandle>();
+    render(<Harness handleRef={handleRef} />);
+    const box = await openFindBar(user);
+    await user.keyboard('Hel');
+    act(() => {
+      handleRef.current?.run(setSearch('there'));
+    });
+    await waitFor(() => expect(box).toHaveValue('there'));
+  });
+
   it('DOCE-SEARCH-2.1 shows the find bar search a host set', async () => {
     const user = userEvent.setup();
     const handleRef = createRef<DocumentEditorHandle>();
