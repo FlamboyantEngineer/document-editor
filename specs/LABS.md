@@ -57,7 +57,7 @@ Verification: `e2e/stress.spec.ts`
 
 ### DOCE-LABS-2.3 - Budgets
 
-`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target and whether it meets it, as a table and in `test-results/performance.json`. The budgets are targets until the pagination phase ends: the harness records and does not fail on a missed budget. Time budgets are measured on the development machine; counter budgets do not depend on it.
+`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target and whether it meets it, as a table and in `test-results/performance.json`. The typing budgets on 40 and 300 pages are enforced: each is measured on every key's own work (`keystrokeWork`), from the key's press until its input is handled and from the start of the frame that draws it until that frame is drawn, without the wait for that frame, and a test fails on a missed one, or is an expected failure naming its gap while the editor does not meet it yet. The other budgets are targets until the pagination phase ends: the harness records and does not fail on a missed one. Time budgets are measured on the development machine; counter budgets do not depend on it.
 
 | Budget                         | Metric                                                                                                                         | Target                            |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
@@ -66,8 +66,8 @@ Verification: `e2e/stress.spec.ts`
 | Remote keystroke, 1600 blocks  | Per keystroke: sections relaid (`sectionsRelaid`); blocks measured (`blocksMeasured`)                                          | ≤ 1; ≤ 5                          |
 | Wheel scroll                   | Browser layouts per wheel event, on 5 and 40 pages                                                                             | ≤ 3, no growth with the pages     |
 | Typing style scope             | Elements restyled per keystroke, 40 pages against 5                                                                            | ≤ 3 times                         |
-| Keystroke latency              | p95 from a key's press to the frame after it is drawn, on 40 and 300 pages                                                     | ≤ 16 ms; ≤ 32 ms                  |
-| Typing beside comment threads  | The same p95 on 300 pages beside 500 open comment threads                                                                      | ≤ 32 ms                           |
+| Keystroke latency              | p95 of each key's own work, on 40 and 300 pages (enforced)                                                                     | ≤ 16 ms; ≤ 32 ms                  |
+| Typing beside comment threads  | p95 from a key's press to the frame after it is drawn, on 300 pages beside 500 open comment threads                            | ≤ 32 ms                           |
 | Load, 24 pages                 | `whenSettled` time from navigation over five loads: median, p95                                                                | ≤ 6 s; ≤ 12 s                     |
 
 One budget waits for its phase: a text-only change walking no untouched section, which a unit test will check.

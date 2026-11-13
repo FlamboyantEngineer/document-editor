@@ -9,7 +9,8 @@ import {
   ToolbarRowGroup,
   ToolbarRowSeparator,
 } from '@flamboyantengineer/ui-components/layout';
-import { Fragment, memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
+import { Fragment, memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
@@ -94,7 +95,23 @@ function ButtonItem({ item, context }: { item: ToolbarButtonItem; context: Edito
   );
 }
 
-function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorContext }) {
+const NO_ENTRIES: readonly MenuEntry[] = [];
+
+// A menu as a state shows it: closed, drawn again only when it is enabled or not; open, with the
+// entries of the state shown (DOCE-EDITOR-1.7).
+const ToolbarMenu = memo(function ToolbarMenu({
+  item,
+  isDisabled,
+  isOpen,
+  onOpenChange,
+  entries,
+}: {
+  item: ToolbarMenuItem;
+  isDisabled: boolean;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  entries: readonly MenuEntry[];
+}) {
   return (
     <DropdownMenu
       data-item={item.id}
@@ -102,9 +119,24 @@ function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorCon
       label={item.label}
       icon={item.icon}
       iconOnly={Boolean(item.icon)}
-      isDisabled={!isItemEnabled(item, context)}
-      items={item.entries(context)}
+      isDisabled={isDisabled}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      items={entries}
       aria-label={item.label}
+    />
+  );
+});
+
+function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorContext }) {
+  const [isOpen, setOpen] = useState(false);
+  return (
+    <ToolbarMenu
+      item={item}
+      isDisabled={!isItemEnabled(item, context)}
+      isOpen={isOpen}
+      onOpenChange={setOpen}
+      entries={isOpen ? item.entries(context) : NO_ENTRIES}
     />
   );
 }

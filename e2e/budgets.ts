@@ -89,13 +89,13 @@ export const BUDGETS = {
   },
   latency40: {
     bar: 'Keystroke latency',
-    metric: 'p95 input to paint, 40 pages (ms)',
+    metric: 'p95 keystroke work, 40 pages (ms)',
     target: '≤ 16',
     meets: atMost(16),
   },
   latency300: {
     bar: 'Keystroke latency',
-    metric: 'p95 input to paint, 300 pages (ms)',
+    metric: 'p95 keystroke work, 300 pages (ms)',
     target: '≤ 32',
     meets: atMost(32),
   },
@@ -204,6 +204,43 @@ export function percentile(values: readonly number[], fraction: number): number 
   const sorted = [...values].sort((a, b) => a - b);
   const at = Math.min(sorted.length - 1, Math.ceil(fraction * sorted.length) - 1);
   return Math.round((sorted[Math.max(at, 0)] ?? 0) * 10) / 10;
+}
+
+/**
+ * The work each key takes while typing, without the wait for the next frame: from its press until
+ * its input has been handled, then from the start of the frame that draws it until that frame is
+ * drawn. A key whose handling runs into that frame counts from its press to the frame drawn. A key
+ * pressed while the page is still busy, as with the chrome following the key before, waits for it,
+ * and the wait counts.
+ */
+export async function keystrokeWork(page: Page, keys: number): Promise<number[]> {
+  await page.evaluate(() => {
+    const works: number[] = [];
+    Object.assign(window, { keyWorks: works });
+    window.addEventListener(
+      'keydown',
+      (event) => {
+        const pressed = event.timeStamp;
+        let handled = Number.NaN;
+        setTimeout(() => {
+          handled = performance.now();
+        }, 0);
+        requestAnimationFrame(() => {
+          // The frame's own timestamp is when it began, which may be before the key was handled.
+          const frame = performance.now();
+          setTimeout(() => {
+            const drawn = performance.now();
+            const apart = !Number.isNaN(handled) && handled <= frame;
+            works.push(apart ? handled - pressed + (drawn - frame) : drawn - pressed);
+          }, 0);
+        });
+      },
+      { capture: true },
+    );
+  });
+  await page.keyboard.type('x'.repeat(keys), { delay: 60 });
+  await settle(page);
+  return page.evaluate(() => (window as unknown as { keyWorks: number[] }).keyWorks);
 }
 
 // The time from each key's press to the frame after it was drawn, while typing.
