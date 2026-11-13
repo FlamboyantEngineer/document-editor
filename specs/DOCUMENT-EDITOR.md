@@ -48,9 +48,9 @@ Verification: `e2e/a11y.spec.ts`
 
 ### DOCE-EDITOR-1.7 - The document first, the chrome after
 
-A state the host commits shall be drawn on the document before the chrome follows it: the toolbar, the menubar, the find bar and the status bar, and the host's controls inside them, shall take each new state and the editor's context (`useDocumentEditor`) in a render after the one that draws the document, which React may interrupt for the next key, so a keystroke does not wait for the chrome to draw. The chrome shall follow each layout of the pages too, so the status bar counts the pages shown. The context menu shall follow the document at once, as it acts on the click or key that opens it.
+A state the host commits shall be drawn on the document before the chrome follows it: the toolbar, the menubar, the find bar and the status bar, and the host's controls inside them, shall take each new state and the editor's context (`useDocumentEditor`) in a render after the one that draws the document, which React may interrupt for the next key, so a keystroke does not wait for the chrome to draw. The chrome shall follow each layout of the pages too, so the status bar counts the pages shown. A toolbar button shall be drawn again only when what it shows changes, whether it is enabled, why not, or whether it is pressed, and a press shall run it on the state the chrome shows last. The context menu shall follow the document at once, as it acts on the click or key that opens it.
 
-Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-chrome.tsx`
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-toolbar.tsx`
 Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
 
 ### DOCE-EDITOR-1.8 - The pages in a plain view
