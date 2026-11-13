@@ -4,7 +4,12 @@
 // images a template places from its own files are stored by asset and snapshot, never by address,
 // so a host can list the assets a template needs.
 
-import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
+import {
+  type ContentMatch,
+  Fragment,
+  type Node as ProseMirrorNode,
+  type Schema,
+} from 'prosemirror-model';
 import type { StoredContent, StoredNode } from '../format/document-format.js';
 import { readStoredContent } from '../format/document-format-convert.js';
 import type { RegionSettings, TemplateFile } from '../format/template-format.js';
@@ -54,23 +59,36 @@ function expandText(node: ProseMirrorNode, schema: Schema): ProseMirrorNode[] {
   return parts;
 }
 
-// A node with the tokens of its text expanded, or a list of contents for a list token.
-function expand(
-  node: ProseMirrorNode,
-  schema: Schema,
-  tokens: Readonly<Record<string, string>>,
-): ProseMirrorNode {
+type Tokens = Readonly<Record<string, string>>;
+
+// The list of contents a paragraph that is only a list token stands for, or null.
+function contentsFor(node: ProseMirrorNode, schema: Schema, tokens: Tokens) {
   const toc = schema.nodes.toc_block;
-  const only = node.type.name === 'paragraph' ? ONLY_TOKEN.exec(node.textContent.trim()) : null;
-  const kind = only && Object.hasOwn(tokens, only[1] ?? '') ? tokens[only[1] ?? ''] : undefined;
-  if (toc && kind && node.childCount === 1) return toc.create({ tocType: kind });
+  const single = node.type.name === 'paragraph' && node.childCount === 1;
+  const key = (single && ONLY_TOKEN.exec(node.textContent.trim())?.[1]) || '';
+  return toc && Object.hasOwn(tokens, key) ? toc.create({ tocType: tokens[key] }) : null;
+}
+
+// A node with the tokens of its own content live, as far as its type allows.
+function expand(node: ProseMirrorNode, schema: Schema, tokens: Tokens): ProseMirrorNode {
   if (node.isText || node.isLeaf) return node;
   const children: ProseMirrorNode[] = [];
+  let match: ContentMatch | null = node.type.contentMatch;
   node.forEach((child) => {
-    if (child.isText) children.push(...expandText(child, schema));
-    else children.push(expand(child, schema, tokens));
+    const expanded = child.isText ? null : expand(child, schema, tokens);
+    const live = expanded
+      ? [contentsFor(child, schema, tokens) ?? expanded]
+      : expandText(child, schema);
+    const fits = match?.matchFragment(Fragment.fromArray(live)) ?? null;
+    // A token stays as it is where its parent cannot hold what it stands for: a code block and
+    // math hold text only, and a list item starts with a paragraph, not a list of contents.
+    const kept = fits ? live : [expanded ?? child];
+    match = fits ?? match?.matchFragment(Fragment.fromArray(kept)) ?? null;
+    children.push(...kept);
   });
-  return node.copy(Fragment.fromArray(children));
+  const content = Fragment.fromArray(children);
+  // `copy` checks nothing, so content the type refuses after all leaves the node as it was read.
+  return node.type.validContent(content) ? node.copy(content) : node;
 }
 
 /** A template's stored content as a document holds it, its tokens live. */
@@ -79,7 +97,9 @@ export function readTemplateContent(
   schema: Schema,
   { contentsTokens = CONTENTS_TOKENS }: TemplateContentOptions = {},
 ): ProseMirrorNode[] {
-  return readStoredContent(content, schema).map((node) => expand(node, schema, contentsTokens));
+  return readStoredContent(content, schema).map(
+    (node) => contentsFor(node, schema, contentsTokens) ?? expand(node, schema, contentsTokens),
+  );
 }
 
 /** An asset a template's content shows. */

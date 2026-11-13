@@ -25,6 +25,7 @@ import {
   resolveHeadingNumbering,
   resolveObjectNumbering,
 } from './template-numbering.js';
+import { cssColor } from './template-property-values.js';
 import {
   buildCaptionCssVarEntries,
   buildFootnoteCssVarEntries,
@@ -157,7 +158,7 @@ function changeBarProperties(bars: ChangeBarSettings | null | undefined): Custom
   for (const kind of CHANGE_KINDS) {
     const setting = bars[kind];
     if (!setting) continue;
-    const color = setting.enabled === false ? 'transparent' : setting.color;
+    const color = setting.enabled === false ? 'transparent' : cssColor(setting.color);
     if (color) properties[`--doc-change-bar-${kind}-color`] = color;
   }
   const width = lengthToCssPx(bars.width) ?? '4px';
@@ -184,10 +185,11 @@ export function templateProperties(
     ...textStyleProperties(styles, fontStacks),
     ...numberingProperties(styles),
     ...buildCaptionPlacementVariables(styles),
-    // A section with change bars of its own sets them over the document's; one without inherits.
+    // A section with change bars of its own sets them over the document's, setting by setting,
+    // as every other section scope does; one without inherits.
     ...changeBarProperties(
       section
-        ? section.changeBars && { ...template.changeBars, ...section.changeBars }
+        ? section.changeBars && mergeTemplateSettings(template.changeBars, section.changeBars)
         : template.changeBars,
     ),
   };
