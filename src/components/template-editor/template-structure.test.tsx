@@ -9,7 +9,7 @@ import { templateText } from './template-json-text.js';
 import type { TemplateScope } from './template-scope-state.js';
 
 // The whole editor renders in each test, which takes seconds on a shared CI runner.
-const SLOW = 20_000;
+const SLOW = 45_000;
 
 const TEMPLATE: TemplateFile = {
   formatVersion: 1,
@@ -290,11 +290,14 @@ describe('extension slots', () => {
       const folder = screen.getByRole('textbox', { name: 'Folder' });
       expect(folder).toHaveValue('Old');
       await user.clear(folder);
-      await user.type(folder, 'New{Enter}');
+      await user.paste('New');
+      await user.keyboard('{Enter}');
       expect(log.templates.at(-1)?.extensions).toMatchObject({ folder: 'New' });
       const owner = screen.getByRole('textbox', { name: 'Owner' });
       expect(owner).toHaveAttribute('placeholder', expect.stringContaining('Lead'));
-      await user.type(owner, 'Editor{Enter}');
+      await user.click(owner);
+      await user.paste('Editor');
+      await user.keyboard('{Enter}');
       expect(log.templates.at(-1)?.extensions).toMatchObject({ review: { owner: 'Editor' } });
       await user.click(screen.getByRole('button', { name: 'Add a stage field' }));
       expect(log.templates.at(-1)?.extensions).toMatchObject({

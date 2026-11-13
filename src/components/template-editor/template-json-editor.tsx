@@ -5,7 +5,7 @@
 // edit of its own, so the text never hands back a template older than the host's.
 
 import { CodeEditor } from '@flamboyantengineer/ui-components/code-editor';
-import { type FocusEvent, useState } from 'react';
+import { type FocusEvent, useRef, useState } from 'react';
 import type { TemplateFile } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { LOCKED_TEMPLATE_KEYS, readTemplateText, templateText } from './template-json-text.js';
@@ -61,17 +61,22 @@ export function TemplateJsonEditor(props: TemplateJsonEditorProps) {
   const edited = draft.text !== draft.from;
   const current = edited || draft.from === external ? draft : null;
   const shown = current ?? { text: external, from: external, errors: NO_ERRORS };
+  // The latest text typed, which a commit reads even before the render that shows it.
+  const typed = useRef<Draft | null>(null);
   const change = (text: string) => {
+    typed.current = { text, from: shown.from, errors: NO_ERRORS };
     const result = readTemplateText(text, reading);
     const errors = result.errors ?? NO_ERRORS;
     props.onValidityChange?.(errors);
     setDraft({ text, from: shown.from, errors });
   };
   const commit = (event: FocusEvent<HTMLDivElement>) => {
-    // Focus moving within the editor, such as to its own buttons, is no commit.
+    // Focus moving within the editor, such as to its Format button, is no commit.
     if (event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) return;
-    if (shown.text === shown.from) return;
-    const { template } = readTemplateText(shown.text, reading);
+    const latest = typed.current ?? shown;
+    typed.current = null;
+    if (latest.text === latest.from) return;
+    const { template } = readTemplateText(latest.text, reading);
     if (!template) return;
     // The text as the host's next template writes it, which the draft then follows.
     const text = templateText(template);
