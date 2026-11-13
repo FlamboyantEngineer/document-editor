@@ -65,3 +65,62 @@ test.describe('automation on stored documents', () => {
     await expect(content(page)).toContainText(/Status: \d+ blocks\./);
   });
 });
+
+test.describe('stored-file readers in the automation lab', () => {
+  const output = (page: Page) => page.getByRole('region', { name: 'Reader output' });
+
+  test('DOCE-LABS-3.5 DOCE-FORMAT-9.2 DOCE-FORMAT-9.3 DOCE-FORMAT-9.4 reads the text, citations and targets without an editor', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('automation');
+    await page.getByRole('button', { name: 'Read the text' }).click();
+    await expect(output(page)).toContainText('Issued by the systems group.');
+    await page.getByRole('button', { name: 'List the citations' }).click();
+    await expect(output(page)).toContainText('"text": "Timing"');
+    await page.getByRole('button', { name: 'List the reference targets' }).click();
+    await expect(output(page)).toContainText('"kind": "heading"');
+  });
+
+  test('DOCE-LABS-3.5 DOCE-FORMAT-9.1 finds an element by its id', async ({ lab, page }) => {
+    await lab.open('automation');
+    await page.getByRole('button', { name: 'List the reference targets' }).click();
+    const id = /"id": "([^"]+)"/.exec((await output(page).textContent()) ?? '')?.[1] ?? '';
+    await page.getByLabel('Element id').fill(id);
+    await page.getByRole('button', { name: 'Find the element' }).click();
+    await expect(output(page)).toContainText('"section": "body"');
+    await page.getByLabel('Element id').fill('nowhere');
+    await page.getByRole('button', { name: 'Find the element' }).click();
+    await expect(output(page)).toContainText('No element has the id nowhere');
+  });
+
+  test('DOCE-LABS-3.5 DOCE-FORMAT-9.5 DOCE-FORMAT-9.7 moves the document to a template that requires more', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('automation');
+    await page.getByRole('button', { name: 'Check against the strict template' }).click();
+    await expect(output(page)).toContainText('"problem": "missing"');
+    await page.getByRole('button', { name: 'Move to the strict template' }).click();
+    await expect(result(page)).toContainText('Moved to the strict template: saved as revision 2');
+    await page.getByRole('button', { name: 'Check against the strict template' }).click();
+    await expect(output(page)).not.toContainText('"missing"');
+  });
+
+  test('DOCE-LABS-3.5 DOCE-FORMAT-9.6 DOCE-FORMAT-9.8 lists thread anchors and decides one suggestion', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('automation');
+    await send(page, 'Comment on the Scope heading');
+    await expect(result(page)).toContainText('saved as revision 2');
+    await page.getByRole('button', { name: 'List the thread anchors' }).click();
+    await expect(output(page)).toContainText('"comment"');
+    await expect(output(page)).toContainText('"text": "Scope"');
+    await send(page, 'Add a paragraph after the Timing heading');
+    await expect(result(page)).toContainText('saved as revision 3');
+    await page.getByRole('button', { name: 'Accept the first suggestion only' }).click();
+    await expect(result(page)).toContainText(/Accepted \S+: saved as revision 4/);
+    await expect(page.getByText('0 suggestions')).toBeVisible();
+  });
+});

@@ -78,7 +78,7 @@ const SAMPLE_MARKDOWN = [
   '---',
   '# Imported notes',
   '',
-  'A paragraph with **bold**, *italic*, `code` and a [link](https://example.com "Example").',
+  'A paragraph with **bold**, *italic*, `code` and a [link](https://example.com "Example").[^limits]',
   '',
   '- First item',
   '- Second item',
@@ -88,6 +88,8 @@ const SAMPLE_MARKDOWN = [
   '| Voltage | 28 V |',
   '',
   '<div>Raw markup is left out.</div>',
+  '',
+  '[^limits]: The limits apply at sea level.',
 ].join('\n');
 
 const SAMPLE_HTML = [

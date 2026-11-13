@@ -4,7 +4,9 @@
 // every style the template sets, and each of its sections. The pages' headers and footers are the
 // template's, edited in place. The settings panel's scope is held here: while the preview shows,
 // picking a section scrolls the preview to it. The template's own `extensions.folder` is a host
-// setting in an extension slot.
+// setting in an extension slot. Host options mark the template as never saved, fail its parent's
+// load, disable the editor, lock the parent in the JSON text, and report renames, the fonts the
+// font fields suggest and whether the JSON text reads as a template.
 
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -44,6 +46,9 @@ const OWN: TemplateFile = {
   name: 'Lab template',
   parent: BASE_TEMPLATE_ID,
 };
+
+// The fonts the host offers in the font fields.
+const FONTS = ['Geist', 'Source Serif', 'Atkinson Hyperlegible'];
 
 const resolve = (template: TemplateFile) =>
   resolveTemplateFile(template, {
@@ -104,6 +109,11 @@ function Lab() {
   const [json, setJson] = useState(false);
   const [scope, setScope] = useState<TemplateScope>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [isNew, setIsNew] = useState(false);
+  const [parentFails, setParentFails] = useState(false);
+  const [isDisabled, setDisabled] = useState(false);
+  const [locksParent, setLocksParent] = useState(false);
+  const [report, setReport] = useState('none');
   const handle = useRef<DocumentEditorHandle>(null);
   // The section to show once the preview's pages are drawn.
   const reveal = useRef<TemplateScope>(null);
@@ -134,6 +144,47 @@ function Lab() {
           />{' '}
           Edit as JSON
         </label>
+        <fieldset>
+          <legend>Host options</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={isNew}
+              onChange={(e) => setIsNew(e.currentTarget.checked)}
+            />{' '}
+            Never saved
+          </label>{' '}
+          <label>
+            <input
+              type="checkbox"
+              checked={parentFails}
+              onChange={(e) => setParentFails(e.currentTarget.checked)}
+            />{' '}
+            Parent fails to load
+          </label>{' '}
+          <label>
+            <input
+              type="checkbox"
+              checked={isDisabled}
+              onChange={(e) => setDisabled(e.currentTarget.checked)}
+            />{' '}
+            Disable the template editor
+          </label>{' '}
+          <label>
+            <input
+              type="checkbox"
+              checked={locksParent}
+              onChange={(e) => setLocksParent(e.currentTarget.checked)}
+            />{' '}
+            Lock the parent in JSON
+          </label>
+          <p>
+            Template report:{' '}
+            <output aria-label="Template report" role="status">
+              {report}
+            </output>
+          </p>
+        </fieldset>
         <button
           type="button"
           onClick={() => {
@@ -145,7 +196,17 @@ function Lab() {
           Preview the template
         </button>
         {json ? (
-          <TemplateJsonEditor template={own} onChange={setOwn} />
+          <TemplateJsonEditor
+            template={own}
+            onChange={setOwn}
+            onValidityChange={(errors) =>
+              setReport(
+                errors.length ? `JSON invalid, ${String(errors.length)} errors` : 'JSON valid',
+              )
+            }
+            lockedKeys={locksParent ? ['formatVersion', 'id', 'parent'] : undefined}
+            isDisabled={isDisabled}
+          />
         ) : (
           <TemplateEditor
             template={own}
@@ -158,6 +219,11 @@ function Lab() {
               if (id) handle.current?.revealElement(id, { behavior: 'instant' });
             }}
             parentOptions={[{ id: BASE_TEMPLATE_ID, label: 'Base template' }]}
+            parentError={parentFails ? 'The base template could not be loaded.' : undefined}
+            isNew={isNew}
+            isDisabled={isDisabled}
+            fonts={FONTS}
+            onSectionRename={(from, to) => setReport(`Renamed ${from} to ${to}`)}
             extensions={{
               rows: {
                 identity: [

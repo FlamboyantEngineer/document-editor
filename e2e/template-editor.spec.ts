@@ -413,4 +413,18 @@ test.describe('template editor lab', () => {
     await page.getByRole('option', { name: 'section_1' }).click();
     await expect(content(page).locator('[data-section-name="section_1"]').first()).toBeInViewport();
   });
+
+  test('DOCE-LABS-3.1 DOCE-TEMPLATE-EDITOR-2.7 follows the host options and reports JSON validity', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    await page.getByLabel('Parent fails to load').check();
+    await expect(panel(page)).toContainText('The base template could not be loaded.');
+    await page.getByLabel('Edit as JSON').check();
+    await page.getByRole('textbox', { name: 'Template JSON' }).fill('{ "formatVersion": 1, ');
+    await expect(page.getByRole('status', { name: 'Template report' })).toContainText(
+      'JSON invalid',
+    );
+  });
 });
