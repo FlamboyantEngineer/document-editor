@@ -2,9 +2,11 @@
 // math field over the math, and the text of a caption, in its inline text field over the caption
 // line. The layer covers the editor's body and places the field by the object's measured box. A
 // field commits on its own keys (Enter), and on focus leaving it; Escape leaves the object as it is.
+// A field lasts as long as its edit: a change elsewhere that moves its object keeps what it holds.
 
 import { InlineTextField } from '@flamboyantengineer/ui-components/inline-text-field';
 import { MathField } from '@flamboyantengineer/ui-components/math-preview';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type CSSProperties, type FocusEvent, useLayoutEffect, useRef, useState } from 'react';
@@ -25,10 +27,11 @@ interface ObjectEditorsProps {
   labels: DocumentEditorLabels;
 }
 
-/** What is edited in place: math or a caption, at its object's position. */
+/** What is edited in place: math or a caption, with its object and its position. */
 interface Edited {
   readonly kind: 'math' | 'caption';
   readonly pos: number;
+  readonly node: ProseMirrorNode;
 }
 
 interface Box {
@@ -52,7 +55,11 @@ const boxProperties = (box: Box) =>
 
 // The box the field goes over, relative to the layer: the math, or the object's caption line (its
 // top edge when the caption is hidden).
-function measure(view: EditorView, edited: Edited, layer: HTMLElement): Box | null {
+function measure(
+  view: EditorView,
+  edited: Pick<Edited, 'kind' | 'pos'>,
+  layer: HTMLElement,
+): Box | null {
   const dom = view.nodeDOM(edited.pos);
   if (!isElement(dom)) return null;
   const line = edited.kind === 'caption' ? dom.querySelector('.doc-caption-line') : null;
@@ -85,17 +92,48 @@ function useEditedBox(view: EditorView | null, edited: Edited | null, state: Edi
   return { setLayer, box };
 }
 
+const elementIdOf = (node: ProseMirrorNode) => node.attrs.dataId as unknown;
+
+// Whether two states edit the same object. A change before it moves it, and a change of its own
+// attributes, or inside a table whose caption is edited, makes it another node; when both come at
+// once its element id still tells.
+function isSameEdit(before: Edited | null, after: Edited | null): boolean {
+  if (!before || !after || before.kind !== after.kind) return false;
+  if (before.pos === after.pos || before.node === after.node) return true;
+  const id = elementIdOf(before.node);
+  return typeof id === 'string' && id !== '' && id === elementIdOf(after.node);
+}
+
+const isUnchanged = (before: Edited | null, after: Edited | null) =>
+  before === after ||
+  (before !== null &&
+    after !== null &&
+    before.kind === after.kind &&
+    before.pos === after.pos &&
+    before.node === after.node);
+
+// The field's key: one for each edit, kept while changes elsewhere move the edited object, so the
+// field keeps the text the writer has typed into it.
+function useEditKey(edited: Edited | null): string | null {
+  const [edit, setEdit] = useState({ count: 0, edited });
+  if (!isUnchanged(edit.edited, edited)) {
+    const count = isSameEdit(edit.edited, edited) ? edit.count : edit.count + 1;
+    setEdit({ count, edited });
+  }
+  return edited ? `${edited.kind}-${String(edit.count)}` : null;
+}
+
 /** The fields that edit the math or the caption the engine is editing in place. */
 export function ObjectEditors({ view, state, labels }: ObjectEditorsProps) {
   const math = mathEditingAt(state);
   const caption = math ? null : captionEditingAt(state);
   const edited: Edited | null = math
-    ? { kind: 'math', pos: math.pos }
+    ? { kind: 'math', ...math }
     : caption
-      ? { kind: 'caption', pos: caption.pos }
+      ? { kind: 'caption', ...caption }
       : null;
   const { setLayer, box } = useEditedBox(view, edited, state);
-  const key = edited ? `${edited.kind}-${String(edited.pos)}` : null;
+  const key = useEditKey(edited);
   // The text the field holds now, committed when focus leaves the layer, and the edit already
   // finished: the field's own commit and focus leaving finish it once.
   const draft = useRef<string | null>(null);
