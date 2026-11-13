@@ -25,11 +25,20 @@ export interface DocxOptions {
 interface Writing {
   readonly suggestions: 'accepted' | 'rejected';
   readonly footnotes: string[];
+  /** The addresses the part being written links to: the document's, or the footnotes'. */
   readonly links: string[];
+  readonly footnoteLinks: string[];
 }
 
+// XML holds no control character but the tab and the line breaks, and a word processor reports a
+// part that holds another as damaged, so they are left out.
 const xml = (value: string) =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  value
+    .replace(/[^\P{Cc}\t\n\r]|[\uFFFE\uFFFF]/gu, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 
 const text = (value: unknown) => (typeof value === 'string' ? value : '');
 
@@ -73,7 +82,8 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'math':
       return run(storedMathSource(node), '<w:i/>');
     case 'footnote': {
-      writing.footnotes.push(inlines(node.content, writing));
+      // A footnote's runs are in the footnotes part, which names its links by its own relationships.
+      writing.footnotes.push(inlines(node.content, { ...writing, links: writing.footnoteLinks }));
       const id = String(writing.footnotes.length);
       return `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
     }
@@ -272,12 +282,12 @@ function footnotesPart(footnotes: readonly string[]): string {
 
 const RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
-function documentRelationships(links: readonly string[]): string {
+// A part's relationships: its own, then one for each address it links to, in order.
+function relationships(own: readonly string[], links: readonly string[] = []): string {
   return [
     HEADER,
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
-    `<Relationship Id="rIdStyles" Type="${RELATIONSHIP}/styles" Target="styles.xml"/>`,
-    `<Relationship Id="rIdFootnotes" Type="${RELATIONSHIP}/footnotes" Target="footnotes.xml"/>`,
+    ...own,
     ...links.map(
       (href, index) =>
         `<Relationship Id="rIdLink${String(index + 1)}" Type="${RELATIONSHIP}/hyperlink" Target="${xml(href)}" TargetMode="External"/>`,
@@ -285,6 +295,11 @@ function documentRelationships(links: readonly string[]): string {
     '</Relationships>',
   ].join('');
 }
+
+const DOCUMENT_RELATIONSHIPS = [
+  `<Relationship Id="rIdStyles" Type="${RELATIONSHIP}/styles" Target="styles.xml"/>`,
+  `<Relationship Id="rIdFootnotes" Type="${RELATIONSHIP}/footnotes" Target="footnotes.xml"/>`,
+];
 
 const CONTENT_TYPES = [
   HEADER,
@@ -297,12 +312,9 @@ const CONTENT_TYPES = [
   '</Types>',
 ].join('');
 
-const PACKAGE_RELATIONSHIPS = [
-  HEADER,
-  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+const PACKAGE_RELATIONSHIPS = relationships([
   `<Relationship Id="rId1" Type="${RELATIONSHIP}/officeDocument" Target="word/document.xml"/>`,
-  '</Relationships>',
-].join('');
+]);
 
 /** A stored document as the bytes of a word processing document (`.docx`). */
 export function writeDocx(file: DocumentFile, options: DocxOptions = {}): Uint8Array {
@@ -310,6 +322,7 @@ export function writeDocx(file: DocumentFile, options: DocxOptions = {}): Uint8A
     suggestions: options.suggestions ?? 'accepted',
     footnotes: [],
     links: [],
+    footnoteLinks: [],
   };
   const body = file.sections.map((section) => blocks(section.content, writing)).join('');
   const document = `${HEADER}<w:document ${NAMESPACES}><w:body>${body}${sectionProperties(options.template)}</w:body></w:document>`;
@@ -319,6 +332,10 @@ export function writeDocx(file: DocumentFile, options: DocxOptions = {}): Uint8A
     { path: 'word/document.xml', data: document },
     { path: 'word/styles.xml', data: STYLES },
     { path: 'word/footnotes.xml', data: footnotesPart(writing.footnotes) },
-    { path: 'word/_rels/document.xml.rels', data: documentRelationships(writing.links) },
+    {
+      path: 'word/_rels/document.xml.rels',
+      data: relationships(DOCUMENT_RELATIONSHIPS, writing.links),
+    },
+    { path: 'word/_rels/footnotes.xml.rels', data: relationships([], writing.footnoteLinks) },
   ]);
 }

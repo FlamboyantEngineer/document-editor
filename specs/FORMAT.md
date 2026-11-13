@@ -133,7 +133,7 @@ Verification: `src/model/format/docx.test.ts`
 
 ### DOCE-FORMAT-5.2 - Writing a word processing document
 
-`writeDocx(file, { template, suggestions })` shall write a stored document as an Office Open XML word processing document: headings in the heading styles, paragraphs and their formats, links, lists led by their bullets or numbers, quotes, code, math as its stored `source`, tables with their caption and header row, page breaks, rules, figures as their alternative text and caption, and footnotes, in the template's page size, orientation and margins, its suggestions accepted or, when asked, rejected. A link whose address a link may not hold (DOCE-SCHEMA-3.8) is written as its text.
+`writeDocx(file, { template, suggestions })` shall write a stored document as an Office Open XML word processing document: headings in the heading styles, paragraphs and their formats, links, lists led by their bullets or numbers, quotes, code, math as its stored `source`, tables with their caption and header row, page breaks, rules, figures as their alternative text and caption, and footnotes, in the template's page size, orientation and margins, its suggestions accepted or, when asked, rejected. A link whose address a link may not hold (DOCE-SCHEMA-3.8) is written as its text. Each part shall name the addresses it links to by its own relationships: the document's in `word/_rels/document.xml.rels` and a footnote's in `word/_rels/footnotes.xml.rels`. The characters XML cannot hold, control characters other than the tab and the line breaks, shall be left out of every part.
 
 Implementation: `src/model/format/docx.ts`
 Verification: `src/model/format/docx.test.ts`

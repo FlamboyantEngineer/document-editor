@@ -132,6 +132,7 @@ describe('writeDocx', () => {
       'word/styles.xml',
       'word/footnotes.xml',
       'word/_rels/document.xml.rels',
+      'word/_rels/footnotes.xml.rels',
     ]);
     const document = files.get('word/document.xml') ?? '';
     expect(document).toContain(
@@ -149,6 +150,58 @@ describe('writeDocx', () => {
     expect(files.get('word/_rels/document.xml.rels')).toContain(
       'Target="https://example.com/spec"',
     );
+  });
+
+  it('DOCE-FORMAT-5.2 gives a link in a footnote a relationship of the footnotes part', () => {
+    const linked = (href: string): StoredNode => ({
+      type: 'text',
+      text: 'here',
+      marks: [{ type: 'link', attrs: { href } }],
+    });
+    const note: StoredNode = {
+      type: 'footnote',
+      attrs: { id: 'n1' },
+      content: [text('See '), linked('https://example.com/note')],
+    };
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [{ type: 'paragraph', content: [linked('https://example.com/body'), note] }],
+          },
+        ],
+      }),
+    );
+    // Each part names its links by its own relationships.
+    expect(files.get('word/footnotes.xml')).toContain('<w:hyperlink r:id="rIdLink1">');
+    const ofNotes = files.get('word/_rels/footnotes.xml.rels') ?? '';
+    expect(ofNotes).toContain('Id="rIdLink1"');
+    expect(ofNotes).toContain('Target="https://example.com/note"');
+    const ofDocument = files.get('word/_rels/document.xml.rels') ?? '';
+    expect(ofDocument).toContain('Target="https://example.com/body"');
+    expect(ofDocument).not.toContain('https://example.com/note');
+  });
+
+  it('DOCE-FORMAT-5.2 leaves out the characters XML cannot hold', () => {
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'paragraph', content: [text('A\u000bB\u0001C\tD\uffffE')] },
+              { type: 'codeBlock', content: [text('x\u000c\ny')] },
+            ],
+          },
+        ],
+      }),
+    );
+    const document = files.get('word/document.xml') ?? '';
+    expect(document).toContain('<w:t xml:space="preserve">ABC\tDE</w:t>');
+    expect(document).not.toMatch(/[^\P{Cc}\t\n\r]|\uffff/u);
   });
 
   it('DOCE-FORMAT-5.2 writes a link whose address could run script as its text', () => {
