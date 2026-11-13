@@ -39,9 +39,10 @@ import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { SymbolButton } from './symbol-button.js';
 import type { ToolbarButtonItem, ToolbarItem } from './toolbar-items.js';
+import { type VariableFeatures, variableItem } from './variable-menu.js';
 
 /** What the insert items offer beside the commands the schema allows. */
-export interface InsertFeatures {
+export interface InsertFeatures extends VariableFeatures {
   /** Whether the host resolves linked code, which the code menu then offers. */
   readonly linkedCode: boolean;
   /** The symbol picker's characters. */
@@ -278,6 +279,7 @@ export function insertItems(
     },
     ...hostItems(labels, features, shortcuts),
     sectionItem(labels, features),
+    variableItem(labels, features),
     {
       kind: 'custom',
       id: 'symbol',

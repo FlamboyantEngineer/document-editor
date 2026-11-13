@@ -138,6 +138,13 @@ Verification: `src/model/format/docx.test.ts`
 Implementation: `src/model/format/docx.ts`
 Verification: `src/model/format/docx.test.ts`
 
+### DOCE-FORMAT-5.3 - What a writer leaves out and resolves
+
+Every writer shall apply one rule to a document's suggestions (`isLeftOut`, `keptContent`): written as if accepted, it leaves out a suggested deletion; written as if rejected, a suggested insertion; a block suggested whole, such as a figure or the halves of a split paragraph, by its `suggestionKind`, and inline content by its insertion or deletion mark. A writer shall resolve the values the document names but does not hold through the host's `values` (`WriterValues`): a variable as its text, or its key in double braces when the host has none (`variableText`), and an asset as the address the host gives, or the node's own `src` (`assetAddress`).
+
+Implementation: `src/model/format/left-out.ts`, `src/model/format/writer-values.ts`, `src/model/format/docx.ts`
+Verification: `src/model/format/left-out.test.ts`, `src/model/format/docx.test.ts`
+
 ## DOCE-FORMAT-6 - HTML interchange
 
 ### DOCE-FORMAT-6.1 - Writing and reading HTML
