@@ -50,7 +50,7 @@ Verification: `src/engine/footnote-marks.test.ts`
 
 ### DOCE-FOOTNOTES-1.6 - Pasting where footnotes have rules
 
-`flattenFootnotePaste(slice, state)`, which the paste pipeline runs, shall repair pasted content by the footnote places (D13): pasted into a footnote entry, it becomes one run of text, its blocks joined by a space, keeping the inline content and marks an entry allows and no markers; pasted elsewhere, markers are kept only in paragraphs that may cite a footnote (DOCE-FOOTNOTES-1.2), and dropped where the caret may not cite one. It returns the slice unchanged when nothing needs repair.
+`flattenFootnotePaste(slice, state)`, which the paste pipeline runs, shall repair pasted content by the footnote places (D13): pasted into a footnote entry, it becomes one run of text, its blocks joined by a space, keeping the inline content and marks an entry allows and no markers; pasted elsewhere, markers are kept only in paragraphs that may cite a footnote (DOCE-FOOTNOTES-1.2). Content that joins the block at the caret, inline content and the text block an open slice starts with, keeps its markers only where the caret may cite one; the slice's whole blocks land beside that block and keep theirs where a paragraph there may cite one, so paragraphs pasted or moved with the caret in a heading keep their footnotes. It returns the slice unchanged when nothing needs repair.
 
 Implementation: `src/engine/footnote-paste.ts`
 Verification: `src/engine/footnote-paste.test.ts`
