@@ -22,6 +22,7 @@ import {
   type TemplateFile,
 } from '../model/index.js';
 import { type PageMap, pageMap } from '../pagination/page-map.js';
+import { chooseEntryWith } from './contents-keys.js';
 import { hasContents } from './contents-presence.js';
 
 /** A list's title, and what it shows when it lists nothing. */
@@ -210,7 +211,6 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
   row.className = 'de-contents__entry';
   row.dataset.level = String(entry.level || 1);
   row.setAttribute('role', 'link');
-  row.tabIndex = -1;
   if (entry.anchor) row.id = entry.anchor;
   if (entry.number) row.append(span('de-contents__number', entry.number));
   row.append(span('de-contents__text', entry.text));
@@ -221,7 +221,7 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
     row.append(leader);
   }
   if (drawing.showPage) row.append(span('de-contents__page', String(entry.page)));
-  row.addEventListener('click', () => drawing.navigate(index));
+  chooseEntryWith(row, index === 0, () => drawing.navigate(index));
   return row;
 }
 
@@ -344,7 +344,7 @@ export function createContents({
         return true;
       },
       ignoreMutation: () => true,
-      stopEvent: (event) => event.type === 'mousedown' || event.type === 'click',
+      stopEvent: (event) => ['mousedown', 'click', 'keydown'].includes(event.type),
     };
   };
   return new Plugin<ContentsState>({

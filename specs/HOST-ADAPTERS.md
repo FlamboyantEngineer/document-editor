@@ -158,6 +158,20 @@ The host's optional `exports` adapter shall list the exports File > Export offer
 Implementation: `src/host/adapters.ts`, `src/host/export-adapters.ts`
 Verification: `src/components/document-editor/use-document-exports.test.tsx`
 
+### DOCE-HOST-1.23 - Completion
+
+The host's `completion` adapter shall answer the text that may follow the caret, given the text before it, the rest of its block and the block's element id and type, with the automated session that wrote it. It names the agent a taken completion is attributed to, and may say whether completion can be asked now, and why not, and call back when that changes.
+
+Implementation: `src/host/completion-adapters.ts`, `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-HOST-1.24 - Template store
+
+A host whose templates are edited shall pass a template store (`TemplateStoreAdapter`, a `TemplateSourceAdapter` with more requests): `list` the stored templates at their latest revisions (`TemplateSummary`: id, name, parent and saved state); `save` a template's new settings on the revision they were edited from (`TemplateSave`), refused as `conflict` when another revision is stored; `create` a template under its own id, refused as `conflict` when the id is taken; `remove` a template and its revisions, which a host may refuse as `denied`, such as while another template inherits it; and, optionally, list a template's saved revisions newest first (`versions`, each a `TemplateVersion` with when and by whom it was saved), each read with `load(id, { revision })`. A copy is a new template created from another's settings, and a restore saves an old revision's settings as the newest, so neither is a request of its own. Whether a template is for the web layout is the host's to say (DOCE-TEMPLATE-EDITOR-3.6); the stored template format does not hold it.
+
+Implementation: `src/host/adapters.ts`, `src/host/memory-templates.ts`
+Verification: `src/host/memory-templates.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
@@ -252,3 +266,17 @@ The in-memory host's `memory` controls shall make each store request (document l
 
 Implementation: `src/host/memory-session.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.11 - In-memory completion
+
+The in-memory host shall answer completion requests with `options.complete`, as the agent `memory-completion`, each answer its own session, or with an `unavailable` failure with the message of what it throws; without `options.complete` it has no completion provider.
+
+Implementation: `src/host/memory-completion.ts`, `src/host/memory-host.ts`
+Verification: `src/host/memory-completion.test.ts`
+
+### DOCE-HOST-3.12 - In-memory templates
+
+The in-memory host's `templates` shall be a template store (DOCE-HOST-1.24) over `options.templates`, a template listed again being its next revision: saves check the base revision and tell the template's subscribers, a created template needs a free id, a template another inherits cannot be removed, and each save is a version, recorded with the reader's id and the time `options.now` gives.
+
+Implementation: `src/host/memory-templates.ts`, `src/host/memory-host.ts`
+Verification: `src/host/memory-templates.test.ts`

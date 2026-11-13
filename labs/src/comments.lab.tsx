@@ -14,10 +14,12 @@ import { createRoot } from 'react-dom/client';
 import {
   type CommentActionTarget,
   type CommentsAudience,
+  type DocumentCommentsOptions,
   DocumentCommentsPanel,
   DocumentEditor,
   type DocumentEditorHandle,
 } from '../../src/components/index.js';
+import type { Suggestion } from '../../src/document/index.js';
 import { assignElementIds, createDocumentEditing } from '../../src/engine/index.js';
 import { createMemoryHost, type MentionsAdapter } from '../../src/host/index.js';
 import {
@@ -152,6 +154,18 @@ const linkAction = ({ thread, entry, index }: CommentActionTarget) => [
 const onlyMine: CommentsAudience = (thread, me) =>
   thread.entries.some((entry) => entry.author === me);
 
+// A host's policy: the reader may only react in threads someone else started.
+const othersThreadsReadOnly: NonNullable<DocumentCommentsOptions['threadPermissions']> = (
+  thread,
+  me,
+) => ((thread.entries[0]?.author ?? me) === me ? {} : { reply: false, resolve: false });
+
+// A host's policy: anyone may accept a suggestion, but only its writer may reject it.
+const rejectOnlyOwn = (suggestion: Suggestion, me: string) => ({
+  accept: true,
+  reject: suggestion.author === me,
+});
+
 function Lab() {
   const [state, setState] = useState(initialState);
   const [reading, setReading] = useState(false);
@@ -164,6 +178,11 @@ function Lab() {
   const [markdown, setMarkdown] = useState(false);
   const [audience, setAudience] = useState(false);
   const [plainChips, setPlainChips] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestionThreads, setSuggestionThreads] = useState(false);
+  const [othersReadOnly, setOthersReadOnly] = useState(false);
+  const [ownRejects, setOwnRejects] = useState(false);
+  const [panelFilter, setPanelFilter] = useState('');
   const handle = useRef<DocumentEditorHandle>(null);
   const comments = HOST.comments;
   const review = {
@@ -173,6 +192,8 @@ function Lab() {
     placement: pane ? ('pane' as const) : ('margin' as const),
     mentions: groups ? MENTIONS : undefined,
     commentActions: actions ? linkAction : undefined,
+    threadPermissions: othersReadOnly ? othersThreadsReadOnly : undefined,
+    decide: ownRejects ? rejectOnlyOwn : undefined,
   };
   const filter = mine ? 'mine' : resolved ? 'all' : 'open';
   return (
@@ -269,6 +290,42 @@ function Lab() {
           />{' '}
           Copy-link action
         </label>
+        <label>
+          <input
+            type="checkbox"
+            name="suggesting"
+            checked={suggesting}
+            onChange={(event) => setSuggesting(event.currentTarget.checked)}
+          />{' '}
+          Suggesting
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="suggestion-threads"
+            checked={suggestionThreads}
+            onChange={(event) => setSuggestionThreads(event.currentTarget.checked)}
+          />{' '}
+          A thread for each suggestion
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="others-read-only"
+            checked={othersReadOnly}
+            onChange={(event) => setOthersReadOnly(event.currentTarget.checked)}
+          />{' '}
+          Threads by others read only
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            name="own-rejects"
+            checked={ownRejects}
+            onChange={(event) => setOwnRejects(event.currentTarget.checked)}
+          />{' '}
+          Reject only my own suggestions
+        </label>
         <button type="button" onClick={() => handle.current?.openThread('c0ffee01')}>
           Open the first thread
         </button>
@@ -292,6 +349,7 @@ function Lab() {
         onStateChange={setState}
         template={TEMPLATE}
         editable={!reading}
+        suggesting={suggesting}
         handleRef={handle}
         aria-label="Sample document"
         comments={
@@ -302,6 +360,7 @@ function Lab() {
             canComment: !reading,
             ...review,
             filter,
+            suggestionThreads: suggestionThreads ? { delay: 300 } : false,
           }
         }
         events={{
@@ -318,8 +377,12 @@ function Lab() {
               documentId="lab"
               identity={HOST.identity}
               canComment={!reading}
+              canDecide={!reading}
+              defaultFilter={resolved ? 'all' : 'open'}
+              onFilterChange={setPanelFilter}
               {...review}
             />
+            <output aria-label="Panel filter">{panelFilter}</output>
           </aside>
         ) : null}
       </DocumentEditor>

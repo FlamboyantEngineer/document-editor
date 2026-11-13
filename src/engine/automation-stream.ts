@@ -59,6 +59,11 @@ export function streamText(view: EditorView, at: EditAddress, options: StreamOpt
         return false;
       }
       view.dispatch(result.tr);
+      // A plugin may drop the change: a piece that did not go in ends the stream.
+      if (!holds(view, { elementId: at.elementId, from }, written + text)) {
+        open = false;
+        return false;
+      }
       written += text;
       return true;
     },

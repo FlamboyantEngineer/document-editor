@@ -13,21 +13,21 @@ Verification: `src/engine/automation.test.ts`, `src/document/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.2 - Editing text
 
-`applyEdits(state, edits, { actor, mode })` shall make a batch of edits as one change marked with its actor (`automationActor(tr)`): `insertText` at an offset of an element's text, or its end; `replaceText` and `deleteText` over a range of it, the whole text by default. An element the pages split is edited whole, as the editing state holds it. Text an actor that is not a person writes carries the contributor mark with its id and session.
+`applyEdits(state, edits, { actor, mode })` shall make a batch of edits as one change marked with its actor (`automationActor(tr)`): `insertText` at an offset of an element's text, or its end; `replaceText` and `deleteText` over a range of it, the whole text by default. An element the pages split is edited whole, as the editing state holds it. Text an actor that is not a person writes carries one contributor mark, with its id and session, in place of the one the text there carries.
 
 Implementation: `src/engine/automation.ts`, `src/engine/automation-address.ts`
 Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.3 - Refusing a batch
 
-A batch shall be refused whole, naming the first edit that could not be made and why: `not-found` when an element is gone, `stale` when a range no longer holds the text the caller read (`expect`), `invalid` for a range outside the text, an element without text, a block with no anchor or content the schema cannot read, `locked` at a locked position (DOCE-EDITING-4.1), and `unsupported` when a suggestion cannot record the change.
+A batch shall be refused whole, naming the first edit that could not be made and why: `not-found` when an element is gone, `stale` when a range no longer holds the text the caller read (`expect`), `invalid` for a range outside the text, an element without text, a block with no anchor, content the schema cannot read or an attribute that may not be set (DOCE-AUTOMATION-1.4), `locked` at a locked position (DOCE-EDITING-4.1), and `unsupported` when a suggestion cannot record the change.
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.4 - Editing blocks
 
-`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes; blocks the actor adds are attributed to it (`dataAuthor`, `dataAiSession`).
+`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes, refused as `invalid` for an attribute that says which element it is (its id, its author and the schema's other identity attributes) or that its type does not define; blocks the actor adds are attributed to it (`dataAuthor`, `dataAiSession`).
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`
@@ -48,7 +48,7 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.7 - Locked positions
 
-An edit at a locked position shall be refused as `locked`, whichever mode it is made in.
+An edit at a locked position shall be refused as `locked`, whichever mode it is made in, as shall one that changes content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1): text, blocks or attributes inside an embed or a script block's output, and an embed's own attributes. A comment on that text, and inserting beside, replacing or deleting the whole block, are not refused.
 
 Implementation: `src/engine/automation.ts`, `src/engine/edit-lock.ts`
 Verification: `src/engine/automation.test.ts`
@@ -64,33 +64,75 @@ Verification: `e2e/automation.spec.ts`
 
 ### DOCE-AUTOMATION-2.2 - Streaming text
 
-`streamText(view, at, { actor, mode })` shall write text piece by piece after the text streamed so far, at the address's offset or the end of the element's text, each piece its own change and, in suggest mode, all of them one suggestion. Before each piece it finds its place again by element id and offset, and it stops, refusing further pieces, once the writer has changed the streamed text. `cancel` takes the streamed text out while it is still there; `finish` keeps it.
+`streamText(view, at, { actor, mode })` shall write text piece by piece after the text streamed so far, at the address's offset or the end of the element's text, each piece its own change and, in suggest mode, all of them one suggestion. Before each piece it finds its place again by element id and offset, and it stops, refusing that piece and further ones, once the writer has changed the streamed text or a piece does not go in, as when its batch is refused or a plugin drops its change. `cancel` takes the streamed text out while it is still there; `finish` keeps it.
 
 Implementation: `src/engine/automation-stream.ts`, `labs/src/agent-panel.tsx`
-Verification: `e2e/automation.spec.ts`
+Verification: `src/engine/automation-stream.test.ts`, `e2e/automation.spec.ts`
 
 ## DOCE-AUTOMATION-3 - Inline completion
 
 ### DOCE-AUTOMATION-3.1 - What the provider is asked
 
-`completionRequest(state, context)` shall give the text before the caret, up to `context` characters (2000 by default) across the blocks before it, and the rest of the caret's block; none without a caret in text outside code, or with nothing before it.
+`completionRequest(state, context)` shall give the text before the caret, up to `context` characters (2000 by default) across the blocks before it, the rest of the caret's block, and the block's element id (or none) and type (`CompletionContext`); none without a caret that may be completed (in text outside code, footnotes and the page regions), or with nothing before it.
 
-Implementation: `src/engine/inline-completion.ts`
-Verification: `src/engine/inline-completion.test.ts`
+Implementation: `src/engine/completion-text.ts`
+Verification: `src/engine/completion-text.test.ts`
 
 ### DOCE-AUTOMATION-3.2 - Taking or dismissing an offer
 
-An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, and `dismissCompletion` forgets it, and any change or caret move dismisses it.
+An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it.
 
-Implementation: `src/engine/inline-completion.ts`
+Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-ghost.ts`
 Verification: `src/engine/inline-completion.test.ts`
 
 ### DOCE-AUTOMATION-3.3 - Asking the host's provider
 
-`createInlineCompletion({ provider, delay, isEnabled })` shall ask the host's completion provider (`CompletionAdapter`) once the writer, typing with the caret in text, pauses for `delay` milliseconds (600 by default), dropping an answer that comes after another change, and offer what it answers; Tab takes the offer and Escape dismisses it.
+`createInlineCompletion({ provider, delay, context, enabled, suggesting, normalize })` shall ask the host's completion provider (`CompletionAdapter`) once the writer, typing with the caret in text, pauses for `delay` milliseconds (600 by default), and offer what it answers; Tab takes the offer and Escape dismisses it. An answer that comes after the writer typed on or moved the caret is dropped.
 
-Implementation: `src/engine/inline-completion.ts`, `src/host/adapters.ts`
-Verification: `e2e/full-editor.spec.ts`
+Implementation: `src/engine/inline-completion.ts`, `src/host/completion-adapters.ts`
+Verification: `src/engine/inline-completion.test.ts`, `e2e/full-editor.spec.ts`
+
+### DOCE-AUTOMATION-3.4 - Changes that are not the writer's
+
+A change that is not the writer's own (a collaborator's, a plugin's, the layout's, the host's or an agent's batch, a check's result, another person's caret) shall drop neither the question asked nor the offer: both follow the change while the caret stays where they are, and the answer is offered where the caret is then. Such a change asks nothing, and one during the pause leaves the pause as it is, the provider then given the text as it is.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.5 - A taken completion is the agent's
+
+The text a taken completion puts in shall carry one contributor mark, the provider's `agent` with the answer's session, in place of the one the text there carries, and the change shall be marked with that agent (`automationActor(tr)`), so the writer's own marking leaves it as it is. While the writer suggests (`suggesting`), it goes in as the agent's suggestion.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`, `e2e/full-editor.spec.ts`
+
+### DOCE-AUTOMATION-3.6 - Typed keys ask
+
+Only a key that types a character shall ask: not a paste, a drop, an undo, a key with a command modifier, a composition (IME), or an edit with no key; nor typing in a footnote, in code or in a page region.
+
+Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-text.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.7 - On, off and available
+
+Completion shall start on unless `enabled` is false; `setInlineCompletionEnabled` turns it on or off, off dismissing what it offers and asking nothing. It asks nothing while the provider says it is unavailable (`availability`), and follows the provider's changes of it (`subscribe`). `completionStatus(state)` gives whether it is on, whether the provider can be asked or why not, and whether it is idle, asking or offering; none without the plugin.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.8 - Normalising answers
+
+An answer shall be offered as `normalizeCompletion` makes it, unless the host's `normalize` replaces it: its first line, tabs as spaces and no other control characters, with no space doubling one before or after the caret, and without its end where it repeats, as whole words, what the text after the caret starts with. An answer left with only space, and a failed one, offers nothing.
+
+Implementation: `src/engine/completion-text.ts`, `src/engine/inline-completion.ts`
+Verification: `src/engine/completion-text.test.ts`, `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.9 - The completion toggle
+
+`inlineCompletionItem(labels, group)` shall be a toolbar item (`inline-completion`, in the `mode` group by default) a host adds to the toolbar's items: shown only while the document runs inline completion, pressed while it is on, turning it on and off, and unavailable, with the provider's reason, while the provider cannot be asked.
+
+Implementation: `src/components/document-editor/completion-item.ts`
+Verification: `src/components/document-editor/completion-item.test.ts`, `e2e/full-editor.spec.ts`
 
 ## DOCE-AUTOMATION-4 - On stored documents
 

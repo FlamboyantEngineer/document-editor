@@ -37,8 +37,8 @@ function selectedBlocks(state: EditorState) {
 }
 
 /**
- * Inserts a code block: around the selected text, which it takes in, line by line, or empty where
- * a new block goes, with the caret in it.
+ * Inserts a code block: in place of the text blocks the selection covers, whose text it takes in,
+ * line by line, or empty where a new block goes, with the caret in it.
  */
 export function insertCodeBlock(language = 'plaintext'): Command {
   return (state, dispatch) => {
@@ -47,7 +47,8 @@ export function insertCodeBlock(language = 'plaintext'): Command {
     const blocks = selectedBlocks(state);
     if (!blocks) return insertBlock(type.create({ language }))(state, dispatch);
     if (dispatch) {
-      const text = state.doc.textBetween(state.selection.from, state.selection.to, '\n', ' ');
+      // The blocks go whole, so the code takes all their text, not only what is selected of it.
+      const text = state.doc.textBetween(blocks.from, blocks.to, '\n', ' ');
       const node = type.create({ language }, text ? state.schema.text(text) : null);
       const tr = state.tr.replaceWith(blocks.from, blocks.to, node);
       tr.setSelection(TextSelection.create(tr.doc, blocks.from + 1 + text.length));
@@ -157,6 +158,15 @@ export const convertMath: Command = (state, dispatch) => {
   const type = mathType(state, display);
   const paragraph = state.schema.nodes.paragraph;
   if (!type || !paragraph || !latex) return false;
+  // Display math goes after the inline math's block, and inline math in a paragraph where the
+  // block was: refused where the container takes no such block, as a footnote's text.
+  const $at = state.doc.resolve(found.pos);
+  const depth = display ? $at.depth - 1 : $at.depth;
+  if (depth < 0) return false;
+  const container = $at.node(depth);
+  const index = display ? $at.indexAfter(depth) : $at.index(depth);
+  const takes = display ? type : paragraph;
+  if (!container.canReplaceWith(index, display ? index : index + 1, takes)) return false;
   if (dispatch) {
     const end = found.pos + found.node.nodeSize;
     const tr = state.tr.delete(found.pos, end);

@@ -1,339 +1,183 @@
-// A stored document as a word processing document (Office Open XML): its headings in the heading
-// styles, paragraphs and their formats, lists, quotes, code, math as its source, tables, page
-// breaks, links and footnotes, in the template's page size and margins, its suggestions accepted
-// or rejected. Figures are written as their alternative text and caption.
+// A stored document as a word processing document (Office Open XML), faithful to its template: the
+// template's styles, heading and paragraph numbering, each section's page size, orientation and
+// margins with its page header and footer, lists on the template's bullets and numbers, tables,
+// footnotes numbered as the template numbers them, and the comment threads the host passes. Its
+// suggestions are accepted or rejected by the writers' rule. The parts are written by the modules
+// in `docx/`, by the style ids and numbering names a reader shares (FORMAT §5).
 
-import { safeHref } from '../schema/dom-attributes.js';
-import { PAGE_SIZE_DIMENSIONS } from '../templates/template-css-values.js';
-import { type DocumentFile, storedMathSource, type StoredNode } from './document-format.js';
-import { isLeftOut, keptContent, type SuggestionsMode } from './left-out.js';
+import { BASE_TEMPLATE } from '../templates/base-template.js';
+import type { DocumentFile, StoredSection } from './document-format.js';
+import { writeBlocks } from './docx/blocks.js';
+import { createWordComments, type WordCommentOptions, writeCommentParts } from './docx/comments.js';
+import { type Counting, startSectionCounting } from './docx/counting.js';
+import { writeFootnotesPart, writeSettingsPart } from './docx/notes.js';
+import { createWordNumbering, writeNumberingPart } from './docx/numbering.js';
+import {
+  CONTENT_TYPES,
+  linkRelationships,
+  type PackagePart,
+  type PartRelationship,
+  RELATIONSHIP_KINDS,
+  writeContentTypes,
+  writeRelationships,
+} from './docx/package.js';
+import { writeRegionPart } from './docx/regions.js';
+import {
+  endSection,
+  resolveSectionScope,
+  type SectionParts,
+  sectionProperties,
+  type SectionScope,
+} from './docx/sections.js';
+import { writeStylesPart } from './docx/styles.js';
+import { WORD_NAMESPACES, XML_DECLARATION } from './docx/word-xml.js';
+import type { Writing } from './docx/writing.js';
+import type { SuggestionsMode } from './left-out.js';
 import type { TemplateFile } from './template-format.js';
-import { variableText, type WriterValues } from './writer-values.js';
+import { mergeTemplateFiles } from './template-format-resolve.js';
+import type { WriterValues } from './writer-values.js';
 import { writeZip } from './zip.js';
+
+export type { WordCommentEntry, WordCommentOptions, WordCommentThread } from './docx/comments.js';
 
 /** How `writeDocx` writes a document. */
 export interface DocxOptions {
-  /** The resolved template, whose page size, orientation and margins the document takes. */
+  /** The resolved template, whose styles, numbering, pages and regions the document takes. */
   readonly template?: TemplateFile | undefined;
   /** Whether the suggestions are written as if accepted (the default) or rejected. */
   readonly suggestions?: SuggestionsMode | undefined;
-  /** The values of the variables the document names, such as `document.title`. */
+  /** The values of the variables the document names, such as `document.title`, and its assets. */
   readonly values?: WriterValues | undefined;
+  /** The comment threads the document anchors, from the host's comment store, with authors' names. */
+  readonly comments?: WordCommentOptions | undefined;
 }
 
-interface Writing {
-  readonly suggestions: SuggestionsMode;
-  readonly values: WriterValues;
-  readonly footnotes: string[];
-  /** The addresses the part being written links to: the document's, or the footnotes'. */
-  readonly links: string[];
-  readonly footnoteLinks: string[];
+interface WrittenSection {
+  readonly body: string;
+  readonly scope: SectionScope;
+  readonly writing: Writing;
 }
 
-// XML holds no control character but the tab and the line breaks, and a word processor reports a
-// part that holds another as damaged, so they are left out.
-const xml = (value: string) =>
-  value
-    .replace(/[^\P{Cc}\t\n\r]|[\uFFFE\uFFFF]/gu, '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-
-const text = (value: unknown) => (typeof value === 'string' ? value : '');
-
-const RUN_PROPERTIES: Readonly<Record<string, string>> = {
-  bold: '<w:b/>',
-  italic: '<w:i/>',
-  underline: '<w:u w:val="single"/>',
-  strike: '<w:strike/>',
-  superscript: '<w:vertAlign w:val="superscript"/>',
-  subscript: '<w:vertAlign w:val="subscript"/>',
-  code: '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>',
-};
-
-const run = (value: string, properties = '') =>
-  `<w:r>${properties ? `<w:rPr>${properties}</w:rPr>` : ''}<w:t xml:space="preserve">${xml(value)}</w:t></w:r>`;
-
-// A text node's run, in a hyperlink when it links.
-function textRun(node: StoredNode, writing: Writing): string {
-  const marks = node.marks ?? [];
-  const properties = marks.map((mark) => RUN_PROPERTIES[mark.type] ?? '').join('');
-  // A link with an address a link may not hold is written as its text.
-  const href = safeHref(marks.find((mark) => mark.type === 'link')?.attrs?.href);
-  if (href === null) return run(text(node.text), properties);
-  writing.links.push(href);
-  const id = `rIdLink${String(writing.links.length)}`;
-  return `<w:hyperlink r:id="${id}">${run(text(node.text), `<w:rStyle w:val="Hyperlink"/>${properties}`)}</w:hyperlink>`;
+/** The written parts and the document part's relationships to them. */
+interface Parts {
+  readonly parts: PackagePart[];
+  readonly relationships: PartRelationship[];
 }
 
-function inlineOf(node: StoredNode, writing: Writing): string {
-  if (isLeftOut(node, writing.suggestions)) return '';
-  switch (node.type) {
-    case 'text':
-      return textRun(node, writing);
-    case 'lineBreak':
-      return '<w:r><w:br/></w:r>';
-    case 'math':
-      return run(storedMathSource(node), '<w:i/>');
-    case 'footnote': {
-      // A footnote's runs are in the footnotes part, which names its links by its own relationships.
-      writing.footnotes.push(inlines(node.content, { ...writing, links: writing.footnoteLinks }));
-      const id = String(writing.footnotes.length);
-      return `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
-    }
-    case 'abbreviation': {
-      const { abbreviation, expansion, display } = node.attrs ?? {};
-      const shown =
-        display === 'short' ? text(abbreviation) : `${text(expansion)} (${text(abbreviation)})`;
-      return run(shown);
-    }
-    case 'mention':
-      return run(`@${text(node.attrs?.label)}`);
-    case 'variable':
-      return run(variableText(node, writing.values));
-    default:
-      return inlines(node.content, writing);
-  }
+function writeSections(file: DocumentFile, template: TemplateFile, options: DocxOptions) {
+  const suggestions = options.suggestions ?? 'accepted';
+  const numbering = createWordNumbering();
+  const content = file.sections.flatMap((section) => section.content);
+  const shared = {
+    suggestions,
+    values: options.values ?? {},
+    links: [],
+    footnotes: [],
+    footnoteLinks: [],
+    comments: createWordComments(content, { ...options.comments, suggestions }),
+    structural: true,
+  };
+  let counting: Counting | null = null;
+  const sections = file.sections.map((section: StoredSection): WrittenSection => {
+    const scope = resolveSectionScope(template, section);
+    counting = startSectionCounting(
+      counting,
+      { template, section: scope.templateSection },
+      numbering,
+    );
+    const writing: Writing = { ...shared, counting };
+    return { body: writeBlocks(section.content, writing), scope, writing };
+  });
+  return { sections, numbering, shared };
 }
 
-const inlineText = (content: readonly StoredNode[] | undefined) =>
-  (content ?? []).map((node) => text(node.text)).join('');
-
-const inlines = (content: readonly StoredNode[] | undefined, writing: Writing) =>
-  (content ?? []).map((node) => inlineOf(node, writing)).join('');
-
-const paragraph = (runs: string, properties = '') =>
-  `<w:p>${properties ? `<w:pPr>${properties}</w:pPr>` : ''}${runs}</w:p>`;
-
-const styled = (style: string, extra = '') => `<w:pStyle w:val="${style}"/>${extra}`;
-
-// A list's items, each a paragraph led by its bullet or number, indented by its depth.
-function listOf(node: StoredNode, writing: Writing, depth: number): string {
-  const ordered = node.type === 'orderedList';
-  const start = typeof node.attrs?.start === 'number' ? node.attrs.start : 1;
-  return keptContent(node.content, writing.suggestions)
-    .map((item, index) => {
-      const marker = ordered ? `${String(start + index)}.` : '•';
-      const indent = `<w:ind w:left="${String(360 * (depth + 1))}" w:hanging="360"/>`;
-      return keptContent(item.content, writing.suggestions)
-        .map((child, childIndex) => {
-          if (child.type === 'bulletList' || child.type === 'orderedList') {
-            return listOf(child, writing, depth + 1);
-          }
-          const lead = childIndex === 0 ? run(`${marker}\t`) : '';
-          return paragraph(lead + inlines(child.content, writing), styled('ListParagraph', indent));
-        })
-        .join('');
-    })
-    .join('');
+// Each section's header and footer parts, one part for each distinct content, once any has one.
+function regionParts(sections: readonly WrittenSection[], parts: Parts): SectionParts[] {
+  const has = sections.some(({ scope }) => scope.header.length || scope.footer.length);
+  if (!has) return sections.map(() => ({}));
+  const written = new Map<string, string>();
+  const partOf = (kind: 'header' | 'footer', section: WrittenSection) => {
+    const key = `${kind}:${JSON.stringify(section.scope[kind])}`;
+    const known = written.get(key);
+    if (known) return known;
+    const id = `rId${kind === 'header' ? 'Header' : 'Footer'}${String(written.size + 1)}`;
+    const path = `word/${kind}${String(written.size + 1)}.xml`;
+    const region = writeRegionPart(kind, section.scope[kind], section.writing);
+    parts.parts.push({ path, type: CONTENT_TYPES[kind], data: region.data });
+    parts.parts.push({
+      path: path.replace('word/', 'word/_rels/').replace(/\.xml$/, '.xml.rels'),
+      type: '',
+      data: writeRelationships(linkRelationships(region.links)),
+    });
+    parts.relationships.push({ id, kind: RELATIONSHIP_KINDS[kind], target: path.slice(5) });
+    written.set(key, id);
+    return id;
+  };
+  return sections.map((section) => ({
+    header: partOf('header', section),
+    footer: partOf('footer', section),
+  }));
 }
 
-function tableOf(node: StoredNode, writing: Writing): string {
-  const rows = keptContent(node.content, writing.suggestions);
-  const width = Math.max(1, ...rows.map((row) => row.content?.length ?? 0));
-  const border = (side: string) =>
-    `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="auto"/>`;
-  const borders = ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(border).join('');
-  const caption = text(node.attrs?.caption);
-  const cells = (row: StoredNode, header: boolean) =>
-    (row.content ?? [])
-      .map((cell) => {
-        const body = blocks(cell.content, writing) || paragraph('');
-        // A header cell's paragraphs take the bold header style.
-        const shown = header
-          ? body.replace(/<w:p>(?!<w:pPr>)/g, '<w:p><w:pPr><w:pStyle w:val="TableHeader"/></w:pPr>')
-          : body;
-        return `<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr>${shown}</w:tc>`;
-      })
-      .join('');
-  return [
-    caption ? paragraph(run(caption), styled('Caption')) : '',
-    `<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/><w:tblBorders>${borders}</w:tblBorders></w:tblPr>`,
-    `<w:tblGrid>${'<w:gridCol/>'.repeat(width)}</w:tblGrid>`,
-    ...rows.map(
-      (row, index) =>
-        `<w:tr>${cells(row, index === 0 && row.content?.[0]?.type === 'tableHeader')}</w:tr>`,
-    ),
-    '</w:tbl>',
-  ].join('');
+// A part the document relates to, with its relationship.
+function addPart(parts: Parts, part: { kind: keyof typeof CONTENT_TYPES; data: string }) {
+  const target = `${part.kind}.xml`;
+  parts.parts.push({ path: `word/${target}`, type: CONTENT_TYPES[part.kind], data: part.data });
+  parts.relationships.push({
+    id: `rId${part.kind.charAt(0).toUpperCase()}${part.kind.slice(1)}`,
+    kind: RELATIONSHIP_KINDS[part.kind],
+    target,
+  });
 }
-
-const code = (value: string) =>
-  value
-    .split('\n')
-    .map((line) => paragraph(run(line), styled('Code')))
-    .join('');
-
-const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => string>> = {
-  paragraph: (node, writing) => paragraph(inlines(node.content, writing)),
-  heading: (node, writing) => {
-    const level = Math.min(6, Math.max(1, Number(node.attrs?.level) || 1));
-    return paragraph(inlines(node.content, writing), styled(`Heading${String(level)}`));
-  },
-  bulletList: (node, writing) => listOf(node, writing, 0),
-  orderedList: (node, writing) => listOf(node, writing, 0),
-  blockquote: (node, writing) =>
-    blocks(node.content, writing).replace(/<w:p>(<w:pPr>)?/g, (_, has: string | undefined) =>
-      has
-        ? '<w:p><w:pPr><w:pStyle w:val="Quote"/>'
-        : '<w:p><w:pPr><w:pStyle w:val="Quote"/></w:pPr>',
-    ),
-  codeBlock: (node) => code(inlineText(node.content)),
-  linkedCode: (node) => code(text(node.attrs?.code)),
-  mathBlock: (node) => paragraph(run(storedMathSource(node), '<w:i/>'), '<w:jc w:val="center"/>'),
-  table: tableOf,
-  figure: (node) => {
-    const { alt, caption } = node.attrs ?? {};
-    return [
-      paragraph(run(`[${text(alt) || 'figure'}]`), '<w:jc w:val="center"/>'),
-      text(caption) ? paragraph(run(text(caption)), styled('Caption')) : '',
-    ].join('');
-  },
-  pageBreak: () => '<w:p><w:r><w:br w:type="page"/></w:r></w:p>',
-  rule: () =>
-    paragraph(
-      '',
-      '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr>',
-    ),
-  contents: () => '',
-};
-
-function blocks(content: readonly StoredNode[] | undefined, writing: Writing): string {
-  return keptContent(content, writing.suggestions)
-    .map((node) => {
-      const write = BLOCKS[node.type];
-      return write ? write(node, writing) : blocks(node.content, writing);
-    })
-    .join('');
-}
-
-// Twentieths of a point from a CSS length; null for one it does not read.
-function twips(value: unknown): number | null {
-  const match = /^(-?\d+(?:\.\d+)?)(pt|px|mm|cm|in)$/.exec(text(value).trim());
-  if (!match) return null;
-  const amount = Number(match[1]);
-  const per = { pt: 20, px: 15, mm: 1440 / 25.4, cm: 1440 / 2.54, in: 1440 }[
-    match[2] as 'pt' | 'px' | 'mm' | 'cm' | 'in'
-  ];
-  return Math.round(amount * per);
-}
-
-// The section properties: the template's page size, orientation and margins.
-function sectionProperties(template: TemplateFile | undefined): string {
-  const page = template?.page;
-  const size = PAGE_SIZE_DIMENSIONS[page?.size ?? 'A4'] ?? PAGE_SIZE_DIMENSIONS.A4;
-  const landscape = page?.orientation === 'landscape';
-  const across = twips(size?.width) ?? 11906;
-  const down = twips(size?.height) ?? 16838;
-  const width = landscape ? down : across;
-  const height = landscape ? across : down;
-  const margin = (side: 'top' | 'right' | 'bottom' | 'left') =>
-    twips(page?.margins?.[side]) ?? 1440;
-  return [
-    '<w:sectPr>',
-    `<w:pgSz w:w="${String(width)}" w:h="${String(height)}"${landscape ? ' w:orient="landscape"' : ''}/>`,
-    `<w:pgMar w:top="${String(margin('top'))}" w:right="${String(margin('right'))}" w:bottom="${String(margin('bottom'))}" w:left="${String(margin('left'))}" w:header="720" w:footer="720" w:gutter="0"/>`,
-    '</w:sectPr>',
-  ].join('');
-}
-
-const NAMESPACES =
-  'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
-const HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-
-const STYLES = [
-  HEADER,
-  `<w:styles ${NAMESPACES}>`,
-  '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>',
-  ...[1, 2, 3, 4, 5, 6].map(
-    (level) =>
-      `<w:style w:type="paragraph" w:styleId="Heading${String(level)}"><w:name w:val="heading ${String(level)}"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:outlineLvl w:val="${String(level - 1)}"/></w:pPr><w:rPr><w:b/><w:sz w:val="${String(36 - level * 3)}"/></w:rPr></w:style>`,
-  ),
-  '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/></w:style>',
-  '<w:style w:type="paragraph" w:styleId="Quote"><w:name w:val="Quote"/><w:basedOn w:val="Normal"/><w:pPr><w:ind w:left="720"/></w:pPr><w:rPr><w:i/></w:rPr></w:style>',
-  '<w:style w:type="paragraph" w:styleId="Code"><w:name w:val="Code"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="0"/></w:pPr><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="20"/></w:rPr></w:style>',
-  '<w:style w:type="paragraph" w:styleId="TableHeader"><w:name w:val="Table Header"/><w:basedOn w:val="Normal"/><w:rPr><w:b/></w:rPr></w:style>',
-  '<w:style w:type="paragraph" w:styleId="Caption"><w:name w:val="caption"/><w:basedOn w:val="Normal"/><w:rPr><w:i/><w:sz w:val="18"/></w:rPr></w:style>',
-  '<w:style w:type="paragraph" w:styleId="FootnoteText"><w:name w:val="footnote text"/><w:basedOn w:val="Normal"/><w:rPr><w:sz w:val="18"/></w:rPr></w:style>',
-  '<w:style w:type="character" w:styleId="FootnoteReference"><w:name w:val="footnote reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>',
-  '<w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>',
-  '</w:styles>',
-].join('');
-
-function footnotesPart(footnotes: readonly string[]): string {
-  const separator = (id: string, type: string, mark: string) =>
-    `<w:footnote w:type="${type}" w:id="${id}"><w:p><w:r><w:${mark}/></w:r></w:p></w:footnote>`;
-  return [
-    HEADER,
-    `<w:footnotes ${NAMESPACES}>`,
-    separator('-1', 'separator', 'separator'),
-    separator('0', 'continuationSeparator', 'continuationSeparator'),
-    ...footnotes.map(
-      (runs, index) =>
-        `<w:footnote w:id="${String(index + 1)}"><w:p><w:pPr><w:pStyle w:val="FootnoteText"/></w:pPr><w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteRef/></w:r>${run(' ')}${runs}</w:p></w:footnote>`,
-    ),
-    '</w:footnotes>',
-  ].join('');
-}
-
-const RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-
-// A part's relationships: its own, then one for each address it links to, in order.
-function relationships(own: readonly string[], links: readonly string[] = []): string {
-  return [
-    HEADER,
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
-    ...own,
-    ...links.map(
-      (href, index) =>
-        `<Relationship Id="rIdLink${String(index + 1)}" Type="${RELATIONSHIP}/hyperlink" Target="${xml(href)}" TargetMode="External"/>`,
-    ),
-    '</Relationships>',
-  ].join('');
-}
-
-const DOCUMENT_RELATIONSHIPS = [
-  `<Relationship Id="rIdStyles" Type="${RELATIONSHIP}/styles" Target="styles.xml"/>`,
-  `<Relationship Id="rIdFootnotes" Type="${RELATIONSHIP}/footnotes" Target="footnotes.xml"/>`,
-];
-
-const CONTENT_TYPES = [
-  HEADER,
-  '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
-  '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
-  '<Default Extension="xml" ContentType="application/xml"/>',
-  '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>',
-  '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>',
-  '<Override PartName="/word/footnotes.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"/>',
-  '</Types>',
-].join('');
-
-const PACKAGE_RELATIONSHIPS = relationships([
-  `<Relationship Id="rId1" Type="${RELATIONSHIP}/officeDocument" Target="word/document.xml"/>`,
-]);
 
 /** A stored document as the bytes of a word processing document (`.docx`). */
 export function writeDocx(file: DocumentFile, options: DocxOptions = {}): Uint8Array {
-  const writing: Writing = {
-    suggestions: options.suggestions ?? 'accepted',
-    values: options.values ?? {},
-    footnotes: [],
-    links: [],
-    footnoteLinks: [],
-  };
-  const body = file.sections.map((section) => blocks(section.content, writing)).join('');
-  const document = `${HEADER}<w:document ${NAMESPACES}><w:body>${body}${sectionProperties(options.template)}</w:body></w:document>`;
-  return writeZip([
-    { path: '[Content_Types].xml', data: CONTENT_TYPES },
-    { path: '_rels/.rels', data: PACKAGE_RELATIONSHIPS },
-    { path: 'word/document.xml', data: document },
-    { path: 'word/styles.xml', data: STYLES },
-    { path: 'word/footnotes.xml', data: footnotesPart(writing.footnotes) },
-    {
-      path: 'word/_rels/document.xml.rels',
-      data: relationships(DOCUMENT_RELATIONSHIPS, writing.links),
-    },
-    { path: 'word/_rels/footnotes.xml.rels', data: relationships([], writing.footnoteLinks) },
-  ]);
+  const template = options.template
+    ? mergeTemplateFiles(BASE_TEMPLATE, options.template)
+    : BASE_TEMPLATE;
+  const { sections, numbering, shared } = writeSections(file, template, options);
+  const parts: Parts = { parts: [], relationships: [] };
+  const regions = regionParts(sections, parts);
+  const body = sections
+    .map((section, index) => {
+      const properties = sectionProperties(section.scope.page, regions[index]);
+      return index < sections.length - 1
+        ? endSection(section.body, properties)
+        : section.body + properties;
+    })
+    .join('');
+  addPart(parts, { kind: 'styles', data: writeStylesPart(template) });
+  addPart(parts, { kind: 'numbering', data: writeNumberingPart(numbering) });
+  const names = file.sections.map((section) => section.name ?? '');
+  addPart(parts, { kind: 'settings', data: writeSettingsPart(template.footnotes, names) });
+  addPart(parts, { kind: 'footnotes', data: writeFootnotesPart(shared.footnotes) });
+  const comments = writeCommentParts(shared.comments);
+  if (comments) {
+    addPart(parts, { kind: 'comments', data: comments.comments });
+    addPart(parts, { kind: 'commentsExtended', data: comments.extended });
+  }
+  const document = `${XML_DECLARATION}<w:document ${WORD_NAMESPACES}><w:body>${body}</w:body></w:document>`;
+  const main = { path: 'word/document.xml', type: CONTENT_TYPES.document, data: document };
+  const typed = [main, ...parts.parts].filter((part) => part.type);
+  return writeZip(
+    [
+      { path: '[Content_Types].xml', data: writeContentTypes(typed) },
+      {
+        path: '_rels/.rels',
+        data: writeRelationships([
+          { id: 'rId1', kind: RELATIONSHIP_KINDS.document, target: 'word/document.xml' },
+        ]),
+      },
+      main,
+      ...parts.parts,
+      {
+        path: 'word/_rels/document.xml.rels',
+        data: writeRelationships([...parts.relationships, ...linkRelationships(shared.links)]),
+      },
+      {
+        path: 'word/_rels/footnotes.xml.rels',
+        data: writeRelationships(linkRelationships(shared.footnoteLinks)),
+      },
+    ].map(({ path, data }) => ({ path, data })),
+  );
 }

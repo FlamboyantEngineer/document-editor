@@ -19,7 +19,7 @@ const sectionOf = async (page: Page, name: string) =>
   (await template(page)).sections.find((section) => section.name === name);
 
 test.describe('template content lab', () => {
-  test('DOCE-SECTIONS-5.2 DOCE-SECTIONS-5.3 DOCE-LABS-3.3 edits section content and placeholder in place', async ({
+  test('DOCE-SECTIONS-5.2 DOCE-SECTIONS-5.3 DOCE-LABS-3.7 edits section content and placeholder in place', async ({
     lab,
     page,
   }) => {

@@ -1,6 +1,6 @@
 // The template settings the template editor offers, as data: where each sits in a template, what
-// kind of value it takes, and the section of the editor it belongs to. And reading and writing a
-// setting by its path, where an absent or empty value inherits from the parent template.
+// kind of value it takes, and the card or section of the editor it belongs to. And reading and
+// writing a setting by its path, where an absent value inherits from the parent template.
 
 import { PAGE_SIZE_DIMENSIONS, type TemplateFile } from '../../model/index.js';
 
@@ -18,19 +18,26 @@ export type SettingKind =
   | { readonly type: 'boolean' }
   /** A size in points, such as a font's. */
   | { readonly type: 'points' }
-  /** A font, from the editor's `fonts` or typed. */
-  | { readonly type: 'font' }
+  /** A font, from the editor's `fonts`, or its `codeFonts` for code, or typed. */
+  | { readonly type: 'font'; readonly code?: boolean }
   /** A numbering format: a character for each level, such as `1.1` or `A.i`. */
   | { readonly type: 'numbering' }
+  /** Four sides, in points, or for page margins in the page's own unit. */
+  | {
+      readonly type: 'sides';
+      readonly unit: 'pt' | 'page';
+      /** What one side is called, after its name, such as `margin` in `Top margin`. */
+      readonly side: string;
+    }
   | { readonly type: 'select'; readonly options: readonly { id: string; label: string }[] }
   /** A choice among a few, shown as segments. */
   | { readonly type: 'choice'; readonly options: readonly { id: string; label: string }[] };
 
 /** A setting of a template. */
 export interface TemplateSetting {
-  /** Unique in the editor. */
+  /** Unique in its card or section. */
   readonly id: string;
-  /** Where the setting sits in a template, below its scope. */
+  /** Where the setting sits in a template, below its card or section. */
   readonly path: readonly string[];
   readonly label: string;
   readonly kind: SettingKind;
@@ -40,36 +47,84 @@ export interface TemplateSetting {
   readonly hint?: string;
   /** Whether only the document's settings may set it, never a section's. */
   readonly documentOnly?: boolean;
+  /** Whether it applies on pages only, so a template for the web layout has no row for it. */
+  readonly pagesOnly?: boolean;
+  /** Why a value is not valid, shown on the field; null while it is. */
+  readonly check?: (value: unknown) => string | null;
 }
 
-/** A section of the template editor: its settings, below a scope of the template. */
+/**
+ * The rows of a style a card starts with: its font and size, its weight, slant and underline,
+ * its alignment (with justified or not), colour, spacing, line height, and numbering.
+ */
+export type StylePart =
+  'font' | 'face' | 'align' | 'justify' | 'colour' | 'spacing' | 'lineHeight' | 'numbering';
+
+/** A card of settings in a section: a style's rows, then its own settings. */
+export interface TemplateSettingCard {
+  /** Unique in its section. */
+  readonly id: string;
+  readonly title: string;
+  /** Where the card's settings sit, below the section's scope. */
+  readonly path: readonly string[];
+  readonly style?: readonly StylePart[];
+  /** Code takes its fonts from the editor's `codeFonts`. */
+  readonly code?: boolean;
+  readonly settings?: readonly TemplateSetting[];
+}
+
+/** A section of the template editor: its settings and cards, below a scope of the template. */
 export interface TemplateSettingSection {
   readonly id: string;
   readonly title: string;
-  /** The path its settings' paths start from, which a style picker may choose. */
+  /** The path its settings' paths start from. */
   readonly scope: readonly string[];
   readonly settings: readonly TemplateSetting[];
+  readonly cards?: readonly TemplateSettingCard[];
+  /** Whether only the document's settings may set it, never a section's. */
+  readonly documentOnly?: boolean;
+  /** Whether it applies on pages only, so a template for the web layout has no section for it. */
+  readonly pagesOnly?: boolean;
 }
 
-const text = { type: 'text' } as const;
-const length = { type: 'length' } as const;
-const color = { type: 'color' } as const;
-const boolean = { type: 'boolean' } as const;
-const points = { type: 'points' } as const;
-const select = (...options: [string, string][]): SettingKind => ({
-  type: 'select',
-  options: options.map(([id, label]) => ({ id, label })),
-});
-const choice = (...options: [string, string][]): SettingKind => ({
-  type: 'choice',
-  options: options.map(([id, label]) => ({ id, label })),
-});
+/** The text of the template editor's rows. */
+export interface TemplateSettingsLabels {
+  /** A custom style name another style has. */
+  readonly styleNameTaken: string;
+  /** A custom style name that is not a letter followed by letters, digits, `_` or `-`. */
+  readonly styleNameInvalid: string;
+  /** The names of four sides, before what a side is called, such as `Top` in `Top margin`. */
+  readonly sides: Readonly<Record<'top' | 'right' | 'bottom' | 'left', string>>;
+  /** Names numbering's switch. */
+  readonly numbered: string;
+}
 
-const setting = (path: string, label: string, kind: SettingKind): TemplateSetting => ({
+/** The English text of the template editor's rows. */
+export const DEFAULT_TEMPLATE_SETTINGS_LABELS: TemplateSettingsLabels = {
+  styleNameTaken: 'Another style has this name.',
+  styleNameInvalid: 'Start with a letter; then up to 15 letters, digits, _ or -.',
+  sides: { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' },
+  numbered: 'Numbered',
+};
+
+/** A setting of a kind at a path, written with dots. */
+export const setting = (path: string, label: string, kind: SettingKind): TemplateSetting => ({
   id: path,
   path: path.split('.'),
   label,
   kind,
+});
+
+/** A choice from a list. */
+export const select = (...options: [string, string][]): SettingKind => ({
+  type: 'select',
+  options: options.map(([id, label]) => ({ id, label })),
+});
+
+/** A choice among a few, as segments. */
+export const choice = (...options: [string, string][]): SettingKind => ({
+  type: 'choice',
+  options: options.map(([id, label]) => ({ id, label })),
 });
 
 /** What a numbering format's characters number with. */
@@ -81,49 +136,25 @@ export const numberingSetting = (path: string, label: string): TemplateSetting =
   hint: NUMBERING_HINT,
 });
 
-// A page size with its dimensions, such as `A4 (210 × 297 mm)`.
-function pageSizeLabel(size: string): string {
-  const found = PAGE_SIZE_DIMENSIONS[size];
-  if (!found) return size;
-  const unit = found.width.replace(/[\d.]/g, '');
-  const across = found.width.replace(unit, '');
-  const down = found.height.replace(unit, '');
-  return `${size} (${across} × ${down} ${unit})`;
-}
-
-/** The bullets a bulleted list may show. */
-const BULLETS: [string, string][] = [
-  ['disc', '• Disc'],
-  ['circle', '◦ Circle'],
-  ['square', '▪ Square'],
-  ['–', '– Dash'],
-  ['none', 'None'],
-];
-
 /** The page sizes a template may name. */
 export const PAGE_SIZES = Object.keys(PAGE_SIZE_DIMENSIONS);
 
 /** The settings of a text style: its font, colour, line height, alignment and spacing. */
 export const TEXT_STYLE_SETTINGS: readonly TemplateSetting[] = [
   setting('font', 'Font', { type: 'font' }),
-  setting('size', 'Size', points),
+  setting('size', 'Size', { type: 'points' }),
   setting('weight', 'Weight', { type: 'number', min: 100, max: 900, step: 100 }),
-  setting('italic', 'Italic', boolean),
-  setting('underline', 'Underline', boolean),
-  setting('color', 'Colour', color),
-  setting('lineHeight', 'Line height', {
-    type: 'number',
-    min: 0.8,
-    max: 3,
-    step: 0.05,
-  }),
+  setting('italic', 'Italic', { type: 'boolean' }),
+  setting('underline', 'Underline', { type: 'boolean' }),
+  setting('color', 'Colour', { type: 'color' }),
+  setting('lineHeight', 'Line height', { type: 'number', min: 0.8, max: 3, step: 0.05 }),
   setting(
     'alignment',
     'Alignment',
     select(['left', 'Left'], ['center', 'Centre'], ['right', 'Right'], ['justify', 'Justify']),
   ),
-  setting('spaceBefore', 'Space before', points),
-  setting('spaceAfter', 'Space after', points),
+  setting('spaceBefore', 'Space before', { type: 'points' }),
+  setting('spaceAfter', 'Space after', { type: 'points' }),
 ];
 
 /** The text styles, each a card, by their key in a template's styles, in reading order. */
@@ -149,123 +180,16 @@ export const DEFAULT_FONTS: readonly string[] = [
   'Verdana',
 ];
 
-/** The editor's sections, in order, below the text styles. */
-export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
-  {
-    id: 'page',
-    title: 'Page setup',
-    scope: ['page'],
-    settings: [
-      setting(
-        'size',
-        'Page size',
-        select(...PAGE_SIZES.map((size): [string, string] => [size, pageSizeLabel(size)])),
-      ),
-      setting(
-        'orientation',
-        'Orientation',
-        choice(['portrait', 'Portrait'], ['landscape', 'Landscape']),
-      ),
-    ],
-  },
-  {
-    id: 'regions',
-    title: 'Header & footer',
-    scope: [],
-    settings: [
-      setting('header.height', 'Header height', length),
-      setting('header.spacingToContent', 'Space below the header', length),
-      setting('footer.height', 'Footer height', length),
-      setting('footer.spacingToContent', 'Space above the footer', length),
-    ],
-  },
-  {
-    id: 'lists',
-    title: 'Lists',
-    scope: ['styles', 'list'],
-    settings: [
-      setting('bullet', 'Bullet', select(...BULLETS)),
-      numberingSetting('format', 'Numbering format'),
-      setting('indentation', 'Indentation', length),
-      setting('spaceBefore', 'Space before', length),
-      setting('spaceAfter', 'Space after', length),
-    ],
-  },
-  {
-    id: 'tables',
-    title: 'Tables',
-    scope: ['styles', 'table'],
-    settings: [
-      setting('border.width', 'Border width', length),
-      setting('border.color', 'Border colour', color),
-      setting('cellPadding', 'Cell padding', length),
-      setting('header.background', 'Header background', color),
-      setting('header.color', 'Header text colour', color),
-      setting('rows.odd', 'Odd rows', color),
-      setting('rows.even', 'Even rows', color),
-      setting('repeatHeader', 'Repeat the header on each page', boolean),
-      setting('caption.placement', 'Caption', choice(['above', 'Above'], ['below', 'Below'])),
-    ],
-  },
-  {
-    id: 'code',
-    title: 'Code blocks',
-    scope: ['styles', 'codeBlock'],
-    settings: [
-      setting('font', 'Font', { type: 'font' }),
-      setting('size', 'Size', points),
-      setting('background', 'Background', color),
-      setting('caption.placement', 'Caption', choice(['above', 'Above'], ['below', 'Below'])),
-      setting('spaceBefore', 'Space before', points),
-      setting('spaceAfter', 'Space after', points),
-    ],
-  },
-  {
-    id: 'footnotes',
-    title: 'Footnotes',
-    scope: ['footnotes'],
-    settings: [
-      {
-        ...setting(
-          'numbering',
-          'Numbering',
-          select(['document', 'Through the document'], ['page', 'On each page']),
-        ),
-        documentOnly: true,
-      },
-      setting('separator.enabled', 'Separator line', boolean),
-      setting('separator.color', 'Separator colour', color),
-      setting('spacingToContent', 'Space above', length),
-      setting('text.size', 'Text size', points),
-    ],
-  },
-  {
-    id: 'contents',
-    title: 'Table of contents',
-    scope: ['styles', 'contents'],
-    settings: [
-      setting('leader.character', 'Leader', text),
-      setting('title.size', 'Title size', points),
-      setting('entry.size', 'Entry size', points),
-    ],
-  },
-  {
-    id: 'change-bars',
-    title: 'Change bars',
-    scope: ['changeBars'],
-    settings: [
-      ...(['insertions', 'deletions', 'modifications', 'formatting'] as const).flatMap((kind) => {
-        const label = `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
-        return [
-          setting(`${kind}.enabled`, `Show ${kind}`, boolean),
-          setting(`${kind}.color`, label, color),
-        ];
-      }),
-      setting('side', 'Side', choice(['left', 'Left'], ['right', 'Right'])),
-      setting('offset', 'Offset', length),
-      setting('width', 'Width', length),
-    ],
-  },
+/** The monospace fonts a code font field suggests unless the editor is given its own. */
+export const DEFAULT_CODE_FONTS: readonly string[] = [
+  'Cascadia Code',
+  'Consolas',
+  'Courier New',
+  'Fira Code',
+  'JetBrains Mono',
+  'Menlo',
+  'Monaco',
+  'Source Code Pro',
 ];
 
 type Settings = Record<string, unknown>;
@@ -277,39 +201,48 @@ const isRecord = (value: unknown): value is Settings =>
 export function settingAt(template: TemplateFile, path: readonly string[]): unknown {
   let value: unknown = template;
   for (const key of path) {
-    if (!isRecord(value)) return undefined;
-    value = value[key];
+    if (!isRecord(value) && !Array.isArray(value)) return undefined;
+    value = (value as Settings)[key];
   }
   return value;
 }
 
+const isGone = (value: unknown) =>
+  value === null || value === undefined || (isRecord(value) && Object.keys(value).length === 0);
+
+// A list with an entry set at an index, or set to null, so it inherits the parent's entry at that
+// index (lists merge by index); nulls at the end go, and a list of nulls goes too.
+function withEntry(target: unknown, index: number, child: unknown): unknown[] | undefined {
+  const list: unknown[] = Array.isArray(target) ? [...(target as unknown[])] : [];
+  while (list.length <= index) list.push(null);
+  list[index] = isGone(child) ? null : child;
+  while (list.length && list[list.length - 1] === null) list.pop();
+  return list.length ? list : undefined;
+}
+
 // An object with a value set at a path, or taken out when it is null; objects left empty go too.
-function withValue(target: Settings, path: readonly string[], value: unknown): Settings {
+// A number key sets an entry of a list.
+function withValue(target: unknown, path: readonly string[], value: unknown): unknown {
   const [key, ...rest] = path;
   if (key === undefined) return target;
-  const next: Settings = { ...target };
-  const child =
-    rest.length === 0 ? value : withValue(isRecord(target[key]) ? target[key] : {}, rest, value);
-  if (
-    child === null ||
-    child === undefined ||
-    (isRecord(child) && Object.keys(child).length === 0)
-  ) {
-    delete next[key];
-  } else {
-    next[key] = child;
-  }
+  const current = isRecord(target) || Array.isArray(target) ? (target as Settings)[key] : undefined;
+  const child = rest.length === 0 ? value : withValue(current, rest, value);
+  if (/^\d+$/.test(key)) return withEntry(target, Number(key), child);
+  const next: Settings = isRecord(target) ? { ...target } : {};
+  if (isGone(child)) delete next[key];
+  else next[key] = child;
   return next;
 }
 
 /**
  * A template with a setting changed: null or undefined inherits it from the parent again, and an
- * empty string is the template's own empty value.
+ * empty string is the template's own empty value. A number in the path is an index in a list,
+ * whose other entries stay as they are, or null to inherit the parent's.
  */
 export function withSetting(
   template: TemplateFile,
   path: readonly string[],
   value: unknown,
 ): TemplateFile {
-  return withValue(template as unknown as Settings, path, value) as unknown as TemplateFile;
+  return (withValue(template, path, value) ?? {}) as TemplateFile;
 }

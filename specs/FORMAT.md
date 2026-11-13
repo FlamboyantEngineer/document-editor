@@ -13,7 +13,7 @@ Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documen
 
 ### DOCE-FORMAT-1.2 - Read for the editor
 
-`readDocumentFile(file, schema, options)` shall give `{ doc, problems }`: the editor's document, each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. Overlapping marks of one type shall be read in canonical order (`orderDocumentMarks`, DOCE-SCHEMA-5.1), whatever order they are stored in, so a document read from storage equals the same document built by editing. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
+`readDocumentFile(file, schema, options)` shall give `{ doc, problems }`: the editor's document, each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. The editor keeps a footnote's marker and text together by its id, so a footnote stored without an `id`, as an import composes one, or with one an earlier footnote holds, shall be read with an id no other stored footnote holds: the first free one of the element id form (DOCE-EDITING-1.1), counting up from `00000001`, so a file reads the same each time; it is written back with that id. Overlapping marks of one type shall be read in canonical order (`orderDocumentMarks`, DOCE-SCHEMA-5.1), whatever order they are stored in, so a document read from storage equals the same document built by editing. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
 
 Implementation: `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`, `src/model/format/document-format-convert.test.ts`
@@ -182,9 +182,9 @@ Verification: `src/model/format/docx.test.ts`
 
 ### DOCE-FORMAT-5.2 - Writing a word processing document
 
-`writeDocx(file, { template, suggestions })` shall write a stored document as an Office Open XML word processing document: headings in the heading styles, paragraphs and their formats, links, lists led by their bullets or numbers, quotes, code, math as its stored `source`, tables with their caption and header row, page breaks, rules, figures as their alternative text and caption, and footnotes, in the template's page size, orientation and margins, its suggestions accepted or, when asked, rejected. A link whose address a link may not hold (DOCE-SCHEMA-3.8) is written as its text. Each part shall name the addresses it links to by its own relationships: the document's in `word/_rels/document.xml.rels` and a footnote's in `word/_rels/footnotes.xml.rels`. The characters XML cannot hold, control characters other than the tab and the line breaks, shall be left out of every part.
+`writeDocx(file, { template, suggestions, values, comments })` shall write a stored document as an Office Open XML word processing document, faithful to its resolved template (the base template when none is given): headings, paragraphs and their formats, links (a link whose address a link may not hold, DOCE-SCHEMA-3.8, written as its text), lists, quotes, code as one paragraph per block with its lines parted by line breaks, math as its stored `source`, tables, page breaks, rules, figures as their alternative text and address, a table of contents as a field the word processor fills in, and footnotes, its suggestions accepted or, when asked, rejected. Each part shall name the addresses it links to by its own relationships (the document's, a footnote's, a header's or a footer's), and the characters XML cannot hold, control characters other than the tab and the line breaks, shall be left out of every part. The parts use the style ids, numbering names and section list a reader shares (DOCE-FORMAT-5.4 to 5.7). A release checks a sample of the regression set in a word processor by hand.
 
-Implementation: `src/model/format/docx.ts`
+Implementation: `src/model/format/docx.ts`, `src/model/format/docx/blocks.ts`, `src/model/format/docx/inline.ts`, `src/model/format/docx/package.ts`
 Verification: `src/model/format/docx.test.ts`
 
 ### DOCE-FORMAT-5.3 - What a writer leaves out and resolves
@@ -193,6 +193,41 @@ Every writer shall apply one rule to a document's suggestions (`isLeftOut`, `kep
 
 Implementation: `src/model/format/left-out.ts`, `src/model/format/writer-values.ts`, `src/model/format/docx.ts`
 Verification: `src/model/format/left-out.test.ts`, `src/model/format/docx.test.ts`
+
+### DOCE-FORMAT-5.4 - Template styles in a word processing document
+
+The template's styles shall become the document's styles, by ids a reader shares: the paragraph style as `Normal`, the title as `Title`, heading levels as `Heading1` to `Heading6` with their outline levels, paragraph levels 2 to 6 as `ParagraphLevel2` to `ParagraphLevel6`, each custom style as `Custom_<key>` named by its key, and the list, quote, code, caption, table header and footnote styles, each with its font, size, weight, italics, underline, color, line height, alignment, spacing and background. A heading or paragraph in a custom style takes that style, a heading keeping its outline level.
+
+Implementation: `src/model/format/docx/styles.ts`, `src/model/format/docx/word-properties.ts`, `src/model/format/docx/word-xml.ts`, `src/model/format/docx/paragraphs.ts`
+Verification: `src/model/format/docx/styles.test.ts`, `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.5 - Numbering in a word processing document
+
+Headings and paragraphs of the document's structure shall be numbered with the word processor's own numbering, from the template's formats, prefixes and suffixes as the editor numbers them (`Headings` and `Paragraphs` definitions per numbering scope, a section that restarts numbering starting them again, the paragraphs counting again after each heading); lists shall use the template's bullet and number format (`Bullets` and `Numbers`), each numbered list counting from its start; and the captions of tables, figures and code, and the numbers of equations, shall show their numbers as the editor counts them, the caption's label in the `CaptionLabel` style. Headings and paragraphs in lists, tables, quotes and page regions, the title, and a heading stored as `numbered: false` are not numbered; such a heading moves no heading or object counter, though the paragraphs after it count again.
+
+Implementation: `src/model/format/docx/numbering.ts`, `src/model/format/docx/numbering-levels.ts`, `src/model/format/docx/counting.ts`, `src/model/format/docx/tables.ts`
+Verification: `src/model/format/docx/numbering.test.ts`, `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.6 - Sections, pages and regions in a word processing document
+
+Each stored section shall be a section of the document, with its template section's page size, orientation and margins over the template's, and its page header and footer, the section's own over its template section's over the template's, with `page.current` and `page.total` as page fields and other variables as their values in content controls tagged `variable:<key>`. Once any section has a header or footer, every section names its own. The settings shall list each section's template section name in order (`sections`).
+
+Implementation: `src/model/format/docx/sections.ts`, `src/model/format/docx/regions.ts`, `src/model/format/docx/notes.ts`
+Verification: `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.7 - Footnotes and comments in a word processing document
+
+Footnotes shall be numbered as the template numbers them, through the document or on each page. The comment threads the host passes (`comments.threads`) that the document anchors shall be written as comments around their text, one per entry with its author's name (`comments.authorName`) and date, the replies linked to the opening comment, and a resolved thread marked done; a thread the document does not anchor, or that is left out with its text, is not written.
+
+Implementation: `src/model/format/docx/comments.ts`, `src/model/format/docx/notes.ts`
+Verification: `src/model/format/docx/comments.test.ts`, `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.8 - Reading back a written document
+
+A document the writer writes shall read back with the library's reader (`readDocx`, DOCE-IMPORT) into the same template sections, blocks, heading levels, paragraph levels and styles, and footnotes, except for the content the writer writes with a loss: columns as their blocks, scripts and template blocks as their content, lists of contents other than the table of contents, linked code as code, display math as a paragraph, figures as placeholders, and quotes nested in quotes written flat.
+
+Implementation: `src/model/format/docx.ts`
+Verification: `src/model/format/docx-round-trip.test.ts`
 
 ## DOCE-FORMAT-6 - HTML interchange
 

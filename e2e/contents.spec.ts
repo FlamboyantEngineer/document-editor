@@ -97,6 +97,22 @@ test.describe('contents lab', () => {
     expect(heading).toBe('Storage responses');
   });
 
+  test('DOCE-CONTENTS-2.4 takes the reader to an entry chosen with the keyboard', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('contents');
+    await rows(page).first().focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(rows(page).nth(1)).toBeFocused();
+    const name = (await rows(page).nth(1).locator('.de-contents__text').textContent()) ?? '';
+    await page.keyboard.press('Enter');
+    const heading = await page.evaluate(
+      () => document.getSelection()?.anchorNode?.parentElement?.closest('h1, h2')?.textContent,
+    );
+    expect(heading).toBe(name);
+  });
+
   test('DOCE-CONTENTS-2.5 lists the nodes a configured kind names', async ({ lab, page }) => {
     await lab.open('contents');
     const list = page.locator('.lab-pages .de-contents[data-contents-type="quotes"]');

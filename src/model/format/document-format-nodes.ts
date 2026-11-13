@@ -21,6 +21,7 @@ import {
   type StoredTypeSpec,
 } from './document-format.js';
 import { readFormatRecords } from './format-records.js';
+import type { FootnoteIds } from './stored-footnote-ids.js';
 
 type Attrs = Record<string, unknown>;
 
@@ -71,6 +72,7 @@ export interface ReadContext {
   policy: DocumentReadPolicy;
   problems: DocumentReadProblem[];
   footnotes: ProseMirrorNode[];
+  footnoteIds: FootnoteIds;
 }
 
 // Records a problem, or throws it under the strict policy; the caller then drops or keeps.
@@ -282,7 +284,8 @@ function readMath(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode |
 }
 
 function readFootnote(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
-  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  const read = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
+  const attrs = { ...read, footnoteId: at.context.footnoteIds.take(read.footnoteId) };
   // A footnote's text is inline content, so a node it does not know is kept inline, in the text.
   const content = readContent(stored.content, { ...at, path: `${at.path}.content` }, true);
   const entry = at.context.schema.nodes.footnote_entry;
