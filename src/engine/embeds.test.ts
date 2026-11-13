@@ -295,6 +295,28 @@ describe('embed status and updates', () => {
     view.destroy();
   });
 
+  it('DOCE-EMBEDS-3.1 asks again on a refresh after a first resolve that failed', async () => {
+    let asked = 0;
+    const adapter: EmbedSourceAdapter = {
+      ...source({}),
+      resolve: () => {
+        asked += 1;
+        return Promise.resolve({ ok: false as const, error: { kind: 'unavailable' as const } });
+      },
+    };
+    const plugins = [
+      ...createDocumentEditing(documentSchema),
+      createEmbedStatus({ source: adapter, delay: 0 }),
+    ];
+    const view = viewOf(stateWith([embedded('r1', rows('One'))], plugins));
+    await settle();
+    expect(asked).toBe(1);
+    expect(refreshEmbedStatus(view.state, view.dispatch)).toBe(true);
+    await settle();
+    expect(asked).toBe(2);
+    view.destroy();
+  });
+
   it('DOCE-EMBEDS-3.2 takes an update: the content as it is now, with stable ids, undoable', async () => {
     const now: EmbedContent = {
       snapshot: 'r2',

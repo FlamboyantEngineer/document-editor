@@ -38,7 +38,7 @@ Verification: `src/engine/embeds.test.ts`
 
 ### DOCE-EMBEDS-3.1 - Status
 
-`createEmbedStatus({ source, delay })` shall resolve the content of the document's embeds of the host's kinds through the host's `embeds` adapter a moment after each change (500 milliseconds by default), each content once by its kind and source (`embedSourceKey`), and mark an embed whose content is gone `unavailable`, one whose content the reader may not read `no-access`, and one whose content's state is not the one it shows `update` (`data-embed-status`; `embedStatus`, `embedStatusAt`). Typing walks no embed. `refreshEmbedStatus` asks the host for every content again; `resolveEmbeds(answered)` records answers as the plugin does.
+`createEmbedStatus({ source, delay })` shall resolve the content of the document's embeds of the host's kinds through the host's `embeds` adapter a moment after each change (500 milliseconds by default), each content once by its kind and source (`embedSourceKey`), and mark an embed whose content is gone `unavailable`, one whose content the reader may not read `no-access`, and one whose content's state is not the one it shows `update` (`data-embed-status`; `embedStatus`, `embedStatusAt`). Typing walks no embed. `refreshEmbedStatus` asks the host for every content again, at once, also when nothing was resolved before; `resolveEmbeds(answered)` records answers as the plugin does.
 
 Implementation: `src/engine/embed-status.ts`
 Verification: `src/engine/embeds.test.ts`
