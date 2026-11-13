@@ -96,7 +96,7 @@ Verification: `src/engine/template-sync.test.ts`
 
 ### DOCE-SECTIONS-4.2 - Bringing sections back in line
 
-`syncTemplateSections(template, options)` shall give each stale section the template's content again, each of its script blocks keeping the output and run time of the section's script block of the same script, in order, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it, with its starting content; it is refused when nothing drifted.
+`syncTemplateSections(template, options)` shall give each stale section the template's content again, each of its script blocks keeping the output and run time of the section's script block of the same script, in order, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it, with its starting content; it is refused when nothing drifted. The change shall be a system change (`markSystemChange`, DOCE-EDITING-3.2) outside the undo history, so the edit lock on the sections it brings back (DOCE-SECTIONS-4.3) and suggest mode let it pass.
 
 Implementation: `src/engine/template-sync.ts`, `src/engine/document-sections.ts`
 Verification: `src/engine/template-sync.test.ts`

@@ -1,5 +1,5 @@
 import type { Node } from 'prosemirror-model';
-import { type Command, EditorState } from 'prosemirror-state';
+import { type Command, EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
@@ -9,6 +9,7 @@ import {
   type TemplateFile,
   writeDocumentFile,
 } from '../model/index.js';
+import { createDocumentEditing } from './document-editing.js';
 import { createEditLock } from './edit-lock.js';
 import {
   anyLock,
@@ -16,6 +17,7 @@ import {
   syncTemplateSections,
   templateSectionDrift,
 } from './template-sync.js';
+import { isSystemChange } from './transaction-kind.js';
 
 const paragraph = (value: string): StoredNode => ({
   type: 'paragraph',
@@ -84,6 +86,23 @@ describe('template sections', () => {
       'signatures:Sign here',
     ]);
     expect(syncTemplateSections(TEMPLATE)(state)).toBe(false);
+  });
+
+  it('DOCE-SECTIONS-4.2 DOCE-EDITING-3.2 brings a locked section back in line as a system change outside the history', () => {
+    const state = EditorState.create({
+      doc: read(
+        { name: 'cover', content: [paragraph('Edited cover')] },
+        { name: 'signatures', content: [paragraph('Signed')] },
+      ),
+      plugins: createDocumentEditing(documentSchema, { template: () => TEMPLATE }),
+    });
+    const sent: Transaction[] = [];
+    expect(syncTemplateSections(TEMPLATE)(state, (tr) => sent.push(tr))).toBe(true);
+    const [tr] = sent;
+    if (!tr) throw new Error('No transaction');
+    expect(isSystemChange(tr)).toBe(true);
+    expect(tr.getMeta('addToHistory')).toBe(false);
+    expect(outline(state.apply(tr).doc)).toEqual(['cover:Cover text', 'signatures:Signed']);
   });
 
   it('DOCE-SECTIONS-4.3 locks the sections the writer cannot edit', () => {

@@ -22,6 +22,7 @@ import {
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import { sectionOf } from './document-sections.js';
 import type { EditLockOptions } from './edit-lock.js';
+import { markSystemChange } from './transaction-kind.js';
 
 /** How a document's section drifted from its template. */
 export interface SectionDrift {
@@ -160,7 +161,8 @@ function carryScriptOutput(
  * Brings the document's sections back in line with the template: a section the writer cannot edit
  * takes the template's content again, a section of a name the template does not have becomes a
  * plain section, keeping its content, and a missing required section is added where the template
- * places it, with its starting content. Refused when nothing drifted.
+ * places it, with its starting content. The change is a system change (`markSystemChange`) outside
+ * the history. Refused when nothing drifted.
  */
 export function syncTemplateSections(
   template: TemplateFile,
@@ -192,7 +194,9 @@ export function syncTemplateSections(
     for (const missing of drift.filter((each) => each.kind === 'missing')) {
       insertMissing(tr, { template, options }, missing.name);
     }
-    dispatch(tr.scrollIntoView());
+    // The template's change, not the writer's: it passes the lock on the very sections it brings
+    // back, and stays out of the history, where undoing it would be an edit the lock refuses.
+    dispatch(markSystemChange(tr).setMeta('addToHistory', false).scrollIntoView());
     return true;
   };
 }
