@@ -40,6 +40,18 @@ function useThreads(store: CommentStoreAdapter, identity: ReturnType<typeof host
 }
 
 describe('useCommentThreads', () => {
+  it('DOCE-COMMENTS-2.1 names the people who reacted to or decided a thread', async () => {
+    const reacted: CommentThread = {
+      ...thread('t1'),
+      suggestion: 's1',
+      decision: { decision: 'accept', suggestion: 's1', by: 'bot', at: '2026-01-02T03:04:05Z' },
+      entries: thread('t1').entries.map((entry) => ({ ...entry, reactions: { '👍': ['bot'] } })),
+    };
+    const { store, identity } = host([reacted]);
+    const { result } = renderHook(() => useThreads(store, identity));
+    await waitFor(() => expect(result.current.people.get('bot')?.name).toBe('Helper'));
+  });
+
   it('DOCE-COMMENTS-2.15 keeps the threads listed before when a later listing fails', async () => {
     const { store, identity } = host();
     const { result, rerender } = renderHook((props) => useThreads(props.store, identity), {

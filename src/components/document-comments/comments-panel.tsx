@@ -31,7 +31,11 @@ import type { DocumentCommentsOptions } from './document-comments.js';
 import { useStableCallbacks } from './margin-card.js';
 import { PanelCard, UnanchoredCard } from './panel-card.js';
 import { useCardContext } from './use-card-context.js';
-import { type CommentThreads, useProvidedCommentThreads } from './use-comment-threads.js';
+import {
+  type CommentThreads,
+  useProvidedCommentThreads,
+  useSuggestionAuthors,
+} from './use-comment-threads.js';
 
 export type { CommentsFilter } from './comment-filters.js';
 
@@ -138,14 +142,15 @@ function usePanelPolicy(
 function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const held = useDocumentEditor();
   const context = props.context ?? held;
-  const comments = useProvidedCommentThreads(props);
+  // The panel follows each state after the document shows it, and skips those typed past.
+  const state = useDeferredValue(context?.state ?? null);
+  // The writers of suggestions are named on their cards, as in the margin.
+  const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [filter, choose] = usePanelFilter(props);
   const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
   const canComment = props.canComment ?? true;
   const shared = { comments, canComment, labels, scope: 'panel' as const };
   const { context: card, listed, opened } = useCardContext(props, shared);
-  // The panel follows each state after the document shows it, and skips those typed past.
-  const state = useDeferredValue(context?.state ?? null);
   const pane = { placed: props.placement === 'pane', canComment };
   const { lists, counts } = usePanelLists(state, comments.threads, { base: listed, pane });
   const { items, unanchored } = lists.get(filter) ?? { items: [], unanchored: [] };

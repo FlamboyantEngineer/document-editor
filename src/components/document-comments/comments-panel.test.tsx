@@ -89,7 +89,10 @@ describe('DocumentCommentsPanel', () => {
     const user = userEvent.setup();
     render(<Harness host={mentioning()} panel />);
     const list = panel();
-    await within(list).findByText('Ada Lovelace');
+    await within(list).findAllByText('Ada Lovelace');
+    // Her suggestion's card names her too, though she wrote no comment on it.
+    const suggestion = list.querySelector('.de-comments-panel__suggestion');
+    expect(suggestion).toHaveTextContent('Ada Lovelace');
     const filter = within(list).getByRole('radiogroup', { name: 'Show' });
     // Open: the open thread and the suggestion; all: the resolved thread too; mine: the thread
     // that mentions Ada and her own suggestion.

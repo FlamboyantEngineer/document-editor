@@ -99,6 +99,28 @@ interface PeopleSources {
   readonly known: ReadonlyMap<string, AvatarIdentity>;
 }
 
+// Everyone a thread names: who started it, wrote or reacted to its comments, and decided it.
+function peopleOf(thread: CommentThread, ids: Set<string>) {
+  if (thread.author) ids.add(thread.author);
+  if (thread.decision) ids.add(thread.decision.by);
+  for (const entry of thread.entries) {
+    ids.add(entry.author);
+    for (const people of Object.values(entry.reactions ?? {})) for (const id of people) ids.add(id);
+  }
+}
+
+// The people the activity rows name, such as those writing in a thread, the same list while
+// they stay the same.
+function useActivePeople(activity: ReadonlyMap<string, readonly ThreadActivity[]>) {
+  const key = useMemo(() => {
+    const ids = new Set<string>();
+    for (const rows of activity.values())
+      for (const row of rows) if (row.person) ids.add(row.person);
+    return [...ids].sort().join('\n');
+  }, [activity]);
+  return useMemo(() => (key ? key.split('\n') : NO_AUTHORS), [key]);
+}
+
 // Each author's name and picture, looked up once for every id the threads and `others` name;
 // people `known` already names are not looked up again, and are given with the rest.
 function useCommentPeople(
@@ -107,8 +129,7 @@ function useCommentPeople(
 ): ReadonlyMap<string, AvatarIdentity> {
   const authors = useMemo(() => {
     const ids = new Set<string>(others);
-    for (const thread of threads.values())
-      for (const entry of thread.entries) ids.add(entry.author);
+    for (const thread of threads.values()) peopleOf(thread, ids);
     return [...ids].filter((id) => !known.has(id));
   }, [threads, others, known]);
   const found = usePeople(identity, authors);
@@ -130,7 +151,8 @@ export function useCommentThreads({
 }: CommentThreadsOptions): CommentThreads {
   const { threads, error, write, settle } = useThreadList(store, { documentId, failed });
   const { activity, track } = useThreadActivity(store, { documentId, threads, failed });
-  const people = useCommentPeople(identity, { threads, others: NO_AUTHORS, known: NO_PEOPLE });
+  const active = useActivePeople(activity);
+  const people = useCommentPeople(identity, { threads, others: active, known: NO_PEOPLE });
   // Makes a change to a thread: noted before the store is asked, kept as the store returns it,
   // and shown as the thread's activity while it is made and when it fails.
   const change = useCallback<ThreadChange>(
@@ -164,11 +186,15 @@ export function useSharedCommentThreads({
 }
 
 /** The people who made the document's suggestions, the same list while they stay the same. */
-export function useSuggestionAuthors(state: EditorState): readonly string[] {
-  const doc = state.doc;
+export function useSuggestionAuthors(state: EditorState | null): readonly string[] {
+  const doc = state?.doc ?? null;
   const key = useMemo(
     () =>
-      [...new Set(listSuggestions(doc).flatMap(({ author }) => (author ? [author] : [])))]
+      [
+        ...new Set(
+          (doc ? listSuggestions(doc) : []).flatMap(({ author }) => (author ? [author] : [])),
+        ),
+      ]
         .sort()
         .join('\n'),
     [doc],
