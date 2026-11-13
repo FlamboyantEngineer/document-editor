@@ -173,7 +173,7 @@ Verification: `src/model/pagination/container-split.test.ts`
 
 ### DOCE-PAGINATION-4.5 - Tables
 
-A measured table shall split after its last body row that fits with its height beyond its rows (`splitTableWith`), never inside its leading header rows, and not when it has one body row. Its second part shall repeat the header rows when its section's `styles.table.repeatHeader` asks for it, or the template's when the section sets none (`createLayoutRules({ repeatTableHeader })`, by default it does); a layout's `rules` may be given by section for it (`SectionLayoutRules`). Joining shall drop only header rows that repeat the first part's.
+A measured table shall split after its last body row that fits with its height beyond its rows (`splitTableWith`), never inside its leading header rows, never between rows a cell spans (it moves whole when no other row fits), and not when it has one body row. Its second part shall repeat the header rows when its section's `styles.table.repeatHeader` asks for it, or the template's when the section sets none (`createLayoutRules({ repeatTableHeader })`, by default it does); a layout's `rules` may be given by section for it (`SectionLayoutRules`). Joining shall drop only header rows that repeat the first part's.
 
 Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`, `src/pagination/layout-document.ts`, `src/components/document-editor/start-paging.ts`
 Verification: `src/model/pagination/container-split.test.ts`, `e2e/regression.spec.ts`

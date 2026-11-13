@@ -154,6 +154,27 @@ describe('container splits', () => {
     expect(splitTableWith(true)(measured(short, 35, layouts.slice(0, 2)), 20)).toBeNull();
     expect(createLayoutRules({ repeatTableHeader: false }).table?.split).toBeTypeOf('function');
   });
+
+  it('DOCE-PAGINATION-4.5 splits a table only between rows no cell spans', () => {
+    const cell = (text: string, rowspan = 1) => node('table_cell', { rowspan }, [paragraph(text)]);
+    const table = node('table', { dataId: 't1' }, [
+      node('table_row', null, [cell('A'), cell('B')]),
+      node('table_row', null, [cell('C', 2), cell('D')]),
+      node('table_row', null, [cell('E')]),
+      node('table_row', null, [cell('F'), cell('G')]),
+    ]);
+    // Rows two and three share a cell: the page ending after row two splits after row one.
+    const split = splitTableWith(false)(measured(table, 80, rows(4, 20)), 45);
+    expect(split?.head.node.textContent).toBe('AB');
+    expect(split?.tail[0]?.node.textContent).toBe('CDEFG');
+    // A cell spanning every body row leaves no place to split.
+    const spanning = node('table', null, [
+      node('table_row', null, [cell('A', 3), cell('B')]),
+      node('table_row', null, [cell('C')]),
+      node('table_row', null, [cell('D')]),
+    ]);
+    expect(splitTableWith(false)(measured(spanning, 60, rows(3, 20)), 45)).toBeNull();
+  });
 });
 
 describe('script block and layout section splits', () => {
