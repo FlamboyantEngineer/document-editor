@@ -38,8 +38,7 @@ export interface TableLine {
   readonly index: number;
 }
 
-/** The narrowest a column can be dragged to, in pixels. */
-export const DEFAULT_TABLE_CELL_MIN_WIDTH = 32;
+export { DEFAULT_TABLE_CELL_MIN_WIDTH } from '../model/layout/column-widths.js';
 
 /** The table node at a position before it, or null. */
 function tableAt(doc: ProseMirrorNode, pos: number): ProseMirrorNode | null {
