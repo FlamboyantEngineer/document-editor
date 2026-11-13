@@ -21,10 +21,20 @@ const DIAGRAM_PLACEHOLDER =
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Diagram preview unavailable"><rect width="640" height="360" fill="#f1f5f9"/><rect x="20" y="20" width="600" height="320" rx="10" ry="10" fill="#e2e8f0"/><text x="320" y="186" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#64748b">Diagram preview unavailable</text></svg>',
   );
 
+// A size in pixels: a positive number, or none. A figure's size is written into its image's style,
+// so any other text, which could carry declarations of its own, is no size.
+function sizeOf(value: unknown): number | null {
+  const size = typeof value === 'string' ? Number(value) : value;
+  return typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : null;
+}
+
+const figureSize = (node: ProseMirrorNode) => ({
+  width: sizeOf(node.attrs.width),
+  height: sizeOf(node.attrs.height),
+});
+
 function readFigureAttrs(dom: HTMLElement) {
   const image = dom.querySelector(':scope > img');
-  const width = dom.getAttribute('data-figure-width');
-  const height = dom.getAttribute('data-figure-height');
   const fileAssetId = dom.getAttribute('data-file-asset-id') || '';
   const snapshotId = dom.getAttribute('data-snapshot-id') || '';
   const src = dom.getAttribute('data-figure-src') || image?.getAttribute('src') || '';
@@ -38,8 +48,8 @@ function readFigureAttrs(dom: HTMLElement) {
     alt: image?.getAttribute('alt') || 'figure',
     caption: dom.querySelector('figcaption')?.textContent || '',
     captionEnabled: dom.getAttribute('data-caption-enabled') !== 'false',
-    width: width ? Number(width) : null,
-    height: height ? Number(height) : null,
+    width: sizeOf(dom.getAttribute('data-figure-width')),
+    height: sizeOf(dom.getAttribute('data-figure-height')),
   };
 }
 
@@ -59,7 +69,7 @@ function captionOutput(caption: unknown) {
 
 /** The style that sizes and aligns the image, so the caption spans the content width. */
 function imageStyle(node: ProseMirrorNode): string | null {
-  const { width, height } = node.attrs;
+  const { width, height } = figureSize(node);
   const layout = parseObjectLayout(node.attrs.objectLayout);
   if (layout === 'fit-page-width') {
     const ratio = width && height ? `;aspect-ratio:${String(width)}/${String(height)}` : '';
@@ -89,7 +99,7 @@ function figureAsset(node: ProseMirrorNode, options: ResolvedSchemaOptions): Fig
 }
 
 function figureAttrs(node: ProseMirrorNode, asset: FigureAsset | null): DomAttributes {
-  const { width, height, src } = node.attrs;
+  const { width, height } = figureSize(node);
   const layout = parseObjectLayout(node.attrs.objectLayout);
   const attrs: DomAttributes = {};
   if (node.attrs.captionEnabled === false) attrs['data-caption-enabled'] = 'false';
@@ -101,13 +111,14 @@ function figureAttrs(node: ProseMirrorNode, asset: FigureAsset | null): DomAttri
     attrs['data-file-asset-id'] = String(node.attrs.fileAssetId);
     attrs['data-snapshot-id'] = String(node.attrs.snapshotId);
   }
-  const canonicalSrc = asset?.previewSrc || String(src || '');
+  const canonicalSrc = asset?.previewSrc || String(node.attrs.src || '');
   if (canonicalSrc) attrs['data-figure-src'] = canonicalSrc;
   return attrs;
 }
 
 function figureImageAttrs(node: ProseMirrorNode, previewSrc: string): DomAttributes {
-  const { figureType, src, alt, caption, width, height } = node.attrs;
+  const { figureType, src, alt, caption } = node.attrs;
+  const { width, height } = figureSize(node);
   const isDiagram = figureType === 'diagram';
   const style = imageStyle(node);
   const attrs: DomAttributes = {

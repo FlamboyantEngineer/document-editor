@@ -452,7 +452,7 @@
       "parseDOM": [{ "tag": "figure", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<figure data-figure-type=\"image\"><img src=\"\" alt=\"figure\" loading=\"lazy\" decoding=\"async\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\"></span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>",
-        "filled": "<figure data-caption-enabled=\"false\" data-figure-width=\"sample-width\" data-figure-height=\"sample-height\" data-file-asset-id=\"sample-fileAssetId\" data-snapshot-id=\"sample-snapshotId\" data-figure-src=\"sample-src\" data-figure-type=\"image\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"><img src=\"sample-src\" alt=\"sample-alt\" loading=\"lazy\" decoding=\"async\" style=\"display: block; max-width: 100%; object-fit: contain;\" width=\"sample-width\" height=\"sample-height\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-caption</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>"
+        "filled": "<figure data-caption-enabled=\"false\" data-figure-width=\"320\" data-figure-height=\"200\" data-file-asset-id=\"sample-fileAssetId\" data-snapshot-id=\"sample-snapshotId\" data-figure-src=\"sample-src\" data-figure-type=\"image\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"><img src=\"sample-src\" alt=\"sample-alt\" loading=\"lazy\" decoding=\"async\" style=\"display: block; width: 320px; height: 200px; max-width: 100%; object-fit: contain;\" width=\"320\" height=\"200\"><figcaption class=\"doc-caption-line doc-figure-caption-line\" data-caption-kind=\"figure\"><span class=\"doc-caption-text\" data-doc-caption-text=\"true\">sample-caption</span><span class=\"doc-caption-continued\" data-doc-caption-continued=\"true\"></span></figcaption></figure>"
       }
     },
     {
@@ -663,7 +663,7 @@
       "parseDOM": [{ "tag": "td", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<td colspan=\"1\" rowspan=\"1\" data-text-align=\"left\" data-vertical-align=\"middle\" style=\"text-align: left; vertical-align: middle;\"></td>",
-        "filled": "<td colspan=\"3\" rowspan=\"3\" data-text-align=\"sample-textAlign\" data-vertical-align=\"sample-verticalAlign\" style=\"\" data-colwidth=\"120\" data-text-color=\"sample-textColor\" data-background-color=\"sample-backgroundColor\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></td>"
+        "filled": "<td colspan=\"3\" rowspan=\"3\" data-text-align=\"center\" data-vertical-align=\"top\" style=\"text-align: center; vertical-align: top;\" data-colwidth=\"120\" data-text-color=\"sample-textColor\" data-background-color=\"sample-backgroundColor\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></td>"
       }
     },
     {
@@ -690,7 +690,7 @@
       "parseDOM": [{ "tag": "th", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<th colspan=\"1\" rowspan=\"1\" data-text-align=\"left\" data-vertical-align=\"middle\" style=\"text-align: left; vertical-align: middle;\"></th>",
-        "filled": "<th colspan=\"3\" rowspan=\"3\" data-text-align=\"sample-textAlign\" data-vertical-align=\"sample-verticalAlign\" style=\"\" data-colwidth=\"120\" data-text-color=\"sample-textColor\" data-background-color=\"sample-backgroundColor\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></th>"
+        "filled": "<th colspan=\"3\" rowspan=\"3\" data-text-align=\"center\" data-vertical-align=\"top\" style=\"text-align: center; vertical-align: top;\" data-colwidth=\"120\" data-text-color=\"sample-textColor\" data-background-color=\"sample-backgroundColor\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></th>"
       }
     },
     {

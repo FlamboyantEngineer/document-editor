@@ -156,6 +156,15 @@ function safeColor(value: unknown): string {
   return String(value).replace(/[;"<>]/g, '');
 }
 
+// The alignments a cell takes. A cell's alignment is written into its style, so any other text,
+// which could carry declarations of its own, reads and writes as the default.
+const TEXT_ALIGNMENTS = ['left', 'center', 'right', 'justify'];
+const VERTICAL_ALIGNMENTS = ['top', 'middle', 'bottom'];
+
+const textAlignOf = (value: unknown) => TEXT_ALIGNMENTS.find((each) => each === value) ?? 'left';
+const verticalAlignOf = (value: unknown) =>
+  VERTICAL_ALIGNMENTS.find((each) => each === value) ?? 'middle';
+
 function readColumnWidths(dom: HTMLElement): number[] | null {
   const value = dom.getAttribute('data-colwidth');
   if (!value) return null;
@@ -175,8 +184,10 @@ function readCellAttrs(dom: HTMLElement) {
     colspan: Number(dom.getAttribute('colspan') || 1),
     rowspan: Number(dom.getAttribute('rowspan') || 1),
     colwidth: readColumnWidths(dom),
-    textAlign: dom.getAttribute('data-text-align') || dom.style.textAlign || 'left',
-    verticalAlign: dom.getAttribute('data-vertical-align') || dom.style.verticalAlign || 'middle',
+    textAlign: textAlignOf(dom.getAttribute('data-text-align') || dom.style.textAlign),
+    verticalAlign: verticalAlignOf(
+      dom.getAttribute('data-vertical-align') || dom.style.verticalAlign,
+    ),
     rowHeight: readRowHeight(dom),
     textColor: dom.getAttribute('data-text-color') || dom.style.color || null,
     backgroundColor: dom.getAttribute('data-background-color') || dom.style.backgroundColor || null,
@@ -186,8 +197,8 @@ function readCellAttrs(dom: HTMLElement) {
 function cellStyle(node: ProseMirrorNode, hasHeight: boolean): string {
   const { textAlign, verticalAlign, rowHeight, textColor, backgroundColor } = node.attrs;
   const parts = [
-    `text-align: ${String(textAlign || 'left')}`,
-    `vertical-align: ${String(verticalAlign || 'middle')}`,
+    `text-align: ${textAlignOf(textAlign)}`,
+    `vertical-align: ${verticalAlignOf(verticalAlign)}`,
   ];
   if (hasHeight) parts.push(`height: ${String(rowHeight)}px`, `min-height: ${String(rowHeight)}px`);
   if (textColor) parts.push(`color: ${safeColor(textColor)}`);
@@ -201,8 +212,8 @@ function renderCell(node: ProseMirrorNode, tag: 'td' | 'th') {
   const attrs: Record<string, unknown> = {
     colspan,
     rowspan,
-    'data-text-align': node.attrs.textAlign || 'left',
-    'data-vertical-align': node.attrs.verticalAlign || 'middle',
+    'data-text-align': textAlignOf(node.attrs.textAlign),
+    'data-vertical-align': verticalAlignOf(node.attrs.verticalAlign),
     style: cellStyle(node, hasHeight),
   };
   if (colwidth) attrs['data-colwidth'] = (colwidth as number[]).join(',');
