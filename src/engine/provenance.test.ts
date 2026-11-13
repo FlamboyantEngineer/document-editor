@@ -1,5 +1,6 @@
+import { history, redo, undo } from 'prosemirror-history';
 import type { Node } from 'prosemirror-model';
-import { EditorState, type Transaction } from 'prosemirror-state';
+import { type Command, EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { documentAuthors } from './authorship.js';
@@ -36,6 +37,22 @@ function typeAfterAgent(
   return state.applyTransaction(prepare(typed)).state.doc;
 }
 
+// The state after a command, with what the plugins append to its transaction.
+function run(state: EditorState, command: Command): EditorState {
+  let next = state;
+  command(state, (tr) => {
+    next = state.applyTransaction(tr).state;
+  });
+  return next;
+}
+
+// Bea's editor over `markup`, with a history.
+const beaEditing = (markup: string) =>
+  EditorState.create({
+    doc: parseMarkup(markup),
+    plugins: [history(), createElementIds({ author: () => 'bea' })],
+  });
+
 describe('contributor marks', () => {
   it('DOCE-COLLAB-3.3 marks a person typing after agent text as theirs', () => {
     expect(runs(typeAfterAgent('ada'))).toEqual(['Hi :-', 'there:agent/s1', '!:ada/null']);
@@ -71,6 +88,27 @@ describe('contributor marks', () => {
     const state = EditorState.create({ doc, plugins: [createElementIds({ author: () => 'bea' })] });
     const rewritten = state.tr.replaceWith(1, 3, state.schema.text('Hi!'));
     expect(runs(state.applyTransaction(rewritten).state.doc)).toEqual(['Hi:-', '!:bea/null']);
+  });
+
+  it('DOCE-COLLAB-3.3 keeps the writer of text an undo or a redo brings back', () => {
+    const start = beaEditing(AGENT_TEXT);
+    const deleted = start.applyTransaction(start.tr.delete(4, 9)).state;
+    expect(runs(deleted.doc)).toEqual(['Hi :-']);
+    const undone = run(deleted, undo);
+    expect(runs(undone.doc)).toEqual(['Hi :-', 'there:agent/s1']);
+    // Bea's own text an undo took away comes back as hers, the agent's still the agent's.
+    const typed = undone.applyTransaction(undone.tr.insertText('!', 9)).state;
+    expect(runs(run(run(typed, undo), redo).doc)).toEqual([
+      'Hi :-',
+      'there:agent/s1',
+      '!:bea/null',
+    ]);
+  });
+
+  it('DOCE-COLLAB-3.3 keeps another person’s block theirs when an undo restores its text', () => {
+    const start = beaEditing('<p data-id="aaaa0001" data-au="ada">One two</p>');
+    const deleted = start.applyTransaction(start.tr.delete(1, 4)).state;
+    expect(runs(run(deleted, undo).doc)).toEqual(['One two:-']);
   });
 
   it('DOCE-COLLAB-3.3 leaves a change that lays pages out unmarked', () => {
