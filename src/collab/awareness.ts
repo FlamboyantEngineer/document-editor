@@ -164,6 +164,7 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
     }, idleAfter);
   };
   const publish = () => {
+    if (destroyed || view.isDestroyed) return;
     const cursor = cursorOf(view.state);
     const json = JSON.stringify(cursor);
     if (json === published) return;
@@ -189,6 +190,9 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
   awareness.setLocalStateField('user', user);
   awareness.setLocalStateField('status', status);
   publish();
+  // The sync plugin's view, made after this one, fills an empty shared type without a transaction:
+  // a cursor that named no place yet is published again once the views are made.
+  if (published === 'null') schedule(publish);
   restartIdle();
   awareness.on('change', onChange);
   const stopLifecycle = options.lifecycle?.subscribe((event) => {
