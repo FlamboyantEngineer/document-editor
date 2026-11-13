@@ -126,10 +126,6 @@ test.describe('performance', () => {
     lab,
     page,
   }) => {
-    // Missed by the cost every key takes, about as long on 5 pages: handling the key and drawing
-    // its frame, not the document's size.
-    test.info().annotations.push({ type: 'gap', description: 'P3 per-keystroke cost' });
-    test.fail();
     expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40));
   });
 
