@@ -25,10 +25,11 @@ export interface SuggestionThreadPlan {
 // How long the reader pauses before the threads follow their suggestions, by default.
 const DEFAULT_DELAY = 800;
 
-/** What a suggestion does, as its thread records it. */
-export function suggestionChange({ inserted, deleted }: Suggestion): CommentChange {
+/** What a suggestion does, as its thread records it: a change of formatting alone is `format`. */
+export function suggestionChange({ inserted, deleted, formatted }: Suggestion): CommentChange {
   if (inserted && deleted) return { kind: 'replace', inserted, deleted };
-  return inserted ? { kind: 'insert', inserted } : { kind: 'delete', deleted };
+  if (inserted) return { kind: 'insert', inserted };
+  return !deleted && formatted ? { kind: 'format' } : { kind: 'delete', deleted };
 }
 
 const sameChange = (a: CommentChange | null | undefined, b: CommentChange) =>
@@ -38,19 +39,29 @@ const sameChange = (a: CommentChange | null | undefined, b: CommentChange) =>
 
 /**
  * The threads to start for the reader's suggestions without one, and the threads the editor
- * started to bring up to date; another writer's suggestions are theirs to plan.
+ * started to bring up to date; another writer's suggestions, and their threads, are theirs to
+ * plan. A suggestion that changes formatting alone quotes the text it formats (`textOf`).
  */
 export function planSuggestionThreads(
   suggestions: readonly Suggestion[],
-  { threads, me }: { threads: ReadonlyMap<string, CommentThread>; me: string },
+  {
+    threads,
+    me,
+    textOf = () => '',
+  }: {
+    threads: ReadonlyMap<string, CommentThread>;
+    me: string;
+    textOf?: (suggestion: Suggestion) => string;
+  },
 ): SuggestionThreadPlan {
   const start: SuggestionThreadPlan['start'][number][] = [];
   const update: SuggestionThreadPlan['update'][number][] = [];
   for (const suggestion of suggestions) {
     const change = suggestionChange(suggestion);
-    const quote = suggestion.inserted || suggestion.deleted;
+    if (suggestion.author !== me) continue;
+    const quote = suggestion.inserted || suggestion.deleted || textOf(suggestion);
     const thread = suggestion.thread ? threads.get(suggestion.thread) : undefined;
-    if (!suggestion.thread && suggestion.author === me) start.push({ suggestion, quote, change });
+    if (!suggestion.thread) start.push({ suggestion, quote, change });
     else if (thread?.automatic && thread.state === 'open' && !sameChange(thread.change, change))
       update.push({ threadId: thread.id, quote, change });
   }
@@ -95,7 +106,8 @@ export function useSuggestionThreads({
   useEffect(() => {
     if (delay === null) return undefined;
     const timer = setTimeout(() => {
-      const plan = planSuggestionThreads(listSuggestions(doc), { threads, me });
+      const textOf = ({ from, to }: Suggestion) => doc.textBetween(from, to, ' ');
+      const plan = planSuggestionThreads(listSuggestions(doc), { threads, me, textOf });
       const { comments: current, run: runNow } = latest.current;
       for (const { suggestion, quote, change } of plan.start) {
         if (starting.current.has(suggestion.id)) continue;

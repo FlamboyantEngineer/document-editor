@@ -60,4 +60,30 @@ describe('planSuggestionThreads', () => {
       ],
     });
   });
+
+  it('DOCE-COMMENTS-2.21 leaves another writer’s thread to them, and records a change of format', () => {
+    const plan = planSuggestionThreads(
+      [
+        suggestion('theirs', { author: 'grace', thread: 't1', inserted: 'grown' }),
+        suggestion('bold', { formatted: true, from: 3, to: 7 }),
+      ],
+      {
+        me: 'ada',
+        threads: new Map([
+          ['t1', thread('t1', { automatic: true, change: { kind: 'insert', inserted: 'g' } })],
+        ]),
+        textOf: ({ from, to }) => 'blue sky'.slice(from - 3, to - 3),
+      },
+    );
+    expect(plan).toEqual({
+      start: [
+        {
+          suggestion: expect.objectContaining({ id: 'bold' }),
+          quote: 'blue',
+          change: { kind: 'format' },
+        },
+      ],
+      update: [],
+    });
+  });
 });
