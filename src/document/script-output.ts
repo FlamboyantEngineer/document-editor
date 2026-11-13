@@ -47,16 +47,23 @@ export function buildScriptParagraph(text: ScriptText): StoredNode {
   return { type: 'paragraph', ...(content.length ? { content } : {}) };
 }
 
-/** A heading of the level given, 1 to 6, holding the text. */
+/**
+ * A heading of the level given, 1 to 6, holding the text; one not `numbered` takes no number and
+ * moves no counter (DOCE-SCHEMA-3.10).
+ */
 export function buildScriptHeading(
   text: ScriptText,
-  { level = 1 }: { level?: number | undefined } = {},
+  {
+    level = 1,
+    numbered = true,
+  }: { level?: number | undefined; numbered?: boolean | undefined } = {},
 ): StoredNode {
   const content = buildScriptText(text);
   const clamped = Math.min(6, Math.max(1, Math.round(level) || 1));
+  const attrs = { ...(clamped === 1 ? {} : { level: clamped }), ...(numbered ? {} : { numbered }) };
   return {
     type: 'heading',
-    ...(clamped === 1 ? {} : { attrs: { level: clamped } }),
+    ...(Object.keys(attrs).length ? { attrs } : {}),
     ...(content.length ? { content } : {}),
   };
 }

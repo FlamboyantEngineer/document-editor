@@ -409,6 +409,20 @@ div.de-host-view {
   content: none;
 }
 
+/* An unnumbered heading keeps its level's look, but takes no number and resets no counter. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  :is(h1, h2, h3, h4, h5, h6)[data-numbered='false'] {
+  counter-increment: none;
+  counter-set: none;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  :is(h1, h2, h3, h4, h5, h6)[data-numbered='false']::before {
+  content: none;
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content ul,
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content ol {
   font-family: var(--doc-paragraph-font-family, serif);

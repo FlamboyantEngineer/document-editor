@@ -46,6 +46,15 @@ export type {
 } from './automation.js';
 export { applyStoredEdits, describeDocument } from './automation.js';
 export { AUTOMATION_SCHEMAS } from './automation-schemas.js';
+export type {
+  HeadlessPage,
+  HeadlessPdfOptions,
+  HeadlessPrintOptions,
+  HeadlessPrintResult,
+} from './headless-print.js';
+export { printSnapshot } from './headless-print.js';
+export type { PrintPageOptions } from './print.js';
+export { renderPrintPage } from './print.js';
 export type { ScriptText, ScriptTextRun } from './script-output.js';
 export {
   buildScriptHeading,

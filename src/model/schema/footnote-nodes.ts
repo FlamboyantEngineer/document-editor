@@ -10,6 +10,12 @@ import {
   resolveSchemaOptions,
 } from './schema-options.js';
 
+/** The anchor a footnote's marker carries in print, which its entry's number links back to. */
+export const footnoteMarkerAnchor = (footnoteId: string): string => `fnref-${footnoteId}`;
+
+/** The anchor a footnote's entry carries in print, which its marker links to. */
+export const footnoteEntryAnchor = (footnoteId: string): string => `fn-${footnoteId}`;
+
 const footnoteAttrs = { footnoteId: { default: null }, footnoteNumber: { default: null } };
 
 function readFootnoteAttrs(dom: HTMLElement) {
