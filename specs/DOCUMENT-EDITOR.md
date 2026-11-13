@@ -257,10 +257,10 @@ Verification: `src/components/document-editor/object-dialogs.test.tsx`, `src/com
 
 ### DOCE-EDITOR-4.17 - Updates from the Tools menu
 
-The Tools menu shall offer updating every reference, rendering the internal ones again as the template formats them (`refreshReferences`) and asking the host for every citation again (`refreshReferenceStatus`); with the host's `glossary`, updating every abbreviation from its entries now (`refreshAbbreviations`); and, with a `scriptRunner`, running every script. Each is disabled while the document is read, saying why, and running scripts, whose output no suggestion tracks, also while changes are suggested.
+The Tools menu shall offer updating every reference, rendering the internal ones again as the template formats them (`refreshReferences`) and asking the host for every citation again (`refreshReferenceStatus`); with the host's `glossary`, updating every abbreviation from its entries now (`refreshAbbreviations`), which changes nothing when the glossary fails or once the document is gone or read; and, with a `scriptRunner`, running every script. Each is disabled while the document is read, saying why, and running scripts, whose output no suggestion tracks, also while changes are suggested.
 
 Implementation: `src/components/document-editor/tools-entries.ts`
-Verification: `src/components/document-editor/tools-entries.test.ts`
+Verification: `src/components/document-editor/tools-entries.test.ts`, `src/components/document-editor/tools-entries.test.ts`
 
 ### DOCE-EDITOR-4.18 - Lead and placeholder
 

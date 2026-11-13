@@ -66,14 +66,21 @@ function useFocusAfterClose(view: EditorView | null, controller: MenuController)
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner) return undefined;
     let open = controller.isOpen();
-    return controller.subscribe(() => {
+    let timer = 0;
+    const unsubscribe = controller.subscribe(() => {
       const wasOpen = open;
       open = controller.isOpen();
       if (!wasOpen || open) return;
-      owner.setTimeout(() => {
+      owner.clearTimeout(timer);
+      timer = owner.setTimeout(() => {
+        if (view.isDestroyed) return;
         if (!controller.isOpen() && isFocusLost(owner.document)) view.focus();
       }, 250);
     });
+    return () => {
+      unsubscribe();
+      owner.clearTimeout(timer);
+    };
   }, [view, controller]);
 }
 
@@ -88,6 +95,9 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner) return undefined;
+    // The opening that waits for the button's release or the next frame, cancelled on unmount.
+    const pending = { cancel: () => undefined as void };
+    let frame = 0;
     const show = (anchor: MenuPoint, pos: number) => {
       const { startCommentRef, options: menu, shown, ...options } = latest.current;
       const { state } = view;
@@ -110,7 +120,15 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       // A moved selection reaches the view once the editor commits it, a frame later. Where the
       // menu opens on the press, it opens once the button is released, or the release would land
       // outside the menu just opened and close it.
-      const open = () => owner.requestAnimationFrame(() => show(anchor, pos));
+      pending.cancel();
+      const open = () => {
+        owner.removeEventListener('mouseup', open, true);
+        frame = owner.requestAnimationFrame(() => show(anchor, pos));
+      };
+      pending.cancel = () => {
+        owner.removeEventListener('mouseup', open, true);
+        owner.cancelAnimationFrame(frame);
+      };
       if (event.buttons === 0) open();
       else owner.addEventListener('mouseup', open, { once: true, capture: true });
     };
@@ -124,6 +142,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     view.dom.addEventListener('contextmenu', onContextMenu);
     view.dom.addEventListener('keydown', onKeyDown);
     return () => {
+      pending.cancel();
       view.dom.removeEventListener('contextmenu', onContextMenu);
       view.dom.removeEventListener('keydown', onKeyDown);
     };
