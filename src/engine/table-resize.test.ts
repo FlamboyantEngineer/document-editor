@@ -1,9 +1,14 @@
 import { EditorState } from 'prosemirror-state';
-import { describe, expect, it } from 'vitest';
+import { EditorView } from 'prosemirror-view';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { installEditorDom } from '../../test/editor-dom.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
-import { resizeColumns, setColumnWidths } from './table-resize.js';
+import { createColumnResize, resizeColumns, setColumnWidths } from './table-resize.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
+import { markRemote } from './transaction-kind.js';
+
+installEditorDom();
 
 const cell = (value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
   type: 'tableCell',
@@ -75,5 +80,120 @@ describe('column resize', () => {
     });
     expect(widths).toEqual([[240, 360], [240], [360]]);
     expect(setColumnWidths(tablePos + 1, [1])(state)).toBe(false);
+    // Widths for another number of columns than the table has would leave cells without one.
+    expect(setColumnWidths(tablePos, [240])(state)).toBe(false);
+    expect(setColumnWidths(tablePos, [240, 360, 100])(state)).toBe(false);
+  });
+});
+
+// A view of a paragraph and a table of two columns, every element laid out 100 pixels wide, with
+// the pointer finding the cell that holds a text.
+function tableView() {
+  const content: StoredNode[] = [
+    { type: 'paragraph', content: [{ type: 'text', text: 'Parts' }] },
+    { type: 'table', content: [row(cell('Pump'), cell('P-1')), row(cell('Valve'), cell('V-1'))] },
+  ];
+  const { doc } = readDocumentFile(
+    { formatVersion: 1, sections: [{ name: null, content }] },
+    documentSchema,
+  );
+  const view = new EditorView(document.body.appendChild(document.createElement('div')), {
+    state: EditorState.create({ doc, plugins: [createColumnResize()] }),
+  });
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+    new DOMRect(0, 0, 100, 20),
+  );
+  return view;
+}
+
+const cellElement = (view: EditorView, text: string) =>
+  [...view.dom.querySelectorAll('td')].find((each) => each.textContent === text) as HTMLElement;
+
+const pointer = (type: string, clientX: number) =>
+  new MouseEvent(type, { bubbles: true, button: 0, clientX, clientY: 10 });
+
+// Presses the right border of the cell holding a text and drags it 30 pixels to the right.
+function dragBorderOf(view: EditorView, text: string) {
+  const pressed = cellElement(view, text);
+  vi.spyOn(document, 'elementFromPoint').mockReturnValue(pressed.querySelector('p'));
+  pressed.dispatchEvent(pointer('mousemove', 98));
+  pressed.dispatchEvent(pointer('mousedown', 98));
+  document.dispatchEvent(pointer('mousemove', 128));
+}
+
+// The widths the cells carry, in the document's order.
+function cellWidths(view: EditorView): unknown[] {
+  const widths: unknown[] = [];
+  view.state.doc.descendants((node) => {
+    if (node.type.name === 'table_cell') widths.push(node.attrs.colwidth);
+  });
+  return widths;
+}
+
+// The widths the table's column group shows.
+const shownWidths = (view: EditorView) =>
+  [...view.dom.querySelectorAll('col')].map((col) => col.style.width);
+
+function tableAt(view: EditorView): number {
+  let found = -1;
+  view.state.doc.descendants((node, pos) => {
+    if (found < 0 && node.type.name === 'table') found = pos;
+  });
+  return found;
+}
+
+describe('dragging a column border', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    document.body.replaceChildren();
+  });
+
+  it('DOCE-TABLES-2.4 shows the widths while the border is dragged and keeps them on release', () => {
+    const view = tableView();
+    dragBorderOf(view, 'Pump');
+    expect(view.dom).toHaveClass('resize-cursor');
+    expect(shownWidths(view)).toEqual(['130px', '70px']);
+    document.dispatchEvent(pointer('mouseup', 128));
+    expect(cellWidths(view)).toEqual([[130], [70], [130], [70]]);
+    expect(view.dom).not.toHaveClass('resize-cursor');
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-2.4 keeps the widths on the table dragged when text was typed above it meanwhile', () => {
+    const view = tableView();
+    dragBorderOf(view, 'Pump');
+    view.dispatch(markRemote(view.state.tr.insertText('Spare ', tableAt(view) - 1)));
+    document.dispatchEvent(pointer('mouseup', 128));
+    expect(cellWidths(view)).toEqual([[130], [70], [130], [70]]);
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-2.4 keeps no widths, and shows those the table had, when a column was added meanwhile', () => {
+    const view = tableView();
+    const before = shownWidths(view);
+    dragBorderOf(view, 'Pump');
+    const { schema } = view.state;
+    const empty = schema.nodes.table_cell?.createAndFill();
+    const tr = view.state.tr;
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'table_row' && empty) tr.insert(tr.mapping.map(pos + 1), empty);
+    });
+    view.dispatch(markRemote(tr));
+    document.dispatchEvent(pointer('mouseup', 128));
+    expect(cellWidths(view)).toEqual([null, null, null, null, null, null]);
+    expect(shownWidths(view)).toEqual(before);
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-2.4 keeps no widths when the table dragged was removed meanwhile', () => {
+    const view = tableView();
+    dragBorderOf(view, 'Pump');
+    const from = tableAt(view);
+    const size = view.state.doc.nodeAt(from)?.nodeSize ?? 0;
+    view.dispatch(markRemote(view.state.tr.delete(from, from + size)));
+    document.dispatchEvent(pointer('mouseup', 128));
+    expect(cellWidths(view)).toEqual([]);
+    expect(view.dom).not.toHaveClass('resize-cursor');
+    view.destroy();
   });
 });
