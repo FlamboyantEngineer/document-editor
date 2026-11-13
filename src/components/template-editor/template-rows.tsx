@@ -74,16 +74,18 @@ function SettingSection({
   context,
   section,
   inSection,
+  onPages,
   extra,
 }: {
   context: Rows;
   section: TemplateSettingSection;
   inSection: boolean;
+  onPages: boolean;
   extra: ReactNode;
 }) {
-  const settings = inSection
-    ? section.settings.filter((setting) => !setting.documentOnly)
-    : section.settings;
+  const settings = section.settings.filter(
+    (setting) => (!inSection || !setting.documentOnly) && (onPages || !setting.pagesOnly),
+  );
   return (
     <PropertySection id={section.id} title={section.title}>
       {rows(context, section.scope, settings)}
@@ -114,10 +116,13 @@ function SettingSection({
 export function SettingSections({
   context: given,
   inSection,
+  onPages = true,
   extra,
 }: {
   context: Rows;
   inSection: boolean;
+  /** Whether the template is for pages; one for the web layout has no page-only rows. */
+  onPages?: boolean;
   extra?: ((sectionId: string) => ReactNode) | undefined;
 }) {
   // A card that does not render again keeps its handlers: they write through the latest target.
@@ -127,22 +132,24 @@ export function SettingSections({
   });
   const set = useCallback<Target['set']>((path, value) => latest.current(path, value), []);
   const context: Rows = { ...given, target: { ...given.target, set } };
-  return TEMPLATE_SECTIONS.filter((section) => !inSection || !section.documentOnly).map(
-    (section) => (
-      <Fragment key={section.id}>
-        <SettingSection
-          context={context}
-          section={section}
-          inSection={inSection}
-          extra={extra?.(section.id)}
-        />
-        {section.id === 'page' ? (
-          <>
-            <TextStyleSection context={context} />
-            <CustomStyleSection context={context} />
-          </>
-        ) : null}
-      </Fragment>
-    ),
+  const shown = TEMPLATE_SECTIONS.filter(
+    (section) => (!inSection || !section.documentOnly) && (onPages || !section.pagesOnly),
   );
+  return shown.map((section) => (
+    <Fragment key={section.id}>
+      <SettingSection
+        context={context}
+        section={section}
+        inSection={inSection}
+        onPages={onPages}
+        extra={extra?.(section.id)}
+      />
+      {section.id === 'page' ? (
+        <>
+          <TextStyleSection context={context} />
+          <CustomStyleSection context={context} />
+        </>
+      ) : null}
+    </Fragment>
+  ));
 }

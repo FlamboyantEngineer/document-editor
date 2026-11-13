@@ -17,8 +17,7 @@ import type {
   ScriptVocabularyEntry,
   StoredAsset,
   StoredDocument,
-  StoredTemplate,
-  TemplateSourceAdapter,
+  TemplateStoreAdapter,
   VersionStoreAdapter,
 } from './adapters.js';
 import { type EditorCapabilities, FULL_CAPABILITIES } from './capabilities.js';
@@ -29,13 +28,13 @@ import {
   createMemoryHistory,
   createMemoryVersions,
   notFound,
-  savedState,
 } from './memory-documents.js';
 import {
   createMemoryDrafts,
   createMemorySessionParts,
   type MemoryHostControls,
 } from './memory-session.js';
+import { createMemoryTemplates } from './memory-templates.js';
 import type { DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
 
 export interface MemoryHostOptions {
@@ -83,29 +82,6 @@ function createMemoryIdentity(person: EditorPerson, people: readonly EditorPerso
     },
   };
   return identity;
-}
-
-// Each template's revisions, oldest first: a template listed again is its next revision.
-function createMemoryTemplates(templates: readonly TemplateFile[]): TemplateSourceAdapter {
-  const byId = new Map<string, StoredTemplate[]>();
-  for (const template of templates) {
-    const revisions = byId.get(template.id) ?? [];
-    revisions.push({ template, ...savedState(revisions.length + 1) });
-    byId.set(template.id, revisions);
-  }
-  return {
-    load: (templateId, { revision } = {}) => {
-      const revisions = byId.get(templateId) ?? [];
-      const template = revision
-        ? revisions.find((each) => each.revision === revision)
-        : revisions.at(-1);
-      return Promise.resolve(
-        template
-          ? { ok: true, value: structuredClone(template) }
-          : notFound(revision ?? templateId),
-      );
-    },
-  };
 }
 
 /** Keeps uploads as object URLs for the page session. */
@@ -231,6 +207,8 @@ export interface MemoryHost extends EditorHost {
   drafts: DraftsAdapter;
   lifecycle: LifecycleAdapter;
   memory: MemoryHostControls;
+  /** The template store, which a template workspace opens, saves and versions templates in. */
+  templates: TemplateStoreAdapter;
 }
 
 // The stores' requests, each taking the latency set and failing as the controls say.
@@ -242,7 +220,7 @@ function withFaults(
     drafts,
   }: Pick<MemoryHost, 'documents' | 'drafts'> & {
     versions: VersionStoreAdapter;
-    templates: TemplateSourceAdapter;
+    templates: TemplateStoreAdapter;
   },
   faulty: ReturnType<typeof createMemorySessionParts>['faulty'],
 ) {
@@ -278,7 +256,10 @@ export function createMemoryHost(options: MemoryHostOptions = {}): MemoryHost {
     {
       documents: createMemoryDocuments(history),
       versions: createMemoryVersions(history),
-      templates: createMemoryTemplates(options.templates ?? []),
+      templates: createMemoryTemplates(options.templates ?? [], {
+        author: () => identity.currentPerson().id,
+        now,
+      }),
       drafts: createMemoryDrafts(),
     },
     session.faulty,

@@ -182,3 +182,14 @@ export {
   withSectionAt,
   withSectionMoved,
 } from './template-editor/index.js';
+export type {
+  TemplatePickerProps,
+  TemplatePreview,
+  TemplateWorkspaceLabels,
+  TemplateWorkspaceProps,
+} from './template-workspace/index.js';
+export {
+  DEFAULT_TEMPLATE_WORKSPACE_LABELS,
+  TemplatePicker,
+  TemplateWorkspace,
+} from './template-workspace/index.js';

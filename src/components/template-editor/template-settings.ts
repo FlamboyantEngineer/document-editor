@@ -47,6 +47,8 @@ export interface TemplateSetting {
   readonly hint?: string;
   /** Whether only the document's settings may set it, never a section's. */
   readonly documentOnly?: boolean;
+  /** Whether it applies on pages only, so a template for the web layout has no row for it. */
+  readonly pagesOnly?: boolean;
   /** Why a value is not valid, shown on the field; null while it is. */
   readonly check?: (value: unknown) => string | null;
 }
@@ -81,6 +83,8 @@ export interface TemplateSettingSection {
   readonly cards?: readonly TemplateSettingCard[];
   /** Whether only the document's settings may set it, never a section's. */
   readonly documentOnly?: boolean;
+  /** Whether it applies on pages only, so a template for the web layout has no section for it. */
+  readonly pagesOnly?: boolean;
 }
 
 /** The text of the template editor's rows. */

@@ -159,6 +159,46 @@ export interface TemplateSourceAdapter {
   subscribe?(templateId: string, onSaved: (state: SavedState) => void): () => void;
 }
 
+/** A stored template as a list of templates shows it. */
+export interface TemplateSummary extends SavedState {
+  id: string;
+  name: string | null;
+  /** The id of the template it inherits from; null for one inheriting the base template. */
+  parent: string | null;
+}
+
+export interface TemplateSave {
+  template: TemplateFile;
+  /** The revision this template was edited from. Any other stored revision fails as `conflict`. */
+  baseRevision: string;
+}
+
+/** A saved revision of a template. */
+export interface TemplateVersion extends SavedState {
+  /** When it was saved: an ISO 8601 date and time. */
+  savedAt: string;
+  /** The id of the person who saved it, when the host knows. */
+  author: string | null;
+}
+
+/**
+ * The templates a host keeps, which a template workspace lists, opens, saves, creates and removes.
+ * A copy is a new template made from another's settings; a restore saves an old revision's settings
+ * as the newest, read with `load(id, { revision })`.
+ */
+export interface TemplateStoreAdapter extends TemplateSourceAdapter {
+  /** The stored templates, at their latest revisions. */
+  list(signal?: AbortSignal): Promise<HostResult<TemplateSummary[]>>;
+  /** Saves new settings and returns the new saved state. */
+  save(templateId: string, save: TemplateSave): Promise<HostResult<SavedState>>;
+  /** Stores a new template under its own id; fails as `conflict` when the id is taken. */
+  create(template: TemplateFile): Promise<HostResult<SavedState>>;
+  /** Removes a template and its revisions; fails as `denied` when another template inherits it. */
+  remove(templateId: string): Promise<HostResult<null>>;
+  /** A template's saved revisions, newest first; without it the workspace shows no history. */
+  versions?(templateId: string, signal?: AbortSignal): Promise<HostResult<TemplateVersion[]>>;
+}
+
 /** Font faces the host serves itself, which a template's text styles name by family. */
 export interface FontsAdapter {
   /**

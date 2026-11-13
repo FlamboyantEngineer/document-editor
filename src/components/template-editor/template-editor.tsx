@@ -11,6 +11,7 @@ import { PropertySection } from '@flamboyantengineer/ui-components/property-pane
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import type { DocumentLayout } from '../document-editor/document-editor.js';
 import {
   extensionRows,
   ExtensionSections,
@@ -139,6 +140,11 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly isNew?: boolean | undefined;
   /** The host's own settings, kept in the template's `extensions`. */
   readonly extensions?: TemplateExtensionSlots | undefined;
+  /**
+   * The layout the template is for: on pages, or the web layout, which has no page size,
+   * orientation, header or footer rows. Defaults to pages.
+   */
+  readonly layout?: DocumentLayout | undefined;
   /** The fonts the font fields suggest; others may be typed. */
   readonly fonts?: readonly string[] | undefined;
   /** The fonts the code font fields suggest, monospace ones; others may be typed. */
@@ -262,9 +268,13 @@ export function TemplateEditor(props: TemplateEditorProps) {
       <SettingSections
         context={context}
         inSection={scope !== null}
+        onPages={props.layout !== 'web'}
         extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
       />
       {slots ? <ExtensionSections context={context} slots={slots} /> : null}
     </PropertyFilter>
   );
 }
+
+export { templateIdOf } from './template-identity.js';
+export type { TemplateScope } from './template-scope-state.js';
