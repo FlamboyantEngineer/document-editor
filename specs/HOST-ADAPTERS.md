@@ -151,6 +151,13 @@ The editor's comments may take a `mentions` adapter (`MentionsAdapter`), which s
 Implementation: `src/host/mention-adapters.ts`
 Verification: `src/components/document-comments/comment-mentions.test.tsx`
 
+### DOCE-HOST-1.22 - Exports
+
+The host's optional `exports` adapter shall list the exports File > Export offers (`entries`: each a `DocumentExport` with its `id`, `label` and `run`), each run given the document as stored (`content`), its print snapshot once the pages are ready (`snapshot`) and a signal aborted when the editor unmounts, and answering with a `HostResult` (DOCE-EDITOR-6.28).
+
+Implementation: `src/host/adapters.ts`, `src/host/export-adapters.ts`
+Verification: `src/components/document-editor/use-document-exports.test.tsx`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles

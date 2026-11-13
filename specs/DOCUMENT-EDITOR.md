@@ -511,6 +511,13 @@ Verification: `src/engine/snapshot-ready.test.ts`, `src/document/headless-print.
 Implementation: `src/document/print.ts`, `src/document/print-tree.ts`
 Verification: `src/document/print.test.ts`
 
+### DOCE-EDITOR-6.28 - File > Export
+
+With the host's `exports` adapter (DOCE-HOST-1.22), the menubar's File menu shall offer an Export submenu (`exportMenu`) listing its entries in order, each running the export it names with the document as the editor shows it, in the stored format (`content`), its print snapshot once the pages are ready (`snapshot`, DOCE-EDITOR-6.26) and a signal aborted when the editor unmounts. An export shall run at most once at a time: its entry is disabled from the moment it starts until it ends, and choosing it again meanwhile does nothing. The editor shall tell the reader through the host's `feedback` when an export starts (`info`, `exportStarted`) and how it ends, its file made (`success`, `exportDone`) or failed with the host's reason (`error`, `exportFailed`), and nothing once the editor has unmounted. Without exports the File menu has no Export submenu. The full editor lab exports Markdown, a word processing document and a print snapshot.
+
+Implementation: `src/components/document-editor/use-document-exports.ts`, `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/export-labels.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-exports.ts`
+Verification: `src/components/document-editor/use-document-exports.test.tsx`, `e2e/print.spec.ts`
+
 ## DOCE-EDITOR-7 - Banners
 
 ### DOCE-EDITOR-7.1 - The banner region

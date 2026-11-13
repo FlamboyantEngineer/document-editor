@@ -207,3 +207,28 @@ test.describe('print equals the editor', () => {
     });
   }
 });
+
+test.describe('File > Export', () => {
+  test('DOCE-EDITOR-6.28 runs the host exports from File > Export, once at a time', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const menubar = page.getByRole('menubar');
+    await menubar.getByRole('menuitem', { name: 'File' }).click();
+    await page.getByRole('menuitem', { name: 'Export' }).click();
+    const items = page.getByRole('menu').last().getByRole('menuitem');
+    await expect(items).toHaveText(['Markdown', 'Word document', 'Print snapshot']);
+    await items.filter({ hasText: 'Print snapshot' }).click();
+    await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText(
+      'Print snapshot export is ready',
+    );
+    await expect(page.getByLabel('Snapshot', { exact: true })).toHaveText(
+      /^[1-9]\d* pages printed$/,
+    );
+    const pages = await content(page).locator('.pm-page').count();
+    await expect(page.getByLabel('Snapshot', { exact: true })).toHaveText(
+      `${String(pages)} pages printed`,
+    );
+  });
+});
