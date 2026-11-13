@@ -9,6 +9,7 @@ import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { type CommentThread, createMemoryHost } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
+import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
 import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
 import { DocumentContributors } from './document-contributors.js';
@@ -68,11 +69,14 @@ function Harness({
   handleRef,
   comments = true,
   placement,
+  options,
 }: {
   panel: Omit<DocumentSidePanelProps, 'position'>;
   handleRef?: Ref<DocumentEditorHandle>;
   comments?: boolean;
   placement?: 'margin' | 'pane';
+  /** The comments' other options. */
+  options?: Partial<DocumentCommentsOptions>;
 }) {
   const [state, setState] = useState(initial);
   const [memory] = useState(host);
@@ -86,7 +90,13 @@ function Harness({
       handleRef={handleRef}
       comments={
         comments && memory.comments
-          ? { store: memory.comments, documentId: 'doc', identity: memory.identity, placement }
+          ? {
+              store: memory.comments,
+              documentId: 'doc',
+              identity: memory.identity,
+              placement,
+              ...options,
+            }
           : undefined
       }
       panels={{ end: <DocumentSidePanel position="end" template={TEMPLATE} {...panel} /> }}
@@ -185,6 +195,16 @@ describe('DocumentSidePanel', () => {
     unmount();
     render(<Harness comments={false} panel={{ panes: ['comments', 'properties'] }} />);
     expect(within(details()).queryByRole('tab', { name: /Comments/ })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-8.3 DOCE-COMMENTS-4.2 leaves the comments pane its own filter, whatever the margin’s', async () => {
+    const user = userEvent.setup();
+    render(<Harness options={{ filter: 'open' }} panel={{ panes: ['comments'] }} />);
+    const filter = await within(details()).findByRole('radiogroup', { name: 'Show' });
+    expect(within(filter).getByRole('radio', { name: /Open/ })).toBeChecked();
+    await user.click(within(filter).getByRole('radio', { name: /All/ }));
+    expect(within(filter).getByRole('radio', { name: /All/ })).toBeChecked();
+    expect(await within(details()).findByText('Note two')).toBeInTheDocument();
   });
 
   it('DOCE-COMMENTS-4.7 reveals the comments pane for a thread started or opened there', async () => {

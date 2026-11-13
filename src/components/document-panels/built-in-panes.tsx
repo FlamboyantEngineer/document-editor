@@ -14,6 +14,7 @@ import {
   DocumentCommentsPanel,
   type SharedCommentThreadsContext,
 } from '../document-comments/document-comments.js';
+import type { EditorContext } from '../document-editor/document-editor.js';
 import { DocumentContributors } from './document-contributors.js';
 import { DocumentOutline } from './document-outline.js';
 import { DocumentProperties } from './document-properties.js';
@@ -37,6 +38,19 @@ function openThreads({ comments, threads }: BuiltInSources): number | null {
   let open = 0;
   for (const thread of threads.threads.threads.values()) if (thread.state === 'open') open += 1;
   return open > 0 ? open : null;
+}
+
+// The comments panel of the editor's comments. The margin's `filter` is where the pane's starts:
+// given as the pane's own, it would hold the pane's choices to it.
+function CommentsPane({
+  comments,
+  context,
+}: {
+  comments: DocumentCommentsOptions;
+  context: EditorContext;
+}) {
+  const { filter, ...shared } = comments;
+  return <DocumentCommentsPanel {...shared} defaultFilter={filter} context={context} />;
 }
 
 /** A built-in pane as a host pane; null for the comments pane of an editor without comments. */
@@ -82,7 +96,7 @@ export function builtInPane(id: BuiltInPane, sources: BuiltInSources): DocumentP
             label: labels.comments,
             icon: ChatBubbleCheckGlyph,
             count: openThreads(sources),
-            render: (context) => <DocumentCommentsPanel {...comments} context={context} />,
+            render: (context) => <CommentsPane comments={comments} context={context} />,
           }
         : null;
     case 'contributors':
