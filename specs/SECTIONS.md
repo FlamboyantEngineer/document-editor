@@ -55,6 +55,20 @@ Both commands shall work on the whole document, where each section is one page o
 Implementation: `src/engine/document-sections.ts`
 Verification: `src/engine/document-sections.test.ts`
 
+### DOCE-SECTIONS-2.5 - Sections in the template's order
+
+`insertTemplateSection(template, name)` shall add a section of an insertable template section (`insertable`, not `required`) where the template places it, whatever the caret: after the last section the template places before it, the writer's plain sections on the way included, and before any the template places after it (as `syncTemplateSections` places a missing required section). It starts with its template section's content, or an empty paragraph, and the caret moves to its start; it is refused for a name the template has no such section of and for a section the document has already. `removeEmptyTemplateSections(template)` shall take out every section of such a template section that holds nothing, one empty text block, keeping at least one section, and is refused when there is none to take out.
+
+Implementation: `src/engine/section-insertion.ts`, `src/engine/template-sync.ts`
+Verification: `src/engine/section-insertion.test.ts`
+
+### DOCE-SECTIONS-2.6 - Insert points
+
+`templateSectionInsertPoints(doc, template)` shall list, in the template's order, each insertable template section the document lacks with the position between sections where `insertTemplateSection` would add it, for a host's controls on the pages.
+
+Implementation: `src/engine/section-insertion.ts`
+Verification: `src/engine/section-insertion.test.ts`
+
 ## DOCE-SECTIONS-3 - Sections in the editor
 
 ### DOCE-SECTIONS-3.1 - Pages of a section's scope

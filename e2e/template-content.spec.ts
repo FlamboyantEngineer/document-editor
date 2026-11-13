@@ -80,9 +80,10 @@ test.describe('template content lab', () => {
   }) => {
     await lab.open('template-content');
     // Bold and italic in the header.
-    // The headers turn editable once region editing has set them again.
+    // The headers turn editable once region editing has set them again: until then they may not
+    // say whether they are, and setting them again redraws them under the caret.
     const headers = content(page).locator('.pm-page-header');
-    await expect(headers.first()).not.toHaveAttribute('contenteditable', 'false');
+    await expect(headers.first()).toHaveAttribute('contenteditable', 'true');
     await headers.first().locator('p').first().click();
     await page.keyboard.press('End');
     await page.keyboard.press('Shift+Home');
