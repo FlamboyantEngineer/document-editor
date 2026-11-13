@@ -142,10 +142,10 @@ Verification: `src/engine/transaction-kind.test.ts`
 
 ### DOCE-EDITING-3.3 - No derived writes on remote changes
 
-A plugin that writes to the document in response to other changes (element ids, footnote numbering, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
+A plugin that writes to the document in response to other changes (element ids, footnote numbering, in the document and in each section, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
 
-Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/footnotes.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/two-state-collab.test.ts`
+Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/footnotes.ts`, `src/engine/section-footnote-numbers.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/two-state-collab.test.ts`, `src/engine/footnotes.test.ts`
 
 ### DOCE-EDITING-3.4 - Typing without walking the document
 
