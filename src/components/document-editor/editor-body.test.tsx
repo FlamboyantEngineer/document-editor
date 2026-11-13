@@ -106,15 +106,16 @@ describe('EditorBody', () => {
     async (layout) => {
       const user = userEvent.setup();
       const { assets } = createMemoryHost();
-      const { container } = render(<Harness layout={layout} onMount={vi.fn()} assets={assets} />);
+      render(<Harness layout={layout} onMount={vi.fn()} assets={assets} />);
       const report = () => screen.getByRole('textbox', { name: 'Report' });
       if (layout === 'page') {
         await waitFor(() => expect(report().querySelector('.pm-page')).toBeInTheDocument());
       }
       await user.click(report());
       await user.paste(imagePaste('board.png', 'chart.png'));
+      // The document view's pictures, not the hidden measuring view's.
       const pictures = () =>
-        [...container.querySelectorAll('figure img')].map((image) => image.getAttribute('alt'));
+        [...report().querySelectorAll('figure img')].map((image) => image.getAttribute('alt'));
       await waitFor(() => expect(pictures()).toEqual(['board.png', 'chart.png']));
       expect(report()).toHaveTextContent('Hello');
     },
