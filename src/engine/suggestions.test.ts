@@ -1,6 +1,7 @@
-import { deleteSelection, splitBlock } from 'prosemirror-commands';
+import { deleteSelection, lift, splitBlock } from 'prosemirror-commands';
 import { history, undo } from 'prosemirror-history';
 import type { Node } from 'prosemirror-model';
+import { liftListItem, sinkListItem, wrapInList } from 'prosemirror-schema-list';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -195,6 +196,31 @@ describe('suggest mode', () => {
     const pos = positionOf(list, 'One') + 1;
     const split = inList.tr.split(pos, 2);
     expect(suggestTransaction(split, inList)).toBeNull();
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 refuses a change of structure it cannot record', () => {
+    const { bullet_list: bullets, list_item: item } = documentSchema.nodes;
+    if (!bullets || !item) throw new Error('No lists');
+    const plain = EditorState.create({ doc: read(paragraph('One'), paragraph('Two')) });
+    expect(
+      suggest(select(plain, positionOf(plain.doc, 'One') + 1), wrapInList(bullets)),
+    ).toBeNull();
+    const listed = EditorState.create({
+      doc: read({
+        type: 'bulletList',
+        content: [
+          { type: 'listItem', content: [paragraph('One')] },
+          { type: 'listItem', content: [paragraph('Two')] },
+        ],
+      }),
+    });
+    const inSecond = select(listed, positionOf(listed.doc, 'Two') + 1);
+    expect(suggest(inSecond, sinkListItem(item))).toBeNull();
+    expect(suggest(inSecond, liftListItem(item))).toBeNull();
+    const quoted = EditorState.create({
+      doc: read({ type: 'blockquote', content: [paragraph('Said')] }),
+    });
+    expect(suggest(select(quoted, positionOf(quoted.doc, 'Said') + 1), lift)).toBeNull();
   });
 
   it('DOCE-SUGGESTIONS-1.5 leaves a system change as it is', () => {

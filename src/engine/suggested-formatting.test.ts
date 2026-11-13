@@ -1,6 +1,6 @@
 import { setBlockType, toggleMark } from 'prosemirror-commands';
 import type { Node } from 'prosemirror-model';
-import { type Command, EditorState, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
@@ -153,6 +153,21 @@ describe('tracked formatting', () => {
     const changed = suggest(state, level);
     expect(changed.doc.nodeAt(pos)?.attrs.paragraphLevel).toBe(3);
     expect(decided(changed, 'reject').nodeAt(pos)?.attrs.paragraphLevel).toBe(1);
+  });
+
+  it('DOCE-SUGGESTIONS-4.2 DOCE-SUGGESTIONS-1.5 refuses a formatting change on a block that cannot be suggested', () => {
+    const code = EditorState.create({
+      doc: read({ type: 'codeBlock', content: [{ type: 'text', text: 'let one = 1' }] }),
+    });
+    const pos = positionOf(code.doc, 'let one') - 1;
+    const refused = (step: (state: EditorState) => Transaction) =>
+      suggestTransaction(step(code), code, { author: 'writer' });
+    expect(refused((state) => state.tr.setNodeAttribute(pos, 'language', 'typescript'))).toBeNull();
+    expect(
+      refused((state) => state.tr.setNodeMarkup(pos, null, { language: 'typescript' })),
+    ).toBeNull();
+    const identity = refused((state) => state.tr.setNodeAttribute(pos, 'dataId', 'c0de0001'));
+    expect(identity?.doc.nodeAt(pos)?.attrs.dataId).toBe('c0de0001');
   });
 
   it('DOCE-SUGGESTIONS-4.3 leaves formatting of the writer’s own insertion and system changes alone', () => {

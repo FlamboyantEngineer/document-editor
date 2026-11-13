@@ -34,7 +34,7 @@ Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-1.5 - What suggest mode leaves alone
 
-A change that does not edit content, a change a suggestion built or decided, a change outside the history, such as the pagination's, a system change (`markSystemChange`), and an undo or redo, which replays changes that were already suggestions, shall be returned as it is. A change a suggestion cannot record, such as splitting a list item or a block laid out across pages, shall give null, and the editor shall drop it.
+A change that does not edit content, a change a suggestion built or decided, a change outside the history, such as the pagination's, a system change (`markSystemChange`), and an undo or redo, which replays changes that were already suggestions, shall be returned as it is. A change a suggestion cannot record shall give null, and the editor shall drop it rather than make it unsuggested: splitting a list item or a block laid out across pages, a change of structure around blocks, such as wrapping them in a list, nesting or lifting them, a change of the formatting of a block that cannot be suggested (DOCE-SUGGESTIONS-4.2), and a formatting mark set on a node itself. A mark that is not formatting, such as a comment's highlight, is made as it is.
 
 Implementation: `src/engine/suggestions.ts`
 Verification: `src/engine/suggestions.test.ts`
@@ -154,7 +154,7 @@ Verification: `src/engine/suggested-formatting.test.ts`
 
 ### DOCE-SUGGESTIONS-4.2 - Block type and attributes
 
-While suggesting, a change of a block's type or formatting attributes (any attribute but identity, layout and suggestion attributes) on a block that can be suggested (DOCE-SUGGESTIONS-1.4) shall be made and recorded in the block's `suggestionFormat`: the suggestion id, the writer, and the block's type and non-default attributes before the first tracked change. A change back shall clear it. Accepting shall clear it; rejecting shall restore the type and attributes and clear it.
+While suggesting, a change of a block's type or formatting attributes (any attribute but identity, layout and suggestion attributes) on a block that can be suggested (DOCE-SUGGESTIONS-1.4) shall be made and recorded in the block's `suggestionFormat`: the suggestion id, the writer, and the block's type and non-default attributes before the first tracked change. A change back shall clear it. Accepting shall clear it; rejecting shall restore the type and attributes and clear it. On a block that cannot be suggested, such as a code block or a table cell, a change of its type or formatting attributes shall give null (DOCE-SUGGESTIONS-1.5), while a change of its identity or layout attributes alone is made as it is.
 
 Implementation: `src/engine/suggested-formatting.ts`, `src/model/schema/element-attributes.ts`
 Verification: `src/engine/suggested-formatting.test.ts`

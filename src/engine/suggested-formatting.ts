@@ -5,7 +5,14 @@
 
 import type { Attrs, Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
-import { AddMarkStep, AttrStep, RemoveMarkStep, type Step } from 'prosemirror-transform';
+import {
+  AddMarkStep,
+  AddNodeMarkStep,
+  AttrStep,
+  RemoveMarkStep,
+  RemoveNodeMarkStep,
+  type Step,
+} from 'prosemirror-transform';
 import { inlineRuns, type Suggesting } from './suggestions.js';
 
 /** A mark as a format change records it. */
@@ -116,20 +123,21 @@ function recordMarks(suggesting: Suggesting, step: AddMarkStep | RemoveMarkStep)
   return true;
 }
 
-// Whether a block step changes no formatting a record keeps: identity or layout, a block that
-// cannot hold a record, or the writer's own suggested block.
-function isUntracked(suggesting: Suggesting, step: Step, node: ProseMirrorNode | null) {
-  if (!node || !canRecord(node)) return true;
+// Whether a block step changes nothing a suggestion records: an identity or layout attribute, or
+// the writer's own suggested block.
+function isLeftAlone(suggesting: Suggesting, step: Step, node: ProseMirrorNode | null) {
+  if (!node) return true;
   if (step instanceof AttrStep && UNTRACKED_ATTRS.has(step.attr)) return true;
   const { suggestionSplitKind, dataAuthor } = node.attrs;
   return suggestionSplitKind === 'insertion' && dataAuthor === suggesting.author;
 }
 
-// Records a block step's change of type or attributes on the block.
+// Records a block step's change of type or attributes on the block. False for a step that failed,
+// or changed the formatting of a block that cannot hold a record: a suggestion cannot record it.
 function recordBlock(suggesting: Suggesting, step: Step, pos: number): boolean {
   const { tr } = suggesting;
   const node = tr.doc.nodeAt(pos);
-  const untracked = isUntracked(suggesting, step, node);
+  const leftAlone = isLeftAlone(suggesting, step, node);
   const record = node ? blockFormatOf(node) : null;
   const original = record ?? {
     type: String(node?.type.name),
@@ -137,9 +145,10 @@ function recordBlock(suggesting: Suggesting, step: Step, pos: number): boolean {
   };
   if (tr.maybeStep(step).failed) return false;
   const after = tr.doc.nodeAt(pos);
-  if (untracked || !after || !canRecord(after)) return true;
+  if (leftAlone || !after) return true;
   const now = { type: after.type.name, attrs: formatAttrsOf(after) };
   const before = { type: original.type, attrs: original.attrs };
+  if (!canRecord(after)) return same(before, now);
   const next: BlockFormatRecord | null = same(before, now)
     ? null
     : { id: record?.id ?? suggesting.newId(), author: suggesting.author, ...before };
@@ -147,25 +156,30 @@ function recordBlock(suggesting: Suggesting, step: Step, pos: number): boolean {
   return true;
 }
 
+const isNodeMarkStep = (step: Step): step is AddNodeMarkStep | RemoveNodeMarkStep =>
+  step instanceof AddNodeMarkStep || step instanceof RemoveNodeMarkStep;
+
 /**
- * Applies a step that changes formatting, already mapped onto the suggestion, and records the
- * formatting it replaced. Returns whether the step applied, or undefined for a step that changes
- * no formatting.
+ * Applies a step that is not a replacement, already mapped onto the suggestion: a step that changes
+ * formatting records the formatting it replaced, and a step that changes none of it, such as a
+ * comment's highlight, is made as it is. Returns whether the step applied; false for one a
+ * suggestion cannot record, such as a change of structure, which the caller drops.
  */
 export function suggestFormatting(
   suggesting: Suggesting,
   step: Step,
   { markup }: { markup: boolean },
-): boolean | undefined {
-  if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) {
-    if (UNTRACKED_MARKS.has(step.mark.type.name)) return undefined;
-    return recordMarks(suggesting, step);
+): boolean {
+  if (step instanceof AddMarkStep || step instanceof RemoveMarkStep || isNodeMarkStep(step)) {
+    if (UNTRACKED_MARKS.has(step.mark.type.name)) return !suggesting.tr.maybeStep(step).failed;
+    // A formatting mark set on a node itself has no run of text to record it on.
+    return isNodeMarkStep(step) ? false : recordMarks(suggesting, step);
   }
   if (step instanceof AttrStep) return recordBlock(suggesting, step, step.pos);
   if (markup && 'from' in step && typeof step.from === 'number') {
     return recordBlock(suggesting, step, step.from);
   }
-  return undefined;
+  return false;
 }
 
 /** A node's format change parts: its run's format change mark, or its block record. */
