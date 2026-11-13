@@ -134,6 +134,38 @@ describe('DocumentComments', () => {
     expect(screen.getByRole('textbox', { name: 'Add a comment' })).toHaveTextContent('');
   });
 
+  it('DOCE-COMMENTS-2.2 lets a reader who may only comment start a thread without changing the document', async () => {
+    const user = userEvent.setup();
+    const store = host();
+    const { container } = render(
+      <Harness host={store} select="gamma" editable={false} canComment />,
+    );
+    const before = seen.state?.doc;
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'Say more');
+    await user.click(screen.getByRole('button', { name: 'Comment' }));
+    expect(await screen.findByText('Say more')).toBeInTheDocument();
+    // The store keeps where the thread is; the document is as it was, its anchor placed.
+    const listed = await store.comments?.list('doc');
+    const started = listed?.ok ? listed.value.find((each) => each.quote === 'gamma') : undefined;
+    expect(started?.target).toMatchObject({ quote: 'gamma', ranges: [{ text: 'gamma' }] });
+    expect(seen.state?.doc.eq(before ?? seen.state.doc)).toBe(true);
+    await waitFor(() =>
+      expect(
+        container.querySelector(`mark[data-comment-id="${started?.id ?? ''}"]`),
+      ).toHaveAttribute('data-comment-placed', 'true'),
+    );
+    // Resolving it changes the store only.
+    await user.click(screen.getAllByRole('button', { name: 'Resolve' }).at(-1) as HTMLElement);
+    await waitFor(async () => {
+      const after = await store.comments?.list('doc');
+      expect(after?.ok && after.value.find((each) => each.id === started?.id)?.state).toBe(
+        'resolved',
+      );
+    });
+    expect(seen.state?.doc.eq(before ?? seen.state.doc)).toBe(true);
+  });
+
   it('DOCE-COMMENTS-2.3 replies to and resolves a thread', async () => {
     const user = userEvent.setup();
     const store = host();

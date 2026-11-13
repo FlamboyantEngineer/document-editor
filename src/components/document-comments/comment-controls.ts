@@ -4,13 +4,15 @@
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type RefObject, useContext, useEffect } from 'react';
+import { type RefObject, useContext, useEffect, useRef } from 'react';
 import {
+  anchorThreads,
   canStartComment,
   createElementId,
   startCommentDraft,
   suggestionDecisionOf,
 } from '../../engine/index.js';
+import type { CommentThread } from '../../host/index.js';
 import { type OpenComment, type StartComment, useCommentFocus } from './comment-focus.js';
 import { type CommentThreads, SharedCommentThreadsContext } from './use-comment-threads.js';
 import { recordDecision } from './use-decision-records.js';
@@ -68,6 +70,23 @@ function useRunCommand(
   };
 }
 
+// The threads the store keeps with a target and no marks, as a reader who may only comment starts
+// them, placed in the document without changing it, for every reader (DOCE-COMMENTS-1.12), again
+// whenever the threads change.
+function usePlacedThreads(
+  threads: ReadonlyMap<string, CommentThread>,
+  run: (command: Command) => void,
+) {
+  const latest = useRef(run);
+  useEffect(() => {
+    latest.current = run;
+  });
+  useEffect(() => {
+    const listed = [...threads.values()];
+    if (listed.some((thread) => thread.target)) latest.current(anchorThreads(listed));
+  }, [threads]);
+}
+
 /** Gives the editor its ways in to the comments, and returns the way to start a thread. */
 export function useCommentControls(options: CommentControlsOptions) {
   const { state, canComment, comments, startRef, openRef, onStart } = options;
@@ -87,6 +106,7 @@ export function useCommentControls(options: CommentControlsOptions) {
     options.onOpen?.();
     return true;
   };
+  usePlacedThreads(comments.threads, run);
   useEffect(() => {
     if (startRef) startRef.current = canComment ? startThread : null;
     if (openRef) openRef.current = open;

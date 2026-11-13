@@ -9,6 +9,7 @@ import {
   commitCommentDraft,
   createElementId,
   decideWithPolicy,
+  describeDraftTarget,
   linkSuggestionThread,
   listSuggestions,
   removeCommentAnchor,
@@ -18,7 +19,7 @@ import {
   suggestionPermissions,
   type SuggestionPolicy,
 } from '../../engine/index.js';
-import type { CommentThread } from '../../host/index.js';
+import type { CommentTarget, CommentThread } from '../../host/index.js';
 import type { AnchorTarget } from './anchor-rects.js';
 import { type CardContext, DraftCard, PendingCard, ThreadCard } from './comment-cards.js';
 import { isSuggestionShown, isThreadShown, type ThreadFilter } from './comment-filters.js';
@@ -154,6 +155,24 @@ export interface CardActions {
   readonly startThread: () => void;
 }
 
+// A change of the document a comment makes, made only where the reader may change the document.
+// A reader who may only comment, as in a shared room's comment mode, leaves the document as it is:
+// the store keeps the thread and its target, and the editor places its anchor without marks.
+function inDocument(command: Command, otherwise: Command = () => true): Command {
+  return (state, dispatch, view) =>
+    view && !view.editable ? otherwise(state, dispatch, view) : command(state, dispatch, view);
+}
+
+// The portable target of the thread being started, read from the state the command runs on.
+function draftTarget(run: CardActions['run']): CommentTarget | null {
+  let target: CommentTarget | null = null;
+  run((state) => {
+    target = describeDraftTarget(state) ?? target;
+    return true;
+  });
+  return target;
+}
+
 // A command that anchors a thread just stored. When the document no longer allows it, as when a
 // collaborator deleted the text or decided the suggestion while the thread was stored, the thread
 // is removed again rather than kept with no anchor.
@@ -185,7 +204,7 @@ function renderSuggestion(
     const id = createElementId();
     const quote = suggestion.inserted || suggestion.deleted;
     const created = await context.comments.create({ id, quote, text, suggestion: suggestion.id });
-    run(anchorOrRemove(context, id, linkSuggestionThread(suggestion.id, id)));
+    run(anchorOrRemove(context, id, inDocument(linkSuggestionThread(suggestion.id, id))));
     return created;
   };
   return (
@@ -214,8 +233,15 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           quote={item.quote}
           context={context}
           onSubmit={async (text) => {
-            await context.comments.create({ id: item.id, quote: item.quote, text });
-            run(anchorOrRemove(context, item.id, commitCommentDraft(item.id)));
+            const target = draftTarget(run);
+            await context.comments.create({ id: item.id, quote: item.quote, text, target });
+            run(
+              anchorOrRemove(
+                context,
+                item.id,
+                inDocument(commitCommentDraft(item.id), clearCommentDraft),
+              ),
+            );
           }}
           onCancel={() => run(clearCommentDraft)}
         />
@@ -229,11 +255,11 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           onResolve={async (resolved) => {
             const state = resolved ? 'resolved' : 'open';
             await context.comments.setState(item.thread.id, state);
-            run(setCommentState(item.thread.id, state));
+            run(inDocument(setCommentState(item.thread.id, state)));
           }}
           onRemove={async () => {
             await context.comments.remove(item.thread.id);
-            run(removeCommentAnchor(item.thread.id));
+            run(inDocument(removeCommentAnchor(item.thread.id)));
           }}
         />
       );

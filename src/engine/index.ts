@@ -69,6 +69,7 @@ export type { AnchoredThread, ResolvedTarget, ThreadReconcileReport } from './co
 export {
   anchorThreads,
   describeCommentTarget,
+  describeDraftTarget,
   reanchorThread,
   reconcileThreads,
   resolveCommentTarget,

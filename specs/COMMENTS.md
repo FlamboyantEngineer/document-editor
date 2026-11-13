@@ -69,7 +69,7 @@ Verification: `src/engine/comment-anchors.test.ts`
 
 ### DOCE-COMMENTS-1.10 - Portable targets
 
-`describeCommentTarget(state, thread)` shall describe a thread's anchor portably (`CommentTarget`, the host's thread record type, DOCE-HOST-1.5): each range by the element id of its text block, its offsets in that block (each character and inline object counting one) and its text, with the quote; null when a block has no id. `resolveCommentTarget(doc, target)` shall find it again: each range at its offsets when its text is still there (`exact`), else its text nearest them in its block, else the quote in any one text block; null when none is found. `reanchorThread(thread, target)` shall anchor the thread again where its target is found, replacing its marks, and be refused when it is not found.
+`describeCommentTarget(state, thread)` shall describe a thread's anchor portably, and `describeDraftTarget(state)` the thread being started (DOCE-COMMENTS-1.6), (`CommentTarget`, the host's thread record type, DOCE-HOST-1.5): each range by the element id of its text block, its offsets in that block (each character and inline object counting one) and its text, with the quote; null when a block has no id. `resolveCommentTarget(doc, target)` shall find it again: each range at its offsets when its text is still there (`exact`), else its text nearest them in its block, else the quote in any one text block; null when none is found. `reanchorThread(thread, target)` shall anchor the thread again where its target is found, replacing its marks, and be refused when it is not found.
 
 Implementation: `src/engine/comment-targets.ts`
 Verification: `src/engine/comment-targets.test.ts`
@@ -83,7 +83,7 @@ Verification: `src/engine/comment-targets.test.ts`
 
 ### DOCE-COMMENTS-1.12 - Threads placed by their targets
 
-`anchorThreads(threads)` shall place the anchors of the listed text threads that no mark anchors where their targets are found, without changing the document, as when the reader may write only a shared room's comments: the index lists them with the marked anchors, draws them as stored anchors are drawn (`mark` with `data-comment-id`, `data-comment-state` and `data-comment-placed`), and maps them through edits; a mark anchoring the thread takes over from its placed anchor. Each call replaces the threads placed before.
+`anchorThreads(threads)` shall place the anchors of the listed text threads that no mark anchors where their targets are found, without changing the document, as when the reader may write only a shared room's comments: the index lists them with the marked anchors, draws them as stored anchors are drawn (`mark` with `data-comment-id`, `data-comment-state` and `data-comment-placed`), and maps them through edits; a mark anchoring the thread takes over from its placed anchor. Each call replaces the threads placed before. The comments margin and panel call it with the store's threads whenever they change, when any has a target, so every reader sees the threads placed without marks.
 
 Implementation: `src/engine/comment-targets.ts`, `src/engine/comment-anchors.ts`
 Verification: `src/engine/comment-targets.test.ts`
@@ -106,14 +106,14 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `sr
 
 ### DOCE-COMMENTS-2.2 - Starting a thread
 
-While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes, then anchor it in the document, removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
+While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes and its portable target (DOCE-COMMENTS-1.10), then anchor it in the document, or, for a reader who may not change the document but may comment (an editor that is not editable), leave the document as it was and place the anchor by its target (DOCE-COMMENTS-1.12), removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.3 - Answering and resolving
 
-A thread's card shall post replies to the store, and Resolve shall resolve the thread in the store and its anchor in the document, hiding the card. The author of a thread may delete it from its opening comment, which removes the thread and its anchor. When a card that holds keyboard focus goes, in the margin or the panel, as its thread is resolved or deleted or its suggestion decided, focus shall move to the card after it, else the one before (`useFocusHandOver`), and in the panel to the list when none is left.
+A thread's card shall post replies to the store, and Resolve shall resolve the thread in the store and its anchor in the document, hiding the card. The author of a thread may delete it from its opening comment, which removes the thread and its anchor. For a reader who may not change the document, Resolve and Delete change the store only, and a reply on a suggestion keeps its link to the suggestion in the store. When a card that holds keyboard focus goes, in the margin or the panel, as its thread is resolved or deleted or its suggestion decided, focus shall move to the card after it, else the one before (`useFocusHandOver`), and in the panel to the list when none is left.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/card-focus.ts`, `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comments-panel.test.tsx`

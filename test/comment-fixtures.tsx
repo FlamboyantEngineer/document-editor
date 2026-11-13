@@ -55,6 +55,7 @@ export function initial(select?: string, content: readonly StoredNode[] = PARAGR
           content: [
             {
               type: 'paragraph',
+              attrs: { id: 'p1' },
               content: [...content],
             },
           ],

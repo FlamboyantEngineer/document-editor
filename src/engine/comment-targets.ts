@@ -7,6 +7,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { CommentTarget, CommentTargetRange } from '../host/index.js';
 import { commentAnchors, placeCommentAnchors, type PlacedAnchor } from './comment-anchors.js';
+import { commentDraft } from './comment-draft.js';
 import {
   anchorCommentRanges,
   type AnchorOptions,
@@ -57,10 +58,44 @@ const blockText = (block: ProseMirrorNode) =>
  */
 export function describeCommentTarget(state: EditorState, thread: string): CommentTarget | null {
   const anchor = commentAnchors(state).find((each) => each.thread === thread);
-  if (!anchor) return null;
+  return anchor ? targetOf(state.doc, anchor.ranges, anchor.text) : null;
+}
+
+/**
+ * The portable target of the thread being started (`startCommentDraft`), so the thread can be
+ * stored with it; null without a draft, or when a text block it covers has no element id.
+ */
+export function describeDraftTarget(state: EditorState): CommentTarget | null {
+  const draft = commentDraft(state);
+  if (!draft) return null;
+  const quote = draft.ranges
+    .map(({ from, to }) => state.doc.textBetween(from, to, ' ', ' '))
+    .join(' ');
+  return targetOf(state.doc, draft.ranges, quote);
+}
+
+// A range cut at the edges of the text blocks it crosses, as a selection across blocks is.
+function byTextBlock(doc: ProseMirrorNode, { from, to }: CommentRange): CommentRange[] {
+  const parts: CommentRange[] = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isTextblock) return true;
+    const start = Math.max(from, pos + 1);
+    const end = Math.min(to, pos + 1 + node.content.size);
+    if (start < end) parts.push({ from: start, to: end });
+    return false;
+  });
+  return parts;
+}
+
+// The target of ranges, each cut to the text blocks it covers, every one with an element id.
+function targetOf(
+  doc: ProseMirrorNode,
+  found: readonly CommentRange[],
+  quote: string,
+): CommentTarget | null {
   const ranges: CommentTargetRange[] = [];
-  for (const { from, to } of anchor.ranges) {
-    const $from = state.doc.resolve(from);
+  for (const { from, to } of found.flatMap((range) => byTextBlock(doc, range))) {
+    const $from = doc.resolve(from);
     const element: unknown = $from.parent.attrs.dataId;
     if (typeof element !== 'string' || !element) return null;
     const start = $from.parentOffset;
@@ -71,7 +106,7 @@ export function describeCommentTarget(state: EditorState, thread: string): Comme
       text: blockText($from.parent).slice(start, start + to - from),
     });
   }
-  return { ranges, quote: anchor.text };
+  return ranges.length ? { ranges, quote } : null;
 }
 
 // The text blocks of a document by element id, found in one walk.
