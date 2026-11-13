@@ -181,6 +181,8 @@ const headingLevel = (node: ProseMirrorNode) =>
 
 // Counts a heading, and gives the number it shows.
 function countHeading(node: ProseMirrorNode, counting: Counting): string {
+  // An unnumbered heading is listed, but takes no number and moves no counter.
+  if (node.attrs.numbered === false) return '';
   const level = headingLevel(node);
   counting.headings[level - 1] = (counting.headings[level - 1] ?? 0) + 1;
   counting.headings.fill(0, level);

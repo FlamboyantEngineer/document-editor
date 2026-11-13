@@ -140,7 +140,7 @@ Verification: `src/document/scripts.test.ts`
 
 ### DOCE-OBJECTS-4.5 - Building a script's output
 
-The script output builders, in `./document`, shall write the stored content a script gives without the stored format's names: `buildScriptText(text)` the inline content of plain text or runs, each run bold, italic, code or linking to `href` as it says, empty runs left out; `buildScriptParagraph(text)` a paragraph; `buildScriptHeading(text, { level })` a heading of level 1 to 6, a level outside them taking the nearer; `buildScriptList(items, { ordered })` a bulleted or numbered list with a paragraph in each item; and `buildScriptTable(rows, { header })` a table with a paragraph in each cell, its first row of header cells when `header`. What they build is content the document reads.
+The script output builders, in `./document`, shall write the stored content a script gives without the stored format's names: `buildScriptText(text)` the inline content of plain text or runs, each run bold, italic, code or linking to `href` as it says, empty runs left out; `buildScriptParagraph(text)` a paragraph; `buildScriptHeading(text, { level, numbered })` a heading of level 1 to 6, a level outside them taking the nearer, unnumbered when `numbered` is false (DOCE-SCHEMA-3.10); `buildScriptList(items, { ordered })` a bulleted or numbered list with a paragraph in each item; and `buildScriptTable(rows, { header })` a table with a paragraph in each cell, its first row of header cells when `header`. What they build is content the document reads.
 
 Implementation: `src/document/script-output.ts`
 Verification: `src/document/script-output.test.ts`

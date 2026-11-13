@@ -45,7 +45,13 @@ const paragraph: NodeSpec = {
 };
 
 const heading: NodeSpec = {
-  attrs: { level: { default: 1 }, docTitle: { default: false }, className: { default: '' } },
+  attrs: {
+    level: { default: 1 },
+    docTitle: { default: false },
+    /** False for a heading that takes no number and moves no counter, though it stays structural. */
+    numbered: { default: true },
+    className: { default: '' },
+  },
   content: 'inline*',
   group: BLOCK_GROUP,
   defining: true,
@@ -54,12 +60,14 @@ const heading: NodeSpec = {
     getAttrs: (dom: HTMLElement) => ({
       level,
       docTitle: dom.getAttribute('data-doc-title') === 'true',
+      numbered: dom.getAttribute('data-numbered') !== 'false',
       className: styleName(dom.getAttribute('class')),
     }),
   })),
   toDOM(node: ProseMirrorNode) {
     const attrs: Record<string, string> = {
       ...(node.attrs.docTitle ? { 'data-doc-title': 'true' } : {}),
+      ...(node.attrs.numbered === false ? { 'data-numbered': 'false' } : {}),
       ...styleClass(node),
     };
     // Clamped, so an out-of-range level never writes an invalid tag.
