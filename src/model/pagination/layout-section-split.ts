@@ -10,6 +10,7 @@ import {
   isContainerMeasurement,
   splitContainer,
 } from './container-split.js';
+import { isContinuationPlaceholder } from './fragments.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
 
 // One side of a split column: its blocks, and where they sit.
@@ -67,6 +68,11 @@ function splitColumn(
   return { column, head: part(parts.head), tail: part(tail) };
 }
 
+// Whether one side of a split column holds a block of its own, beyond a split's empty paragraph.
+function holdsBlock(side: ColumnPart | null): boolean {
+  return Boolean(side?.content.some((block) => !isContinuationPlaceholder(block)));
+}
+
 // A column holding only the empty paragraph takes its padding, as the other side measured it.
 function placeholderHeight(other: ColumnPart | null): number {
   const measured = other?.measurement;
@@ -115,7 +121,7 @@ function sectionPart(block: LayoutBlock, splits: readonly ColumnSplit[], side: S
 /**
  * Splits a measured layout section (`ContainerMeasurement`: where each column sits, each with its
  * own blocks' layouts) by splitting every column at the height; null when no column has a block
- * that fits there.
+ * of its own that fits there, or none has one left for the next page.
  */
 export function splitLayoutSection(
   block: LayoutBlock,
@@ -131,7 +137,10 @@ export function splitLayoutSection(
     const layout = measurement.children[index] ?? { top: 0, bottom: 0 };
     return splitColumn({ column, layout }, room, context);
   });
-  if (splits.every((split) => !split.head) || splits.every((split) => !split.tail)) return null;
+  // A side holding only the empty paragraphs of an earlier split places nothing: splitting it off
+  // would leave the same section for the next page, page after page.
+  if (!splits.some((split) => holdsBlock(split.head))) return null;
+  if (!splits.some((split) => holdsBlock(split.tail))) return null;
   const tail = sectionPart(block, splits, 'tail');
   return {
     head: sectionPart(block, splits, 'head'),

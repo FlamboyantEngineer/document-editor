@@ -166,8 +166,11 @@ function joinContainers(tr: Transform, pos: number, rules: FragmentRules) {
   joinFacingChildren(tr, pos - 1, rules);
 }
 
-// The empty paragraph a list item's continuation opens with when its split falls between children.
-function isContinuationPlaceholder(node: ProseMirrorNode | null | undefined): boolean {
+/**
+ * Whether a node is the empty paragraph a split leaves where a fragment has nothing of its own: at
+ * the start of a list item's continuation, or in a column with no block on that side.
+ */
+export function isContinuationPlaceholder(node: ProseMirrorNode | null | undefined): boolean {
   return node?.type.name === 'paragraph' && node.content.size === 0 && !node.attrs.dataId;
 }
 
