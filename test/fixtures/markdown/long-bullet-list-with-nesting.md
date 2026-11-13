@@ -1,0 +1,66 @@
+# Inventory
+
+- Shelf 0
+
+  - Each season ends with a shared meal and a swap of saved seeds.
+  - The lighthouse lamp turns once every twelve seconds.
+- Keepers logged the wind direction at the top of every hour.
+- A brass barometer hangs beside the stairs to the lantern room.
+- Fog signals sounded in groups of two when visibility dropped.
+- The station records temperature, pressure and humidity each minute.
+- Shelf 5
+
+  - Readings older than a year move to the archive drive.
+  - A bicycle chain needs a drop of oil on every link, then a wipe.
+- Brake pads wear faster in wet weather and on long descents.
+- The reading room opens at nine and closes at six on weekdays.
+- Maps larger than the tables are kept flat in the plan chest.
+- The north bed holds the early beans and two rows of lettuce.
+- Shelf 10
+
+  - Water reaches each plot through a drip line laid under the mulch.
+  - Volunteers record rainfall every morning before the gate opens.
+- The tool shed keeps spades, forks and a wheelbarrow with a spare tyre.
+- Compost is turned once a week and covered when frost is forecast.
+- A rain barrel at each corner collects water from the shelter roof.
+- Seedlings start in the cold frame and move out after the last frost.
+- Shelf 15
+
+  - Paths between the beds are wide enough for a wheelbarrow to pass.
+  - The bench by the pond is a good place to sort seed packets.
+- Each season ends with a shared meal and a swap of saved seeds.
+- The lighthouse lamp turns once every twelve seconds.
+- Keepers logged the wind direction at the top of every hour.
+- A brass barometer hangs beside the stairs to the lantern room.
+- Shelf 20
+
+  - Fog signals sounded in groups of two when visibility dropped.
+  - The station records temperature, pressure and humidity each minute.
+- Readings older than a year move to the archive drive.
+- A bicycle chain needs a drop of oil on every link, then a wipe.
+- Brake pads wear faster in wet weather and on long descents.
+- The reading room opens at nine and closes at six on weekdays.
+- Shelf 25
+
+  - Maps larger than the tables are kept flat in the plan chest.
+  - The north bed holds the early beans and two rows of lettuce.
+- Water reaches each plot through a drip line laid under the mulch.
+- Volunteers record rainfall every morning before the gate opens.
+- The tool shed keeps spades, forks and a wheelbarrow with a spare tyre.
+- Compost is turned once a week and covered when frost is forecast.
+- Shelf 30
+
+  - A rain barrel at each corner collects water from the shelter roof.
+  - Seedlings start in the cold frame and move out after the last frost.
+- Paths between the beds are wide enough for a wheelbarrow to pass.
+- The bench by the pond is a good place to sort seed packets.
+- Each season ends with a shared meal and a swap of saved seeds.
+- The lighthouse lamp turns once every twelve seconds.
+- Shelf 35
+
+  - Keepers logged the wind direction at the top of every hour.
+  - A brass barometer hangs beside the stairs to the lantern room.
+- Fog signals sounded in groups of two when visibility dropped.
+- The station records temperature, pressure and humidity each minute.
+- Readings older than a year move to the archive drive.
+- A bicycle chain needs a drop of oil on every link, then a wipe.
