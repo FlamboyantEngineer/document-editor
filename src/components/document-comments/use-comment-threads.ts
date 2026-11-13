@@ -78,6 +78,11 @@ export interface SharedCommentThreads {
   readonly store: CommentStoreAdapter;
   readonly documentId: string;
   readonly threads: CommentThreads;
+  /**
+   * Whether the provider records the decisions the editor's transactions make on suggestions; a
+   * command that goes through the editor's view then records none itself (DOCE-COMMENTS-2.19).
+   */
+  readonly recordsDecisions?: boolean | undefined;
 }
 
 /** The thread state of the nearest `CommentThreadsProvider`, if any. */

@@ -207,9 +207,11 @@ describe('DocumentComments', () => {
     expect(await within(margin).findByText('(2 spaces)')).toBeInTheDocument();
   });
 
-  it('DOCE-COMMENTS-2.19 records a decision on the thread of the suggestion in the store', async () => {
+  it('DOCE-COMMENTS-2.19 records a decision once on the thread of the suggestion in the store', async () => {
     const user = userEvent.setup();
     const store = host();
+    if (!store.comments?.decide) throw new Error('The store should record decisions.');
+    const decide = vi.spyOn(store.comments, 'decide');
     render(<Harness host={store} />);
     const margin = screen.getByRole('list', { name: 'Comments' });
     const card = (await within(margin).findByText('epsilon')).closest('[role="listitem"]');
@@ -227,6 +229,7 @@ describe('DocumentComments', () => {
         decision: { decision: 'reject', suggestion: 's1', by: 'ada' },
       });
     });
+    expect(decide).toHaveBeenCalledTimes(1);
   });
 
   it('DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause', async () => {

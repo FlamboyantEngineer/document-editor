@@ -225,9 +225,9 @@ Verification: `src/components/document-comments/use-comment-threads.test.tsx`
 
 ### DOCE-COMMENTS-2.19 - Decisions recorded on threads
 
-Every decision on suggestions the reader makes in the editor, from a suggestion's card, the context menu, the handle or a host's command (`suggestionDecisionOf`), shall be recorded on the thread of each suggestion it decided and of each suggestion it removed with them (`dependsOn`), through the store's `decide`, which resolves the thread; with a store that records no decisions, the threads are resolved. Another writer's decision, arriving as a remote change, is not recorded again.
+Every decision on suggestions the reader makes in the editor, from a suggestion's card, the context menu, the handle or a host's command (`suggestionDecisionOf`), shall be recorded once on the thread of each suggestion it decided and of each suggestion it removed with them (`dependsOn`), through the store's `decide`, which resolves the thread; with a store that records no decisions, the threads are resolved. Another writer's decision, arriving as a remote change, is not recorded again.
 
-Implementation: `src/components/document-comments/use-decision-records.ts`, `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/editor-scope.tsx`
+Implementation: `src/components/document-comments/use-decision-records.ts`, `src/components/document-comments/comment-threads-provider.tsx`, `src/components/document-comments/comment-controls.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/editor-scope.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/use-decision-records.test.ts`
 
 ### DOCE-COMMENTS-2.20 - Threads in a shared room

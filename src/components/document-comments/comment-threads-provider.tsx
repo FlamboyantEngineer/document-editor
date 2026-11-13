@@ -36,7 +36,11 @@ export function CommentThreadsProvider({
   const threads = useCommentThreads({ ...options, failed });
   useDecisionRecords(threads, transactions);
   const { store, documentId } = options;
-  const shared = useMemo(() => ({ store, documentId, threads }), [store, documentId, threads]);
+  const recordsDecisions = transactions !== undefined;
+  const shared = useMemo(
+    () => ({ store, documentId, threads, recordsDecisions }),
+    [store, documentId, threads, recordsDecisions],
+  );
   return (
     <SharedCommentThreadsContext value={shared}>
       <CommentFocusProvider>{children}</CommentFocusProvider>
