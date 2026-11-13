@@ -410,10 +410,10 @@ Verification: `src/pagination/projection-view.test.ts`, `e2e/spike-projection.sp
 
 ### DOCE-PAGINATION-7.12 - Canonical changes reach the pages
 
-`update(state, tr)` shall show a new canonical state on the projection at once: by the steps of `tr` when it made the state from the document shown, otherwise, as for a state the host replaced or a remote change, by the smallest replacement between the two documents; a state whose document is the one shown changes only the selection. A change that cannot be mirrored shall lay the pages out at once, including one whose steps the projection map places outside the pages, as when the pages no longer join into the document shown; it never throws. The pages are laid out again once the writer pauses.
+`update(state, tr)` shall show a new canonical state on the projection at once: by the steps of `tr` when it made the state from the document shown, otherwise, as for a state the host replaced or a remote change, by the smallest replacement between the two documents; a state whose document is the one shown changes only the selection. A change that cannot be mirrored shall lay the pages out at once, including one whose steps the projection map places outside the pages, as when the pages no longer join into the document shown; it never throws. The pages are laid out again once the writer pauses. The pages shall scroll to the selection for a change, also one of the selection alone, only when a transaction that made it asked to (`scrollIntoView`), as a view of the canonical state would: going to a place in the document brings it into view, and a change nothing asked to scroll for, such as a collaborator's or a state the host replaced, leaves the pages where the writer reads them.
 
-Implementation: `src/pagination/projection-mirror.ts`, `src/pagination/projection-view.ts`
-Verification: `src/pagination/projection-view.test.ts`
+Implementation: `src/pagination/projection-mirror.ts`, `src/pagination/projection-view.ts`, `src/pagination/projection-session.ts`
+Verification: `src/pagination/projection-view.test.ts`, `src/pagination/projection-session.test.ts`
 
 ### DOCE-PAGINATION-7.13 - Canonical decorations on the pages
 

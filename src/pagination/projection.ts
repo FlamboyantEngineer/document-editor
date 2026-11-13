@@ -35,7 +35,6 @@ import {
   type SectionLayoutRules,
   type SectionPageHeight,
 } from './layout-document.js';
-import { wantsLayoutNow } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import {
   awaitReady,
@@ -64,6 +63,7 @@ import {
   send,
   type Session,
   showCanonical,
+  shownBy,
   take,
   takeCaretBefore,
 } from './projection-session.js';
@@ -358,7 +358,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       const replugged = state.plugins !== live.canonical.plugins;
       live.canonical = state;
       if (replugged) replug(live);
-      quietly(live, () => showCanonical(live, tr ?? null, tr ? wantsLayoutNow(tr) : false));
+      quietly(live, () => showCanonical(live, tr ?? null, shownBy(tr ? [tr] : [])));
     },
     run: (command) => runCommand(live, command),
     dispatch: (tr) => dispatchCanonical(live, tr),
