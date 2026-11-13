@@ -115,6 +115,47 @@ describe('lenient reading', () => {
     ]);
   });
 
+  it('DOCE-FORMAT-1.5 keeps a footnote whose text holds an unknown node, with its text', () => {
+    const footnote: StoredNode = {
+      type: 'footnote',
+      attrs: { id: 'fn1' },
+      content: [{ type: 'text', text: 'See ' }, BADGE],
+    };
+    const cited: StoredNode = {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Cited' }, footnote],
+    };
+    const file: DocumentFile = { formatVersion: 1, sections: [{ content: [cited] }] };
+    const { doc, problems } = readDocumentFile(file, documentSchema, { unknown: 'keep' });
+    expect(problems).toEqual([
+      {
+        path: 'sections[0].content[0].content[1].content[1]',
+        message: 'unknown node badge',
+        kept: true,
+      },
+    ]);
+    expect(findNode(doc, 'footnote_entry')?.textContent).toBe('See ');
+    expect(writeDocumentFile(doc).sections[0]?.content).toEqual([cited]);
+  });
+
+  it('DOCE-FORMAT-1.5 keeps a footnote whole when its text cannot be read', () => {
+    const block: StoredNode = { type: 'paragraph', content: [{ type: 'text', text: 'A block' }] };
+    const footnote: StoredNode = { type: 'footnote', attrs: { id: 'fn1' }, content: [block] };
+    const cited: StoredNode = {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Cited' }, footnote],
+    };
+    const file: DocumentFile = { formatVersion: 1, sections: [{ content: [cited] }] };
+    const { doc, problems } = readDocumentFile(file, documentSchema, { unknown: 'keep' });
+    expect(problems.at(-1)).toEqual({
+      path: 'sections[0].content[0].content[1]',
+      message: 'footnote cannot be read',
+      kept: true,
+    });
+    expect(findNode(doc, 'footnote_reference')).toBeUndefined();
+    expect(writeDocumentFile(doc).sections[0]?.content).toEqual([cited]);
+  });
+
   it('DOCE-FORMAT-1.5 still refuses a file that is not a stored document', () => {
     expect(() =>
       readDocumentFile({ formatVersion: 2, sections: [] }, documentSchema, { unknown: 'keep' }),

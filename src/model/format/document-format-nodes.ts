@@ -229,11 +229,16 @@ function readMath(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode |
 
 function readFootnote(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {
   const attrs = readAttrs(stored.attrs, { type, mappings: STORED_NODE_TYPES }, at);
-  const content = readContent(stored.content, { ...at, path: `${at.path}.content` }, false);
+  // A footnote's text is inline content, so a node it does not know is kept inline, in the text.
+  const content = readContent(stored.content, { ...at, path: `${at.path}.content` }, true);
   const entry = at.context.schema.nodes.footnote_entry;
-  const note = entry && createNode(entry, { footnoteId: attrs.footnoteId }, { content, at });
+  const note = entry ? createNode(entry, { footnoteId: attrs.footnoteId }, { content, at }) : null;
+  const marker = createNode(type, attrs, { content: [], at });
+  // A marker without its text would be written back as an empty footnote: the footnote is kept
+  // whole or dropped instead.
+  if (!marker || (entry && !note)) return null;
   if (note) at.context.footnotes.push(note);
-  return createNode(type, attrs, { content: [], at });
+  return marker;
 }
 
 function readNode(stored: unknown, at: Located, inline: boolean): ProseMirrorNode | null {
