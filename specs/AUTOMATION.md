@@ -1,15 +1,15 @@
 # Automation
 
-The automation API is how an agent or a script reads a live document and changes it while a writer has it open: by element id, as one change the writer can undo, directly or as suggestions, attributed to who made it. It acts on the editor's state and hands back a transaction for the editor's view; it does not reach stored documents.
+The automation API is how an agent or a script reads a live document and changes it while a writer has it open: by element id, as one change the writer can undo, directly or as suggestions, attributed to who made it. It acts on the editor's state and hands back a transaction for the editor's view; on a server, the same edits go to a stored document against the revision the agent read (DOCE-AUTOMATION-4).
 
 ## DOCE-AUTOMATION-1 - Reading and editing
 
 ### DOCE-AUTOMATION-1.1 - Reading the document
 
-`describeBlocks(doc)` shall list the document's elements in order, each once though the pages split it into parts, with its id, its node type, its text (each inline object as a space; a container's text is its blocks' text, by lines), the text's length and the id of the element holding it. Offsets into an element's text count each character and each inline object as one.
+`describeBlocks(doc, { template })` shall list the document's elements in order, each once though the pages split it into parts, with its id, its node type, its text (each inline object as a space; a container's text is its blocks' text, by lines), the text's length, the id of the element holding it, the index of the document section it is in (null outside every section) and its number as the given resolved template numbers headings, figures, captioned tables, code blocks and equations (DOCE-CONTENTS), empty without a template or for an element it does not number. Offsets into an element's text count each character and each inline object as one.
 
 Implementation: `src/engine/automation-read.ts`, `src/engine/automation-address.ts`
-Verification: `src/engine/automation.test.ts`
+Verification: `src/engine/automation.test.ts`, `src/document/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.2 - Editing text
 
@@ -91,6 +91,45 @@ Verification: `src/engine/inline-completion.test.ts`
 
 Implementation: `src/engine/inline-completion.ts`, `src/host/adapters.ts`
 Verification: `e2e/full-editor.spec.ts`
+
+## DOCE-AUTOMATION-4 - On stored documents
+
+These run on a server, from `./document`, with no DOM and no editor view.
+
+### DOCE-AUTOMATION-4.1 - Describing a stored document
+
+`describeDocument({ content, revision }, { schema, template })` shall give the revision it read, the template pin, the document's sections (index, id, name, and whether they may be edited: false when the section or its template section says so), its elements as `describeBlocks` lists them with the template's numbers, and the problems of reading content the schema does not know, which is kept as it is stored.
+
+Implementation: `src/document/automation.ts`
+Verification: `src/document/automation.test.ts`
+
+### DOCE-AUTOMATION-4.2 - Editing a stored document
+
+`applyStoredEdits({ content, revision }, edits, { schema, template, revision, actor, mode, isLocked })` shall make a batch as `applyEdits` makes it to a live document (DOCE-AUTOMATION-1), directly or as suggestions, and give back the new stored content, the revision it was made from (to save it with, `DocumentSave.baseRevision`) and the comment threads it anchored, leaving the content it was given unchanged. Elements without an id get one, attributed to the actor, as the editor gives them (DOCE-EDITING-1.1, 1.2); unknown stored content is written back as it was.
+
+Implementation: `src/document/automation.ts`
+Verification: `src/document/automation.test.ts`
+
+### DOCE-AUTOMATION-4.3 - Version conflicts
+
+A batch made against a revision other than the stored one shall be refused whole as a `conflict`, naming the revision stored now, so the agent reads the document again before it edits. The host's store refuses the save in turn when another save came first (`conflict`, HOST-ADAPTERS).
+
+Implementation: `src/document/automation.ts`
+Verification: `src/document/automation.test.ts`
+
+### DOCE-AUTOMATION-4.4 - Locked sections and host locks
+
+A stored batch shall be refused as `locked` when it changes a section that may not be edited (its own `editable: false` or its template section's) or a position the host's `isLocked` locks, as the editor's lock refuses it (DOCE-AUTOMATION-1.7).
+
+Implementation: `src/document/automation.ts`, `src/engine/template-sync.ts`
+Verification: `src/document/automation.test.ts`
+
+### DOCE-AUTOMATION-4.5 - Tool schemas
+
+`AUTOMATION_SCHEMAS` shall give JSON Schemas (2020-12), each standing alone, for a host that offers automation to an agent as tools: `applyEdits`, a batch (the revision read, the mode and every kind of edit, with stored nodes); `documentDescription`, what `describeDocument` gives; and `editError`, why a batch was refused, a conflict included. Every description of the regression set, every kind of edit and every refusal validates against them, and malformed batches do not.
+
+Implementation: `src/document/automation-schemas.ts`
+Verification: `src/document/automation-schemas.test.ts`
 
 ## Hooks
 
