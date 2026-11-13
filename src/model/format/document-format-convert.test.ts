@@ -268,3 +268,41 @@ describe('mark order on reading', () => {
     expect(written?.marks).toEqual([comment('t1'), comment('t2')]);
   });
 });
+
+describe('footnote ids on reading', () => {
+  const note = (text: string, id?: string): StoredNode => ({
+    type: 'footnote',
+    ...(id ? { attrs: { id } } : {}),
+    content: [{ type: 'text', text }],
+  });
+  const ids = (doc: ReturnType<typeof readDocumentFile>['doc'], name: string) => {
+    const found: unknown[] = [];
+    doc.descendants((node) => {
+      if (node.type.name === name) found.push(node.attrs.footnoteId);
+      return true;
+    });
+    return found;
+  };
+
+  it('DOCE-FORMAT-1.2 gives a footnote stored without an id, or with a repeated one, an id of its own', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          content: [
+            {
+              type: 'paragraph',
+              content: [note('First'), note('Second', '00000001'), note('Third', '00000001')],
+            },
+          ],
+        },
+      ],
+    };
+    const { doc } = readDocumentFile(file, documentSchema);
+    expect(ids(doc, 'footnote_reference')).toEqual(['00000002', '00000001', '00000003']);
+    expect(ids(doc, 'footnote_entry')).toEqual(['00000002', '00000001', '00000003']);
+    expect(readDocumentFile(file, documentSchema).doc.eq(doc)).toBe(true);
+    const written = writeDocumentFile(doc).sections[0]?.content[0]?.content;
+    expect(written?.map((each) => each.content?.[0]?.text)).toEqual(['First', 'Second', 'Third']);
+  });
+});
