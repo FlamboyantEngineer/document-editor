@@ -37,8 +37,12 @@ export interface SessionRoomsOptions {
 
 export interface SessionRooms {
   readonly server: RoomServer;
-  /** The collaboration adapter for a person, whose connections the rooms admit as them. */
-  adapter(person: string): CollaborationAdapter<Y.Doc>;
+  /**
+   * The collaboration adapter for a person, whose connections the rooms admit as them. With
+   * `offline`, its first connection stays down until its provider's `connect()`, as a reader who
+   * opens with no network.
+   */
+  adapter(person: string, options?: { offline?: boolean }): CollaborationAdapter<Y.Doc>;
   /** The providers opened so far, in order. */
   readonly providers: readonly RoomProvider[];
   /** The provider a person opened last, to take them offline and back. */
@@ -113,24 +117,29 @@ export function createSessionRooms({
     providers,
     sockets,
     providerOf: (person) => opened.get(person) ?? null,
-    adapter: (person) => ({
-      connect: (documentId, options) => {
-        // A draft's state first, so the provider names its generation (DOCE-SESSION-6.8).
-        const doc = new Y.Doc();
-        if (options?.draft) restoreRoomDraft(doc, options.draft);
-        const provider = createRoomProvider({
-          endpoint: 'ws://in-process.test/rooms',
-          room: documentId,
-          doc,
-          getToken: () => person,
-          createSocket,
-          unconfirmedUpdate: options?.draft?.unconfirmed ?? null,
-        });
-        providers.push(provider);
-        opened.set(person, provider);
-        return Promise.resolve({ ok: true, value: roomConnection(provider) });
-      },
-    }),
+    adapter: (person, { offline = false } = {}) => {
+      let down = offline;
+      return {
+        connect: (documentId, options) => {
+          // A draft's state first, so the provider names its generation (DOCE-SESSION-6.8).
+          const doc = new Y.Doc();
+          if (options?.draft) restoreRoomDraft(doc, options.draft);
+          const provider = createRoomProvider({
+            endpoint: 'ws://in-process.test/rooms',
+            room: documentId,
+            doc,
+            getToken: () => person,
+            createSocket,
+            unconfirmedUpdate: options?.draft?.unconfirmed ?? null,
+            connect: !down,
+          });
+          down = false;
+          providers.push(provider);
+          opened.set(person, provider);
+          return Promise.resolve({ ok: true, value: roomConnection(provider) });
+        },
+      };
+    },
     async startOver(next) {
       await server.close();
       server = startServer(next, { readers, refused });

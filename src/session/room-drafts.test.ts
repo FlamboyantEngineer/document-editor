@@ -33,9 +33,9 @@ const roomsFor = (content: DocumentFile) => {
   return rooms;
 };
 
-function openAs(host: MemoryHost, person: string) {
+function openAs(host: MemoryHost, person: string, options?: { offline?: boolean }) {
   const session = createDocumentSession({
-    host: { ...host, collaboration: rooms?.adapter(person) },
+    host: { ...host, collaboration: rooms?.adapter(person, options) },
     documentId: 'doc',
     mode: 'room',
   });
@@ -72,6 +72,16 @@ function follow(session: DocumentSession, view: EditorView) {
   });
 }
 
+// Types at the start of the document's text.
+function typeFirst(view: EditorView, text: string) {
+  let at = -1;
+  view.state.doc.descendants((node, pos) => {
+    if (at < 0 && node.isText) at = pos;
+    return at < 0;
+  });
+  view.dispatch(view.state.tr.insertText(text, at));
+}
+
 // Ada edits the first paragraph offline and leaves, with the edit kept as a draft.
 async function editOffline(room: SessionRooms, host: MemoryHost) {
   const session = openAs(host, 'ada');
@@ -83,12 +93,7 @@ async function editOffline(room: SessionRooms, host: MemoryHost) {
     expect(draft.ok && draft.value?.mode === 'room' && draft.value.confirmed).toBeTruthy();
   }, 5000);
   room.providerOf('ada')?.disconnect();
-  let at = -1;
-  view.state.doc.descendants((node, pos) => {
-    if (at < 0 && node.isText) at = pos;
-    return at < 0;
-  });
-  view.dispatch(view.state.tr.insertText('Offline ', at));
+  typeFirst(view, 'Offline ');
   host.memory.emitLifecycle('hidden');
   await vi.waitFor(async () => {
     const draft = await host.drafts.get('doc', 'room');
@@ -126,6 +131,24 @@ describe('room-mode drafts in a session', () => {
     const grace = openAs(createMemoryHost({ person: { id: 'grace', name: 'Grace' } }), 'grace');
     await grace.ready;
     await vi.waitFor(() => expect(textOf(shown(grace).state)).toBe('Offline Hello|World anew'));
+  });
+
+  it('DOCE-SESSION-6.10 merges what the reader typed after opening on a draft the room then refuses', async () => {
+    const room = roomsFor(file('Hello', 'World'));
+    const host = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });
+    await editOffline(room, host);
+    await room.startOver([{ id: 'doc', content: file('Hello', 'World anew') }]);
+    const again = openAs(host, 'ada', { offline: true });
+    await again.ready;
+    const view = mount(again);
+    follow(again, view);
+    typeFirst(view, 'Still ');
+    expect(textOf(view.state)).toBe('Still Offline Hello|World');
+    room.providerOf('ada')?.connect();
+    await vi.waitFor(() =>
+      expect(textOf(shown(again).state)).toBe('Still Offline Hello|World anew'),
+    );
+    expect(again.conflicts.get()).toEqual([]);
   });
 
   it('DOCE-SESSION-6.10 leaves a block both changed for the reader to settle', async () => {

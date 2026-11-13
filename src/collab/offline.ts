@@ -75,12 +75,37 @@ export interface RoomDraftsOptions {
 
 /** Keeps a room document's draft until stopped. */
 export interface RoomDrafts {
+  /** The draft of the document as it is now (`captureRoomDraft`). */
+  capture(): RoomDraft;
   /** Keeps the draft now, and resolves once the adapter has it. */
   flush(): Promise<void>;
   stop(): void;
 }
 
 const DEFAULT_DELAY = 1000;
+
+/**
+ * The draft of a room's document as it is now: its state, the changes the room has not confirmed
+ * and the last state the room confirmed all of, which is the state now when nothing is unconfirmed
+ * and `confirmed`, an earlier one, otherwise.
+ */
+export function captureRoomDraft(
+  connection: RoomConnection<Y.Doc>,
+  { confirmed, now = () => new Date() }: { confirmed: Uint8Array | null; now?: () => Date },
+): RoomDraft {
+  const { doc } = connection;
+  const state = Y.encodeStateAsUpdate(doc);
+  const unconfirmed = connection.unconfirmedUpdate();
+  const settled = !unconfirmed && !connection.state().hasUnconfirmedChanges;
+  return {
+    mode: 'room',
+    generation: readRoomGeneration(doc),
+    state,
+    unconfirmed,
+    confirmed: settled ? state : confirmed,
+    savedAt: now().toISOString(),
+  };
+}
 
 /**
  * Keeps a room document's draft through the drafts adapter after each change, local or remote, and
@@ -101,21 +126,15 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
     if (timer !== null) clearTimeout(timer);
     timer = null;
   };
+  const capture = (): RoomDraft => {
+    const draft = captureRoomDraft(connection, { confirmed, now });
+    confirmed = draft.confirmed;
+    return draft;
+  };
   const keep = () => {
     cancel();
     if (stopped) return Promise.resolve();
-    const state = Y.encodeStateAsUpdate(doc);
-    const unconfirmed = connection.unconfirmedUpdate();
-    if (!unconfirmed && !connection.state().hasUnconfirmedChanges) confirmed = state;
-    const draft: RoomDraft = {
-      mode: 'room',
-      generation: readRoomGeneration(doc),
-      state,
-      unconfirmed,
-      confirmed,
-      savedAt: now().toISOString(),
-    };
-    return drafts.put(documentId, draft).then(() => undefined);
+    return drafts.put(documentId, capture()).then(() => undefined);
   };
   const schedule = () => {
     if (stopped) return;
@@ -141,6 +160,7 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   });
 
   return {
+    capture,
     flush: keep,
     stop: () => {
       stopped = true;

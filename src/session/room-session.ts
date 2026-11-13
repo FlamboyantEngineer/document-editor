@@ -78,12 +78,14 @@ interface RoomRun {
   granted: EditorCapabilities;
 }
 
-// Leaves the room the session is connected to.
+// Leaves the room the session is connected to. The session holds no room by the time the
+// connection closes, so a connection that fails to close leaves nothing half left.
 function leaveRoom({ drafts, current }: RoomRun) {
   drafts.stop();
   for (const stop of current.stops.splice(0)) stop();
-  current.room?.connection.close();
+  const { room } = current;
   current.room = null;
+  room?.connection.close();
 }
 
 // Opens the room; on a draft of an older generation, again without it, merging it in
@@ -110,9 +112,15 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
   const following = { cached: room.draft !== null, granted: () => run.granted };
   current.stops.push(followConnection(room.connection, stores, following));
   current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
+  // The session may have closed, or left this room, by the time the refused draft was read. A
+  // connection that fails to close does not keep the room from opening again.
   const reopen = (draft: RoomDraft) => {
-    leaveRoom(run);
-    void loadRoom(run, draft);
+    if (signal.aborted || current.room !== room) return;
+    try {
+      leaveRoom(run);
+    } finally {
+      void loadRoom(run, draft);
+    }
   };
   current.stops.push(run.drafts.follow(room, reopen));
   run.follow.followTemplate(read.value.document.pin, read.value.saved);

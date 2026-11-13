@@ -9,6 +9,7 @@ import type { Schema } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { createElementId } from '../engine/element-ids.js';
 import { replaceDocumentContent } from '../engine/replace-document-content.js';
+import type { RoomDrafts } from '../collab/offline.js';
 import type { EditorHost } from '../host/adapters.js';
 import type { RoomConnection, RoomState } from '../host/session-adapters.js';
 import { readDocumentFile } from '../model/format/document-format-convert.js';
@@ -34,6 +35,8 @@ type SendRoomDocument = Awaited<ReturnType<typeof loadOffline>>['sendRoomDocumen
 export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraftsContext) {
   const { document, conflicts } = stores;
   let stopKeeping = () => undefined as void;
+  // What keeps the draft of the current connection, once the offline module has loaded.
+  let keeper: RoomDrafts | null = null;
   let closed = false;
 
   // Keeps the room's draft once no leftover waits for the reader, so a reload keeps them too.
@@ -53,8 +56,23 @@ export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraft
         lifecycle: host.lifecycle,
         restored: room.draft,
       });
-      stopKeeping = () => kept.stop();
+      keeper = kept;
+      stopKeeping = () => {
+        kept.stop();
+        if (keeper === kept) keeper = null;
+      };
     });
+  };
+
+  // The draft of a refused room's document as it is now, kept at once so a reload merges it too.
+  // The refusal locks the document, so nothing changes while the offline module loads.
+  const refusedDraft = async (room: OpenedRoom, opened: RoomDraft) => {
+    const { captureRoomDraft } = await loadOffline();
+    const connection = room.connection as RoomConnection<Y.Doc>;
+    const draft =
+      keeper?.capture() ?? captureRoomDraft(connection, { confirmed: opened.confirmed });
+    void host.drafts?.put(documentId, draft);
+    return draft;
   };
 
   // Shows a state the session changed and sends its document to the room, so the change reaches
@@ -82,7 +100,11 @@ export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraft
       }
       keep(room);
     },
-    /** Calls `onRefused` when the room refuses the draft the session opened on for its generation. */
+    /**
+     * Calls `onRefused` when the room refuses the draft the session opened on for its generation,
+     * once the connection's state change is through, with the draft of the document as it is by
+     * then: the reader may have gone on editing it since it opened.
+     */
     follow: (room: OpenedRoom, onRefused: (draft: RoomDraft) => void) => {
       const { draft } = room;
       if (!draft) return () => undefined;
@@ -90,7 +112,7 @@ export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraft
       const check = (state: RoomState) => {
         if (refused || roomRefusal(state)?.kind !== 'conflict') return;
         refused = true;
-        onRefused(draft);
+        void refusedDraft(room, draft).then(onRefused);
       };
       // The room may have refused it before the session follows.
       const stop = room.connection.subscribe(check);
