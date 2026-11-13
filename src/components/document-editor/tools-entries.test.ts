@@ -2,6 +2,7 @@ import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseMarkup } from '../../../test/document-markup.js';
+import { scriptState, trackUnhandledRejections } from '../../../test/script-blocks.js';
 import { documentAbbreviations } from '../../engine/index.js';
 import type { GlossaryAdapter, ScriptRunnerAdapter } from '../../host/index.js';
 import { createEditorContext, type EditorContextOptions } from './editor-context.js';
@@ -92,5 +93,23 @@ describe('the Tools menu', () => {
       isDisabled: true,
       description: 'Not available while suggesting',
     });
+  });
+
+  it('DOCE-EDITOR-4.17 leaves the document as it is when the run of the scripts fails', async () => {
+    view = new EditorView(document.createElement('div'), {
+      state: scriptState([{ id: 'a0000001', source: 'count()' }]),
+    });
+    const before = view.state.doc;
+    const run = vi.fn(() => {
+      throw new Error('offline');
+    });
+    const rejections = trackUnhandledRejections();
+    const entries = toolsEntries(contextOf(view), { view, scriptRunner: { run } });
+    entry(entries, 'run-all-scripts').onAction?.();
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    await rejections.settled();
+    rejections.stop();
+    expect(rejections.unhandled).not.toHaveBeenCalled();
+    expect(view.state.doc.eq(before)).toBe(true);
   });
 });

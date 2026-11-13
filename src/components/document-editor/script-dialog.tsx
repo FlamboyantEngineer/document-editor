@@ -80,7 +80,11 @@ function applyScript(
 }
 
 // The preview's state: run on asking, and back to not run whenever the script changes.
-function useScriptPreview(view: EditorView, runner: ScriptRunnerAdapter, script: string) {
+function useScriptPreview(
+  view: EditorView,
+  runner: ScriptRunnerAdapter,
+  { script, labels }: { script: string; labels: DialogProps['labels'] },
+) {
   const [preview, setPreview] = useState<ScriptPreviewState>({ status: 'idle' });
   // Each preview run is the latest only until the script changes again.
   const run = useRef(0);
@@ -89,7 +93,7 @@ function useScriptPreview(view: EditorView, runner: ScriptRunnerAdapter, script:
     refresh: () => {
       const current = (run.current += 1);
       setPreview({ status: 'running' });
-      void previewScript(view, runner, script).then((next) => {
+      void previewScript(view, runner, { source: script, labels }).then((next) => {
         if (run.current === current) setPreview(next);
       });
     },
@@ -151,7 +155,7 @@ export function ScriptDialog({
 }: DialogProps & { runner: ScriptRunnerAdapter; template: TemplateFile }) {
   const [found] = useState(() => scriptBlockAt(view.state));
   const [script, setScript] = useState(String(found?.node.attrs.script ?? ''));
-  const { preview, refresh, reset } = useScriptPreview(view, runner, script);
+  const { preview, refresh, reset } = useScriptPreview(view, runner, { script, labels });
   const diagnostics = useScriptCheck(runner, script);
   const vocabulary = useMemo(
     () => [...(runner.vocabulary ?? []), ...SCRIPT_STANDARD_VOCABULARY],
@@ -192,7 +196,6 @@ export function ScriptDialog({
           </TabList>
           <TabPanel id="preview">
             <ScriptPreview
-              view={view}
               template={template}
               labels={labels}
               preview={preview}

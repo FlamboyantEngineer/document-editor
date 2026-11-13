@@ -17,15 +17,29 @@ export interface ScriptEntriesOptions {
   readonly scriptRunner?: ScriptRunnerAdapter | null | undefined;
 }
 
+// A run nothing waits for must not end in a rejection nothing handles. Each block shows its own
+// failure; a run that fails as a whole, as when the runner throws instead of answering, leaves
+// the document as it is, which is all there is to tell.
+const settle = (run: Promise<unknown>) => {
+  run.catch(() => undefined);
+};
+
+/** Runs the view's scripts, or those with the ids given, from a menu: nothing waits for the run. */
+export function startScripts(
+  view: EditorView,
+  runner: ScriptRunnerAdapter,
+  ids?: readonly string[],
+): void {
+  settle(runScripts(view, runner, ids ? { ids } : {}));
+}
+
 /** The entries for the script block at the view's selection, or none. */
 export function scriptEntries(view: EditorView, options: ScriptEntriesOptions): MenuEntry[] {
   const { labels, openDialog, scriptRunner: runner } = options;
   const found = scriptBlockAt(view.state);
   if (!found || !runner) return [];
   const id = found.node.attrs.dataId as string | undefined;
-  const run = (ids?: readonly string[]) => {
-    void runScripts(view, runner, ids ? { ids } : {});
-  };
+  const run = (ids?: readonly string[]) => startScripts(view, runner, ids);
   return [
     ...(openDialog
       ? [
@@ -52,6 +66,6 @@ export function useOpeningScripts(
     latest.current = runner;
   }, [runner]);
   useEffect(() => {
-    if (view && latest.current) void runOpeningScripts(view, latest.current);
+    if (view && latest.current) settle(runOpeningScripts(view, latest.current));
   }, [view]);
 }

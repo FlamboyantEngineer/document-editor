@@ -9,12 +9,12 @@ import {
   refreshAbbreviations,
   refreshReferences,
   refreshReferenceStatus,
-  runScripts,
   selectNextProofingIssue,
 } from '../../engine/index.js';
 import type { GlossaryAdapter, ScriptRunnerAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
+import { startScripts } from './script-entries.js';
 
 /** What the Tools menu acts with. */
 export interface ToolsFeatures {
@@ -93,7 +93,7 @@ export function toolsEntries(context: EditorContext, features: ToolsFeatures): M
             label: labels.runAllScripts,
             // A script's output replaces the block's content outright, which no suggestion tracks.
             suggestable: false,
-            run: () => void runScripts(view, scriptRunner),
+            run: () => startScripts(view, scriptRunner),
           }),
         ]
       : []),
