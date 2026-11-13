@@ -6,6 +6,7 @@ import type { TemplateFile } from '../format/template-format.js';
 import {
   templatePartSections,
   templatePreviewDocument,
+  withEditableSections,
   withTemplatePart,
 } from './template-preview.js';
 
@@ -121,5 +122,17 @@ describe('template preview', () => {
     expect(
       withTemplatePart(own, { section: 'missing', part: 'placeholder', content }, TEMPLATE),
     ).toBe(own);
+  });
+
+  it('DOCE-TEMPLATES-8.6 lets every section be edited in the preview, keeping the rest', () => {
+    const locked: TemplateFile = {
+      ...TEMPLATE,
+      sections: [{ name: 'cover', label: 'Cover', editable: false }, { name: 'body' }],
+    };
+    expect(withEditableSections(locked).sections).toEqual([
+      { name: 'cover', label: 'Cover' },
+      { name: 'body' },
+    ]);
+    expect(withEditableSections(TEMPLATE)).toBe(TEMPLATE);
   });
 });

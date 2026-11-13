@@ -20,6 +20,7 @@ import {
   resolveTemplateFile,
   type TemplateFile,
   templatePreviewDocument,
+  withEditableSections,
   withTemplatePart,
 } from '../../src/model/index.js';
 import { markReadyWhenSettled } from './lab-ready.js';
@@ -42,6 +43,7 @@ const OWN: TemplateFile = {
     {
       name: 'approvals',
       label: 'Approvals',
+      editable: false,
       content: [
         { type: 'heading', attrs: { level: 1 }, content: [text('Approvals')] },
         { type: 'paragraph', content: [text('Approved by the reviewers.')] },
@@ -71,7 +73,7 @@ function initialState(): EditorState {
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
     plugins: createDocumentEditing(schema, {
-      template: () => current.template,
+      template: () => withEditableSections(current.template),
       author: () => 'lab',
       isLocked: templatePreviewLock,
     }),
@@ -85,6 +87,7 @@ function Lab() {
   const [state, setState] = useState(initialState);
   const [own, setOwn] = useState<TemplateFile>(OWN);
   const resolved = useMemo(() => resolve(own), [own]);
+  const editable = useMemo(() => withEditableSections(resolved), [resolved]);
   useEffect(() => {
     current.template = resolved;
   }, [resolved]);
@@ -97,7 +100,7 @@ function Lab() {
       <DocumentEditor
         state={state}
         onStateChange={setState}
-        template={resolved}
+        template={editable}
         variables={VARIABLES}
         onRegionChange={(change) => setOwn((template) => withRegionChange(template, change))}
         onTemplatePartChange={(change) =>

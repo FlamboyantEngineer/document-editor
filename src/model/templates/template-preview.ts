@@ -229,3 +229,16 @@ export function withTemplatePart(
     }),
   };
 }
+
+/**
+ * A template whose sections all let the writer edit them, for the editing plugins and the editor
+ * over a preview shown in parts, so a section the template locks in documents is edited in place
+ * there; its styles are the template's.
+ */
+export function withEditableSections(template: TemplateFile): TemplateFile {
+  if (!template.sections?.some((section) => section.editable === false)) return template;
+  return {
+    ...template,
+    sections: template.sections.map(({ editable: _editable, ...section }) => section),
+  };
+}
