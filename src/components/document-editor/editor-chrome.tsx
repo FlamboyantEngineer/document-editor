@@ -277,7 +277,18 @@ function useEditorZoom({ zoom, onZoomChange, zoomLevels }: DocumentEditorProps) 
   );
 }
 
-/** Ctrl+wheel, or Cmd+wheel, over the editor steps the zoom through its levels, while the reader can zoom. */
+// How far a wheel or a pinch travels, in pixels, for one zoom step: about one notch of a mouse
+// wheel, so a trackpad pinch, which arrives as many small movements, steps as a notch does.
+const ZOOM_STEP_TRAVEL = 50;
+
+// A wheel event's travel in pixels, whatever unit it reports in.
+const wheelTravel = (event: WheelEvent) =>
+  event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 800 : 1);
+
+/**
+ * Ctrl+wheel, or Cmd+wheel, over the editor steps the zoom through its levels, one step for each
+ * notch's travel, while the reader can zoom.
+ */
 export function useWheelZoom(
   root: RefObject<HTMLDivElement | null>,
   { zoom = 100, onZoomChange, zoomLevels = ZOOM_LEVELS }: DocumentEditorProps,
@@ -285,10 +296,14 @@ export function useWheelZoom(
   useEffect(() => {
     const element = root.current;
     if (!element || !onZoomChange) return undefined;
+    let travelled = 0;
     const onWheel = (event: WheelEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.deltaY === 0) return;
       event.preventDefault();
-      const next = findNextZoomLevel(zoomLevels, zoom, event.deltaY < 0 ? 1 : -1);
+      travelled += wheelTravel(event);
+      if (Math.abs(travelled) < ZOOM_STEP_TRAVEL) return;
+      const next = findNextZoomLevel(zoomLevels, zoom, travelled < 0 ? 1 : -1);
+      travelled -= Math.sign(travelled) * ZOOM_STEP_TRAVEL;
       if (next !== undefined) onZoomChange(next);
     };
     element.addEventListener('wheel', onWheel, { passive: false });

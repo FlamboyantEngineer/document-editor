@@ -345,10 +345,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.4 - Zoom
 
-`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel or Cmd+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last. The pages measure unscaled, so the zoom never changes them.
+`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel or Cmd+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last; the wheel steps once for each notch's travel (50 pixels), so a trackpad pinch, many small movements, steps as a notch does. The pages measure unscaled, so the zoom never changes them.
 
 Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `src/components/document-editor/menubar-menus.ts`, `labs/reference/editor-chrome.css`
-Verification: `src/components/document-editor/menubar-menus.test.ts`, `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/menubar-menus.test.ts`, `src/components/document-editor/document-status-bar.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.5 - Showing suggestions
 
