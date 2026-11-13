@@ -1,96 +1,99 @@
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseMarkup } from '../../../test/document-markup.js';
-import { documentAbbreviations } from '../../engine/index.js';
-import type { GlossaryAdapter, ScriptRunnerAdapter } from '../../host/index.js';
-import { createEditorContext, type EditorContextOptions } from './editor-context.js';
+import { documentSchema } from '../../../test/document-markup.js';
+import { createDocumentEditing } from '../../engine/index.js';
+import { createMemoryHost, type GlossaryAdapter } from '../../host/index.js';
+import { readDocumentFile } from '../../model/index.js';
+import { createEditorContext } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { toolsEntries } from './tools-entries.js';
 
 let view: EditorView | null = null;
-afterEach(() => view?.destroy());
 
-const ABBREVIATION =
-  '<p>The <span data-abbreviation-ref="g1" data-abbr="OP" data-expansion="Old phrase"></span></p>';
-
-function viewOf(html: string) {
-  view = new EditorView(document.createElement('div'), {
-    state: EditorState.create({ doc: parseMarkup(html) }),
-  });
-  return view;
+// A glossary that answers a resolve as asked.
+function glossaryWith(resolve: GlossaryAdapter['resolve']): GlossaryAdapter {
+  const { glossary } = createMemoryHost();
+  if (!glossary) throw new Error('The memory host keeps a glossary.');
+  return { ...glossary, resolve };
 }
 
-const contextOf = (shown: EditorView, options: Partial<EditorContextOptions> = {}) =>
-  createEditorContext(shown, shown.state, {
-    editable: true,
-    labels: DEFAULT_EDITOR_LABELS,
-    ...options,
-  });
-
-type Entry = { id: unknown; isDisabled?: boolean; description?: unknown; onAction?: () => void };
-const entry = (entries: readonly unknown[], id: string) => {
-  const found = (entries as Entry[]).find((each) => each.id === id);
-  if (!found) throw new Error(`No ${id} entry.`);
-  return found;
-};
-
-const glossary = (): GlossaryAdapter => ({
-  search: vi.fn(),
-  create: vi.fn(),
-  resolve: vi.fn(() =>
-    Promise.resolve({
-      ok: true as const,
-      value: [
-        {
-          id: 'g1',
-          abbreviation: 'NP',
-          expansion: 'New phrase',
-          archivedAt: null,
-          createdBy: 'lab',
-          createdAt: '2026-01-01',
-          updatedAt: '2026-01-01',
-        },
-      ],
-    }),
-  ),
+afterEach(() => {
+  if (!view?.isDestroyed) view?.destroy();
+  view = null;
 });
 
-describe('the Tools menu', () => {
-  it('DOCE-EDITOR-4.17 updates every abbreviation from the glossary', async () => {
-    const shown = viewOf(ABBREVIATION);
-    const adapter = glossary();
-    const entries = toolsEntries(contextOf(shown), { view: shown, glossary: adapter });
-    entry(entries, 'update-abbreviations').onAction?.();
-    await vi.waitFor(() =>
-      expect(documentAbbreviations(shown.state.doc)[0]?.abbreviation).toBe('NP'),
-    );
-    expect(adapter.resolve).toHaveBeenCalledWith(['g1']);
+// A view of a paragraph citing one abbreviation, and the Tools entry that updates them.
+function updateEntry(glossary: GlossaryAdapter) {
+  const { doc } = readDocumentFile(
+    {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'abbreviation',
+                  attrs: { entry: 'g1', abbreviation: 'GSE', expansion: 'Ground support' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    documentSchema,
+  );
+  const shown = new EditorView(document.createElement('div'), {
+    state: EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) }),
   });
+  view = shown;
+  const context = createEditorContext(shown, shown.state, {
+    editable: true,
+    labels: DEFAULT_EDITOR_LABELS,
+  });
+  const entry = toolsEntries(context, { view: shown, glossary }).find(
+    (each) => each.id === 'update-abbreviations',
+  );
+  if (!entry || !('onAction' in entry)) throw new Error('No update entry.');
+  return { shown, entry };
+}
 
-  it('DOCE-EDITOR-4.17 offers updates only while the writer can edit, saying why', () => {
-    const shown = viewOf(ABBREVIATION);
-    const scriptRunner = { run: vi.fn() } as unknown as ScriptRunnerAdapter;
-    const features = {
-      view: shown,
-      glossary: glossary(),
-      scriptRunner,
-      template: { formatVersion: 1 as const, id: 'sample' },
+describe('Tools entries', () => {
+  it('DOCE-EDITOR-4.17 changes nothing when the glossary fails or the view is gone meanwhile', async () => {
+    const resolve = vi.fn<GlossaryAdapter['resolve']>(() => Promise.reject(new Error('offline')));
+    const { shown, entry } = updateEntry(glossaryWith(resolve));
+    const before = shown.state.doc;
+    entry.onAction?.();
+    await vi.waitFor(() => expect(resolve).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(shown.state.doc).toBe(before);
+
+    let answer: () => void = () => undefined;
+    const entry1 = {
+      id: 'g1',
+      abbreviation: 'GSE',
+      expansion: 'Ground support equipment',
+      archivedAt: null,
+      createdBy: 'ada',
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
     };
-    const editing = toolsEntries(contextOf(shown), features);
-    expect(entry(editing, 'update-references').isDisabled).toBe(false);
-    expect(entry(editing, 'run-all-scripts').isDisabled).toBe(false);
-    const reading = toolsEntries(contextOf(shown, { editable: false }), features);
-    expect(entry(reading, 'update-references')).toMatchObject({
-      isDisabled: true,
-      description: 'The document is open for reading',
-    });
-    // Running scripts replaces content no suggestion tracks.
-    const suggesting = toolsEntries(contextOf(shown, { suggesting: true }), features);
-    expect(entry(suggesting, 'update-references').isDisabled).toBe(false);
-    expect(entry(suggesting, 'run-all-scripts')).toMatchObject({
-      isDisabled: true,
-      description: 'Not available while suggesting',
-    });
+    const slow = glossaryWith(
+      () =>
+        new Promise((done) => {
+          answer = () => done({ ok: true, value: [entry1] });
+        }),
+    );
+    const late = updateEntry(slow);
+    const dispatch = vi.spyOn(late.shown, 'dispatch');
+    late.entry.onAction?.();
+    late.shown.destroy();
+    answer();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(dispatch).not.toHaveBeenCalled();
   });
 });

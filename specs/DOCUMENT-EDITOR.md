@@ -71,10 +71,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-2.2 - Switching layouts
 
-Switching to the web layout shall join each section's pages into one, out of the history, and drop the measuring slot; switching back shall lay the pages out again.
+Switching to the web layout shall join each section's pages into one, out of the history, and drop the measuring slot; switching back shall lay the pages out again. Only the document shall be drawn anew: the comments margin and the host's chrome inside the editor (`children`) shall stay mounted as the pages start and through each switch, keeping their state.
 
-Implementation: `src/components/document-editor/use-document-layout.ts`, `labs/src/document-editor.lab.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/editor-body.tsx`, `labs/src/document-editor.lab.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-body.test.tsx`
 
 ### DOCE-EDITOR-2.3 - Reading in the browser
 
@@ -94,10 +94,10 @@ Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-3.2 - Clipboard and formatting
 
-The menu shall offer Cut and Copy, which write the selection to the clipboard as the editor copies it (Cut then deletes it), Paste and Paste as plain text, which paste the clipboard at the selection, and Clear formatting (`clearFormatting`). Cut, Paste and Clear formatting need an editable document, Cut and Copy a selection, and the clipboard entries a clipboard; a clipboard the browser refuses changes nothing.
+The menu shall offer Cut and Copy, which write the selection to the clipboard as the editor copies it (Cut then deletes it), Paste, which pastes the clipboard at the selection as a paste from the keyboard does, a copied image or content whose images come with it uploaded and inserted as figures with the host's `assets` (DOCE-EDITOR-4.6, DOCE-EDITING-5.5), Paste as plain text, which pastes its text alone, and Clear formatting (`clearFormatting`). Cut, Paste and Clear formatting need an editable document, Cut and Copy a selection, and the clipboard entries a clipboard; a clipboard the browser refuses changes nothing. Clear formatting, and Add comment (DOCE-EDITOR-3.3), show the key the shortcut table binds them to (DOCE-EDITOR-6.2), a host's remapping included.
 
-Implementation: `src/components/document-editor/context-entries.ts`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-editor/clipboard-entries.ts`, `src/components/document-editor/figure-paste.ts`
+Verification: `src/components/document-editor/clipboard-entries.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.3 - Suggestions and comments
 
@@ -122,10 +122,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.6 - The host's entries
 
-`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `element`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context, and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
+`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `element`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context (DOCE-EDITOR-4.4), which says the editor's mode, markup, layout and zoom on the state the menu opens on, that the writer cannot edit at a locked position, and opens a dialog for an entry (`openDialog`), and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
 
 Implementation: `src/components/document-editor/context-target.ts`, `src/components/document-editor/context-providers.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/document-context-menu.tsx`, `labs/src/host-context-menu.ts`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.7 - Locked positions
 
@@ -166,10 +166,10 @@ Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/too
 
 ### DOCE-EDITOR-4.4 - The editor context
 
-The editor shall hand its context, the engine's view, the state shown, whether the writer can edit, the editing mode (`mode`: `edit`, `suggest`, `comment` while the document is read and its comments may be written, or `read`), whether changes are suggested, the markup, the layout, the zoom and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
+The editor shall hand its context, the engine's view, the state shown, whether the writer can edit, the editing mode (`mode`: `edit`, `suggest`, `comment` while the document is read and its comments may be written, or `read`), whether changes are suggested, the markup, the layout, the zoom and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items, to its context menu's providers (DOCE-EDITOR-3.6) and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
 
-Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `src/components/document-editor/mode-controls.test.tsx`, `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/document-context-menu.tsx`
+Verification: `src/components/document-editor/mode-controls.test.tsx`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-4.5 - Inserting objects
 
@@ -180,10 +180,10 @@ Verification: `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-4.6 - Pasting and dropping images
 
-With the host's `assets`, images pasted or dropped into an editable document shall be uploaded and inserted as figures where they were pasted or dropped, each its own figure after the one before, in order (`insertFigure`); an upload that fails inserts nothing and says so through the host's `feedback`.
+With the host's `assets`, images pasted or dropped into an editable document shall be uploaded and inserted as figures where they were pasted or dropped, each its own figure after the one before, in order (`insertFigure`); an upload that fails inserts nothing and says so through the host's `feedback`. The place shall follow what changes the document while they upload: a writer who has written or moved on meanwhile keeps their selection, and one who has done nothing has the figure selected. An image whose upload ends once the document can no longer be edited shall not be inserted. A paste whose HTML holds text is that content with a picture of it beside, as an application writes copied cells: the content shall be pasted and its image files left out (DOCE-EDITING-5.5).
 
-Implementation: `src/components/document-editor/figure-paste.ts`
-Verification: `src/components/document-editor/figure-paste.test.ts`, `e2e/objects.spec.ts`
+Implementation: `src/components/document-editor/figure-paste.ts`, `src/components/document-editor/paste-place.ts`
+Verification: `src/components/document-editor/figure-paste.test.ts`, `src/components/document-editor/editor-body.test.tsx`, `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-4.7 - Adding sections
 
@@ -194,31 +194,31 @@ Verification: `e2e/sections.spec.ts`
 
 ### DOCE-EDITOR-4.8 - Script blocks
 
-While the editor has a `scriptRunner`, the toolbar's insert group shall offer a Script button, outside a script block, opening the script dialog, which edits the script of the script block selected, or inserts one, then runs it; the context menu shall offer, on a script block, to edit its script, run it, or run every script of the document; and the scripts whose refresh policy is `open` shall run each time the editor opens the document (DOCE-OBJECTS-4.2).
+While the editor has a `scriptRunner`, the toolbar's insert group shall offer a Script button, outside a script block, opening the script dialog, which edits the script of the script block selected, or inserts one, then runs it; the context menu shall offer, on a script block, to edit its script, run it, or run every script of the document, each disabled while changes are suggested, saying why, since no suggestion tracks a script's output (DOCE-EDITOR-4.17); and the scripts whose refresh policy is `open` shall run when the editor opens a document (DOCE-OBJECTS-4.2): once for each document it is given, however often its layout switches, and only for a writer who edits it directly, so not for a reader nor while changes are suggested, until they edit directly. A run started from a menu or on opening that fails as a whole, as when the runner throws instead of answering, shall leave the document as it is. The dialog shall set the script of the block it was opened on where that block is when the script is applied, found by its element id, since the document may change under the dialog; when the block is gone by then, the dialog shall stay open with the script and say so (`scriptBlockGone`).
 
 Implementation: `src/components/document-editor/script-dialog.tsx`, `src/components/document-editor/script-entries.ts`, `src/components/document-editor/insert-controls.tsx`
-Verification: `e2e/full-editor.spec.ts`
+Verification: `src/components/document-editor/script-entries.test.tsx`, `src/components/document-editor/script-dialog.test.tsx`, `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.9 - The script editor
 
-The script dialog shall be the script editor (`de-script-editor`): the script (`de-script-editor__source`) in the base library's code editor, which completes, at the caret, an object's members after its dot and the names without an object otherwise (`scriptCompletions`), from the host's `vocabulary` then the standard names and keywords every script has (`SCRIPT_STANDARD_VOCABULARY`), with each one's signature and documentation, and documents the name under the pointer (`scriptEntryAt`); beside it (`de-script-editor__aside`), a Preview tab (`de-script-editor__preview`, with `data-status`), which runs the script on asking (Refresh preview) through the host's runner without changing the document and shows what it produced in the template's look, or why it failed, and goes back to not run whenever the script changes; and a Reference tab (`de-script-editor__reference`) listing the names by the object they belong to (`groupScriptVocabulary`, each a `de-script-editor__entry` with `data-kind`), found by a filter. A moment after the script stops changing, the host's `check` marks the problems it finds, which keep the script from being applied.
+The script dialog shall be the script editor (`de-script-editor`): the script (`de-script-editor__source`) in the base library's code editor, which completes, at the caret, an object's members after its dot and the names without an object otherwise (`scriptCompletions`), from the host's `vocabulary` then the standard names and keywords every script has (`SCRIPT_STANDARD_VOCABULARY`), with each one's signature and documentation, and documents the name under the pointer (`scriptEntryAt`); beside it (`de-script-editor__aside`), a Preview tab (`de-script-editor__preview`, with `data-status`), which runs the script on asking (Refresh preview) through the host's runner without changing the document and shows what it produced in the template's look, or why it failed, an output the document cannot hold being such a failure (`scriptOutputRefused`, then what the format refused), and goes back to not run whenever the script changes; and a Reference tab (`de-script-editor__reference`) listing the names by the object they belong to (`groupScriptVocabulary`, each a `de-script-editor__entry` with `data-kind`), found by a filter. A moment after the script stops changing, the host's `check` marks the problems it finds, which keep the script from being applied; until the check has answered for the script as it is, the script cannot be applied either, and a check that fails finds no problem.
 
 Implementation: `src/components/document-editor/script-dialog.tsx`, `src/components/document-editor/script-panes.tsx`, `src/components/document-editor/script-language.ts`
-Verification: `src/components/document-editor/script-language.test.ts`, `e2e/full-editor.spec.ts`
+Verification: `src/components/document-editor/script-language.test.ts`, `src/components/document-editor/script-panes.test.tsx`, `e2e/full-editor.spec.ts`, `src/components/document-editor/script-dialog.test.tsx`
 
 ### DOCE-EDITOR-4.10 - The menubar
 
-`menubar` shall show a menubar above the toolbar (`de-document-editor__menubar`, the base library's `Menubar` named by `menubar`) whose menus (`menubarMenus`) run the toolbar's own items: File, holding only the host's entries; Edit, with undo and redo, select all and, with `find`, find; View, with the page and web views while the host switches layouts and zooming in, out and to actual size while it zooms; Insert, with a table and the toolbar's insert items, a menu of them as a submenu; Format, with the marks, the text styles and the lists; and Tools, with the next proofing issue and the updates of DOCE-EDITOR-4.17. View also offers the mode and markup controls of DOCE-EDITOR-4.12 as submenus while the host offers them, and Format the layout menu of DOCE-EDITOR-4.13; an entry the toolbar would disable says why (DOCE-EDITOR-4.14). A host given as options adds entries to a menu by its id, or a menu of its own (`items`), and arranges the menus (`arrange`); a menu without entries is left out.
+`menubar` shall show a menubar above the toolbar (`de-document-editor__menubar`, the base library's `Menubar` named by `menubar`) whose menus (`menubarMenus`) run the toolbar's own items: File, holding only the host's entries; Edit, with undo and redo, select all and, with `find`, find; View, with the page and web views while the host switches layouts and zooming in, out and to actual size while it zooms; Insert, with a table and the toolbar's insert items, a menu of them as a submenu; Format, with the marks, the text styles and the lists; and Tools, with the next proofing issue and the updates of DOCE-EDITOR-4.17. View also offers the mode and markup controls of DOCE-EDITOR-4.12 as submenus while the host offers them, and Format the layout menu of DOCE-EDITOR-4.13; an entry the toolbar would disable says why (DOCE-EDITOR-4.14), and so do Format's text styles and Insert's table where the document is read or the position locked, where they are disabled. A host given as options adds entries to a menu by its id, or a menu of its own (`items`), and arranges the menus (`arrange`); a menu without entries is left out.
 
 Implementation: `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/document-menubar.tsx`, `labs/src/host-menubar.ts`
-Verification: `e2e/full-editor.spec.ts`
+Verification: `e2e/full-editor.spec.ts`, `src/components/document-editor/menubar-menus.test.ts`
 
 ### DOCE-EDITOR-4.11 - Side panels
 
-`panels` shall place panels beside the document, between the toolbar and the status bar (`de-document-editor__workspace`), `start` before the pages and `end` after them. `DocumentSidePanel` shall be such a panel: the base library's `DockPanel` docked at the document's start or end, named by its label (Navigation and Details by default, `DEFAULT_PANELS_LABELS`), holding a tab for each of its panes in order, the built-in ones by id, `outline` (DOCE-OUTLINE), `search` (DOCE-SEARCH), `properties`, `comments` (DOCE-EDITOR-8.3) and `contributors` (DOCE-COLLAB-3.4), and the host's own (`DocumentPane`: an id, a label, an icon, a count and what it renders from the editor's context). `DocumentProperties`, the `properties` pane, shall show in the base library's property panel the document's template, sections, pages (from its layout) and words; the section at the caret, by its template section's label or as the body, with its page size, orientation and margins; and the block at the caret, its style, element id and author.
+`panels` shall place panels beside the document, between the toolbar and the status bar (`de-document-editor__workspace`), `start` before the pages and `end` after them. The workspace shall be there with and without panels, with `data-panels` while it holds one, so a panel the host shows or hides leaves the document as it is, with its focus and its scroll position. `DocumentSidePanel` shall be such a panel: the base library's `DockPanel` docked at the document's start or end, named by its label (Navigation and Details by default, `DEFAULT_PANELS_LABELS`), holding a tab for each of its panes in order, the built-in ones by id, `outline` (DOCE-OUTLINE), `search` (DOCE-SEARCH), `properties`, `comments` (DOCE-EDITOR-8.3) and `contributors` (DOCE-COLLAB-3.4), and the host's own (`DocumentPane`: an id, a label, an icon, a count and what it renders from the editor's context). `DocumentProperties`, the `properties` pane, shall show in the base library's property panel the document's template, sections, pages (from its layout) and words; the section at the caret, by its template section's label or as the body, with its page size, orientation and margins; and the block at the caret, its style, element id and author.
 
-Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
-Verification: `e2e/document-panels.spec.ts`
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-surface.tsx`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
+Verification: `e2e/document-panels.spec.ts`, `src/components/document-editor/editor-surface.test.tsx`
 
 ### DOCE-EDITOR-4.12 - Editing mode and markup
 
@@ -238,8 +238,8 @@ Verification: `src/components/document-editor/layout-items.test.ts`, `e2e/full-e
 
 A disabled toolbar button, toolbar menu or menu entry shall stay focusable and say why it is disabled: a button or a menu's trigger in its tooltip after its label, a menu entry in its description. The reason is the item's `disabledReason`, or, by default, that the document is read (`reasonReading`) or the position locked (`reasonLocked`) (`unavailableReason`); an item without a reason is plainly disabled.
 
-Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/menubar-menus.ts`
-Verification: `src/components/document-editor/toolbar-items.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `e2e/full-editor.spec.ts`
+Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/symbol-button.tsx`, `src/components/document-editor/menubar-menus.ts`
+Verification: `src/components/document-editor/toolbar-items.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `src/components/document-editor/symbol-button.test.tsx`, `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.15 - Toolbar overflow and attached groups
 
@@ -250,17 +250,17 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.16 - The host's dialogs
 
-`dialogs` shall register the host's own dialogs by name, each a component given the view, the editor's labels, closing and the data it was opened with (`HostDialogProps`); the editor context's `openDialog({ kind: 'host', name, data })` opens one while the writer can edit. `EditorModal`, the editor's own dialog, is exported for them: it stays open until closed and hands focus back to the document.
+`dialogs` shall register the host's own dialogs by name, each a component given the view, the editor's labels, closing and the data it was opened with (`HostDialogProps`); the editor context's `openDialog({ kind: 'host', name, data })` opens one while the writer can edit. A dialog asked for while the writer cannot edit shall not be kept, and a dialog open when they no longer can shall close for good, so neither opens once they can edit again. `EditorModal`, the editor's own dialog, is exported for them: it stays open until closed and hands focus back to the document.
 
 Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/dialog-parts.tsx`, `labs/src/host-dialogs.tsx`
-Verification: `e2e/full-editor.spec.ts`
+Verification: `src/components/document-editor/object-dialogs.test.tsx`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.17 - Updates from the Tools menu
 
-The Tools menu shall offer updating every reference, rendering the internal ones again as the template formats them (`refreshReferences`) and asking the host for every citation again (`refreshReferenceStatus`); with the host's `glossary`, updating every abbreviation from its entries now (`refreshAbbreviations`); and, with a `scriptRunner`, running every script. Each is disabled while the document is read, saying why, and running scripts, whose output no suggestion tracks, also while changes are suggested.
+The Tools menu shall offer updating every reference, rendering the internal ones again as the template formats them (`refreshReferences`) and asking the host for every citation again (`refreshReferenceStatus`); with the host's `glossary`, updating every abbreviation from its entries now (`refreshAbbreviations`), which changes nothing when the glossary fails or once the document is gone or read; and, with a `scriptRunner`, running every script. Each is disabled while the document is read, saying why, and running scripts, whose output no suggestion tracks, also while changes are suggested.
 
 Implementation: `src/components/document-editor/tools-entries.ts`
-Verification: `src/components/document-editor/tools-entries.test.ts`
+Verification: `src/components/document-editor/tools-entries.test.ts`, `src/components/document-editor/tools-entries.test.ts`
 
 ### DOCE-EDITOR-4.18 - Lead and placeholder
 
@@ -324,10 +324,10 @@ Verification: `e2e/proofing.spec.ts`
 
 ### DOCE-EDITOR-6.1 - Notifications
 
-The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids. A review-only change (DOCE-COMMENTS-1.13) shall also be told as one (`onReviewChange`, with the threads and suggestions it touched), and is never made a suggestion while suggesting; the comments' changes go through the editor's dispatch, so the host hears of them and the edit lock applies.
+The editor shall tell its host when the shown selection moves (`onSelectionChange`), when the document takes or loses focus (`onFocusChange`, once a click that moved focus has placed the caret, so a host that renders then never redraws an older selection over it, and only while the document still has focus then, so the host never hears of focus after its loss), and when its content changes (`onContentChange`), every change but the editor's own layouts of the pages and proofing marks (`isContentChange`), with its cause (`contentChangeCause`): `remote` for another writer's change and `repair` for the editor's repair of element ids. A review-only change (DOCE-COMMENTS-1.13) shall also be told as one (`onReviewChange`, with the threads and suggestions it touched), and is never made a suggestion while suggesting; the comments' changes go through the editor's dispatch, so the host hears of them and the edit lock applies.
 
 Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/use-editor-engine.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-comments/comment-controls.ts`, `labs/src/host-panel.tsx`
-Verification: `e2e/document-editor.spec.ts`, `e2e/full-editor.spec.ts`, `src/components/document-editor/document-editor.test.tsx`
+Verification: `e2e/document-editor.spec.ts`, `e2e/full-editor.spec.ts`, `src/components/document-editor/document-editor.test.tsx`, `src/components/document-editor/use-host-events.test.ts`
 
 ### DOCE-EDITOR-6.2 - The host's keys
 
@@ -345,10 +345,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.4 - Zoom
 
-`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel or Cmd+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last. The pages measure unscaled, so the zoom never changes them.
+`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel or Cmd+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last; the wheel steps once for each notch's travel (50 pixels), so a trackpad pinch, many small movements, steps as a notch does. The pages measure unscaled, so the zoom never changes them.
 
 Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `src/components/document-editor/menubar-menus.ts`, `labs/reference/editor-chrome.css`
-Verification: `src/components/document-editor/menubar-menus.test.ts`, `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/menubar-menus.test.ts`, `src/components/document-editor/document-status-bar.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.5 - Showing suggestions
 
@@ -597,7 +597,8 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-document-side-panel`                | root      |                                                                        | A side panel beside the document (DOCE-EDITOR-4.11).                                    |
 | `de-document-side-panel__pane`          | slot      |                                                                        | A pane's content, with `data-pane`.                                                     |
 | `data-pane`                             | attribute |                                                                        | On a side panel's pane: its id.                                                         |
-| `de-document-editor__workspace`         | slot      |                                                                        | The document between the panels beside it.                                              |
+| `de-document-editor__workspace`         | slot      |                                                                        | The document between the panels beside it, with `data-panels`.                          |
+| `data-panels`                           | attribute | `true`                                                                 | On the workspace: it holds a panel (DOCE-EDITOR-4.11).                                  |
 | `de-document-editor__body`              | slot      |                                                                        | The document with its table handles.                                                    |
 | `de-document-editor__toolbar-start`     | slot      |                                                                        | The host's controls before the toolbar's groups.                                        |
 | `de-document-editor__toolbar-end`       | slot      |                                                                        | The host's controls after the toolbar's groups.                                         |

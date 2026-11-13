@@ -111,7 +111,9 @@ function editorItems({
     { id: 'mode', side: 'start', content: <DocumentModeStatus /> },
   ];
   if (session?.connection) {
-    const content = <ConnectionStatusItem connection={session.connection} />;
+    const content = (
+      <ConnectionStatusItem connection={session.connection} labels={labels.connectionStatus} />
+    );
     items.push({ id: 'connection', side: 'start', content });
   }
   if (session)

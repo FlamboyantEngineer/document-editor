@@ -16,7 +16,7 @@ import { isFocusLost } from '../../utils/composed-focus.js';
 import type { ContextEntriesOptions } from './context-entries.js';
 import { composeContextMenu, type DocumentContextMenuOptions } from './context-providers.js';
 import { resolveContextTarget } from './context-target.js';
-import { createEditorContext } from './editor-context.js';
+import { createEditorContext, type EditorContextOptions } from './editor-context.js';
 
 interface DocumentContextMenuProps extends Omit<ContextEntriesOptions, 'startComment'> {
   view: EditorView | null;
@@ -24,6 +24,11 @@ interface DocumentContextMenuProps extends Omit<ContextEntriesOptions, 'startCom
   startCommentRef: RefObject<(() => void) | null>;
   /** The host's providers and arrangement. */
   options: DocumentContextMenuOptions;
+  /**
+   * What the context handed to the providers says of the editor beside its view and state: its
+   * mode, markup, layout and zoom, and how it opens a dialog.
+   */
+  shown: EditorContextOptions;
 }
 
 // Whether a document position is inside the selection, a selected cell included.
@@ -61,14 +66,21 @@ function useFocusAfterClose(view: EditorView | null, controller: MenuController)
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner) return undefined;
     let open = controller.isOpen();
-    return controller.subscribe(() => {
+    let timer = 0;
+    const unsubscribe = controller.subscribe(() => {
       const wasOpen = open;
       open = controller.isOpen();
       if (!wasOpen || open) return;
-      owner.setTimeout(() => {
+      owner.clearTimeout(timer);
+      timer = owner.setTimeout(() => {
+        if (view.isDestroyed) return;
         if (!controller.isOpen() && isFocusLost(owner.document)) view.focus();
       }, 250);
     });
+    return () => {
+      unsubscribe();
+      owner.clearTimeout(timer);
+    };
   }, [view, controller]);
 }
 
@@ -83,13 +95,18 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner) return undefined;
+    // The opening that waits for the button's release or the next frame, cancelled on unmount.
+    const pending = { cancel: () => undefined as void };
+    let frame = 0;
     const show = (anchor: MenuPoint, pos: number) => {
-      const { startCommentRef, options: menu, ...options } = latest.current;
+      const { startCommentRef, options: menu, shown, ...options } = latest.current;
       const { state } = view;
       const target = resolveContextTarget(state, pos, options.editable);
+      // The providers get the editor as its other controls see it, on the state the menu opens
+      // on; at a locked position the writer cannot edit.
       const context = createEditorContext(view, state, {
+        ...shown,
         editable: options.editable && !target.locked,
-        labels: options.labels,
       });
       const entries = { ...options, startComment: startCommentRef.current };
       const items = composeContextMenu(view, target, { context, entries, menu });
@@ -103,7 +120,15 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       // A moved selection reaches the view once the editor commits it, a frame later. Where the
       // menu opens on the press, it opens once the button is released, or the release would land
       // outside the menu just opened and close it.
-      const open = () => owner.requestAnimationFrame(() => show(anchor, pos));
+      pending.cancel();
+      const open = () => {
+        owner.removeEventListener('mouseup', open, true);
+        frame = owner.requestAnimationFrame(() => show(anchor, pos));
+      };
+      pending.cancel = () => {
+        owner.removeEventListener('mouseup', open, true);
+        owner.cancelAnimationFrame(frame);
+      };
       if (event.buttons === 0) open();
       else owner.addEventListener('mouseup', open, { once: true, capture: true });
     };
@@ -117,6 +142,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     view.dom.addEventListener('contextmenu', onContextMenu);
     view.dom.addEventListener('keydown', onKeyDown);
     return () => {
+      pending.cancel();
       view.dom.removeEventListener('contextmenu', onContextMenu);
       view.dom.removeEventListener('keydown', onKeyDown);
     };

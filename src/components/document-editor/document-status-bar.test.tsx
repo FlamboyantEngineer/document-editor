@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { EditorState } from 'prosemirror-state';
 import { type ReactNode, useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
@@ -103,5 +103,21 @@ describe('DocumentStatusBar', () => {
   it('DOCE-EDITOR-5.5 shows nothing for a status part outside an editor', () => {
     const { container } = render(<DocumentWordStatus />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('DOCE-EDITOR-6.4 steps the zoom once a pinch has travelled as far as a wheel notch', () => {
+    const onZoomChange = vi.fn<(zoom: number) => void>();
+    render(<Harness zoom={100} onZoomChange={onZoomChange} />);
+    const document = screen.getByRole('textbox', { name: 'Report' });
+    for (let index = 0; index < 4; index += 1) {
+      fireEvent.wheel(document, { deltaY: -4, ctrlKey: true });
+    }
+    expect(onZoomChange).not.toHaveBeenCalled();
+    for (let index = 0; index < 20; index += 1) {
+      fireEvent.wheel(document, { deltaY: -4, ctrlKey: true });
+    }
+    expect(onZoomChange).toHaveBeenCalledTimes(1);
+    fireEvent.wheel(document, { deltaY: 100, metaKey: true });
+    expect(onZoomChange).toHaveBeenCalledTimes(2);
   });
 });

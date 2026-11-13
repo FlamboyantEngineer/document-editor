@@ -9,12 +9,12 @@ import {
   refreshAbbreviations,
   refreshReferences,
   refreshReferenceStatus,
-  runScripts,
   selectNextProofingIssue,
 } from '../../engine/index.js';
 import type { GlossaryAdapter, ScriptRunnerAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
+import { startScripts } from './script-entries.js';
 
 /** What the Tools menu acts with. */
 export interface ToolsFeatures {
@@ -25,12 +25,14 @@ export interface ToolsFeatures {
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
 }
 
-// Brings the document's abbreviations up to date with the glossary's entries now.
+// Brings the document's abbreviations up to date with the glossary's entries now: not once the
+// view is gone or read, and not when the glossary fails.
 async function updateAbbreviations(view: EditorView, glossary: GlossaryAdapter) {
   const ids = [...new Set(documentAbbreviations(view.state.doc).map((entry) => entry.id))];
   if (ids.length === 0) return;
-  const resolved = await glossary.resolve(ids);
-  if (resolved.ok) refreshAbbreviations(resolved.value)(view.state, view.dispatch, view);
+  const resolved = await glossary.resolve(ids).catch(() => null);
+  if (!resolved?.ok || view.isDestroyed || !view.editable) return;
+  refreshAbbreviations(resolved.value)(view.state, view.dispatch, view);
 }
 
 // An entry that changes the document: disabled with the reason while the writer cannot edit, or,
@@ -93,7 +95,7 @@ export function toolsEntries(context: EditorContext, features: ToolsFeatures): M
             label: labels.runAllScripts,
             // A script's output replaces the block's content outright, which no suggestion tracks.
             suggestable: false,
-            run: () => void runScripts(view, scriptRunner),
+            run: () => startScripts(view, scriptRunner),
           }),
         ]
       : []),

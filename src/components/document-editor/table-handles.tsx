@@ -10,6 +10,7 @@ import {
   useMenuControllerState,
 } from '@flamboyantengineer/ui-components/context-menu';
 import { DragHandleGlyph } from '@flamboyantengineer/ui-components/core';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import {
@@ -59,37 +60,49 @@ const hooks = createHooks('table-handles', ['grip', 'drop-indicator']);
 
 const placed = (box: Box) => boxProperties(box) as CSSProperties;
 
-// The table's rows and columns, measured after each change of the document or the target, and
-// again when the document resizes.
+// Whether two measures of a table are the same, so the grips are not drawn again for nothing.
+const sameGeometry = (one: TableGeometry | null, other: TableGeometry | null) =>
+  one === other || JSON.stringify(one) === JSON.stringify(other);
+
+// The table's rows and columns, measured when the target or its table changes, not on a change
+// elsewhere in the document, and again when the document resizes.
 function useTableGeometry(
   view: EditorView | null,
   {
     layer,
     target,
-    state,
-  }: { layer: HTMLElement | null; target: TableTarget | null; state: EditorState },
+    table,
+  }: { layer: HTMLElement | null; target: TableTarget | null; table: ProseMirrorNode | null },
 ): TableGeometry | null {
   const [geometry, setGeometry] = useState<TableGeometry | null>(null);
+  const measureRef = useRef(() => undefined as void);
   useLayoutEffect(() => {
-    const owner = layer?.ownerDocument.defaultView;
     // Measuring reads the committed document, so the geometry is set once the DOM has committed.
-    const measure = () =>
-      setGeometry(
+    const measure = () => {
+      const next =
         view && layer && target
           ? measureTable(
               view,
               { pos: target.table, element: target.element },
               layer.getBoundingClientRect(),
             )
-          : null,
-      );
+          : null;
+      setGeometry((current) => (sameGeometry(current, next) ? current : next));
+    };
+    measureRef.current = measure;
     measure();
-    if (!view || !target || !owner) return undefined;
-    const observer =
-      typeof owner.ResizeObserver === 'function' ? new owner.ResizeObserver(measure) : null;
-    observer?.observe(view.dom);
-    return () => observer?.disconnect();
-  }, [view, layer, target, state]);
+  }, [view, layer, target, table]);
+  // One observer while a table is targeted, measuring it again as the document resizes.
+  const targeted = target !== null;
+  useLayoutEffect(() => {
+    const owner = layer?.ownerDocument.defaultView;
+    if (!view || !targeted || !owner || typeof owner.ResizeObserver !== 'function') {
+      return undefined;
+    }
+    const observer = new owner.ResizeObserver(() => measureRef.current());
+    observer.observe(view.dom);
+    return () => observer.disconnect();
+  }, [view, layer, targeted]);
   return geometry;
 }
 
@@ -179,7 +192,8 @@ export function TableHandles({ view, state, labels }: TableHandlesProps) {
     const found = hovered && resolveTarget(state.doc, hovered);
     return found && !isPositionLocked(state, found.table + 1) ? found : null;
   }, [hovered, state]);
-  const geometry = useTableGeometry(view, { layer, target, state });
+  const table = target ? state.doc.nodeAt(target.table) : null;
+  const geometry = useTableGeometry(view, { layer, target, table });
   const onMoved = (line: TableLine) =>
     setTarget((current) => current && { ...current, [line.axis]: line.index });
   const { drag, begin, wasDragged } = useTableDrag({ view, layer, geometry, target, onMoved });

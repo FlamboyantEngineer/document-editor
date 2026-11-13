@@ -11,7 +11,8 @@ import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import type { SessionConnection } from '../../session/document-session.js';
 import type { SessionStatus } from '../../session/status.js';
 import { createValueStore } from '../../session/value-store.js';
-import { DocumentEditor } from './document-editor.js';
+import { CONNECTION_STATUS_LABELS } from './connection-status.js';
+import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
 import type { EditorSession } from './save-status-item.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
@@ -73,10 +74,12 @@ function Harness({
   session,
   capabilities,
   shortcuts,
+  labels,
 }: {
   session?: EditorSession;
   capabilities?: EditorCapabilities;
   shortcuts?: ShortcutOverrides;
+  labels?: DocumentEditorProps['labels'];
 }) {
   const [state, setState] = useState(() => initial({ shortcuts }));
   const [host] = useState(() => createMemoryHost({ person: { id: 'ada', name: 'Ada Lovelace' } }));
@@ -90,6 +93,7 @@ function Harness({
       aria-label="Report"
       session={session}
       capabilities={capabilities}
+      labels={labels}
       comments={
         host.comments
           ? { store: host.comments, documentId: 'doc', identity: host.identity }
@@ -134,6 +138,20 @@ describe('SaveStatusItem', () => {
     expect(item).toHaveTextContent('Offline');
     act(() => connection.set(null));
     expect(item).toBeEmptyDOMElement();
+  });
+
+  it("DOCE-SESSION-9.7 shows the connection in the host's words", () => {
+    const { session } = stubSession();
+    const connection = createValueStore<SessionConnection | null>({
+      phase: 'offline',
+      gate: { editable: true, locked: false },
+    });
+    const words = { ...CONNECTION_STATUS_LABELS, offline: 'Hors ligne' };
+    const { container } = render(
+      <Harness session={{ ...session, connection }} labels={{ connectionStatus: words }} />,
+    );
+    const item = container.querySelector('[data-status="connection"]');
+    expect(item).toHaveTextContent('Hors ligne');
   });
 
   it('DOCE-SESSION-9.7 shows no connection item in store mode', () => {

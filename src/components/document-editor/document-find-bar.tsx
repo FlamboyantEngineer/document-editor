@@ -100,10 +100,29 @@ function useFindShortcuts(
   }, [rootRef, view, open]);
 }
 
+// What the find box shows: what the writer typed, at once, until the context shows it. The context
+// follows the document a render later (DOCE-EDITOR-1.7), and a box fed from it alone is written
+// back over each key with the query before it, which sends the caret to the box's end.
+function useTypedQuery(view: EditorView | null, query: string) {
+  const [draft, setDraft] = useState<{ typed: string; seen: string } | null>(null);
+  if (draft && draft.seen !== query) {
+    // The context moved on: to what was typed, to a query typed on the way there, which the
+    // view's search has already left behind, or to a search someone else set, which then shows.
+    const searched = view ? searchControlState(view.state, 'find').query : query;
+    const isOnTheWay = query !== draft.typed && searched === draft.typed;
+    setDraft(isOnTheWay ? { typed: draft.typed, seen: query } : null);
+  }
+  return {
+    shown: draft ? draft.typed : query,
+    type: (typed: string) => setDraft({ typed, seen: query }),
+  };
+}
+
 /** The find bar, searching the document the context shows. */
 export function DocumentFindBar({ context, request, onClose, className }: DocumentFindBarProps) {
   const { labels, view } = context;
   const { query, selected, current, matchCount } = searchControlState(context.state, 'find');
+  const typed = useTypedQuery(view, query);
   const findRef = useRef<HTMLInputElement>(null);
   const replacementRef = useRef<HTMLInputElement>(null);
   // Focuses the requested box once per request, so the document's changes never take focus back.
@@ -122,8 +141,11 @@ export function DocumentFindBar({ context, request, onClose, className }: Docume
     <FindBar
       className={className}
       label={labels.find}
-      query={query}
-      onQueryChange={(next) => run(setSearch(next, searchOptionsOf(selected)))}
+      query={typed.shown}
+      onQueryChange={(next) => {
+        typed.type(next);
+        run(setSearch(next, searchOptionsOf(selected)));
+      }}
       matchCount={query ? matchCount : undefined}
       currentIndex={current}
       onNext={() => run(selectNextMatch)}
@@ -133,7 +155,9 @@ export function DocumentFindBar({ context, request, onClose, className }: Docume
         { id: 'word', label: labels.wholeWord },
       ]}
       selectedOptions={selected}
-      onSelectedOptionsChange={(keys: Set<Key>) => run(setSearch(query, searchOptionsOf(keys)))}
+      onSelectedOptionsChange={(keys: Set<Key>) =>
+        run(setSearch(typed.shown, searchOptionsOf(keys)))
+      }
       {...(canReplace
         ? {
             onReplace: (replacement: string) => run(replaceMatch(replacement)),

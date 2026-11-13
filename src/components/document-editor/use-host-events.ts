@@ -109,12 +109,13 @@ interface PressedView {
 
 // Tells the host once the click that moved focus has placed the caret and the view has read it:
 // a host that renders as focus moves, mid-click, would otherwise redraw the old selection over the
-// caret the click is placing.
+// caret the click is placing. Focus the document lost meanwhile, already told, is not told after.
 function afterClick(view: EditorView, notify: () => void) {
   const owner = view.dom.ownerDocument.defaultView;
   if (!owner) return;
   const later = () =>
     owner.setTimeout(() => {
+      if (view.isDestroyed || !view.hasFocus()) return;
       readDomSelection(view);
       notify();
     }, 0);
