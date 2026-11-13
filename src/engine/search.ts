@@ -39,7 +39,10 @@ export interface SearchState {
 }
 
 type SearchMeta =
-  { readonly query: string; readonly options: SearchOptions } | { readonly current: number };
+  | { readonly query: string; readonly options: SearchOptions }
+  | { readonly current: number }
+  // A replacement was made: the search goes on with the first match starting at or after `after`.
+  | { readonly after: number };
 
 /** The find bar's search plugin. */
 export const searchKey = new PluginKey<SearchState>('search');
@@ -72,33 +75,39 @@ function decorate(doc: ProseMirrorNode, scope: SearchScope, value: SearchState) 
   );
 }
 
-// The state with its matches found again; the current match is the first at or after `near`.
-function searched(
-  { doc, scope, near }: { doc: ProseMirrorNode; scope: SearchScope; near: number | null },
-  value: SearchState,
-) {
+interface Searched {
+  readonly doc: ProseMirrorNode;
+  readonly scope: SearchScope;
+  /** Tells the match the search goes on from: the first it takes is current, or the first of all. */
+  readonly from: (match: SearchMatch) => boolean;
+}
+
+// The state with its matches found again, and the current one chosen.
+function searched({ doc, scope, from }: Searched, value: SearchState) {
   const matches = findMatches(doc, value);
-  const after = near === null ? -1 : matches.findIndex((match) => match.to >= near);
-  const current = matches.length === 0 ? -1 : Math.max(after, 0);
+  const current = matches.length === 0 ? -1 : Math.max(matches.findIndex(from), 0);
   const next = { ...value, matches, current };
   return { ...next, decorations: decorate(doc, scope, next) };
 }
 
 function apply(scope: SearchScope, tr: Transaction, value: SearchState): SearchState {
   const meta = tr.getMeta(keys[scope]) as SearchMeta | undefined;
+  const { doc } = tr;
   if (meta && 'query' in meta) {
-    return searched({ doc: tr.doc, scope, near: tr.selection.from }, { ...value, ...meta });
+    // The first match at or after the selection, one holding its start included.
+    const from = (match: SearchMatch) => match.to >= tr.selection.from;
+    return searched({ doc, scope, from }, { ...value, ...meta });
   }
   if (meta && 'current' in meta) {
     const next = { ...value, current: meta.current };
-    return { ...next, decorations: decorate(tr.doc, scope, next) };
+    return { ...next, decorations: decorate(doc, scope, next) };
   }
   if (!tr.docChanged || !value.query) return value;
+  // The current match stays current where it now starts. After a replacement the search goes on
+  // behind it: by its start a match is never one the replacement holds, nor the match before it.
   const near = value.matches[value.current]?.from;
-  return searched(
-    { doc: tr.doc, scope, near: near === undefined ? null : tr.mapping.map(near) },
-    value,
-  );
+  const start = meta ? meta.after : near === undefined ? 0 : tr.mapping.map(near);
+  return searched({ doc, scope, from: (match) => match.from >= start }, value);
 }
 
 /** The plugin of one search, the find bar's by default. */
@@ -210,6 +219,8 @@ export function replaceMatch(replacement: string, scope: SearchScope = 'find'): 
       const tr = state.tr;
       replaceIn(tr, match, replacement);
       closeHistory(tr);
+      const meta: SearchMeta = { after: match.from + replacement.length };
+      tr.setMeta(keys[scope], meta);
       if (scope === 'find') {
         tr.setSelection(TextSelection.create(tr.doc, match.from + replacement.length));
       }

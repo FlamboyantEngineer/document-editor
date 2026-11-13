@@ -77,6 +77,26 @@ describe('search', () => {
     expect(searchKey.getState(state)?.matches).toEqual([]);
   });
 
+  it('DOCE-SEARCH-1.3 goes on to the match after a replacement that holds the query', () => {
+    let state = run(stateOf('a cat and a cat'), setSearch('cat'));
+    state = run(state, replaceMatch('cats'));
+    expect(searchKey.getState(state)?.current).toBe(1);
+    state = run(state, replaceMatch('cats'));
+    expect(textOf(state)).toBe('a cats and a cats');
+  });
+
+  it('DOCE-SEARCH-1.3 goes on to the match after a replacement, not back to the one before it', () => {
+    let state = run(stateOf('ababab'), setSearch('ab'));
+    state = run(state, selectNextMatch);
+    state = run(state, replaceMatch('X'));
+    expect(textOf(state)).toBe('abXab');
+    expect(searchKey.getState(state)?.current).toBe(1);
+    state = run(state, replaceMatch('X'));
+    expect(textOf(state)).toBe('abXX');
+    // After the last match the search wraps to the first.
+    expect(searchKey.getState(state)?.current).toBe(0);
+  });
+
   it('DOCE-SEARCH-1.4 leaves matches in locked content found and unchanged', () => {
     const doc = stateOf('cat here', 'Fixed cat').doc;
     let state = EditorState.create({
