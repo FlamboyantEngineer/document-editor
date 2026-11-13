@@ -1,6 +1,7 @@
 import { Node } from 'prosemirror-model';
-import { TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
 import {
   caretAt,
   footnoteParts,
@@ -10,7 +11,8 @@ import {
   text,
   textPos,
 } from '../../test/footnote-fixtures.js';
-import { listFootnotes } from './footnotes.js';
+import { readDocumentFile } from '../model/index.js';
+import { createFootnotes, listFootnotes } from './footnotes.js';
 
 const twoNotes = () =>
   footnoteState(
@@ -84,6 +86,40 @@ describe('footnote reconcile', () => {
       'entry:n1:',
       'entry:n2:Second',
     ]);
+  });
+
+  it('DOCE-FOOTNOTES-1.3 moves an entry, with its text, to the section its marker moves to', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [paragraph(text('Stays')), paragraph(text('Moves'), note('n1', 'First'))],
+          },
+          { name: null, content: [paragraph(text('Second'), note('n2', 'Other'))] },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let state = EditorState.create({ doc, plugins: [createFootnotes()] });
+    const from = textPos(state, 'Moves') - 1;
+    const moved = state.doc.nodeAt(from);
+    const second = state.doc.resolve(textPos(state, 'Second'));
+    if (!moved) throw new Error('No paragraph');
+    const tr = state.tr.delete(from, from + moved.nodeSize);
+    state = state.apply(tr.insert(tr.mapping.map(second.after()), moved));
+    const sections: string[][] = [];
+    state.doc.forEach((section) => {
+      const parts: string[] = [];
+      section.descendants((node) => {
+        const id = String(node.attrs.footnoteId);
+        if (node.type.name === 'footnote_reference') parts.push(`marker:${id}`);
+        if (node.type.name === 'footnote_entry') parts.push(`entry:${id}:${node.textContent}`);
+      });
+      sections.push(parts);
+    });
+    expect(sections).toEqual([[], ['marker:n2', 'marker:n1', 'entry:n2:Other', 'entry:n1:First']]);
   });
 
   it('DOCE-FOOTNOTES-1.3 leaves remote changes to the writer who made them', () => {

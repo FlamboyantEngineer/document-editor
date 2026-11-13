@@ -90,6 +90,37 @@ describe('replaceDocumentContent', () => {
     ).toBe(false);
   });
 
+  it('DOCE-SESSION-7.2 replaces an inline node whose text changed as a whole', () => {
+    const equation = (source: string): StoredNode => ({
+      type: 'paragraph',
+      attrs: { id: 'a0000001' },
+      content: [
+        { type: 'text', text: 'Area ' },
+        { type: 'math', attrs: { id: 'a0000009', source } },
+        { type: 'text', text: ' holds' },
+      ],
+    });
+    const equations = (state: EditorState) => {
+      const found: string[] = [];
+      state.doc.descendants((node) => {
+        if (node.type.name === 'math_inline') found.push(node.textContent);
+      });
+      return found;
+    };
+    for (const [from, to] of [
+      ['x^2+y', 'x^3+y'],
+      ['a', 'b'],
+      ['xx', 'xxx'],
+      ['x^2+y', 'y'],
+    ] as const) {
+      const state = EditorState.create({ doc: read(equation(from)) });
+      const after = read(equation(to));
+      const next = state.apply(replaceDocumentContent(state, after));
+      expect(equations(next)).toEqual([to]);
+      expect(next.doc.eq(after)).toBe(true);
+    }
+  });
+
   it('DOCE-SESSION-7.2 removes and reorders blocks', () => {
     const state = stateWithCaret(before, 'Alpha', 1);
     const after = read(paragraph('a0000003', 'Charlie'), paragraph('a0000001', 'Alpha'));

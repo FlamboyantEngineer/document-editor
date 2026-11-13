@@ -115,16 +115,27 @@ test.describe('template editor lab', () => {
     );
   });
 
-  test('DOCE-TEMPLATE-EDITOR-1.5 edits the template as JSON, checking it as it is typed', async ({
+  test('DOCE-TEMPLATE-EDITOR-1.5 DOCE-TEMPLATE-EDITOR-2.7 edits the template as JSON, committed once focus leaves', async ({
     lab,
     page,
   }) => {
     await lab.open('template-editor');
     await page.getByLabel('Edit as JSON').check();
     const json = page.getByRole('textbox', { name: 'Template JSON' });
+    // The id is locked: the text cannot change it.
     await json.fill(
-      '{ "formatVersion": 1, "id": "lab-template", "page": { "orientation": "landscape" } }',
+      '{ "formatVersion": 1, "id": "other", "page": { "orientation": "landscape" } }',
     );
+    const pageIsLandscape = () =>
+      content(page)
+        .locator('.pm-page')
+        .first()
+        .evaluate(
+          (element) =>
+            element.getBoundingClientRect().width > element.getBoundingClientRect().height,
+        );
+    expect(await pageIsLandscape()).toBe(false);
+    await json.blur();
     await expect
       .poll(() =>
         content(page)
@@ -136,8 +147,11 @@ test.describe('template editor lab', () => {
           ),
       )
       .toBe(true);
+    await expect(json).toContainText('"id": "lab-template"');
     await json.fill('{ "formatVersion": 1, "id": "lab-template", ');
     await expect(page.getByText('The text is not valid JSON.')).toBeVisible();
+    await json.blur();
+    await expect(json).toHaveValue('{ "formatVersion": 1, "id": "lab-template", ');
   });
 
   test('DOCE-TEMPLATE-EDITOR-1.6 DOCE-TEMPLATES-7.1 adds a custom style and applies it to a paragraph', async ({
@@ -324,5 +338,79 @@ test.describe('template editor lab', () => {
     delete expected.header?.content;
     delete expected.footer?.content;
     expect(written).toEqual(expected);
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-2.1 DOCE-TEMPLATE-EDITOR-2.3 DOCE-TEMPLATE-EDITOR-2.4 renames, moves and deletes a section, the scope following it by name', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    const settings = panel(page).first();
+    const add = settings.getByRole('button', { name: 'Add a section' });
+    await add.click();
+    const name = settings.getByRole('textbox', { name: 'Section name' });
+    await name.fill('Annex A');
+    await name.press('Enter');
+    await expect(name).toHaveValue('annex_a');
+    // Adding from a section adds after it, and a taken name is refused.
+    await add.click();
+    await name.fill('annex_a');
+    await name.press('Enter');
+    await expect(settings.getByText('Another section has this name.')).toBeVisible();
+    await name.fill('Annex B');
+    await name.press('Enter');
+    await settings.getByRole('button', { name: 'Move the section earlier' }).click();
+    // The scope stays on the moved section.
+    await expect(name).toHaveValue('annex_b');
+    await page.getByLabel('Edit as JSON').check();
+    const json = page.getByRole('textbox', { name: 'Template JSON' });
+    await expect
+      .poll(async () => {
+        const text = (await json.inputValue()) || '';
+        return [...text.matchAll(/"name": "(annex_\w)"/g)].map((match) => match[1]);
+      })
+      .toEqual(['annex_b', 'annex_a']);
+    await page.getByLabel('Edit as JSON').uncheck();
+    // Deleting asks first.
+    await settings.getByRole('button', { name: 'Delete the section' }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('annex_b');
+    await dialog.getByRole('button', { name: 'Delete the section' }).click();
+    await expect(settings).toHaveAttribute('data-scope', 'document');
+    await page.getByLabel('Edit as JSON').check();
+    await expect(json).not.toContainText('annex_b');
+    await expect(json).toContainText('annex_a');
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-2.2 edits a host setting in an extension slot', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    const folder = panel(page).first().getByRole('textbox', { name: 'Folder' });
+    await folder.fill('Reports');
+    await folder.press('Enter');
+    await page.getByLabel('Edit as JSON').check();
+    await expect(page.getByRole('textbox', { name: 'Template JSON' })).toContainText(
+      '"folder": "Reports"',
+    );
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-2.8 scrolls the preview to the section picked', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    const settings = panel(page).first();
+    for (const _ of [1, 2]) await settings.getByRole('button', { name: 'Add a section' }).click();
+    await page.getByRole('button', { name: 'Preview the template' }).click();
+    const last = content(page).locator('[data-section-name="section_2"]').first();
+    await expect(last).toBeInViewport();
+    await settings
+      .getByRole('group', { name: /^Settings of/ })
+      .getByRole('button', { name: /section_2/ })
+      .click();
+    await page.getByRole('option', { name: 'section_1' }).click();
+    await expect(content(page).locator('[data-section-name="section_1"]').first()).toBeInViewport();
   });
 });

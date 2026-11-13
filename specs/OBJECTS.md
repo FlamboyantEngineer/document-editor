@@ -43,7 +43,7 @@ Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.6 - Links
 
-`setLink(href)` shall link the selected text to an address, or change the address of the link at the caret, the whole link; at a caret outside a link it types the address, linked. An empty address removes the link, and an address a link may not hold (DOCE-SCHEMA-3.8) is refused. `linkAt(state)` gives the address of the link at the selection.
+`setLink(href)` shall link the selected text to an address, or change the address of the link at the caret, the whole link; at a caret outside a link it types the address, linked, with the formatting at the caret and in one step, which suggest mode records as an insertion (DOCE-SUGGESTIONS-1.1). An empty address removes the link, and an address a link may not hold (DOCE-SCHEMA-3.8) is refused. `linkAt(state)` gives the address of the link at the selection.
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`

@@ -143,6 +143,19 @@ export type {
   TemplateSettingSection,
   TemplateSettingsLabels,
 } from './template-editor/index.js';
+export type {
+  SectionNameProblem,
+  SectionRename,
+  TemplateExtensionField,
+  TemplateExtensionPane,
+  TemplateExtensionRow,
+  TemplateExtensionSection,
+  TemplateExtensionSlots,
+  TemplateIdentityLabels,
+  TemplateParentOption,
+  TemplateScope,
+  TemplateScopeProps,
+} from './template-editor/index.js';
 export {
   DEFAULT_CODE_FONTS,
   DEFAULT_TEMPLATE_EDITOR_LABELS,
@@ -156,6 +169,15 @@ export {
   TEXT_STYLE_SETTINGS,
   TEXT_STYLES,
   withRegionChange,
-  withSection,
   withSetting,
+} from './template-editor/index.js';
+export {
+  freshSectionName,
+  renameSection,
+  sectionNameOf,
+  templateIdOf,
+  withNamedSection,
+  withoutSection,
+  withSectionAt,
+  withSectionMoved,
 } from './template-editor/index.js';

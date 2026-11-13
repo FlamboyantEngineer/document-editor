@@ -1125,7 +1125,7 @@
     {
       "name": "insertion",
       "ordinal": 10,
-      "inclusive": null,
+      "inclusive": false,
       "excludes": "",
       "group": null,
       "spanning": null,
@@ -1143,7 +1143,7 @@
     {
       "name": "deletion",
       "ordinal": 11,
-      "inclusive": null,
+      "inclusive": false,
       "excludes": "",
       "group": null,
       "spanning": null,

@@ -5,10 +5,30 @@ export {
   TemplateEditor,
   withRegionChange,
 } from './template-editor.js';
+export type {
+  TemplateExtensionField,
+  TemplateExtensionPane,
+  TemplateExtensionRow,
+  TemplateExtensionSection,
+  TemplateExtensionSlots,
+} from './template-extensions.js';
+export type { TemplateIdentityLabels, TemplateParentOption } from './template-identity.js';
+export { templateIdOf } from './template-identity.js';
 export type { TemplateJsonEditorLabels, TemplateJsonEditorProps } from './template-json-editor.js';
 export { TemplateJsonEditor } from './template-json-editor.js';
 export type { TemplateScopeLabels } from './template-scope.js';
-export { SECTION_SETTINGS, withSection } from './template-scope.js';
+export { SECTION_SETTINGS } from './template-scope.js';
+export type { TemplateScope, TemplateScopeProps } from './template-scope-state.js';
+export type { SectionNameProblem, SectionRename } from './template-section-list.js';
+export {
+  freshSectionName,
+  renameSection,
+  sectionNameOf,
+  withNamedSection,
+  withoutSection,
+  withSectionAt,
+  withSectionMoved,
+} from './template-section-list.js';
 export type {
   SettingKind,
   StylePart,

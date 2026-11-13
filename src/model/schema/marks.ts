@@ -170,6 +170,8 @@ const commentHighlight: MarkSpec = {
 /** A suggested insertion or deletion, which only an element with an id or comment id is. */
 function suggestionMark(tag: 'ins' | 'del'): MarkSpec {
   return {
+    // A suggestion ends at its text: what a writer types right after it is no part of it.
+    inclusive: false,
     excludes: '',
     attrs: {
       dataId: { default: null },
