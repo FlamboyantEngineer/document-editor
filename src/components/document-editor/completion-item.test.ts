@@ -38,9 +38,7 @@ describe('inline completion toggle', () => {
 
   it('DOCE-AUTOMATION-3.9 shows only where the document runs completion, pressed while it is on', () => {
     expect(item).toMatchObject({ id: 'inline-completion', label: 'Inline completion' });
-    expect(item.isVisible?.(contextOf(EditorState.create({ schema: documentSchema })))).toBe(
-      false,
-    );
+    expect(item.isVisible?.(contextOf(EditorState.create({ schema: documentSchema })))).toBe(false);
     let state = stateWith();
     expect(item.isVisible?.(contextOf(state))).toBe(true);
     expect(item.isPressed?.(contextOf(state))).toBe(true);

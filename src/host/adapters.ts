@@ -3,9 +3,9 @@ import type { TemplateFile, TemplatePin } from '../model/format/template-format.
 import type { GlossaryEntry } from '../model/glossary.js';
 import type { ReferenceBaseline } from '../model/reference-format.js';
 import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
-import type { CompletionAdapter } from './completion-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
 import type { CommentStoreAdapter } from './comment-adapters.js';
+import type { CompletionAdapter } from './completion-adapters.js';
 import type { ProoferAdapter } from './proofing-adapters.js';
 import type { CollaborationAdapter, DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
 

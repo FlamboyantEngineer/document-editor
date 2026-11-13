@@ -1,5 +1,6 @@
 export type { DocumentBanner } from './banners.js';
 export { EDITOR_BANNERS } from './banners.js';
+export { inlineCompletionItem } from './completion-item.js';
 export {
   CONNECTION_STATUS_LABELS,
   ConnectionStatus,
@@ -58,7 +59,6 @@ export type {
   ToolbarOverflow,
 } from './toolbar-items.js';
 export { TOOLBAR_GROUPS } from './toolbar-items.js';
-export { inlineCompletionItem } from './completion-item.js';
 export type { ChangeBar } from './use-change-notifications.js';
 export type { DocumentComparison, DocumentLayout } from './use-document-layout.js';
 export { EDITOR_COUNTS, EDITOR_MEASURES } from './use-editor-telemetry.js';

@@ -82,7 +82,7 @@ Verification: `src/engine/completion-text.test.ts`
 
 An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it.
 
-Implementation: `src/engine/inline-completion.ts`
+Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-ghost.ts`
 Verification: `src/engine/inline-completion.test.ts`
 
 ### DOCE-AUTOMATION-3.3 - Asking the host's provider

@@ -13,9 +13,13 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import { DecorationSet, type EditorView } from 'prosemirror-view';
-import type { CompletionAdapter, CompletionAvailability, CompletionContext } from '../host/index.js';
-import { viewOnlyWidget } from '../utils/view-only-decorations.js';
+import type {
+  CompletionAdapter,
+  CompletionAvailability,
+  CompletionContext,
+} from '../host/index.js';
 import { type Actor, automationActor, automationKey } from './automation.js';
+import { completionGhost } from './completion-ghost.js';
 import { completionRequest, isCompletable, normalizeCompletion } from './completion-text.js';
 import { suggestTransaction } from './suggestions.js';
 import { isLocalEdit } from './transaction-kind.js';
@@ -93,7 +97,11 @@ export function completionStatus(state: EditorState): CompletionStatus | null {
 }
 
 // The text a completion puts in: the agent's, as the automation API marks an agent's text.
-function takeTransaction(state: EditorState, offered: InlineCompletion, options: InlineCompletionOptions) {
+function takeTransaction(
+  state: EditorState,
+  offered: InlineCompletion,
+  options: InlineCompletionOptions,
+) {
   const { schema } = state;
   const actor: Actor = { id: options.provider.agent, kind: 'agent', session: offered.session };
   const contributor = schema.marks.contributor;
@@ -158,7 +166,9 @@ function withMeta(value: CompletionState, meta: CompletionMeta): CompletionState
   if ('clear' in meta) return { ...value, asking: null, offer: null };
   if ('asking' in meta) return { ...value, asking: meta.asking, offer: null };
   if ('availability' in meta) return { ...value, availability: meta.availability };
-  return meta.enabled ? { ...value, enabled: true } : { ...value, enabled: false, asking: null, offer: null };
+  return meta.enabled
+    ? { ...value, enabled: true }
+    : { ...value, enabled: false, asking: null, offer: null };
 }
 
 // The writer's own edit or caret move: not a collaborator's, a plugin's, the host's or an agent's
@@ -166,7 +176,10 @@ function withMeta(value: CompletionState, meta: CompletionMeta): CompletionState
 function isOwn(tr: Transaction, before: EditorState): boolean {
   if (isLocalEdit(tr) && !automationActor(tr)) return true;
   const { selection } = tr;
-  return tr.selectionSet && (!selection.empty || selection.head !== tr.mapping.map(before.selection.head));
+  return (
+    tr.selectionSet &&
+    (!selection.empty || selection.head !== tr.mapping.map(before.selection.head))
+  );
 }
 
 // A position kept through a change that is not the writer's, while the caret stays at it.
@@ -185,7 +198,12 @@ function apply(tr: Transaction, value: CompletionState, before: EditorState): Co
   if (!busy || (!tr.docChanged && !tr.selectionSet)) return value;
   const asking = value.asking === null ? null : follow(tr, value.asking);
   const at = value.offer && follow(tr, value.offer.pos);
-  const offer = !value.offer || at === null ? null : at === value.offer.pos ? value.offer : { ...value.offer, pos: at };
+  const offer =
+    !value.offer || at === null
+      ? null
+      : at === value.offer.pos
+        ? value.offer
+        : { ...value.offer, pos: at };
   return asking === value.asking && offer === value.offer ? value : { ...value, asking, offer };
 }
 
@@ -195,11 +213,11 @@ function canAsk(view: EditorView): boolean {
   const { selection } = view.state;
   return Boolean(
     value?.enabled &&
-      value.availability.available &&
-      view.editable &&
-      !view.composing &&
-      selection.empty &&
-      isCompletable(selection.$head),
+    value.availability.available &&
+    view.editable &&
+    !view.composing &&
+    selection.empty &&
+    isCompletable(selection.$head),
   );
 }
 
@@ -217,7 +235,11 @@ function asker(view: EditorView, options: InlineCompletionOptions) {
   const answered = (request: CompletionContext, text: string, session?: string) => {
     const at = stateOf(view.state)?.asking ?? null;
     if (at === null) return;
-    const offer = { pos: at, text: (options.normalize ?? normalizeCompletion)(text, request), session };
+    const offer = {
+      pos: at,
+      text: (options.normalize ?? normalizeCompletion)(text, request),
+      session,
+    };
     if (offerCompletion(offer)(view.state, view.dispatch)) return;
     const meta: CompletionMeta = { clear: true };
     view.dispatch(view.state.tr.setMeta(completionKey, meta));
@@ -261,7 +283,11 @@ const typesText = (event: KeyboardEvent) =>
   !event.metaKey;
 
 // The view's part: asking after the writer's typing, and following the provider's availability.
-function completionView(view: EditorView, options: InlineCompletionOptions, keys: { typed: boolean }) {
+function completionView(
+  view: EditorView,
+  options: InlineCompletionOptions,
+  keys: { typed: boolean },
+) {
   const asking = asker(view, options);
   const { provider } = options;
   const unsubscribe = provider.subscribe?.(() => {
@@ -312,7 +338,8 @@ export function createInlineCompletion(options: InlineCompletionOptions): Plugin
       decorations(state) {
         const offered = inlineCompletion(state);
         if (!offered) return DecorationSet.empty;
-        if (shown?.offer !== offered) shown = { offer: offered, set: ghost(state, offered) };
+        if (shown?.offer !== offered)
+          shown = { offer: offered, set: completionGhost(state, offered) };
         return shown.set;
       },
       handleKeyDown(view, event) {
@@ -327,20 +354,4 @@ export function createInlineCompletion(options: InlineCompletionOptions): Plugin
       },
     },
   });
-}
-
-// The offer drawn after the caret, for the person working in the editor only.
-function ghost(state: EditorState, offered: InlineCompletion): DecorationSet {
-  const widget = viewOnlyWidget(
-    offered.pos,
-    (view) => {
-      const text = view.dom.ownerDocument.createElement('span');
-      text.className = 'de-inline-completion';
-      text.textContent = offered.text;
-      text.setAttribute('aria-hidden', 'true');
-      return text;
-    },
-    { side: 1, key: `completion-${String(offered.pos)}-${offered.text}` },
-  );
-  return DecorationSet.create(state.doc, [widget]);
 }

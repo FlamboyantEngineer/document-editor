@@ -259,4 +259,3 @@ The in-memory host shall answer completion requests with `options.complete`, as 
 
 Implementation: `src/host/memory-completion.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-completion.test.ts`
-

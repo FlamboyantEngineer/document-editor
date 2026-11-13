@@ -42,12 +42,6 @@ export type {
   StoredDiagram,
 } from './asset-adapters.js';
 export type {
-  CompletionAdapter,
-  CompletionAnswer,
-  CompletionAvailability,
-  CompletionContext,
-} from './completion-adapters.js';
-export type {
   ConnectionAccess,
   EditingMode,
   EditingModeContext,
@@ -70,6 +64,12 @@ export type {
   CommentThread,
   NewCommentThread,
 } from './comment-adapters.js';
+export type {
+  CompletionAdapter,
+  CompletionAnswer,
+  CompletionAvailability,
+  CompletionContext,
+} from './completion-adapters.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHost, MemoryHostOptions } from './memory-host.js';

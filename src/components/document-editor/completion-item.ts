@@ -3,10 +3,7 @@
 // the provider cannot be asked.
 
 import { SparklesGlyph } from '@flamboyantengineer/ui-components/core';
-import {
-  completionStatus,
-  setInlineCompletionEnabled,
-} from '../../engine/inline-completion.js';
+import { completionStatus, setInlineCompletionEnabled } from '../../engine/inline-completion.js';
 import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-labels.js';
 import type { ToolbarButtonItem } from './toolbar-items.js';
 

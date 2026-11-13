@@ -83,6 +83,7 @@ export {
   selectionRanges,
   setCommentState,
 } from './comments.js';
+export { completionRequest, normalizeCompletion } from './completion-text.js';
 export type { ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
 export { CONTENTS_LABELS, contentsCatalog, contentsKey, createContents } from './contents.js';
 export type { CustomStylesOptions } from './custom-styles.js';
@@ -195,7 +196,6 @@ export {
   offerCompletion,
   setInlineCompletionEnabled,
 } from './inline-completion.js';
-export { completionRequest, normalizeCompletion } from './completion-text.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {
   activeLayoutPreset,

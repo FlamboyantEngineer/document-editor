@@ -10,8 +10,8 @@ import {
   completionStatus,
   createInlineCompletion,
   dismissCompletion,
-  type InlineCompletionOptions,
   inlineCompletion,
+  type InlineCompletionOptions,
   offerCompletion,
   setInlineCompletionEnabled,
 } from './inline-completion.js';
@@ -103,7 +103,11 @@ describe('inline completion', () => {
       taken = tr;
       state = state.apply(tr);
     });
-    expect(taken && automationActor(taken)).toEqual({ id: 'agent-1', kind: 'agent', session: 's9' });
+    expect(taken && automationActor(taken)).toEqual({
+      id: 'agent-1',
+      kind: 'agent',
+      session: 's9',
+    });
     const node = state.doc.nodeAt(pos);
     expect(node?.text).toBe(' one second.');
     const mark = node?.marks.find((each) => each.type.name === 'contributor');
@@ -116,7 +120,9 @@ describe('inline completion', () => {
     const pos = state.selection.head;
     state = run(state, offerCompletion({ pos, text: ' one second.' }));
     state = run(state, acceptCompletion);
-    const marks = state.doc.nodeAt(pos)?.marks.map((mark) => [mark.type.name, mark.attrs.dataAuthor]);
+    const marks = state.doc
+      .nodeAt(pos)
+      ?.marks.map((mark) => [mark.type.name, mark.attrs.dataAuthor]);
     expect(marks).toEqual(
       expect.arrayContaining([
         ['insertion', 'agent-1'],
@@ -203,7 +209,7 @@ describe('asking the provider', () => {
     vi.useRealTimers();
   });
 
-  it('DOCE-AUTOMATION-3.3 asks once the writer pauses and offers the answer after the caret', async () => {
+  it('DOCE-AUTOMATION-3.3 DOCE-HOST-1.22 asks once the writer pauses and offers the answer after the caret', async () => {
     vi.useFakeTimers();
     const { view, complete, answer } = asking();
     type(view, ' one');
@@ -251,7 +257,9 @@ describe('asking the provider', () => {
     vi.advanceTimersByTime(600);
     view.dispatch(view.state.tr.setMeta('elsewhere', true));
     view.dispatch(markRemote(view.state.tr.insertText('Z', scopeAt(view) + 1)));
-    view.dispatch(markDerived(view.state.tr.setNodeAttribute(scopeAt(view) - 1, 'dataAuthor', 'x')));
+    view.dispatch(
+      markDerived(view.state.tr.setNodeAttribute(scopeAt(view) - 1, 'dataAuthor', 'x')),
+    );
     await answer(' second.');
     expect(inlineCompletion(view.state)).toEqual({
       pos: view.state.selection.head,
@@ -302,7 +310,11 @@ describe('asking the provider', () => {
                 type: 'paragraph',
                 content: [
                   { type: 'text', text: 'Body' },
-                  { type: 'footnote', attrs: { id: 'n1' }, content: [{ type: 'text', text: 'Note' }] },
+                  {
+                    type: 'footnote',
+                    attrs: { id: 'n1' },
+                    content: [{ type: 'text', text: 'Note' }],
+                  },
                 ],
               },
             ],
