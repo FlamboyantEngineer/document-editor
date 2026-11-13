@@ -2,11 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { StoredContent, TemplateFile } from '../../model/index.js';
+import { SettingControl } from './setting-controls.js';
 import { TEMPLATE_SECTIONS } from './settings-catalog.js';
 import { TemplateEditor, withRegionChange } from './template-editor.js';
 import { TemplateJsonEditor } from './template-json-editor.js';
 import { withListedSections } from './template-scope.js';
-import { withSetting } from './template-settings.js';
+import { type TemplateSetting, withSetting } from './template-settings.js';
 
 const CONTENT: StoredContent = [{ type: 'paragraph', content: [{ type: 'text', text: 'Top' }] }];
 
@@ -143,5 +144,24 @@ describe('withListedSections', () => {
   it('DOCE-TEMPLATE-EDITOR-1.3 lists the template’s own sections, even none', () => {
     const own: TemplateFile = { formatVersion: 1, id: 'child', sections: [] };
     expect(withListedSections(own, resolved)).toBe(own);
+  });
+
+  it('DOCE-TEMPLATE-EDITOR-1.7 shows a size in a relative unit as written', () => {
+    const size: TemplateSetting = {
+      id: 'size',
+      path: ['size'],
+      label: 'Size',
+      kind: { type: 'points' },
+    };
+    render(
+      <SettingControl
+        setting={size}
+        value="1.5em"
+        inherited="12pt"
+        onChange={() => undefined}
+        inheritedLabel={(value) => `Inherited: ${value}`}
+      />,
+    );
+    expect(screen.getByRole('textbox', { name: 'Size' })).toHaveValue('1.5em');
   });
 });

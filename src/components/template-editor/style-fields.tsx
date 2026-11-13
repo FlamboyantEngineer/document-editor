@@ -260,12 +260,17 @@ export function styleSummary(scope: StyleScope): string {
     const value = styleValue(scope, [key]);
     return value.own ?? value.inherited;
   };
+  // A size in points, or as written when it is in a relative unit; a dash when unset.
   const points = (key: string) => {
-    const value = toPoints(read(key));
-    return value === null ? '–' : String(value);
+    const value = read(key);
+    const converted = toPoints(value);
+    if (converted !== null) return { text: String(converted), unit: 'pt' };
+    return { text: typeof value === 'string' && value ? value : '–', unit: '' };
   };
   const font = typeof read('font') === 'string' ? String(read('font')) : '';
-  return `${font} ${points('size')}pt · ${points('spaceBefore')}/${points('spaceAfter')}`.trim();
+  const size = points('size');
+  const spacing = `${points('spaceBefore').text}/${points('spaceAfter').text}`;
+  return `${font} ${size.text}${size.text === '–' ? 'pt' : size.unit} · ${spacing}`.trim();
 }
 
 /** Whether the style sets anything of its own. */
