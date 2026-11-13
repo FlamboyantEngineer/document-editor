@@ -32,6 +32,7 @@ import {
   SECTION_SCOPED,
   SectionRows,
   type TemplateScopeLabels,
+  withListedSections,
 } from './template-scope.js';
 import {
   type TemplateScope,
@@ -155,14 +156,15 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly className?: string | undefined;
 }
 
-// The target of the rows: the template, or its named section over the resolved document.
+// The target of the rows: the template, or its named section over the resolved document. The
+// template lists the sections it inherits, so a change to one writes the whole list.
 function targetOf(
   props: TemplateEditorProps,
-  scope: TemplateScope,
+  { listed, scope }: { listed: TemplateFile; scope: TemplateScope },
   labels: TemplateEditorLabels,
 ): Target {
   const { template, resolved, onChange } = props;
-  const section = template.sections?.find((entry) => entry.name === scope);
+  const section = listed.sections?.find((entry) => entry.name === scope);
   if (scope === null || !section) {
     const parent = props.parentOptions?.find((option) => option.id === template.parent);
     return {
@@ -180,7 +182,7 @@ function targetOf(
     set: (path, value) =>
       onChange(
         withNamedSection(
-          template,
+          listed,
           scope,
           () => withSetting(own, path, value) as unknown as TemplateSection,
         ),
@@ -191,14 +193,20 @@ function targetOf(
 /**
  * A template with a region edited on the pages written into it, where the section's pages take the
  * region from (`resolveSectionRegion`): into the section's own region while it has one that does
- * not inherit, and into the document's otherwise.
+ * not inherit, and into the document's otherwise. Given the resolved template, a section the
+ * template inherits counts too, and the template takes the inherited sections with the edit.
  */
-export function withRegionChange(template: TemplateFile, change: RegionChange): TemplateFile {
-  const section = template.sections?.find((entry) => entry.name === change.section);
+export function withRegionChange(
+  template: TemplateFile,
+  change: RegionChange,
+  resolved?: TemplateFile,
+): TemplateFile {
+  const listed = withListedSections(template, resolved);
+  const section = listed.sections?.find((entry) => entry.name === change.section);
   const own = section?.[change.region];
   if (section && own && own.inherit !== true) {
     return withNamedSection(
-      template,
+      listed,
       section.name,
       (entry) =>
         withSetting(
@@ -214,9 +222,15 @@ export function withRegionChange(template: TemplateFile, change: RegionChange): 
 /** Edits a template's settings, handing each change to the host. */
 export function TemplateEditor(props: TemplateEditorProps) {
   const labels = { ...DEFAULT_TEMPLATE_EDITOR_LABELS, ...props.labels };
-  const { template, onChange, isDisabled, extensions } = props;
+  const { onChange, isDisabled, extensions } = props;
+  // The sections the picker and a section's rows show and change: the inherited ones too.
+  const template = withListedSections(props.template, props.resolved);
   const [scope, setScope] = useTemplateScope(props, template.sections);
-  const context: Rows = { props, labels, target: targetOf(props, scope, labels) };
+  const context: Rows = {
+    props,
+    labels,
+    target: targetOf(props, { listed: template, scope }, labels),
+  };
   const scoped = {
     template,
     scope,
@@ -242,7 +256,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
       isDisabled={isDisabled}
     >
       <TemplateIdentity
-        template={template}
+        template={props.template}
         onChange={onChange}
         parentOptions={props.parentOptions}
         parentError={props.parentError}

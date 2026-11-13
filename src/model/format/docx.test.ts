@@ -132,6 +132,7 @@ describe('writeDocx', () => {
       'word/styles.xml',
       'word/footnotes.xml',
       'word/_rels/document.xml.rels',
+      'word/_rels/footnotes.xml.rels',
     ]);
     const document = files.get('word/document.xml') ?? '';
     expect(document).toContain(
@@ -149,5 +150,107 @@ describe('writeDocx', () => {
     expect(files.get('word/_rels/document.xml.rels')).toContain(
       'Target="https://example.com/spec"',
     );
+  });
+
+  it('DOCE-FORMAT-5.2 gives a link in a footnote a relationship of the footnotes part', () => {
+    const linked = (href: string): StoredNode => ({
+      type: 'text',
+      text: 'here',
+      marks: [{ type: 'link', attrs: { href } }],
+    });
+    const note: StoredNode = {
+      type: 'footnote',
+      attrs: { id: 'n1' },
+      content: [text('See '), linked('https://example.com/note')],
+    };
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [{ type: 'paragraph', content: [linked('https://example.com/body'), note] }],
+          },
+        ],
+      }),
+    );
+    // Each part names its links by its own relationships.
+    expect(files.get('word/footnotes.xml')).toContain('<w:hyperlink r:id="rIdLink1">');
+    const ofNotes = files.get('word/_rels/footnotes.xml.rels') ?? '';
+    expect(ofNotes).toContain('Id="rIdLink1"');
+    expect(ofNotes).toContain('Target="https://example.com/note"');
+    const ofDocument = files.get('word/_rels/document.xml.rels') ?? '';
+    expect(ofDocument).toContain('Target="https://example.com/body"');
+    expect(ofDocument).not.toContain('https://example.com/note');
+  });
+
+  it('DOCE-FORMAT-5.2 leaves out the characters XML cannot hold', () => {
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'paragraph', content: [text('A\u000bB\u0001C\tD\uffffE')] },
+              { type: 'codeBlock', content: [text('x\u000c\ny')] },
+            ],
+          },
+        ],
+      }),
+    );
+    const document = files.get('word/document.xml') ?? '';
+    expect(document).toContain('<w:t xml:space="preserve">ABC\tDE</w:t>');
+    expect(document).not.toMatch(/[^\P{Cc}\t\n\r]|\uffff/u);
+  });
+
+  it('DOCE-FORMAT-5.2 writes a link whose address could run script as its text', () => {
+    const linked: StoredNode = {
+      type: 'text',
+      text: 'site',
+      marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }],
+    };
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [{ name: null, content: [{ type: 'paragraph', content: [linked] }] }],
+      }),
+    );
+    expect(files.get('word/document.xml')).toContain('<w:t xml:space="preserve">site</w:t>');
+    expect(files.get('word/document.xml')).not.toContain('<w:hyperlink');
+    expect(files.get('word/_rels/document.xml.rels')).not.toContain('javascript');
+  });
+
+  it('DOCE-FORMAT-5.3 leaves out suggested blocks and writes variables with their values', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            { type: 'figure', attrs: { alt: 'Pond', suggestionKind: 'insertion' } },
+            {
+              type: 'paragraph',
+              attrs: { suggestionKind: 'deletion' },
+              content: [text('Gone paragraph', 'deletion')],
+            },
+            {
+              type: 'paragraph',
+              content: [text('Title: '), { type: 'variable', attrs: { key: 'document.title' } }],
+            },
+          ],
+        },
+      ],
+    };
+    const values = { variable: (key: string) => (key === 'document.title' ? 'Field notes' : null) };
+    const accepted = readStored(writeDocx(file, { values })).get('word/document.xml') ?? '';
+    expect(accepted).toContain('[Pond]');
+    expect(accepted).not.toContain('Gone paragraph');
+    expect(accepted).toContain('>Field notes</w:t>');
+    const rejected =
+      readStored(writeDocx(file, { suggestions: 'rejected' })).get('word/document.xml') ?? '';
+    expect(rejected).not.toContain('[Pond]');
+    expect(rejected).toContain('Gone paragraph');
+    expect(rejected).toContain('>{{document.title}}</w:t>');
   });
 });

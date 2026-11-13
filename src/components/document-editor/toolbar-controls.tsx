@@ -15,7 +15,15 @@ import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popov
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import type { Schema } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
-import { type CSSProperties, useMemo, useState } from 'react';
+import {
+  type CSSProperties,
+  memo,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   customStyleAt,
   DEFAULT_SHORTCUTS,
@@ -45,6 +53,8 @@ const hooks = createHooks('document-editor', ['block-style', 'style-preview']);
 
 const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
+const NO_CUSTOM_STYLES: readonly string[] = [];
+
 // The text style of the block holding the selection: `paragraph` or `heading-<level>`.
 function blockStyle(state: EditorState): string | null {
   const { $from, $to } = state.selection;
@@ -63,6 +73,89 @@ function previewProperties(templateStyle: Readonly<Record<string, string>>): CSS
 
 const PREVIEW_PROPERTY = /^--doc-(paragraph|heading-[1-6])-/;
 
+// The text styles the field offers, each with the command that sets it.
+function useBlockStyles(
+  state: EditorState,
+  labels: DocumentEditorLabels,
+  customStyles: readonly string[],
+) {
+  const { schema } = state;
+  const shortcuts = shortcutsOf(state);
+  return useMemo(() => {
+    const { paragraph, heading } = schema.nodes;
+    // A built-in style sets the block's attributes afresh, taking it out of any custom style.
+    return [
+      ...(paragraph
+        ? [
+            {
+              id: 'paragraph',
+              label: labels.paragraph,
+              shortcut: shortcutLabel(shortcuts, 'paragraph'),
+              command: setTextblockType(paragraph),
+            },
+          ]
+        : []),
+      ...(heading
+        ? HEADING_LEVELS.map((level) => ({
+            id: `heading-${String(level)}`,
+            label: labels.heading(level),
+            shortcut: shortcutLabel(shortcuts, `heading-${String(level)}` as ShortcutId),
+            command: setTextblockType(heading, { level }),
+          }))
+        : []),
+      ...customStyles.map((name) => ({
+        id: `custom:${name}`,
+        label: name,
+        shortcut: undefined,
+        command: setCustomStyle(name),
+      })),
+    ];
+  }, [schema, labels, shortcuts, customStyles]);
+}
+
+// The field as a state shows it: drawn again only when the style shown, whether it can be changed,
+// or the styles offered change, not for each key typed in a block (DOCE-EDITOR-1.7).
+const BlockStyleField = memo(function BlockStyleField({
+  value,
+  isCustom,
+  isDisabled,
+  labels,
+  options,
+  preview,
+  onChoose,
+}: {
+  value: string | null;
+  isCustom: boolean;
+  isDisabled: boolean;
+  labels: DocumentEditorLabels;
+  options: readonly { id: string; label: string; shortcut: string | undefined }[];
+  preview: CSSProperties;
+  onChoose: (key: Key | null) => void;
+}) {
+  return (
+    <SelectField
+      // The style picked shows in its own look while the field is closed, too.
+      {...hooks.slot('block-style', { 'block-style': isCustom ? 'custom' : value })}
+      size="sm"
+      density="compact"
+      label={labels.blockType}
+      labelLayout="control-only"
+      placeholder={labels.blockType}
+      options={options}
+      renderOption={(option) => (
+        // Each style's name in the style it sets, but for its size.
+        <span {...hooks.slot('style-preview')} data-block-style={option.id} style={preview}>
+          {option.label}
+        </span>
+      )}
+      value={value}
+      tracksChanges={false}
+      onChange={onChoose}
+      isDisabled={isDisabled}
+    />
+  );
+});
+
 function BlockStyleSelect({
   context,
   templateStyle,
@@ -73,62 +166,34 @@ function BlockStyleSelect({
   customStyles: readonly string[];
 }) {
   const { labels } = context;
-  const shortcuts = shortcutsOf(context.state);
+  const styles = useBlockStyles(context.state, labels, customStyles);
+  const options = useMemo(
+    () => styles.map(({ id, label, shortcut }) => ({ id, label, shortcut })),
+    [styles],
+  );
   const preview = useMemo(() => previewProperties(templateStyle), [templateStyle]);
-  const { paragraph, heading } = context.state.schema.nodes;
-  // A built-in style sets the block's attributes afresh, taking it out of any custom style.
-  const styles = [
-    ...(paragraph
-      ? [
-          {
-            id: 'paragraph',
-            label: labels.paragraph,
-            shortcut: shortcutLabel(shortcuts, 'paragraph'),
-            command: setTextblockType(paragraph),
-          },
-        ]
-      : []),
-    ...(heading
-      ? HEADING_LEVELS.map((level) => ({
-          id: `heading-${String(level)}`,
-          label: labels.heading(level),
-          shortcut: shortcutLabel(shortcuts, `heading-${String(level)}` as ShortcutId),
-          command: setTextblockType(heading, { level }),
-        }))
-      : []),
-    ...customStyles.map((name) => ({
-      id: `custom:${name}`,
-      label: name,
-      shortcut: undefined,
-      command: setCustomStyle(name),
-    })),
-  ];
   const custom = customStyleAt(context.state);
-  const value = custom ? `custom:${custom}` : blockStyle(context.state);
-  const choose = (key: Key | null) => {
-    const style = styles.find((each) => each.id === key);
-    if (style) context.run(style.command);
-  };
+  // A choice runs on the context drawn last.
+  const latest = useRef(context);
+  useLayoutEffect(() => {
+    latest.current = context;
+  });
+  const choose = useCallback(
+    (key: Key | null) => {
+      const style = styles.find((each) => each.id === key);
+      if (style) latest.current.run(style.command);
+    },
+    [styles],
+  );
   return (
-    <SelectField
-      // The style picked shows in its own look while the field is closed, too.
-      {...hooks.slot('block-style', { 'block-style': custom ? 'custom' : value })}
-      size="sm"
-      density="compact"
-      label={labels.blockType}
-      labelLayout="control-only"
-      placeholder={labels.blockType}
-      options={styles.map(({ id, label, shortcut }) => ({ id, label, shortcut }))}
-      renderOption={(option) => (
-        // Each style's name in the style it sets, but for its size.
-        <span {...hooks.slot('style-preview')} data-block-style={option.id} style={preview}>
-          {option.label}
-        </span>
-      )}
-      value={value}
-      tracksChanges={false}
-      onChange={choose}
+    <BlockStyleField
+      value={custom ? `custom:${custom}` : blockStyle(context.state)}
+      isCustom={Boolean(custom)}
       isDisabled={!context.editable || context.locked}
+      labels={labels}
+      options={options}
+      preview={preview}
+      onChoose={choose}
     />
   );
 }
@@ -214,7 +279,7 @@ export function builtInToolbarGroups(
             <BlockStyleSelect
               context={context}
               templateStyle={templateStyle}
-              customStyles={features.customStyles ?? []}
+              customStyles={features.customStyles ?? NO_CUSTOM_STYLES}
             />
           ),
         },

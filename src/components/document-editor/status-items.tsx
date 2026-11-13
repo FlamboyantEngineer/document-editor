@@ -8,7 +8,8 @@ import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { GlobeGlyph } from '@flamboyantengineer/ui-components/core';
 import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
-import { useDeferredValue, useEffect, useMemo, useRef } from 'react';
+import type { EditorView } from 'prosemirror-view';
+import { memo, useDeferredValue, useEffect, useMemo, useRef } from 'react';
 import {
   documentStatistics,
   isProofingPending,
@@ -21,10 +22,12 @@ import {
   selectNextProofingIssue,
   setProofingLanguage,
 } from '../../engine/index.js';
+import type { ProofingStatus } from '../../engine/proofing.js';
 import { revealSelectedProofingIssue } from '../../engine/proofing-commands.js';
 import { pageMap } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { type EditorContext, useDocumentEditor } from './editor-context.js';
+import type { DocumentEditorLabels } from './editor-labels.js';
 import { PageJump } from './status-controls.js';
 import { runCommand } from './table-actions.js';
 import { useDocumentViewport } from './visible-elements.js';
@@ -108,7 +111,34 @@ export function DocumentProofingStatus() {
   );
   if (!shown || !proofing || issues === null) return null;
   const { view, labels } = shown.editor;
-  const { status } = proofing;
+  return (
+    <ProofingStatusButton
+      view={view}
+      labels={labels}
+      status={proofing.status}
+      issues={issues}
+      pending={pending}
+      announce={announce}
+    />
+  );
+}
+
+// The proofing status as its values show it, drawn again only when they change (DOCE-EDITOR-1.7).
+const ProofingStatusButton = memo(function ProofingStatusButton({
+  view,
+  labels,
+  status,
+  issues,
+  pending,
+  announce,
+}: {
+  view: EditorView | null;
+  labels: DocumentEditorLabels;
+  status: ProofingStatus;
+  issues: number;
+  pending: boolean;
+  announce: (message: string) => void;
+}) {
   const text =
     status === 'unavailable'
       ? labels.proofingUnavailable
@@ -137,7 +167,7 @@ export function DocumentProofingStatus() {
       {text}
     </Button>
   );
-}
+});
 
 /**
  * The proofing menu, while the document is proofed: the language it is proofed in, picked among
@@ -147,31 +177,67 @@ export function DocumentProofingLanguage() {
   const editor = useDocumentEditor();
   const proofing = editor ? proofingState(editor.state) : null;
   if (!editor || !proofing) return null;
-  const { view, state, labels } = editor;
-  const languages = proofingLanguages(state);
-  const current = languages.find((language) => language.id === proofing.language);
+  return (
+    <ProofingLanguageMenu
+      view={editor.view}
+      labels={editor.labels}
+      languages={proofingLanguages(editor.state)}
+      language={proofing.language}
+    />
+  );
+}
+
+interface ProofingLanguageMenuProps {
+  view: EditorView | null;
+  labels: DocumentEditorLabels;
+  languages: readonly { id: string; label: string }[];
+  language: string | null;
+}
+
+// Whether two menus show the same: the same languages offered, each by the same label.
+function sameMenu(a: ProofingLanguageMenuProps, b: ProofingLanguageMenuProps): boolean {
+  return (
+    a.view === b.view &&
+    a.labels === b.labels &&
+    a.language === b.language &&
+    a.languages.length === b.languages.length &&
+    a.languages.every(
+      (each, index) =>
+        each.id === b.languages[index]?.id && each.label === b.languages[index].label,
+    )
+  );
+}
+
+// The proofing menu as its values show it, drawn again only when they change (DOCE-EDITOR-1.7).
+const ProofingLanguageMenu = memo(function ProofingLanguageMenu({
+  view,
+  labels,
+  languages,
+  language,
+}: ProofingLanguageMenuProps) {
+  const current = languages.find((each) => each.id === language);
   return (
     <DropdownMenu
       {...hooks.slot('proofing-language')}
       size="sm"
       variant="ghost"
       icon={GlobeGlyph}
-      label={current?.label ?? proofing.language ?? labels.proofingLanguage}
+      label={current?.label ?? language ?? labels.proofingLanguage}
       aria-label={labels.proofingLanguage}
       placement="top start"
       selectionMode="single"
-      selectedKeys={proofing.language ? [proofing.language] : []}
+      selectedKeys={language ? [language] : []}
       isDisabled={languages.length === 0}
-      items={languages.map((language) => ({
-        id: language.id,
-        label: language.label,
+      items={languages.map((each) => ({
+        id: each.id,
+        label: each.label,
         onAction: () => {
-          if (view) runCommand(view, setProofingLanguage(language.id));
+          if (view) runCommand(view, setProofingLanguage(each.id));
         },
       }))}
     />
   );
-}
+}, sameMenu);
 
 /**
  * The other people in the document, as avatars by name in their carets' colour slots; choosing one

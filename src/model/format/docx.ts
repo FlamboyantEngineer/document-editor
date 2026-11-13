@@ -3,14 +3,12 @@
 // breaks, links and footnotes, in the template's page size and margins, its suggestions accepted
 // or rejected. Figures are written as their alternative text and caption.
 
+import { safeHref } from '../schema/dom-attributes.js';
 import { PAGE_SIZE_DIMENSIONS } from '../templates/template-css-values.js';
-import {
-  type DocumentFile,
-  type StoredMark,
-  storedMathSource,
-  type StoredNode,
-} from './document-format.js';
+import { type DocumentFile, storedMathSource, type StoredNode } from './document-format.js';
+import { isLeftOut, keptContent, type SuggestionsMode } from './left-out.js';
 import type { TemplateFile } from './template-format.js';
+import { variableText, type WriterValues } from './writer-values.js';
 import { writeZip } from './zip.js';
 
 /** How `writeDocx` writes a document. */
@@ -18,17 +16,29 @@ export interface DocxOptions {
   /** The resolved template, whose page size, orientation and margins the document takes. */
   readonly template?: TemplateFile | undefined;
   /** Whether the suggestions are written as if accepted (the default) or rejected. */
-  readonly suggestions?: 'accepted' | 'rejected' | undefined;
+  readonly suggestions?: SuggestionsMode | undefined;
+  /** The values of the variables the document names, such as `document.title`. */
+  readonly values?: WriterValues | undefined;
 }
 
 interface Writing {
-  readonly suggestions: 'accepted' | 'rejected';
+  readonly suggestions: SuggestionsMode;
+  readonly values: WriterValues;
   readonly footnotes: string[];
+  /** The addresses the part being written links to: the document's, or the footnotes'. */
   readonly links: string[];
+  readonly footnoteLinks: string[];
 }
 
+// XML holds no control character but the tab and the line breaks, and a word processor reports a
+// part that holds another as damaged, so they are left out.
 const xml = (value: string) =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  value
+    .replace(/[^\P{Cc}\t\n\r]|[\uFFFE\uFFFF]/gu, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 
 const text = (value: unknown) => (typeof value === 'string' ? value : '');
 
@@ -42,11 +52,6 @@ const RUN_PROPERTIES: Readonly<Record<string, string>> = {
   code: '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>',
 };
 
-function leftOut(marks: readonly StoredMark[] | undefined, writing: Writing): boolean {
-  const out = writing.suggestions === 'accepted' ? 'deletion' : 'insertion';
-  return (marks ?? []).some((mark) => mark.type === out);
-}
-
 const run = (value: string, properties = '') =>
   `<w:r>${properties ? `<w:rPr>${properties}</w:rPr>` : ''}<w:t xml:space="preserve">${xml(value)}</w:t></w:r>`;
 
@@ -54,15 +59,16 @@ const run = (value: string, properties = '') =>
 function textRun(node: StoredNode, writing: Writing): string {
   const marks = node.marks ?? [];
   const properties = marks.map((mark) => RUN_PROPERTIES[mark.type] ?? '').join('');
-  const link = marks.find((mark) => mark.type === 'link');
-  if (!link) return run(text(node.text), properties);
-  writing.links.push(text(link.attrs?.href));
+  // A link with an address a link may not hold is written as its text.
+  const href = safeHref(marks.find((mark) => mark.type === 'link')?.attrs?.href);
+  if (href === null) return run(text(node.text), properties);
+  writing.links.push(href);
   const id = `rIdLink${String(writing.links.length)}`;
   return `<w:hyperlink r:id="${id}">${run(text(node.text), `<w:rStyle w:val="Hyperlink"/>${properties}`)}</w:hyperlink>`;
 }
 
 function inlineOf(node: StoredNode, writing: Writing): string {
-  if (leftOut(node.marks, writing)) return '';
+  if (isLeftOut(node, writing.suggestions)) return '';
   switch (node.type) {
     case 'text':
       return textRun(node, writing);
@@ -71,7 +77,8 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'math':
       return run(storedMathSource(node), '<w:i/>');
     case 'footnote': {
-      writing.footnotes.push(inlines(node.content, writing));
+      // A footnote's runs are in the footnotes part, which names its links by its own relationships.
+      writing.footnotes.push(inlines(node.content, { ...writing, links: writing.footnoteLinks }));
       const id = String(writing.footnotes.length);
       return `<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="${id}"/></w:r>`;
     }
@@ -83,6 +90,8 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     }
     case 'mention':
       return run(`@${text(node.attrs?.label)}`);
+    case 'variable':
+      return run(variableText(node, writing.values));
     default:
       return inlines(node.content, writing);
   }
@@ -103,11 +112,11 @@ const styled = (style: string, extra = '') => `<w:pStyle w:val="${style}"/>${ext
 function listOf(node: StoredNode, writing: Writing, depth: number): string {
   const ordered = node.type === 'orderedList';
   const start = typeof node.attrs?.start === 'number' ? node.attrs.start : 1;
-  return (node.content ?? [])
+  return keptContent(node.content, writing.suggestions)
     .map((item, index) => {
       const marker = ordered ? `${String(start + index)}.` : '•';
       const indent = `<w:ind w:left="${String(360 * (depth + 1))}" w:hanging="360"/>`;
-      return (item.content ?? [])
+      return keptContent(item.content, writing.suggestions)
         .map((child, childIndex) => {
           if (child.type === 'bulletList' || child.type === 'orderedList') {
             return listOf(child, writing, depth + 1);
@@ -121,7 +130,7 @@ function listOf(node: StoredNode, writing: Writing, depth: number): string {
 }
 
 function tableOf(node: StoredNode, writing: Writing): string {
-  const rows = node.content ?? [];
+  const rows = keptContent(node.content, writing.suggestions);
   const width = Math.max(1, ...rows.map((row) => row.content?.length ?? 0));
   const border = (side: string) =>
     `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="auto"/>`;
@@ -191,7 +200,7 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
 };
 
 function blocks(content: readonly StoredNode[] | undefined, writing: Writing): string {
-  return (content ?? [])
+  return keptContent(content, writing.suggestions)
     .map((node) => {
       const write = BLOCKS[node.type];
       return write ? write(node, writing) : blocks(node.content, writing);
@@ -270,12 +279,12 @@ function footnotesPart(footnotes: readonly string[]): string {
 
 const RELATIONSHIP = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
-function documentRelationships(links: readonly string[]): string {
+// A part's relationships: its own, then one for each address it links to, in order.
+function relationships(own: readonly string[], links: readonly string[] = []): string {
   return [
     HEADER,
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
-    `<Relationship Id="rIdStyles" Type="${RELATIONSHIP}/styles" Target="styles.xml"/>`,
-    `<Relationship Id="rIdFootnotes" Type="${RELATIONSHIP}/footnotes" Target="footnotes.xml"/>`,
+    ...own,
     ...links.map(
       (href, index) =>
         `<Relationship Id="rIdLink${String(index + 1)}" Type="${RELATIONSHIP}/hyperlink" Target="${xml(href)}" TargetMode="External"/>`,
@@ -283,6 +292,11 @@ function documentRelationships(links: readonly string[]): string {
     '</Relationships>',
   ].join('');
 }
+
+const DOCUMENT_RELATIONSHIPS = [
+  `<Relationship Id="rIdStyles" Type="${RELATIONSHIP}/styles" Target="styles.xml"/>`,
+  `<Relationship Id="rIdFootnotes" Type="${RELATIONSHIP}/footnotes" Target="footnotes.xml"/>`,
+];
 
 const CONTENT_TYPES = [
   HEADER,
@@ -295,19 +309,18 @@ const CONTENT_TYPES = [
   '</Types>',
 ].join('');
 
-const PACKAGE_RELATIONSHIPS = [
-  HEADER,
-  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+const PACKAGE_RELATIONSHIPS = relationships([
   `<Relationship Id="rId1" Type="${RELATIONSHIP}/officeDocument" Target="word/document.xml"/>`,
-  '</Relationships>',
-].join('');
+]);
 
 /** A stored document as the bytes of a word processing document (`.docx`). */
 export function writeDocx(file: DocumentFile, options: DocxOptions = {}): Uint8Array {
   const writing: Writing = {
     suggestions: options.suggestions ?? 'accepted',
+    values: options.values ?? {},
     footnotes: [],
     links: [],
+    footnoteLinks: [],
   };
   const body = file.sections.map((section) => blocks(section.content, writing)).join('');
   const document = `${HEADER}<w:document ${NAMESPACES}><w:body>${body}${sectionProperties(options.template)}</w:body></w:document>`;
@@ -317,6 +330,10 @@ export function writeDocx(file: DocumentFile, options: DocxOptions = {}): Uint8A
     { path: 'word/document.xml', data: document },
     { path: 'word/styles.xml', data: STYLES },
     { path: 'word/footnotes.xml', data: footnotesPart(writing.footnotes) },
-    { path: 'word/_rels/document.xml.rels', data: documentRelationships(writing.links) },
+    {
+      path: 'word/_rels/document.xml.rels',
+      data: relationships(DOCUMENT_RELATIONSHIPS, writing.links),
+    },
+    { path: 'word/_rels/footnotes.xml.rels', data: relationships([], writing.footnoteLinks) },
   ]);
 }

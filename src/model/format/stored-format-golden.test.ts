@@ -91,6 +91,11 @@ describe('stored-format golden files', () => {
     }
   });
 
+  it('DOCE-FORMAT-7.2 holds marks on a node that is not text', () => {
+    const marked = storedNodes().filter((node) => node.type !== 'text' && node.marks?.length);
+    expect(marked.map((node) => node.type)).toContain('mention');
+  });
+
   it('DOCE-FORMAT-7.2 fails to read a golden file whose stored names changed', () => {
     const paragraph = fixtures.find(({ name }) => name === 'paragraph.json');
     if (!paragraph) throw new Error('no paragraph golden file');

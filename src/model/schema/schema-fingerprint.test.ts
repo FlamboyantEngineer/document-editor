@@ -53,8 +53,17 @@ function isValid(attr: AttrSpec, value: unknown): boolean {
   return attr.validate.split('|').includes(kind);
 }
 
-/** Samples for attributes whose kind a generic sample does not meet. */
-const SAMPLES: Readonly<Record<string, unknown>> = { colwidth: [120] };
+/**
+ * Samples for attributes whose kind a generic sample does not meet: a cell's alignments and a
+ * figure's size are written only as values of their kind.
+ */
+const SAMPLES: Readonly<Record<string, unknown>> = {
+  colwidth: [120],
+  textAlign: 'center',
+  verticalAlign: 'top',
+  width: 320,
+  height: 200,
+};
 
 /** A value unlike an attribute's default, of a kind it takes, so its markup shows where it goes. */
 function sampleValue(name: string, attr: AttrSpec): unknown {
