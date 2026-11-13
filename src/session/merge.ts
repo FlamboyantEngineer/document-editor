@@ -4,6 +4,8 @@
 // the same way; a block both sides changed differently is a conflict for the reader to settle.
 
 import type { DocumentFile, StoredNode, StoredSection } from '../model/format/document-format.js';
+import { identifyBlocks } from './merge-identity.js';
+import { elementIdOf } from './stored-elements.js';
 import { sameStored as same } from './stored-equality.js';
 
 /** A block both sides changed differently, or one side changed and the other deleted. */
@@ -30,6 +32,8 @@ export interface MergeInput {
   readonly mine: DocumentFile;
   /** The version stored now. */
   readonly theirs: DocumentFile;
+  /** Makes the id of a block that has none in any version; a random one by default. */
+  readonly newId?: (() => string) | undefined;
 }
 
 // An element and its children as a merge reads them; a section is one too.
@@ -43,12 +47,6 @@ interface Element {
 }
 
 type Merged = StoredNode | StoredSection;
-
-// A footnote stores its footnote id as `id`, so its element id is `elementId`.
-function elementIdOf(node: StoredNode): string | null {
-  const id = node.attrs?.[node.type === 'footnote' ? 'elementId' : 'id'];
-  return typeof id === 'string' ? id : null;
-}
 
 // Children merge one by one when each is an element with an id; otherwise the node is one block.
 function mergeableChildren(node: StoredNode): readonly StoredNode[] | null {
@@ -210,9 +208,11 @@ function mergeElements(
  * Merges the reader's changes and the stored ones, both made from `base`, by element id (DOCE-
  * SESSION-4.1). A block both changed differently, or one changed and the other deleted, is a
  * conflict: the merged content shows the reader's version, or the changed one over a deletion.
- * The template pin merges the same way, the reader's winning when both changed it.
+ * The template pin merges the same way, the reader's winning when both changed it. Blocks without
+ * an id are given one first, shared by the versions that hold the same block (`identifyBlocks`).
  */
-export function mergeDocuments({ base, mine, theirs }: MergeInput): DocumentMerge {
+export function mergeDocuments(input: MergeInput): DocumentMerge {
+  const { base, mine, theirs } = identifyBlocks(input);
   const context: MergeContext = { conflicts: [] };
   const read = (file: DocumentFile) => file.sections.map(sectionElement);
   const sections = mergeElements(

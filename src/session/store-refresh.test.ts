@@ -22,8 +22,8 @@ const DOCUMENT: DocumentFile = {
 };
 
 // A memory host whose store tells of no saves, so only a conflicting save brings others' changes.
-function hostWithoutFeed(): EditorHost {
-  const host = createMemoryHost({ documents: [{ id: 'doc', content: DOCUMENT }] });
+function hostWithoutFeed(content: DocumentFile = DOCUMENT): EditorHost {
+  const host = createMemoryHost({ documents: [{ id: 'doc', content }] });
   const { load, save }: DocumentStoreAdapter = host.documents;
   return { ...host, documents: { load, save } };
 }
@@ -64,6 +64,16 @@ function typeAt(session: DocumentSession, paragraphText: string, text: string) {
   session.update((state) => {
     const tr = state.tr.insertText(text, at);
     return state.apply(tr.setSelection(TextSelection.create(tr.doc, at + text.length)));
+  });
+}
+
+// Splits a paragraph at its end, as Enter does: a change of structure, which gives every element
+// that has no id one.
+function pressEnterAfter(session: DocumentSession, paragraphText: string) {
+  const at = endOf(session, paragraphText);
+  session.update((state) => {
+    const tr = state.tr.split(at);
+    return state.apply(tr.setSelection(TextSelection.create(tr.doc, at + 2)));
   });
 }
 
@@ -112,6 +122,33 @@ describe('store-mode merges', () => {
     await session.save();
     expect(paragraphs(session)).toEqual(['First, theirs', 'Second, mine']);
     expect(session.document.get()?.state.selection.head).toBe(caret + ', theirs'.length);
+  });
+
+  it('DOCE-SESSION-4.1 merges two writers’ changes to a stored document that has no element ids', async () => {
+    const stored: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'First' }] },
+            { type: 'paragraph', content: [{ type: 'text', text: 'Second' }] },
+          ],
+        },
+      ],
+    };
+    const host = hostWithoutFeed(stored);
+    const ada = open(host);
+    const grace = open(host);
+    await ada.ready;
+    await grace.ready;
+    pressEnterAfter(ada, 'First');
+    await ada.save();
+    pressEnterAfter(grace, 'Second');
+    await grace.save();
+    expect(grace.conflicts.get()).toEqual([]);
+    expect(paragraphs(grace)).toEqual(['First', '', 'Second', '']);
+    expect(await grace.flush()).toBe(true);
   });
 
   it('DOCE-SESSION-4.2 holds the save until the reader settles a block both changed', async () => {

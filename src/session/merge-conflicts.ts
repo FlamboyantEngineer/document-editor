@@ -4,12 +4,10 @@
 import { cloneJson } from '../model/clone-json.js';
 import type { DocumentFile, StoredNode } from '../model/format/document-format.js';
 import type { MergeConflict } from './merge.js';
+import { elementIdKey } from './stored-elements.js';
 
 /** How the reader settles a conflict. */
 export type MergeChoice = 'mine' | 'theirs' | 'both';
-
-// A footnote stores its footnote id as `id`, so its element id is `elementId`.
-const idKey = (node: StoredNode) => (node.type === 'footnote' ? 'elementId' : 'id');
 
 const hasText = (node: StoredNode): boolean =>
   node.type === 'text' ? Boolean(node.text) : (node.content ?? []).some(hasText);
@@ -26,8 +24,8 @@ function withNewIds(node: StoredNode, newId: () => string): StoredNode {
   const copy = cloneJson(node);
   const renew = (each: StoredNode) => {
     if (each.type === 'text') return;
-    if (each.attrs?.[idKey(each)] !== undefined) {
-      each.attrs = { ...each.attrs, [idKey(each)]: newId() };
+    if (each.attrs?.[elementIdKey(each)] !== undefined) {
+      each.attrs = { ...each.attrs, [elementIdKey(each)]: newId() };
     }
     if (each.type !== 'footnote') each.content?.forEach(renew);
   };
@@ -41,7 +39,9 @@ function replaceElement(
   id: string,
   replace: (node: StoredNode) => StoredNode[],
 ): boolean {
-  const index = nodes.findIndex((node) => node.type !== 'text' && node.attrs?.[idKey(node)] === id);
+  const index = nodes.findIndex(
+    (node) => node.type !== 'text' && node.attrs?.[elementIdKey(node)] === id,
+  );
   if (index >= 0) {
     const [node] = nodes.splice(index, 1);
     if (node) nodes.splice(index, 0, ...replace(node));
@@ -58,7 +58,7 @@ export function findElement(content: DocumentFile, id: string): StoredNode | nul
   const within = (nodes: readonly StoredNode[]): StoredNode | null => {
     for (const node of nodes) {
       if (node.type === 'text') continue;
-      if (node.attrs?.[idKey(node)] === id) return node;
+      if (node.attrs?.[elementIdKey(node)] === id) return node;
       const found = node.type !== 'footnote' && node.content ? within(node.content) : null;
       if (found) return found;
     }
