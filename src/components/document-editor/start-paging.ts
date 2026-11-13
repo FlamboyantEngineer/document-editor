@@ -59,19 +59,25 @@ function withOwn(plugins: readonly Plugin[], own: readonly Plugin[]): Plugin[] {
   ];
 }
 
-// The layout rules of each section: whether its tables repeat their header rows is the section's
-// own setting, else the template's (DOCE-PAGINATION-4.5), and the host's rules go over them.
-function sectionRules(options: DocumentLayoutOptions): SectionLayoutRules {
-  const { template, layoutRules } = options;
-  const byRepeat = new Map<boolean, LayoutRules>();
+/**
+ * The layout rules of each section: whether its tables repeat their header rows is the section's
+ * own setting, else the template's (DOCE-PAGINATION-4.5), and the host's rules go over them; both
+ * read from the latest options as each section lays out.
+ */
+export function sectionRules(latest: RefObject<DocumentLayoutOptions>): SectionLayoutRules {
+  // The rules for each repeat-header value, made again when the host passes other layout rules.
+  let made = { layoutRules: latest.current.layoutRules, byRepeat: new Map<boolean, LayoutRules>() };
   return (section) => {
+    // Read as each section lays out, so a renamed section or other host rules apply at once.
+    const { template, layoutRules } = latest.current;
     const scope = findTemplateSection(template, section.attrs.sectionName as string | null);
     const repeat =
       scope?.styles?.table?.repeatHeader ?? template.styles?.table?.repeatHeader ?? true;
-    let rules = byRepeat.get(repeat);
+    if (made.layoutRules !== layoutRules) made = { layoutRules, byRepeat: new Map() };
+    let rules = made.byRepeat.get(repeat);
     if (!rules) {
       rules = { ...createLayoutRules({ repeatTableHeader: repeat }), ...layoutRules };
-      byRepeat.set(repeat, rules);
+      made.byRepeat.set(repeat, rules);
     }
     return rules;
   };
@@ -111,7 +117,7 @@ export function startPaging(
   const setup = {
     measureIn: element,
     pageHeight: (section: ProseMirrorNode) => bodyHeight(latest.current.template, section),
-    rules: sectionRules(latest.current),
+    rules: sectionRules(latest),
     fragmentRules: fragmentRulesOf(latest.current),
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),

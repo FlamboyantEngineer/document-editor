@@ -157,11 +157,14 @@ export interface DocumentLayoutOptions {
   /** Tells of each change of the layout state; the web layout is always settled. */
   readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
   /**
-   * The host's layout rules by node type, over the library's (`createLayoutRules`), read when the
-   * pages mount: how its blocks split and keep together (DOCE-PAGINATION-1.7).
+   * The host's layout rules by node type, over the library's (`createLayoutRules`), read as each
+   * section lays out: how its blocks split and keep together (DOCE-PAGINATION-1.7).
    */
   readonly layoutRules?: LayoutRules | undefined;
-  /** The host's fragment rules by node type, over `FRAGMENT_RULES`: how its fragments join. */
+  /**
+   * The host's fragment rules by node type, over `FRAGMENT_RULES`, read when the pages mount: how
+   * its fragments join.
+   */
   readonly fragmentRules?: FragmentRules | undefined;
   /** The host's font faces, which the pages wait for (DOCE-PAGINATION-5.6). */
   readonly fonts?: FontsAdapter | undefined;

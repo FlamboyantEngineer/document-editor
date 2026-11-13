@@ -266,10 +266,10 @@ Verification: `src/pagination/page-geometry.test.ts`
 
 ### DOCE-PAGINATION-5.11 - Host rules on the document editor
 
-`DocumentEditor` shall lay its pages out with the host's `layoutRules` over the library's (`createLayoutRules`) and join their fragments with the host's `fragmentRules` over `FRAGMENT_RULES` (DOCE-PAGINATION-1.7), on pages and when it joins them for the web layout. Both are read when the pages mount.
+`DocumentEditor` shall lay its pages out with the host's `layoutRules` over the library's (`createLayoutRules`) and join their fragments with the host's `fragmentRules` over `FRAGMENT_RULES` (DOCE-PAGINATION-1.7), on pages and when it joins them for the web layout. The layout rules, and the template's repeat-header settings of each section, shall be read as each section lays out, so a renamed section or other host rules apply from the next layout; the fragment rules are read when the pages mount.
 
-Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `src/components/document-editor/document-editor.test.tsx`
+Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/start-paging.ts`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `src/components/document-editor/start-paging.test.ts`
 
 ### DOCE-PAGINATION-5.12 - A first layout before the first paint
 
