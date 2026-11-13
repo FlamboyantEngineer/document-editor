@@ -128,6 +128,23 @@ describe('object commands', () => {
     expect(insertMath('  ')(state)).toBe(false);
   });
 
+  it('DOCE-OBJECTS-1.3 refuses to turn math into a block where no block may go', () => {
+    const math: StoredNode = { type: 'math', attrs: { source: 'x^2' } };
+    const note: StoredNode = {
+      type: 'footnote',
+      attrs: { id: 'n1' },
+      content: [text('See '), math],
+    };
+    const state = stateOf({ type: 'paragraph', content: [text('Body'), note] });
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'math_inline') at = pos;
+    });
+    const selected = state.apply(state.tr.setSelection(NodeSelection.create(state.doc, at)));
+    expect(selected.selection.$from.parent.type.name).toBe('footnote_entry');
+    expect(convertMath(selected)).toBe(false);
+  });
+
   it('DOCE-OBJECTS-1.4 inserts a figure, then changes and aligns it', () => {
     let state = run(
       atStart(stateOf(paragraph(''))),

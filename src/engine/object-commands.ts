@@ -158,6 +158,15 @@ export const convertMath: Command = (state, dispatch) => {
   const type = mathType(state, display);
   const paragraph = state.schema.nodes.paragraph;
   if (!type || !paragraph || !latex) return false;
+  // Display math goes after the inline math's block, and inline math in a paragraph where the
+  // block was: refused where the container takes no such block, as a footnote's text.
+  const $at = state.doc.resolve(found.pos);
+  const depth = display ? $at.depth - 1 : $at.depth;
+  if (depth < 0) return false;
+  const container = $at.node(depth);
+  const index = display ? $at.indexAfter(depth) : $at.index(depth);
+  const takes = display ? type : paragraph;
+  if (!container.canReplaceWith(index, display ? index : index + 1, takes)) return false;
   if (dispatch) {
     const end = found.pos + found.node.nodeSize;
     const tr = state.tr.delete(found.pos, end);
