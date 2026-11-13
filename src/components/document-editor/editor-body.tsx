@@ -1,6 +1,6 @@
 // The editor's body: the document in its engine, with its view props (the host's keys, the
-// editor's own keys, pasted figures), the comments margin around it, the caller's chrome inside
-// the engine, and the table handles.
+// editor's own keys, pasted figures), the comments margin around it, the caller's chrome after
+// it, and the table handles.
 
 import {
   RichTextEngineContent,
@@ -204,6 +204,9 @@ export function EditorBody({
   useOpeningScripts(view, props.scriptRunner);
   // With the comments in a pane, a thread started or opened shows that pane; focus stays put.
   const panes = useEditorPanesContext();
+  // Only the document itself differs between the pages and the engine: the comments margin and the
+  // host's chrome stay at their place in the tree, so they keep their state as the pages start
+  // and through a switch of layout.
   const content = paged ? (
     <PagesView
       paged={paged}
@@ -213,17 +216,20 @@ export function EditorBody({
       nodeViews={props.nodeViews}
     />
   ) : (
-    <RichTextEngineContent
-      {...hooks.slot('content')}
-      role="textbox"
-      aria-multiline="true"
-      aria-readonly={editable ? undefined : 'true'}
-      aria-label={props['aria-label']}
-      aria-labelledby={props['aria-labelledby']}
-    />
+    <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>
+      <RichTextEngineContent
+        {...hooks.slot('content')}
+        role="textbox"
+        aria-multiline="true"
+        aria-readonly={editable ? undefined : 'true'}
+        aria-label={props['aria-label']}
+        aria-labelledby={props['aria-labelledby']}
+      />
+    </RichTextEngineHost>
   );
-  const drawn = (
-    <>
+  return (
+    <div {...hooks.slot('body')}>
+      <SelectionFirst view={engine.view} state={engineProps.state} />
       {props.comments ? (
         <DocumentComments
           {...props.comments}
@@ -241,18 +247,6 @@ export function EditorBody({
         content
       )}
       {props.children}
-    </>
-  );
-  return (
-    <div {...hooks.slot('body')}>
-      <SelectionFirst view={engine.view} state={engineProps.state} />
-      {paged ? (
-        drawn
-      ) : (
-        <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>
-          {drawn}
-        </RichTextEngineHost>
-      )}
       {editable && !suggesting ? <TableHandles view={view} state={state} labels={labels} /> : null}
       {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
     </div>

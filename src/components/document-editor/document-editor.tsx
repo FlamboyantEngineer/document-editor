@@ -278,7 +278,10 @@ export interface DocumentEditorProps
    * read on a scroll overview beside the frame, while the editor scrolls the document.
    */
   overview?: boolean | DocumentOverviewOptions | undefined;
-  /** Chrome inside the editor's engine, such as a toolbar reading its state. */
+  /**
+   * Chrome inside the editor, after the document, such as a toolbar reading it
+   * (`useDocumentEditor`). It stays mounted as the pages start and through a switch of layout.
+   */
   children?: ReactNode;
   /**
    * Panels beside the document, between the toolbar and the status bar, such as a
