@@ -27,7 +27,13 @@ export * from './format-upgrade.js';
 export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
 export type { SuggestionsMode } from './left-out.js';
 export { isLeftOut, keptContent } from './left-out.js';
-export type { MarkdownOptions } from './markdown.js';
+export type {
+  FrontMatterValue,
+  MarkdownComment,
+  MarkdownOptions,
+  MarkdownThread,
+  PersonName,
+} from './markdown.js';
 export { writeMarkdown } from './markdown.js';
 export type * from './template-format.js';
 export { TEMPLATE_FORMAT_VERSION } from './template-format.js';
