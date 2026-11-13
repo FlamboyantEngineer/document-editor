@@ -34,6 +34,7 @@ import {
   type TemplateSection,
 } from '../model/index.js';
 import { viewOnlyWidget } from '../utils/view-only-decorations.js';
+import { citedEntries } from './footnote-model.js';
 import { editsRegions, regionEdits } from './region-editing.js';
 import { isInlineTextOnly, isRemoteTransaction } from './transaction-kind.js';
 
@@ -49,6 +50,7 @@ export interface DocumentSectionsOptions {
 export const documentSectionsKey = new PluginKey<DecorationSet>('document-sections');
 
 const CONTENT: ReadonlySet<RegionKind> = new Set(['content']);
+const FOOTNOTES: ReadonlySet<RegionKind> = new Set(['footnotes']);
 const HEADER_FOOTER: ReadonlySet<RegionKind | null> = new Set(['header', 'footer']);
 
 // The attributes a section's element takes from its template section.
@@ -170,6 +172,13 @@ function contentAt(doc: ProseMirrorNode, pos: number) {
 const contentOf = (section: DocumentSection | undefined) =>
   section ? (sectionRegions(section, CONTENT)[0]?.node.content ?? null) : null;
 
+// The footnote entries of a whole section, from each of its footnote areas.
+const footnotesOf = (section: DocumentSection) =>
+  sectionRegions(section, FOOTNOTES).reduce(
+    (entries, area) => entries.append(area.node.content),
+    Fragment.empty,
+  );
+
 // Where the content of a section placed at a position starts.
 function contentStart(section: ProseMirrorNode, pos: number): number {
   let start = pos + 1;
@@ -180,24 +189,31 @@ function contentStart(section: ProseMirrorNode, pos: number): number {
   return start;
 }
 
+/** What a section built in the shape of another holds. */
+interface SectionParts {
+  readonly attrs: object;
+  readonly content: Fragment;
+  /** The footnote entries its content may cite; it keeps those it cites. None by default. */
+  readonly footnotes?: Fragment | undefined;
+}
+
 /**
- * A section in the shape of another, holding the content, its other regions empty; pagination
+ * A section in the shape of another, holding the content and the footnote entries the content
+ * cites, so a footnote's text stays with its marker; its other regions are empty, and pagination
  * fills them. A section of pages gets one page.
  */
-export function sectionOf(
-  like: ProseMirrorNode,
-  attrs: object,
-  content: Fragment,
-): ProseMirrorNode {
+export function sectionOf(like: ProseMirrorNode, parts: SectionParts): ProseMirrorNode {
+  const { attrs, content } = parts;
+  const cited = citedEntries(parts.footnotes ?? Fragment.empty, content);
+  const regionOf = (region: ProseMirrorNode) => {
+    const kind = regionKind(region);
+    if (kind === 'content') return region.type.create(region.attrs, content);
+    if (kind === 'footnotes') return region.type.create(region.attrs, cited);
+    return region.type.createAndFill() ?? region.type.create();
+  };
   const fill = (holder: ProseMirrorNode) => {
     const regions: ProseMirrorNode[] = [];
-    holder.forEach((region) =>
-      regions.push(
-        regionKind(region) === 'content'
-          ? region.type.create(region.attrs, content)
-          : (region.type.createAndFill() ?? region.type.create()),
-      ),
-    );
+    holder.forEach((region) => regions.push(regionOf(region)));
     return regions;
   };
   const first = like.firstChild;
@@ -240,12 +256,14 @@ export function insertDocumentSection(template: TemplateFile, name: string | nul
     content.forEach((block) => blocks.push(block));
     const after = Fragment.from(blocks.slice(at.block + 1));
     const { node, pos } = at.section;
-    const before = sectionOf(node, node.attrs, Fragment.from(blocks.slice(0, at.block + 1)));
-    const added = sectionOf(
-      node,
-      { sectionName: name },
-      after.size ? after : startingContent(state, scope),
-    );
+    const footnotes = footnotesOf(at.section);
+    const kept = Fragment.from(blocks.slice(0, at.block + 1));
+    const before = sectionOf(node, { attrs: node.attrs, content: kept, footnotes });
+    const added = sectionOf(node, {
+      attrs: { sectionName: name },
+      content: after.size ? after : startingContent(state, scope),
+      footnotes,
+    });
     tr.replaceWith(pos, pos + node.nodeSize, [before, added]);
     const start = contentStart(added, pos + before.nodeSize);
     dispatch(tr.setSelection(Selection.near(tr.doc.resolve(start))).scrollIntoView());
@@ -271,7 +289,11 @@ export function joinDocumentSectionBackward(template: TemplateFile): Command {
       return false;
     if (!dispatch) return true;
     const from = previous.pos;
-    const joined = sectionOf(previous.node, previous.node.attrs, earlier.append(later));
+    const joined = sectionOf(previous.node, {
+      attrs: previous.node.attrs,
+      content: earlier.append(later),
+      footnotes: footnotesOf(previous).append(footnotesOf(at)),
+    });
     tr.replaceWith(from, at.pos + at.node.nodeSize, joined);
     const caret = contentStart(joined, from) + earlier.size;
     dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(caret))).scrollIntoView());

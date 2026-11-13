@@ -3,7 +3,12 @@
 
 import { Fragment, type Node as ProseMirrorNode, type NodeType, Slice } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
-import { canInsertFootnote, citingPlacesOf, isFootnoteMarker } from './footnote-model.js';
+import {
+  canCiteBeside,
+  canInsertFootnote,
+  citingPlacesOf,
+  isFootnoteMarker,
+} from './footnote-model.js';
 
 // The inline content an entry takes, marks it does not allow left out.
 function fitsEntry(node: ProseMirrorNode, entry: NodeType): ProseMirrorNode | null {
@@ -49,11 +54,25 @@ function dropMarkers(fragment: Fragment, places: ReadonlySet<string> | null): Fr
   return Fragment.from(kept);
 }
 
+// A fragment with the markers left out of the text block its open start ends in, `depth` levels
+// down: that block's text joins the block at the caret, which may not cite them.
+function dropJoining(fragment: Fragment, depth: number): Fragment {
+  const first = fragment.firstChild;
+  if (!first || depth === 0) return fragment;
+  const inner = first.isTextblock
+    ? dropMarkers(first.content, null)
+    : dropJoining(first.content, depth - 1);
+  return fragment.replaceChild(0, first.copy(inner));
+}
+
 /**
  * Repairs content pasted where footnotes have rules: into a footnote entry, it becomes one run of
  * text, its blocks joined by a space, with no markers; elsewhere, footnote markers are kept only in
- * the paragraphs that may cite a footnote (`canInsertFootnote`, the plugin's `citingPlaces`). The
- * paste pipeline runs it on each slice; it returns the slice as it is when nothing needs repair.
+ * the paragraphs that may cite a footnote (the plugin's `citingPlaces`). Content that joins the
+ * block at the caret, inline content and the text block an open slice starts with, keeps its
+ * markers where the caret may cite one (`canInsertFootnote`); the slice's whole blocks land beside
+ * that block, and keep theirs where a paragraph there may (`canCiteBeside`). The paste pipeline
+ * runs it on each slice; it returns the slice as it is when nothing needs repair.
  */
 export function flattenFootnotePaste(slice: Slice, state: EditorState): Slice {
   const { $from } = state.selection;
@@ -67,7 +86,12 @@ export function flattenFootnotePaste(slice: Slice, state: EditorState): Slice {
       0,
     );
   }
-  const places = canInsertFootnote(state) ? citingPlacesOf(state) : null;
-  const content = dropMarkers(slice.content, places);
+  const places = citingPlacesOf(state);
+  const joining = canInsertFootnote(state) ? places : null;
+  const beside = canCiteBeside($from, places) ? places : null;
+  const inline = slice.content.firstChild?.isInline === true;
+  const fitted = dropMarkers(slice.content, inline ? joining : beside);
+  const content =
+    joining || !$from.parent.isTextblock ? fitted : dropJoining(fitted, slice.openStart);
   return content.eq(slice.content) ? slice : new Slice(content, slice.openStart, slice.openEnd);
 }

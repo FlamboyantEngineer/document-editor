@@ -28,6 +28,8 @@ interface Placed {
   readonly id: string;
   readonly pos: number;
   readonly node: ProseMirrorNode;
+  /** Where its section starts. */
+  readonly section: number;
 }
 
 interface Scan {
@@ -36,15 +38,18 @@ interface Scan {
   readonly areas: { readonly pos: number; readonly node: ProseMirrorNode }[];
 }
 
-// Every marker and entry in document order, and every footnote area, in one walk.
+// Every marker and entry in document order, each with its section, and every footnote area, in
+// one walk.
 function scan(doc: ProseMirrorNode): Scan {
   const found: Scan = { markers: [], entries: new Map(), areas: [] };
-  doc.descendants((node, pos) => {
+  let section = 0;
+  doc.descendants((node, pos, parent) => {
+    if (parent === doc) section = pos;
     if (regionKind(node) === 'footnotes') found.areas.push({ pos, node });
     const id = idOf(node);
-    if (isFootnoteMarker(node) && id) found.markers.push({ id, pos, node });
+    if (isFootnoteMarker(node) && id) found.markers.push({ id, pos, node, section });
     if (node.type.name === 'footnote_entry' && id)
-      found.entries.set(id, [...(found.entries.get(id) ?? []), { id, pos, node }]);
+      found.entries.set(id, [...(found.entries.get(id) ?? []), { id, pos, node, section }]);
     return true;
   });
   return found;
@@ -74,34 +79,49 @@ interface Missing {
   readonly body: Fragment;
 }
 
-// Each marker's rank, a new id for each copied one, and the entries the markers lack.
-function rankMarkers(tr: Transaction, scanned: Scan, context: FootnoteReconcileContext) {
+/** What ranking the markers finds. */
+interface Ranked {
+  /** Each cited footnote's rank, by id. */
+  readonly ranks: Map<string, number>;
+  /** The footnotes whose entry is in its marker's section, where it stays. */
+  readonly settled: Set<string>;
+  /** The entries to make: a marker's that has none, or has it in another section. */
+  readonly missing: Missing[];
+}
+
+// Each marker's rank, a new id for each copied one, and the entries the markers lack where they
+// are: a marker moved to another section takes its entry, with its text, along.
+function rankMarkers(tr: Transaction, scanned: Scan, context: FootnoteReconcileContext): Ranked {
   const originals = originalMarkers(scanned, context);
-  const ranks = new Map<string, number>();
-  const missing: Missing[] = [];
+  const ranked: Ranked = { ranks: new Map(), settled: new Set(), missing: [] };
   for (const marker of scanned.markers) {
     const entry = scanned.entries.get(marker.id)?.[0];
     const id = originals.has(marker) ? marker.id : context.newId();
     if (id !== marker.id)
       tr.setNodeMarkup(marker.pos, undefined, { ...marker.node.attrs, footnoteId: id });
-    if (!ranks.has(id)) ranks.set(id, ranks.size);
-    if (entry && id === marker.id) continue;
+    if (!ranked.ranks.has(id)) ranked.ranks.set(id, ranked.ranks.size);
+    if (id === marker.id && entry?.section === marker.section) {
+      ranked.settled.add(id);
+      continue;
+    }
     const body = entry?.node.content ?? context.bodies.get(marker.id) ?? Fragment.empty;
-    missing.push({ id, area: footnoteAreaAt(tr.doc, marker.pos), body });
+    ranked.missing.push({ id, area: footnoteAreaAt(tr.doc, marker.pos), body });
   }
-  return { ranks, missing };
+  return ranked;
 }
 
-// A footnote area's entries: the first entry of each cited footnote and the missing ones, in rank.
+// A footnote area's entries: the first entry of each footnote cited in its section and the missing
+// ones, in rank.
 function areaContent(
   area: Scan['areas'][number],
-  { scanned, ranks, missing }: { scanned: Scan; ranks: Map<string, number>; missing: Missing[] },
+  { scanned, ranked }: { scanned: Scan; ranked: Ranked },
 ): Fragment {
+  const { ranks, settled, missing } = ranked;
   const listed: ProseMirrorNode[] = [];
   area.node.forEach((entry, offset) => {
     const id = idOf(entry);
     const first = id ? scanned.entries.get(id)?.[0] : undefined;
-    if (id && ranks.has(id) && first?.pos === area.pos + 1 + offset) listed.push(entry);
+    if (id && settled.has(id) && first?.pos === area.pos + 1 + offset) listed.push(entry);
   });
   const entryType = area.node.type.schema.nodes.footnote_entry;
   for (const add of missing.filter((item) => item.area === area.pos))
@@ -112,23 +132,24 @@ function areaContent(
 
 /**
  * Puts the footnotes back in order: an entry whose marker is gone is removed and its text kept, a
- * marker with no entry gets one (with its kept text, if any), a copied marker gets a new id and a
- * copy of the text, an entry repeated for one id is removed, and each footnote area lists its entries
- * in marker order. Returns whether it changed the document, and the text it kept.
+ * marker with no entry gets one (with its kept text, if any), a marker in another section than its
+ * entry takes the entry there with its text, a copied marker gets a new id and a copy of the text,
+ * an entry repeated for one id is removed, and each footnote area lists its entries in marker
+ * order. Returns whether it changed the document, and the text it kept.
  */
 export function reconcileFootnotes(
   tr: Transaction,
   context: FootnoteReconcileContext,
 ): { readonly changed: boolean; readonly kept: Map<string, Fragment> } {
   const scanned = scan(tr.doc);
-  const { ranks, missing } = rankMarkers(tr, scanned, context);
+  const ranked = rankMarkers(tr, scanned, context);
   const kept = new Map<string, Fragment>();
   for (const [id, entries] of scanned.entries) {
-    if (!ranks.has(id) && entries[0]) kept.set(id, entries[0].node.content);
+    if (!ranked.ranks.has(id) && entries[0]) kept.set(id, entries[0].node.content);
   }
   let changed = tr.docChanged;
   for (const area of [...scanned.areas].reverse()) {
-    const content = areaContent(area, { scanned, ranks, missing });
+    const content = areaContent(area, { scanned, ranked });
     if (content.eq(area.node.content)) continue;
     tr.replaceWith(area.pos + 1, area.pos + area.node.nodeSize - 1, content);
     changed = true;
