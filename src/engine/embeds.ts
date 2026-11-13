@@ -90,13 +90,18 @@ const COMMENT_MARK = 'comment_highlight';
 interface Range {
   readonly from: number;
   readonly to: number;
+  // Whether the step changes all the text of the range where it stands, as a mark does, rather
+  // than putting other content in its place.
+  readonly inPlace?: true;
 }
 
 // The ranges a step changes: what it replaces or marks, or the inside of a node it sets attributes
 // or marks on; none for a comment's highlight.
 function rangesOf(step: Step, doc: ProseMirrorNode): Range[] {
-  if (step instanceof AddMarkStep || step instanceof RemoveMarkStep)
-    return step.mark.type.name === COMMENT_MARK ? [] : [{ from: step.from, to: step.to }];
+  if (step instanceof AddMarkStep || step instanceof RemoveMarkStep) {
+    if (step.mark.type.name === COMMENT_MARK) return [];
+    return [{ from: step.from, to: step.to, inPlace: true }];
+  }
   if (
     step instanceof AttrStep ||
     step instanceof AddNodeMarkStep ||
@@ -119,16 +124,31 @@ function insideEmbed(doc: ProseMirrorNode, pos: number): boolean {
   return false;
 }
 
+// Whether a range of a document holds an embed, whole or in part.
+function embedBetween(doc: ProseMirrorNode, { from, to }: Range): boolean {
+  let found = false;
+  doc.nodesBetween(from, to, (node) => {
+    found ||= isEmbed(node);
+    return !found && !node.isTextblock;
+  });
+  return found;
+}
+
 /**
  * Whether a transaction changes what an embed holds: a step whose range starts or ends inside an
- * embed. A range around a whole embed, which adds, moves or deletes it, changes nothing inside.
+ * embed. A range around a whole embed, which adds, moves or deletes it, changes nothing inside,
+ * unless the step marks the range: a mark set or taken off from the text before an embed to the
+ * text after it, as one taken off a selection of them all is, changes the embed's text too.
  */
 export function touchesEmbed(tr: Transaction): boolean {
   return tr.steps.some((step, index) => {
     const doc = tr.docs[index];
     if (!doc) return false;
     return rangesOf(step, doc).some(
-      (range) => insideEmbed(doc, range.from) || insideEmbed(doc, range.to),
+      (range) =>
+        insideEmbed(doc, range.from) ||
+        insideEmbed(doc, range.to) ||
+        (range.inPlace === true && embedBetween(doc, range)),
     );
   });
 }

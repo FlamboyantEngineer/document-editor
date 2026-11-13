@@ -167,6 +167,29 @@ describe('embed lock', () => {
     expect(state.apply(cut).doc.eq(state.doc)).toBe(true);
   });
 
+  it('DOCE-EMBEDS-2.1 refuses a mark taken off across a whole embed, which would change what it holds', () => {
+    const bold = (value: string): StoredNode => ({ ...text(value), marks: [{ type: 'strong' }] });
+    const state = stateWith([
+      { type: 'paragraph', content: [bold('Before')] },
+      embedded('r1', [{ type: 'paragraph', content: [bold('Total 42')] }]),
+      { type: 'paragraph', content: [bold('After')] },
+    ]);
+    const strong = defined(documentSchema.marks.strong);
+    // One step from the text before the embed to the text after it: neither end is inside it.
+    const across = state.tr.removeMark(0, state.doc.content.size, strong);
+    expect(across.steps).toHaveLength(1);
+    expect(touchesEmbed(across)).toBe(true);
+    expect(state.apply(across).doc.eq(state.doc)).toBe(true);
+    // Taken off the text before it alone, the mark goes.
+    const before = textPos(state.doc, 'Before');
+    const beside = state.tr.removeMark(before, before + 'Before'.length, strong);
+    expect(touchesEmbed(beside)).toBe(false);
+    expect(state.apply(beside).doc.eq(state.doc)).toBe(false);
+    // A comment across the embed changes nothing it holds.
+    const comment = defined(documentSchema.marks.comment_highlight).create({ commentId: 't1' });
+    expect(touchesEmbed(state.tr.addMark(0, state.doc.content.size, comment))).toBe(false);
+  });
+
   it('DOCE-EMBEDS-2.1 lets the writer comment on, move and delete a whole embed', () => {
     const state = stateWith(STORED);
     const inCell = textPos(state.doc, 'Pump');
