@@ -3,10 +3,11 @@ import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { StoredContent, TemplateFile } from '../../model/index.js';
+import { TEMPLATE_SECTIONS } from './settings-catalog.js';
 import { TemplateEditor, withRegionChange } from './template-editor.js';
 import { TemplateJsonEditor } from './template-json-editor.js';
 import { sectionNameOf } from './template-scope.js';
-import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
+import { withSetting } from './template-settings.js';
 
 const CONTENT: StoredContent = [{ type: 'paragraph', content: [{ type: 'text', text: 'Top' }] }];
 
@@ -104,7 +105,7 @@ describe('TemplateEditor', () => {
         onChange={(next) => changes.push(next)}
       />,
     );
-    const [reset] = screen.getAllByRole('button', { name: 'Use the inherited value' });
+    const [reset] = screen.getAllByRole('button', { name: 'Reset to inherited value' });
     if (!reset) throw new Error('No reset button');
     await user.click(reset);
     expect(changes.at(-1)).not.toHaveProperty('page');

@@ -76,6 +76,9 @@ function initialState(file?: DocumentFile): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// `?document=none` shows the settings alone, for tests that set hundreds of them.
+const WITH_DOCUMENT = new URLSearchParams(window.location.search).get('document') !== 'none';
+
 function Lab() {
   const [state, setState] = useState(() => initialState());
   const [own, setOwn] = useState<TemplateFile>(OWN);
@@ -115,21 +118,23 @@ function Lab() {
           />
         )}
       </div>
-      <DocumentEditor
-        state={state}
-        onStateChange={setState}
-        template={resolved}
-        layout={layout}
-        onLayoutChange={setLayout}
-        onRegionChange={(change) => setOwn((template) => withRegionChange(template, change))}
-        zoom={zoom}
-        onZoomChange={setZoom}
-        toolbar
-        scrollable
-        statusBar
-        className="lab-document-editor"
-        aria-label="Sample document"
-      />
+      {WITH_DOCUMENT ? (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={resolved}
+          layout={layout}
+          onLayoutChange={setLayout}
+          onRegionChange={(change) => setOwn((template) => withRegionChange(template, change))}
+          zoom={zoom}
+          onZoomChange={setZoom}
+          toolbar
+          scrollable
+          statusBar
+          className="lab-document-editor"
+          aria-label="Sample document"
+        />
+      ) : null}
     </div>
   );
 }
@@ -137,5 +142,6 @@ function Lab() {
 const container = document.querySelector('#lab-editor');
 if (container) {
   createRoot(container).render(<Lab />);
-  markReadyWhenSettled();
+  if (WITH_DOCUMENT) markReadyWhenSettled();
+  else document.documentElement.dataset.labReady = 'true';
 }

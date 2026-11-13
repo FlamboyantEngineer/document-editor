@@ -10,26 +10,27 @@ import { PropertyFilter } from '@flamboyantengineer/ui-components/property-filte
 import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
-import { MarginsRow } from './margins-row.js';
-import { CustomStyleSection, TextStyleSection } from './style-sections.js';
-import { type Rows, rows, type Target } from './template-rows.js';
+import { type Rows, SettingSections, type Target } from './template-rows.js';
 import {
   ScopePicker,
-  SECTION_SCOPED,
   SectionRows,
   type TemplateScopeLabels,
   withSection,
 } from './template-scope.js';
-import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
+import {
+  DEFAULT_TEMPLATE_SETTINGS_LABELS,
+  type TemplateSettingsLabels,
+  withSetting,
+} from './template-settings.js';
 
 const hooks = createHooks('template-editor');
 
 /** The template editor's own text. */
-export interface TemplateEditorLabels extends TemplateScopeLabels {
+export interface TemplateEditorLabels extends TemplateScopeLabels, TemplateSettingsLabels {
   readonly panel: string;
   readonly filter: string;
   readonly identity: string;
@@ -57,8 +58,6 @@ export interface TemplateEditorLabels extends TemplateScopeLabels {
   /** Marks a custom style the template inherits. */
   readonly inheritedStyle: string;
   readonly noCustomStyles: string;
-  readonly margins: string;
-  readonly marginSides: Readonly<Record<'top' | 'right' | 'bottom' | 'left', string>>;
   readonly numberPrefix: string;
   readonly numberSuffix: string;
   /** Where a section's inherited values come from. */
@@ -66,12 +65,11 @@ export interface TemplateEditorLabels extends TemplateScopeLabels {
   readonly customStyle: string;
   readonly addCustomStyle: string;
   readonly deleteCustomStyle: string;
-  /** Takes a row's own value away, so it inherits again. */
-  readonly useInherited: string;
 }
 
 /** The template editor's English text. */
 export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
+  ...DEFAULT_TEMPLATE_SETTINGS_LABELS,
   panel: 'Template settings',
   filter: 'Filter settings',
   identity: 'Identity',
@@ -97,20 +95,12 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   overrideCustomStyle: 'Override the inherited style',
   inheritedStyle: 'inherited',
   noCustomStyles: 'No custom styles yet.',
-  margins: 'Margins',
-  marginSides: {
-    top: 'Top margin',
-    right: 'Right margin',
-    bottom: 'Bottom margin',
-    left: 'Left margin',
-  },
   numberPrefix: 'Before the number',
   numberSuffix: 'After the number',
   documentSettings: 'the document settings',
   customStyle: 'Custom styles',
   addCustomStyle: 'Add a style',
   deleteCustomStyle: 'Delete the style',
-  useInherited: 'Use the inherited value',
   inherited: (value, source) =>
     source ? `Inherited from ${source}: ${value}` : `Inherited: ${value}`,
   scope: 'Settings of',
@@ -135,6 +125,8 @@ export interface TemplateEditorProps {
   readonly parentOptions?: readonly { readonly id: string; readonly label: string }[] | undefined;
   /** The fonts the font fields suggest; others may be typed. */
   readonly fonts?: readonly string[] | undefined;
+  /** The fonts the code font fields suggest, monospace ones; others may be typed. */
+  readonly codeFonts?: readonly string[] | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly className?: string | undefined;
@@ -231,9 +223,6 @@ export function TemplateEditor(props: TemplateEditorProps) {
   const scope = picked !== null && props.template.sections?.[picked] ? picked : null;
   const context: Rows = { props, labels, target: targetOf(props, scope, labels) };
   const { template, onChange, isDisabled } = props;
-  const sections = TEMPLATE_SECTIONS.filter(
-    (section) => scope === null || SECTION_SCOPED.has(section.id),
-  );
   return (
     <PropertyFilter
       {...hooks.root({
@@ -264,26 +253,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
           isDisabled={isDisabled}
         />
       )}
-      {sections.map((section) => (
-        <Fragment key={section.id}>
-          <PropertySection id={section.id} title={section.title}>
-            {rows(
-              context,
-              section.scope,
-              scope === null
-                ? section.settings
-                : section.settings.filter((setting) => !setting.documentOnly),
-            )}
-            {section.id === 'page' ? <MarginsRow context={context} /> : null}
-          </PropertySection>
-          {section.id === 'page' ? (
-            <>
-              <TextStyleSection context={context} />
-              <CustomStyleSection context={context} />
-            </>
-          ) : null}
-        </Fragment>
-      ))}
+      <SettingSections context={context} inSection={scope !== null} />
     </PropertyFilter>
   );
 }
