@@ -323,7 +323,7 @@ Verification: `src/components/document-session/save-status.test.tsx`, `e2e/sessi
 
 ### DOCE-SESSION-9.7 - Connection status
 
-With a `session` in room mode, the editor's status bar shall show where the room connection is (`session.connection`) in `ConnectionStatus` (DOCE-COLLAB-5.3), as a status item with `data-status="connection"` just before the save item, following each phase as it changes. In store mode, where the session gives no connection or a null one, the item shows nothing.
+With a `session` in room mode, the editor's status bar shall show where the room connection is (`session.connection`) in `ConnectionStatus` (DOCE-COLLAB-5.3), as a status item with `data-status="connection"` just before the save item, following each phase as it changes, in the words of the editor's `connectionStatus` label (by default `CONNECTION_STATUS_LABELS`). In store mode, where the session gives no connection or a null one, the item shows nothing.
 
 Implementation: `src/components/document-editor/save-status-item.tsx`, `src/components/document-editor/document-status-bar.tsx`
 Verification: `src/components/document-editor/save-status-item.test.tsx`, `e2e/session-room.spec.ts`
