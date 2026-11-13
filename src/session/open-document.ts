@@ -23,6 +23,11 @@ import { BASE_TEMPLATE, BASE_TEMPLATE_ID } from '../model/templates/base-templat
 export const failure = (kind: HostError['kind'], message?: string): HostError =>
   message === undefined ? { kind } : { kind, message };
 
+/** Whether two pins name the same template at the same revision. */
+export const samePin = (one: TemplatePin | null, other: TemplatePin | null): boolean =>
+  (one?.id ?? null) === (other?.id ?? null) &&
+  (one?.revision ?? null) === (other?.revision ?? null);
+
 /** A document's template, resolved, and the saved state of the template it pins, if any. */
 export interface PinnedTemplate {
   template: TemplateFile;

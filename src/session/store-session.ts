@@ -234,7 +234,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     ...drafts.members,
     save: () => saving?.save() ?? Promise.resolve(),
     flush: () => saving?.flush() ?? Promise.resolve(true),
-    resolveConflict: refresh.resolve,
+    resolveConflict: (id, choice) => Promise.resolve(refresh.resolve(id, choice)),
     hasUnsavedChanges: () => saving?.hasUnsavedChanges() ?? false,
     close,
   };

@@ -265,7 +265,7 @@ Verification: `src/session/room-drafts.test.ts`, `e2e/offline.spec.ts`
 
 ### DOCE-SESSION-7.1 - Following the store's saves
 
-When the host's document store tells of a save (`documents.subscribe`) newer than the one the session holds, the session shall wait for its own save in flight, load the stored document and take it in: shown as it is when the reader has no unsaved changes, merged with them otherwise (DOCE-SESSION-4), and taken as the new baseline. Its own saves are not taken in again.
+When the host's document store tells of a save (`documents.subscribe`) newer than the one the session holds, the session shall wait for its own save in flight, load the stored document and take it in: shown as it is when the reader has no unsaved changes, merged with them otherwise (DOCE-SESSION-4), and taken as the new baseline. The merge shown is of the document as it is by then: what the reader types while the template that save pins loads is merged too. Its own saves are not taken in again.
 
 Implementation: `src/session/store-refresh.ts`
 Verification: `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`

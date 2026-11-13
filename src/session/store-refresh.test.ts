@@ -77,8 +77,12 @@ function pressEnterAfter(session: DocumentSession, paragraphText: string) {
   });
 }
 
-// Another writer's save, changing the stored paragraph with an id to a new text.
-async function saveAsAnotherWriter(host: EditorHost, id: string, text: string) {
+// Another writer's save, changing the stored paragraph with an id to a new text, and the template
+// the document pins when one is given.
+async function saveAsAnotherWriter(
+  host: EditorHost,
+  { id, text, template }: { id: string; text: string; template?: DocumentFile['template'] },
+) {
   const stored = await host.documents.load('doc');
   if (!stored.ok) throw new Error('The document is not stored.');
   const content = structuredClone(stored.value.content);
@@ -87,6 +91,7 @@ async function saveAsAnotherWriter(host: EditorHost, id: string, text: string) {
   section.content = section.content.map((node) =>
     node.attrs?.id === id ? paragraph(id, text) : node,
   );
+  if (template) content.template = template;
   await host.documents.save('doc', { content, baseRevision: stored.value.revision });
 }
 
@@ -100,7 +105,7 @@ describe('store-mode merges', () => {
     const host = hostWithoutFeed();
     const session = open(host);
     await session.ready;
-    await saveAsAnotherWriter(host, 'a0000002', 'Second, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000002', text: 'Second, theirs' });
     typeAt(session, 'First', ', mine');
     await session.save();
     expect(session.conflicts.get()).toEqual([]);
@@ -116,7 +121,7 @@ describe('store-mode merges', () => {
     const host = hostWithoutFeed();
     const session = open(host);
     await session.ready;
-    await saveAsAnotherWriter(host, 'a0000001', 'First, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000001', text: 'First, theirs' });
     typeAt(session, 'Second', ', mine');
     const caret = endOf(session, 'Second, mine');
     await session.save();
@@ -155,7 +160,7 @@ describe('store-mode merges', () => {
     const host = hostWithoutFeed();
     const session = open(host);
     await session.ready;
-    await saveAsAnotherWriter(host, 'a0000001', 'First, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000001', text: 'First, theirs' });
     typeAt(session, 'First', ', mine');
     await session.save();
     expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]);
@@ -173,7 +178,7 @@ describe('store-mode merges', () => {
     const host = hostWithoutFeed();
     const session = open(host);
     await session.ready;
-    await saveAsAnotherWriter(host, 'a0000001', 'First, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000001', text: 'First, theirs' });
     typeAt(session, 'First', ', mine');
     await session.save();
     await session.resolveConflict('a0000001', 'both');
@@ -188,9 +193,9 @@ describe('store-mode merges', () => {
     const session = open(host);
     await session.ready;
     typeAt(session, 'First', ', mine');
-    await saveAsAnotherWriter(host, 'a0000001', 'First, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000001', text: 'First, theirs' });
     await vi.waitFor(() => expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]));
-    await saveAsAnotherWriter(host, 'a0000002', 'Second, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000002', text: 'Second, theirs' });
     await vi.waitFor(() => expect(paragraphs(session)).toEqual(['First, mine', 'Second, theirs']));
     expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]);
     expect(session.status.get()).toMatchObject({ save: 'error', error: { kind: 'conflict' } });
@@ -203,9 +208,9 @@ describe('store-mode merges', () => {
     const session = open(host);
     await session.ready;
     typeAt(session, 'First', ', mine');
-    await saveAsAnotherWriter(host, 'a0000001', 'First, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000001', text: 'First, theirs' });
     await vi.waitFor(() => expect(session.conflicts.get()).toHaveLength(1));
-    await saveAsAnotherWriter(host, 'a0000001', 'First, mine');
+    await saveAsAnotherWriter(host, { id: 'a0000001', text: 'First, mine' });
     await vi.waitFor(() => expect(session.conflicts.get()).toEqual([]));
     expect(session.status.get()).toMatchObject({ error: null, dirty: false });
   });
@@ -216,7 +221,7 @@ describe('store-mode refresh', () => {
     const host = createMemoryHost({ documents: [{ id: 'doc', content: DOCUMENT }] });
     const session = open(host);
     await session.ready;
-    await saveAsAnotherWriter(host, 'a0000002', 'Second, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000002', text: 'Second, theirs' });
     await vi.waitFor(() => expect(paragraphs(session)).toEqual(['First', 'Second, theirs']));
     expect(session.status.get()).toMatchObject({ save: 'idle', dirty: false });
   });
@@ -226,11 +231,47 @@ describe('store-mode refresh', () => {
     const session = open(host);
     await session.ready;
     typeAt(session, 'First', ', mine');
-    await saveAsAnotherWriter(host, 'a0000002', 'Second, theirs');
+    await saveAsAnotherWriter(host, { id: 'a0000002', text: 'Second, theirs' });
     await vi.waitFor(() => expect(paragraphs(session)).toEqual(['First, mine', 'Second, theirs']));
     expect(session.hasUnsavedChanges()).toBe(true);
     await session.save();
     expect(session.status.get()).toMatchObject({ save: 'saved', error: null });
+  });
+
+  it('DOCE-SESSION-7.1 keeps what the reader types while a save taken in loads its template', async () => {
+    const host = createMemoryHost({
+      documents: [{ id: 'doc', content: DOCUMENT }],
+      templates: [{ formatVersion: 1, id: 'memo' }],
+    });
+    const session = open(host);
+    await session.ready;
+    // The template the other writer pinned loads only once the test lets it.
+    const { templates } = host;
+    if (!templates) throw new Error('The memory host keeps templates.');
+    const load = templates.load.bind(templates);
+    let asked = false;
+    let release = () => undefined as void;
+    templates.load = async (...args) => {
+      if (args[0] === 'memo') {
+        asked = true;
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      }
+      return load(...args);
+    };
+    await saveAsAnotherWriter(host, {
+      id: 'a0000002',
+      text: 'Second, theirs',
+      template: { id: 'memo', revision: 'rev-1' },
+    });
+    await vi.waitFor(() => expect(asked).toBe(true));
+    typeAt(session, 'First', ', typed meanwhile');
+    release();
+    await vi.waitFor(() => expect(paragraphs(session)).toContain('Second, theirs'));
+    expect(paragraphs(session)).toEqual(['First, typed meanwhile', 'Second, theirs']);
+    expect(session.document.get()?.pin).toEqual({ id: 'memo', revision: 'rev-1' });
+    expect(session.hasUnsavedChanges()).toBe(true);
   });
 
   it('DOCE-SESSION-7.1 does not take in its own saves', async () => {

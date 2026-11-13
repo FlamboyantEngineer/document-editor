@@ -7,6 +7,7 @@ import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { contentKey, storedContentKey } from './dirty.js';
+import { samePin } from './open-document.js';
 import type { SessionStatus } from './status.js';
 import type { WritableStore } from './value-store.js';
 
@@ -62,10 +63,6 @@ export function isEmptyDocument(doc: ProseMirrorNode): boolean {
   });
   return empty;
 }
-
-const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
-  (one?.id ?? null) === (other?.id ?? null) &&
-  (one?.revision ?? null) === (other?.revision ?? null);
 
 // Runs `run` once `delay` milliseconds pass with no new `schedule`.
 function createPause(delay: number, run: () => void) {

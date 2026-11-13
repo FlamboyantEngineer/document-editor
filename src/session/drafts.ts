@@ -10,7 +10,7 @@ import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { storedContentKey } from './dirty.js';
 import type { SessionDocument } from './document-session.js';
-import { readStored } from './open-document.js';
+import { readStored, samePin } from './open-document.js';
 import type { SessionStatus } from './status.js';
 import type { createStoreSaving } from './store-saving.js';
 import { createValueStore, type ValueStore, type WritableStore } from './value-store.js';
@@ -161,10 +161,6 @@ function unknownBase(schema: Schema) {
   const doc = schema.topNodeType.createAndFill();
   return doc ? { content: writeDocumentFile(doc), doc } : null;
 }
-
-const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
-  (one?.id ?? null) === (other?.id ?? null) &&
-  (one?.revision ?? null) === (other?.revision ?? null);
 
 // Saving from the revision a draft was edited from: a draft from an older one then conflicts with
 // the newer save and merges into it from that base, rather than overwriting it.
