@@ -7,15 +7,19 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { StoredMark, StoredNode, StoredSection } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 
-// The stored attributes that record an element's identity and authorship rather than its content.
-const IDENTITY_ATTRS: ReadonlySet<string> = new Set(['id', 'author', 'aiSession', 'captionId']);
+// The stored attributes that record an element's authorship rather than its content.
+const AUTHORSHIP_ATTRS: ReadonlySet<string> = new Set(['author', 'aiSession', 'captionId']);
 
 // Marks that record who wrote a text rather than what it says.
 const AUTHORSHIP_MARKS: ReadonlySet<string> = new Set(['contributor']);
 
-function withoutIdentity(attrs: Readonly<Record<string, unknown>> | undefined) {
+// A footnote stores its footnote id, which is content, as `id`, so its element id is `elementId`.
+const elementIdKey = (node: StoredNode) => (node.type === 'footnote' ? 'elementId' : 'id');
+
+// Attributes without the ones that record identity and authorship: `idKey` holds the element id.
+function withoutIdentity(attrs: Readonly<Record<string, unknown>> | undefined, idKey = 'id') {
   if (!attrs) return undefined;
-  const kept = Object.entries(attrs).filter(([key]) => !IDENTITY_ATTRS.has(key));
+  const kept = Object.entries(attrs).filter(([key]) => key !== idKey && !AUTHORSHIP_ATTRS.has(key));
   return kept.length ? Object.fromEntries(kept) : undefined;
 }
 
@@ -44,7 +48,7 @@ function normalize(node: StoredNode): unknown {
   }
   return {
     type: node.type,
-    attrs: withoutIdentity(node.attrs),
+    attrs: withoutIdentity(node.attrs, elementIdKey(node)),
     marks: contentMarks(node.marks),
     text: node.text,
     content,

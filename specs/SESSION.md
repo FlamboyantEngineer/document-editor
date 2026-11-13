@@ -50,10 +50,10 @@ Verification: `src/components/document-session/document-session.test.tsx`
 
 ### DOCE-SESSION-2.1 - The dirty baseline
 
-The session shall measure each new document against the content the store holds, compared in the stored format, so what the editor derives and does not store, such as heading levels, is no change. A change that only gives elements other ids or changes who wrote what (element ids, authorship attributes and contributor marks) shall leave it clean; any other change, or a new template pin, makes it dirty, with the save status `dirty`.
+The session shall measure each new document against the content the store holds, compared in the stored format, so what the editor derives and does not store, such as heading levels, is no change. A change that only gives elements other ids or changes who wrote what (element ids, authorship attributes and contributor marks) shall leave it clean; any other change, or a new template pin, makes it dirty, with the save status `dirty`. A footnote's element id is its `elementId`; its `id`, the footnote's own, is content.
 
 Implementation: `src/session/dirty.ts`, `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`, `src/components/document-session/document-session.test.tsx`
+Verification: `src/session/dirty.test.ts`, `src/session/document-session.test.ts`, `src/components/document-session/document-session.test.tsx`
 
 ### DOCE-SESSION-2.2 - Saving
 
