@@ -342,6 +342,48 @@ describe('embed status and updates', () => {
     expect(embedOf(view.state).node.attrs.snapshot).toBe('r1');
     view.destroy();
   });
+
+  it('DOCE-EMBEDS-3.2 takes an update where the embed is once the host loaded, the document changed around it', async () => {
+    const now: EmbedContent = { snapshot: 'r2', label: 'Set 7', content: rows('Pump', 'Tank') };
+    const view = viewOf(stateWith(STORED));
+    const pending = updateEmbed(view, source({ load: now }), { pos: embedOf(view.state).pos });
+    // A collaborator types above the embed while the host loads.
+    const typed = view.state.tr.insertText('Well ', textPos(view.state.doc, 'Before'));
+    view.dispatch(markRemote(typed));
+    expect(await pending).toBe(true);
+    expect(textOf(view.state.doc)).toBe('Well BeforePumpTankAfter');
+    expect(embedOf(view.state).node.attrs.snapshot).toBe('r2');
+    view.destroy();
+  });
+
+  it('DOCE-EMBEDS-3.2 leaves alone an embed that changed, or went, while the host loaded', async () => {
+    const now: EmbedContent = { snapshot: 'r2', label: 'Set 7', content: rows('Pump', 'Tank') };
+    const view = viewOf(stateWith(STORED));
+    const { pos, node } = embedOf(view.state);
+    let pending = updateEmbed(view, source({ load: now }), { pos });
+    view.dispatch(markRemote(view.state.tr.setNodeAttribute(pos, 'label', 'Set 7 (C)')));
+    expect(await pending).toBe(false);
+    expect(embedOf(view.state).node.attrs).toMatchObject({ snapshot: 'r1', label: 'Set 7 (C)' });
+    pending = updateEmbed(view, source({ load: now }), { pos });
+    view.dispatch(markRemote(view.state.tr.delete(pos, pos + node.nodeSize)));
+    expect(await pending).toBe(false);
+    expect(textOf(view.state.doc)).toBe('BeforeAfter');
+    view.destroy();
+  });
+
+  it('DOCE-EMBEDS-3.2 refuses content of the host that the document cannot read', async () => {
+    const unreadable: EmbedContent = {
+      snapshot: 'r2',
+      label: 'Set 7',
+      content: [{ type: 'gauge', content: [text('Pump')] }],
+    };
+    const view = viewOf(stateWith(STORED));
+    const { pos } = embedOf(view.state);
+    expect(applyEmbedUpdate(pos, unreadable)(view.state, view.dispatch)).toBe(false);
+    expect(await updateEmbed(view, source({ load: unreadable }), { pos })).toBe(false);
+    expect(embedOf(view.state).node.attrs.snapshot).toBe('r1');
+    view.destroy();
+  });
 });
 
 describe('embed pagination', () => {

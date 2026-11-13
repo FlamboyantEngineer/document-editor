@@ -45,7 +45,7 @@ Verification: `src/engine/embeds.test.ts`
 
 ### DOCE-EMBEDS-3.2 - Taking an update
 
-`updateEmbed(view, source, { pos })` shall load the content of the embed at `pos`, or at the selection, from the host and put it in (`applyEmbedUpdate(pos, loaded)`), recording the content's state and label, as one change the writer can undo that is never a suggestion. The content's elements take ids made from the embed's id and their place, so an element keeps its id across updates and references to it hold. An update that holds the same content and state changes nothing; an embed the host fails to load, or a document changed while loading, is left alone.
+`updateEmbed(view, source, { pos })` shall load the content of the embed at `pos`, or at the selection, from the host and put it in (`applyEmbedUpdate(pos, loaded)`), recording the content's state and label, as one change the writer can undo that is never a suggestion. The content's elements take ids made from the embed's id and their place, so an element keeps its id across updates and references to it hold. An update that holds the same content and state changes nothing, and content the document cannot read is refused. The update goes where the embed is once the host has loaded, found by its element id, so a change made around it meanwhile, such as a collaborator's typing, does not drop it; an embed the host fails to load, or one that changed or went while loading, is left alone.
 
 Implementation: `src/engine/embed-status.ts`, `src/engine/scripts.ts`
 Verification: `src/engine/embeds.test.ts`

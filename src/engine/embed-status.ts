@@ -4,7 +4,7 @@
 // having an update, which the writer takes. A paste filter brings in pasted embeds of a kind the
 // host does not embed as the content they hold.
 
-import { Fragment, Mark, type Node as ProseMirrorNode } from 'prosemirror-model';
+import { Fragment, Mark, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type {
@@ -93,17 +93,26 @@ function sameContent(a: Fragment, b: Fragment): boolean {
   return true;
 }
 
+// The content the host loaded as nodes, or null for content the schema cannot read.
+function readLoaded(loaded: EmbedContent, schema: Schema): Fragment | null {
+  try {
+    return Fragment.from(readStoredContent(loaded.content, schema));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Puts the content the host loaded in the embed starting at `pos`, recording its state and name,
  * as one change the writer can undo. The content's elements take ids made from the embed's id and
  * their place, so an element keeps its id across updates. Refused when `pos` holds no embed of the
- * same content, or when the embed already shows it.
+ * same content, when the embed already shows it, or when the document cannot read the content.
  */
 export function applyEmbedUpdate(pos: number, loaded: EmbedContent): Command {
   return (state, dispatch) => {
     const node = state.doc.nodeAt(pos);
-    if (!node || !isEmbed(node)) return false;
-    const read = Fragment.from(readStoredContent(loaded.content, state.schema));
+    const read = readLoaded(loaded, state.schema);
+    if (!node || !isEmbed(node) || !read) return false;
     const id = node.attrs.dataId as unknown;
     const content = typeof id === 'string' && id ? identifyOutput(id, read) : read;
     const attrs = { ...node.attrs, snapshot: loaded.snapshot, label: loaded.label };
@@ -122,9 +131,22 @@ export function applyEmbedUpdate(pos: number, loaded: EmbedContent): Command {
   };
 }
 
+// Where an embed the host loaded content for is once it has: found by its element id, as the
+// document may change around it meanwhile, such as by a collaborator's typing, or where it was for
+// an embed without an id. Null when the embed is gone or changed itself.
+function placeNow(doc: ProseMirrorNode, asked: EmbedAt): number | null {
+  const id = asked.node.attrs.dataId as unknown;
+  const now =
+    typeof id === 'string' && id
+      ? listEmbeds(doc).find((each) => each.node.attrs.dataId === id)
+      : { pos: asked.pos, node: asked.pos < doc.content.size ? doc.nodeAt(asked.pos) : null };
+  return now?.node?.eq(asked.node) ? now.pos : null;
+}
+
 /**
  * Loads the content of the embed at `pos`, or holding the selection, from the host and puts it in
- * (`applyEmbedUpdate`); resolves with whether it did. An embed changed meanwhile is left alone.
+ * where the embed is then (`applyEmbedUpdate`); resolves with whether it did. An embed that
+ * changed or went meanwhile is left alone.
  */
 export async function updateEmbed(
   view: EditorView,
@@ -134,10 +156,10 @@ export async function updateEmbed(
   const node = pos === undefined ? null : view.state.doc.nodeAt(pos);
   const found: EmbedAt | null = pos === undefined ? embedAt(view.state) : node && { pos, node };
   if (!found || !isEmbed(found.node)) return false;
-  const before = view.state.doc;
   const result = await source.load(sourceOf(found.node)).catch(() => null);
-  if (!result?.ok || view.isDestroyed || !view.state.doc.eq(before)) return false;
-  return applyEmbedUpdate(found.pos, result.value)(view.state, view.dispatch);
+  if (!result?.ok || view.isDestroyed) return false;
+  const now = placeNow(view.state.doc, found);
+  return now !== null && applyEmbedUpdate(now, result.value)(view.state, view.dispatch);
 }
 
 /** How embeds are checked against the host. */
