@@ -68,6 +68,57 @@ describe('mergeDocuments', () => {
     expect(merge.content).toEqual(file(THREE, paragraph('a0000001', 'One, mine'), TWO));
   });
 
+  // Two sections, so a block can move from one to the other.
+  const sections = (first: StoredNode[], second: StoredNode[]): DocumentFile => ({
+    formatVersion: 1,
+    sections: [
+      { id: 's0000001', content: first },
+      { id: 's0000002', content: second },
+    ],
+  });
+
+  it('DOCE-SESSION-4.1 keeps a block the reader moved to another section once, with the other writer’s change', () => {
+    const base = sections([ONE, TWO], [THREE]);
+    const mine = sections([TWO], [THREE, ONE]);
+    const theirs = sections([paragraph('a0000001', 'One, theirs'), TWO], [THREE]);
+    const merge = mergeDocuments({ base, mine, theirs });
+    expect(merge.conflicts).toEqual([]);
+    expect(merge.content).toEqual(sections([TWO], [THREE, paragraph('a0000001', 'One, theirs')]));
+  });
+
+  it('DOCE-SESSION-4.1 puts the reader’s change where the other writer moved its block', () => {
+    const base = sections([ONE, TWO], [THREE]);
+    const mine = sections([paragraph('a0000001', 'One, mine'), TWO], [THREE]);
+    const theirs = sections([TWO], [ONE, THREE]);
+    const merge = mergeDocuments({ base, mine, theirs });
+    expect(merge.conflicts).toEqual([]);
+    expect(merge.content).toEqual(sections([TWO], [paragraph('a0000001', 'One, mine'), THREE]));
+  });
+
+  it('DOCE-SESSION-4.2 reports a block one side moved and both changed once, where it was moved', () => {
+    const base = sections([ONE, TWO], [THREE]);
+    const mine = sections([TWO], [THREE, paragraph('a0000001', 'One, mine')]);
+    const theirs = sections([paragraph('a0000001', 'One, theirs'), TWO], [THREE]);
+    const merge = mergeDocuments({ base, mine, theirs });
+    expect(merge.conflicts).toEqual([
+      {
+        id: 'a0000001',
+        mine: paragraph('a0000001', 'One, mine'),
+        theirs: paragraph('a0000001', 'One, theirs'),
+      },
+    ]);
+    expect(merge.content).toEqual(sections([TWO], [THREE, paragraph('a0000001', 'One, mine')]));
+  });
+
+  it('DOCE-SESSION-4.1 keeps a block the reader moved that the other writer deleted', () => {
+    const base = sections([ONE, TWO], [THREE]);
+    const mine = sections([TWO], [THREE, ONE]);
+    const theirs = sections([TWO], [THREE]);
+    const merge = mergeDocuments({ base, mine, theirs });
+    expect(merge.conflicts).toEqual([]);
+    expect(merge.content).toEqual(mine);
+  });
+
   it('DOCE-SESSION-4.1 merges the items of a list both sides changed', () => {
     const base = file(list('l0000001', [ONE, TWO]));
     const mine = file(list('l0000001', [paragraph('a0000001', 'One, mine'), TWO]));
