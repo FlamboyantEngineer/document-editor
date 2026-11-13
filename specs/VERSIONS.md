@@ -15,8 +15,8 @@ Verification: `src/engine/version-compare.test.ts`
 
 A block both versions hold that left the longest run of blocks kept in order shall be a `move`; one whose text is unchanged but whose attributes or text formatting changed shall be `formatting`.
 
-Implementation: `src/engine/version-compare.ts`
-Verification: `src/engine/version-compare.test.ts`
+Implementation: `src/engine/version-compare.ts`, `src/engine/common-subsequence.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequence.test.ts`
 
 ### DOCE-VERSIONS-1.3 - Where deletions go
 
@@ -34,10 +34,10 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.5 - Word by word
 
-A changed block's text shall be compared word by word (`diffText`), spaces and punctuation as words of their own, giving the runs it kept, inserted and deleted in order. A word changed only by characters added to or removed from it shall keep the characters it shares.
+A changed block's text shall be compared word by word (`diffText`), spaces and punctuation as words of their own, giving the runs it kept, inserted and deleted in order. A word changed only by characters added to or removed from it shall keep the characters it shares. A comparison shall take bounded time and memory: between their first and their last difference, two texts with more than a million pairs of words shall be compared by the words each holds once, kept in order, and between those word by word while a million pairs last; the words then left unmatched shall read as deleted and inserted.
 
 Implementation: `src/engine/text-diff.ts`, `src/engine/common-subsequence.ts`
-Verification: `src/engine/version-compare.test.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequence.test.ts`
 
 ### DOCE-VERSIONS-1.6 - Suggestions accepted
 
