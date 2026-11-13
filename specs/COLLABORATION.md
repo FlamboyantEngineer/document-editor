@@ -41,7 +41,7 @@ Verification: `src/collab/awareness.test.ts`, `e2e/presence.spec.ts`, `src/colla
 
 ### DOCE-COLLAB-1.6 - Status and activity
 
-Each person shall be `active`, `idle` after `idleAfter` without input of their own (two minutes by default), or `away` while their page is hidden (the host's lifecycle), and active again on their next input or when the page shows again. An idle or away peer's caret and selection shall carry `data-presence-status`.
+Each person shall be `active`, `idle` after `idleAfter` without input of their own (two minutes by default), or `away` while their page is hidden (the host's lifecycle), and active again on their next input or when the page shows again. An idle or away peer's caret and selection shall carry `data-presence-status`, and a caret shall be drawn again when its peer's status, name or colour changes, also while it stays where it is.
 
 Implementation: `src/collab/awareness.ts`, `src/engine/presence.ts`, `labs/reference/editor-chrome.css`
 Verification: `src/collab/awareness.test.ts`, `src/engine/presence.test.ts`

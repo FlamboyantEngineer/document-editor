@@ -90,6 +90,13 @@ function peerAttrs(peer: PlacedPeer): Record<string, string> {
   };
 }
 
+// A caret's key names everything the caret draws. The view keeps the element of a widget whose
+// key it has drawn, so a key of the peer's id alone would leave a peer who went idle, or changed
+// name or colour, without moving, drawn as they were.
+function caretKey(peer: PlacedPeer, stack: number): string {
+  return JSON.stringify(['presence', peer.id, stack, peer.name, peerAttrs(peer)]);
+}
+
 // A caret, its label raised by its place among the carets at the same position.
 function caret(peer: PlacedPeer, stack: number) {
   return (view: { dom: { ownerDocument: Document } }) => {
@@ -124,11 +131,7 @@ function decorate(doc: ProseMirrorNode, peers: readonly PlacedPeer[]): Decoratio
         : [];
     return [
       ...selection,
-      viewOnlyWidget(head, caret(peer, stack), {
-        key: `presence-${peer.id}-${String(stack)}`,
-        side: 1,
-        peer,
-      }),
+      viewOnlyWidget(head, caret(peer, stack), { key: caretKey(peer, stack), side: 1, peer }),
     ];
   });
   return DecorationSet.create(doc, decorations);

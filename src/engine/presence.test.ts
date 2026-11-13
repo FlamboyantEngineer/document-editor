@@ -142,4 +142,18 @@ describe('presence', () => {
     });
     expect(statuses.sort()).toEqual(['away', 'away', null]);
   });
+
+  it('DOCE-COLLAB-1.6 draws a caret again when its peer goes idle, or changes name or colour, where it stands', () => {
+    const view = viewOf('Shared text');
+    const grace = { id: 'grace', name: 'Grace', head: start(view.state) + 2 };
+    view.dispatch(setPeers(view.state, [grace]));
+    const caret = () => view.dom.querySelector('.de-presence-caret');
+    expect(caret()).not.toHaveAttribute('data-presence-status');
+    view.dispatch(
+      setPeers(view.state, [{ ...grace, name: 'Grace H.', status: 'idle', color: '#c00' }]),
+    );
+    expect(caret()).toHaveAttribute('data-presence-status', 'idle');
+    expect(caret()).toHaveTextContent('Grace H.');
+    expect(caret()?.getAttribute('style')).toContain('#c00');
+  });
 });
