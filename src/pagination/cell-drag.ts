@@ -19,19 +19,29 @@ export interface CellDrag {
 /** A cell selection held on the canonical state while, and after, the writer drags across cells. */
 export function holdCellSelection() {
   let held = false;
+  // Stops following the drag in progress.
+  let stop = () => undefined as void;
   return {
     /** Whether a dragged cell selection stands, so the projection's selection does not replace it. */
     held: () => held,
+    /** Lets go of the cell selection, and of a drag still followed. */
     release() {
       held = false;
+      stop();
     },
-    /** Follows a press on the projection, selecting canonical cells once it moves into another. */
+    /**
+     * Follows a press on the projection, selecting canonical cells once it moves into another. The
+     * press ends when its button is released, or no longer down as the pointer moves, or when it
+     * turns into a native drag, which fires no mouseup.
+     */
     drag(view: EditorView, event: MouseEvent, drag: CellDrag): void {
       const anchor = drag.cellAt(event);
       if (anchor === null || event.button !== 0) return;
+      stop();
       const owner = view.dom.ownerDocument;
       let dragging = false;
       const move = (moved: MouseEvent) => {
+        if (moved.buttons === 0) return stop();
         const head = drag.cellAt(moved);
         if (head === null || (!dragging && head === anchor)) return;
         const { doc, tr } = drag.canonical();
@@ -44,12 +54,14 @@ export function holdCellSelection() {
         owner.getSelection()?.removeAllRanges();
         drag.select(tr.setSelection(new CellSelection($anchor, $head) as Selection));
       };
-      const up = () => {
+      const ends = ['mouseup', 'dragstart'] as const;
+      stop = () => {
         owner.removeEventListener('mousemove', move);
-        owner.removeEventListener('mouseup', up);
+        for (const end of ends) owner.removeEventListener(end, stop);
+        stop = () => undefined;
       };
       owner.addEventListener('mousemove', move);
-      owner.addEventListener('mouseup', up);
+      for (const end of ends) owner.addEventListener(end, stop);
     },
   };
 }

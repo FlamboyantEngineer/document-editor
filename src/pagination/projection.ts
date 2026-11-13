@@ -376,6 +376,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     stats: () => ({ ...live.pace.counter.stats(), ...live.counts }),
     destroy() {
       unlisten();
+      live.cells.release();
       live.cancelLayout?.();
       live.edits.cancel();
       live.pace.readiness.destroy();
