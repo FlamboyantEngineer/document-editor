@@ -180,6 +180,21 @@ describe('template changes in quick succession', () => {
 });
 
 describe('store-mode saving', () => {
+  it('DOCE-SESSION-2.1 saves nothing for a document changed back to what is stored', async () => {
+    const host = hostWith();
+    const save = vi.spyOn(host.documents, 'save');
+    const session = open(host);
+    await session.ready;
+    const before = shown(session).state;
+    typeText(session, 'Oh ');
+    expect(session.hasUnsavedChanges()).toBe(true);
+    session.update(() => before);
+    await session.save();
+    expect(save).not.toHaveBeenCalled();
+    expect(session.hasUnsavedChanges()).toBe(false);
+    expect(session.status.get()).toMatchObject({ save: 'saved', dirty: false, error: null });
+  });
+
   it('DOCE-SESSION-2.1 leaves a document clean after a change of ids or authorship alone', async () => {
     const session = open(hostWith());
     await session.ready;

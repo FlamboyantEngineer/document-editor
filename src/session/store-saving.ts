@@ -111,6 +111,12 @@ const changedSince = (
 async function saveOnce({ context, state, schedule }: Saver) {
   const current = context.current();
   if (!current || !state.dirty || state.closed || state.held) return;
+  // A document changed back to what the store holds has nothing to save.
+  if (!changedSince(state.baseline, current)) {
+    state.dirty = false;
+    patchStatus(context, { save: 'saved', error: null, dirty: false });
+    return;
+  }
   const { doc, pin } = current;
   patchStatus(context, { save: 'saving', error: null });
   const content = writeDocumentFile(doc, { template: pin });
