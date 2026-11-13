@@ -165,10 +165,10 @@ Verification: `src/model/templates/page-regions.test.ts`
 
 ### DOCE-TEMPLATES-7.1 - Applying a custom style
 
-A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall apply to paragraphs and headings by name (`setCustomStyle`, `customStyleAt`), kept as the block's style; `createCustomStyles({ template })`, which the editing plugins install when given the template, gives each block in a style the style's values from its section's template or the document's (`customStyleProperties`, `--doc-custom-*`, with `data-custom-style`), in every view, again when the template changes. A built-in text style takes a block out of its custom style. The toolbar's text style field offers the custom styles after the built-in ones.
+A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall apply to paragraphs and headings by name (`setCustomStyle`, `customStyleAt`), kept as the block's style; `createCustomStyles({ template })`, which the editing plugins install when given the template, gives each block in a style the style's values from its section's template or the document's (`customStyleProperties`, `--doc-custom-*`, with `data-custom-style`), in every view, again when the template changes. A built-in text style takes a block out of its custom style. The toolbar's text style field offers the custom styles after the built-in ones. A block's style shall read from markup, and be written, as its `class` only when the class is one name a custom style may have (`CUSTOM_STYLE_NAME`): any other class, such as those markup pasted from a page carries, is not kept and not written, so a host's stylesheet never acts on it.
 
-Implementation: `src/engine/custom-styles.ts`, `src/model/templates/template-text-properties.ts`, `src/components/document-editor/toolbar-controls.tsx`
-Verification: `src/engine/custom-styles.test.ts`, `e2e/template-editor.spec.ts`
+Implementation: `src/engine/custom-styles.ts`, `src/model/schema/core-nodes.ts`, `src/model/templates/template-text-properties.ts`, `src/components/document-editor/toolbar-controls.tsx`
+Verification: `src/engine/custom-styles.test.ts`, `src/model/schema/core-nodes.test.ts`, `e2e/template-editor.spec.ts`
 
 ## DOCE-TEMPLATES-8 - Template content
 
