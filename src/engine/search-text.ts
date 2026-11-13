@@ -44,7 +44,7 @@ function specText(spec: unknown): string {
  * The text an inline node shows: its `leafText`, such as a value it shows, the text it holds, or
  * the text its rendering writes; one object character when it shows none.
  */
-function shownText(node: ProseMirrorNode): string {
+export function shownText(node: ProseMirrorNode): string {
   if (node.isText) return node.text ?? '';
   const leafText = node.type.spec.leafText?.(node);
   if (leafText) return leafText;
