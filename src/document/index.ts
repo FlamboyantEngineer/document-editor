@@ -13,7 +13,7 @@ export type {
 } from '../engine/automation.js';
 export { applyEdits } from '../engine/automation.js';
 export type { EditAddress } from '../engine/automation-address.js';
-export type { DescribedBlock } from '../engine/automation-read.js';
+export type { DescribedBlock, DescribeOptions } from '../engine/automation-read.js';
 export { describeBlocks } from '../engine/automation-read.js';
 export { assignElementIds, repairElementIds } from '../engine/element-ids.js';
 export type { OutlineEntry, OutlineOptions } from '../engine/outline.js';
@@ -33,3 +33,15 @@ export type {
   VersionChangeTarget,
 } from '../engine/version-compare.js';
 export { compareVersions } from '../engine/version-compare.js';
+export type {
+  DescribedSection,
+  DocumentDescription,
+  StoredEditError,
+  StoredEditOptions,
+  StoredEditResult,
+  StoredReadOptions,
+  StoredRevision,
+  VersionConflict,
+} from './automation.js';
+export { applyStoredEdits, describeDocument } from './automation.js';
+export { AUTOMATION_SCHEMAS } from './automation-schemas.js';
