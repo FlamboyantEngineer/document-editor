@@ -1,5 +1,5 @@
 import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
@@ -319,6 +319,51 @@ describe('DocumentEditor', () => {
     expect(drawn()).toHaveAttribute('data-in-editor', 'true');
     await user.click(screen.getByRole('button', { name: 'Change' }));
     await waitFor(() => expect(drawn()).toHaveTextContent('Oh, Hello'));
+  });
+
+  it('DOCE-EDITOR-1.8 leaves text typed in a host view’s own field to the field', async () => {
+    function CaptionedParagraph({ nodeProps, children, ...props }: RichTextNodeViewProps) {
+      void nodeProps;
+      return (
+        <div {...props}>
+          <input aria-label="Note" />
+          <p>{children}</p>
+        </div>
+      );
+    }
+    const views = { paragraph: CaptionedParagraph };
+    const handle = createRef<DocumentEditorHandle>();
+    render(
+      <DocumentEditor
+        state={initial()}
+        onStateChange={() => undefined}
+        template={TEMPLATE}
+        nodeViews={views}
+        aria-label="Report"
+        handleRef={handle}
+      />,
+    );
+    await handle.current?.whenSettled();
+    // The field on the pages, not the one the measuring view draws.
+    // The field on the pages, once the plain view draws them with the host views in it.
+    const pages = () => screen.getByRole('textbox', { name: 'Report' });
+    await waitFor(() => expect(pages().querySelector('.de-host-view input')).not.toBeNull());
+    const field = within(pages()).getByRole('textbox', { name: 'Note' });
+    const typed = new InputEvent('beforeinput', {
+      inputType: 'insertText',
+      data: 'x',
+      bubbles: true,
+      cancelable: true,
+    });
+    field.dispatchEvent(typed);
+    const erased = new KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    });
+    field.dispatchEvent(erased);
+    expect([typed.defaultPrevented, erased.defaultPrevented]).toEqual([false, false]);
+    expect(handle.current?.view()?.state.doc.textContent).toBe('Hello');
   });
 
   it('DOCE-PAGINATION-7.19 gives the host the element ids the pages gave a new block', async () => {
