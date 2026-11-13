@@ -12,6 +12,7 @@ export type SettingShape =
   | 'lineHeight'
   | 'weight'
   | 'content'
+  | 'regionContent'
   | 'numbering'
   | 'bullet'
   | 'any'
@@ -159,8 +160,14 @@ export const STYLES_SHAPE: SettingShape = {
   },
 };
 
+// A header or footer holds blocks only, so its content is a kind of its own.
 const REGION: SettingShape = {
-  object: { content: 'content', height: 'length', spacingToContent: 'length', inherit: 'boolean' },
+  object: {
+    content: 'regionContent',
+    height: 'length',
+    spacingToContent: 'length',
+    inherit: 'boolean',
+  },
 };
 
 const FOOTNOTES = {

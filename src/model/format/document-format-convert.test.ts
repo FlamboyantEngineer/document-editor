@@ -99,10 +99,151 @@ describe('lenient reading', () => {
     expect(writeDocumentFile(doc).sections[0]?.content).toEqual([table]);
   });
 
+  it('DOCE-FORMAT-1.5 drops a mark it cannot read from a node that is not text', () => {
+    const mention = (marks: StoredNode['marks']): DocumentFile => ({
+      formatVersion: 1,
+      sections: [{ content: [{ type: 'paragraph', content: [{ type: 'mention', marks }] }] }],
+    });
+    const marks = [{ type: 'glow' }, { type: 'bold' }];
+    expect(() => readDocumentFile(mention(marks), documentSchema)).toThrow(
+      'sections[0].content[0].content[0].marks[0]: unknown mark glow',
+    );
+    const { doc, problems } = readDocumentFile(mention(marks), documentSchema, { unknown: 'drop' });
+    expect(problems.map((problem) => problem.message)).toEqual(['unknown mark glow']);
+    expect(writeDocumentFile(doc).sections[0]?.content[0]?.content).toEqual([
+      { type: 'mention', marks: [{ type: 'bold' }] },
+    ]);
+  });
+
+  it('DOCE-FORMAT-1.5 keeps a footnote whose text holds an unknown node, with its text', () => {
+    const footnote: StoredNode = {
+      type: 'footnote',
+      attrs: { id: 'fn1' },
+      content: [{ type: 'text', text: 'See ' }, BADGE],
+    };
+    const cited: StoredNode = {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Cited' }, footnote],
+    };
+    const file: DocumentFile = { formatVersion: 1, sections: [{ content: [cited] }] };
+    const { doc, problems } = readDocumentFile(file, documentSchema, { unknown: 'keep' });
+    expect(problems).toEqual([
+      {
+        path: 'sections[0].content[0].content[1].content[1]',
+        message: 'unknown node badge',
+        kept: true,
+      },
+    ]);
+    expect(findNode(doc, 'footnote_entry')?.textContent).toBe('See ');
+    expect(writeDocumentFile(doc).sections[0]?.content).toEqual([cited]);
+  });
+
+  it('DOCE-FORMAT-1.5 keeps a footnote whole when its text cannot be read', () => {
+    const block: StoredNode = { type: 'paragraph', content: [{ type: 'text', text: 'A block' }] };
+    const footnote: StoredNode = { type: 'footnote', attrs: { id: 'fn1' }, content: [block] };
+    const cited: StoredNode = {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Cited' }, footnote],
+    };
+    const file: DocumentFile = { formatVersion: 1, sections: [{ content: [cited] }] };
+    const { doc, problems } = readDocumentFile(file, documentSchema, { unknown: 'keep' });
+    expect(problems.at(-1)).toEqual({
+      path: 'sections[0].content[0].content[1]',
+      message: 'footnote cannot be read',
+      kept: true,
+    });
+    expect(findNode(doc, 'footnote_reference')).toBeUndefined();
+    expect(writeDocumentFile(doc).sections[0]?.content).toEqual([cited]);
+  });
+
   it('DOCE-FORMAT-1.5 still refuses a file that is not a stored document', () => {
     expect(() =>
       readDocumentFile({ formatVersion: 2, sections: [] }, documentSchema, { unknown: 'keep' }),
     ).toThrow('formatVersion: must be 1');
+  });
+});
+
+describe('attributes not of their kind', () => {
+  const plain: StoredNode = {
+    type: 'tableCell',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Volt' }] }],
+  };
+  const cell = (attrs: Record<string, unknown>): StoredNode => ({ ...plain, attrs });
+  const table: StoredNode = {
+    type: 'table',
+    content: [{ type: 'tableRow', content: [cell({ colspan: 100_000 }), cell({ rowspan: '2' })] }],
+  };
+  const linked: StoredNode = { type: 'text', text: 'site', marks: [{ type: 'link', attrs: {} }] };
+  const file: DocumentFile = {
+    formatVersion: 1,
+    sections: [{ content: [table, { type: 'paragraph', content: [linked] }] }],
+  };
+  const row = 'sections[0].content[0].content[0]';
+
+  it('DOCE-FORMAT-1.4 names an attribute whose value is not of its kind', () => {
+    expect(() => readDocumentFile(file, documentSchema)).toThrow(
+      `${row}.content[0]: attribute colspan cannot be read: a cell spans 1 to 1000 rows or columns`,
+    );
+  });
+
+  it('DOCE-FORMAT-1.5 leaves the attribute out, so it takes its default, and reads the rest', () => {
+    for (const unknown of ['drop', 'keep'] as const) {
+      const { doc, problems } = readDocumentFile(file, documentSchema, { unknown });
+      expect(problems).toEqual([
+        {
+          path: `${row}.content[0]`,
+          message: 'attribute colspan cannot be read: a cell spans 1 to 1000 rows or columns',
+          kept: false,
+        },
+        {
+          path: `${row}.content[1]`,
+          message: 'attribute rowspan cannot be read: a cell spans 1 to 1000 rows or columns',
+          kept: false,
+        },
+        {
+          path: 'sections[0].content[1].content[0].marks[0]',
+          message: 'a link mark cannot be read',
+          kept: false,
+        },
+      ]);
+      expect(() => {
+        doc.check();
+      }).not.toThrow();
+      expect(writeDocumentFile(doc).sections[0]?.content).toEqual([
+        { type: 'table', content: [{ type: 'tableRow', content: [plain, plain] }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'site' }] },
+      ]);
+    }
+  });
+});
+
+describe('marks that exclude each other', () => {
+  const contributor = (author: string) => ({ type: 'contributor', attrs: { author } });
+  const marks = [contributor('u2'), { type: 'bold' }, contributor('u1')];
+  const file: DocumentFile = {
+    formatVersion: 1,
+    sections: [
+      { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Streamed', marks }] }] },
+    ],
+  };
+  const path = 'sections[0].content[0].content[0].marks[0]';
+  const message = 'a contributor mark excludes this contributor mark';
+
+  it('DOCE-FORMAT-1.4 names the mark another mark of its node excludes', () => {
+    expect(() => readDocumentFile(file, documentSchema)).toThrow(`${path}: ${message}`);
+  });
+
+  it('DOCE-FORMAT-1.5 keeps the first of them in canonical order and reads the rest', () => {
+    for (const unknown of ['drop', 'keep'] as const) {
+      const { doc, problems } = readDocumentFile(file, documentSchema, { unknown });
+      expect(problems).toEqual([{ path, message, kept: false }]);
+      const written = writeDocumentFile(doc).sections[0]?.content[0]?.content?.[0];
+      expect(written).toEqual({
+        type: 'text',
+        text: 'Streamed',
+        marks: [{ type: 'bold' }, contributor('u1')],
+      });
+    }
   });
 });
 

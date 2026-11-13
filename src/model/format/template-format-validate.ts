@@ -2,11 +2,11 @@
 // kind, and the template's identity, references and sections are consistent. A template's content,
 // such as a header, is checked against the schema when one is given.
 
-import type { Schema } from 'prosemirror-model';
+import type { ContentMatch, Schema } from 'prosemirror-model';
 import { referenceFormatError, referenceFormatKeys } from '../reference-format.js';
 import { templateImageErrors } from '../templates/template-content.js';
-import { DOCUMENT_FORMAT_VERSION } from './document-format.js';
-import { readDocumentFile } from './document-format-convert.js';
+import { DOCUMENT_FORMAT_VERSION, STORED_NODE_TYPES } from './document-format.js';
+import { readDocumentFile, readStoredContent } from './document-format-convert.js';
 import { TEMPLATE_FORMAT_VERSION, type TemplateFile } from './template-format.js';
 import { type SettingShape, TEMPLATE_SHAPE } from './template-format-shape.js';
 
@@ -83,28 +83,46 @@ export function isTemplateColor(value: unknown): boolean {
   return typeof value === 'string' && COLOR.test(value);
 }
 
+/** Whether a value is a line height: a positive multiple of the font size. */
+export function isTemplateLineHeight(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/** Whether a value is a font weight: a whole number from 1 to 1000. */
+export function isTemplateWeight(value: unknown): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 1000;
+}
+
 const LEAF_CHECKS: Readonly<Record<string, [(value: unknown) => boolean, string]>> = {
   length: [isTemplateLength, 'must be a length with a unit, such as 12pt'],
   color: [isTemplateColor, 'must be a hex color'],
   text: [(value) => typeof value === 'string', 'must be text'],
   boolean: [(value) => typeof value === 'boolean', 'must be true or false'],
-  lineHeight: [
-    (value) => typeof value === 'number' && Number.isFinite(value) && value > 0,
-    'must be a positive number',
-  ],
+  lineHeight: [isTemplateLineHeight, 'must be a positive number'],
   numbering: [
     isNumberingFormat,
     'must be a numbering format: up to six of 1, a, A, i or I, each with its separators',
   ],
   bullet: [isTemplateBullet, 'must be disc, circle, square, none or up to 8 characters of text'],
-  weight: [
-    (value) => Number.isInteger(value) && (value as number) >= 1 && (value as number) <= 1000,
-    'must be a font weight from 1 to 1000',
-  ],
+  weight: [isTemplateWeight, 'must be a font weight from 1 to 1000'],
   any: [() => true, ''],
 };
 
-function checkContent(value: unknown, walk: Walk): void {
+// The first node of a region's content that a page header or footer does not allow, such as a
+// column layout, which only a section's content holds; null when the region can hold them all.
+function unheldByRegion(content: readonly unknown[], schema: Schema): string | null {
+  let match: ContentMatch | null | undefined = schema.nodes.page_header?.contentMatch;
+  for (const [index, node] of readStoredContent(content, schema).entries()) {
+    match = match?.matchType(node.type);
+    if (match === null) {
+      const name = STORED_NODE_TYPES[node.type.name]?.type ?? node.type.name;
+      return `[${String(index)}]: a page header or footer does not allow ${name}`;
+    }
+  }
+  return null;
+}
+
+function checkContent(value: unknown, walk: Walk, region = false): void {
   const { path } = walk;
   if (!Array.isArray(value)) {
     walk.errors.push(`${path} must be a list of content`);
@@ -116,6 +134,8 @@ function checkContent(value: unknown, walk: Walk): void {
       { formatVersion: DOCUMENT_FORMAT_VERSION, sections: [{ content: value }] },
       walk.schema,
     );
+    const unheld = region ? unheldByRegion(value, walk.schema) : null;
+    if (unheld) walk.errors.push(`${path}: ${unheld}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'is not valid content';
     walk.errors.push(`${path}: ${message.replace(/^sections\[0\]\.content/, '')}`);
@@ -129,7 +149,8 @@ function checkObject(fields: Readonly<Record<string, SettingShape>>, value: unkn
     return;
   }
   for (const [key, entry] of Object.entries(value)) {
-    const shape = fields[key];
+    // Its own settings only: a key such as `constructor` names a member of every object, not one.
+    const shape = Object.hasOwn(fields, key) ? fields[key] : undefined;
     if (shape) checkValue(shape, entry, at(walk, `${path}.${key}`));
     else walk.errors.push(`${path}.${key} is not a template setting`);
   }
@@ -139,8 +160,8 @@ function checkValue(shape: SettingShape, value: unknown, walk: Walk): void {
   if (value === null || value === undefined) return;
   const { path } = walk;
   if (typeof shape === 'string') {
-    if (shape === 'content') {
-      checkContent(value, walk);
+    if (shape === 'content' || shape === 'regionContent') {
+      checkContent(value, walk, shape === 'regionContent');
       return;
     }
     const [check, message] = LEAF_CHECKS[shape] ?? [() => true, ''];

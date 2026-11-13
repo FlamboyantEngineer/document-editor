@@ -1,3 +1,4 @@
+import { DOMSerializer } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, findNode, parseMarkup, roundTrip } from '../../../test/document-markup.js';
 
@@ -42,6 +43,54 @@ describe('table nodes', () => {
     // A hidden caption writes no caption line.
     const hidden = html.replace('<table ', '<table data-caption-enabled="false" ');
     expect(roundTrip(hidden)).not.toContain('<caption');
+  });
+
+  it('DOCE-SCHEMA-3.5 reads and writes only the alignments a cell takes', () => {
+    const pasted =
+      '<table><tr><td data-text-align="left; position: fixed; inset: 0" data-vertical-align="top; position: fixed">A</td>' +
+      '<td style="text-align: justify; vertical-align: bottom">B</td></tr></table>';
+    const cells: Record<string, unknown>[] = [];
+    parseMarkup(pasted).descendants((node) => {
+      if (node.type.name === 'table_cell') cells.push(node.attrs);
+    });
+    expect(cells[0]).toMatchObject({ textAlign: 'left', verticalAlign: 'middle' });
+    expect(cells[1]).toMatchObject({ textAlign: 'justify', verticalAlign: 'bottom' });
+    // A stored or synced cell holds what it was given, and is written with the defaults.
+    const { table_cell: cell, paragraph } = documentSchema.nodes;
+    if (!cell || !paragraph) throw new Error('The schema has tables');
+    const stored = cell.create(
+      { textAlign: 'right; position: fixed; inset: 0', verticalAlign: 'top; z-index: 9999' },
+      paragraph.create(),
+    );
+    const dom = DOMSerializer.fromSchema(documentSchema).serializeNode(stored) as HTMLElement;
+    expect(dom).toHaveStyle({ textAlign: 'left', verticalAlign: 'middle' });
+    expect(dom).not.toHaveStyle({ position: 'fixed' });
+    expect(dom).not.toHaveStyle({ zIndex: '9999' });
+    expect(dom).toHaveAttribute('data-text-align', 'left');
+    expect(dom).toHaveAttribute('data-vertical-align', 'middle');
+  });
+
+  it('DOCE-SCHEMA-3.5 keeps a span between 1 and 1000 rows or columns', () => {
+    const pasted =
+      '<table><tr><td colspan="99999999" rowspan="-4">A</td><td colspan="2.7" rowspan="many">B</td></tr></table>';
+    const spans: unknown[] = [];
+    parseMarkup(pasted).descendants((node) => {
+      if (node.type.name === 'table_cell') spans.push([node.attrs.colspan, node.attrs.rowspan]);
+    });
+    expect(spans).toEqual([
+      [1000, 1],
+      [2, 1],
+    ]);
+    // A stored or synced span outside them is refused when the document is checked.
+    const { table_cell: cell, paragraph } = documentSchema.nodes;
+    if (!cell || !paragraph) throw new Error('The schema has tables');
+    for (const span of [0, -3, 2.5, 100_000, '2', null]) {
+      expect(() => cell.create({ colspan: span }, paragraph.create()).check()).toThrow(RangeError);
+      expect(() => cell.create({ rowspan: span }, paragraph.create()).check()).toThrow(RangeError);
+    }
+    expect(() =>
+      cell.create({ colspan: 1000, rowspan: 2 }, paragraph.create()).check(),
+    ).not.toThrow();
   });
 
   it('DOCE-SCHEMA-3.5 sizes an unaligned table once every column has a width', () => {
