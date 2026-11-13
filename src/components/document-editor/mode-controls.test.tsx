@@ -1,9 +1,11 @@
+import { render, screen } from '@testing-library/react';
 import { EditorState } from 'prosemirror-state';
+import { Fragment } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { createEditorContext, editingModeOf, type EditorContextOptions } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
-import { markupEntries, modeEntries } from './mode-controls.js';
+import { markupEntries, modeEntries, shellItems } from './mode-controls.js';
 
 const contextOf = (options: Partial<EditorContextOptions> = {}) =>
   createEditorContext(null, EditorState.create({ schema: documentSchema }), {
@@ -77,5 +79,19 @@ describe('the mode and markup controls', () => {
     ]);
     byId(entries, 'markup-all').onAction?.();
     expect(onMarkupChange).toHaveBeenCalledWith('all');
+  });
+
+  it('DOCE-EDITOR-4.12 names each trigger by what it controls, then the value it shows', () => {
+    const context = contextOf({ suggesting: true, markup: 'simple' });
+    const items = shellItems({ onModeChange: vi.fn(), onMarkupChange: vi.fn() });
+    render(
+      <>
+        {items.map((item) => (
+          <Fragment key={item.id}>{item.kind === 'custom' ? item.render(context) : null}</Fragment>
+        ))}
+      </>,
+    );
+    expect(screen.getByRole('button', { name: 'Editing mode Suggesting' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Markup Change bars' })).toBeInTheDocument();
   });
 });
