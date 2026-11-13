@@ -8,6 +8,7 @@ import type { RichTextEngineEvents } from '@flamboyantengineer/ui-components/ric
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { type DirectEditorProps, EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { readDomSelection } from '../../utils/dom-selection.js';
 import { type HostNodeViews, useHostNodeViews } from './host-node-views.js';
 import { insertTypedText } from './typed-text.js';
 import type { PagedEditor } from './use-paged-projection.js';
@@ -37,9 +38,9 @@ interface ViewTies {
 }
 
 // The view's props: the editor's, the document element's attributes over theirs, the host's node
-// views, and the ties to the projection. A key or typed text acts on the projection's latest state,
-// which the host may have moved, as by rewriting the key before into a suggestion, before React
-// draws it (DOCE-PAGINATION-7.19); typed text the view inserts itself.
+// views, and the ties to the projection. Typed text, which the view inserts itself, acts on the
+// projection's latest state, which the host may have moved, as by rewriting the text before into a
+// suggestion, before React draws it.
 function directProps(
   { viewProps, attributes }: Pick<PagesViewProps, 'viewProps' | 'attributes'>,
   nodeViews: DirectEditorProps['nodeViews'],
@@ -53,10 +54,6 @@ function directProps(
     nodeViews: nodeViews ?? {},
     handleDOMEvents: {
       ...handlers,
-      keydown(view, event) {
-        catchUp(view);
-        return handlers?.keydown?.(view, event) === true;
-      },
       beforeinput(view, event) {
         catchUp(view);
         return handlers?.beforeinput?.(view, event) === true || insertTypedText(view, event);
@@ -96,7 +93,12 @@ export function PagesView(props: PagesViewProps) {
   }).current;
   const ties = useRef<ViewTies>({
     dispatch,
-    catchUp: (view) => show(view, latest.current.paged.projection.projection, false),
+    catchUp(view) {
+      // The selection the browser shows goes first, so drawing the latest state keeps it.
+      readDomSelection(view);
+      const { projection: current } = latest.current.paged.projection;
+      if (view.state.doc !== current.doc) show(view, current, false);
+    },
   }).current;
   const nodeViews = useRef(host.nodeViews);
   useLayoutEffect(() => {
