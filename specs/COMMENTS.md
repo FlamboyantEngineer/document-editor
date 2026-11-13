@@ -106,7 +106,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `sr
 
 ### DOCE-COMMENTS-2.2 - Starting a thread
 
-While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes, then anchor it in the document, and cancelling shall forget the draft, leaving the document as it was.
+While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes, then anchor it in the document, removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
@@ -176,10 +176,10 @@ Verification: `e2e/comments.spec.ts`, `src/components/document-comments/comments
 
 ### DOCE-COMMENTS-2.12 - Drafts kept
 
-The composers of a thread's next comment, of a suggestion's discussion and of a thread being started shall keep their draft in the base library's provider storage, keyed by the document and the thread (`de-comments:<document>:<thread>`), so a draft survives its composer going, as when the reader stops commenting or the card leaves, and, with a host's storage that lasts, the page loading again.
+The composers of a thread's next comment, of a suggestion's discussion and of a thread being started shall keep their draft in the base library's provider storage, keyed by the document and the thread (`de-comments:<document>:<thread>`, and `de-comments:<document>:new:<thread>` for a thread being started, so text typed for one left unfinished never shows on the next), so a draft survives its composer going, as when the reader stops commenting or the card leaves, and, with a host's storage that lasts, the page loading again.
 
 Implementation: `src/components/document-comments/comment-cards.tsx`
-Verification: `e2e/comments.spec.ts`
+Verification: `e2e/comments.spec.ts`, `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.13 - Mentions
 

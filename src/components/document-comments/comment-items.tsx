@@ -154,6 +154,21 @@ export interface CardActions {
   readonly startThread: () => void;
 }
 
+// A command that anchors a thread just stored. When the document no longer allows it, as when a
+// collaborator deleted the text or decided the suggestion while the thread was stored, the thread
+// is removed again rather than kept with no anchor.
+function anchorOrRemove(context: CardContext, threadId: string, command: Command): Command {
+  let refused = false;
+  return (state, dispatch, view) => {
+    const anchored = command(state, dispatch, view);
+    if (dispatch && !anchored && !refused) {
+      refused = true;
+      void context.comments.remove(threadId).catch(() => undefined);
+    }
+    return anchored;
+  };
+}
+
 function renderSuggestion(
   item: Extract<CommentItem, { kind: 'suggestion' }>,
   actions: CardActions,
@@ -170,7 +185,7 @@ function renderSuggestion(
     const id = createElementId();
     const quote = suggestion.inserted || suggestion.deleted;
     const created = await context.comments.create({ id, quote, text, suggestion: suggestion.id });
-    run(linkSuggestionThread(suggestion.id, id));
+    run(anchorOrRemove(context, id, linkSuggestionThread(suggestion.id, id)));
     return created;
   };
   return (
@@ -195,11 +210,12 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
     case 'pending':
       return (
         <PendingCard
+          id={item.id}
           quote={item.quote}
           context={context}
           onSubmit={async (text) => {
             await context.comments.create({ id: item.id, quote: item.quote, text });
-            run(commitCommentDraft(item.id));
+            run(anchorOrRemove(context, item.id, commitCommentDraft(item.id)));
           }}
           onCancel={() => run(clearCommentDraft)}
         />

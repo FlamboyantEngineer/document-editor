@@ -1,12 +1,44 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { type Command, TextSelection } from 'prosemirror-state';
+import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Harness, host, PARAGRAPH, seen, text, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
-import { listCommentAnchors, listSuggestions } from '../../engine/index.js';
+import {
+  clearCommentDraft,
+  commentDraft,
+  listCommentAnchors,
+  listSuggestions,
+} from '../../engine/index.js';
 import { type CommentStoreAdapter, createMemoryHost } from '../../host/index.js';
+import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
 
 installEditorDom();
+
+// Selects the first occurrence of some text.
+const selectText =
+  (wanted: string): Command =>
+  (state, dispatch) => {
+    let found: number | null = null;
+    state.doc.descendants((node, pos) => {
+      const at = node.isText ? (node.text ?? '').indexOf(wanted) : -1;
+      if (found === null && at >= 0) found = pos + at;
+    });
+    if (found === null) return false;
+    dispatch?.(
+      state.tr.setSelection(TextSelection.create(state.doc, found, found + wanted.length)),
+    );
+    return true;
+  };
+
+// Deletes the text of the thread being started, as a collaborator's change may.
+const deleteDraftText: Command = (state, dispatch) => {
+  const draft = commentDraft(state);
+  if (!draft) return false;
+  dispatch?.(state.tr.delete(draft.from, draft.to));
+  return true;
+};
 
 describe('DocumentComments', () => {
   it('DOCE-COMMENTS-2.1 shows open threads and suggestions beside the document, not resolved ones', async () => {
@@ -51,6 +83,55 @@ describe('DocumentComments', () => {
       'blue',
       'delta',
     ]);
+  });
+
+  it('DOCE-COMMENTS-2.2 removes a thread stored after its text was deleted, and keeps no draft for the next', async () => {
+    const user = userEvent.setup();
+    const made = host();
+    const store = made.comments;
+    if (!store) throw new Error('The host should keep comments.');
+    let stored: (() => void) | null = null;
+    const held: CommentStoreAdapter = {
+      ...store,
+      create: (documentId, thread) =>
+        new Promise((resolve) => {
+          stored = () => void store.create(documentId, thread).then(resolve);
+        }),
+    };
+    const handle = createRef<DocumentEditorHandle>();
+    render(<Harness host={{ ...made, comments: held }} select="gamma" handleRef={handle} />);
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'Say more');
+    await user.click(screen.getByRole('button', { name: 'Comment' }));
+    await waitFor(() => expect(stored).not.toBeNull());
+    // A collaborator deletes the quoted text while the thread is stored.
+    act(() => {
+      handle.current?.run(deleteDraftText);
+    });
+    act(() => stored?.());
+    await waitFor(async () => {
+      const listed = await store.list('doc');
+      expect(listed.ok && listed.value.map((each) => each.id)).toEqual(['open', 'done']);
+    });
+    expect(seen.state && listCommentAnchors(seen.state.doc).map((each) => each.text)).toEqual([
+      'blue',
+      'delta',
+    ]);
+  });
+
+  it('DOCE-COMMENTS-2.12 keeps the text typed for a thread being started to that thread', async () => {
+    const user = userEvent.setup();
+    const handle = createRef<DocumentEditorHandle>();
+    render(<Harness host={host()} select="gamma" handleRef={handle} />);
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'For gamma');
+    // The thread is left without Cancel, and another is started elsewhere.
+    act(() => {
+      handle.current?.run(clearCommentDraft);
+      handle.current?.run(selectText('Alpha'));
+    });
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    expect(screen.getByRole('textbox', { name: 'Add a comment' })).toHaveTextContent('');
   });
 
   it('DOCE-COMMENTS-2.3 replies to and resolves a thread', async () => {
