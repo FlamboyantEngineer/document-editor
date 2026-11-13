@@ -88,6 +88,45 @@ export const FollowingBottomChrome = memo(function FollowingBottomChrome(
   );
 });
 
+// What the insert items offer, kept while the host's features stay the same.
+function useInsertFeatures(props: TopChromeProps['props']): InsertFeatures {
+  const linkedCode = Boolean(props.codeSource);
+  const glossary = Boolean(props.glossary);
+  const scripts = Boolean(props.scriptRunner);
+  const references = Boolean(props.referenceSource);
+  const diagrams = Boolean(props.diagrams);
+  const symbols = props.symbols ?? DEFAULT_SYMBOLS;
+  const custom = customStyleNames(props.template).join('\n');
+  const { variables } = props;
+  const templateContent = Boolean(props.onRegionChange);
+  return useMemo<InsertFeatures>(
+    () => ({
+      linkedCode,
+      symbols,
+      glossary,
+      customStyles: custom ? custom.split('\n') : [],
+      template: props.template,
+      scripts,
+      references,
+      diagrams,
+      variables,
+      templateContent,
+    }),
+    [
+      linkedCode,
+      symbols,
+      glossary,
+      custom,
+      props.template,
+      scripts,
+      references,
+      diagrams,
+      variables,
+      templateContent,
+    ],
+  );
+}
+
 /** The toolbar and the find bar above the document. */
 function TopChrome({
   props,
@@ -99,26 +138,7 @@ function TopChrome({
   openFind = null,
   exports,
 }: TopChromeProps) {
-  const linkedCode = Boolean(props.codeSource);
-  const glossary = Boolean(props.glossary);
-  const scripts = Boolean(props.scriptRunner);
-  const references = Boolean(props.referenceSource);
-  const diagrams = Boolean(props.diagrams);
-  const symbols = props.symbols ?? DEFAULT_SYMBOLS;
-  const custom = customStyleNames(props.template).join('\n');
-  const features = useMemo<InsertFeatures>(
-    () => ({
-      linkedCode,
-      symbols,
-      glossary,
-      customStyles: custom ? custom.split('\n') : [],
-      template: props.template,
-      scripts,
-      references,
-      diagrams,
-    }),
-    [linkedCode, symbols, glossary, custom, props.template, scripts, references, diagrams],
-  );
+  const features = useInsertFeatures(props);
   const { onModeChange, modeReasons, onMarkupChange } = props;
   const shell = useMemo<ShellFeatures>(
     () => ({ onModeChange, modeReasons, onMarkupChange }),
