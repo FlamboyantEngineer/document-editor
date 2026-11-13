@@ -15,18 +15,18 @@ import {
 import { blocks } from './markdown/blocks.js';
 import { escapeHeadingEnd, escapeText } from './markdown/escape.js';
 import { frontMatterOf, type FrontMatterValue } from './markdown/front-matter.js';
-import type { MarkdownValues, Writing } from './markdown/writing.js';
+import type { Writing } from './markdown/writing.js';
+import type { WriterValues } from './writer-values.js';
 
 export type { MarkdownComment, MarkdownThread, PersonName } from './markdown/appendix.js';
 export type { FrontMatterValue } from './markdown/front-matter.js';
-export type { MarkdownValues } from './markdown/writing.js';
 
 /** How `writeMarkdown` writes a document. */
 export interface MarkdownOptions {
   /** Whether the suggestions are written as if accepted (the default) or rejected. */
   readonly suggestions?: SuggestionsMode | undefined;
   /** The values of the document's variables and the addresses of its assets. */
-  readonly values?: MarkdownValues | undefined;
+  readonly values?: WriterValues | undefined;
   /** The document's title, written first as a level-1 heading. */
   readonly title?: string | null | undefined;
   /** Properties written as YAML front matter before everything else, such as `{ author }`. */

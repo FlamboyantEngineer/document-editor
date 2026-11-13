@@ -127,18 +127,18 @@ Verification: `src/model/format/markdown.test.ts`
 A writer that writes the suggestions as accepted shall leave out each block suggested for deletion, such as a figure or the paragraph a suggestion splits, and one that writes them as rejected each block suggested as an insertion (`isLeftOut`), with its content; a list item whose blocks are all left out shall be left out with its marker.
 
 Implementation: `src/model/format/left-out.ts`, `src/model/format/markdown/blocks.ts`
-Verification: `src/model/format/left-out.test.ts`, `src/model/format/markdown.test.ts`
+Verification: `src/model/format/markdown.test.ts`
 
 ### DOCE-FORMAT-4.4 - Fidelity
 
-Code shall be fenced by a run of backticks longer than any it holds, three at least for a block, and a code span that starts or ends with a backtick padded with a space. A link's address shall be written so that nothing in it ends the link: a space, a control character or a backslash percent-encoded and a parenthesis escaped, with the link's title quoted after it; a code span keeps its link. An entity reference in text and a heading's closing run of number signs shall be escaped. A table's merged cell shall be written in its first place, and the places it covers left empty, so each row is as wide as the table; a cell's paragraphs and line breaks shall be joined by `<br>` on its one line. A figure or image stored by asset with no address of its own shall be written at the address `values.asset({ id, revision })` gives, and a figure with no address as its caption alone.
+Code shall be fenced by a run of backticks longer than any it holds, three at least for a block, and a code span that starts or ends with a backtick padded with a space. A link's address shall be written so that nothing in it ends the link: a space, a control character or a backslash percent-encoded and a parenthesis escaped, with the link's title quoted after it; a code span keeps its link. An entity reference in text and a heading's closing run of number signs shall be escaped. A table's merged cell shall be written in its first place, and the places it covers left empty, so each row is as wide as the table; a cell's paragraphs and line breaks shall be joined by `<br>` on its one line. A figure or image stored by asset shall be written at the address `values.asset({ id, revision })` gives (`assetAddress`, DOCE-FORMAT-5.3), else at its own `src`, and a figure with no address as its caption alone.
 
-Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/tables.ts`, `src/model/format/markdown/writing.ts`
+Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/tables.ts`, `src/model/format/writer-values.ts`
 Verification: `src/model/format/markdown-fidelity.test.ts`
 
 ### DOCE-FORMAT-4.5 - Values and format changes
 
-A variable shall be written as the text `values.variable(key)` gives, or as its key in braces when it gives none. A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept; a template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
+A variable shall be written as the text `values.variable(key)` gives, or as its key in braces when it gives none (`variableText`, DOCE-FORMAT-5.3). A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept; a template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
 
 Implementation: `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
 Verification: `src/model/format/markdown-fidelity.test.ts`
@@ -186,6 +186,13 @@ Verification: `src/model/format/docx.test.ts`
 
 Implementation: `src/model/format/docx.ts`
 Verification: `src/model/format/docx.test.ts`
+
+### DOCE-FORMAT-5.3 - What a writer leaves out and resolves
+
+Every writer shall apply one rule to a document's suggestions (`isLeftOut`, `keptContent`): written as if accepted, it leaves out a suggested deletion; written as if rejected, a suggested insertion; a block suggested whole, such as a figure or the halves of a split paragraph, by its `suggestionKind`, and inline content by its insertion or deletion mark. A writer shall resolve the values the document names but does not hold through the host's `values` (`WriterValues`): a variable as its text, or its key in double braces when the host has none (`variableText`), and an asset as the address the host gives, or the node's own `src` (`assetAddress`).
+
+Implementation: `src/model/format/left-out.ts`, `src/model/format/writer-values.ts`, `src/model/format/docx.ts`
+Verification: `src/model/format/left-out.test.ts`, `src/model/format/docx.test.ts`
 
 ## DOCE-FORMAT-6 - HTML interchange
 

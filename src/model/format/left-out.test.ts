@@ -1,30 +1,53 @@
-// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { StoredNode } from './document-format.js';
-import { isLeftOut } from './left-out.js';
+import { isLeftOut, keptContent } from './left-out.js';
+import { assetAddress, variableText } from './writer-values.js';
 
-const block = (suggestionKind?: string): StoredNode => ({
-  type: 'figure',
-  attrs: { src: 'a.png', ...(suggestionKind ? { suggestionKind, suggestionId: 's1' } : {}) },
-});
-const marked = (type: string): StoredNode => ({ type: 'text', text: 'a', marks: [{ type }] });
+const inserted: StoredNode = { type: 'figure', attrs: { suggestionKind: 'insertion' } };
+const deleted: StoredNode = { type: 'paragraph', attrs: { suggestionKind: 'deletion' } };
+const insertedText: StoredNode = { type: 'text', text: 'new', marks: [{ type: 'insertion' }] };
+const deletedText: StoredNode = { type: 'text', text: 'old', marks: [{ type: 'deletion' }] };
+const plain: StoredNode = { type: 'paragraph' };
 
 describe('isLeftOut', () => {
-  it('DOCE-FORMAT-4.3 leaves out a block suggested for deletion when the suggestions are accepted', () => {
-    expect(isLeftOut(block('deletion'), 'accepted')).toBe(true);
-    expect(isLeftOut(block('insertion'), 'accepted')).toBe(false);
-    expect(isLeftOut(block(), 'accepted')).toBe(false);
+  it('DOCE-FORMAT-5.3 leaves out suggested deletions when accepted and insertions when rejected', () => {
+    expect(
+      [inserted, deleted, insertedText, deletedText, plain].map((node) =>
+        isLeftOut(node, 'accepted'),
+      ),
+    ).toEqual([false, true, false, true, false]);
+    expect(
+      [inserted, deleted, insertedText, deletedText, plain].map((node) =>
+        isLeftOut(node, 'rejected'),
+      ),
+    ).toEqual([true, false, true, false, false]);
   });
 
-  it('DOCE-FORMAT-4.3 leaves out a block suggested as an insertion when they are rejected', () => {
-    expect(isLeftOut(block('insertion'), 'rejected')).toBe(true);
-    expect(isLeftOut(block('deletion'), 'rejected')).toBe(false);
+  it('DOCE-FORMAT-5.3 keeps the content a writer writes', () => {
+    expect(keptContent([inserted, plain, deleted], 'accepted')).toEqual([inserted, plain]);
+    expect(keptContent([inserted, plain, deleted], 'rejected')).toEqual([plain, deleted]);
+    expect(keptContent(undefined, 'accepted')).toEqual([]);
+  });
+});
+
+describe('writer values', () => {
+  it('DOCE-FORMAT-5.3 resolves variables, keeping the key when the host has no value', () => {
+    const node: StoredNode = { type: 'variable', attrs: { key: 'document.title' } };
+    expect(
+      variableText(node, { variable: (key) => (key === 'document.title' ? 'Field notes' : null) }),
+    ).toBe('Field notes');
+    expect(variableText(node)).toBe('{{document.title}}');
   });
 
-  it('DOCE-FORMAT-4.3 leaves out text and inline nodes by their suggestion marks', () => {
-    expect(isLeftOut(marked('deletion'), 'accepted')).toBe(true);
-    expect(isLeftOut(marked('insertion'), 'rejected')).toBe(true);
-    expect(isLeftOut(marked('insertion'), 'accepted')).toBe(false);
-    expect(isLeftOut({ type: 'math', marks: [{ type: 'deletion' }] }, 'accepted')).toBe(true);
+  it('DOCE-FORMAT-5.3 resolves an asset address, falling back to the stored source', () => {
+    const figure: StoredNode = {
+      type: 'figure',
+      attrs: { assetId: 'a1', assetRevision: 'r2', src: 'stored.png' },
+    };
+    const asset = (named: { id: string; revision?: string | undefined }) =>
+      `https://assets.example/${named.id}/${named.revision ?? 'latest'}`;
+    expect(assetAddress(figure, { asset })).toBe('https://assets.example/a1/r2');
+    expect(assetAddress(figure)).toBe('stored.png');
+    expect(assetAddress({ type: 'figure' }, { asset })).toBe('');
   });
 });

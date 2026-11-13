@@ -4,10 +4,11 @@
 
 import { storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
+import { assetAddress } from '../writer-values.js';
 import { codeFence, escapeHeadingEnd, escapeLineStart, escapeText, linkAddress } from './escape.js';
 import { inlines } from './inlines.js';
 import { tableOf } from './tables.js';
-import { addressOf, text, type Writing } from './writing.js';
+import { text, type Writing } from './writing.js';
 
 const inlineText = (content: readonly StoredNode[] | undefined) =>
   (content ?? []).map((node) => text(node.text)).join('');
@@ -36,7 +37,7 @@ function listOf(node: StoredNode, writing: Writing): string {
 
 // A figure as an image with its caption; one with no address is written as its caption alone.
 function figureOf(node: StoredNode, writing: Writing): string | null {
-  const address = addressOf(node, writing);
+  const address = assetAddress(node, writing.values);
   const { alt, caption } = node.attrs ?? {};
   if (!address) return text(caption) ? `*${escapeText(text(caption))}*` : null;
   return captioned(`![${escapeText(text(alt))}](${linkAddress(address)})`, caption);

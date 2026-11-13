@@ -3,8 +3,9 @@
 
 import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
+import { assetAddress, variableText } from '../writer-values.js';
 import { codeSpan, escapeText, linkAddress, linkTitle } from './escape.js';
-import { addressOf, text, type Writing } from './writing.js';
+import { text, type Writing } from './writing.js';
 
 const MARKS: Readonly<Record<string, readonly [string, string]>> = {
   bold: ['**', '**'],
@@ -60,15 +61,9 @@ function markedText(node: StoredNode, writing: Writing): string {
 }
 
 function imageOf(node: StoredNode, writing: Writing): string {
-  const address = addressOf(node, writing);
+  const address = assetAddress(node, writing.values);
   const alt = escapeText(text(node.attrs?.alt));
   return address ? `![${alt}](${linkAddress(address)})` : alt;
-}
-
-function variableOf(node: StoredNode, writing: Writing): string {
-  const key = text(node.attrs?.key);
-  const value = writing.values.variable?.(key);
-  return typeof value === 'string' ? escapeText(value) : `{{${key}}}`;
 }
 
 // An inline node's Markdown.
@@ -97,7 +92,7 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'mention':
       return `@${escapeText(text(node.attrs?.label))}`;
     case 'variable':
-      return variableOf(node, writing);
+      return escapeText(variableText(node, writing.values));
     default:
       return inlines(node.content, writing);
   }
