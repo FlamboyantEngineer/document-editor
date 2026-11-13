@@ -9,7 +9,7 @@ import type { EditorCapabilities } from '../../host/index.js';
 import type { SessionConnection } from '../../session/document-session.js';
 import type { SessionStatusStore } from '../../session/status.js';
 import type { ValueStore } from '../../session/value-store.js';
-import { ConnectionStatus } from './connection-status.js';
+import { ConnectionStatus, type ConnectionStatusLabels } from './connection-status.js';
 
 /** What the editor needs of a document session: its status and how to save it. */
 export interface EditorSession {
@@ -55,12 +55,14 @@ export function SaveStatusItem({ session }: { session: EditorSession }) {
 /** Where the session's room connection is, and nothing without one (store mode). */
 export function ConnectionStatusItem({
   connection,
+  labels,
 }: {
   connection: ValueStore<SessionConnection | null>;
+  labels?: ConnectionStatusLabels | undefined;
 }) {
   const current = useSyncExternalStore(connection.subscribe, connection.get, connection.get);
   return current ? (
-    <ConnectionStatus phase={current.phase} editable={current.gate.editable} />
+    <ConnectionStatus phase={current.phase} editable={current.gate.editable} labels={labels} />
   ) : null;
 }
 

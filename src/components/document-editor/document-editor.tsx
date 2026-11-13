@@ -57,7 +57,6 @@ import {
   DocumentEditorContext,
   type DocumentMarkup,
   type EditorContext,
-  type ObjectDialog,
   useShownContext,
 } from './editor-context.js';
 import { type DocumentEditorHandle, useCommentRefs } from './editor-handle.js';
@@ -66,7 +65,7 @@ import type { DocumentOverviewOptions } from './editor-overview.js';
 import { EditorScope } from './editor-scope.js';
 import { EditorSurface } from './editor-surface.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
-import { ObjectDialogs } from './object-dialogs.js';
+import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
@@ -278,7 +277,10 @@ export interface DocumentEditorProps
    * read on a scroll overview beside the frame, while the editor scrolls the document.
    */
   overview?: boolean | DocumentOverviewOptions | undefined;
-  /** Chrome inside the editor's engine, such as a toolbar reading its state. */
+  /**
+   * Chrome inside the editor, after the document, such as a toolbar reading it
+   * (`useDocumentEditor`). It stays mounted as the pages start and through a switch of layout.
+   */
   children?: ReactNode;
   /**
    * Panels beside the document, between the toolbar and the status bar, such as a
@@ -394,8 +396,8 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const reach = { root, refs, progress, transactions: engine.transactions };
   const { find, scope, exports } = useHostReach(props, view, reach);
   const templateStyle = useMemo(() => templateProperties(template), [template]);
-  const [dialog, setDialog] = useState<ObjectDialog | null>(null);
-  const context = useShownContext(props, { view, labels, openDialog: setDialog });
+  const { dialog, open: openDialog, close: closeDialog } = useObjectDialog(editable);
+  const context = useShownContext(props, { view, labels, openDialog });
   useLayoutEffect(() => {
     editorContext.current = context;
   }, [context]);
@@ -404,7 +406,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const chrome = { ...shown, openFind: find.open };
   // The chrome follows each state after the pages show it (DOCE-EDITOR-1.7).
   const top = { ...chrome, findRequest: find.request, onFindClose: find.close };
-  const bottom = { ...chrome, openDialog: setDialog };
+  const bottom = { ...chrome, openDialog };
   const body = (
     <EditorBody
       props={props}
@@ -413,7 +415,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
       paged={progress.paged}
       labels={labels}
       commentRefs={refs}
-      onDialog={editable ? setDialog : null}
+      onDialog={editable ? openDialog : null}
     />
   );
   return (
@@ -432,7 +434,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
           chrome={chrome}
           following={{ top, bottom }}
           root={root}
-          openDialog={setDialog}
+          openDialog={openDialog}
           missingFonts={missingFonts}
           layoutState={layoutState}
         >
@@ -440,10 +442,10 @@ export function DocumentEditor(given: DocumentEditorProps) {
         </EditorSurface>
         <ObjectDialogs
           {...props}
-          dialog={editable ? dialog : null}
+          dialog={dialog}
           view={view}
           labels={labels}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
         />
       </div>
     </EditorScope>

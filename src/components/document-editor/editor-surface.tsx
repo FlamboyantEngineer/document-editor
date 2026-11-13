@@ -38,7 +38,9 @@ export interface EditorSurfaceProps {
   readonly children: ReactNode;
 }
 
-// The document between the panels beside it, when there are any.
+// The document between the panels beside it. The element is there without panels too (`data-panels`
+// tells when it holds one), so a panel the host shows or hides leaves the document where it is in
+// the tree: its view, its focus and the scroll position stay.
 function Workspace({
   panels,
   children,
@@ -46,12 +48,11 @@ function Workspace({
   panels: DocumentEditorProps['panels'];
   children: ReactNode;
 }) {
-  if (!panels?.start && !panels?.end) return children;
   return (
-    <div {...hooks.slot('workspace')}>
-      {panels.start}
+    <div {...hooks.slot('workspace', { panels: Boolean(panels?.start) || Boolean(panels?.end) })}>
+      {panels?.start}
       {children}
-      {panels.end}
+      {panels?.end}
     </div>
   );
 }

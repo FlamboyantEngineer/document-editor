@@ -4,7 +4,6 @@
 // table and object it is in. Groups are separated, and a group with nothing to offer is left
 // out.
 
-import { ClipboardGlyph, CopyGlyph } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { findTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
@@ -14,14 +13,18 @@ import {
   decideWithPolicy,
   listSuggestions,
   objectBlockAt,
+  shortcutLabel,
+  shortcutsOf,
   suggestionPermissions,
   type SuggestionPolicy,
 } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
+import { clipboardEntries } from './clipboard-entries.js';
 import type { ContextTarget } from './context-target.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { CODE_LANGUAGES, elementEntries } from './element-entries.js';
+import type { FigurePasteOptions } from './figure-paste.js';
 import { proofingEntries } from './proofing-entries.js';
 import { scriptEntries } from './script-entries.js';
 import { commandEntry, objectEntries, tableCellEntries } from './table-actions.js';
@@ -42,90 +45,10 @@ export interface ContextEntriesOptions {
   readonly codeLanguages?: readonly string[] | undefined;
   /** Runs the script blocks, which the menu then offers to edit and run. */
   readonly scriptRunner?: ScriptRunnerAdapter | null | undefined;
-}
-
-const clipboardOf = (view: EditorView) =>
-  view.dom.ownerDocument.defaultView?.navigator.clipboard ?? null;
-
-// Writes the selection to the clipboard as the editor copies it, and deletes it for a cut once
-// the clipboard has it.
-async function copySelection(view: EditorView, cut: boolean): Promise<void> {
-  const owner = view.dom.ownerDocument.defaultView;
-  const clipboard = clipboardOf(view);
-  if (!owner || !clipboard) return;
-  const { dom, text } = view.serializeForClipboard(view.state.selection.content());
-  if (typeof owner.ClipboardItem === 'function') {
-    const blob = (value: string, type: string) => new owner.Blob([value], { type });
-    const item = new owner.ClipboardItem({
-      'text/html': blob(dom.innerHTML, 'text/html'),
-      'text/plain': blob(text, 'text/plain'),
-    });
-    await clipboard.write([item]);
-  } else {
-    await clipboard.writeText(text);
-  }
-  if (cut) view.dispatch(view.state.tr.deleteSelection().scrollIntoView());
-}
-
-// Pastes the clipboard at the selection, as formatted text when it holds some unless `plain`.
-async function paste(view: EditorView, plain: boolean): Promise<void> {
-  const clipboard = clipboardOf(view);
-  if (!clipboard) return;
-  if (!plain && typeof clipboard.read === 'function') {
-    for (const item of await clipboard.read()) {
-      if (!item.types.includes('text/html')) continue;
-      view.pasteHTML(await (await item.getType('text/html')).text());
-      return;
-    }
-  }
-  const text = await clipboard.readText();
-  if (text) view.pasteText(text);
-}
-
-// Runs a clipboard action with the document focused; a refused clipboard changes nothing.
-function clipboardAction(view: EditorView, action: () => Promise<void>) {
-  return () => {
-    view.focus();
-    action().catch(() => undefined);
-  };
-}
-
-function clipboardEntries(view: EditorView, { labels, editable }: ContextEntriesOptions) {
-  const { empty } = view.state.selection;
-  const clipboard = clipboardOf(view);
-  const canPaste = editable && typeof clipboard?.readText === 'function';
-  return [
-    {
-      id: 'cut',
-      label: labels.cut,
-      shortcut: 'Ctrl+X',
-      isDisabled: !editable || empty || !clipboard,
-      onAction: clipboardAction(view, () => copySelection(view, true)),
-    },
-    {
-      id: 'copy',
-      label: labels.copy,
-      icon: CopyGlyph,
-      shortcut: 'Ctrl+C',
-      isDisabled: empty || !clipboard,
-      onAction: clipboardAction(view, () => copySelection(view, false)),
-    },
-    {
-      id: 'paste',
-      label: labels.paste,
-      icon: ClipboardGlyph,
-      shortcut: 'Ctrl+V',
-      isDisabled: !canPaste,
-      onAction: clipboardAction(view, () => paste(view, false)),
-    },
-    {
-      id: 'paste-text',
-      label: labels.pasteAsText,
-      shortcut: 'Ctrl+Shift+V',
-      isDisabled: !canPaste,
-      onAction: clipboardAction(view, () => paste(view, true)),
-    },
-  ] satisfies MenuEntry[];
+  /** Whether the writer's changes are recorded as suggestions. Defaults to false. */
+  readonly suggesting?: boolean | undefined;
+  /** Uploads the images Paste finds on the clipboard, while the host stores assets. */
+  readonly images?: FigurePasteOptions | null | undefined;
 }
 
 function suggestionEntries(view: EditorView, { labels, suggestionPolicy }: ContextEntriesOptions) {
@@ -165,7 +88,7 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
     entries.push({
       id: 'comment',
       label: labels.addComment,
-      shortcut: 'Ctrl+Alt+M',
+      shortcut: shortcutLabel(shortcutsOf(view.state), 'comment'),
       isDisabled: !canStartComment(view.state),
       onAction: startComment,
     });
@@ -174,7 +97,11 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
     entries.push(
       commandEntry(
         view,
-        { id: 'clear-formatting', label: labels.clearFormatting, shortcut: 'Ctrl+\\' },
+        {
+          id: 'clear-formatting',
+          label: labels.clearFormatting,
+          shortcut: shortcutLabel(shortcutsOf(view.state), 'clear-formatting'),
+        },
         clearFormatting,
       ),
     );

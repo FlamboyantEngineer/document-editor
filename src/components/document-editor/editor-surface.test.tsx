@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -77,6 +78,29 @@ describe('EditorSurface', () => {
     expect(container.querySelector('.de-document-editor__overview')).toBeInTheDocument();
     rerender(<Harness layout="web" overview />);
     expect(container.querySelector('.de-document-editor__overview')).not.toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-4.11 keeps the document and its focus while a panel comes and goes beside it', async () => {
+    const user = userEvent.setup();
+    const { container, rerender } = render(<Harness layout="web" />);
+    const shown = screen.getByRole('textbox', { name: 'Report' });
+    await user.click(shown);
+    expect(shown).toHaveFocus();
+    const workspace = container.querySelector('.de-document-editor__workspace');
+    expect(workspace).not.toHaveAttribute('data-panels');
+
+    rerender(
+      <Harness layout="web" panels={{ end: <aside aria-label="Details">Details</aside> }} />,
+    );
+    expect(screen.getByRole('complementary', { name: 'Details' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Report' })).toBe(shown);
+    expect(shown).toHaveFocus();
+    expect(workspace).toHaveAttribute('data-panels', 'true');
+    expect(workspace?.lastElementChild).toHaveAccessibleName('Details');
+
+    rerender(<Harness layout="web" />);
+    expect(screen.getByRole('textbox', { name: 'Report' })).toBe(shown);
+    expect(workspace).not.toHaveAttribute('data-panels');
   });
 
   it('DOCE-EDITOR-4.19 marks the matches, issues, changes and unread elements in their layers', () => {

@@ -93,7 +93,7 @@ Verification: `e2e/budget-counters.performance.spec.ts`
 
 ### DOCE-LABS-3.1 - The template editor beside a document
 
-The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once.
+The template editor lab shall show the template editor beside the document editor, a template inheriting from the base template, each change restyling the document at once. Host options mark the template as never saved, fail its parent's load, disable the editor and lock the parent in the JSON text; the lab offers its own fonts and reports section renames and whether the JSON text reads as a template.
 
 Implementation: `labs/src/template-editor.lab.tsx`, `labs/template-editor.html`
 Verification: `e2e/template-editor.spec.ts`
@@ -121,7 +121,7 @@ Verification: `e2e/import-export.spec.ts`
 
 ### DOCE-LABS-3.5 - Automation on stored documents
 
-The automation lab shall mimic a host's server over the in-memory store: an agent, person or system reads the stored document and sends a batch of edits against the revision it read, directly or as suggestions, and the host saves the result and keeps the threads the batch opened. Another writer saving first makes the batch a conflict, and a locked section or text that moved refuses it. The host runs the document's scripts, accepts or rejects every suggestion, lists what changed since the save before and shows the JSON Schemas it offers an agent.
+The automation lab shall mimic a host's server over the in-memory store: an agent, person or system reads the stored document and sends a batch of edits against the revision it read, directly or as suggestions, and the host saves the result and keeps the threads the batch opened. Another writer saving first makes the batch a conflict, and a locked section or text that moved refuses it. The host runs the document's scripts, accepts or rejects every suggestion, lists what changed since the save before and shows the JSON Schemas it offers an agent. The stored-file readers run on the stored document without an editor: the element with an id, the text, the citations, the reference targets, the required sections a stricter template lacks and the thread anchors; the host moves the document to that template and accepts one suggestion on the stored file.
 
 Implementation: `labs/src/automation.lab.tsx`, `labs/automation.html`
 Verification: `e2e/automation-lab.spec.ts`

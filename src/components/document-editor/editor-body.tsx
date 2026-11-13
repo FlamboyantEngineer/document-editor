@@ -1,6 +1,6 @@
 // The editor's body: the document in its engine, with its view props (the host's keys, the
-// editor's own keys, pasted figures), the comments margin around it, the caller's chrome inside
-// the engine, and the table handles.
+// editor's own keys, pasted figures), the comments margin around it, the caller's chrome after
+// it, and the table handles.
 
 import {
   RichTextEngineContent,
@@ -16,7 +16,7 @@ import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { figurePasteHandlers } from './figure-paste.js';
+import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
 import { PagesView } from './pages-view.js';
 import { useOpeningScripts } from './script-entries.js';
@@ -87,16 +87,10 @@ function useBodyViewProps({
   const { editable = true, assets, feedback } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
-  return useMemo(
-    () => ({
-      ...(assets
-        ? figurePasteHandlers({
-            assets,
-            feedback,
-            failure: labels.uploadFailed,
-            uploading: labels.uploading,
-          })
-        : {}),
+  return useMemo(() => {
+    const images = figurePasteOptions({ assets, feedback }, labels);
+    return {
+      ...(images ? figurePasteHandlers(images) : {}),
       editable: () => editable,
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
@@ -121,9 +115,8 @@ function useBodyViewProps({
         ...(host.focus ? { focus: host.focus } : {}),
         ...(host.blur ? { blur: host.blur } : {}),
       },
-    }),
-    [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef],
-  );
+    };
+  }, [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef]);
 }
 
 // The projection takes each of its states itself (`projectionDispatch`), so a commit the engine
@@ -201,9 +194,16 @@ export function EditorBody({
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   const attributes = useContentAttributes(props);
-  useOpeningScripts(view, props.scriptRunner);
+  useOpeningScripts(view, {
+    plugins: state.plugins,
+    runner: props.scriptRunner,
+    enabled: editable && !suggesting,
+  });
   // With the comments in a pane, a thread started or opened shows that pane; focus stays put.
   const panes = useEditorPanesContext();
+  // Only the document itself differs between the pages and the engine: the comments margin and the
+  // host's chrome stay at their place in the tree, so they keep their state as the pages start
+  // and through a switch of layout.
   const content = paged ? (
     <PagesView
       paged={paged}
@@ -213,17 +213,20 @@ export function EditorBody({
       nodeViews={props.nodeViews}
     />
   ) : (
-    <RichTextEngineContent
-      {...hooks.slot('content')}
-      role="textbox"
-      aria-multiline="true"
-      aria-readonly={editable ? undefined : 'true'}
-      aria-label={props['aria-label']}
-      aria-labelledby={props['aria-labelledby']}
-    />
+    <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>
+      <RichTextEngineContent
+        {...hooks.slot('content')}
+        role="textbox"
+        aria-multiline="true"
+        aria-readonly={editable ? undefined : 'true'}
+        aria-label={props['aria-label']}
+        aria-labelledby={props['aria-labelledby']}
+      />
+    </RichTextEngineHost>
   );
-  const drawn = (
-    <>
+  return (
+    <div {...hooks.slot('body')}>
+      <SelectionFirst view={engine.view} state={engineProps.state} />
       {props.comments ? (
         <DocumentComments
           {...props.comments}
@@ -241,18 +244,6 @@ export function EditorBody({
         content
       )}
       {props.children}
-    </>
-  );
-  return (
-    <div {...hooks.slot('body')}>
-      <SelectionFirst view={engine.view} state={engineProps.state} />
-      {paged ? (
-        drawn
-      ) : (
-        <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>
-          {drawn}
-        </RichTextEngineHost>
-      )}
       {editable && !suggesting ? <TableHandles view={view} state={state} labels={labels} /> : null}
       {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
     </div>

@@ -317,53 +317,53 @@ Each server job that reads or writes document content maps to one reader. The ta
 `findStoredElement(file, id)` shall give the element of a stored document with an element id, its path, its section and the id of the element holding it (null at a section's top), or null when none has it. A footnote shall be found by its element id (`elementId`), not its footnote id.
 
 Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
-Verification: `src/document/stored-elements.test.ts`
+Verification: `src/document/stored-elements.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.2 - Document text
 
 `storedDocumentText(file, schema)` shall give a stored document's text, one line per text block in reading order, each section's footnotes' text after its content: text as it is, a line break as one, and an inline object as the text search reads it as (`shownText`), or nothing when it shows none. It shall read the text with every suggestion accepted, leaving out text a suggestion deletes, and leave out blocks without text and nodes the schema cannot read.
 
 Implementation: `src/document/stored-text.ts`, `src/engine/search-text.ts`
-Verification: `src/document/stored-text.test.ts`
+Verification: `src/document/stored-text.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.3 - Citations
 
 `storedCitations(file)` shall list a stored document's citations in reading order, footnotes' where they are cited: each run of inline content one reference mark covers, joined across nodes that other marks part, with its `target`, its `referenceType` (`internal-heading` when stored at its default), whether it is `broken`, its text, its path, the id of the element holding it and the mark's stored attributes.
 
 Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
-Verification: `src/document/stored-elements.test.ts`
+Verification: `src/document/stored-elements.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.4 - Reference targets
 
 `documentTargets(file, { schema, template })` shall list the targets a reference may cite in a stored document, as the editor's reference picker does (`referenceTargets`): its headings, figures, tables, code blocks and equations with an element id, by kind and then in reading order, each with its number as the resolved template prints it, its title and its label.
 
 Implementation: `src/document/stored-template.ts`
-Verification: `src/document/stored-template.test.ts`
+Verification: `src/document/stored-template.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.5 - Required sections
 
 `validateRequiredSections(file, template)` shall list, in the resolved template's order, each required section a stored document lacks (`missing`) and each required section a writer may edit that it holds with nothing but empty paragraphs (`empty`). A section the writer cannot edit is never reported empty.
 
 Implementation: `src/document/stored-template.ts`
-Verification: `src/document/stored-template.test.ts`
+Verification: `src/document/stored-template.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.6 - Thread anchors
 
 `threadAnchors(file)` shall list the comment threads a stored document's text is anchored to, in the order they start, one per thread: its state (`resolved` when its comment anchor says so, else `open`), the stored marks that tie it to the text (`comment`, `insertion`, `deletion`, `formatChange`), its text, each run once, joined by spaces, and the ids of the elements holding its runs.
 
 Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
-Verification: `src/document/stored-elements.test.ts`
+Verification: `src/document/stored-elements.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.7 - Template replacement
 
 `replaceTemplate(file, { schema, template, revision })` shall give a stored document moved to a resolved template, pinned at `revision` (its latest when none is given), with its sections brought in line as the editor does (`syncTemplateSections`, DOCE-SECTIONS-4.2): a section the writer cannot edit takes the template's content, a section of a name the template does not have becomes a plain section with its content, and a missing required section is added where the template places it.
 
 Implementation: `src/document/stored-template.ts`
-Verification: `src/document/stored-template.test.ts`
+Verification: `src/document/stored-template.test.ts`, `e2e/automation-lab.spec.ts`
 
 ### DOCE-FORMAT-9.8 - Suggestion decisions
 
 `decideStoredSuggestions(file, { schema, decision, ids, threadAuthor })` shall accept or reject a stored document's suggestions, every one or those with the given ids, as the editor decides them (`decideSuggestions`), and give the document with its template pin, the ids it decided, each once, and the other suggestions the decision removed. When nothing changes, it shall give the document back as it was.
 
 Implementation: `src/document/stored-suggestions.ts`
-Verification: `src/document/stored-suggestions.test.ts`
+Verification: `src/document/stored-suggestions.test.ts`, `e2e/automation-lab.spec.ts`

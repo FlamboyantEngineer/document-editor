@@ -1,14 +1,18 @@
 // Images pasted or dropped into the document become figures: each is uploaded through the host's
-// assets, then inserted where it was pasted or dropped. An upload that fails inserts nothing and
-// tells the reader through the host's feedback. Pasted HTML whose images come with the paste, as
-// data URIs or as a word processor's pictures, is pasted once its images are uploaded, each a figure.
+// assets, then inserted where it was pasted or dropped (`paste-place.ts`). An upload that fails
+// inserts nothing and tells the reader through the host's feedback. Pasted HTML whose images come
+// with the paste, as data URIs or as a word processor's pictures, is pasted once its images are
+// uploaded, each a figure, at the selection then: the view pastes HTML only there. A paste from
+// the keyboard and the context menu's Paste both go through `pasteImages`.
 
 import { DOMSerializer } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { insertFigure } from '../../engine/index.js';
 import type { AssetAdapter, FeedbackAdapter } from '../../host/index.js';
-import { hasPastedImages, type PastedImage, pastedImages } from './pasted-images.js';
+import type { DocumentEditorProps } from './document-editor.js';
+import type { DocumentEditorLabels } from './editor-labels.js';
+import { insertFigureAt, type PastePlace } from './paste-place.js';
+import { hasPastedImages, hasPastedText, type PastedImage, pastedImages } from './pasted-images.js';
 
 /** What pasting images needs from the host. */
 export interface FigurePasteOptions {
@@ -20,22 +24,47 @@ export interface FigurePasteOptions {
   readonly uploading: string;
 }
 
-// The image files a paste or a drop carries.
-function imagesOf(data: DataTransfer | null): File[] {
-  return [...(data?.files ?? [])].filter((file) => file.type.startsWith('image/'));
+/** What pasting images needs, from the editor's props; null while the host stores no assets. */
+export function figurePasteOptions(
+  { assets, feedback }: Pick<DocumentEditorProps, 'assets' | 'feedback'>,
+  labels: DocumentEditorLabels,
+): FigurePasteOptions | null {
+  if (!assets) return null;
+  return { assets, feedback, failure: labels.uploadFailed, uploading: labels.uploading };
 }
 
-// Uploads the images one by one, inserting each as a figure once stored, at the selection then.
-async function insertFigures(view: EditorView, files: File[], options: FigurePasteOptions) {
+/** What a paste carries: its files, its HTML and the RTF flavour of the same paste. */
+export interface PastedContent {
+  readonly files: readonly File[];
+  readonly html: string;
+  readonly rtf: string;
+}
+
+const imagesOf = (files: Iterable<File> | null | undefined): File[] =>
+  [...(files ?? [])].filter((file) => file.type.startsWith('image/'));
+
+// Whether the document can still take what was pasted: its view may be gone, or the document read
+// only, by the time an upload ends.
+const canTake = (view: EditorView) => !view.isDestroyed && view.editable;
+
+// Uploads the images one by one, inserting each as a figure once stored: the first at the place
+// they were pasted or dropped at, each next one after the one before.
+async function insertFigures(
+  view: EditorView,
+  { files, at }: { files: File[]; at: PastePlace },
+  options: FigurePasteOptions,
+) {
+  let place = at;
   for (const file of files) {
     const result = await options.assets.upload(file).catch(() => null);
     if (!result?.ok) {
       options.feedback?.notify({ tone: 'error', text: result?.error.message ?? options.failure });
       continue;
     }
+    if (!canTake(view)) continue;
     const { id, snapshotId } = result.value;
-    const command = insertFigure({ fileAssetId: id, snapshotId: snapshotId ?? id, alt: file.name });
-    if (!view.isDestroyed) command(view.state, view.dispatch, view);
+    const source = { fileAssetId: id, snapshotId: snapshotId ?? id, alt: file.name };
+    place = insertFigureAt(view, place, source);
   }
 }
 
@@ -63,7 +92,7 @@ async function figureMarkup(
 // Uploads the images of pasted HTML one by one, then pastes it, each image a figure.
 async function pasteWithImages(
   view: EditorView,
-  { html, rtf }: { html: string; rtf: string },
+  { html, rtf }: Pick<PastedContent, 'html' | 'rtf'>,
   options: FigurePasteOptions,
 ) {
   options.feedback?.notify({ tone: 'info', text: options.uploading });
@@ -72,36 +101,57 @@ async function pasteWithImages(
     const markup = await figureMarkup(view, image, options);
     pasted = pasted.replace(image.tag, () => markup);
   }
-  if (!view.isDestroyed) view.pasteHTML(pasted);
+  if (canTake(view)) view.pasteHTML(pasted);
+}
+
+/**
+ * Pastes what carries images of its own, once they are uploaded: image files become figures, and
+ * HTML with images whose bytes come with the paste is pasted with each as a figure. HTML with
+ * text is the content pasted, and an image file beside it only a picture of that content, so the
+ * files are taken when the HTML holds no text. Returns false for a paste without such images, or
+ * into a document that cannot be edited, which is left to the caller.
+ */
+export function pasteImages(
+  view: EditorView,
+  content: PastedContent,
+  options: FigurePasteOptions,
+): boolean {
+  if (!view.editable) return false;
+  const files = imagesOf(content.files);
+  if (files.length > 0 && !hasPastedText(content.html)) {
+    const at = { doc: view.state.doc, selection: view.state.selection };
+    void insertFigures(view, { files, at }, options);
+    return true;
+  }
+  if (!hasPastedImages(content.html)) return false;
+  void pasteWithImages(view, content, options);
+  return true;
 }
 
 /** The view's paste and drop handlers that upload images and insert them as figures. */
 export function figurePasteHandlers(options: FigurePasteOptions) {
   return {
     handlePaste(view: EditorView, event: ClipboardEvent): boolean {
-      if (!view.editable) return false;
-      const files = imagesOf(event.clipboardData);
-      const html = event.clipboardData?.getData('text/html') ?? '';
-      if (files.length === 0 && !hasPastedImages(html)) return false;
+      const data = event.clipboardData;
+      const content = {
+        files: [...(data?.files ?? [])],
+        html: data?.getData('text/html') ?? '',
+        rtf: data?.getData('text/rtf') ?? '',
+      };
+      if (!pasteImages(view, content, options)) return false;
       event.preventDefault();
-      if (files.length > 0) void insertFigures(view, files, options);
-      else {
-        const rtf = event.clipboardData?.getData('text/rtf') ?? '';
-        void pasteWithImages(view, { html, rtf }, options);
-      }
       return true;
     },
     handleDrop(view: EditorView, event: DragEvent): boolean {
-      const files = imagesOf(event.dataTransfer);
+      const files = imagesOf(event.dataTransfer?.files);
       if (files.length === 0 || !view.editable) return false;
       event.preventDefault();
-      const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
-      if (at) {
-        view.dispatch(
-          view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at.pos))),
-        );
-      }
-      void insertFigures(view, files, options);
+      const { doc } = view.state;
+      const hit = view.posAtCoords({ left: event.clientX, top: event.clientY });
+      // The caret goes where the images were dropped, which is their place whatever it does next.
+      const selection = hit ? TextSelection.near(doc.resolve(hit.pos)) : view.state.selection;
+      if (hit) view.dispatch(view.state.tr.setSelection(selection));
+      void insertFigures(view, { files, at: { doc, selection } }, options);
       return true;
     },
   };

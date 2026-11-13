@@ -1,6 +1,8 @@
 // The text of the editor's shell controls: the editing mode and markup controls, the layout menu,
-// the toolbar's overflow, the reasons a control is unavailable, the Tools menu's updates, and the
-// inline completion toggle.
+// the toolbar's overflow, the reasons a control is unavailable, the Tools menu's updates, the
+// inline completion toggle and the status bar's words for the room connection.
+
+import { CONNECTION_STATUS_LABELS, type ConnectionStatusLabels } from './connection-status.js';
 
 /** The text of the editor's mode, markup and layout controls. */
 export interface ShellLabels {
@@ -32,6 +34,8 @@ export interface ShellLabels {
   readonly inlineCompletion: string;
   /** Why the inline completion toggle is unavailable when the provider gives no reason. */
   readonly reasonCompletionUnavailable: string;
+  /** The status bar's words for each phase of the room connection (DOCE-SESSION-9.7). */
+  readonly connectionStatus: ConnectionStatusLabels;
 }
 
 /** The shell controls' English text. */
@@ -55,4 +59,5 @@ export const DEFAULT_SHELL_LABELS: ShellLabels = {
   updateAbbreviations: 'Update abbreviations from the glossary',
   inlineCompletion: 'Inline completion',
   reasonCompletionUnavailable: 'Completion is not available now',
+  connectionStatus: CONNECTION_STATUS_LABELS,
 };
