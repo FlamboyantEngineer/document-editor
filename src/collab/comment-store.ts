@@ -1,7 +1,7 @@
 // A comment store kept in a shared room's `comments` type (decision D29), so threads reach every
 // writer with the document and a commenter, who may write only that type, can keep them. Each
-// thread, each comment and each reaction is its own attribute, so two people replying to or
-// reacting in one thread at once both keep theirs.
+// thread, each field of it that changes, each comment and each reaction is its own attribute, so
+// two people changing one thread at once both keep what they did (`comment-records.ts`).
 
 import type * as Y from '@y/y';
 import type { IdentityAdapter } from '../host/adapters.js';
@@ -11,7 +11,14 @@ import type {
   CommentThread,
   HostResult,
 } from '../host/index.js';
-import { keyOf, parseKey, plain, readRoomThreads } from './comment-records.js';
+import {
+  entryOf,
+  keyOf,
+  parseKey,
+  plain,
+  readRoomThreads,
+  type ThreadFieldKind,
+} from './comment-records.js';
 
 /** The room's shared document and how the store tells time and makes ids. */
 export interface RoomCommentStoreOptions {
@@ -23,9 +30,6 @@ export interface RoomCommentStoreOptions {
   /** A new comment's id. Defaults to a random one. */
   createId?: (() => string) | undefined;
 }
-
-type ThreadFields = Omit<CommentThread, 'entries' | 'reactions'>;
-type EntryFields = Omit<CommentEntry, 'reactions'>;
 
 const COMMENTS = 'comments';
 
@@ -41,35 +45,38 @@ interface Room {
   write: (change: () => void) => void;
   me: () => string;
   stamp: () => string;
+  /** Whether the type holds the thread, and it was not removed. */
+  has: (threadId: string) => boolean;
   found: (threadId: string) => HostResult<CommentThread>;
 }
 
-// The changes to a thread's own fields, each stamped: resolving, deciding and updating it.
+// The changes to a thread's own fields: resolving, deciding and updating it. Each field is
+// written apart from the thread's record, with when it was set, so that two writers changing
+// different fields at once, or one changing a field while another removes the thread, undo nothing.
 function fieldChanges(room: Room): Pick<CommentStoreAdapter, 'setState' | 'decide' | 'update'> {
-  const { type, write, me, stamp, found } = room;
-  const setFields = (threadId: string, fields: Partial<ThreadFields>) => {
-    const current = type.getAttr(keyOf(['thread', threadId])) as ThreadFields | undefined;
-    if (!current) return Promise.resolve(missing<CommentThread>(threadId));
-    write(() => {
-      type.setAttr(
-        keyOf(['thread', threadId]),
-        plain({ ...current, ...fields, updatedAt: stamp() }),
-      );
-    });
+  const { type, write, me, stamp, has, found } = room;
+  const set = (threadId: string, kind: ThreadFieldKind, record: object) =>
+    type.setAttr(keyOf([kind, threadId]), plain(record));
+  const change = (threadId: string, make: () => void) => {
+    if (!has(threadId)) return Promise.resolve(missing<CommentThread>(threadId));
+    write(make);
     return Promise.resolve(found(threadId));
   };
-  const resolution = (state: CommentThread['state']) =>
-    state === 'resolved'
-      ? { state, resolvedBy: me(), resolvedAt: stamp() }
-      : { state, resolvedBy: undefined, resolvedAt: undefined };
+  const setState = (threadId: string, state: CommentThread['state']) =>
+    set(threadId, 'state', { state, by: me(), at: stamp() });
   return {
-    setState: (_documentId, threadId, state) => setFields(threadId, resolution(state)),
+    setState: (_documentId, threadId, state) => change(threadId, () => setState(threadId, state)),
     decide: (_documentId, { threadId, ...decision }) =>
-      setFields(threadId, {
-        ...resolution('resolved'),
-        decision: plain({ ...decision, by: me(), at: stamp() }),
+      change(threadId, () => {
+        setState(threadId, 'resolved');
+        set(threadId, 'decision', { ...decision, by: me(), at: stamp() });
       }),
-    update: (_documentId, threadId, fields) => setFields(threadId, fields),
+    update: (_documentId, threadId, fields) =>
+      change(threadId, () => {
+        for (const kind of ['quote', 'target', 'change'] as const) {
+          if (fields[kind] !== undefined) set(threadId, kind, { value: fields[kind], at: stamp() });
+        }
+      }),
   };
 }
 
@@ -89,22 +96,24 @@ export function createRoomCommentStore({
   const me = () => identity.currentPerson().id;
   const stamp = () => now().toISOString();
   const write = (change: () => void) => doc.transact(change, origin);
-  const read = (threadId: string) => readRoomThreads(type).find((each) => each.id === threadId);
-  const fieldsOf = (threadId: string) =>
-    type.getAttr(keyOf(['thread', threadId])) as ThreadFields | undefined;
+  const held = (kind: 'thread' | 'removed', threadId: string) =>
+    type.getAttr(keyOf([kind, threadId])) !== undefined;
+  const has = (threadId: string) => held('thread', threadId) && !held('removed', threadId);
   const found = (threadId: string): HostResult<CommentThread> => {
-    const thread = read(threadId);
+    const thread = readRoomThreads(type).find((each) => each.id === threadId);
     return thread ? { ok: true, value: thread } : missing(threadId);
   };
-  const room: Room = { type, write, me, stamp, found };
+  const room: Room = { type, write, me, stamp, has, found };
   const addEntry = (threadId: string, text: string) => {
-    const entry: EntryFields = { id: createId(), author: me(), text, createdAt: stamp() };
-    type.setAttr(keyOf(['entry', threadId, entry.id]), entry);
+    const id = createId();
+    type.setAttr(keyOf(['entry', threadId, id]), { id, author: me(), text, createdAt: stamp() });
   };
   return {
     list: () => Promise.resolve({ ok: true, value: readRoomThreads(type) }),
     create: (_documentId, { text, suggestion = null, ...fields }) => {
-      if (fieldsOf(fields.id)) return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
+      // A removed thread's id is not taken again: its mark would hide the new thread.
+      if (held('thread', fields.id) || held('removed', fields.id))
+        return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
       const at = stamp();
       write(() => {
         type.setAttr(
@@ -123,18 +132,14 @@ export function createRoomCommentStore({
       return Promise.resolve(found(fields.id));
     },
     reply: (_documentId, threadId, text) => {
-      if (!fieldsOf(threadId)) return Promise.resolve(missing(threadId));
+      if (!has(threadId)) return Promise.resolve(missing(threadId));
       write(() => addEntry(threadId, text));
       return Promise.resolve(found(threadId));
     },
     ...fieldChanges(room),
     remove: (_documentId, threadId) => {
-      if (!fieldsOf(threadId)) return Promise.resolve(missing(threadId));
-      write(() => {
-        type.forEachAttr((_value: unknown, name: string | number) => {
-          if (parseKey(String(name))?.[1] === threadId) type.deleteAttr(String(name));
-        });
-      });
+      if (!has(threadId)) return Promise.resolve(missing(threadId));
+      write(() => removeThread(type, threadId));
       return Promise.resolve({ ok: true, value: null });
     },
     ...entryChanges(room),
@@ -144,6 +149,18 @@ export function createRoomCommentStore({
       return () => type.unobserve(tell);
     },
   };
+}
+
+// Removes a thread's records and marks the thread removed. The mark stays: a change another
+// writer makes to the thread at the same time, or an older editor writing its record again, would
+// otherwise bring back a thread with nothing in it.
+function removeThread(type: Y.Type, threadId: string): void {
+  const names: string[] = [];
+  type.forEachAttr((_value: unknown, name: string | number) => {
+    if (parseKey(String(name))?.[1] === threadId) names.push(String(name));
+  });
+  for (const name of names) type.deleteAttr(name);
+  type.setAttr(keyOf(['removed', threadId]), true);
 }
 
 // The changes to one comment: editing and deleting the reader's own, and reacting to a comment or,
@@ -159,9 +176,9 @@ function entryChanges({
   const own = (
     threadId: string,
     entryId: string,
-  ): { key: string; entry: EntryFields } | { refused: HostResult<CommentThread> } => {
+  ): { key: string; entry: CommentEntry } | { refused: HostResult<CommentThread> } => {
     const key = keyOf(['entry', threadId, entryId]);
-    const entry = type.getAttr(key) as EntryFields | undefined;
+    const entry = entryOf(entryId, type.getAttr(key));
     if (!entry) return { refused: missing<CommentThread>(entryId) };
     return entry.author === me() ? { key, entry } : { refused: denied };
   };

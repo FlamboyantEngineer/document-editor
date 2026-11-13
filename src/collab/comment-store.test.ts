@@ -268,3 +268,83 @@ describe('readRoomThreads', () => {
     expect(readRoomThreads(first.get('comments'))).toEqual(listed);
   });
 });
+
+describe('createRoomCommentStore, with changes made at once', () => {
+  it('DOCE-COMMENTS-2.20 keeps a resolution, a decision and an update two writers make at once', async () => {
+    const { exchange, ada, bea } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: '', suggestion: 's1' });
+    await ada.create('doc', { id: 't2', quote: 'red', text: '', suggestion: 's2' });
+    exchange();
+    const change = { kind: 'insert', inserted: 'blue sky' } as const;
+    await ada.update?.('doc', 't1', { quote: 'blue sky', change });
+    await bea.setState('doc', 't1', 'resolved');
+    await ada.update?.('doc', 't2', { quote: 'red rose' });
+    await bea.decide?.('doc', { threadId: 't2', suggestion: 's2', decision: 'reject' });
+    exchange();
+    for (const store of [ada, bea]) {
+      expect(value(await store.list('doc'))).toMatchObject([
+        { id: 't1', quote: 'blue sky', change, state: 'resolved', resolvedBy: 'bea' },
+        {
+          id: 't2',
+          quote: 'red rose',
+          state: 'resolved',
+          decision: { decision: 'reject', suggestion: 's2', by: 'bea' },
+        },
+      ]);
+    }
+  });
+
+  it('DOCE-COMMENTS-2.20 keeps a thread removed while another writer changes it', async () => {
+    const { second, exchange, ada, bea } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    await ada.create('doc', { id: 't2', quote: 'red', text: 'Second' });
+    exchange();
+    await ada.remove('doc', 't1');
+    await ada.remove('doc', 't2');
+    await bea.setState('doc', 't1', 'resolved');
+    await bea.reply('doc', 't1', 'Too late');
+    // An earlier editor resolves by writing the thread's whole record again.
+    attribute(second, ['thread', 't2'], { id: 't2', quote: 'red', state: 'resolved' });
+    exchange();
+    for (const store of [ada, bea]) expect(value(await store.list('doc'))).toEqual([]);
+    await expect(bea.create('doc', { id: 't1', quote: 'blue', text: 'Again' })).resolves.toEqual({
+      ok: false,
+      error: { kind: 'conflict' },
+    });
+  });
+
+  it('DOCE-COMMENTS-2.20 reads a thread an earlier editor kept as one record, and changes it', async () => {
+    const { first, ada } = writers();
+    const decision = {
+      decision: 'accept',
+      suggestion: 's1',
+      by: 'cy',
+      at: '2025-06-01T00:00:00.000Z',
+    };
+    attribute(first, ['thread', 'old'], {
+      id: 'old',
+      quote: 'blue',
+      suggestion: 's1',
+      state: 'resolved',
+      resolvedBy: 'cy',
+      resolvedAt: '2025-06-01T00:00:00.000Z',
+      author: 'cy',
+      createdAt: '2025-05-01T00:00:00.000Z',
+      updatedAt: '2025-06-01T00:00:00.000Z',
+      decision,
+    });
+    const [kept] = value(await ada.list('doc'));
+    expect(kept).toMatchObject({ id: 'old', state: 'resolved', resolvedBy: 'cy', decision });
+    const reopened = value(await ada.setState('doc', 'old', 'open'));
+    expect(reopened).toMatchObject({
+      state: 'open',
+      decision,
+      updatedAt: '2026-01-02T03:04:05.000Z',
+    });
+    expect(reopened).not.toHaveProperty('resolvedBy');
+    expect(reopened).not.toHaveProperty('resolvedAt');
+    expect(
+      value((await ada.update?.('doc', 'old', { quote: 'blues' })) ?? { ok: false }),
+    ).toMatchObject({ quote: 'blues', state: 'open' });
+  });
+});

@@ -1,7 +1,9 @@
 // The records a shared room's `comments` type keeps (decision D29), and the threads read from
-// them. Anyone who may comment writes that type, and an older editor may have written it too, so
-// every value is read as untrusted: a record that is not one of its kind is left out, and never
-// stops the others from being read.
+// them. A thread's record is written once, when the thread starts; each field of it that changes
+// later, each comment and each reaction is an attribute of its own, so what two people change at
+// once in one thread both stays. Anyone who may comment writes that type, and an older editor may
+// have written it too, so every value is read as untrusted: a record that is not one of its kind
+// is left out, and never stops the others from being read.
 
 import type * as Y from '@y/y';
 import type {
@@ -13,17 +15,33 @@ import type {
   CommentThread,
 } from '../host/index.js';
 
-/** The attributes of the `comments` type, by kind: a thread, one of its comments, a reaction. */
+/** A field of a thread that changes after it starts, kept apart from the thread's record. */
+export type ThreadFieldKind = 'state' | 'decision' | 'quote' | 'target' | 'change';
+
+/**
+ * The attributes of the `comments` type, by kind: a thread, a field of it set since, the mark of a
+ * removed thread, one of its comments, a reaction.
+ */
 export type RecordKey =
-  | readonly ['thread', string]
+  | readonly ['thread' | ThreadFieldKind | 'removed', string]
   | readonly ['entry', string, string]
   | readonly ['reaction', string, string, string, string];
 
 type Fields = Record<string, unknown>;
 
-const KEY_LENGTHS: Record<string, number> = { thread: 2, entry: 3, reaction: 5 };
+const keyLengths: Record<string, number> = {
+  thread: 2,
+  state: 2,
+  decision: 2,
+  quote: 2,
+  target: 2,
+  change: 2,
+  removed: 2,
+  entry: 3,
+  reaction: 5,
+};
 
-const CHANGE_KINDS: ReadonlySet<unknown> = new Set(['insert', 'delete', 'replace', 'format']);
+const changeKinds: ReadonlySet<unknown> = new Set(['insert', 'delete', 'replace', 'format']);
 
 /** A record's attribute name. */
 export const keyOf = (key: RecordKey): string => JSON.stringify(key);
@@ -33,7 +51,7 @@ export function parseKey(name: string): RecordKey | null {
   try {
     const key: unknown = JSON.parse(name);
     if (!Array.isArray(key) || !key.every((part) => typeof part === 'string')) return null;
-    return KEY_LENGTHS[String(key[0])] === key.length ? (key as unknown as RecordKey) : null;
+    return keyLengths[String(key[0])] === key.length ? (key as unknown as RecordKey) : null;
   } catch {
     return null;
   }
@@ -72,7 +90,7 @@ function targetOf({ ranges, quote }: Fields): CommentTarget | null {
 }
 
 function changeOf({ kind, inserted, deleted }: Fields): CommentChange | null {
-  if (!CHANGE_KINDS.has(kind)) return null;
+  if (!changeKinds.has(kind)) return null;
   return plain({
     kind: kind as CommentChange['kind'],
     inserted: textOf(inserted),
@@ -111,13 +129,56 @@ function threadOf(id: string, value: unknown): CommentThread | null {
   });
 }
 
-// The comment a record under a comment's key holds; null for a value that is not such a record.
-function entryOf(id: string, value: unknown): CommentEntry | null {
+/** The comment a record under a comment's key holds; null for a value that is not such a record. */
+export function entryOf(id: string, value: unknown): CommentEntry | null {
   const { author, text, createdAt, editedAt } = fieldsOf(value) ?? {};
   if (typeof author !== 'string' || typeof text !== 'string' || typeof createdAt !== 'string')
     return null;
   return plain({ id, author, text, createdAt, editedAt: textOf(editedAt) });
 }
+
+// A thread changed at `at`, when that is later than its record says.
+function touch(thread: CommentThread, at: unknown): void {
+  if (typeof at === 'string' && at > (thread.updatedAt ?? '')) thread.updatedAt = at;
+}
+
+// Sets a thread's field from the record kept apart for it, which says when it was set; a record
+// that does not hold the field leaves the thread as its own record has it.
+const fieldReaders: Record<ThreadFieldKind, (thread: CommentThread, fields: Fields) => void> = {
+  state(thread, { state, by, at }) {
+    if (state !== 'open' && state !== 'resolved') return;
+    thread.state = state;
+    thread.resolvedBy = state === 'resolved' ? textOf(by) : undefined;
+    thread.resolvedAt = state === 'resolved' ? textOf(at) : undefined;
+    touch(thread, at);
+  },
+  decision(thread, fields) {
+    const decision = decisionOf(fields);
+    if (!decision) return;
+    thread.decision = decision;
+    touch(thread, decision.at);
+  },
+  quote(thread, { value, at }) {
+    if (typeof value !== 'string') return;
+    thread.quote = value;
+    touch(thread, at);
+  },
+  target(thread, { value, at }) {
+    const target = optional(value, targetOf);
+    if (target === undefined) return;
+    thread.target = target;
+    touch(thread, at);
+  },
+  change(thread, { value, at }) {
+    const change = optional(value, changeOf);
+    if (change === undefined) return;
+    thread.change = change;
+    touch(thread, at);
+  },
+};
+
+const isFieldKind = (kind: RecordKey[0]): kind is ThreadFieldKind =>
+  Object.hasOwn(fieldReaders, kind);
 
 function addReaction(
   reactions: Record<string, string[]> | undefined,
@@ -128,37 +189,60 @@ function addReaction(
   return next;
 }
 
-/** Every thread the `comments` type holds, comments oldest first. */
-export function readRoomThreads(type: Y.Type): CommentThread[] {
-  const threads = new Map<string, CommentThread>();
-  const entries = new Map<string, CommentEntry>();
-  const reactions: (readonly [string, string, string, string])[] = [];
+type Stored = readonly [key: RecordKey, value: unknown];
+
+function recordsOf(type: Y.Type): Stored[] {
+  const records: Stored[] = [];
   type.forEachAttr((value: unknown, name: string | number) => {
     const key = parseKey(String(name));
-    if (key?.[0] === 'thread') {
-      const thread = threadOf(key[1], value);
-      if (thread) threads.set(key[1], thread);
-    }
-    if (key?.[0] === 'entry') {
-      const entry = entryOf(key[2], value);
-      if (entry) entries.set(keyOf(key), entry);
-    }
-    if (key?.[0] === 'reaction') reactions.push([key[1], key[2], key[3], key[4]]);
+    if (key) records.push([key, value]);
   });
-  for (const [threadId, entryId, emoji, person] of reactions) {
-    const target = entryId
-      ? entries.get(keyOf(['entry', threadId, entryId]))
-      : threads.get(threadId);
+  return records;
+}
+
+// The threads by id, each as its record has it with the fields set since; a removed thread is
+// left out even when a record of it was written again, as by a change made while it was removed.
+function threadsOf(records: readonly Stored[]): Map<string, CommentThread> {
+  const removed = new Set(records.flatMap(([key]) => (key[0] === 'removed' ? [key[1]] : [])));
+  const threads = new Map<string, CommentThread>();
+  for (const [key, value] of records) {
+    const thread = key[0] === 'thread' && !removed.has(key[1]) ? threadOf(key[1], value) : null;
+    if (thread) threads.set(thread.id, thread);
+  }
+  for (const [[kind, id], value] of records) {
+    const thread = threads.get(id);
+    const fields = fieldsOf(value);
+    if (thread && fields && isFieldKind(kind)) fieldReaders[kind](thread, fields);
+  }
+  return threads;
+}
+
+// The comments by thread, then by id.
+function entriesOf(records: readonly Stored[]): Map<string, Map<string, CommentEntry>> {
+  const entries = new Map<string, Map<string, CommentEntry>>();
+  for (const [key, value] of records) {
+    const entry = key[0] === 'entry' ? entryOf(key[2], value) : null;
+    if (!entry) continue;
+    const ofThread = entries.get(key[1]) ?? new Map<string, CommentEntry>();
+    entries.set(key[1], ofThread.set(entry.id, entry));
+  }
+  return entries;
+}
+
+/** Every thread the `comments` type holds, comments oldest first. */
+export function readRoomThreads(type: Y.Type): CommentThread[] {
+  const records = recordsOf(type);
+  const threads = threadsOf(records);
+  const entries = entriesOf(records);
+  for (const [key] of records) {
+    if (key[0] !== 'reaction') continue;
+    const [, threadId, entryId, emoji, person] = key;
+    const target = entryId ? entries.get(threadId)?.get(entryId) : threads.get(threadId);
     if (target) target.reactions = addReaction(target.reactions, { emoji, person });
   }
-  for (const [name, entry] of entries) {
-    const key = parseKey(name);
-    if (key?.[0] === 'entry') threads.get(key[1])?.entries.push(entry);
-  }
-  for (const thread of threads.values()) {
-    thread.entries.sort(
-      (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
-    );
-  }
-  return [...threads.values()];
+  return [...threads.values()].map((thread) => {
+    const listed = [...(entries.get(thread.id)?.values() ?? [])];
+    listed.sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+    return plain({ ...thread, entries: listed });
+  });
 }
