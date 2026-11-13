@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
 import { documentKeys } from './document-editing.js';
+import { insertFootnote } from './footnotes.js';
 import {
   acceptAllSuggestions,
   acceptSuggestion,
@@ -18,6 +19,7 @@ import {
   suggestionDecisionOf,
 } from './suggestion-decisions.js';
 import { suggestTransaction } from './suggestions.js';
+import { insertTable } from './tables.js';
 import { markSystemChange } from './transaction-kind.js';
 
 const paragraph = (value: string): StoredNode => ({
@@ -221,6 +223,17 @@ describe('suggest mode', () => {
       doc: read({ type: 'blockquote', content: [paragraph('Said')] }),
     });
     expect(suggest(select(quoted, positionOf(quoted.doc, 'Said') + 1), lift)).toBeNull();
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 refuses to insert a block that cannot be suggested', () => {
+    const state = EditorState.create({ doc: read(paragraph('One')) });
+    const inText = select(state, positionOf(state.doc, 'One') + 1);
+    let offered = 0;
+    for (const insert of [insertTable({ rows: 2, columns: 2 }), insertFootnote()]) {
+      if (insert(inText)) offered += 1;
+      expect(suggest(inText, insert)).toBeNull();
+    }
+    expect(offered).toBe(2);
   });
 
   it('DOCE-SUGGESTIONS-1.5 leaves a system change as it is', () => {
