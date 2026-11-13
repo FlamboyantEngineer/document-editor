@@ -1,11 +1,12 @@
 import { act, render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { type EditorState, NodeSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection } from 'prosemirror-state';
 import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { scriptState } from '../../../test/script-blocks.js';
-import { listScriptBlocks } from '../../engine/index.js';
+import { createDocumentEditing, listScriptBlocks } from '../../engine/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { ContextMenuProvider } from './context-providers.js';
 import { EditorModal, type HostDialogProps } from './dialog-parts.js';
@@ -25,9 +26,9 @@ function Details({ view, onClose }: HostDialogProps) {
 
 const DIALOGS = { details: Details };
 
-function Harness(props: Partial<DocumentEditorProps>) {
-  const [state, setState] = useState<EditorState>(() =>
-    scriptState([{ id: 'a0000001', source: 'count()' }]),
+function Harness({ initial, ...props }: Partial<DocumentEditorProps> & { initial?: EditorState }) {
+  const [state, setState] = useState<EditorState>(
+    () => initial ?? scriptState([{ id: 'a0000001', source: 'count()' }]),
   );
   return (
     <DocumentEditor
@@ -97,6 +98,19 @@ describe('DocumentContextMenu', () => {
     const menu = await openMenu(user);
     await user.click(within(menu).getByRole('menuitem', { name: 'Details…' }));
     expect(await screen.findByRole('dialog', { name: 'Details' })).toBeInTheDocument();
+  });
+
+  it("DOCE-EDITOR-3.2 shows the keys of the host's shortcut table", async () => {
+    const user = userEvent.setup();
+    const plugins = createDocumentEditing(documentSchema, {
+      shortcuts: { 'clear-formatting': 'Mod-Shift-y' },
+    });
+    const doc = scriptState([]).doc;
+    render(<Harness initial={EditorState.create({ doc, plugins })} />);
+    const menu = await openMenu(user);
+    const clear = within(menu).getByRole('menuitem', { name: /Clear formatting/ });
+    expect(clear).toHaveTextContent(/Shift\+Y/);
+    expect(clear).not.toHaveTextContent('\\');
   });
 
   it('DOCE-EDITOR-4.8 offers no run of a script block while the writer suggests', async () => {

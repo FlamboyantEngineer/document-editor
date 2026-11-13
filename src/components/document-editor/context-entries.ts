@@ -13,6 +13,8 @@ import {
   decideWithPolicy,
   listSuggestions,
   objectBlockAt,
+  shortcutLabel,
+  shortcutsOf,
   suggestionPermissions,
   type SuggestionPolicy,
 } from '../../engine/index.js';
@@ -86,7 +88,7 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
     entries.push({
       id: 'comment',
       label: labels.addComment,
-      shortcut: 'Ctrl+Alt+M',
+      shortcut: shortcutLabel(shortcutsOf(view.state), 'comment'),
       isDisabled: !canStartComment(view.state),
       onAction: startComment,
     });
@@ -95,7 +97,11 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
     entries.push(
       commandEntry(
         view,
-        { id: 'clear-formatting', label: labels.clearFormatting, shortcut: 'Ctrl+\\' },
+        {
+          id: 'clear-formatting',
+          label: labels.clearFormatting,
+          shortcut: shortcutLabel(shortcutsOf(view.state), 'clear-formatting'),
+        },
         clearFormatting,
       ),
     );
