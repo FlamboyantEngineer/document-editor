@@ -70,17 +70,20 @@ export const CARD_GAP = 16;
  * `CARD_GAP` pixels from the page's end edge, by annotation key: pages of another size or
  * orientation have their own edge. A card whose anchor is on no page does not move.
  */
-export function measureCardOffsets(
+// The class of the margin of cards, a child of the annotation layer.
+const MARGIN_CLASS = 'de-document-comments__margin';
+
+function measureCardOffsets(
   layer: HTMLElement,
-  margin: Element | null,
   targets: ReadonlyMap<string, AnchorTarget>,
+  marking: Marking,
 ): Map<string, number> {
   const offsets = new Map<string, number>();
+  const margin = layer.querySelector(`:scope > .${MARGIN_CLASS}`);
   if (!margin) return offsets;
   // The layer's own scale, when an ancestor scales it: the card moves in the layer's pixels.
   const scale = layer.offsetWidth ? layer.getBoundingClientRect().width / layer.offsetWidth : 1;
   const start = margin.getBoundingClientRect().left;
-  const marking = markingOf(layer);
   for (const [key, target] of targets) {
     const page = anchorElement(layer, marking, target)?.closest('.pm-page');
     if (!page) continue;
@@ -114,15 +117,15 @@ function selectionBoxes(layer: HTMLElement): DOMRect[] {
  * Measures each target's anchor inside a layer, by annotation key; a missing anchor has none. The
  * marking elements are found in one pass over the layer, however many targets there are.
  */
-export function measureAnchors(
+function measureAnchors(
   layer: HTMLElement,
   targets: ReadonlyMap<string, AnchorTarget>,
+  marking: Marking,
 ): Map<string, AnnotationRect[]> {
   const frame = layer.getBoundingClientRect();
   const left = frame.left + layer.clientLeft - layer.scrollLeft;
   const top = frame.top + layer.clientTop - layer.scrollTop;
   const measured = new Map<string, AnnotationRect[]>();
-  const marking = markingOf(layer);
   for (const [key, target] of targets) {
     const boxes =
       target.kind === 'selection'
@@ -139,6 +142,29 @@ export function measureAnchors(
     );
   }
   return measured;
+}
+
+/** What one pass measures in a layer: each anchor's rectangles and each card's offset. */
+export interface LayerMeasurement {
+  readonly rects: ReadonlyMap<string, readonly AnnotationRect[]>;
+  readonly offsets: ReadonlyMap<string, number>;
+}
+
+/**
+ * Measures each target's anchor inside a layer, and how far its card moves across to sit beside
+ * the anchor's page (`CARD_GAP` from its end edge), by annotation key; a missing anchor has no
+ * rectangles and its card does not move. The marking elements are found in one pass over the
+ * layer, however many targets there are.
+ */
+export function measureLayer(
+  layer: HTMLElement,
+  targets: ReadonlyMap<string, AnchorTarget>,
+): LayerMeasurement {
+  const marking = markingOf(layer);
+  return {
+    rects: measureAnchors(layer, targets, marking),
+    offsets: measureCardOffsets(layer, targets, marking),
+  };
 }
 
 /** Whether two measurements hold the same rectangles. */

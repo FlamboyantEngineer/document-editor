@@ -21,8 +21,7 @@ import {
   type AnchorTarget,
   isSameMeasurement,
   isSameOffsets,
-  measureAnchors,
-  measureCardOffsets,
+  measureLayer,
 } from './anchor-rects.js';
 import {
   type CommentActionTarget,
@@ -152,9 +151,13 @@ function useAnchorRects(
 ): Measured {
   const [measured, setMeasured] = useState<Measured>(NOTHING_MEASURED);
   const latest = useRef(targets);
+  // Measures again at the next frame, once the observers are set up on the layer.
+  const remeasure = useRef<(() => void) | null>(null);
   useLayoutEffect(() => {
     latest.current = targets;
-  });
+    remeasure.current?.();
+  }, [targets]);
+  // The observers stay while the layer does, rather than being set up again for each state.
   useLayoutEffect(() => {
     const view = layer?.ownerDocument.defaultView;
     if (!layer || !view) return;
@@ -162,9 +165,7 @@ function useAnchorRects(
     const measure = () => {
       view.cancelAnimationFrame(frame);
       frame = view.requestAnimationFrame(() => {
-        const rects = measureAnchors(layer, latest.current);
-        const margin = layer.querySelector(`:scope > .${MARGIN_CLASS}`);
-        const offsets = measureCardOffsets(layer, margin, latest.current);
+        const { rects, offsets } = measureLayer(layer, latest.current);
         setMeasured((current) =>
           isSameMeasurement(current.rects, rects) && isSameOffsets(current.offsets, offsets)
             ? current
@@ -172,6 +173,7 @@ function useAnchorRects(
         );
       });
     };
+    remeasure.current = measure;
     measure();
     // Without resize observers, as in a test document, only changes of its content measure again.
     const observer =
@@ -180,15 +182,14 @@ function useAnchorRects(
     const content = new view.MutationObserver(measure);
     content.observe(layer, { subtree: true, childList: true, characterData: true });
     return () => {
+      remeasure.current = null;
       view.cancelAnimationFrame(frame);
       observer?.disconnect();
       content.disconnect();
     };
-  }, [layer, targets]);
+  }, [layer]);
   return measured;
 }
-
-const MARGIN_CLASS = 'de-document-comments__margin';
 
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread

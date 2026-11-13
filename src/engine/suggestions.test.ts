@@ -272,6 +272,14 @@ describe('deciding suggestions', () => {
     expect(rejected && markup(rejected.doc)).toEqual(['Alpha blue', 'Gamma[+!]']);
   });
 
+  it('DOCE-SUGGESTIONS-2.1 lists a document’s suggestions once, giving the same list again', () => {
+    const state = suggested();
+    if (!state) throw new Error('The suggestions should be made.');
+    const listed = listSuggestions(state.doc);
+    expect(listSuggestions(state.doc)).toBe(listed);
+    expect(Object.isFrozen(listed)).toBe(true);
+  });
+
   it('DOCE-SUGGESTIONS-2.2 accepts and rejects every suggestion, blocks included', () => {
     const state = suggested();
     expect(decide(state, acceptAllSuggestions)?.doc.textContent).toBe('Alpha deltaGamma!');

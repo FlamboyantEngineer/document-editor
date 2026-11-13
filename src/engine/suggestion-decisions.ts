@@ -124,7 +124,21 @@ interface SuggestionIndex {
   readonly keysOf: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
+// Each document's index, made once: the margin, the panel and the editor ask for the same
+// document's suggestions many times on each change.
+const indexes = new WeakMap<ProseMirrorNode, SuggestionIndex>();
+
 function indexSuggestions(doc: ProseMirrorNode): SuggestionIndex {
+  let index = indexes.get(doc);
+  if (!index) {
+    index = buildIndex(doc);
+    Object.freeze(index.suggestions);
+    indexes.set(doc, index);
+  }
+  return index;
+}
+
+function buildIndex(doc: ProseMirrorNode): SuggestionIndex {
   const pieces = piecesOf(doc);
   const find = joinParts(pieces);
   const groups = new Map<string, Collecting>();
@@ -172,8 +186,8 @@ function indexSuggestions(doc: ProseMirrorNode): SuggestionIndex {
  * The suggestions in a document, in reading order. Parts discussed in the same comment thread are
  * one suggestion, whatever their ids, and a part with no id of its own is its thread's.
  */
-export function listSuggestions(doc: ProseMirrorNode): Suggestion[] {
-  return [...indexSuggestions(doc).suggestions];
+export function listSuggestions(doc: ProseMirrorNode): readonly Suggestion[] {
+  return indexSuggestions(doc).suggestions;
 }
 
 /**
