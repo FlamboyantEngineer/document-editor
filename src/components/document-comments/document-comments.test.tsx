@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Harness, host, PARAGRAPH, seen, text, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { listCommentAnchors, listSuggestions } from '../../engine/index.js';
-import { createMemoryHost } from '../../host/index.js';
+import { type CommentStoreAdapter, createMemoryHost } from '../../host/index.js';
 
 installEditorDom();
 
@@ -230,6 +230,41 @@ describe('DocumentComments', () => {
       });
     });
     expect(decide).toHaveBeenCalledTimes(1);
+  });
+
+  it('DOCE-COMMENTS-2.15 DOCE-COMMENTS-2.17 shows a refused reply on the card of its suggestion', async () => {
+    const user = userEvent.setup();
+    const made = createMemoryHost({
+      person: { id: 'ada', name: 'Ada Lovelace' },
+      comments: {
+        threads: { doc: [{ ...thread('about', 'open', 'Why epsilon?'), suggestion: 's1' }] },
+      },
+    });
+    if (!made.comments) throw new Error('The host should keep comments.');
+    const refusing: CommentStoreAdapter = {
+      ...made.comments,
+      reply: () =>
+        Promise.resolve({ ok: false, error: { kind: 'unavailable', message: 'Offline.' } }),
+    };
+    render(
+      <Harness
+        host={{ ...made, comments: refusing }}
+        content={[
+          text('Alpha '),
+          text('epsilon', [
+            { type: 'insertion', attrs: { id: 's1', author: 'ada', thread: 'about' } },
+          ]),
+        ]}
+      />,
+    );
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('Why epsilon?')).closest('[role="listitem"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show its thread.');
+    await user.type(within(card).getByRole('textbox', { name: 'Reply' }), 'Because');
+    await user.click(within(card).getByRole('button', { name: 'Reply' }));
+    // The row says why, and is announced too.
+    expect(await within(card).findAllByText('Offline.')).not.toHaveLength(0);
+    expect(within(card).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause', async () => {

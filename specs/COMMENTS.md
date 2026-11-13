@@ -197,10 +197,10 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.15 - Changes the store refuses
 
-A change the comment store refuses shall show on its thread as an error row (the base library's `CommentThread` activity) with the store's message, or the `failed` label, until the reader dismisses it, and leave the thread as it was. A refused reply resolves with nothing and offers Retry, which posts it again; every other refused change also rejects, so its caller leaves the document's anchors as they were. A listing that fails gives its message and keeps the threads listed before.
+A change the comment store refuses shall show on its thread, on a suggestion's card too, as an error row (the base library's `CommentThread` activity) with the store's message, or the `failed` label, until the reader dismisses it, and leave the thread as it was. A refused reply resolves with nothing and offers Retry, which posts it again; every other refused change also rejects, so its caller leaves the document's anchors as they were. A listing that fails gives its message and keeps the threads listed before.
 
-Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-thread-actions.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-activity-rows.ts`
-Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-thread-actions.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/suggestion-card.tsx`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.16 - Stale listings
 
@@ -211,10 +211,10 @@ Verification: `src/components/document-comments/use-comment-threads.test.tsx`
 
 ### DOCE-COMMENTS-2.17 - Activity in a thread
 
-A thread's card shall show, after its comments, a row for the reader's reply while it is posted, for each reply the store is still writing for the reader, such as an assistant's (an entry with `status` `pending`, with Cancel) or could not (`failed`, with Retry and Cancel, through `settleEntry`), and for each person the store says is writing in it (`subscribeActivity`); such entries show only as rows.
+A thread's card, and the card of a suggestion with its thread, shall show, after its comments, a row for the reader's reply while it is posted, for each reply the store is still writing for the reader, such as an assistant's (an entry with `status` `pending`, with Cancel) or could not (`failed`, with Retry and Cancel, through `settleEntry`), and for each person the store says is writing in it (`subscribeActivity`); such entries show only as rows.
 
-Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/use-comment-threads.test.tsx`
+Implementation: `src/components/document-comments/use-thread-activity.ts`, `src/components/document-comments/comment-activity-rows.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`
+Verification: `src/components/document-comments/use-comment-threads.test.tsx`, `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.18 - Deciding, updating and reacting to threads
 
