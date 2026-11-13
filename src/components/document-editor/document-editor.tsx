@@ -417,7 +417,13 @@ export function DocumentEditor(given: DocumentEditorProps) {
         }
       >
         {layout === 'page' ? (
-          <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
+          <div
+            {...hooks.slot('measure')}
+            ref={measureIn}
+            aria-hidden="true"
+            inert
+            spellCheck={false}
+          />
         ) : null}
         <EditorSurface
           chrome={chrome}
