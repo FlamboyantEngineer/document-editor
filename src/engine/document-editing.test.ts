@@ -173,6 +173,13 @@ describe('document keys', () => {
     expect(body(state).children.map((block) => block.attrs.paragraphLevel)).toEqual([2, 2]);
   });
 
+  it('DOCE-EDITING-2.3 replaces a selected range with the split when Enter is pressed over it', () => {
+    const doc = read(paragraph('One two three'));
+    const state = run(stateAt(doc, ['two', 'two']), key('Enter'));
+    expect(outline(state)).toEqual(['paragraph:One ', 'paragraph: three']);
+    expect(state.selection.$from.parent.textContent).toBe(' three');
+  });
+
   it('DOCE-EDITING-2.3 keeps the id with the content when Enter splits at a block start', () => {
     const plugins = createDocumentEditing(documentSchema, { author: () => 'writer' });
     const heading: StoredNode = {
