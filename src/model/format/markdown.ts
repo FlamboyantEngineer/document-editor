@@ -3,6 +3,7 @@
 // and its footnotes as numbered definitions at the end. Formats Markdown lacks, such as underline,
 // superscript and subscript, are written as HTML.
 
+import { safeHref } from '../schema/dom-attributes.js';
 import {
   type DocumentFile,
   type StoredMark,
@@ -55,8 +56,9 @@ function markedText(node: StoredNode): string {
     const wrap = MARKS[mark.type];
     if (wrap) value = `${wrap[0]}${value}${wrap[1]}`;
   }
-  const link = marks.find((mark) => mark.type === 'link');
-  return link ? `[${value}](${text(link.attrs?.href)})` : value;
+  // A link with an address a link may not hold is written as its text.
+  const href = safeHref(marks.find((mark) => mark.type === 'link')?.attrs?.href);
+  return href === null ? value : `[${value}](${href})`;
 }
 
 // An inline node's Markdown.

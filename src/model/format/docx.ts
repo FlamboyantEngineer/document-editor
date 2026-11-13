@@ -3,6 +3,7 @@
 // breaks, links and footnotes, in the template's page size and margins, its suggestions accepted
 // or rejected. Figures are written as their alternative text and caption.
 
+import { safeHref } from '../schema/dom-attributes.js';
 import { PAGE_SIZE_DIMENSIONS } from '../templates/template-css-values.js';
 import {
   type DocumentFile,
@@ -54,9 +55,10 @@ const run = (value: string, properties = '') =>
 function textRun(node: StoredNode, writing: Writing): string {
   const marks = node.marks ?? [];
   const properties = marks.map((mark) => RUN_PROPERTIES[mark.type] ?? '').join('');
-  const link = marks.find((mark) => mark.type === 'link');
-  if (!link) return run(text(node.text), properties);
-  writing.links.push(text(link.attrs?.href));
+  // A link with an address a link may not hold is written as its text.
+  const href = safeHref(marks.find((mark) => mark.type === 'link')?.attrs?.href);
+  if (href === null) return run(text(node.text), properties);
+  writing.links.push(href);
   const id = `rIdLink${String(writing.links.length)}`;
   return `<w:hyperlink r:id="${id}">${run(text(node.text), `<w:rStyle w:val="Hyperlink"/>${properties}`)}</w:hyperlink>`;
 }

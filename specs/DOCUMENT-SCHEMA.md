@@ -110,9 +110,9 @@ Verification: `src/model/schema/inline-atom-nodes.test.ts`
 
 ### DOCE-SCHEMA-3.8 - Marks
 
-Links shall keep whether they open elsewhere and who wrote them; links and inline code shall keep their id and author. The contributor mark (`span[data-au]`) shall record who wrote a span. Strike, underline, superscript and subscript shall read from their tags, and strike and underline from text decoration too. A `del` or `ins` with an id or comment id shall read as a suggested deletion or insertion, keeping its id, its author (`data-au`) and its comment thread, and any other `del` as strike; a `mark` with a comment id shall read as a comment highlight, which does not extend as one types. A reference shall keep its type, target, the citation data it recorded and whether it is broken, and write its format key (DOCE-SCHEMA-4.1) for templates to style.
+Links shall keep whether they open elsewhere and who wrote them; links and inline code shall keep their id and author. A link shall hold a web (`http`, `https`), mail (`mailto`) or telephone (`tel`) address, a fragment or a relative address (`safeHref`, control characters removed first): an anchor with any other address, such as one that could run script, shall read as its text alone, and a link that holds one shall be written without its address. The contributor mark (`span[data-au]`) shall record who wrote a span. Strike, underline, superscript and subscript shall read from their tags, and strike and underline from text decoration too. A `del` or `ins` with an id or comment id shall read as a suggested deletion or insertion, keeping its id, its author (`data-au`) and its comment thread, and any other `del` as strike; a `mark` with a comment id shall read as a comment highlight, which does not extend as one types. A reference shall keep its type, target, the citation data it recorded and whether it is broken, and write its format key (DOCE-SCHEMA-4.1) for templates to style.
 
-Implementation: `src/model/schema/marks.ts`, `src/model/schema/reference-mark.ts`
+Implementation: `src/model/schema/marks.ts`, `src/model/schema/dom-attributes.ts`, `src/model/schema/reference-mark.ts`
 Verification: `src/model/schema/marks.test.ts`
 
 ### DOCE-SCHEMA-3.9 - Script blocks

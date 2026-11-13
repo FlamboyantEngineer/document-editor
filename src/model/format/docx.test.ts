@@ -150,4 +150,21 @@ describe('writeDocx', () => {
       'Target="https://example.com/spec"',
     );
   });
+
+  it('DOCE-FORMAT-5.2 writes a link whose address could run script as its text', () => {
+    const linked: StoredNode = {
+      type: 'text',
+      text: 'site',
+      marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }],
+    };
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [{ name: null, content: [{ type: 'paragraph', content: [linked] }] }],
+      }),
+    );
+    expect(files.get('word/document.xml')).toContain('<w:t xml:space="preserve">site</w:t>');
+    expect(files.get('word/document.xml')).not.toContain('<w:hyperlink');
+    expect(files.get('word/_rels/document.xml.rels')).not.toContain('javascript');
+  });
 });

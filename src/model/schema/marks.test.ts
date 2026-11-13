@@ -1,5 +1,7 @@
+import { DOMSerializer } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, parseMarkup, roundTrip } from '../../../test/document-markup.js';
+import { safeHref } from './dom-attributes.js';
 
 function marksOf(html: string): string[] {
   const names: string[] = [];
@@ -33,6 +35,50 @@ describe('marks', () => {
       '<p><a href="https://example.com" target="_blank" rel="noopener noreferrer" data-id="l1" data-au="ada">site</a> <code data-au="ada">x</code></p>';
     expect(roundTrip(html)).toBe(html);
     expect(roundTrip('<p><a href="/a" target="_self">a</a></p>')).toBe('<p><a href="/a">a</a></p>');
+  });
+
+  it('DOCE-SCHEMA-3.8 reads no link from an address that could run script', () => {
+    for (const href of ['javascript:alert(1)', ' JavaScript:alert(1)', 'java\tscript:alert(1)']) {
+      expect(marksOf(`<p><a href="${href}">site</a></p>`)).toEqual([]);
+    }
+    expect(marksOf('<p><a href="data:text/html,<script>alert(1)</script>">x</a></p>')).toEqual([]);
+    expect(marksOf('<p><a href="vbscript:x">site</a></p>')).toEqual([]);
+  });
+
+  it('DOCE-SCHEMA-3.8 reads web, mail, telephone and relative addresses as links', () => {
+    for (const href of [
+      'https://example.com/a?b=1#c',
+      'HTTP://example.com',
+      'mailto:ada@example.com',
+      'tel:+15550100',
+      '#section-2',
+      '/guide/start',
+      'notes/today.html',
+      '//example.com/a',
+    ]) {
+      expect(roundTrip(`<p><a href="${href}">site</a></p>`)).toBe(
+        `<p><a href="${href}">site</a></p>`,
+      );
+    }
+  });
+
+  it('DOCE-SCHEMA-3.8 writes no address for a stored link that could run script', () => {
+    const link = documentSchema.marks.link?.create({ href: 'javascript:alert(1)' });
+    const paragraph = documentSchema.node('paragraph', null, [
+      documentSchema.text('site', link ? [link] : []),
+    ]);
+    const dom = DOMSerializer.fromSchema(documentSchema).serializeNode(paragraph) as HTMLElement;
+    expect(dom.querySelector('a')?.hasAttribute('href')).toBe(false);
+    expect(dom).toHaveTextContent('site');
+  });
+
+  it('DOCE-SCHEMA-3.8 tells which addresses a link may hold', () => {
+    expect(safeHref('  https://example.com ')).toBe('https://example.com');
+    expect(safeHref('\u0001javascript:alert(1)')).toBeNull();
+    expect(safeHref('jav\nascript:alert(1)')).toBeNull();
+    expect(safeHref('file:///etc/hosts')).toBeNull();
+    expect(safeHref('')).toBeNull();
+    expect(safeHref(null)).toBeNull();
   });
 
   it('DOCE-SCHEMA-3.8 records who wrote a span of text', () => {
