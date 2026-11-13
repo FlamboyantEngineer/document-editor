@@ -4,7 +4,7 @@
 // as a repeated header row's copy, is not drawn there.
 
 import { type EditorState, Plugin } from 'prosemirror-state';
-import { DecorationSet } from 'prosemirror-view';
+import { Decoration, type DecorationAttrs, DecorationSet } from 'prosemirror-view';
 import type { ProjectionMap } from './projection-map.js';
 
 /** What the drawn decorations read: the canonical state and the map onto the projection. */
@@ -16,10 +16,51 @@ export interface DecorationSource {
 // Each canonical set as mapped onto one projection map, so an unchanged set maps once.
 const mapped = new WeakMap<DecorationSet, { map: ProjectionMap; set: DecorationSet }>();
 
+// What ProseMirror keeps of a decoration and does not type: whether it is inline, and its attributes.
+interface DecorationParts {
+  readonly inline: boolean;
+  readonly type: { readonly attrs?: DecorationAttrs };
+}
+
+function isNodeDecoration(decoration: Decoration): boolean {
+  const { inline, type } = decoration as unknown as DecorationParts;
+  return !inline && type.attrs !== undefined && decoration.from < decoration.to;
+}
+
+const nodeDecorations = (set: DecorationSet) => set.find().filter(isNodeDecoration).length;
+
+// A node decoration on a block the pages split: drawn on each part, since mapped it would span
+// both parts and the page chrome between them, which is no single node, and so be drawn on none.
+function splitParts(decoration: Decoration, map: ProjectionMap): Decoration[] {
+  if (!isNodeDecoration(decoration)) return [];
+  const { type } = decoration as unknown as DecorationParts;
+  const from = map.toProjection(decoration.from, 1);
+  const to = map.toProjection(decoration.to, -1);
+  const doc = map.projection;
+  const first = from === null ? null : doc.nodeAt(from);
+  if (from === null || to === null || !first || from + first.nodeSize >= to) return [];
+  const depth = doc.resolve(from).depth;
+  const parts: Decoration[] = [];
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.type !== first.type || doc.resolve(pos).depth !== depth) return true;
+    const inside = map.toCanonical(pos + 1);
+    const continues = inside !== null && inside > decoration.from && inside < decoration.to;
+    if (continues && pos + node.nodeSize <= to) {
+      parts.push(Decoration.node(pos, pos + node.nodeSize, type.attrs ?? {}, decoration.spec));
+    }
+    return false;
+  });
+  return parts;
+}
+
 function onProjection(set: DecorationSet, map: ProjectionMap): DecorationSet {
   const cached = mapped.get(set);
   if (cached?.map === map) return cached.set;
-  const projected = set.map(map.toProjectionMapping(), map.projection);
+  const moved = set.map(map.toProjectionMapping(), map.projection);
+  // Only a node decoration the mapping dropped is looked for on the parts of a split block.
+  const dropped = nodeDecorations(moved) < nodeDecorations(set);
+  const split = dropped ? set.find().flatMap((decoration) => splitParts(decoration, map)) : [];
+  const projected = split.length > 0 ? moved.add(map.projection, split) : moved;
   mapped.set(set, { map, set: projected });
   return projected;
 }
