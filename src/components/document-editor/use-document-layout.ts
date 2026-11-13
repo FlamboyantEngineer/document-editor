@@ -45,6 +45,7 @@ import {
   type TemplateFile,
 } from '../../model/index.js';
 import {
+  type CanonicalChange,
   createListStarts,
   createPageDebug,
   createPageVariables,
@@ -170,7 +171,7 @@ export interface DocumentLayoutOptions {
   /** Wraps the ghost's React node views in the providers the editor's own views render under. */
   readonly wrapGhost?: ((view: ReactNode) => ReactNode) | undefined;
   /** Takes each canonical transaction input on the projection's pages makes. */
-  readonly onCanonical?: ((tr: Transaction) => void) | undefined;
+  readonly onCanonical?: ((tr: Transaction, made: CanonicalChange) => void) | undefined;
   /** Told of each layout of the projection's pages. */
   readonly onLayout?: ((tr: Transaction) => void) | undefined;
 }

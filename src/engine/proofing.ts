@@ -78,6 +78,8 @@ export interface ProofingState {
   readonly decorations: DecorationSet;
   /** Whether the latest change to the document came from elsewhere (`isRemote`). */
   readonly remoteChange: boolean;
+  /** The issue just revealed (`ProofingIssueAt.key`), marked `data-proofing-flash` for a moment. */
+  readonly flash: string | null;
 }
 
 export type ProofingMeta =
@@ -89,13 +91,17 @@ export type ProofingMeta =
   | { readonly ignoreOnce: string }
   | { readonly disableRule: string }
   | { readonly language: string | null }
-  | { readonly recheck: true };
+  | { readonly recheck: true }
+  | { readonly flash: string | null };
 
 /** The proofing plugin's state; marks the transactions that change it. */
 export const proofingKey = new PluginKey<ProofingState>('proofing');
 
 /** The hook a proofing issue's decoration carries, with the issue's kind. */
 export const PROOFING_ISSUE_ATTR = 'data-proofing-issue';
+
+/** The hook the issue just revealed carries, for a stylesheet to flash it. */
+export const PROOFING_FLASH_ATTR = 'data-proofing-flash';
 
 type KeyedIssue = Pick<ProofingIssue, 'from' | 'to' | 'rule' | 'kind'>;
 
@@ -151,7 +157,14 @@ function decorate(doc: ProseMirrorNode, value: ProofingState): ProofingState {
   const decorations = DecorationSet.create(
     doc,
     issuesOf(doc, value).map((issue) =>
-      viewOnlyInline(issue, { [PROOFING_ISSUE_ATTR]: issue.kind }, { issue }),
+      viewOnlyInline(
+        issue,
+        {
+          [PROOFING_ISSUE_ATTR]: issue.kind,
+          ...(issue.key === value.flash ? { [PROOFING_FLASH_ATTR]: 'true' } : {}),
+        },
+        { issue },
+      ),
     ),
   );
   return { ...value, decorations };
@@ -184,6 +197,7 @@ function applyMeta(meta: ProofingMeta, value: ProofingState, doc: ProseMirrorNod
   if ('ignoreOnce' in meta) {
     return decorate(doc, { ...value, ignoredOnce: adding(value.ignoredOnce, meta.ignoreOnce) });
   }
+  if ('flash' in meta) return decorate(doc, { ...value, flash: meta.flash });
   if ('disableRule' in meta) {
     return decorate(doc, {
       ...value,
@@ -271,6 +285,7 @@ export function createProofing(options: ProofingOptions): Plugin<ProofingState> 
         status: 'ready',
         decorations: DecorationSet.empty,
         remoteChange: false,
+        flash: null,
       }),
       apply(tr: Transaction, value) {
         const meta = tr.getMeta(proofingKey) as ProofingMeta | undefined;

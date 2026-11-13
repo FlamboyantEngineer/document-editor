@@ -372,6 +372,32 @@ describe('projection view', () => {
     expect(seen.at(-1)).toBe(projection.state);
   });
 
+  it('DOCE-PAGINATION-7.19 offers typed text to the canonical plugins without reading the browser again', () => {
+    const offered: number[] = [];
+    const listening = new Plugin({
+      props: {
+        handleTextInput(view, from) {
+          offered.push(from - view.state.selection.from);
+          return false;
+        },
+      },
+    });
+    const { projection } = mount({ state: canonicalState([listening]) });
+    const { view } = projection;
+    const at = positionOf(view.state.doc, 'Delta') + 'Delta'.length;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    const observer = (view as unknown as { domObserver: { flush(): void } }).domObserver;
+    const flush = vi.spyOn(observer, 'flush');
+    const typed = view.someProp('handleTextInput', (handle) =>
+      handle(view, at, at, 'x', () => view.state.tr.insertText('x', at)),
+    );
+    expect(typed).toBeFalsy();
+    expect(flush).not.toHaveBeenCalled();
+    // The canonical state had the selection the pages hold mirrored before the plugin read it.
+    expect(offered).toEqual([0]);
+    flush.mockRestore();
+  });
+
   it('DOCE-PAGINATION-7.15 draws the node views of plugins the canonical state gains', () => {
     const { projection } = mount();
     const drawn = new Plugin({

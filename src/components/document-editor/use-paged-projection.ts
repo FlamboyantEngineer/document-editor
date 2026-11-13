@@ -13,7 +13,7 @@ import type {
 import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useMemo, useRef } from 'react';
-import type { PagedProjection } from '../../pagination/index.js';
+import type { CanonicalChange, PagedProjection } from '../../pagination/index.js';
 import type { EngineViewEvents } from './use-editor-engine.js';
 
 /** A projection the editor renders, with the projection state it renders now. */
@@ -44,13 +44,25 @@ export interface CanonicalCommit {
 
 // A commit that applies to the host's latest state; a transaction made on a state the host no
 // longer holds, as after a suggestion rewrote one before it, is dropped and the pages drawn again.
+// Taken as the projection applied it to the state the host still holds, it is that state the
+// projection made, so what the plugins appended, such as new element ids, is the same on both
+// (DOCE-PAGINATION-7.19).
 function hostCommit(
   tr: Transaction,
-  { onStateChange, resync }: { onStateChange: CanonicalCommit['onStateChange']; resync(): void },
+  {
+    onStateChange,
+    resync,
+    made,
+  }: {
+    onStateChange: CanonicalCommit['onStateChange'];
+    resync(): void;
+    made: CanonicalChange | null;
+  },
 ): RichTextEngineCommit & { readonly committed: () => boolean } {
   let committed = false;
   const apply = (next: Transaction) =>
     onStateChange((state) => {
+      if (made && next === tr && state === made.from) return made.to;
       if (next.before.eq(state.doc)) return state.apply(next);
       queueMicrotask(resync);
       return state;
@@ -146,12 +158,12 @@ export function usePagedEditor(options: PagedEditorOptions) {
     };
     return {
       targetRef,
-      onCanonical(tr: Transaction) {
+      onCanonical(tr: Transaction, made: CanonicalChange | null = null) {
         const { view, host: held } = targetRef.current;
         if (!view) return;
         const { body, onStateChange, events } = latestRef.current;
         events.onTransaction?.(tr, view);
-        const host = hostCommit(tr, { onStateChange, resync });
+        const host = hostCommit(tr, { onStateChange, resync, made });
         body(tr, held.doc === tr.before ? onHostState(view, held) : view, host);
         if (!host.committed()) resync();
       },

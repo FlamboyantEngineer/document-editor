@@ -1,5 +1,6 @@
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
-import { describe, expect, it } from 'vitest';
+import { EditorView } from 'prosemirror-view';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { createWordListProofer, type ProofingIssue } from '../host/index.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
@@ -17,10 +18,12 @@ import {
   ignoreProofingIssue,
   ignoreProofingOnce,
   listProofingIssues,
+  PROOFING_FLASH,
   proofingIssueAt,
   recheckProofing,
   replaceAllProofingIssues,
   replaceProofingIssue,
+  revealSelectedProofingIssue,
   selectNextProofingIssue,
   setProofingLanguage,
 } from './proofing-commands.js';
@@ -167,6 +170,23 @@ describe('proofing', () => {
     state = run(state, selectNextProofingIssue);
     expect(state.selection.from).toBe(first?.from);
     expect(selectNextProofingIssue(stateOf(paragraph(text('Clean'))))).toBe(false);
+  });
+
+  it('DOCE-PROOFING-3.6 flashes the issue it reveals as a decoration the view draws', async () => {
+    vi.useFakeTimers();
+    try {
+      const state = await checked(stateOf(paragraph(text('A teh report.'))));
+      const view = new EditorView(document.createElement('div'), { state });
+      selectNextProofingIssue(view.state, view.dispatch);
+      expect(revealSelectedProofingIssue(view)).toMatchObject({ index: 0, total: 1 });
+      expect(view.dom.querySelector('[data-proofing-flash]')?.textContent).toBe('teh');
+      vi.advanceTimersByTime(PROOFING_FLASH);
+      expect(view.dom.querySelector('[data-proofing-flash]')).toBeNull();
+      expect(view.dom.querySelector('[data-proofing-issue]')?.textContent).toBe('teh');
+      view.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('DOCE-PROOFING-1.4 commits proofing results on a state the writer has typed past', async () => {

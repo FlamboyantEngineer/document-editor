@@ -165,9 +165,6 @@ export const selectNextProofingIssue: Command = (state, dispatch) => {
   return true;
 };
 
-// Marks the issue just revealed, for a stylesheet to flash it.
-const PROOFING_FLASH_ATTR = 'data-proofing-flash';
-
 /** An issue revealed at the selection, and where it stands among the issues, from 0. */
 export interface RevealedProofingIssue {
   readonly issue: ProofingIssueAt;
@@ -193,11 +190,16 @@ export function revealSelectedProofingIssue(view: EditorView): RevealedProofingI
   const element = (
     node.nodeType === node.ELEMENT_NODE ? (node as Element) : node.parentElement
   )?.closest(`[${PROOFING_ISSUE_ATTR}]`);
-  const owner = view.dom.ownerDocument.defaultView;
-  if (element && owner) {
-    element.scrollIntoView?.({ block: 'center' });
-    element.setAttribute(PROOFING_FLASH_ATTR, 'true');
-    owner.setTimeout(() => element.removeAttribute(PROOFING_FLASH_ATTR), PROOFING_FLASH);
-  }
+  element?.scrollIntoView?.({ block: 'center' });
+  // The flash is the issue's decoration, which the view draws, rather than an attribute set on
+  // the drawn element, which the view would draw over.
+  const flash = (key: string | null) =>
+    view.dispatch(
+      view.state.tr.setMeta(proofingKey, { flash: key }).setMeta('addToHistory', false),
+    );
+  flash(issue.key);
+  view.dom.ownerDocument.defaultView?.setTimeout(() => {
+    if (!view.isDestroyed && proofingKey.getState(view.state)?.flash === issue.key) flash(null);
+  }, PROOFING_FLASH);
   return { issue, index, total: issues.length };
 }

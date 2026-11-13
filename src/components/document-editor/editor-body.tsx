@@ -18,6 +18,7 @@ import type { CommentRefs } from './editor-handle.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
+import { PagesView } from './pages-view.js';
 import { useOpeningScripts } from './script-entries.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { TableHandles } from './table-handles.js';
@@ -164,6 +165,27 @@ function useEngineProps(
   };
 }
 
+// The document element's attributes on the pages view, as the engine's content element has them.
+function useContentAttributes(props: DocumentEditorProps): Readonly<Record<string, string>> {
+  const { editable = true } = props;
+  const label = props['aria-label'];
+  const labelledBy = props['aria-labelledby'];
+  return useMemo(
+    () => ({
+      class: `${CONTENT_CLASS} ${hooks.slot('content').className ?? ''}`,
+      role: 'textbox',
+      'aria-multiline': 'true',
+      ...(editable ? {} : { 'aria-readonly': 'true' }),
+      ...(label ? { 'aria-label': label } : {}),
+      ...(labelledBy ? { 'aria-labelledby': labelledBy } : {}),
+    }),
+    [editable, label, labelledBy],
+  );
+}
+
+// The engine's own class on its content element, which the pages view keeps.
+const CONTENT_CLASS = 'ui-rich-text-engine-content';
+
 /** The document in its engine, with the comments margin, the caller's chrome and the table handles. */
 export function EditorBody({
   props,
@@ -178,10 +200,19 @@ export function EditorBody({
   const { state, onStateChange, editable = true, suggesting = false } = props;
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
+  const attributes = useContentAttributes(props);
   useOpeningScripts(view, props.scriptRunner);
   // With the comments in a pane, a thread started or opened shows that pane; focus stays put.
   const panes = useEditorPanesContext();
-  const content = (
+  const content = paged ? (
+    <PagesView
+      paged={paged}
+      events={engineProps}
+      viewProps={engineProps.props}
+      attributes={attributes}
+      nodeViews={props.nodeViews}
+    />
+  ) : (
     <RichTextEngineContent
       {...hooks.slot('content')}
       role="textbox"
@@ -191,28 +222,37 @@ export function EditorBody({
       aria-labelledby={props['aria-labelledby']}
     />
   );
+  const drawn = (
+    <>
+      {props.comments ? (
+        <DocumentComments
+          {...props.comments}
+          state={state}
+          onStateChange={onStateChange}
+          suggestionPolicy={editorSuggestionPolicy(props)}
+          startRef={startCommentRef}
+          openRef={openThreadRef}
+          view={view}
+          onReveal={() => panes?.reveal('comments', { focus: false })}
+        >
+          {content}
+        </DocumentComments>
+      ) : (
+        content
+      )}
+      {props.children}
+    </>
+  );
   return (
     <div {...hooks.slot('body')}>
       <SelectionFirst view={engine.view} state={engineProps.state} />
-      <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>
-        {props.comments ? (
-          <DocumentComments
-            {...props.comments}
-            state={state}
-            onStateChange={onStateChange}
-            suggestionPolicy={editorSuggestionPolicy(props)}
-            startRef={startCommentRef}
-            openRef={openThreadRef}
-            view={view}
-            onReveal={() => panes?.reveal('comments', { focus: false })}
-          >
-            {content}
-          </DocumentComments>
-        ) : (
-          content
-        )}
-        {props.children}
-      </RichTextEngineHost>
+      {paged ? (
+        drawn
+      ) : (
+        <RichTextEngineHost {...engineProps} nodeViews={props.nodeViews}>
+          {drawn}
+        </RichTextEngineHost>
+      )}
       {editable && !suggesting ? <TableHandles view={view} state={state} labels={labels} /> : null}
       {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
     </div>
