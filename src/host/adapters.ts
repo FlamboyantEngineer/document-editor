@@ -316,6 +316,12 @@ export interface TelemetryAdapter {
     | undefined;
 }
 
+/** A variable a writer may insert, by its key, with the name the insert menu shows. */
+export interface VariableEntry {
+  readonly key: string;
+  readonly label: string;
+}
+
 /**
  * The values of the variables the host knows, such as `document.name`, for the editor to show in
  * page headers and footers and in the text. The editor gives `page.current`, `page.total` and
@@ -326,6 +332,8 @@ export interface VariablesAdapter {
   value(key: string): string | null | undefined;
   /** Calls `onChange` whenever a value may have changed, until the returned function is called. */
   subscribe?(onChange: () => void): () => void;
+  /** The host's variables a writer may insert, which the variable menu lists after the editor's own. */
+  catalog?(): readonly VariableEntry[];
 }
 
 /**
