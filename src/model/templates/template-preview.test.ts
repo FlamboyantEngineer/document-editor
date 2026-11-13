@@ -67,6 +67,12 @@ describe('template preview', () => {
     expect(all).toContain('Text in the note style.');
     expect(all).toContain('Appendix');
     expect(all).toContain('Approved by');
+    // The equation shows its LaTeX, as stored math holds it.
+    let equation = '';
+    doc.descendants((node) => {
+      if (node.type.name === 'math_display') equation = node.textContent;
+    });
+    expect(equation).not.toBe('');
   });
 
   it('DOCE-TEMPLATES-8.6 shows each template section in parts, its content then its placeholder', () => {
