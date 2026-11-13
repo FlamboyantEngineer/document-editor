@@ -504,6 +504,13 @@ The handle's `exportSnapshotAsync(options)` shall give the snapshot `exportSnaps
 Implementation: `src/engine/snapshot-ready.ts`, `src/document/headless-print.ts`, `src/components/document-editor/editor-handle.ts`, `labs/src/print.lab.tsx`
 Verification: `src/engine/snapshot-ready.test.ts`, `src/document/headless-print.test.ts`, `e2e/print.spec.ts`
 
+### DOCE-EDITOR-6.27 - A static render of a stored document
+
+`renderPrintPage(file, template, options)`, from the server-safe `./document` entry, shall render a stored document as a standalone HTML page without an editor or a DOM, for a server's preview, an email or a print that needs no editor: the document as its schema renders it (`kit`, the host's schema choices and extensions), with the template's headers and footers and its footnotes numbered in order, inside the editor root's hooks in reading mode (`data-print="true"`, `data-markup`), in the template's properties, and styled by the host's stylesheets (`styles`, `stylesheets`). It shall keep what a print snapshot keeps: the anchors, links and footnote links (DOCE-EDITOR-6.21, `citationHref`), the static numbers (DOCE-EDITOR-6.22), the allow-list, with signatures drawn from their vectors (DOCE-EDITOR-6.23), the images loaded at once from `resolveImage`'s address (DOCE-EDITOR-6.25), and the suggestions as `markup` shows them (DOCE-EDITOR-6.16, `all` by default). Nothing is laid out on pages: each section prints on its template sheet with the template's margins, from a new sheet, the browser breaking its pages, and its header and footer show once, at its start and end.
+
+Implementation: `src/document/print.ts`, `src/document/print-tree.ts`
+Verification: `src/document/print.test.ts`
+
 ## DOCE-EDITOR-7 - Banners
 
 ### DOCE-EDITOR-7.1 - The banner region

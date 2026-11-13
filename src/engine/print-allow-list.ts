@@ -191,7 +191,8 @@ export const SNAPSHOT_ELEMENTS: ReadonlySet<string> = new Set([
 /** The attributes a snapshot's elements may carry, beside `data-*` and `aria-*`. */
 export const SNAPSHOT_ATTRIBUTES: ReadonlySet<string> = new Set(ATTRIBUTES);
 
-const DROPPED_ELEMENTS: ReadonlySet<string> = new Set(DROPPED);
+/** The elements a snapshot leaves out whole, with their content, by lower-case tag name. */
+export const SNAPSHOT_DROPPED: ReadonlySet<string> = new Set(DROPPED);
 
 // The addresses a link may go to: an anchor in the snapshot, a web page or a mail address.
 const LINK_ADDRESS = /^(#|https?:|mailto:)/i;
@@ -231,7 +232,7 @@ function cleanAttributes(element: Element) {
 export function allowSnapshotMarkup(copy: Element): void {
   for (const element of [...copy.querySelectorAll('*')]) {
     const name = element.localName.toLowerCase();
-    if (DROPPED_ELEMENTS.has(name)) element.remove();
+    if (SNAPSHOT_DROPPED.has(name)) element.remove();
   }
   for (const element of [copy, ...copy.querySelectorAll('*')]) {
     const name = element.localName.toLowerCase();
