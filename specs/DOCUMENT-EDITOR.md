@@ -238,8 +238,8 @@ Verification: `src/components/document-editor/layout-items.test.ts`, `e2e/full-e
 
 A disabled toolbar button, toolbar menu or menu entry shall stay focusable and say why it is disabled: a button or a menu's trigger in its tooltip after its label, a menu entry in its description. The reason is the item's `disabledReason`, or, by default, that the document is read (`reasonReading`) or the position locked (`reasonLocked`) (`unavailableReason`); an item without a reason is plainly disabled.
 
-Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/menubar-menus.ts`
-Verification: `src/components/document-editor/toolbar-items.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `e2e/full-editor.spec.ts`
+Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/symbol-button.tsx`, `src/components/document-editor/menubar-menus.ts`
+Verification: `src/components/document-editor/toolbar-items.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `src/components/document-editor/symbol-button.test.tsx`, `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.15 - Toolbar overflow and attached groups
 
