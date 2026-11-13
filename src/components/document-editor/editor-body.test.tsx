@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
+import { type AssetAdapter, createMemoryHost } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
 import type { DocumentLayout } from './use-document-layout.js';
@@ -41,7 +42,15 @@ function Note({ onMount }: { onMount: () => void }) {
   return <input aria-label="Note" />;
 }
 
-function Harness({ layout, onMount }: { layout: DocumentLayout; onMount: () => void }) {
+function Harness({
+  layout,
+  onMount,
+  assets,
+}: {
+  layout: DocumentLayout;
+  onMount: () => void;
+  assets?: AssetAdapter | undefined;
+}) {
   const [state, setState] = useState(initial);
   return (
     <DocumentEditor
@@ -49,12 +58,21 @@ function Harness({ layout, onMount }: { layout: DocumentLayout; onMount: () => v
       onStateChange={setState}
       template={TEMPLATE}
       layout={layout}
+      assets={assets}
       aria-label="Report"
     >
       <Note onMount={onMount} />
     </DocumentEditor>
   );
 }
+
+// A paste of image files, as the clipboard hands them to the document.
+const imagePaste = (...names: string[]) =>
+  ({
+    files: names.map((name) => new File(['image'], name, { type: 'image/png' })),
+    types: ['Files'],
+    getData: () => '',
+  }) as unknown as DataTransfer;
 
 installEditorDom();
 
@@ -82,4 +100,23 @@ describe('EditorBody', () => {
     expect(note).toHaveValue('Check the totals');
     expect(onMount).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['page', 'web'] as const)(
+    'DOCE-EDITOR-4.6 inserts the images pasted into the document as figures, in order, in the %s layout',
+    async (layout) => {
+      const user = userEvent.setup();
+      const { assets } = createMemoryHost();
+      const { container } = render(<Harness layout={layout} onMount={vi.fn()} assets={assets} />);
+      const report = () => screen.getByRole('textbox', { name: 'Report' });
+      if (layout === 'page') {
+        await waitFor(() => expect(report().querySelector('.pm-page')).toBeInTheDocument());
+      }
+      await user.click(report());
+      await user.paste(imagePaste('board.png', 'chart.png'));
+      const pictures = () =>
+        [...container.querySelectorAll('figure img')].map((image) => image.getAttribute('alt'));
+      await waitFor(() => expect(pictures()).toEqual(['board.png', 'chart.png']));
+      expect(report()).toHaveTextContent('Hello');
+    },
+  );
 });

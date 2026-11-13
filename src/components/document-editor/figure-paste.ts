@@ -1,14 +1,14 @@
 // Images pasted or dropped into the document become figures: each is uploaded through the host's
-// assets, then inserted where it was pasted or dropped. An upload that fails inserts nothing and
-// tells the reader through the host's feedback. Pasted HTML whose images come with the paste, as
-// data URIs or as a word processor's pictures, is pasted once its images are uploaded, each a
-// figure.
+// assets, then inserted where it was pasted or dropped (`paste-place.ts`). An upload that fails
+// inserts nothing and tells the reader through the host's feedback. Pasted HTML whose images come
+// with the paste, as data URIs or as a word processor's pictures, is pasted once its images are
+// uploaded, each a figure, at the selection then: the view pastes HTML only there.
 
 import { DOMSerializer } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { insertFigure } from '../../engine/index.js';
 import type { AssetAdapter, FeedbackAdapter } from '../../host/index.js';
+import { insertFigureAt, type PastePlace } from './paste-place.js';
 import { hasPastedImages, hasPastedText, type PastedImage, pastedImages } from './pasted-images.js';
 
 /** What pasting images needs from the host. */
@@ -31,17 +31,28 @@ export interface PastedContent {
 const imagesOf = (files: Iterable<File> | null | undefined): File[] =>
   [...(files ?? [])].filter((file) => file.type.startsWith('image/'));
 
-// Uploads the images one by one, inserting each as a figure once stored, at the selection then.
-async function insertFigures(view: EditorView, files: File[], options: FigurePasteOptions) {
+// Whether the document can still take what was pasted: its view may be gone, or the document read
+// only, by the time an upload ends.
+const canTake = (view: EditorView) => !view.isDestroyed && view.editable;
+
+// Uploads the images one by one, inserting each as a figure once stored: the first at the place
+// they were pasted or dropped at, each next one after the one before.
+async function insertFigures(
+  view: EditorView,
+  { files, at }: { files: File[]; at: PastePlace },
+  options: FigurePasteOptions,
+) {
+  let place = at;
   for (const file of files) {
     const result = await options.assets.upload(file).catch(() => null);
     if (!result?.ok) {
       options.feedback?.notify({ tone: 'error', text: result?.error.message ?? options.failure });
       continue;
     }
+    if (!canTake(view)) continue;
     const { id, snapshotId } = result.value;
-    const command = insertFigure({ fileAssetId: id, snapshotId: snapshotId ?? id, alt: file.name });
-    if (!view.isDestroyed) command(view.state, view.dispatch, view);
+    const source = { fileAssetId: id, snapshotId: snapshotId ?? id, alt: file.name };
+    place = insertFigureAt(view, place, source);
   }
 }
 
@@ -78,7 +89,7 @@ async function pasteWithImages(
     const markup = await figureMarkup(view, image, options);
     pasted = pasted.replace(image.tag, () => markup);
   }
-  if (!view.isDestroyed) view.pasteHTML(pasted);
+  if (canTake(view)) view.pasteHTML(pasted);
 }
 
 /**
@@ -96,7 +107,8 @@ export function pasteImages(
   if (!view.editable) return false;
   const files = imagesOf(content.files);
   if (files.length > 0 && !hasPastedText(content.html)) {
-    void insertFigures(view, files, options);
+    const at = { doc: view.state.doc, selection: view.state.selection };
+    void insertFigures(view, { files, at }, options);
     return true;
   }
   if (!hasPastedImages(content.html)) return false;
@@ -122,13 +134,12 @@ export function figurePasteHandlers(options: FigurePasteOptions) {
       const files = imagesOf(event.dataTransfer?.files);
       if (files.length === 0 || !view.editable) return false;
       event.preventDefault();
-      const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
-      if (at) {
-        view.dispatch(
-          view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at.pos))),
-        );
-      }
-      void insertFigures(view, files, options);
+      const { doc } = view.state;
+      const hit = view.posAtCoords({ left: event.clientX, top: event.clientY });
+      // The caret goes where the images were dropped, which is their place whatever it does next.
+      const selection = hit ? TextSelection.near(doc.resolve(hit.pos)) : view.state.selection;
+      if (hit) view.dispatch(view.state.tr.setSelection(selection));
+      void insertFigures(view, { files, at: { doc, selection } }, options);
       return true;
     },
   };
