@@ -5,7 +5,7 @@
 import { MathPreview } from '@flamboyantengineer/ui-components/math-preview';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { EditorView } from 'prosemirror-view';
-import { type ComponentType, useState } from 'react';
+import { type ComponentType, useCallback, useState } from 'react';
 import {
   captionedAt,
   insertMath,
@@ -62,6 +62,22 @@ export interface ObjectDialogsProps {
   /** The host's own dialogs by name, which `openDialog({ kind: 'host', name })` opens. */
   readonly dialogs?: Readonly<Record<string, ComponentType<HostDialogProps>>> | undefined;
   readonly onClose: () => void;
+}
+
+const ignore = () => undefined;
+
+/**
+ * The dialog the editor shows, and the ways to open and close it. The dialogs change the document,
+ * so they belong to a writer who can edit: a dialog asked for while they cannot is not kept, and
+ * one open when they no longer can is closed for good, or it would open later, over whatever the
+ * writer is doing by then.
+ */
+export function useObjectDialog(editable: boolean) {
+  const [dialog, setDialog] = useState<ObjectDialog | null>(null);
+  if (!editable && dialog) setDialog(null);
+  const open: (dialog: ObjectDialog) => void = editable ? setDialog : ignore;
+  const close = useCallback(() => setDialog(null), []);
+  return { dialog: editable ? dialog : null, open, close };
 }
 
 function MathDialog({ view, labels, onClose, display }: DialogProps & { display: boolean }) {

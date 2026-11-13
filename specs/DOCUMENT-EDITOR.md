@@ -250,10 +250,10 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.16 - The host's dialogs
 
-`dialogs` shall register the host's own dialogs by name, each a component given the view, the editor's labels, closing and the data it was opened with (`HostDialogProps`); the editor context's `openDialog({ kind: 'host', name, data })` opens one while the writer can edit. `EditorModal`, the editor's own dialog, is exported for them: it stays open until closed and hands focus back to the document.
+`dialogs` shall register the host's own dialogs by name, each a component given the view, the editor's labels, closing and the data it was opened with (`HostDialogProps`); the editor context's `openDialog({ kind: 'host', name, data })` opens one while the writer can edit. A dialog asked for while the writer cannot edit shall not be kept, and a dialog open when they no longer can shall close for good, so neither opens once they can edit again. `EditorModal`, the editor's own dialog, is exported for them: it stays open until closed and hands focus back to the document.
 
 Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/dialog-parts.tsx`, `labs/src/host-dialogs.tsx`
-Verification: `e2e/full-editor.spec.ts`
+Verification: `src/components/document-editor/object-dialogs.test.tsx`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.17 - Updates from the Tools menu
 
