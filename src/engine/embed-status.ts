@@ -16,7 +16,7 @@ import type {
 import { isEmbed, readStoredContent } from '../model/index.js';
 import type { PasteFilter } from './clipboard.js';
 import { type EmbedAt, embedAt, embedsKey, listEmbeds, unwrapPastedEmbeds } from './embeds.js';
-import { identifyOutput } from './scripts.js';
+import { identifyOutput } from './script-output.js';
 import { suggestionsKey } from './suggestions.js';
 import { isInlineTextOnly } from './transaction-kind.js';
 

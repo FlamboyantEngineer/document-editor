@@ -4,7 +4,7 @@ import stored from '../../test/fixtures/documents/scripts.json' with { type: 'js
 import type { ScriptRunnerAdapter } from '../host/index.js';
 import { createDocumentSchema, type DocumentFile, type StoredContent } from '../model/index.js';
 import { buildScriptParagraph } from './script-output.js';
-import { runStoredScripts } from './scripts.js';
+import { findStaleStoredScripts, runStoredScripts } from './scripts.js';
 
 const schema = createDocumentSchema();
 const file = stored as DocumentFile;
@@ -20,7 +20,7 @@ function runnerOf(outputs: Readonly<Record<string, StoredContent>>) {
       if (source === 'fail')
         return Promise.resolve({ ok: false, error: { kind: 'unavailable', message: 'Broken' } });
       if (source === 'throw') return Promise.reject(new Error('Thrown'));
-      return Promise.resolve({ ok: true, value: outputs[source] ?? [] });
+      return Promise.resolve({ ok: true, value: { content: outputs[source] ?? [] } });
     },
   };
   return { runner, requests };
@@ -110,7 +110,7 @@ describe('runStoredScripts', () => {
       run: (_request, signal) => {
         requests.push(signal);
         controller.abort(reason);
-        return Promise.resolve({ ok: true, value: [buildScriptParagraph('Late')] });
+        return Promise.resolve({ ok: true, value: { content: [buildScriptParagraph('Late')] } });
       },
     };
     const run = runStoredScripts(withSources(['one', 'two']), {
@@ -124,5 +124,34 @@ describe('runStoredScripts', () => {
       runStoredScripts(file, { schema, runner, signal: controller.signal }),
     ).rejects.toBe(reason);
     expect(requests).toHaveLength(1);
+  });
+
+  it('DOCE-OBJECTS-4.4 DOCE-OBJECTS-4.6 runs as stored, recording where each output came from', async () => {
+    const purposes: string[] = [];
+    const runner: ScriptRunnerAdapter = {
+      run: ({ purpose }) => {
+        purposes.push(purpose);
+        const provenance = { inputs: 'k1' };
+        return Promise.resolve({ ok: true, value: { content: [], provenance } });
+      },
+    };
+    const run = await runStoredScripts(withSources(['one']), { schema, runner, now });
+    expect(purposes).toEqual(['stored']);
+    expect(blocksOf(run.file)[0]?.attrs?.provenance).toEqual({ inputs: 'k1' });
+  });
+
+  it('DOCE-OBJECTS-4.7 finds a stored document’s stale outputs with no DOM', async () => {
+    const source = withSources(['one', 'two']);
+    const recorded = blocksOf(source)[0];
+    if (recorded?.attrs) recorded.attrs.provenance = { inputs: 'k-one' };
+    const runner: ScriptRunnerAdapter = {
+      run: () => Promise.resolve({ ok: true, value: { content: [] } }),
+      inputsKey: ({ source: script }) => Promise.resolve({ ok: true, value: `k-${script}` }),
+    };
+    await expect(findStaleStoredScripts(source, { schema, runner })).resolves.toEqual(['b0000001']);
+    await expect(
+      findStaleStoredScripts(source, { schema, runner: { run: runner.run } }),
+    ).resolves.toEqual([]);
+    expect(typeof document).toBe('undefined');
   });
 });

@@ -3,15 +3,11 @@ import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import type { ScriptRunRequest } from '../host/index.js';
 import { readDocumentFile, type StoredContent, writeDocumentFile } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
-import {
-  insertScriptBlock,
-  listScriptBlocks,
-  runScripts,
-  scriptsState,
-  setScriptSource,
-} from './scripts.js';
+import { listScriptBlocks } from './script-output.js';
+import { insertScriptBlock, runScripts, scriptsState, setScriptSource } from './scripts.js';
 
 const runner = {
   run: ({ source }: { source: string }) =>
@@ -20,7 +16,9 @@ const runner = {
         ? { ok: false as const, error: { kind: 'unavailable' as const, message: 'Broken' } }
         : {
             ok: true as const,
-            value: [{ type: 'paragraph', content: [{ type: 'text', text: `Ran ${source}` }] }],
+            value: {
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: `Ran ${source}` }] }],
+            },
           },
     ),
 };
@@ -102,7 +100,7 @@ describe('script blocks', () => {
     const odd = {
       run: ({ source }: { source: string }) =>
         source === 'unread'
-          ? Promise.resolve({ ok: true as const, value: unread })
+          ? Promise.resolve({ ok: true as const, value: { content: unread } })
           : runner.run({ source }),
     };
     const view = viewWith('one', 'unread', 'two');
@@ -177,13 +175,15 @@ describe('script blocks', () => {
       run: () =>
         Promise.resolve({
           ok: true as const,
-          value: [
-            {
-              type: 'heading',
-              attrs: { level, id: 'ffffffff' },
-              content: [{ type: 'text', text: 'Results' }],
-            },
-          ],
+          value: {
+            content: [
+              {
+                type: 'heading',
+                attrs: { level, id: 'ffffffff' },
+                content: [{ type: 'text', text: 'Results' }],
+              },
+            ],
+          },
         }),
     };
     const view = viewWith('one');
@@ -218,9 +218,15 @@ describe('script blocks', () => {
       run: () =>
         Promise.resolve({
           ok: true as const,
-          value: [
-            { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Results' }] },
-          ],
+          value: {
+            content: [
+              {
+                type: 'heading',
+                attrs: { level: 1 },
+                content: [{ type: 'text', text: 'Results' }],
+              },
+            ],
+          },
         }),
     });
     const levelOf = () =>
@@ -231,6 +237,58 @@ describe('script blocks', () => {
     // The ids the editing plugins give an output's elements are not the writer's change.
     view.dispatch(view.state.tr.setNodeAttribute(at, 'dataId', '0000beef'));
     expect(listScriptBlocks(view.state.doc)[0]?.node.firstChild?.attrs.dataId).toBe('0000beef');
+    view.destroy();
+  });
+
+  it('DOCE-OBJECTS-4.6 tells the runner why it runs, and records where an output came from', async () => {
+    const purposes: string[] = [];
+    const signals: (AbortSignal | undefined)[] = [];
+    const recording = {
+      run: ({ purpose, source }: ScriptRunRequest, signal?: AbortSignal) => {
+        purposes.push(purpose);
+        signals.push(signal);
+        return Promise.resolve({
+          ok: true as const,
+          value: {
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: source }] }],
+            provenance: { source: 'lab', inputs: `key-${source}` },
+            signatures: [{ person: 'p1' }],
+          },
+        });
+      },
+    };
+    const view = viewWith('one');
+    const controller = new AbortController();
+    await runScripts(view, recording, { signal: controller.signal });
+    await runScripts(view, recording, { purpose: 'open' });
+    expect(purposes).toEqual(['run', 'open']);
+    expect(signals).toEqual([controller.signal, undefined]);
+    const block = listScriptBlocks(view.state.doc)[0]?.node;
+    expect(block?.attrs.provenance).toEqual({ source: 'lab', inputs: 'key-one' });
+    expect(block?.attrs.signatures).toEqual([{ person: 'p1' }]);
+    // The same content and records again leave the document as it is.
+    const before = view.state.doc;
+    await runScripts(view, recording);
+    expect(view.state.doc).toBe(before);
+    view.destroy();
+  });
+
+  it('DOCE-OBJECTS-4.6 stops when the signal aborts, putting nothing in', async () => {
+    const controller = new AbortController();
+    const reason = new Error('Stopped');
+    let calls = 0;
+    const stopping = {
+      run: ({ source }: ScriptRunRequest) => {
+        calls += 1;
+        controller.abort(reason);
+        return runner.run({ source });
+      },
+    };
+    const view = viewWith('one', 'two');
+    await expect(runScripts(view, stopping, { signal: controller.signal })).rejects.toBe(reason);
+    expect(calls).toBe(1);
+    expect(outputText(view)).toBe('');
+    expect([...scriptsState(view.state).running]).toEqual([]);
     view.destroy();
   });
 });

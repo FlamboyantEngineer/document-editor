@@ -64,7 +64,7 @@ export {
   buildScriptText,
 } from './script-output.js';
 export type { StoredScriptsOptions, StoredScriptsRun } from './scripts.js';
-export { runStoredScripts } from './scripts.js';
+export { findStaleStoredScripts, runStoredScripts } from './scripts.js';
 export type {
   StoredCitation,
   StoredElement,
