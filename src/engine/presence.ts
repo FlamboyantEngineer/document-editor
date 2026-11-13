@@ -6,6 +6,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { DecorationSet, type EditorView } from 'prosemirror-view';
+import { isCssColor } from '../model/schema/css-color.js';
 import { viewOnlyInline, viewOnlyWidget } from '../utils/view-only-decorations.js';
 import { addressResolver, type PresenceRange } from './presence-address.js';
 
@@ -78,13 +79,14 @@ export function placePeers(peers: readonly Peer[]): PlacedPeer[] {
   return peers.map((peer) => ({ ...peer, slot: slots.get(peer.id) ?? slotOf(peer.id) }));
 }
 
-// The attributes a peer's caret and selection carry: who, and their colour.
+// The attributes a peer's caret and selection carry: who, and their colour. A peer's colour is
+// whatever another participant published, so only a plain colour is written into the style.
 function peerAttrs(peer: PlacedPeer): Record<string, string> {
   return {
     'data-presence-peer': peer.id,
     'data-presence-slot': String(peer.slot),
     ...(peer.status && peer.status !== 'active' ? { 'data-presence-status': peer.status } : {}),
-    ...(peer.color ? { style: `--de-presence-color: ${peer.color}` } : {}),
+    ...(isCssColor(peer.color) ? { style: `--de-presence-color: ${peer.color}` } : {}),
   };
 }
 

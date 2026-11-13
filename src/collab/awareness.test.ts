@@ -142,6 +142,28 @@ describe('awareness presence', () => {
     expect(awareness.getStates().get(1)?.cursor).toMatchObject({ head: expect.anything() });
   });
 
+  it('DOCE-COLLAB-1.5 takes from another person only a plain colour and a picture’s address', async () => {
+    const { a, awarenessB } = await pair();
+    const publish = async (user: Record<string, unknown>) => {
+      awarenessB.setLocalStateField('user', { id: 'grace', name: 'Grace', ...user });
+      await settle();
+      return listPeers(a.state)[0];
+    };
+    const forged = await publish({
+      color: 'red; position: fixed; inset: 0',
+      avatar: 'javascript:void(0)',
+    });
+    expect(forged).toMatchObject({ id: 'grace', name: 'Grace' });
+    expect(forged).not.toHaveProperty('color');
+    expect(forged).not.toHaveProperty('avatar');
+    expect(
+      await publish({ color: 'hsl(210 50% 40%)', avatar: 'https://example.invalid/grace.png' }),
+    ).toMatchObject({ color: 'hsl(210 50% 40%)', avatar: 'https://example.invalid/grace.png' });
+    expect(await publish({ avatar: 'data:image/png;base64,AAAA' })).toMatchObject({
+      avatar: 'data:image/png;base64,AAAA',
+    });
+  });
+
   it('DOCE-COLLAB-1.5 keeps a person’s caret on the same text while another edits before it', async () => {
     const { a, b, sync } = await pair();
     select(a, wordAt(a.state.doc, 'word'));

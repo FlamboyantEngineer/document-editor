@@ -15,6 +15,7 @@ import {
   setPeers,
 } from '../engine/presence.js';
 import { isLocalEdit, isRemoteTransaction } from '../engine/transaction-kind.js';
+import { isCssColor } from '../model/schema/css-color.js';
 import { fromRelativeJSON, toRelativeJSON } from './relative-positions.js';
 import { getCollabSync, readCollabChange } from './sync.js';
 
@@ -81,6 +82,11 @@ interface Activity {
 
 const activityKey = new PluginKey<Activity>('awareness-presence');
 
+// A picture's address a reader's browser may load: over http(s), or an image given inline.
+const pictureAddress = /^(?:https?:\/\/|data:image\/)/i;
+
+// The person an awareness state names. Any participant writes it, so a colour is kept only when
+// it is a plain colour, which the carets write into a style, and a picture only by such an address.
 function userOf(value: unknown): PresenceUser | null {
   if (typeof value !== 'object' || value === null) return null;
   const { id, name, avatar, color } = value as Record<string, unknown>;
@@ -88,8 +94,8 @@ function userOf(value: unknown): PresenceUser | null {
   return {
     id,
     name,
-    ...(typeof avatar === 'string' ? { avatar } : {}),
-    ...(typeof color === 'string' ? { color } : {}),
+    ...(typeof avatar === 'string' && pictureAddress.test(avatar) ? { avatar } : {}),
+    ...(isCssColor(color) ? { color } : {}),
   };
 }
 
