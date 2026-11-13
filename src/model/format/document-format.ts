@@ -115,7 +115,10 @@ const CELL_ATTRS = {
 /** The stored name and attributes of each built-in node type that is stored as a node. */
 export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Object.freeze({
   paragraph: { type: 'paragraph', attrs: { className: 'style', paragraphLevel: 'level' } },
-  heading: { type: 'heading', attrs: { level: 'level', docTitle: 'title', className: 'style' } },
+  heading: {
+    type: 'heading',
+    attrs: { level: 'level', docTitle: 'title', numbered: 'numbered', className: 'style' },
+  },
   blockquote: { type: 'blockquote' },
   page_break: { type: 'pageBreak' },
   horizontal_rule: { type: 'rule' },

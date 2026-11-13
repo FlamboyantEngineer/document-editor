@@ -207,6 +207,12 @@ describe('TemplateWorkspace', () => {
         'de-template-workspace__preview',
       );
       expect(root()).toHaveAttribute('data-layout', 'web');
+      // A web-layout template has no page size, orientation, header or footer rows; margins stay.
+      const settings = document.querySelector('.de-template-workspace__settings') as HTMLElement;
+      expect(within(settings).queryByText('Page size')).not.toBeInTheDocument();
+      expect(within(settings).queryByText('Orientation')).not.toBeInTheDocument();
+      expect(within(settings).queryByText('Header & footer')).not.toBeInTheDocument();
+      expect(within(settings).getAllByText('Margins').length).toBeGreaterThan(0);
       // The preview's template is resolved: the base template's page size shows through.
       await waitFor(() => expect(previews.at(-1)?.template.page?.size).toBeTruthy());
       const last = previews.at(-1);

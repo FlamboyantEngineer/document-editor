@@ -21,7 +21,12 @@ export {
 export * from './document-format-convert.js';
 export * from './document-format-ids.js';
 export * from './document-format-write.js';
-export type { DocxOptions } from './docx.js';
+export type {
+  DocxOptions,
+  WordCommentEntry,
+  WordCommentOptions,
+  WordCommentThread,
+} from './docx.js';
 export { writeDocx } from './docx.js';
 export * from './format-upgrade.js';
 export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';

@@ -113,12 +113,15 @@ const NO_ENTRIES: readonly MenuEntry[] = [];
 const ToolbarMenu = memo(function ToolbarMenu({
   item,
   isDisabled,
+  reason,
   isOpen,
   onOpenChange,
   entries,
 }: {
   item: ToolbarMenuItem;
   isDisabled: boolean;
+  /** Why the menu is disabled: its trigger says so and stays in the tab order (DOCE-EDITOR-4.14). */
+  reason: string | undefined;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   entries: readonly MenuEntry[];
@@ -131,6 +134,8 @@ const ToolbarMenu = memo(function ToolbarMenu({
       icon={item.icon}
       iconOnly={Boolean(item.icon)}
       isDisabled={isDisabled}
+      focusableWhenDisabled={reason !== undefined}
+      tooltip={tooltipOf(item.label, reason)}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       items={entries}
@@ -145,6 +150,7 @@ function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorCon
     <ToolbarMenu
       item={item}
       isDisabled={!isItemEnabled(item, context)}
+      reason={disabledReasonOf(item, context)}
       isOpen={isOpen}
       onOpenChange={setOpen}
       entries={isOpen ? item.entries(context) : NO_ENTRIES}

@@ -26,6 +26,7 @@ import type { ShellFeatures } from './mode-controls.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
+import type { DocumentExports } from './use-document-exports.js';
 
 // The chrome's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['toolbar', 'find', 'status-bar']);
@@ -49,6 +50,8 @@ export interface ChromeProps {
    * layout as well as each state, such as the status bar's page count.
    */
   pages?: EditorState | null | undefined;
+  /** The host's exports, for File > Export. */
+  exports?: DocumentExports | undefined;
 }
 
 /** What the chrome above the document reads. */
@@ -144,6 +147,7 @@ function TopChrome({
   onFindClose,
   view,
   openFind = null,
+  exports,
 }: TopChromeProps) {
   const features = useInsertFeatures(props);
   const { onModeChange, modeReasons, onMarkupChange } = props;
@@ -169,6 +173,7 @@ function TopChrome({
             glossary: props.glossary,
             template: props.template,
             shell,
+            exports,
           }}
         />
       ) : null}

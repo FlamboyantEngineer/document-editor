@@ -1,5 +1,14 @@
+import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.js';
+import { expect, test, waitForLab } from './fixtures.js';
+import {
+  closeCard,
+  openCard,
+  sectionOf,
+  setField,
+  type SettingStep,
+  settingSteps,
+} from './template-settings-steps.js';
 
 const panel = (page: Page) =>
   page.getByRole('region', { name: 'Template settings' }).or(page.locator('.de-template-editor'));
@@ -225,12 +234,12 @@ test.describe('template editor lab', () => {
     await numbering.fill('Ab.1x');
     await expect(numbering).toHaveValue('A.1');
     await expect(heading.getByText('1, a, A, i or I for each level')).toBeVisible();
-    // A heading has no line height of its own.
-    await expect(heading.getByRole('textbox', { name: 'Line height' })).toHaveCount(0);
+    // A heading has a line height of its own.
+    await expect(heading.getByRole('textbox', { name: 'Line height' })).toHaveCount(1);
     // The margins, one row of four sides, in millimetres on an A4 page.
     const top = settings.getByRole('textbox', { name: 'Top margin' });
     // The four sides fit across the settings panel.
-    const margins = settings.locator('.ui-four-side-property-strip');
+    const margins = sectionOf(settings, 'Page setup').locator('.ui-four-side-property-strip');
     expect(await margins.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
       true,
     );
@@ -268,6 +277,67 @@ test.describe('template editor lab', () => {
     await expect(content(page).locator('table')).toHaveCount(1);
     await expect(content(page).locator('pre')).toHaveCount(1);
     await expect(content(page).locator('[data-section-name]')).not.toHaveCount(0);
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-1.9 DOCE-TEMPLATE-EDITOR-1.10 DOCE-TEMPLATE-EDITOR-1.11 writes a whole template field by field', async ({
+    page,
+  }) => {
+    // About 350 fields, each typed, picked or pressed: some 2 minutes here, several times that on a
+    // shared CI runner.
+    test.setTimeout(600_000);
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL('../test/fixtures/templates/field-report.json', import.meta.url),
+        'utf8',
+      ),
+    ) as Record<string, unknown>;
+    // What other parts of the editor set: the identity, the sections, the regions' content and
+    // the host's extensions.
+    const leftOut = ['formatVersion', 'id', 'parent', 'sections', 'extensions'];
+    const steps = settingSteps(fixture, [...leftOut, 'name', 'header.content', 'footer.content']);
+    // The settings alone: the template is read back from its JSON.
+    await page.goto('template-editor.html?document=none');
+    await waitForLab(page);
+    const settings = panel(page).first();
+    await sectionOf(settings, 'Identity')
+      .getByRole('textbox', { name: 'Name' })
+      .fill(String(fixture.name));
+    // Each custom style, added and renamed.
+    const styles = sectionOf(settings, 'Custom styles');
+    const custom = Object.keys((fixture.styles as { custom: Record<string, unknown> }).custom);
+    for (const [index, name] of custom.entries()) {
+      await styles.getByRole('button', { name: 'Add a style' }).click();
+      const added = await openCard(styles, `style_${String(index + 1)}`);
+      const field = added.getByRole('textbox', { name: 'Name' });
+      await field.fill(name);
+      await field.press('Enter');
+      await expect(styles.locator('.ui-property-card__name', { hasText: name })).toHaveCount(1);
+    }
+    // The steps by section and card, each card open only while its fields are set.
+    const groups = new Map<string, SettingStep[]>();
+    for (const step of steps) {
+      const key = `${step.section}\u0000${step.card ?? ''}`;
+      groups.set(key, [...(groups.get(key) ?? []), step]);
+    }
+    for (const group of groups.values()) {
+      const [first] = group;
+      if (!first) continue;
+      const section = sectionOf(settings, first.section);
+      const scope = first.card ? await openCard(section, first.card) : section;
+      for (const step of group) await setField(scope, step);
+      if (first.card) await closeCard(section, first.card);
+    }
+    await page.getByLabel('Edit as JSON').check();
+    const json = page.getByRole('textbox', { name: 'Template JSON' });
+    const written = JSON.parse(await json.inputValue()) as Record<string, unknown>;
+    const expected = structuredClone(fixture) as Record<string, Record<string, unknown>>;
+    for (const key of leftOut) {
+      delete written[key];
+      delete expected[key];
+    }
+    delete expected.header?.content;
+    delete expected.footer?.content;
+    expect(written).toEqual(expected);
   });
 
   test('DOCE-TEMPLATE-EDITOR-2.1 DOCE-TEMPLATE-EDITOR-2.3 DOCE-TEMPLATE-EDITOR-2.4 renames, moves and deletes a section, the scope following it by name', async ({

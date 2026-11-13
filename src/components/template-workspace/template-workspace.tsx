@@ -181,7 +181,12 @@ function Messages({ workspace, labels }: PartProps) {
 }
 
 // The open template's settings, or a saved version's, read-only.
-function Settings({ props, workspace, scope }: PartProps & { scope: ScopeState }) {
+function Settings({
+  props,
+  workspace,
+  scope,
+  layout,
+}: PartProps & { scope: ScopeState; layout: DocumentLayout }) {
   const { open, viewing, resolved } = workspace;
   if (!open) return null;
   const shown = viewing?.template ?? open.draft;
@@ -198,6 +203,7 @@ function Settings({ props, workspace, scope }: PartProps & { scope: ScopeState }
         parentOptions={parentOptionsOf(shown.id, workspace.templates)}
         extensions={props.extensions}
         fonts={props.fonts}
+        layout={layout}
       />
     </div>
   );
@@ -252,7 +258,7 @@ function Workspace(props: TemplateWorkspaceProps) {
     >
       <Toolbar {...parts} isHistoryShown={isHistoryShown} onHistoryChange={setHistoryShown} />
       <Messages {...parts} />
-      <Settings {...parts} scope={scope} />
+      <Settings {...parts} scope={scope} layout={layout} />
       <Preview {...parts} scope={scope[0]} layout={layout} />
       {isHistoryShown ? <TemplateHistory store={props.store} {...parts} /> : null}
     </div>

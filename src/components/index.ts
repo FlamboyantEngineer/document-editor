@@ -70,6 +70,7 @@ export {
   EDITOR_COUNTS,
   EDITOR_MEASURES,
   EditorModal,
+  inlineCompletionItem,
   isContentChange,
   menubarMenus,
   TOOLBAR_GROUPS,
@@ -132,13 +133,16 @@ export {
 } from './document-session/index.js';
 export type {
   SettingKind,
+  StylePart,
   TemplateEditorLabels,
   TemplateEditorProps,
   TemplateJsonEditorLabels,
   TemplateJsonEditorProps,
   TemplateScopeLabels,
   TemplateSetting,
+  TemplateSettingCard,
   TemplateSettingSection,
+  TemplateSettingsLabels,
 } from './template-editor/index.js';
 export type {
   SectionNameProblem,
@@ -154,7 +158,9 @@ export type {
   TemplateScopeProps,
 } from './template-editor/index.js';
 export {
+  DEFAULT_CODE_FONTS,
   DEFAULT_TEMPLATE_EDITOR_LABELS,
+  DEFAULT_TEMPLATE_SETTINGS_LABELS,
   PAGE_SIZES,
   SECTION_SETTINGS,
   settingAt,

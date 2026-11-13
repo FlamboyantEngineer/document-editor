@@ -9,7 +9,7 @@ const hostWith = (...templates: TemplateFile[]) =>
   createMemoryHost({ templates, now: () => new Date('2026-01-02T03:04:05Z') });
 
 describe('createMemoryHost templates', () => {
-  it('DOCE-HOST-1.22 DOCE-HOST-3.11 lists the stored templates at their latest revisions', async () => {
+  it('DOCE-HOST-1.24 DOCE-HOST-3.12 lists the stored templates at their latest revisions', async () => {
     const { templates } = hostWith(REPORT, LETTER, { ...REPORT, name: 'Report 2' });
     await expect(templates.list()).resolves.toEqual({
       ok: true,
@@ -20,7 +20,7 @@ describe('createMemoryHost templates', () => {
     });
   });
 
-  it('DOCE-HOST-1.22 DOCE-HOST-3.11 saves on the stored revision and refuses a stale one', async () => {
+  it('DOCE-HOST-1.24 DOCE-HOST-3.12 saves on the stored revision and refuses a stale one', async () => {
     const { templates } = hostWith(REPORT);
     const onSaved = vi.fn();
     templates.subscribe?.('report', onSaved);
@@ -40,7 +40,7 @@ describe('createMemoryHost templates', () => {
     ).resolves.toMatchObject({ ok: false, error: { kind: 'not-found' } });
   });
 
-  it('DOCE-HOST-1.22 DOCE-HOST-3.11 creates a template under a free id only', async () => {
+  it('DOCE-HOST-1.24 DOCE-HOST-3.12 creates a template under a free id only', async () => {
     const { templates } = hostWith(REPORT);
     await expect(templates.create({ ...REPORT, id: 'copy' })).resolves.toEqual({
       ok: true,
@@ -55,7 +55,7 @@ describe('createMemoryHost templates', () => {
     });
   });
 
-  it('DOCE-HOST-1.22 DOCE-HOST-3.11 removes a template no other inherits', async () => {
+  it('DOCE-HOST-1.24 DOCE-HOST-3.12 removes a template no other inherits', async () => {
     const { templates } = hostWith(REPORT, LETTER);
     await expect(templates.remove('report')).resolves.toMatchObject({
       ok: false,
@@ -69,7 +69,7 @@ describe('createMemoryHost templates', () => {
     });
   });
 
-  it('DOCE-HOST-1.22 DOCE-HOST-3.11 lists a template versions newest first, each loadable', async () => {
+  it('DOCE-HOST-1.24 DOCE-HOST-3.12 lists a template versions newest first, each loadable', async () => {
     const { templates } = hostWith(REPORT, { ...REPORT, name: 'Second' });
     await expect(templates.versions?.('report')).resolves.toEqual({
       ok: true,

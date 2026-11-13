@@ -6,7 +6,8 @@
 import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import type { ReactNode } from 'react';
 import { isUnset } from './setting-controls.js';
-import { type Rows, rows } from './template-rows.js';
+import { rows } from './setting-row.js';
+import type { Rows } from './template-rows.js';
 import { settingAt, type SettingKind, type TemplateSetting } from './template-settings.js';
 
 /** What an extension's own field reads and changes: one value under `extensions`. */
@@ -95,8 +96,11 @@ function DrawnRow({ context, row }: { context: Rows; row: TemplateExtensionRow }
 }
 
 /** The rows of a host's own settings: a built-in field for a kind, or the host's own. */
-export function extensionRows(context: Rows, extensionRows: readonly TemplateExtensionRow[]) {
-  return extensionRows.flatMap((row) => {
+export function extensionRows(
+  context: Rows,
+  extensionRows: readonly TemplateExtensionRow[],
+): ReactNode[] {
+  return extensionRows.flatMap((row): ReactNode[] => {
     if (!row.kind) return [<DrawnRow key={row.id} context={context} row={row} />];
     const setting: TemplateSetting = {
       id: row.id,

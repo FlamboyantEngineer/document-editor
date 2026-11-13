@@ -88,17 +88,6 @@ export const SECTION_SETTINGS: readonly TemplateSetting[] = [
   },
 ];
 
-/** The ids of the editor's sections a template section may set. */
-export const SECTION_SCOPED = new Set([
-  'page',
-  'regions',
-  'lists',
-  'tables',
-  'code',
-  'footnotes',
-  'change-bars',
-]);
-
 /**
  * A template with the sections its documents take: its own, or those it inherits while it has no
  * list of its own. A template's list replaces its parent's whole (DOCE-FORMAT-3.1), so the editor

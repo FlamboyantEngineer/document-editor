@@ -1,5 +1,6 @@
-// The page margins as one row of four sides, in millimetres on an A or B size page and in inches
-// otherwise. Each side holds the scope's own margin and shows the one it inherits while it has none.
+// Four sides as one row, such as the page margins, in millimetres on an A or B size page and in
+// inches otherwise, or a contents list's padding, in points. Each side holds the scope's own value
+// and shows the one it inherits while it has none.
 
 import {
   type BoxSide,
@@ -19,12 +20,12 @@ const MILLIMETRES: Readonly<Record<string, number>> = {
 };
 
 /** A length in the unit given, rounded to hundredths; null when it is not a length. */
-export function lengthIn(value: unknown, unit: 'mm' | 'in'): number | null {
+export function lengthIn(value: unknown, unit: 'mm' | 'in' | 'pt'): number | null {
   const match = /^(\d+(?:\.\d+)?)(mm|cm|in|pt|px)$/.exec(String(value ?? '').trim());
   const factor = match ? MILLIMETRES[match[2] ?? ''] : undefined;
   if (!match || !factor) return null;
   const millimetres = Number(match[1]) * factor;
-  return Math.round((unit === 'mm' ? millimetres : millimetres / 25.4) * 100) / 100;
+  return Math.round((millimetres / (MILLIMETRES[unit] ?? 1)) * 100) / 100;
 }
 
 /** The unit a page size's margins are written in: millimetres for A and B sizes, else inches. */
@@ -37,7 +38,7 @@ const SIDES: readonly BoxSide[] = ['top', 'right', 'bottom', 'left'];
 const NUMBER = /^\d*(\.\d*)?$/;
 
 // One side's value: the strip's own small input, holding what is typed until it reads as a number.
-function MarginInput({
+function SideInput({
   label,
   value,
   inherited,
@@ -70,30 +71,46 @@ function MarginInput({
   );
 }
 
-/** The margins of the scope's pages. */
-export function MarginsRow({ context }: { context: Rows }) {
+/**
+ * Four sides at a path of the rows' target: the page margins in the page's own unit, or a length
+ * in points.
+ */
+export function SidesRow({
+  context,
+  path,
+  label,
+  side: noun,
+  unit: kind,
+}: {
+  context: Rows;
+  path: readonly string[];
+  label: string;
+  /** What one side is called, after its name, such as `margin` in `Top margin`. */
+  side: string;
+  unit: 'page' | 'pt';
+}) {
   const { target, labels, props } = context;
-  const read = (path: readonly string[]) => ({
-    own: settingAt(target.own, path),
-    inherited: target.inherited ? settingAt(target.inherited, path) : undefined,
+  const read = (at: readonly string[]) => ({
+    own: settingAt(target.own, at),
+    inherited: target.inherited ? settingAt(target.inherited, at) : undefined,
   });
   const size = read(['page', 'size']);
-  const unit = marginUnit(size.own ?? size.inherited);
+  const unit = kind === 'pt' ? 'pt' : marginUnit(size.own ?? size.inherited);
   return (
     <FourSidePropertyStrip
-      label={labels.margins}
+      label={label}
       unit={unit}
-      isOverridden={SIDES.some((side) => read(['page', 'margins', side]).own !== undefined)}
+      isOverridden={SIDES.some((side) => read([...path, side]).own !== undefined)}
       renderSide={(side) => {
-        const value = read(['page', 'margins', side]);
+        const value = read([...path, side]);
         return (
-          <MarginInput
-            label={labels.marginSides[side]}
+          <SideInput
+            label={`${labels.sides[side]} ${noun}`}
             value={lengthIn(value.own, unit)}
             inherited={lengthIn(value.inherited, unit)}
             isDisabled={props.isDisabled}
             onChange={(next) =>
-              target.set(['page', 'margins', side], next === null ? null : `${String(next)}${unit}`)
+              target.set([...path, side], next === null ? null : `${String(next)}${unit}`)
             }
           />
         );

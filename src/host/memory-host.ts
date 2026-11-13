@@ -5,6 +5,7 @@ import { sliceCodeLines } from '../model/linked-code.js';
 import type {
   AssetAdapter,
   CodeSourceAdapter,
+  CompletionContext,
   EditorHost,
   EditorPerson,
   ExternalReference,
@@ -21,6 +22,7 @@ import type {
 } from './adapters.js';
 import { type EditorCapabilities, FULL_CAPABILITIES } from './capabilities.js';
 import { createMemoryComments, type MemoryCommentsOptions } from './memory-comments.js';
+import { createMemoryCompletion } from './memory-completion.js';
 import {
   createMemoryDocuments,
   createMemoryHistory,
@@ -60,6 +62,8 @@ export interface MemoryHostOptions {
   checkScript?: ((source: string) => readonly ScriptDiagnostic[]) | undefined;
   /** The time a document is saved at, which its version records. Defaults to now. */
   now?: (() => Date) | undefined;
+  /** Answers a completion request; without it the host has no completion provider. */
+  complete?: ((context: CompletionContext) => string) | undefined;
 }
 
 const DEFAULT_PERSON: EditorPerson = { id: 'reader', name: 'Reader' };
@@ -272,5 +276,6 @@ export function createMemoryHost(options: MemoryHostOptions = {}): MemoryHost {
     references: createMemoryReferences(options.citations ?? []),
     comments: createMemoryComments(identity, options.comments),
     ...(options.scripts ? { scripts: createMemoryScripts(options.scripts, options) } : {}),
+    ...(options.complete ? { completion: createMemoryCompletion(options.complete) } : {}),
   };
 }

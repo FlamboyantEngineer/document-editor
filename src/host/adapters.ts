@@ -5,10 +5,14 @@ import type { ReferenceBaseline } from '../model/reference-format.js';
 import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
 import type { CommentStoreAdapter } from './comment-adapters.js';
+import type { CompletionAdapter } from './completion-adapters.js';
+import type { ExportsAdapter } from './export-adapters.js';
 import type { ProoferAdapter } from './proofing-adapters.js';
 import type { CollaborationAdapter, DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
 
 export type * from './asset-adapters.js';
+export type * from './completion-adapters.js';
+export type * from './export-adapters.js';
 
 /** A failure the host reports for a request it could not complete. */
 export interface HostError {
@@ -258,16 +262,6 @@ export interface ScriptRunnerAdapter {
   check?(source: string, signal?: AbortSignal): Promise<HostResult<readonly ScriptDiagnostic[]>>;
 }
 
-/** Completes the text a writer is typing, such as through a language model. */
-export interface CompletionAdapter {
-  /** The text that may follow `before`, ahead of `after`; empty for none. */
-  complete(request: {
-    before: string;
-    after: string;
-    signal?: AbortSignal | undefined;
-  }): Promise<HostResult<string>>;
-}
-
 /** A citation of another document, or of a target in it, that a host found. */
 export interface ExternalReference {
   /** The reference type, such as `external-document`. */
@@ -291,6 +285,11 @@ export interface ReferenceSourceAdapter {
     citations: readonly { documentId: string; targetId: string | null }[],
     signal?: AbortSignal,
   ): Promise<HostResult<(ReferenceBaseline | null | 'no-access')[]>>;
+  /**
+   * The address a printed citation links to, such as the cited document in the host; null leaves
+   * it unlinked. Called while a snapshot is made, so it answers at once.
+   */
+  href?(citation: { refType: string; baseline: ReferenceBaseline }): string | null;
 }
 
 /** What an embed shows: content the host keeps elsewhere, by its kind and the host's id for it. */
@@ -396,8 +395,10 @@ export interface EditorHost {
   comments?: CommentStoreAdapter | undefined;
   versions?: VersionStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;
+  exports?: ExportsAdapter | undefined;
   telemetry?: TelemetryAdapter | undefined;
   proofer?: ProoferAdapter | undefined;
+  completion?: CompletionAdapter | undefined;
   variables?: VariablesAdapter | undefined;
   drafts?: DraftsAdapter | undefined;
   collaboration?: CollaborationAdapter | undefined;
