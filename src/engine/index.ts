@@ -1,5 +1,6 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type { CitationHref, PrintedCitation } from '../model/schema/reference-mark.js';
 export type {
   AbbreviationHealthOptions,
   AbbreviationIssue,
@@ -83,6 +84,7 @@ export {
   selectionRanges,
   setCommentState,
 } from './comments.js';
+export { completionRequest, normalizeCompletion } from './completion-text.js';
 export type { ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
 export { CONTENTS_LABELS, contentsCatalog, contentsKey, createContents } from './contents.js';
 export type { CustomStylesOptions } from './custom-styles.js';
@@ -120,7 +122,7 @@ export {
   renderTemplateBlock,
   templateBlockKeys,
 } from './dynamic-templates.js';
-export type { EditLockOptions } from './edit-lock.js';
+export type { EditLockOptions, EditLockState, HistoryDirection } from './edit-lock.js';
 export { createEditLock, editLockKey, isLockedIn, isPositionLocked } from './edit-lock.js';
 export {
   changeParagraphLevel,
@@ -182,17 +184,18 @@ export {
   numberFootnotes,
 } from './footnotes.js';
 export type {
-  CompletionRequest,
+  CompletionStatus,
   InlineCompletion,
   InlineCompletionOptions,
 } from './inline-completion.js';
 export {
   acceptCompletion,
-  completionRequest,
+  completionStatus,
   createInlineCompletion,
   dismissCompletion,
   inlineCompletion,
   offerCompletion,
+  setInlineCompletionEnabled,
 } from './inline-completion.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {
@@ -231,6 +234,9 @@ export {
   type PresenceRange,
   presenceSelection,
 } from './presence-address.js';
+export type { ResolveImage } from './print-images.js';
+export type { SnapshotOutlineEntry } from './print-outline.js';
+export { snapshotOutline } from './print-outline.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
@@ -255,6 +261,8 @@ export {
   shortcutsKey,
   shortcutsOf,
 } from './shortcuts.js';
+export type { ReadySnapshotOptions, ResolveImageAsync } from './snapshot-ready.js';
+export { documentSnapshotWhenReady } from './snapshot-ready.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

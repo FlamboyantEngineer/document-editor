@@ -42,17 +42,28 @@ function childKeys(node: ProseMirrorNode): string[] {
   return keys;
 }
 
-// The least change of a textblock's inline content: one run from the first difference to the last.
+// A position in a textblock's content moved out of the inline node it is inside, to the node's
+// start or end: a node that holds text, such as an equation, is replaced whole, since a run cut out
+// of it would be pasted into the old node as a second one.
+function outOfInlineNode(block: ProseMirrorNode, pos: number, side: 'start' | 'end'): number {
+  const $pos = block.resolve(pos);
+  if ($pos.depth === 0) return pos;
+  return side === 'start' ? $pos.before(1) : $pos.after(1);
+}
+
+// The least change of a textblock's inline content: one run from the first difference to the last,
+// of whole inline nodes.
 function textChange({ old, next, start }: Pair): Change | null {
-  const from = old.content.findDiffStart(next.content);
-  if (from === null) return null;
+  const first = old.content.findDiffStart(next.content);
+  if (first === null) return null;
   const end = old.content.findDiffEnd(next.content) ?? {
     a: old.content.size,
     b: next.content.size,
   };
-  const overlap = from - Math.min(end.a, end.b);
-  const endA = overlap > 0 ? end.a + overlap : end.a;
-  const endB = overlap > 0 ? end.b + overlap : end.b;
+  const overlap = Math.max(0, first - Math.min(end.a, end.b));
+  const from = outOfInlineNode(old, first, 'start');
+  const endA = outOfInlineNode(old, end.a + overlap, 'end');
+  const endB = outOfInlineNode(next, end.b + overlap, 'end');
   const slice = new Slice(next.content.cut(from, endB), 0, 0);
   return { kind: 'replace', from: start + from, to: start + endA, slice };
 }

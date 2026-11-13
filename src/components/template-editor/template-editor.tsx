@@ -1,42 +1,55 @@
 // The template editor: a template's settings in a filterable property panel, by section — its
-// name and parent, page setup, text styles picked one at a time, header and footer with their
-// content, lists, tables, code blocks, footnotes, the table of contents and change bars — for the
-// whole document or one of its template sections. Each field holds the template's own value and
-// shows the one it inherits while it has none; clearing a field inherits again. Every change hands
-// the host a new template, so a document beside it restyles at once.
+// identity, page setup, text styles picked one at a time, header and footer with their content,
+// lists, tables, code blocks, footnotes, the table of contents and change bars, and a host's own
+// settings in extension slots — for the whole document or one of its template sections, picked by
+// name. Each field holds the template's own value and shows the one it inherits while it has none;
+// clearing a field inherits again. Every change hands the host a new template, so a document beside
+// it restyles at once.
 
-import type { Key } from '@flamboyantengineer/ui-components/core';
 import { PropertyFilter } from '@flamboyantengineer/ui-components/property-filter';
-import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
-import { SelectField } from '@flamboyantengineer/ui-components/select-field';
-import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import { Fragment, useState } from 'react';
+import { PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
-import { MarginsRow } from './margins-row.js';
-import { CustomStyleSection, TextStyleSection } from './style-sections.js';
-import { type Rows, rows, type Target } from './template-rows.js';
+import type { DocumentLayout } from '../document-editor/document-editor.js';
 import {
+  extensionRows,
+  ExtensionSections,
+  type TemplateExtensionSlots,
+} from './template-extensions.js';
+import {
+  DEFAULT_TEMPLATE_IDENTITY_LABELS,
+  TemplateIdentity,
+  type TemplateIdentityLabels,
+  type TemplateParentOption,
+} from './template-identity.js';
+import { type Rows, SettingSections, type Target } from './template-rows.js';
+import {
+  DEFAULT_TEMPLATE_SCOPE_LABELS,
   ScopePicker,
-  SECTION_SCOPED,
   SectionRows,
   type TemplateScopeLabels,
   withListedSections,
-  withSection,
 } from './template-scope.js';
-import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
+import {
+  type TemplateScope,
+  type TemplateScopeProps,
+  useTemplateScope,
+} from './template-scope-state.js';
+import { withNamedSection } from './template-section-list.js';
+import {
+  DEFAULT_TEMPLATE_SETTINGS_LABELS,
+  type TemplateSettingsLabels,
+  withSetting,
+} from './template-settings.js';
 
 const hooks = createHooks('template-editor');
 
 /** The template editor's own text. */
-export interface TemplateEditorLabels extends TemplateScopeLabels {
+export interface TemplateEditorLabels
+  extends TemplateScopeLabels, TemplateIdentityLabels, TemplateSettingsLabels {
   readonly panel: string;
   readonly filter: string;
-  readonly identity: string;
-  readonly name: string;
-  readonly parent: string;
-  readonly noParent: string;
   readonly textStyles: string;
   readonly numbering: string;
   readonly font: string;
@@ -58,8 +71,6 @@ export interface TemplateEditorLabels extends TemplateScopeLabels {
   /** Marks a custom style the template inherits. */
   readonly inheritedStyle: string;
   readonly noCustomStyles: string;
-  readonly margins: string;
-  readonly marginSides: Readonly<Record<'top' | 'right' | 'bottom' | 'left', string>>;
   readonly numberPrefix: string;
   readonly numberSuffix: string;
   /** Where a section's inherited values come from. */
@@ -67,18 +78,15 @@ export interface TemplateEditorLabels extends TemplateScopeLabels {
   readonly customStyle: string;
   readonly addCustomStyle: string;
   readonly deleteCustomStyle: string;
-  /** Takes a row's own value away, so it inherits again. */
-  readonly useInherited: string;
 }
 
 /** The template editor's English text. */
 export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
+  ...DEFAULT_TEMPLATE_SETTINGS_LABELS,
+  ...DEFAULT_TEMPLATE_IDENTITY_LABELS,
+  ...DEFAULT_TEMPLATE_SCOPE_LABELS,
   panel: 'Template settings',
   filter: 'Filter settings',
-  identity: 'Identity',
-  name: 'Name',
-  parent: 'Parent template',
-  noParent: 'Base template',
   textStyles: 'Text styles',
   numbering: 'Numbering',
   font: 'Font',
@@ -98,31 +106,18 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   overrideCustomStyle: 'Override the inherited style',
   inheritedStyle: 'inherited',
   noCustomStyles: 'No custom styles yet.',
-  margins: 'Margins',
-  marginSides: {
-    top: 'Top margin',
-    right: 'Right margin',
-    bottom: 'Bottom margin',
-    left: 'Left margin',
-  },
   numberPrefix: 'Before the number',
   numberSuffix: 'After the number',
   documentSettings: 'the document settings',
   customStyle: 'Custom styles',
   addCustomStyle: 'Add a style',
   deleteCustomStyle: 'Delete the style',
-  useInherited: 'Use the inherited value',
   inherited: (value, source) =>
     source ? `Inherited from ${source}: ${value}` : `Inherited: ${value}`,
-  scope: 'Settings of',
-  documentScope: 'The document',
-  addSection: 'Add a section',
-  deleteSection: 'Delete the section',
-  section: 'Section',
 };
 
 /** What the template editor edits. */
-export interface TemplateEditorProps {
+export interface TemplateEditorProps extends TemplateScopeProps {
   /** The template's own settings. */
   readonly template: TemplateFile;
   /** The template resolved with its parents, whose values show where the template sets none. */
@@ -130,61 +125,44 @@ export interface TemplateEditorProps {
   /** Receives the template after each change. */
   readonly onChange: (template: TemplateFile) => void;
   /**
-   * The templates the template may inherit from, by id; one that inherits from the template
-   * itself is left out by the host, so a parent never makes a cycle.
+   * Receives a template section's old and new name once a rename is committed, so the host can
+   * follow it in what refers to the section by name.
    */
-  readonly parentOptions?: readonly { readonly id: string; readonly label: string }[] | undefined;
+  readonly onSectionRename?: ((from: string, to: string) => void) | undefined;
+  /**
+   * The templates the template may inherit from, by id; one marked `cycle` inherits from the
+   * template, so it is shown and cannot be picked.
+   */
+  readonly parentOptions?: readonly TemplateParentOption[] | undefined;
+  /** Why the template's parent could not be loaded, shown under the parent field. */
+  readonly parentError?: string | undefined;
+  /** Whether the host has never saved the template, so its id is still a row to edit. */
+  readonly isNew?: boolean | undefined;
+  /** The host's own settings, kept in the template's `extensions`. */
+  readonly extensions?: TemplateExtensionSlots | undefined;
+  /**
+   * The layout the template is for: on pages, or the web layout, which has no page size,
+   * orientation, header or footer rows. Defaults to pages.
+   */
+  readonly layout?: DocumentLayout | undefined;
   /** The fonts the font fields suggest; others may be typed. */
   readonly fonts?: readonly string[] | undefined;
+  /** The fonts the code font fields suggest, monospace ones; others may be typed. */
+  readonly codeFonts?: readonly string[] | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
   readonly isDisabled?: boolean | undefined;
   readonly className?: string | undefined;
 }
 
-// The name and the parent of the template.
-function Identity({ props, labels }: { props: TemplateEditorProps; labels: TemplateEditorLabels }) {
-  const { template, onChange, parentOptions } = props;
-  const parents = (parentOptions ?? []).filter((option) => option.id !== template.id);
-  return (
-    <PropertySection id="identity" title={labels.identity} defaultExpanded>
-      <PropertyRow label={labels.name}>
-        <TextField
-          label={labels.name}
-          labelLayout="control-only"
-          density="compact"
-          tracksChanges={false}
-          value={template.name ?? ''}
-          onChange={(name) => onChange(withSetting(template, ['name'], name || null))}
-        />
-      </PropertyRow>
-      {parentOptions ? (
-        <PropertyRow label={labels.parent}>
-          <SelectField
-            label={labels.parent}
-            labelLayout="control-only"
-            density="compact"
-            tracksChanges={false}
-            options={[{ id: '', label: labels.noParent }, ...parents]}
-            value={template.parent ?? ''}
-            onChange={(key: Key | null) =>
-              onChange(withSetting(template, ['parent'], typeof key === 'string' ? key : null))
-            }
-          />
-        </PropertyRow>
-      ) : null}
-    </PropertySection>
-  );
-}
-
-// The target of the rows: the template, or its section at an index over the resolved document.
+// The target of the rows: the template, or its named section over the resolved document. The
+// template lists the sections it inherits, so a change to one writes the whole list.
 function targetOf(
   props: TemplateEditorProps,
-  scope: number | null,
+  { listed, scope }: { listed: TemplateFile; scope: TemplateScope },
   labels: TemplateEditorLabels,
 ): Target {
   const { template, resolved, onChange } = props;
-  const listed = withListedSections(template, resolved);
-  const section = scope === null ? undefined : listed.sections?.[scope];
+  const section = listed.sections?.find((entry) => entry.name === scope);
   if (scope === null || !section) {
     const parent = props.parentOptions?.find((option) => option.id === template.parent);
     return {
@@ -201,7 +179,11 @@ function targetOf(
     source: labels.documentSettings,
     set: (path, value) =>
       onChange(
-        withSection(listed, scope, withSetting(own, path, value) as unknown as TemplateSection),
+        withNamedSection(
+          listed,
+          scope,
+          () => withSetting(own, path, value) as unknown as TemplateSection,
+        ),
       ),
   };
 }
@@ -218,16 +200,19 @@ export function withRegionChange(
   resolved?: TemplateFile,
 ): TemplateFile {
   const listed = withListedSections(template, resolved);
-  const index = listed.sections?.findIndex((section) => section.name === change.section) ?? -1;
-  const section = index >= 0 ? listed.sections?.[index] : undefined;
+  const section = listed.sections?.find((entry) => entry.name === change.section);
   const own = section?.[change.region];
   if (section && own && own.inherit !== true) {
-    const own = withSetting(
-      section as unknown as TemplateFile,
-      [change.region, 'content'],
-      change.content,
+    return withNamedSection(
+      listed,
+      section.name,
+      (entry) =>
+        withSetting(
+          entry as unknown as TemplateFile,
+          [change.region, 'content'],
+          change.content,
+        ) as unknown as TemplateSection,
     );
-    return withSection(listed, index, own as unknown as TemplateSection);
   }
   return withSetting(template, [change.region, 'content'], change.content);
 }
@@ -235,15 +220,26 @@ export function withRegionChange(
 /** Edits a template's settings, handing each change to the host. */
 export function TemplateEditor(props: TemplateEditorProps) {
   const labels = { ...DEFAULT_TEMPLATE_EDITOR_LABELS, ...props.labels };
-  const [picked, setScope] = useState<number | null>(null);
-  const { onChange, isDisabled } = props;
+  const { onChange, isDisabled, extensions } = props;
   // The sections the picker and a section's rows show and change: the inherited ones too.
   const template = withListedSections(props.template, props.resolved);
-  const scope = picked !== null && template.sections?.[picked] ? picked : null;
-  const context: Rows = { props, labels, target: targetOf(props, scope, labels) };
-  const sections = TEMPLATE_SECTIONS.filter(
-    (section) => scope === null || SECTION_SCOPED.has(section.id),
-  );
+  const [scope, setScope] = useTemplateScope(props, template.sections);
+  const context: Rows = {
+    props,
+    labels,
+    target: targetOf(props, { listed: template, scope }, labels),
+  };
+  const scoped = {
+    template,
+    scope,
+    onScopeChange: setScope,
+    onChange,
+    onSectionRename: props.onSectionRename,
+    labels,
+    isDisabled,
+  };
+  // A host's own settings are the document's: a template section has no `extensions`.
+  const slots = scope === null ? extensions : undefined;
   return (
     <PropertyFilter
       {...hooks.root({
@@ -254,46 +250,31 @@ export function TemplateEditor(props: TemplateEditorProps) {
       placeholder={labels.filter}
       isDisabled={isDisabled}
     >
-      <Identity props={props} labels={labels} />
+      <TemplateIdentity
+        template={props.template}
+        onChange={onChange}
+        parentOptions={props.parentOptions}
+        parentError={props.parentError}
+        isNew={props.isNew}
+        isDisabled={isDisabled}
+        labels={labels}
+      >
+        {slots?.rows?.identity ? extensionRows(context, slots.rows.identity) : null}
+      </TemplateIdentity>
       <PropertySection id="scope" title={labels.scope} defaultExpanded>
-        <ScopePicker
-          template={template}
-          scope={scope}
-          onScopeChange={setScope}
-          onChange={onChange}
-          labels={labels}
-          isDisabled={isDisabled}
-        />
+        <ScopePicker {...scoped} />
       </PropertySection>
-      {scope === null ? null : (
-        <SectionRows
-          template={template}
-          index={scope}
-          onChange={onChange}
-          labels={labels}
-          isDisabled={isDisabled}
-        />
-      )}
-      {sections.map((section) => (
-        <Fragment key={section.id}>
-          <PropertySection id={section.id} title={section.title}>
-            {rows(
-              context,
-              section.scope,
-              scope === null
-                ? section.settings
-                : section.settings.filter((setting) => !setting.documentOnly),
-            )}
-            {section.id === 'page' ? <MarginsRow context={context} /> : null}
-          </PropertySection>
-          {section.id === 'page' ? (
-            <>
-              <TextStyleSection context={context} />
-              <CustomStyleSection context={context} />
-            </>
-          ) : null}
-        </Fragment>
-      ))}
+      <SectionRows {...scoped} />
+      <SettingSections
+        context={context}
+        inSection={scope !== null}
+        onPages={props.layout !== 'web'}
+        extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
+      />
+      {slots ? <ExtensionSections context={context} slots={slots} /> : null}
     </PropertyFilter>
   );
 }
+
+export { templateIdOf } from './template-identity.js';
+export type { TemplateScope } from './template-scope-state.js';

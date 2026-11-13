@@ -182,9 +182,9 @@ Verification: `src/model/format/docx.test.ts`
 
 ### DOCE-FORMAT-5.2 - Writing a word processing document
 
-`writeDocx(file, { template, suggestions })` shall write a stored document as an Office Open XML word processing document: headings in the heading styles, paragraphs and their formats, links, lists led by their bullets or numbers, quotes, code, math as its stored `source`, tables with their caption and header row, page breaks, rules, figures as their alternative text and caption, and footnotes, in the template's page size, orientation and margins, its suggestions accepted or, when asked, rejected. A link whose address a link may not hold (DOCE-SCHEMA-3.8) is written as its text. Each part shall name the addresses it links to by its own relationships: the document's in `word/_rels/document.xml.rels` and a footnote's in `word/_rels/footnotes.xml.rels`. The characters XML cannot hold, control characters other than the tab and the line breaks, shall be left out of every part.
+`writeDocx(file, { template, suggestions, values, comments })` shall write a stored document as an Office Open XML word processing document, faithful to its resolved template (the base template when none is given): headings, paragraphs and their formats, links (a link whose address a link may not hold, DOCE-SCHEMA-3.8, written as its text), lists, quotes, code as one paragraph per block with its lines parted by line breaks, math as its stored `source`, tables, page breaks, rules, figures as their alternative text and address, a table of contents as a field the word processor fills in, and footnotes, its suggestions accepted or, when asked, rejected. Each part shall name the addresses it links to by its own relationships (the document's, a footnote's, a header's or a footer's), and the characters XML cannot hold, control characters other than the tab and the line breaks, shall be left out of every part. The parts use the style ids, numbering names and section list a reader shares (DOCE-FORMAT-5.4 to 5.7). A release checks a sample of the regression set in a word processor by hand.
 
-Implementation: `src/model/format/docx.ts`
+Implementation: `src/model/format/docx.ts`, `src/model/format/docx/blocks.ts`, `src/model/format/docx/inline.ts`, `src/model/format/docx/package.ts`
 Verification: `src/model/format/docx.test.ts`
 
 ### DOCE-FORMAT-5.3 - What a writer leaves out and resolves
@@ -193,6 +193,41 @@ Every writer shall apply one rule to a document's suggestions (`isLeftOut`, `kep
 
 Implementation: `src/model/format/left-out.ts`, `src/model/format/writer-values.ts`, `src/model/format/docx.ts`
 Verification: `src/model/format/left-out.test.ts`, `src/model/format/docx.test.ts`
+
+### DOCE-FORMAT-5.4 - Template styles in a word processing document
+
+The template's styles shall become the document's styles, by ids a reader shares: the paragraph style as `Normal`, the title as `Title`, heading levels as `Heading1` to `Heading6` with their outline levels, paragraph levels 2 to 6 as `ParagraphLevel2` to `ParagraphLevel6`, each custom style as `Custom_<key>` named by its key, and the list, quote, code, caption, table header and footnote styles, each with its font, size, weight, italics, underline, color, line height, alignment, spacing and background. A heading or paragraph in a custom style takes that style, a heading keeping its outline level.
+
+Implementation: `src/model/format/docx/styles.ts`, `src/model/format/docx/word-properties.ts`, `src/model/format/docx/word-xml.ts`, `src/model/format/docx/paragraphs.ts`
+Verification: `src/model/format/docx/styles.test.ts`, `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.5 - Numbering in a word processing document
+
+Headings and paragraphs of the document's structure shall be numbered with the word processor's own numbering, from the template's formats, prefixes and suffixes as the editor numbers them (`Headings` and `Paragraphs` definitions per numbering scope, a section that restarts numbering starting them again, the paragraphs counting again after each heading); lists shall use the template's bullet and number format (`Bullets` and `Numbers`), each numbered list counting from its start; and the captions of tables, figures and code, and the numbers of equations, shall show their numbers as the editor counts them, the caption's label in the `CaptionLabel` style. Headings and paragraphs in lists, tables, quotes and page regions, the title, and a heading stored as `numbered: false` are not numbered; such a heading moves no heading or object counter, though the paragraphs after it count again.
+
+Implementation: `src/model/format/docx/numbering.ts`, `src/model/format/docx/numbering-levels.ts`, `src/model/format/docx/counting.ts`, `src/model/format/docx/tables.ts`
+Verification: `src/model/format/docx/numbering.test.ts`, `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.6 - Sections, pages and regions in a word processing document
+
+Each stored section shall be a section of the document, with its template section's page size, orientation and margins over the template's, and its page header and footer, the section's own over its template section's over the template's, with `page.current` and `page.total` as page fields and other variables as their values in content controls tagged `variable:<key>`. Once any section has a header or footer, every section names its own. The settings shall list each section's template section name in order (`sections`).
+
+Implementation: `src/model/format/docx/sections.ts`, `src/model/format/docx/regions.ts`, `src/model/format/docx/notes.ts`
+Verification: `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.7 - Footnotes and comments in a word processing document
+
+Footnotes shall be numbered as the template numbers them, through the document or on each page. The comment threads the host passes (`comments.threads`) that the document anchors shall be written as comments around their text, one per entry with its author's name (`comments.authorName`) and date, the replies linked to the opening comment, and a resolved thread marked done; a thread the document does not anchor, or that is left out with its text, is not written.
+
+Implementation: `src/model/format/docx/comments.ts`, `src/model/format/docx/notes.ts`
+Verification: `src/model/format/docx/comments.test.ts`, `src/model/format/docx-regression.test.ts`
+
+### DOCE-FORMAT-5.8 - Reading back a written document
+
+A document the writer writes shall read back with the library's reader (`readDocx`, DOCE-IMPORT) into the same template sections, blocks, heading levels, paragraph levels and styles, and footnotes, except for the content the writer writes with a loss: columns as their blocks, scripts and template blocks as their content, lists of contents other than the table of contents, linked code as code, display math as a paragraph, figures as placeholders, and quotes nested in quotes written flat.
+
+Implementation: `src/model/format/docx.ts`
+Verification: `src/model/format/docx-round-trip.test.ts`
 
 ## DOCE-FORMAT-6 - HTML interchange
 
@@ -259,3 +294,76 @@ A test shall record the stored names of both formats, the document's node and ma
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/template-format-shape.ts`
 Verification: `src/model/format/format-upgrade.test.ts`
+
+## DOCE-FORMAT-9 - Stored-file readers
+
+A server reads and changes stored documents without the editor's view through the readers in `./document`, which load no DOM. Those that read the "stored JSON" walk the stored nodes alone; the others read the document with the host's schema (`readDocumentFile`) and reuse the editor's own logic, so a server and the editor agree. A reader that writes a document back reads it with `unknown: 'keep'`, so content the schema cannot read is written back as it was stored (DOCE-FORMAT-1.5). Paths name a stored node as `checkStoredIds` does, such as `sections[0].content[2]`.
+
+Each server job that reads or writes document content maps to one reader. The table lists the jobs each reader covers; the host's inventory of its own server code adds a row for each job it finds, by the job, never by the host's names.
+
+| Reader                     | Reads                 | Server job                                                     |
+| -------------------------- | --------------------- | -------------------------------------------------------------- |
+| `findStoredElement`        | stored JSON           | Look up an element by its id, such as a link or an agent edit. |
+| `storedDocumentText`       | schema                | Search projection, summaries and word-level indexing.          |
+| `storedCitations`          | stored JSON           | Citation lists and checks of what a document cites.            |
+| `documentTargets`          | schema, template      | Reference pickers and checks of what may be cited.             |
+| `validateRequiredSections` | stored JSON, template | Checking a document is complete before it moves on.            |
+| `threadAnchors`            | stored JSON           | Comment resolution: which threads still hold text, and what.   |
+| `replaceTemplate`          | schema, template      | Moving documents to another template or revision.              |
+| `decideStoredSuggestions`  | schema                | Accepting or rejecting suggestions outside the editor.         |
+
+### DOCE-FORMAT-9.1 - Element by id
+
+`findStoredElement(file, id)` shall give the element of a stored document with an element id, its path, its section and the id of the element holding it (null at a section's top), or null when none has it. A footnote shall be found by its element id (`elementId`), not its footnote id.
+
+Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
+Verification: `src/document/stored-elements.test.ts`
+
+### DOCE-FORMAT-9.2 - Document text
+
+`storedDocumentText(file, schema)` shall give a stored document's text, one line per text block in reading order, each section's footnotes' text after its content: text as it is, a line break as one, and an inline object as the text search reads it as (`shownText`), or nothing when it shows none. It shall read the text with every suggestion accepted, leaving out text a suggestion deletes, and leave out blocks without text and nodes the schema cannot read.
+
+Implementation: `src/document/stored-text.ts`, `src/engine/search-text.ts`
+Verification: `src/document/stored-text.test.ts`
+
+### DOCE-FORMAT-9.3 - Citations
+
+`storedCitations(file)` shall list a stored document's citations in reading order, footnotes' where they are cited: each run of inline content one reference mark covers, joined across nodes that other marks part, with its `target`, its `referenceType` (`internal-heading` when stored at its default), whether it is `broken`, its text, its path, the id of the element holding it and the mark's stored attributes.
+
+Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
+Verification: `src/document/stored-elements.test.ts`
+
+### DOCE-FORMAT-9.4 - Reference targets
+
+`documentTargets(file, { schema, template })` shall list the targets a reference may cite in a stored document, as the editor's reference picker does (`referenceTargets`): its headings, figures, tables, code blocks and equations with an element id, by kind and then in reading order, each with its number as the resolved template prints it, its title and its label.
+
+Implementation: `src/document/stored-template.ts`
+Verification: `src/document/stored-template.test.ts`
+
+### DOCE-FORMAT-9.5 - Required sections
+
+`validateRequiredSections(file, template)` shall list, in the resolved template's order, each required section a stored document lacks (`missing`) and each required section a writer may edit that it holds with nothing but empty paragraphs (`empty`). A section the writer cannot edit is never reported empty.
+
+Implementation: `src/document/stored-template.ts`
+Verification: `src/document/stored-template.test.ts`
+
+### DOCE-FORMAT-9.6 - Thread anchors
+
+`threadAnchors(file)` shall list the comment threads a stored document's text is anchored to, in the order they start, one per thread: its state (`resolved` when its comment anchor says so, else `open`), the stored marks that tie it to the text (`comment`, `insertion`, `deletion`, `formatChange`), its text, each run once, joined by spaces, and the ids of the elements holding its runs.
+
+Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
+Verification: `src/document/stored-elements.test.ts`
+
+### DOCE-FORMAT-9.7 - Template replacement
+
+`replaceTemplate(file, { schema, template, revision })` shall give a stored document moved to a resolved template, pinned at `revision` (its latest when none is given), with its sections brought in line as the editor does (`syncTemplateSections`, DOCE-SECTIONS-4.2): a section the writer cannot edit takes the template's content, a section of a name the template does not have becomes a plain section with its content, and a missing required section is added where the template places it.
+
+Implementation: `src/document/stored-template.ts`
+Verification: `src/document/stored-template.test.ts`
+
+### DOCE-FORMAT-9.8 - Suggestion decisions
+
+`decideStoredSuggestions(file, { schema, decision, ids, threadAuthor })` shall accept or reject a stored document's suggestions, every one or those with the given ids, as the editor decides them (`decideSuggestions`), and give the document with its template pin, the ids it decided, each once, and the other suggestions the decision removed. When nothing changes, it shall give the document back as it was.
+
+Implementation: `src/document/stored-suggestions.ts`
+Verification: `src/document/stored-suggestions.test.ts`

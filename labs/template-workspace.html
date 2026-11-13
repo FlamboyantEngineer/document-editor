@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="The template workspace over an in-memory template store: open, save, conflicts, copies, history and restore, with the template previewed beside its settings."
+    />
+    <title>Template workspace · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/template-workspace.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root" class="lab-fill">
+      <h1>Template workspace</h1>
+      <p>
+        Pick a template, change it and save it. Save elsewhere stands for another writer saving the
+        same template, so your next save asks you to reload or keep your changes. The Article
+        template is for the web layout.
+      </p>
+      <div id="lab-editor" class="lab-editor"></div>
+    </main>
+  </body>
+</html>

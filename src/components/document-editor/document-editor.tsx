@@ -29,6 +29,7 @@ import type {
   DiagramAdapter,
   EditingMode,
   EditorCapabilities,
+  ExportsAdapter,
   FeedbackAdapter,
   FontsAdapter,
   GlossaryAdapter,
@@ -247,6 +248,11 @@ export interface DocumentEditorProps
   variables?: VariablesAdapter | undefined;
   /** Tells the reader what failed, such as an upload. */
   feedback?: FeedbackAdapter | undefined;
+  /**
+   * The host's exports, offered under File > Export in the menubar: each runs at most once at a
+   * time and tells the reader through `feedback` when it starts and how it ends.
+   */
+  exports?: ExportsAdapter | undefined;
   /** The symbol picker's characters, in place of the editor's own. */
   symbols?: readonly CharacterGridCategory[] | undefined;
   /** The languages a code block's language menu offers, in place of the editor's own. */
@@ -383,8 +389,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   const reach = { root, refs, progress, transactions: engine.transactions };
-  const { find, scope } = useHostReach(props, view, reach);
-  const openFind = find.open;
+  const { find, scope, exports } = useHostReach(props, view, reach);
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const [dialog, setDialog] = useState<ObjectDialog | null>(null);
   const context = useShownContext(props, { view, labels, openDialog: setDialog });
@@ -392,7 +397,8 @@ export function DocumentEditor(given: DocumentEditorProps) {
     editorContext.current = context;
   }, [context]);
   const pages = progress.paged?.state ?? null;
-  const chrome = { props, context, view, templateStyle, startCommentRef, openFind, pages };
+  const shown = { props, context, view, templateStyle, startCommentRef, pages, exports };
+  const chrome = { ...shown, openFind: find.open };
   // The chrome follows each state after the pages show it (DOCE-EDITOR-1.7).
   const top = { ...chrome, findRequest: find.request, onFindClose: find.close };
   const bottom = { ...chrome, openDialog: setDialog };
@@ -443,3 +449,4 @@ export function DocumentEditor(given: DocumentEditorProps) {
 
 // What another component reaches the editor by.
 export { type DocumentMarkup, type EditorContext, useDocumentEditor } from './editor-context.js';
+export type { DocumentLayout } from './use-document-layout.js';

@@ -6,6 +6,7 @@
 import { Fragment, type ResolvedPos, Slice } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { catalogDocument, type TemplateFile } from '../model/index.js';
+import { isReviewMark } from './clipboard-copies.js';
 import { contentsRowsAt } from './contents.js';
 
 const headingKinds = { headings: { nodes: ['heading'] } };
@@ -88,11 +89,12 @@ export function copiedText(state: EditorState, options: CopiedTextOptions = {}):
 
 /**
  * Pasted plain text as paragraphs, one for each line, empty lines kept (DOCE-EDITING-5.3), with
- * the marks at the paste position.
+ * the formatting marks at the paste position: the text is new, so it joins no comment and no
+ * suggestion there, and is not left out as text a suggestion deletes.
  */
 export function parsePastedText(text: string, $context: ResolvedPos): Slice {
   const { schema } = $context.doc.type;
-  const marks = $context.marks();
+  const marks = $context.marks().filter((mark) => !isReviewMark(mark));
   const paragraph = schema.nodes.paragraph;
   if (!paragraph) return new Slice(Fragment.from(schema.text(text, marks)), 0, 0);
   const blocks = text

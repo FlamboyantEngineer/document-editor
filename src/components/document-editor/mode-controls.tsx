@@ -82,6 +82,7 @@ export function shellItems(features: ShellFeatures): ToolbarItem[] {
                 data-item="mode"
                 size="sm"
                 label={context.labels[MODE_LABELS[context.mode]]}
+                triggerLabel={context.labels.editingModeControl}
                 aria-label={context.labels.editingModeControl}
                 items={modeEntries(context, features)}
               />
@@ -99,6 +100,7 @@ export function shellItems(features: ShellFeatures): ToolbarItem[] {
                 data-item="markup"
                 size="sm"
                 label={markupLabel(context)}
+                triggerLabel={context.labels.markup}
                 aria-label={context.labels.markup}
                 items={markupEntries(context, features)}
               />

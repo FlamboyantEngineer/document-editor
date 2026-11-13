@@ -208,6 +208,28 @@ describe('DocumentEditor', () => {
     expect(seen).toEqual([expect.stringContaining('Oh, Hello')]);
   });
 
+  it('DOCE-EDITOR-4.14 keeps a disabled toolbar menu focusable and says why it is disabled', async () => {
+    const user = userEvent.setup();
+    const toolbar = {
+      items: [{ kind: 'menu' as const, id: 'more', label: 'More', entries: () => [] }],
+    };
+    render(
+      <DocumentEditor
+        state={initial()}
+        onStateChange={() => undefined}
+        template={TEMPLATE}
+        layout="web"
+        editable={false}
+        toolbar={toolbar}
+        aria-label="Report"
+      />,
+    );
+    const trigger = await screen.findByRole('button', { name: 'More' });
+    expect(trigger).toHaveAttribute('aria-disabled', 'true');
+    await user.hover(trigger);
+    expect(await screen.findByText('More: The document is open for reading')).toBeInTheDocument();
+  });
+
   it('DOCE-EDITOR-1.7 sets the text style chosen on the state shown', async () => {
     const held: { current: EditorState | null } = { current: null };
     function Shown() {

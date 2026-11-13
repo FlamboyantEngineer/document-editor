@@ -1,6 +1,7 @@
 // The blocks of a body, cell, header, footer or comment: paragraphs read piece by piece, then put
 // together, as the stored format holds them: list items into nested lists, quote paragraphs into
-// one quote, and a caption into the table or figure beside it. Content controls give the blocks
+// one quote, a list paragraph into the list item before it, and a caption into the table, figure or
+// code block beside it. Content controls give the blocks
 // they hold; other block content the stored format has no place for is left out.
 
 import type { StoredNode } from '../../model/format/document-format.js';
@@ -22,7 +23,8 @@ interface Assembly {
 }
 
 const isCaptioned = (node: StoredNode | undefined) =>
-  (node?.type === 'table' || node?.type === 'figure') && typeof node.attrs?.caption !== 'string';
+  (node?.type === 'table' || node?.type === 'figure' || node?.type === 'codeBlock') &&
+  typeof node.attrs?.caption !== 'string';
 
 function withCaption(node: StoredNode, caption: string): StoredNode {
   const { captionEnabled: _, ...attrs } = node.attrs ?? {};
@@ -68,6 +70,11 @@ function placeBlock(assembly: Assembly, node: StoredNode): void {
 function place(assembly: Assembly, piece: Piece): void {
   if (piece.kind === 'item') {
     placeItem(assembly, piece);
+    return;
+  }
+  const item = assembly.lists.at(-1)?.node.content.at(-1);
+  if (piece.kind === 'more' && item) {
+    item.content = [...(item.content ?? []), piece.node];
     return;
   }
   assembly.lists = [];

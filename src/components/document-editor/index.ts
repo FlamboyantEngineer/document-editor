@@ -1,5 +1,6 @@
 export type { DocumentBanner } from './banners.js';
 export { EDITOR_BANNERS } from './banners.js';
+export { inlineCompletionItem } from './completion-item.js';
 export {
   CONNECTION_STATUS_LABELS,
   ConnectionStatus,

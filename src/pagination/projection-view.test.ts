@@ -309,6 +309,28 @@ describe('projection view', () => {
     expect(marked(view.dom)).toBe('two|Gamma');
   });
 
+  it('DOCE-PAGINATION-7.13 draws the same decorations again while the sets and the pages are unchanged', () => {
+    const { projection } = mount({
+      state: canonicalState([steadyHighlight('two', 'Gamma'), steadyHighlight('Alpha', 'Alpha')]),
+    });
+    const { view } = projection;
+    // The set of the canonical decorations: the one drawing the highlights.
+    const drawn = () => {
+      let found: DecorationSet | null = null;
+      view.someProp('decorations', (decorations) => {
+        const set = decorations.call(view, view.state);
+        if (set instanceof DecorationSet && set.find().length === 2) found = set;
+      });
+      return found;
+    };
+    const before = drawn();
+    expect(before).not.toBeNull();
+    const at = positionOf(view.state.doc, 'Gamma');
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    expect(drawn()).toBe(before);
+    expect(marked(view.dom)).toBe('Alpha|two|Gamma');
+  });
+
   it('DOCE-PAGINATION-8.5 hides the header and footer a section repeats on its later pages', () => {
     const { projection } = mount();
     const { view } = projection;
@@ -644,6 +666,23 @@ function highlight(from: string, to: string): Plugin {
         ]),
     },
   });
+}
+
+// A highlight kept in the plugin's state, the same set until the document changes.
+function steadyHighlight(from: string, to: string): Plugin<DecorationSet> {
+  const plugin: Plugin<DecorationSet> = new Plugin<DecorationSet>({
+    state: {
+      init: (_config, state) =>
+        DecorationSet.create(state.doc, [
+          Decoration.inline(positionOf(state.doc, from), positionOf(state.doc, to) + to.length, {
+            class: 'found',
+          }),
+        ]),
+      apply: (tr, set) => set.map(tr.mapping, tr.doc),
+    },
+    props: { decorations: (state) => plugin.getState(state) },
+  });
+  return plugin;
 }
 
 const marked = (dom: HTMLElement) =>

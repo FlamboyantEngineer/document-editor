@@ -4,7 +4,7 @@
 
 - `dev` is the integration branch. Work happens on short-lived branches cut from `dev` and merged back into `dev` by pull request.
 - `main` is always releasable. It is updated only from `dev`, through a reviewed release pull request once the full checks pass on `dev`.
-- `npm run check` must pass before a pull request merges.
+- `npm run check` must pass before a pull request merges. Hosted CI runs it with `--skip test:labs` and runs the browser tests in parallel jobs: three Chromium shards and one job for the timing tests. Its required `check` job passes only when every one of them passed.
 
 ## Versioning
 
