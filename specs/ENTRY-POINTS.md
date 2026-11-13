@@ -6,7 +6,7 @@ The package has one entry for the browser editor, three entries a server imports
 
 ### DOCE-ENTRY-1.1 - Document operations
 
-`@flamboyantengineer/document-editor/document` shall export the operations that need no editor view: `compareVersions`, `diffText`, `listSuggestions`, `decideSuggestions`, `referenceTargets`, `updateReferences`, `documentOutline`, `assignElementIds`, `repairElementIds`, `applyEdits`, `describeBlocks` and `syncTemplateSections`, with their types. They shall work on a document read with `./model` in a process with no DOM.
+`@flamboyantengineer/document-editor/document` shall export the operations that need no editor view: `compareVersions`, `diffText`, `listSuggestions`, `decideSuggestions`, `referenceTargets`, `updateReferences`, `documentOutline`, `headingSectionSpan`, `assignElementIds`, `repairElementIds`, `applyEdits`, `describeBlocks` and `syncTemplateSections`; the operations on stored documents `applyStoredEdits`, `describeDocument` and `AUTOMATION_SCHEMAS`, `runStoredScripts` and the script builders (`buildScriptHeading`, `buildScriptList`, `buildScriptParagraph`, `buildScriptTable`, `buildScriptText`); and the stored-file readers `findStoredElement`, `storedCitations`, `threadAnchors`, `decideStoredSuggestions`, `documentTargets`, `replaceTemplate`, `validateRequiredSections` and `storedDocumentText`; all with their types. They shall work on a document read with `./model` in a process with no DOM.
 
 Implementation: `src/document/index.ts`, `package.json`
 Verification: `test/node-entry.test.ts`

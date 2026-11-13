@@ -20,6 +20,7 @@ import {
   type ReadContext,
   report,
 } from './document-format-nodes.js';
+import { createFootnoteIds } from './stored-footnote-ids.js';
 
 export { type DocumentFormatError, isDocumentFormatError } from './document-format-nodes.js';
 
@@ -44,7 +45,13 @@ export function readStoredContent(
   schema: Schema,
   path = 'content',
 ): ProseMirrorNode[] {
-  const context: ReadContext = { schema, policy: 'throw', problems: [], footnotes: [] };
+  const context: ReadContext = {
+    schema,
+    policy: 'throw',
+    problems: [],
+    footnotes: [],
+    footnoteIds: createFootnoteIds(content),
+  };
   return readContent(content, { path, context }, false).filter(isRead);
 }
 
@@ -112,7 +119,13 @@ export function readDocumentFile(
   }
   checkTemplatePin(file.template);
   if (!Array.isArray(file.sections)) throw formatError('sections', 'must be an array');
-  const context: ReadContext = { schema, policy: unknown, problems: [], footnotes: [] };
+  const context: ReadContext = {
+    schema,
+    policy: unknown,
+    problems: [],
+    footnotes: [],
+    footnoteIds: createFootnoteIds(file),
+  };
   const sections = file.sections
     .map((section, index) => readSection(section, { context, path: `sections[${String(index)}]` }))
     .filter((section): section is ProseMirrorNode => section !== null);
