@@ -90,6 +90,23 @@ describe('DocumentComments', () => {
     await waitFor(() => expect(next).toHaveFocus());
   });
 
+  it('DOCE-COMMENTS-2.15 shows a refused Resolve on the thread, which stays open', async () => {
+    const user = userEvent.setup();
+    const made = host();
+    if (!made.comments) throw new Error('The host should keep comments.');
+    const refusing: CommentStoreAdapter = {
+      ...made.comments,
+      setState: () => Promise.resolve({ ok: false, error: { kind: 'denied', message: 'No.' } }),
+    };
+    render(<Harness host={{ ...made, comments: refusing }} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    await within(margin).findByText('Is blue right?');
+    await user.click(within(margin).getByRole('button', { name: 'Resolve' }));
+    expect(await within(margin).findAllByText('No.')).not.toHaveLength(0);
+    expect(within(margin).getByText('Is blue right?')).toBeInTheDocument();
+    expect(seen.state && listCommentAnchors(seen.state.doc)[0]).toMatchObject({ state: 'open' });
+  });
+
   it('DOCE-COMMENTS-2.4 accepts a suggestion and discusses one in its own thread', async () => {
     const user = userEvent.setup();
     const store = host();

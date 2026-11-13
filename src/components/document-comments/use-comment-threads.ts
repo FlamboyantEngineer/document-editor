@@ -5,15 +5,15 @@
 
 import type { AvatarIdentity } from '@flamboyantengineer/ui-components/avatar';
 import type { EditorState } from 'prosemirror-state';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 import { listSuggestions } from '../../engine/index.js';
 import type {
   CommentStoreAdapter,
   CommentThread,
-  HostResult,
   IdentityAdapter,
   NewCommentThread,
 } from '../../host/index.js';
+import { usePeople } from '../../utils/use-people.js';
 import {
   type EntryChange,
   threadActions,
@@ -21,7 +21,7 @@ import {
   type ThreadDecision,
 } from './comment-thread-actions.js';
 import { useThreadList } from './comment-thread-list.js';
-import { type ThreadActivity, useThreadActivity } from './use-thread-activity.js';
+import { type ThreadActivity, useThreadActivity, valueOf } from './use-thread-activity.js';
 
 /** The threads of a document and the changes the reader can make to them. */
 export interface CommentThreads {
@@ -92,11 +92,6 @@ const NO_AUTHORS: readonly string[] = [];
 const NO_THREADS: ReadonlyMap<string, CommentThread> = new Map();
 const NO_PEOPLE: ReadonlyMap<string, AvatarIdentity> = new Map();
 
-function valueOf<T>(result: HostResult<T>, failed: string): T {
-  if (result.ok) return result.value;
-  throw new Error(result.error.message ?? failed);
-}
-
 /** Whose names to look up: the threads' authors and `others`, less the people `known` names. */
 interface PeopleSources {
   readonly threads: ReadonlyMap<string, CommentThread>;
@@ -110,35 +105,20 @@ function useCommentPeople(
   identity: IdentityAdapter,
   { threads, others, known }: PeopleSources,
 ): ReadonlyMap<string, AvatarIdentity> {
-  const [people, setPeople] = useState<ReadonlyMap<string, AvatarIdentity>>(new Map());
   const authors = useMemo(() => {
     const ids = new Set<string>(others);
     for (const thread of threads.values())
       for (const entry of thread.entries) ids.add(entry.author);
-    return [...ids].sort();
-  }, [threads, others]);
-  const missing = authors.filter((id) => !people.has(id) && !known.has(id));
-  const key = missing.join('\n');
-  useEffect(() => {
-    if (!key) return;
-    let current = true;
-    void identity.resolvePeople(key.split('\n')).then((found) => {
-      if (!current) return;
-      setPeople((known) => {
-        const next = new Map(known);
-        for (const person of found)
-          next.set(person.id, { name: person.name, src: person.avatarUrl });
-        return next;
-      });
-    });
-    return () => {
-      current = false;
-    };
-  }, [identity, key]);
-  return useMemo(
-    () => (known.size === 0 ? people : people.size === 0 ? known : new Map([...known, ...people])),
-    [known, people],
-  );
+    return [...ids].filter((id) => !known.has(id));
+  }, [threads, others, known]);
+  const found = usePeople(identity, authors);
+  return useMemo(() => {
+    if (found.size === 0) return known;
+    const people = new Map(known);
+    for (const person of found.values())
+      people.set(person.id, { name: person.name, src: person.avatarUrl });
+    return people;
+  }, [known, found]);
 }
 
 /** Lists a document's threads from the host's store and keeps them as the reader changes them. */

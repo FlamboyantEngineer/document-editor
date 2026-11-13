@@ -157,6 +157,65 @@ describe('useCommentThreads', () => {
     ]);
   });
 
+  it('DOCE-COMMENTS-2.15 gives the failure message for a listing or a lookup the host throws on', async () => {
+    const { store, identity } = host();
+    const { result, rerender } = renderHook(
+      (props) => useCommentThreads({ ...props, documentId: 'doc', identity, failed: 'Not saved.' }),
+      { initialProps: { store, identity } },
+    );
+    await waitFor(() => expect(result.current.threads.has('t1')).toBe(true));
+    rerender({
+      store: { ...store, list: () => Promise.reject(new Error('Socket closed')) },
+      identity: { ...identity, resolvePeople: () => Promise.reject(new Error('Socket closed')) },
+    });
+    await waitFor(() => expect(result.current.error).toBe('Not saved.'));
+    expect([...result.current.threads.keys()]).toEqual(['t1']);
+  });
+
+  it('DOCE-COMMENTS-2.15 DOCE-COMMENTS-2.17 shows on the thread a reply written for the reader that could not be settled', async () => {
+    const { store, identity } = host([
+      {
+        ...thread('t1'),
+        entries: [
+          ...thread('t1').entries,
+          { id: 'a1', author: 'bot', text: 'Busy.', createdAt: '', status: 'failed' },
+        ],
+      },
+    ]);
+    const refusing: CommentStoreAdapter = {
+      ...store,
+      settleEntry: () => Promise.resolve({ ok: false, error: { kind: 'denied', message: 'No.' } }),
+    };
+    const { result } = renderHook(() => useThreads(refusing, identity));
+    await waitFor(() => expect(result.current.activity.get('t1')).toHaveLength(1));
+    act(() => result.current.activity.get('t1')?.[0]?.onRetry?.());
+    await waitFor(() =>
+      expect(result.current.activity.get('t1')).toContainEqual(
+        expect.objectContaining({ kind: 'error', message: 'No.' }),
+      ),
+    );
+  });
+
+  it('DOCE-COMMENTS-2.15 offers Retry again when a decision is refused again', async () => {
+    const { store, identity } = host();
+    const refusing: CommentStoreAdapter = {
+      ...store,
+      decide: () => Promise.resolve({ ok: false, error: { kind: 'denied', message: 'No.' } }),
+    };
+    const { result } = renderHook(() => useThreads(refusing, identity));
+    await waitFor(() => expect(result.current.threads.has('t1')).toBe(true));
+    const decision = { threadId: 't1', suggestion: 's1', decision: 'accept' } as const;
+    await act(() => expect(result.current.decide?.(decision)).rejects.toThrow('No.'));
+    const [first] = result.current.activity.get('t1') ?? [];
+    act(() => first?.onRetry?.());
+    await waitFor(() => {
+      const [again] = result.current.activity.get('t1') ?? [];
+      expect(again).toMatchObject({ kind: 'error', message: 'No.' });
+      expect(again?.key).not.toBe(first?.key);
+      expect(again?.onRetry).toBeDefined();
+    });
+  });
+
   it('DOCE-COMMENTS-2.18 decides, updates and reacts to a whole thread through the store', async () => {
     const { store, identity } = host();
     const { result } = renderHook(() => useThreads(store, identity));

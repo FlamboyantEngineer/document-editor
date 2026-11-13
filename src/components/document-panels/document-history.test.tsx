@@ -112,6 +112,15 @@ describe('DocumentHistory', () => {
     expect(screen.getByText('Markup all')).toBeVisible();
   });
 
+  it('DOCE-VERSIONS-5.1 says why a version could not be shown when reading it throws', async () => {
+    const { versions } = await openHistory();
+    const unread = { ...versions, viewVersion: () => Promise.reject(new Error('Socket closed')) };
+    render(<Host versions={unread} />);
+    await userEvent.setup().click(await row(/Draft/));
+    expect(await screen.findByText('Socket closed')).toBeVisible();
+    expect(screen.getByText('Shown current')).toBeVisible();
+  });
+
   it('DOCE-VERSIONS-5.2 compares two versions', async () => {
     const { versions } = await openHistory();
     render(<Host versions={versions} />);

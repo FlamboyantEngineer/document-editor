@@ -53,15 +53,21 @@ export function useThreadList(
     const since = writes.current.count;
     const keptSince = (from: number) =>
       new Set([...writes.current.at].flatMap(([id, at]) => (at > from ? [id] : [])));
-    void store.list(documentId, controller.signal).then((result) => {
-      if (controller.signal.aborted) return;
-      if (!result.ok) {
-        setError(result.error.message ?? failed);
-        return;
-      }
-      setError(null);
-      setThreads((current) => mergeListed(current, result.value, keptSince(since)));
-    });
+    store.list(documentId, controller.signal).then(
+      (result) => {
+        if (controller.signal.aborted) return;
+        if (!result.ok) {
+          setError(result.error.message ?? failed);
+          return;
+        }
+        setError(null);
+        setThreads((current) => mergeListed(current, result.value, keptSince(since)));
+      },
+      // A store that throws instead of answering has failed all the same.
+      () => {
+        if (!controller.signal.aborted) setError(failed);
+      },
+    );
     // A store that tells of changes keeps the threads current, whoever changes them; it tells of
     // the state after every change it has taken, so only changes it has not answered are kept.
     const stop = store.subscribe?.(documentId, (listed) => {

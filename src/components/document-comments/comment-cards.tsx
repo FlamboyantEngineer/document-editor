@@ -239,7 +239,10 @@ export function ThreadCard({
       quote={thread.quote}
       highlightedId={opened?.entryId ? entryElementId(context, opened.entryId) : undefined}
       isResolved={thread.state === 'resolved'}
-      onResolvedChange={may.resolve ? (resolved) => void onResolve(resolved) : undefined}
+      // A refusal shows on the thread as a row; nothing else waits on it.
+      onResolvedChange={
+        may.resolve ? (resolved) => void onResolve(resolved).catch(() => undefined) : undefined
+      }
       composer={
         may.reply ? (
           <DraftComposer

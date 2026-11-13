@@ -16,7 +16,12 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { useEffect, useRef, useState } from 'react';
 import type { VersionChangeDisplay } from '../../engine/version-changes.js';
-import type { DocumentVersion, HostResult, IdentityAdapter } from '../../host/adapters.js';
+import type {
+  DocumentVersion,
+  EditorPerson,
+  HostResult,
+  IdentityAdapter,
+} from '../../host/adapters.js';
 import { type EditorCapabilities, READ_ONLY_CAPABILITIES } from '../../host/capabilities.js';
 import type { TemplateFile } from '../../model/format/template-format.js';
 import type { DocumentSession, SessionStateUpdate } from '../../session/document-session.js';
@@ -27,6 +32,7 @@ import {
   type DocumentVersionsOptions,
   type HistoricalView,
 } from '../../session/versions.js';
+import { usePeople } from '../../utils/use-people.js';
 import { useSessionValue } from '../document-session/document-session.js';
 import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-labels.js';
 
@@ -97,28 +103,17 @@ async function orThrow<T>(result: Promise<HostResult<T>>) {
   if (!settled.ok) throw new Error(settled.error.message ?? settled.error.kind);
 }
 
-// The names of the people who saved the versions, by id.
-function usePeople(identity: IdentityAdapter | undefined, versions: readonly DocumentVersion[]) {
-  const [people, setPeople] = useState<ReadonlyMap<string, string>>(new Map());
-  const ids = [...new Set(versions.flatMap((version) => version.author ?? []))].join('\n');
-  useEffect(() => {
-    if (!identity || !ids) return;
-    let current = true;
-    void identity.resolvePeople(ids.split('\n')).then((found) => {
-      if (current) setPeople(new Map(found.map((person) => [person.id, person.name])));
-    });
-    return () => {
-      current = false;
-    };
-  }, [identity, ids]);
-  return people;
-}
+// The people who saved the versions, by id.
+const authorsOf = (versions: readonly DocumentVersion[]) =>
+  versions.flatMap((version) => version.author ?? []);
+
+type People = ReadonlyMap<string, EditorPerson>;
 
 const toRow = (
   version: DocumentVersion,
-  { labels, people }: { labels: DocumentHistoryLabels; people: ReadonlyMap<string, string> },
+  { labels, people }: { labels: DocumentHistoryLabels; people: People },
 ): VersionHistoryVersion => {
-  const name = version.author === null ? undefined : people.get(version.author);
+  const name = version.author === null ? undefined : people.get(version.author)?.name;
   return {
     id: version.revision,
     label: version.label ?? undefined,
@@ -130,7 +125,7 @@ const toRow = (
 
 const toRows = (
   groups: readonly VersionGroup[],
-  context: { labels: DocumentHistoryLabels; people: ReadonlyMap<string, string> },
+  context: { labels: DocumentHistoryLabels; people: People },
 ) =>
   groups.map(({ version, folded }) => ({
     ...toRow(version, context),
@@ -196,15 +191,19 @@ export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
   const labels = { ...DEFAULT_HISTORY_LABELS, ...props.labels };
   const list = useSessionValue(versions.list);
   const view = useSessionValue(versions.view);
-  const people = usePeople(props.identity, list.versions);
+  const people = usePeople(props.identity, authorsOf(list.versions));
   const [picked, setPicked] = useState<ReadonlySet<Key>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const current = list.versions[0]?.revision ?? null;
   const show = (revision: string, compareWith?: string) => {
     setError(null);
-    void versions.viewVersion(revision, { returnTo, compareWith }).then((shown) => {
-      if (!shown.ok) setError(shown.error.message ?? shown.error.kind);
-    });
+    versions.viewVersion(revision, { returnTo, compareWith }).then(
+      (shown) => {
+        if (!shown.ok) setError(shown.error.message ?? shown.error.kind);
+      },
+      // A version that could not be read at all says so too, as one the host refused does.
+      (cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)),
+    );
   };
   const leave = () => {
     if (view) onReturn(versions.returnFromView() ?? returnTo);

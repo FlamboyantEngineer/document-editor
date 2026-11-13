@@ -201,7 +201,7 @@ Verification: `src/session/versions.test.ts`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-4.6 - The history pane
 
-`DocumentHistory` shall show the versions on the base library's VersionHistory, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2). It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
+`DocumentHistory` shall show the versions on the base library's VersionHistory, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
 
 Implementation: `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
 Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
