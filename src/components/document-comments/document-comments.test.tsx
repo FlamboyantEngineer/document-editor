@@ -76,6 +76,20 @@ describe('DocumentComments', () => {
     });
   });
 
+  it('DOCE-COMMENTS-2.3 hands keyboard focus to the next card when a resolved thread’s card goes', async () => {
+    const user = userEvent.setup();
+    render(<Harness host={host()} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    await within(margin).findByText('Is blue right?');
+    await user.click(within(margin).getByRole('button', { name: 'Resolve' }));
+    await waitFor(() =>
+      expect(within(margin).queryByText('Is blue right?')).not.toBeInTheDocument(),
+    );
+    // The suggestion's card is the one after the thread's.
+    const next = within(margin).getByText('epsilon').closest('[role="listitem"]');
+    await waitFor(() => expect(next).toHaveFocus());
+  });
+
   it('DOCE-COMMENTS-2.4 accepts a suggestion and discusses one in its own thread', async () => {
     const user = userEvent.setup();
     const store = host();

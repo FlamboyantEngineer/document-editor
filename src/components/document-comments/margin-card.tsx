@@ -4,6 +4,7 @@
 
 import { type CSSProperties, memo, useLayoutEffect, useMemo, useRef } from 'react';
 import type { Suggestion } from '../../engine/index.js';
+import { useFocusHandOver } from './card-focus.js';
 import { hooks } from './comment-cards.js';
 import { type CardActions, type CommentItem, renderCommentCard } from './comment-items.js';
 
@@ -66,8 +67,11 @@ const isSameCard = (previous: MarginCardProps, next: MarginCardProps) =>
 
 /** A card beside its anchor's page, whatever the page's size and orientation. */
 export const MarginCard = memo(function MarginCard({ item, offset = 0, actions }: MarginCardProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusHandOver(ref);
   return (
     <div
+      ref={ref}
       {...hooks.slot('card')}
       style={{ '--de-comment-offset': `${String(offset)}px` } as CSSProperties}
     >

@@ -6,12 +6,14 @@ import { Button } from '@flamboyantengineer/ui-components/button';
 import { memo, type ReactNode, useEffect, useRef } from 'react';
 import type { CommentThread } from '../../host/index.js';
 import type { AnchorTarget } from './anchor-rects.js';
+import { useFocusHandOver } from './card-focus.js';
 import { type CardContext, ThreadCard } from './comment-cards.js';
 import { renderCommentCard } from './comment-items.js';
 import { hooks } from './comments-panel-hooks.js';
 import { isSameCardShown, type ShownCard } from './margin-card.js';
 
-// An item of the panel, scrolled into view within the panel when it becomes the active one.
+// An item of the panel's list, scrolled into view within the panel when it becomes the active one;
+// it can take focus, as the card after one that goes does.
 function PanelItem({
   isActive,
   slot,
@@ -22,11 +24,12 @@ function PanelItem({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  useFocusHandOver(ref);
   useEffect(() => {
     if (isActive) ref.current?.scrollIntoView?.({ block: 'nearest' });
   }, [isActive]);
   return (
-    <div ref={ref} {...slot}>
+    <div ref={ref} role="listitem" tabIndex={-1} {...slot}>
       {children}
     </div>
   );

@@ -167,22 +167,25 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
         onChange={choose}
       />
       {count(filter) === 0 && items.length === 0 ? <p>{labels.noComments}</p> : null}
-      {items.map((item) => (
-        <PanelCard
-          key={item.key}
-          item={item}
-          actions={{ context: card, isActive: item.key === active, policy, run, startThread }}
-          onShow={onShow}
-        />
-      ))}
-      {unanchored.map((thread) => (
-        <UnanchoredCard
-          key={thread.id}
-          thread={thread}
-          isActive={`comment:${thread.id}` === active}
-          context={card}
-        />
-      ))}
+      {/* The list takes focus when its last card goes, the region around it naming it. */}
+      <div {...hooks.slot('list')} role="list" tabIndex={-1}>
+        {items.map((item) => (
+          <PanelCard
+            key={item.key}
+            item={item}
+            actions={{ context: card, isActive: item.key === active, policy, run, startThread }}
+            onShow={onShow}
+          />
+        ))}
+        {unanchored.map((thread) => (
+          <UnanchoredCard
+            key={thread.id}
+            thread={thread}
+            isActive={`comment:${thread.id}` === active}
+            context={card}
+          />
+        ))}
+      </div>
     </section>
   );
 }

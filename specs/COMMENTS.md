@@ -113,10 +113,10 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.3 - Answering and resolving
 
-A thread's card shall post replies to the store, and Resolve shall resolve the thread in the store and its anchor in the document, hiding the card. The author of a thread may delete it from its opening comment, which removes the thread and its anchor.
+A thread's card shall post replies to the store, and Resolve shall resolve the thread in the store and its anchor in the document, hiding the card. The author of a thread may delete it from its opening comment, which removes the thread and its anchor. When a card that holds keyboard focus goes, in the margin or the panel, as its thread is resolved or deleted or its suggestion decided, focus shall move to the card after it, else the one before (`useFocusHandOver`), and in the panel to the list when none is left.
 
-Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`
+Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/card-focus.ts`, `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comments-panel.test.tsx`
 
 ### DOCE-COMMENTS-2.4 - Suggestion cards
 
@@ -169,10 +169,10 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `e2
 
 ### DOCE-COMMENTS-2.11 - The comments panel
 
-`DocumentCommentsPanel`, given the comment store, the document's id and the identity adapter, shall list the document's threads in one list (`de-comments-panel`), in the order the document anchors them and the threads it no longer anchors last, filtered to the open ones (the default), all of them or the reader's own (`filter`); each thread is answered, resolved or reopened and, by its author, deleted in place, and one the document anchors offers to show its text, putting the caret in its anchor.
+`DocumentCommentsPanel`, given the comment store, the document's id and the identity adapter, shall list the document's threads in one list (`de-comments-panel__list` in `de-comments-panel`, each card an item of the list), in the order the document anchors them and the threads it no longer anchors last, filtered to the open ones (the default), all of them or the reader's own (`filter`); each thread is answered, resolved or reopened and, by its author, deleted in place, and one the document anchors offers to show its text, putting the caret in its anchor.
 
-Implementation: `src/components/document-comments/comments-panel.tsx`
-Verification: `e2e/comments.spec.ts`
+Implementation: `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/panel-card.tsx`
+Verification: `e2e/comments.spec.ts`, `src/components/document-comments/comments-panel.test.tsx`
 
 ### DOCE-COMMENTS-2.12 - Drafts kept
 
@@ -390,6 +390,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 | `de-document-comments__card`    | slot      |        | A card, beside its anchor's page.                          |
 | `--de-comment-offset`           | property  |        | On a card: how far it moves across to sit beside its page. |
 | `de-comments-panel`             | root      |        | The comments panel.                                        |
+| `de-comments-panel__list`       | slot      |        | The list of the panel's cards.                             |
 | `de-comments-panel__thread`     | slot      |        | A thread of the panel, with `data-anchored`.               |
 | `de-comments-panel__suggestion` | slot      |        | A suggestion of the panel, with `data-anchored`.           |
 | `data-comment-active`           | attribute | `true` | On the text of the anchor holding the caret.               |

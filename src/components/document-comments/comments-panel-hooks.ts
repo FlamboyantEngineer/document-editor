@@ -2,4 +2,4 @@
 
 import { createHooks } from '../../utils/hooks.js';
 
-export const hooks = createHooks('comments-panel', ['thread', 'suggestion']);
+export const hooks = createHooks('comments-panel', ['list', 'thread', 'suggestion']);

@@ -170,6 +170,25 @@ describe('DocumentCommentsPanel', () => {
     expect(inPanel.mock.calls.length).toBeGreaterThan(drawn.panel);
   });
 
+  it('DOCE-COMMENTS-2.11 lists its cards as a list, and hands keyboard focus on when a card goes', async () => {
+    const user = userEvent.setup();
+    render(<Harness host={host()} panel options={{ placement: 'pane' }} />);
+    const list = within(panel()).getByRole('list');
+    await within(list).findByText('Is blue right?');
+    // Each card is an item of the list; a thread's comments are a list of their own inside it.
+    const thread = list.querySelector<HTMLElement>(':scope > .de-comments-panel__thread');
+    const suggestion = list.querySelector<HTMLElement>(':scope > .de-comments-panel__suggestion');
+    if (!thread || !suggestion) throw new Error('The thread and the suggestion should be listed.');
+    expect(thread).toHaveAttribute('role', 'listitem');
+    expect(suggestion).toHaveAttribute('role', 'listitem');
+    // The decided suggestion's card goes: the thread's, before it, takes focus.
+    await user.click(within(suggestion).getByRole('button', { name: 'Accept' }));
+    await waitFor(() => expect(thread).toHaveFocus());
+    // The resolved thread's card goes too, and the list itself takes focus.
+    await user.click(within(thread).getByRole('button', { name: 'Resolve' }));
+    await waitFor(() => expect(list).toHaveFocus());
+  });
+
   it('DOCE-COMMENTS-4.6 makes the card the caret is in the active one, as the margin does', async () => {
     const user = userEvent.setup();
     render(<Harness host={host()} panel />);
