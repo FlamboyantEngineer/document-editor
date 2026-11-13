@@ -179,8 +179,8 @@ const footnotesOf = (section: DocumentSection) =>
     Fragment.empty,
   );
 
-// Where the content of a section placed at a position starts.
-function contentStart(section: ProseMirrorNode, pos: number): number {
+/** Where the content of a section placed at a position starts. */
+export function contentStart(section: ProseMirrorNode, pos: number): number {
   let start = pos + 1;
   section.descendants((node, offset) => {
     if (regionKind(node) === 'content') start = pos + offset + 2;
@@ -222,8 +222,8 @@ export function sectionOf(like: ProseMirrorNode, parts: SectionParts): ProseMirr
   return like.type.create(attrs, paged ? first.type.create(first.attrs, fill(first)) : fill(like));
 }
 
-// The content a new section starts with: its template section's, or an empty paragraph.
-function startingContent(state: EditorState, section: TemplateSection | null): Fragment {
+/** The content a new section starts with: its template section's, or an empty paragraph. */
+export function startingContent(state: EditorState, section: TemplateSection | null): Fragment {
   if (section?.content?.length)
     return Fragment.from(readTemplateContent(section.content, state.schema));
   const paragraph = state.schema.nodes.paragraph?.createAndFill();

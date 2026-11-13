@@ -251,6 +251,12 @@ export {
   createSectionFootnoteNumbers,
   sectionFootnoteNumbersKey,
 } from './section-footnote-numbers.js';
+export {
+  insertTemplateSection,
+  removeEmptyTemplateSections,
+  type SectionInsertPoint,
+  templateSectionInsertPoints,
+} from './section-insertion.js';
 export type { ShortcutId, ShortcutOverrides, ShortcutTable } from './shortcuts.js';
 export {
   createShortcuts,

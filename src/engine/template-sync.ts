@@ -22,6 +22,7 @@ import {
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import { sectionOf } from './document-sections.js';
 import type { EditLockOptions } from './edit-lock.js';
+import { placeOf } from './section-insertion.js';
 import { markSystemChange } from './transaction-kind.js';
 
 /** How a document's section drifted from its template. */
@@ -199,21 +200,6 @@ export function syncTemplateSections(
     dispatch(markSystemChange(tr).setMeta('addToHistory', false).scrollIntoView());
     return true;
   };
-}
-
-// Where a required section goes: after the last section the template places before it. The plain
-// sections on the way count too, so a closing section lands after the writer's own, but none
-// behind a section the template places after it: a plain section has no place in the template,
-// and reading it as an early one put the added section past those it belongs ahead of.
-function placeOf(doc: ProseMirrorNode, order: readonly string[], rank: number): number {
-  let at = 0;
-  let passed = false;
-  doc.forEach((node, pos) => {
-    const other = order.indexOf(String(node.attrs.sectionName ?? ''));
-    if (other > rank) passed = true;
-    else if (other >= 0 || !passed) at = pos + node.nodeSize;
-  });
-  return at;
 }
 
 // Adds a required section in its place among the template's sections (`placeOf`).
