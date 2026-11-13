@@ -57,16 +57,32 @@ function isRangeLocked(
 // Comments may be added to locked content: only their highlight changes it.
 const COMMENT_MARK = 'comment_highlight';
 
-// The ranges a step changes: what it replaces, the edges a structure change replaces around the
-// content it keeps, or the text it marks; a node it sets attributes or marks on by the position
-// just inside it. Null for a step the lock does not know, and none for a comment's highlight.
+// Whether a structure change only sets the type or the attributes of the node around the content
+// it keeps (`setNodeMarkup`): it replaces that node's two tokens with one empty node.
+function isRetyping(step: ReplaceAroundStep): boolean {
+  const { slice } = step;
+  const around = step.gapFrom - step.from === 1 && step.to - step.gapTo === 1;
+  return around && slice.size === 2 && slice.openStart === 0 && slice.openEnd === 0;
+}
+
+// The ranges a structure change changes: the edges it replaces around the content it keeps, and
+// that content too when the change moves it into or out of a block, as a wrap, a lift and an
+// indent do. Their edges are points between blocks, which no lock of a block covers, yet the
+// block reads differently afterwards. A block retyped around its content changes only itself.
+function structureRanges(step: ReplaceAroundStep): Range[] {
+  const edges = [
+    { from: step.from, to: step.gapFrom },
+    { from: step.gapTo, to: step.to },
+  ];
+  return isRetyping(step) ? edges : [...edges, { from: step.gapFrom, to: step.gapTo }];
+}
+
+// The ranges a step changes: what it replaces, what a structure change replaces and moves, or the
+// text it marks; a node it sets attributes or marks on by the position just inside it. Null for a
+// step the lock does not know, and none for a comment's highlight.
 function rangesOf(step: Step, doc: ProseMirrorNode): Range[] | null {
   if (step instanceof ReplaceStep) return [{ from: step.from, to: step.to }];
-  if (step instanceof ReplaceAroundStep)
-    return [
-      { from: step.from, to: step.gapFrom },
-      { from: step.gapTo, to: step.to },
-    ];
+  if (step instanceof ReplaceAroundStep) return structureRanges(step);
   if (step instanceof AddMarkStep || step instanceof RemoveMarkStep)
     return step.mark.type.name === COMMENT_MARK ? [] : [{ from: step.from, to: step.to }];
   if (
@@ -82,7 +98,8 @@ function rangesOf(step: Step, doc: ProseMirrorNode): Range[] | null {
 
 /**
  * Whether a step of a transaction changes a locked position of the document it applies to: any
- * position of a range it replaces, marks or sets attributes on, or the point it inserts at.
+ * position of a range it replaces, marks or sets attributes on, of the content a structure change
+ * moves into or out of a block, or the point it inserts at.
  */
 export function touchesLock(tr: Transaction, isLocked: Locked): boolean {
   return tr.steps.some((step, index) => {

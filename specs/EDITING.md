@@ -48,7 +48,7 @@ Verification: `src/model/format/document-format-ids.test.ts`
 
 ### DOCE-EDITING-1.7 - An element lifecycle
 
-A host shall be able to build an element lifecycle of its own (states, stamping and gating) from the library's parts, as `docs/recipes/element-lifecycle.md` shows: the state declared as an identity attribute that a copy clears (DOCE-SCHEMA-2.3), a plugin stamping elements without a state, and the edit lock (DOCE-EDITING-4.1) refusing edits inside, and joins into, an element in a frozen state. The library holds no states or transitions.
+A host shall be able to build an element lifecycle of its own (states, stamping and gating) from the library's parts, as `docs/recipes/element-lifecycle.md` shows: the state declared as an identity attribute that a copy clears (DOCE-SCHEMA-2.3), a plugin stamping elements without a state, and the edit lock (DOCE-EDITING-4.1) refusing edits inside, joins into, and a list or a quote put around, an element in a frozen state. The library holds no states or transitions.
 
 Implementation: `src/model/schema/element-attributes.ts`, `src/engine/edit-lock.ts`
 Verification: `test/element-lifecycle.test.ts`
@@ -158,7 +158,7 @@ Verification: `src/engine/hot-path.test.ts`
 
 ### DOCE-EDITING-4.1 - The edit lock
 
-`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records that is neither remote, derived nor a system change (DOCE-EDITING-3.2), when any of its steps changes a position `isLocked(doc, pos)` reports locked: any position of a range it replaces or marks, the inside of every block and inline node that range covers, the edges a structure change replaces around the content it keeps, the inside of a node it sets attributes or marks on, or the point it inserts at. A step that spans a locked block between two open ones is refused. A comment's highlight may be added to and removed from locked content. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, and system changes pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
+`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records that is neither remote, derived nor a system change (DOCE-EDITING-3.2), when any of its steps changes a position `isLocked(doc, pos)` reports locked: any position of a range it replaces or marks, the inside of every block and inline node that range covers, the edges a structure change replaces around the content it keeps, the inside of a node it sets attributes or marks on, or the point it inserts at. A step that spans a locked block between two open ones is refused. A structure change that moves the content it keeps into or out of a block, as a list or a quote put around it, a lift out of one and a list item's indent do, is refused when that content holds a locked position, since the edges of such a change lie between blocks; a change of the type or the attributes of a block around a locked one changes only that block, and is judged by its own positions. A comment's highlight may be added to and removed from locked content. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, and system changes pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
 
 Implementation: `src/engine/edit-lock.ts`
 Verification: `src/engine/edit-lock.test.ts`
