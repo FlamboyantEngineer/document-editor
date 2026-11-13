@@ -193,6 +193,20 @@ Verification: `src/model/templates/template-preview.test.ts`, `e2e/template-edit
 Implementation: `src/engine/variable-tokens.ts`
 Verification: `src/engine/variable-tokens.test.ts`
 
+### DOCE-TEMPLATES-8.4 - Variable catalog
+
+`variableCatalog(label, host)` shall list the variables a writer may insert: the editor's own (`EDITOR_VARIABLES`: `page.current`, `page.total` and `date.current`), each named by `label`, then the host's (`catalog` of its `variables` adapter, DOCE-HOST-1.12) in its order, leaving out a key listed before.
+
+Implementation: `src/engine/template-variables.ts`
+Verification: `src/engine/template-variables.test.ts`
+
+### DOCE-TEMPLATES-8.5 - Inserting a variable
+
+`insertVariable(key)` shall put a live variable of the key in place of the selection, the caret after it, and refuse a key a `{{key}}` token cannot hold, a selection in code or across blocks, and a place the schema allows no variable. The toolbar's variable menu (`variable`, in the insert group, so also in the menubar's Insert menu) shall list the catalog, labelled by `editorVariables` and the host, each entry inserting its variable, while the host lists variables or the template's content is edited in place (`onRegionChange`).
+
+Implementation: `src/engine/template-variables.ts`, `src/components/document-editor/variable-menu.ts`, `src/components/document-editor/insert-controls.tsx`
+Verification: `src/engine/template-variables.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+
 ## DOCE-TEMPLATES-9 - Template blocks
 
 ### DOCE-TEMPLATES-9.1 - Rendering a template block

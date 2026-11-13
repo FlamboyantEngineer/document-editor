@@ -131,8 +131,8 @@ Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
 
 After a change that makes a table wider than its section's pages' content, `createTableWidth({ maxWidth })`, which the editing plugins install when given the template, shall narrow the columns that grew, the widest first, by what is too much, never below the narrowest a column may be (`fitColumns`), out of the undo history. Dragging the last column's right border shall widen or narrow the table, never wider than the content box the table sits in. A resize starts from the widths the columns are laid out at, and a table fitted to the page width (`fit-page-width`) that has a column resized leaves the fit and is aligned left, at those widths.
 
-Implementation: `src/engine/table-width.ts`, `src/engine/table-resize.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/table-format.test.ts`, `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
+Implementation: `src/model/layout/column-widths.ts`, `src/engine/table-width.ts`, `src/engine/table-resize.ts`, `src/engine/document-editing.ts`
+Verification: `src/model/layout/column-widths.test.ts`, `src/engine/table-format.test.ts`, `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-3.8 - Header rows and columns
 
