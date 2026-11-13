@@ -10,7 +10,7 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type CommentThread, createMemoryHost } from '../host/index.js';
 import { readRoomThreads } from './comment-records.js';
 import { createRoomCommentStore } from './comment-store.js';
@@ -244,6 +244,15 @@ function writers() {
 const attribute = (doc: Y.Doc, key: readonly string[], record: unknown) =>
   doc.get('comments').setAttr(JSON.stringify(key), record);
 
+// The names of the attributes the room keeps.
+function attributeNames(doc: Y.Doc): string[] {
+  const names: string[] = [];
+  doc.get('comments').forEachAttr((_value: unknown, name: string | number) => {
+    names.push(String(name));
+  });
+  return names.sort();
+}
+
 describe('readRoomThreads', () => {
   it('DOCE-COMMENTS-2.20 leaves out what is not a thread or a comment, keeping the rest', async () => {
     const { first, second, exchange, ada } = writers();
@@ -346,5 +355,38 @@ describe('createRoomCommentStore, with changes made at once', () => {
     expect(
       value((await ada.update?.('doc', 'old', { quote: 'blues' })) ?? { ok: false }),
     ).toMatchObject({ quote: 'blues', state: 'open' });
+  });
+});
+
+describe('createRoomCommentStore, its comments', () => {
+  it('DOCE-COMMENTS-2.20 removes a comment with the reactions to it', async () => {
+    const { first, exchange, ada, bea } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    exchange();
+    await bea.reply('doc', 't1', 'Second');
+    exchange();
+    await ada.react?.('doc', { threadId: 't1', entryId: 'bea-1', emoji: '👍', reacted: true });
+    await ada.react?.('doc', { threadId: 't1', entryId: 'ada-1', emoji: '🎉', reacted: true });
+    exchange();
+    await bea.removeEntry?.('doc', { threadId: 't1', entryId: 'bea-1' });
+    exchange();
+    expect(attributeNames(first)).toEqual([
+      '["entry","t1","ada-1"]',
+      '["reaction","t1","ada-1","🎉","ada"]',
+      '["thread","t1"]',
+    ]);
+  });
+
+  it('DOCE-COMMENTS-2.20 makes its own ids where the page is not a secure context', async () => {
+    // Only a secure context has `crypto.randomUUID`.
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    const doc = new Y.Doc();
+    const { identity } = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });
+    const store = createRoomCommentStore({ doc, identity });
+    await store.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    const thread = value(await store.reply('doc', 't1', 'Second'));
+    const ids = thread.entries.map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) expect(id).toMatch(/^[\da-f]{32}$/);
   });
 });

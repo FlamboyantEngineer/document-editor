@@ -17,6 +17,7 @@ import {
   parseKey,
   plain,
   readRoomThreads,
+  type RecordKey,
   type ThreadFieldKind,
 } from './comment-records.js';
 
@@ -38,6 +39,13 @@ function missing<T>(id: string): HostResult<T> {
 }
 
 const denied: HostResult<CommentThread> = { ok: false, error: { kind: 'denied' } };
+
+// A random id of 128 bits. `crypto.randomUUID` gives one too, but only in a secure context, and
+// a document may be shown outside one.
+function createRandomId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 /** What the store's changes act through: the type, the writer, the reader and the time. */
 interface Room {
@@ -89,7 +97,7 @@ export function createRoomCommentStore({
   doc,
   identity,
   now = () => new Date(),
-  createId = () => crypto.randomUUID(),
+  createId = createRandomId,
 }: RoomCommentStoreOptions): CommentStoreAdapter {
   const type = doc.get(COMMENTS);
   const origin = { roomComments: true };
@@ -155,12 +163,18 @@ export function createRoomCommentStore({
 // writer makes to the thread at the same time, or an older editor writing its record again, would
 // otherwise bring back a thread with nothing in it.
 function removeThread(type: Y.Type, threadId: string): void {
+  deleteRecords(type, (key) => key[1] === threadId);
+  type.setAttr(keyOf(['removed', threadId]), true);
+}
+
+// Deletes the records whose keys `matches` takes, found before any is deleted.
+function deleteRecords(type: Y.Type, matches: (key: RecordKey) => boolean): void {
   const names: string[] = [];
   type.forEachAttr((_value: unknown, name: string | number) => {
-    if (parseKey(String(name))?.[1] === threadId) names.push(String(name));
+    const key = parseKey(String(name));
+    if (key && matches(key)) names.push(String(name));
   });
   for (const name of names) type.deleteAttr(name);
-  type.setAttr(keyOf(['removed', threadId]), true);
 }
 
 // The changes to one comment: editing and deleting the reader's own, and reacting to a comment or,
@@ -192,7 +206,14 @@ function entryChanges({
     removeEntry: (_documentId, { threadId, entryId }) => {
       const mine = own(threadId, entryId);
       if ('refused' in mine) return Promise.resolve(mine.refused);
-      write(() => type.deleteAttr(mine.key));
+      // The reactions to a comment go with it, or the room would keep them for good.
+      write(() =>
+        deleteRecords(
+          type,
+          ([kind, thread, entry]) =>
+            (kind === 'entry' || kind === 'reaction') && thread === threadId && entry === entryId,
+        ),
+      );
       return Promise.resolve(found(threadId));
     },
     react: (_documentId, { threadId, entryId = '', emoji, reacted }) => {
