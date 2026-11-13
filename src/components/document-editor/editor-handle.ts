@@ -12,7 +12,9 @@ import {
   type AutomationResult,
   commentAnchors,
   documentSnapshot,
+  documentSnapshotWhenReady,
   type EditAddress,
+  type ReadySnapshotOptions,
   revealElement,
   type RevealOptions,
   type SnapshotOptions,
@@ -79,6 +81,14 @@ export interface DocumentEditorHandle {
    * into a PDF (`documentSnapshot`); null before the editor is mounted.
    */
   exportSnapshot(options?: Omit<SnapshotOptions, 'template'>): string | null;
+  /**
+   * The document as `exportSnapshot` gives it, once the pages are ready to print: laid out with
+   * no layout due, in their fonts, with each image's address as `resolveImage` resolves it, which
+   * may answer later (`documentSnapshotWhenReady`); null before the editor is mounted.
+   */
+  exportSnapshotAsync(
+    options?: Omit<ReadySnapshotOptions, 'template' | 'whenSettled'>,
+  ): Promise<string | null>;
   /** The headings as the pages show them now, for a printed document's bookmarks; empty unmounted. */
   snapshotOutline(): SnapshotOutlineEntry[];
   /** Runs a command on the latest state; false when it does not apply. */
@@ -199,6 +209,15 @@ export function useEditorHandle(
       exportSnapshot: (options) =>
         view
           ? documentSnapshot(view, { citationHref: hrefOf(references), ...options, template })
+          : null,
+      exportSnapshotAsync: async (options) =>
+        view
+          ? documentSnapshotWhenReady(view, {
+              citationHref: hrefOf(references),
+              ...options,
+              template,
+              whenSettled: layout.whenSettled,
+            })
           : null,
       snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
       startComment: (options) => {

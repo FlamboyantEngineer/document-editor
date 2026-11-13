@@ -259,6 +259,8 @@ export {
   shortcutsKey,
   shortcutsOf,
 } from './shortcuts.js';
+export type { ReadySnapshotOptions, ResolveImageAsync } from './snapshot-ready.js';
+export { documentSnapshotWhenReady } from './snapshot-ready.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

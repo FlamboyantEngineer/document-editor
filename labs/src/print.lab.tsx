@@ -1,4 +1,4 @@
-// Shows a snapshot for printing (`exportSnapshot`): a document whose body sits on portrait pages
+// Shows a snapshot for printing once the pages are ready (`exportSnapshotAsync`): a document whose body sits on portrait pages
 // and whose appendix sits on landscape pages, citing the body with a footnote, with the outline
 // its bookmarks are made from, proofed by a word-list proofer, with the layout
 // debugging and a comparison with the document as it opened on demand. The print preview shows
@@ -126,15 +126,14 @@ function Lab() {
   const [snapshot, setSnapshot] = useState('');
   const [outline, setOutline] = useState<readonly SnapshotOutlineEntry[]>([]);
   const handle = useRef<DocumentEditorHandle>(null);
-  const preview = () => {
+  const preview = async () => {
     setOutline(handle.current?.snapshotOutline() ?? []);
-    setSnapshot(
-      handle.current?.exportSnapshot({
-        title: 'Print sample',
-        stylesheets: [stylesheet()],
-        markup: markup === 'editor' ? undefined : markup,
-      }) ?? '',
-    );
+    const html = await handle.current?.exportSnapshotAsync({
+      title: 'Print sample',
+      stylesheets: [stylesheet()],
+      markup: markup === 'editor' ? undefined : markup,
+    });
+    setSnapshot(html ?? '');
   };
   return (
     <>
@@ -169,7 +168,7 @@ function Lab() {
             ))}
           </select>
         </label>
-        <button type="button" onClick={preview}>
+        <button type="button" onClick={() => void preview()}>
           Make a print preview
         </button>
       </fieldset>
