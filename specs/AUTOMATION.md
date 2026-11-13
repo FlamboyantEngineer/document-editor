@@ -87,10 +87,10 @@ Verification: `src/engine/inline-completion.test.ts`
 
 ### DOCE-AUTOMATION-3.3 - Asking the host's provider
 
-`createInlineCompletion({ provider, delay, isEnabled })` shall ask the host's completion provider (`CompletionAdapter`) once the writer, typing with the caret in text, pauses for `delay` milliseconds (600 by default), dropping an answer that comes after another change, and offer what it answers; Tab takes the offer and Escape dismisses it.
+`createInlineCompletion({ provider, delay, isEnabled })` shall ask the host's completion provider (`CompletionAdapter`) once the writer, typing with the caret in text, pauses for `delay` milliseconds (600 by default), dropping an answer that comes after the text or the caret changed, and offer what it answers; Tab takes the offer and Escape dismisses it. Only the writer's own edits ask: a collaborator's change, a plugin's, the host's or an agent's batch asks nothing while the writer is idle, and one that comes during the pause or before the answer has the provider asked again, after the pause, for the text as it is then. A transaction that changes neither the text nor the caret drops no answer.
 
 Implementation: `src/engine/inline-completion.ts`, `src/host/adapters.ts`
-Verification: `e2e/full-editor.spec.ts`
+Verification: `src/engine/inline-completion.test.ts`, `e2e/full-editor.spec.ts`
 
 ## DOCE-AUTOMATION-4 - On stored documents
 

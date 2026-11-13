@@ -13,6 +13,8 @@ import {
 import { DecorationSet, type EditorView } from 'prosemirror-view';
 import type { CompletionAdapter } from '../host/index.js';
 import { viewOnlyWidget } from '../utils/view-only-decorations.js';
+import { automationActor } from './automation.js';
+import { isLocalEdit } from './transaction-kind.js';
 
 /** The text offered after the caret, at a position. */
 export interface InlineCompletion {
@@ -26,13 +28,20 @@ export interface CompletionRequest {
   readonly after: string;
 }
 
-const completionKey = new PluginKey<InlineCompletion | null>('inline-completion');
+interface CompletionState {
+  readonly offer: InlineCompletion | null;
+  // How many edits of the writer's own the state has taken: the view asks after each, and after
+  // no other change, since it sees states, not the transactions between them.
+  readonly typed: number;
+}
+
+const completionKey = new PluginKey<CompletionState>('inline-completion');
 
 type CompletionMeta = { readonly offer: InlineCompletion } | { readonly clear: true };
 
 /** The completion offered now, or null. */
 export function inlineCompletion(state: EditorState): InlineCompletion | null {
-  return completionKey.getState(state) ?? null;
+  return completionKey.getState(state)?.offer ?? null;
 }
 
 /**
@@ -80,12 +89,21 @@ export function offerCompletion(offer: InlineCompletion): Command {
   };
 }
 
-function apply(tr: Transaction, offered: InlineCompletion | null): InlineCompletion | null {
+function offerAfter(tr: Transaction, offered: InlineCompletion | null): InlineCompletion | null {
   const meta = tr.getMeta(completionKey) as CompletionMeta | undefined;
   if (meta && 'offer' in meta) return meta.offer;
   if (meta && 'clear' in meta) return null;
   // Any change or caret move dismisses what was offered.
   return offered && !tr.docChanged && !tr.selectionSet ? offered : null;
+}
+
+// The writer's own edit: not a collaborator's, a plugin's or the host's, nor an agent's batch.
+const isTyping = (tr: Transaction) => isLocalEdit(tr) && automationActor(tr) === null;
+
+function apply(tr: Transaction, value: CompletionState): CompletionState {
+  const offer = offerAfter(tr, value.offer);
+  const typed = isTyping(tr) ? value.typed + 1 : value.typed;
+  return offer === value.offer && typed === value.typed ? value : { offer, typed };
 }
 
 /** How inline completion asks its provider. */
@@ -102,31 +120,49 @@ function asker(view: EditorView, options: InlineCompletionOptions) {
   const owner = view.dom.ownerDocument.defaultView;
   let timer = 0;
   let controller: AbortController | null = null;
+  // Whether a question waits for the pause to end or for its answer.
+  let pending = false;
   const cancel = () => {
     owner?.clearTimeout(timer);
     controller?.abort();
     controller = null;
+    pending = false;
   };
   const ask = () => {
     const request = completionRequest(view.state);
-    if (!request || !owner) return;
+    if (!request || !owner) {
+      pending = false;
+      return;
+    }
     const asked = view.state;
     controller = new owner.AbortController();
     const { signal } = controller;
     options.provider.complete({ ...request, signal }).then(
       (result) => {
-        if (signal.aborted || view.isDestroyed || view.state !== asked || !result.ok) return;
-        const pos = asked.selection.head;
-        offerCompletion({ pos, text: result.value })(view.state, view.dispatch);
+        if (signal.aborted || view.isDestroyed) return;
+        pending = false;
+        // The view's state may be another object by now, for a change of neither the text nor the
+        // caret, such as a collaborator's caret moving: the answer still fits.
+        const current = view.state;
+        if (!result.ok || !current.doc.eq(asked.doc) || !current.selection.eq(asked.selection))
+          return;
+        offerCompletion({ pos: asked.selection.head, text: result.value })(current, view.dispatch);
       },
       () => undefined,
     );
   };
+  const askAfterPause = (inText: boolean) => {
+    cancel();
+    if (!inText || options.isEnabled?.() === false || !owner) return;
+    pending = true;
+    timer = owner.setTimeout(ask, options.delay ?? 600);
+  };
   return {
-    changed(typed: boolean) {
-      cancel();
-      if (!typed || options.isEnabled?.() === false || !owner) return;
-      timer = owner.setTimeout(ask, options.delay ?? 600);
+    /** The writer typed: asks once they pause, in place of a question still pending. */
+    typed: askAfterPause,
+    /** Someone else changed the document: a question still pending is asked for the text now. */
+    changedElsewhere(inText: boolean) {
+      if (pending) askAfterPause(inText);
     },
     cancel,
   };
@@ -134,25 +170,25 @@ function asker(view: EditorView, options: InlineCompletionOptions) {
 
 /** Offers the provider's completions after the caret as the writer types. */
 export function createInlineCompletion(options: InlineCompletionOptions): Plugin {
-  return new Plugin<InlineCompletion | null>({
+  return new Plugin<CompletionState>({
     key: completionKey,
-    state: { init: () => null, apply },
+    state: { init: () => ({ offer: null, typed: 0 }), apply },
     view(view) {
       const asking = asker(view, options);
       return {
         update(current, previous) {
-          if (current.state.doc.eq(previous.doc)) {
-            if (!current.state.selection.eq(previous.selection)) asking.cancel();
-            return;
-          }
-          asking.changed(view.editable && current.state.selection.empty);
+          const inText = view.editable && current.state.selection.empty;
+          const typed = completionKey.getState(current.state)?.typed;
+          if (typed !== completionKey.getState(previous)?.typed) asking.typed(inText);
+          else if (!current.state.doc.eq(previous.doc)) asking.changedElsewhere(inText);
+          else if (!current.state.selection.eq(previous.selection)) asking.cancel();
         },
         destroy: asking.cancel,
       };
     },
     props: {
       decorations(state) {
-        const offered = completionKey.getState(state);
+        const offered = inlineCompletion(state);
         if (!offered) return null;
         const widget = viewOnlyWidget(
           offered.pos,
