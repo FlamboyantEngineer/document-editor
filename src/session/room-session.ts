@@ -187,11 +187,20 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     conflicts: stores.conflicts,
     connection: stores.connection,
     ready: loadRoom(run),
+    // With no editor bound nothing keeps the state and the room the same: the change is made on
+    // what the room holds by then and written there, or the editor that binds next would take the
+    // room's content over it. A whole state was made from what the session showed, so it is
+    // written only while the room still holds that, never over what the others changed since.
     update: (update) => {
       const shown = document.get();
       if (!shown) return;
-      const state = typeof update === 'function' ? update(shown.state) : update;
-      if (state !== shown.state) document.set({ ...shown, state });
+      const binding = room()?.binding;
+      const held = binding?.held(shown.state) ?? shown.state;
+      const whole = typeof update !== 'function';
+      const state = whole ? update : update(held);
+      if (state === shown.state) return;
+      if (!whole || held === shown.state) binding?.write(state);
+      document.set({ ...shown, state });
     },
     setTemplate: async (pin) => {
       const opened = room();

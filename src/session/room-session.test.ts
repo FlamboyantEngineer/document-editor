@@ -118,6 +118,40 @@ describe('createDocumentSession in room mode', () => {
     await vi.waitFor(() => expect(textOf(shown(grace).state)).toBe('Well, Hello'));
   });
 
+  it('DOCE-SESSION-3.2 writes a change made with no editor bound to the room', async () => {
+    roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const graceView = mount(grace);
+    ada.update((state) => state.apply(state.tr.insertText('Well, ', 1)));
+    expect(ada.hasUnsavedChanges()).toBe(true);
+    await vi.waitFor(() => expect(textOf(graceView.state)).toBe('Well, Hello'));
+    // The editor that binds later takes the room's content, which holds the change.
+    const adaView = mount(ada);
+    await ada.flush();
+    expect(textOf(adaView.state)).toBe('Well, Hello');
+  });
+
+  it('DOCE-SESSION-3.2 makes a change with no editor bound on what the room holds by then', async () => {
+    const room = roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const graceView = mount(grace);
+    const arrived = new Promise((resolve) => room.providerOf('ada')?.doc.once('update', resolve));
+    graceView.dispatch(graceView.state.tr.insertText('!', graceView.state.doc.content.size - 3));
+    await arrived;
+    // A whole state made from what the session shows, which the room has moved on from, is not
+    // written, or it would take back what the others changed since.
+    const stale = shown(ada).state;
+    ada.update(stale.apply(stale.tr.insertText('Oh, ', 1)));
+    expect(ada.hasUnsavedChanges()).toBe(false);
+    ada.update((state) => state.apply(state.tr.insertText('Well, ', 1)));
+    expect(textOf(shown(ada).state)).toBe('Well, Hello!');
+    await vi.waitFor(() => expect(textOf(graceView.state)).toBe('Well, Hello!'));
+  });
+
   it('DOCE-COLLAB-6.3 undoes only the reader’s own change in a room', async () => {
     roomsFor();
     const ada = openAs('ada');
