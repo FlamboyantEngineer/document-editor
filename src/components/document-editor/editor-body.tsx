@@ -16,7 +16,7 @@ import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { figurePasteHandlers } from './figure-paste.js';
+import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
 import { PagesView } from './pages-view.js';
 import { useOpeningScripts } from './script-entries.js';
@@ -87,16 +87,10 @@ function useBodyViewProps({
   const { editable = true, assets, feedback } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
-  return useMemo(
-    () => ({
-      ...(assets
-        ? figurePasteHandlers({
-            assets,
-            feedback,
-            failure: labels.uploadFailed,
-            uploading: labels.uploading,
-          })
-        : {}),
+  return useMemo(() => {
+    const images = figurePasteOptions({ assets, feedback }, labels);
+    return {
+      ...(images ? figurePasteHandlers(images) : {}),
       editable: () => editable,
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
@@ -121,9 +115,8 @@ function useBodyViewProps({
         ...(host.focus ? { focus: host.focus } : {}),
         ...(host.blur ? { blur: host.blur } : {}),
       },
-    }),
-    [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef],
-  );
+    };
+  }, [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef]);
 }
 
 // The projection takes each of its states itself (`projectionDispatch`), so a commit the engine

@@ -94,10 +94,10 @@ Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-3.2 - Clipboard and formatting
 
-The menu shall offer Cut and Copy, which write the selection to the clipboard as the editor copies it (Cut then deletes it), Paste and Paste as plain text, which paste the clipboard at the selection, and Clear formatting (`clearFormatting`). Cut, Paste and Clear formatting need an editable document, Cut and Copy a selection, and the clipboard entries a clipboard; a clipboard the browser refuses changes nothing.
+The menu shall offer Cut and Copy, which write the selection to the clipboard as the editor copies it (Cut then deletes it), Paste, which pastes the clipboard at the selection as a paste from the keyboard does, a copied image or content whose images come with it uploaded and inserted as figures with the host's `assets` (DOCE-EDITOR-4.6, DOCE-EDITING-5.5), Paste as plain text, which pastes its text alone, and Clear formatting (`clearFormatting`). Cut, Paste and Clear formatting need an editable document, Cut and Copy a selection, and the clipboard entries a clipboard; a clipboard the browser refuses changes nothing.
 
-Implementation: `src/components/document-editor/context-entries.ts`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-editor/clipboard-entries.ts`, `src/components/document-editor/figure-paste.ts`
+Verification: `src/components/document-editor/clipboard-entries.test.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.3 - Suggestions and comments
 

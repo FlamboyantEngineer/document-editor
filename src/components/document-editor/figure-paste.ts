@@ -2,12 +2,15 @@
 // assets, then inserted where it was pasted or dropped (`paste-place.ts`). An upload that fails
 // inserts nothing and tells the reader through the host's feedback. Pasted HTML whose images come
 // with the paste, as data URIs or as a word processor's pictures, is pasted once its images are
-// uploaded, each a figure, at the selection then: the view pastes HTML only there.
+// uploaded, each a figure, at the selection then: the view pastes HTML only there. A paste from
+// the keyboard and the context menu's Paste both go through `pasteImages`.
 
 import { DOMSerializer } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { AssetAdapter, FeedbackAdapter } from '../../host/index.js';
+import type { DocumentEditorProps } from './document-editor.js';
+import type { DocumentEditorLabels } from './editor-labels.js';
 import { insertFigureAt, type PastePlace } from './paste-place.js';
 import { hasPastedImages, hasPastedText, type PastedImage, pastedImages } from './pasted-images.js';
 
@@ -19,6 +22,15 @@ export interface FigurePasteOptions {
   readonly failure: string;
   /** Tells the reader the images of pasted content are uploading. */
   readonly uploading: string;
+}
+
+/** What pasting images needs, from the editor's props; null while the host stores no assets. */
+export function figurePasteOptions(
+  { assets, feedback }: Pick<DocumentEditorProps, 'assets' | 'feedback'>,
+  labels: DocumentEditorLabels,
+): FigurePasteOptions | null {
+  if (!assets) return null;
+  return { assets, feedback, failure: labels.uploadFailed, uploading: labels.uploading };
 }
 
 /** What a paste carries: its files, its HTML and the RTF flavour of the same paste. */

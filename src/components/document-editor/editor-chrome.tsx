@@ -25,6 +25,7 @@ import {
   type EditorContext,
   type ObjectDialog,
 } from './editor-context.js';
+import { figurePasteOptions } from './figure-paste.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
@@ -251,6 +252,7 @@ export function EditorContextMenu({
       codeLanguages={props.codeLanguages}
       scriptRunner={props.scriptRunner}
       suggesting={editable && (props.suggesting ?? false)}
+      images={figurePasteOptions(props, context.labels)}
       options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
       shown={contextOptionsOf(props, { labels: context.labels, openDialog })}
     />
