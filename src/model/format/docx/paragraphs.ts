@@ -63,7 +63,8 @@ export function writeHeading(node: StoredNode, writing: Writing): string {
   if (node.attrs?.title === true) return paragraph(runs, styled('Title'));
   const custom = customStyle(node, writing);
   let numbering = '';
-  if (writing.structural) {
+  // An unnumbered heading takes no number and moves no counter.
+  if (writing.structural && node.attrs?.numbered !== false) {
     countHeading(writing.counting, level);
     numbering = numberingProperties(writing.counting.numbers.headings, level - 1);
   }

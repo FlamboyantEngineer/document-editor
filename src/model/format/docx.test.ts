@@ -255,4 +255,26 @@ describe('writeDocx', () => {
     expect(rejected).toContain('Gone paragraph');
     expect(rejected).toContain('>{{document.title}}</w:t>');
   });
+
+  it('DOCE-FORMAT-5.5 leaves an unnumbered heading without a number', () => {
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'heading', attrs: { numbered: false }, content: [text('Preface')] },
+              { type: 'heading', content: [text('Start')] },
+            ],
+          },
+        ],
+      }),
+    );
+    const document = files.get('word/document.xml') ?? '';
+    expect(document).toContain(
+      '<w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">Preface',
+    );
+    expect(document).toMatch(/<w:pStyle w:val="Heading1"\/><w:numPr>.*?Start/);
+  });
 });
