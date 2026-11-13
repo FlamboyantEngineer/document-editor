@@ -189,6 +189,26 @@
                   }
                 }
               ]
+            },
+            {
+              "type": "mention",
+              "attrs": {
+                "person": "sample-userId",
+                "label": "sample-label",
+                "id": "mention-2",
+                "author": "author-1",
+                "aiSession": "session-1"
+              },
+              "marks": [
+                {
+                  "type": "deletion",
+                  "attrs": {
+                    "id": "sample-dataId",
+                    "author": "sample-dataAuthor",
+                    "thread": "sample-commentId"
+                  }
+                }
+              ]
             }
           ]
         }

@@ -54,37 +54,49 @@ export function isWordHtml(html: string): boolean {
   return /urn:schemas-microsoft-com:office|class="?Mso|mso-[a-z-]+\s*:/i.test(html);
 }
 
-// The list a Word paragraph is an item of: its list, level and whether it is numbered.
-function listItemOf(paragraph: Element): { list: string; level: number; ordered: boolean } | null {
+/** The list a Word paragraph is an item of: the list and its instance, its level and its kind. */
+interface WordListItem {
+  list: string;
+  level: number;
+  ordered: boolean;
+}
+
+function listItemOf(paragraph: Element): WordListItem | null {
   const style = paragraph.getAttribute('style') ?? '';
-  const match = /mso-list:\s*(l\d+)\s+level(\d+)/i.exec(style);
+  const match = /mso-list:\s*(l\d+)\s+level(\d+)(?:\s+(lfo\d+))?/i.exec(style);
   if (!match) return null;
   const marker = paragraph.querySelector('[style*="mso-list:Ignore"], [style*="mso-list: Ignore"]');
   const text = (marker?.textContent ?? '').trim();
   return {
-    list: match[1] ?? '',
+    // A list numbered again from its start is another instance (`lfo`) of the same list.
+    list: `${match[1] ?? ''} ${match[3] ?? ''}`,
     level: Number(match[2]) || 1,
     ordered: /^(\d+|[a-z]|[ivxlc]+)[.)]$/i.test(text),
   };
 }
 
-type ListLevel = { level: number; element: HTMLElement };
+type ListLevel = WordListItem & { element: HTMLElement };
 
-// The list an item of a level goes in: the open list of its level, or a new one, nested in the
-// last item of the list above it, or placed before the paragraph that starts the run.
+// The list an item of a level goes in: the open list of its level when it is the item's own list
+// and kind, or a new one, nested in the last item of the list above it, or placed before the
+// paragraph that starts it. Without the comparison a numbered list directly after a bulleted one
+// would join it, and a second numbered list would go on counting from the first.
 function listFor(
   stack: ListLevel[],
-  item: { level: number; ordered: boolean },
+  item: WordListItem,
   { paragraph, owner }: { paragraph: Element; owner: Document },
 ): ListLevel {
   while (stack.length && (stack.at(-1)?.level ?? 0) > item.level) stack.pop();
   const open = stack.at(-1);
-  if (open && open.level >= item.level) return open;
+  if (open?.level === item.level) {
+    if (open.list === item.list && open.ordered === item.ordered) return open;
+    stack.pop();
+  }
   const element = owner.createElement(item.ordered ? 'ol' : 'ul');
-  const parentItem = open?.element.lastElementChild;
+  const parentItem = stack.at(-1)?.element.lastElementChild;
   if (parentItem) parentItem.appendChild(element);
   else paragraph.before(element);
-  const list = { level: item.level, element };
+  const list = { ...item, element };
   stack.push(list);
   return list;
 }

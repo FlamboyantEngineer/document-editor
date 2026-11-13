@@ -156,6 +156,33 @@ function safeColor(value: unknown): string {
   return String(value).replace(/[;"<>]/g, '');
 }
 
+// The alignments a cell takes. A cell's alignment is written into its style, so any other text,
+// which could carry declarations of its own, reads and writes as the default.
+const TEXT_ALIGNMENTS = ['left', 'center', 'right', 'justify'];
+const VERTICAL_ALIGNMENTS = ['top', 'middle', 'bottom'];
+
+const textAlignOf = (value: unknown) => TEXT_ALIGNMENTS.find((each) => each === value) ?? 'left';
+const verticalAlignOf = (value: unknown) =>
+  VERTICAL_ALIGNMENTS.find((each) => each === value) ?? 'middle';
+
+/** The most rows or columns a cell spans: the most columns HTML lets a cell span. */
+const MAX_SPAN = 1000;
+
+// A span from markup: a whole number within the limits, or 1 when it is not a number.
+function readSpan(dom: HTMLElement, name: 'colspan' | 'rowspan'): number {
+  const span = Math.trunc(Number(dom.getAttribute(name)));
+  return Number.isFinite(span) ? Math.min(MAX_SPAN, Math.max(1, span)) : 1;
+}
+
+// Refuses a span a table cannot hold. A table's column group and its cell map take an entry for
+// each row and column a cell spans, so a stored or synced span without a limit would hang the
+// editor of everyone who opens the document.
+function checkSpan(value: unknown): void {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_SPAN) {
+    throw new RangeError(`a cell spans 1 to ${String(MAX_SPAN)} rows or columns`);
+  }
+}
+
 function readColumnWidths(dom: HTMLElement): number[] | null {
   const value = dom.getAttribute('data-colwidth');
   if (!value) return null;
@@ -172,11 +199,13 @@ function readRowHeight(dom: HTMLElement): number | null {
 
 function readCellAttrs(dom: HTMLElement) {
   return {
-    colspan: Number(dom.getAttribute('colspan') || 1),
-    rowspan: Number(dom.getAttribute('rowspan') || 1),
+    colspan: readSpan(dom, 'colspan'),
+    rowspan: readSpan(dom, 'rowspan'),
     colwidth: readColumnWidths(dom),
-    textAlign: dom.getAttribute('data-text-align') || dom.style.textAlign || 'left',
-    verticalAlign: dom.getAttribute('data-vertical-align') || dom.style.verticalAlign || 'middle',
+    textAlign: textAlignOf(dom.getAttribute('data-text-align') || dom.style.textAlign),
+    verticalAlign: verticalAlignOf(
+      dom.getAttribute('data-vertical-align') || dom.style.verticalAlign,
+    ),
     rowHeight: readRowHeight(dom),
     textColor: dom.getAttribute('data-text-color') || dom.style.color || null,
     backgroundColor: dom.getAttribute('data-background-color') || dom.style.backgroundColor || null,
@@ -186,8 +215,8 @@ function readCellAttrs(dom: HTMLElement) {
 function cellStyle(node: ProseMirrorNode, hasHeight: boolean): string {
   const { textAlign, verticalAlign, rowHeight, textColor, backgroundColor } = node.attrs;
   const parts = [
-    `text-align: ${String(textAlign || 'left')}`,
-    `vertical-align: ${String(verticalAlign || 'middle')}`,
+    `text-align: ${textAlignOf(textAlign)}`,
+    `vertical-align: ${verticalAlignOf(verticalAlign)}`,
   ];
   if (hasHeight) parts.push(`height: ${String(rowHeight)}px`, `min-height: ${String(rowHeight)}px`);
   if (textColor) parts.push(`color: ${safeColor(textColor)}`);
@@ -201,8 +230,8 @@ function renderCell(node: ProseMirrorNode, tag: 'td' | 'th') {
   const attrs: Record<string, unknown> = {
     colspan,
     rowspan,
-    'data-text-align': node.attrs.textAlign || 'left',
-    'data-vertical-align': node.attrs.verticalAlign || 'middle',
+    'data-text-align': textAlignOf(node.attrs.textAlign),
+    'data-vertical-align': verticalAlignOf(node.attrs.verticalAlign),
     style: cellStyle(node, hasHeight),
   };
   if (colwidth) attrs['data-colwidth'] = (colwidth as number[]).join(',');
@@ -218,6 +247,8 @@ function tableCell(name: CellName): NodeSpec {
     ...baseNodes[name],
     attrs: {
       ...baseNodes[name].attrs,
+      colspan: { default: 1, validate: checkSpan },
+      rowspan: { default: 1, validate: checkSpan },
       textAlign: { default: 'left' },
       verticalAlign: { default: 'middle' },
       rowHeight: { default: null },

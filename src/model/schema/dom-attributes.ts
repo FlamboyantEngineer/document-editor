@@ -25,6 +25,23 @@ export const TABLE_BORDER_CLASSES: ReadonlySet<string> = new Set([
   TABLE_BORDER_NONE_CLASS,
 ]);
 
+// The schemes a link may name. Any other, such as `javascript:`, could run script in the page
+// that shows the document when a reader follows the link.
+const LINK_SCHEMES: ReadonlySet<string> = new Set(['http', 'https', 'mailto', 'tel']);
+
+/**
+ * The address a link may hold, or null: a web, mail or telephone address, a fragment or a relative
+ * address. Control characters are removed first, since a browser ignores them when it reads the
+ * scheme, so they cannot hide one.
+ */
+export function safeHref(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const address = value.replaceAll(/\p{Cc}/gu, '').trim();
+  const scheme = /^([a-z][\d+.a-z-]*):/i.exec(address)?.[1];
+  if (scheme && !LINK_SCHEMES.has(scheme.toLowerCase())) return null;
+  return address || null;
+}
+
 /** Who wrote an element, from its contributor attribute. */
 export function readContributorAuthorAttr(dom: Element): string | null {
   return dom.getAttribute(DATA_CONTRIBUTOR_ATTR) || null;
