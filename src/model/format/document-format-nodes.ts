@@ -10,6 +10,7 @@ import {
   type Schema,
 } from 'prosemirror-model';
 import { cloneJson } from '../clone-json.js';
+import { compareMarks } from '../schema/mark-order.js';
 import {
   type DocumentReadPolicy,
   type DocumentReadProblem,
@@ -128,11 +129,34 @@ function readMark(stored: unknown, at: Located): Mark | null {
   return type.create(readAttrs(stored.attrs, { type, mappings: STORED_MARK_TYPES }, at));
 }
 
-// The marks a stored node carries, text or not, without those that cannot be read.
+const storedMarkName = (mark: Mark) => STORED_MARK_TYPES[mark.type.name]?.type ?? mark.type.name;
+
+// Whether two marks cannot sit on one node: one mark twice, or types of which one excludes the other.
+const excludeEachOther = (one: Mark, other: Mark) =>
+  one.eq(other) || one.type.excludes(other.type) || other.type.excludes(one.type);
+
+/**
+ * The marks a stored node carries, text or not, in canonical order, without those that cannot be
+ * read. A mark that one before it excludes, such as a second mark of a type that excludes itself,
+ * is left out and listed: ProseMirror refuses a node that holds both, and the document with it.
+ */
 function readMarks(stored: Attrs, at: Located): Mark[] {
-  return (Array.isArray(stored.marks) ? stored.marks : [])
-    .map((mark, index) => readMark(mark, { ...at, path: `${at.path}.marks[${String(index)}]` }))
-    .filter((mark): mark is Mark => mark !== null);
+  const paths = new Map<Mark, string>();
+  (Array.isArray(stored.marks) ? stored.marks : []).forEach((each, index) => {
+    const path = `${at.path}.marks[${String(index)}]`;
+    const mark = readMark(each, { ...at, path });
+    if (mark) paths.set(mark, path);
+  });
+  const kept: Mark[] = [];
+  for (const mark of Mark.setFrom([...paths.keys()].sort(compareMarks))) {
+    const first = kept.find((each) => excludeEachOther(each, mark));
+    if (!first) kept.push(mark);
+    else {
+      const names = `a ${storedMarkName(first)} mark excludes this ${storedMarkName(mark)} mark`;
+      report({ ...at, path: paths.get(mark) ?? at.path }, names);
+    }
+  }
+  return kept;
 }
 
 function readText(stored: Attrs, at: Located): ProseMirrorNode | null {
@@ -253,7 +277,7 @@ function readNode(stored: unknown, at: Located, inline: boolean): ProseMirrorNod
   if (!node) return unreadable(stored, at, { inline, message: `${stored.type} cannot be read` });
   // A mention, a footnote marker or math carries marks as text does: a suggestion, a comment.
   const marks = readMarks(stored, at);
-  return marks.length ? node.mark(Mark.setFrom(marks)) : node;
+  return marks.length ? node.mark(marks) : node;
 }
 
 function readKnownNode(stored: Attrs, type: NodeType, at: Located): ProseMirrorNode | null {

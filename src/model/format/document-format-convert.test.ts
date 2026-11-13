@@ -163,6 +163,36 @@ describe('lenient reading', () => {
   });
 });
 
+describe('marks that exclude each other', () => {
+  const contributor = (author: string) => ({ type: 'contributor', attrs: { author } });
+  const marks = [contributor('u2'), { type: 'bold' }, contributor('u1')];
+  const file: DocumentFile = {
+    formatVersion: 1,
+    sections: [
+      { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Streamed', marks }] }] },
+    ],
+  };
+  const path = 'sections[0].content[0].content[0].marks[0]';
+  const message = 'a contributor mark excludes this contributor mark';
+
+  it('DOCE-FORMAT-1.4 names the mark another mark of its node excludes', () => {
+    expect(() => readDocumentFile(file, documentSchema)).toThrow(`${path}: ${message}`);
+  });
+
+  it('DOCE-FORMAT-1.5 keeps the first of them in canonical order and reads the rest', () => {
+    for (const unknown of ['drop', 'keep'] as const) {
+      const { doc, problems } = readDocumentFile(file, documentSchema, { unknown });
+      expect(problems).toEqual([{ path, message, kept: false }]);
+      const written = writeDocumentFile(doc).sections[0]?.content[0]?.content?.[0];
+      expect(written).toEqual({
+        type: 'text',
+        text: 'Streamed',
+        marks: [{ type: 'bold' }, contributor('u1')],
+      });
+    }
+  });
+});
+
 describe('mark order on reading', () => {
   it('DOCE-FORMAT-1.2 reads overlapping marks of one type in canonical order', () => {
     const comment = (thread: string) => ({ type: 'comment', attrs: { thread } });
