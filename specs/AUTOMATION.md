@@ -73,24 +73,66 @@ Verification: `e2e/automation.spec.ts`
 
 ### DOCE-AUTOMATION-3.1 - What the provider is asked
 
-`completionRequest(state, context)` shall give the text before the caret, up to `context` characters (2000 by default) across the blocks before it, and the rest of the caret's block; none without a caret in text outside code, or with nothing before it.
+`completionRequest(state, context)` shall give the text before the caret, up to `context` characters (2000 by default) across the blocks before it, the rest of the caret's block, and the block's element id (or none) and type (`CompletionContext`); none without a caret that may be completed (in text outside code, footnotes and the page regions), or with nothing before it.
 
-Implementation: `src/engine/inline-completion.ts`
-Verification: `src/engine/inline-completion.test.ts`
+Implementation: `src/engine/completion-text.ts`
+Verification: `src/engine/completion-text.test.ts`
 
 ### DOCE-AUTOMATION-3.2 - Taking or dismissing an offer
 
-An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, and `dismissCompletion` forgets it, and any change or caret move dismisses it.
+An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it.
 
 Implementation: `src/engine/inline-completion.ts`
 Verification: `src/engine/inline-completion.test.ts`
 
 ### DOCE-AUTOMATION-3.3 - Asking the host's provider
 
-`createInlineCompletion({ provider, delay, isEnabled })` shall ask the host's completion provider (`CompletionAdapter`) once the writer, typing with the caret in text, pauses for `delay` milliseconds (600 by default), dropping an answer that comes after the text or the caret changed, and offer what it answers; Tab takes the offer and Escape dismisses it. Only the writer's own edits ask: a collaborator's change, a plugin's, the host's or an agent's batch asks nothing while the writer is idle, and one that comes during the pause or before the answer has the provider asked again, after the pause, for the text as it is then. A transaction that changes neither the text nor the caret drops no answer.
+`createInlineCompletion({ provider, delay, context, enabled, suggesting, normalize })` shall ask the host's completion provider (`CompletionAdapter`) once the writer, typing with the caret in text, pauses for `delay` milliseconds (600 by default), and offer what it answers; Tab takes the offer and Escape dismisses it. An answer that comes after the writer typed on or moved the caret is dropped.
 
-Implementation: `src/engine/inline-completion.ts`, `src/host/adapters.ts`
+Implementation: `src/engine/inline-completion.ts`, `src/host/completion-adapters.ts`
 Verification: `src/engine/inline-completion.test.ts`, `e2e/full-editor.spec.ts`
+
+### DOCE-AUTOMATION-3.4 - Changes that are not the writer's
+
+A change that is not the writer's own (a collaborator's, a plugin's, the layout's, the host's or an agent's batch, a check's result, another person's caret) shall drop neither the question asked nor the offer: both follow the change while the caret stays where they are, and the answer is offered where the caret is then. Such a change asks nothing, and one during the pause leaves the pause as it is, the provider then given the text as it is.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.5 - A taken completion is the agent's
+
+The text a taken completion puts in shall carry one contributor mark, the provider's `agent` with the answer's session, in place of the one the text there carries, and the change shall be marked with that agent (`automationActor(tr)`), so the writer's own marking leaves it as it is. While the writer suggests (`suggesting`), it goes in as the agent's suggestion.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`, `e2e/full-editor.spec.ts`
+
+### DOCE-AUTOMATION-3.6 - Typed keys ask
+
+Only a key that types a character shall ask: not a paste, a drop, an undo, a key with a command modifier, a composition (IME), or an edit with no key; nor typing in a footnote, in code or in a page region.
+
+Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-text.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.7 - On, off and available
+
+Completion shall start on unless `enabled` is false; `setInlineCompletionEnabled` turns it on or off, off dismissing what it offers and asking nothing. It asks nothing while the provider says it is unavailable (`availability`), and follows the provider's changes of it (`subscribe`). `completionStatus(state)` gives whether it is on, whether the provider can be asked or why not, and whether it is idle, asking or offering; none without the plugin.
+
+Implementation: `src/engine/inline-completion.ts`
+Verification: `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.8 - Normalising answers
+
+An answer shall be offered as `normalizeCompletion` makes it, unless the host's `normalize` replaces it: its first line, tabs as spaces and no other control characters, with no space doubling one before or after the caret, and without its end where it repeats, as whole words, what the text after the caret starts with. An answer left with only space, and a failed one, offers nothing.
+
+Implementation: `src/engine/completion-text.ts`, `src/engine/inline-completion.ts`
+Verification: `src/engine/completion-text.test.ts`, `src/engine/inline-completion.test.ts`
+
+### DOCE-AUTOMATION-3.9 - The completion toggle
+
+`inlineCompletionItem(labels, group)` shall be a toolbar item (`inline-completion`, in the `mode` group by default) a host adds to the toolbar's items: shown only while the document runs inline completion, pressed while it is on, turning it on and off, and unavailable, with the provider's reason, while the provider cannot be asked.
+
+Implementation: `src/components/document-editor/completion-item.ts`
+Verification: `src/components/document-editor/completion-item.test.ts`, `e2e/full-editor.spec.ts`
 
 ## DOCE-AUTOMATION-4 - On stored documents
 

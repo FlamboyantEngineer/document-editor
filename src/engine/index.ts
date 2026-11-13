@@ -182,18 +182,20 @@ export {
   numberFootnotes,
 } from './footnotes.js';
 export type {
-  CompletionRequest,
+  CompletionStatus,
   InlineCompletion,
   InlineCompletionOptions,
 } from './inline-completion.js';
 export {
   acceptCompletion,
-  completionRequest,
+  completionStatus,
   createInlineCompletion,
   dismissCompletion,
   inlineCompletion,
   offerCompletion,
+  setInlineCompletionEnabled,
 } from './inline-completion.js';
+export { completionRequest, normalizeCompletion } from './completion-text.js';
 export type { LayoutSectionAt, LayoutSectionsOptions } from './layout-sections.js';
 export {
   activeLayoutPreset,

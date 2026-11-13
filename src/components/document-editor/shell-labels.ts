@@ -1,5 +1,6 @@
 // The text of the editor's shell controls: the editing mode and markup controls, the layout menu,
-// the toolbar's overflow, the reasons a control is unavailable, and the Tools menu's updates.
+// the toolbar's overflow, the reasons a control is unavailable, the Tools menu's updates, and the
+// inline completion toggle.
 
 /** The text of the editor's mode, markup and layout controls. */
 export interface ShellLabels {
@@ -27,6 +28,10 @@ export interface ShellLabels {
   readonly reasonSuggesting: string;
   readonly updateReferences: string;
   readonly updateAbbreviations: string;
+  /** Names the inline completion toggle. */
+  readonly inlineCompletion: string;
+  /** Why the inline completion toggle is unavailable when the provider gives no reason. */
+  readonly reasonCompletionUnavailable: string;
 }
 
 /** The shell controls' English text. */
@@ -48,4 +53,6 @@ export const DEFAULT_SHELL_LABELS: ShellLabels = {
   reasonSuggesting: 'Not available while suggesting',
   updateReferences: 'Update all references',
   updateAbbreviations: 'Update abbreviations from the glossary',
+  inlineCompletion: 'Inline completion',
+  reasonCompletionUnavailable: 'Completion is not available now',
 };

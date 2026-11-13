@@ -1,6 +1,5 @@
 export type {
   CodeSourceAdapter,
-  CompletionAdapter,
   DocumentSave,
   DocumentStoreAdapter,
   DocumentVersion,
@@ -42,6 +41,12 @@ export type {
   StoredAsset,
   StoredDiagram,
 } from './asset-adapters.js';
+export type {
+  CompletionAdapter,
+  CompletionAnswer,
+  CompletionAvailability,
+  CompletionContext,
+} from './completion-adapters.js';
 export type {
   ConnectionAccess,
   EditingMode,
