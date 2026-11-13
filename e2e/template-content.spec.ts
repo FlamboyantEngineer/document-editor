@@ -80,11 +80,20 @@ test.describe('template content lab', () => {
   }) => {
     await lab.open('template-content');
     // Bold and italic in the header.
-    const header = content(page).locator('.pm-page-header p').first();
-    await header.click();
+    // The headers turn editable once region editing has set them again.
+    const headers = content(page).locator('.pm-page-header');
+    await expect(headers.first()).not.toHaveAttribute('contenteditable', 'false');
+    await headers.first().locator('p').first().click();
     await page.keyboard.press('End');
     await page.keyboard.press('Shift+Home');
-    await page.getByRole('button', { name: 'Bold', exact: true }).click();
+    await expect
+      .poll(() => page.evaluate(() => document.getSelection()?.toString()))
+      .toBe('Lab template');
+    // The toolbar follows the selection a render later.
+    const bold = page.getByRole('button', { name: 'Bold', exact: true });
+    await expect(bold).toBeEnabled();
+    await bold.click();
+    await expect(bold).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Italic', exact: true }).click();
     await expect
       .poll(async () => JSON.stringify((await template(page)).header?.content))
