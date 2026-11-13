@@ -3,14 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { diffText } from './text-diff.js';
-import {
-  changeLineMarks,
-  createVersionChanges,
-  refreshVersionChanges,
-  versionChangeDecorations,
-  versionChanges,
-} from './version-changes.js';
+import { createVersionChanges, refreshVersionChanges, versionChanges } from './version-changes.js';
 import { compareVersions } from './version-compare.js';
+import { changeLineMarks, versionChangeDecorations } from './version-decorations.js';
 
 const paragraph = (id: string, value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
   type: 'paragraph',

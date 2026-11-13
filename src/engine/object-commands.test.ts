@@ -88,6 +88,17 @@ describe('object commands', () => {
     expect(outline(state)).toEqual(['paragraph:Text', 'code_block:']);
   });
 
+  it('DOCE-OBJECTS-1.1 takes the whole text of the blocks a selection only partly covers', () => {
+    let state = stateOf(paragraph('Keep this. let a = 1;'), paragraph('let b = 2; keep that.'));
+    const from = find(state, 'let a');
+    const to = find(state, 'let b') + 'let b = 2;'.length;
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
+    state = run(state, insertCodeBlock());
+    expect(outline(state)).toEqual(['code_block:Keep this. let a = 1;\nlet b = 2; keep that.']);
+    // The caret ends after the code, where the writer goes on typing.
+    expect(state.selection.$from.parentOffset).toBe(state.selection.$from.parent.content.size);
+  });
+
   it('DOCE-OBJECTS-1.2 inserts linked code and reads the lines a URL names', () => {
     const state = run(
       select(stateOf(paragraph('Intro')), 'Intro'),
@@ -115,6 +126,23 @@ describe('object commands', () => {
     state = run(state, setMathSource(''));
     expect(state.doc.textBetween(0, state.doc.content.size)).not.toContain('mc^2');
     expect(insertMath('  ')(state)).toBe(false);
+  });
+
+  it('DOCE-OBJECTS-1.3 refuses to turn math into a block where no block may go', () => {
+    const math: StoredNode = { type: 'math', attrs: { source: 'x^2' } };
+    const note: StoredNode = {
+      type: 'footnote',
+      attrs: { id: 'n1' },
+      content: [text('See '), math],
+    };
+    const state = stateOf({ type: 'paragraph', content: [text('Body'), note] });
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === 'math_inline') at = pos;
+    });
+    const selected = state.apply(state.tr.setSelection(NodeSelection.create(state.doc, at)));
+    expect(selected.selection.$from.parent.type.name).toBe('footnote_entry');
+    expect(convertMath(selected)).toBe(false);
   });
 
   it('DOCE-OBJECTS-1.4 inserts a figure, then changes and aligns it', () => {

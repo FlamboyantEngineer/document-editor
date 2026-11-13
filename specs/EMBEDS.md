@@ -22,10 +22,10 @@ Verification: `src/engine/embeds.test.ts`
 
 ### DOCE-EMBEDS-2.1 - Locked content
 
-`createEmbeds()`, which the editing extension installs (DOCE-EDITING-3.1, priority 513), shall refuse a writer's change (`isWritersChange`) that changes what an embed holds (`touchesEmbed`): a step whose range starts or ends inside an embed, typing, marking text, setting a node's attributes, adding or removing a table's rows and columns, or a deletion reaching into it. A range around a whole embed, which adds, moves or deletes it, passes, as do comment highlights, undo and redo, remote, derived and system changes, and the host's own changes, which carry `embedsKey`.
+`createEmbeds()`, which the editing extension installs (DOCE-EDITING-3.1, priority 513), shall refuse a writer's change (`isWritersChange`) that changes what an embed holds (`touchesEmbed`): a step whose range starts or ends inside an embed, typing, marking text, setting a node's attributes, adding or removing a table's rows and columns, or a deletion reaching into it. A mark set or taken off across a whole embed, as one taken off a selection of all the text is, changes what it holds too and is refused. Any other range around a whole embed, which adds, moves or deletes it, passes, as do comment highlights, undo and redo, remote, derived and system changes, and the host's own changes, which carry `embedsKey`. A refused change is dropped whole, so a command that changes text first asks `isHostContentAt(doc, pos)`, which tells whether a position is inside content the host owns, an embed's or a script block's output (DOCE-OBJECTS-4.3), and leaves that content out.
 
-Implementation: `src/engine/embeds.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/embeds.test.ts`, `src/engine/features.test.ts`
+Implementation: `src/engine/embeds.ts`, `src/engine/host-content.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/embeds.test.ts`, `src/engine/host-content.test.ts`, `src/engine/features.test.ts`
 
 ### DOCE-EMBEDS-2.2 - Pasting embeds as their content
 
@@ -38,14 +38,14 @@ Verification: `src/engine/embeds.test.ts`
 
 ### DOCE-EMBEDS-3.1 - Status
 
-`createEmbedStatus({ source, delay })` shall resolve the content of the document's embeds of the host's kinds through the host's `embeds` adapter a moment after each change (500 milliseconds by default), each content once by its kind and source (`embedSourceKey`), and mark an embed whose content is gone `unavailable`, one whose content the reader may not read `no-access`, and one whose content's state is not the one it shows `update` (`data-embed-status`; `embedStatus`, `embedStatusAt`). Typing walks no embed. `refreshEmbedStatus` asks the host for every content again; `resolveEmbeds(answered)` records answers as the plugin does.
+`createEmbedStatus({ source, delay })` shall resolve the content of the document's embeds of the host's kinds through the host's `embeds` adapter a moment after each change (500 milliseconds by default), each content once by its kind and source (`embedSourceKey`), and mark an embed whose content is gone `unavailable`, one whose content the reader may not read `no-access`, and one whose content's state is not the one it shows `update` (`data-embed-status`; `embedStatus`, `embedStatusAt`). Typing walks no embed. `refreshEmbedStatus` asks the host for every content again, at once, also when nothing was resolved before; `resolveEmbeds(answered)` records answers as the plugin does.
 
 Implementation: `src/engine/embed-status.ts`
 Verification: `src/engine/embeds.test.ts`
 
 ### DOCE-EMBEDS-3.2 - Taking an update
 
-`updateEmbed(view, source, { pos })` shall load the content of the embed at `pos`, or at the selection, from the host and put it in (`applyEmbedUpdate(pos, loaded)`), recording the content's state and label, as one change the writer can undo that is never a suggestion. The content's elements take ids made from the embed's id and their place, so an element keeps its id across updates and references to it hold. An update that holds the same content and state changes nothing; an embed the host fails to load, or a document changed while loading, is left alone.
+`updateEmbed(view, source, { pos })` shall load the content of the embed at `pos`, or at the selection, from the host and put it in (`applyEmbedUpdate(pos, loaded)`), recording the content's state and label, as one change the writer can undo that is never a suggestion. The content's elements take ids made from the embed's id and their place, so an element keeps its id across updates and references to it hold. An update that holds the same content and state changes nothing, and content the document cannot read is refused. The update goes where the embed is once the host has loaded, found by its element id, so a change made around it meanwhile, such as a collaborator's typing, does not drop it; an embed the host fails to load, or one that changed or went while loading, is left alone.
 
 Implementation: `src/engine/embed-status.ts`, `src/engine/scripts.ts`
 Verification: `src/engine/embeds.test.ts`

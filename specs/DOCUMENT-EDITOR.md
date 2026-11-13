@@ -41,7 +41,7 @@ Verification: `src/components/document-editor/document-editor.test.tsx`
 
 ### DOCE-EDITOR-1.6 - Accessibility
 
-The editor shall be usable with assistive technology: its scrolling frame is a named region that takes keyboard focus, so a read document scrolls from the keyboard (DOCE-EDITOR-4.2); the measuring view is hidden from it (DOCE-EDITOR-1.3); its parts announce through its live regions (DOCE-EDITOR-5.6). Every lab shall pass an axe scan with no serious or critical violation.
+The editor shall be usable with assistive technology: its scrolling frame is a named region that takes keyboard focus, so a read document scrolls from the keyboard (DOCE-EDITOR-4.2); the measuring view is hidden from it and inert, so nothing in it takes focus (DOCE-EDITOR-1.3); its parts announce through its live regions (DOCE-EDITOR-5.6). Every lab shall pass an axe scan with no serious or critical violation.
 
 Implementation: `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `e2e/a11y.spec.ts`

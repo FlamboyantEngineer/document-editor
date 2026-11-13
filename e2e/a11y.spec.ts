@@ -48,7 +48,9 @@ test('DOCE-PAGINATION-8.5 DOCE-EDITOR-1.6 hides the measuring view and the repea
   page,
 }) => {
   await lab.open('document-editor');
-  await expect(page.locator('.de-document-editor__measure')).toHaveAttribute('aria-hidden', 'true');
+  const measure = page.locator('.de-document-editor__measure');
+  await expect(measure).toHaveAttribute('aria-hidden', 'true');
+  await expect(measure).toHaveAttribute('inert');
   const pages = page.locator('.de-document-editor__content .pm-page');
   expect(await pages.count()).toBeGreaterThan(1);
   await expect(pages.first().locator('> .pm-page-header')).not.toHaveAttribute('aria-hidden');

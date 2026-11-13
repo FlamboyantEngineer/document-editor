@@ -150,7 +150,8 @@ export function setColumnWidths(table: number, widths: readonly number[]): Comma
     const id = node.attrs.dataId as unknown;
     const set: Command = (inner, done) => {
       const found = wholeTable(inner.doc, table, id);
-      if (!found) return false;
+      // Widths for another number of columns would leave cells without one.
+      if (!found || TableMap.get(found.node).width !== widths.length) return false;
       const tr = inner.tr;
       if (found.node.attrs.objectLayout === 'fit-page-width') {
         tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, objectLayout: 'left' });
@@ -174,6 +175,27 @@ export function setColumnWidths(table: number, widths: readonly number[]): Comma
   };
 }
 
+// What a table and its column group show, to put back after a drag that changes nothing.
+function shownStyles(table: HTMLElement) {
+  const columns = [...table.querySelectorAll(':scope > colgroup > col')];
+  const styles = [table, ...columns].map((each) => [each, each.getAttribute('style')] as const);
+  return () => {
+    for (const [element, style] of styles) {
+      if (style === null) element.removeAttribute('style');
+      else element.setAttribute('style', style);
+    }
+  };
+}
+
+// Ends a drag in the plugin's state and gives the table of the cell it held, or -1: the state
+// follows the cell through the changes made during the drag, such as a collaborator's, and holds
+// none once the cell is gone.
+function endDrag(view: EditorView): number {
+  const handle = resizeKey.getState(view.state)?.handle ?? -1;
+  view.dispatch(view.state.tr.setMeta(resizeKey, { handle: -1, dragging: false }));
+  return handle < 0 ? -1 : tableOfCell(view.state, handle).pos;
+}
+
 // Drags the right border of the cell at `handle` until the pointer is released.
 function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
   const at = tableOfCell(view.state, handle);
@@ -181,31 +203,21 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
   if (!dom) return;
   const start = laidOutWidths(view, at);
   const resize = { column: at.column, max: roomFor(dom) };
-  const shown = {
-    table: dom.getAttribute('style'),
-    columns: Array.from(dom.querySelectorAll(':scope > colgroup > col'), (col) =>
-      col.getAttribute('style'),
-    ),
-  };
+  const restore = shownStyles(dom);
   const owner = view.dom.ownerDocument;
   const widthsAt = (x: number) => resizeColumns(start, { ...resize, by: x - event.clientX });
   const move = (moved: MouseEvent) => showWidths(dom, widthsAt(moved.clientX));
   const finish = (up: MouseEvent) => {
     owner.removeEventListener('mousemove', move);
     owner.removeEventListener('mouseup', finish);
-    view.dispatch(view.state.tr.setMeta(resizeKey, { handle: -1, dragging: false }));
-    if (Math.abs(up.clientX - event.clientX) >= 1) {
-      setColumnWidths(at.pos, widthsAt(up.clientX))(view.state, view.dispatch, view);
-      return;
-    }
-    // Nothing changed, so the document draws nothing again: put back what the drag showed.
-    if (shown.table === null) dom.removeAttribute('style');
-    else dom.setAttribute('style', shown.table);
-    dom.querySelectorAll(':scope > colgroup > col').forEach((col, index) => {
-      const style = shown.columns[index];
-      if (style == null) col.removeAttribute('style');
-      else col.setAttribute('style', style);
-    });
+    if (view.isDestroyed) return;
+    const table = endDrag(view);
+    const kept =
+      table >= 0 &&
+      Math.abs(up.clientX - event.clientX) >= 1 &&
+      setColumnWidths(table, widthsAt(up.clientX))(view.state, view.dispatch, view);
+    // A drag that kept nothing has the document draw nothing again: put back what it showed.
+    if (!kept) restore();
   };
   owner.addEventListener('mousemove', move);
   owner.addEventListener('mouseup', finish);

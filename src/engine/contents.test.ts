@@ -73,6 +73,25 @@ describe('lists of contents under a template', () => {
   });
 });
 
+describe('choosing an entry', () => {
+  it('DOCE-CONTENTS-2.4 reaches the entries with the keyboard and goes to one on Enter or Space', () => {
+    const view = render(TEMPLATE);
+    const entries = [...view.querySelectorAll<HTMLElement>('.de-contents__entry')];
+    expect(entries.map((entry) => entry.tabIndex)).toEqual([0, -1]);
+    const key = (target: HTMLElement, name: string) =>
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true }));
+    const [first, second] = entries;
+    if (!first || !second || !editor) throw new Error('Two entries');
+    key(first, 'ArrowDown');
+    expect(entries.map((entry) => entry.tabIndex)).toEqual([-1, 0]);
+    key(second, 'Enter');
+    expect(String(editor.state.selection.$from.parent.textContent)).toBe('Scope details');
+    key(second, 'ArrowUp');
+    key(first, ' ');
+    expect(String(editor.state.selection.$from.parent.textContent)).toBe('Scope');
+  });
+});
+
 const abbreviation: StoredNode = {
   type: 'abbreviation',
   attrs: { entry: 'g1', abbreviation: 'GSE', expansion: 'Ground support equipment' },

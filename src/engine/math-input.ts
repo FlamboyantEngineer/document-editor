@@ -88,6 +88,13 @@ function typeInlineMath([view, from, to, text]: TextInput): boolean {
   const latex = INLINE_RULE.exec(`${before}$`)?.[1];
   if (!latex) return false;
   const at = from - latex.length - 1;
+  // The LaTeX is read as text: a span that holds another inline node, such as math, is left alone.
+  if (at < $from.start()) return false;
+  let onlyText = true;
+  state.doc.nodesBetween(at, from, (node) => {
+    if (node.isInline && !node.isText) onlyText = false;
+  });
+  if (!onlyText) return false;
   const math = type.create(null, state.schema.text(latex));
   const tr = state.tr.replaceWith(at, to, math);
   tr.setSelection(TextSelection.create(tr.doc, at + math.nodeSize));

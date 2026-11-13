@@ -47,6 +47,8 @@ interface StatusState {
   /** Each citation as the host resolved it. */
   readonly resolved: ReadonlyMap<string, Resolved>;
   readonly decorations: DecorationSet;
+  /** How many refreshes the host asked for: the view asks again at each. */
+  readonly refreshes: number;
 }
 
 const statusKey = new PluginKey<StatusState>('reference-status');
@@ -142,6 +144,7 @@ export function createReferenceStatus({
       init: (_config, state) => ({
         resolved: new Map(),
         decorations: decorate(state.doc, new Map()),
+        refreshes: 0,
       }),
       apply(tr, value) {
         const meta = tr.getMeta(statusKey) as ReadonlyMap<string, Resolved> | 'refresh' | undefined;
@@ -152,7 +155,8 @@ export function createReferenceStatus({
             : meta
               ? new Map([...value.resolved, ...meta])
               : value.resolved;
-        return { resolved, decorations: decorate(tr.doc, resolved) };
+        const refreshes = value.refreshes + (meta === 'refresh' ? 1 : 0);
+        return { resolved, decorations: decorate(tr.doc, resolved), refreshes };
       },
     },
     view(view) {
@@ -167,6 +171,7 @@ export function createReferenceStatus({
           if (cited && !resolved.has(cited.key)) wanted.set(cited.key, cited.citation);
         }
         if (!wanted.size || !source.resolve || !owner) return;
+        controller?.abort();
         controller = new owner.AbortController();
         const { signal } = controller;
         const keys = [...wanted.keys()];
@@ -188,9 +193,10 @@ export function createReferenceStatus({
       schedule();
       return {
         update(current, previous) {
-          const asked = statusKey.getState(current.state)?.resolved.size === 0;
-          const before = statusKey.getState(previous)?.resolved.size ?? 0;
-          if (!current.state.doc.eq(previous.doc) || (asked && before > 0)) schedule();
+          const refreshed =
+            statusKey.getState(current.state)?.refreshes !==
+            statusKey.getState(previous)?.refreshes;
+          if (current.state.doc !== previous.doc || refreshed) schedule();
         },
         destroy() {
           owner?.clearTimeout(timer);
