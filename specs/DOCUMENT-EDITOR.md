@@ -180,7 +180,7 @@ Verification: `e2e/objects.spec.ts`
 
 ### DOCE-EDITOR-4.6 - Pasting and dropping images
 
-With the host's `assets`, images pasted or dropped into an editable document shall be uploaded and inserted as figures where they were pasted or dropped, each its own figure after the one before, in order (`insertFigure`); an upload that fails inserts nothing and says so through the host's `feedback`.
+With the host's `assets`, images pasted or dropped into an editable document shall be uploaded and inserted as figures where they were pasted or dropped, each its own figure after the one before, in order (`insertFigure`); an upload that fails inserts nothing and says so through the host's `feedback`. A paste whose HTML holds text is that content with a picture of it beside, as an application writes copied cells: the content shall be pasted and its image files left out (DOCE-EDITING-5.5).
 
 Implementation: `src/components/document-editor/figure-paste.ts`
 Verification: `src/components/document-editor/figure-paste.test.ts`, `e2e/objects.spec.ts`

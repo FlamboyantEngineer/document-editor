@@ -31,6 +31,18 @@ export function hasPastedImages(html: string): boolean {
   });
 }
 
+/**
+ * Whether pasted HTML holds text. An application that copies content often puts a picture of it on
+ * the clipboard beside the HTML; HTML without text is an image copied alone.
+ */
+export function hasPastedText(html: string): boolean {
+  if (html.trim() === '') return false;
+  // A parsed document runs no script and loads no image.
+  const { body } = new DOMParser().parseFromString(html, 'text/html');
+  for (const element of body.querySelectorAll('style, script')) element.remove();
+  return (body.textContent ?? '').trim() !== '';
+}
+
 const extensions: Readonly<Record<string, string>> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',

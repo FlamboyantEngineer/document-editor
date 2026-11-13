@@ -17,13 +17,17 @@ function editorView() {
   });
 }
 
-// A paste carrying the given files, as the clipboard hands them to the view's handler.
-function pasteOf(files: File[]) {
+// A paste carrying the given files, and the HTML an application writes beside them, as the
+// clipboard hands them to the view's handler.
+function pasteOf(files: File[], html = '') {
+  const data: Record<string, string> = { 'text/html': html };
   return {
-    clipboardData: { files, getData: () => '' } as unknown as DataTransfer,
+    clipboardData: { files, getData: (type: string) => data[type] ?? '' },
     preventDefault: vi.fn(),
   } as unknown as ClipboardEvent;
 }
+
+const picture = (name: string) => new File(['image'], name, { type: 'image/png' });
 
 // A paste of HTML, with its RTF flavour, as the clipboard hands it to the view's handler.
 function htmlPasteOf(html: string, rtf = '') {
@@ -134,6 +138,37 @@ describe('figurePasteHandlers', () => {
     await vi.waitFor(() => expect(textOf(view)).toBe('Kept'));
     expect(figures(view)).toEqual([]);
     expect(notified.at(-1)).toEqual({ tone: 'error', text: 'The image could not be uploaded.' });
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 DOCE-EDITING-5.5 leaves a paste of content to the editor, though it carries a picture of that content too', () => {
+    const { view, uploaded, handlers } = setUp();
+    const cells = '<table><tr><td>North</td><td>12</td></tr></table>';
+    const paste = pasteOf([picture('cells.png')], cells);
+    expect(handlers.handlePaste(view, paste)).toBe(false);
+    expect(paste.preventDefault).not.toHaveBeenCalled();
+    expect(uploaded).toEqual([]);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 DOCE-EDITING-5.5 pastes content with its own images rather than the picture beside it', async () => {
+    const { view, uploaded, handlers } = setUp();
+    const html = '<p>Totals <img src="data:image/png;base64,iVBORw==" alt="Chart"></p>';
+    expect(handlers.handlePaste(view, pasteOf([picture('rendering.png')], html))).toBe(true);
+    await vi.waitFor(() => expect(figures(view)).toEqual(['Chart:asset-1']));
+    expect(textOf(view)).toBe('Totals');
+    expect(uploaded.map((file) => file.name)).toEqual(['image-1.png']);
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.6 inserts a copied image as a figure when its HTML holds the image alone', async () => {
+    const { view, uploaded, handlers } = setUp();
+    const html =
+      '<meta charset="utf-8"><style>img { border: 0 }</style>' +
+      '<img src="https://example.com/board.png" alt="Board">';
+    expect(handlers.handlePaste(view, pasteOf([picture('board.png')], html))).toBe(true);
+    await vi.waitFor(() => expect(figures(view)).toEqual(['board.png:asset-1']));
+    expect(uploaded.map((file) => file.name)).toEqual(['board.png']);
     view.destroy();
   });
 
