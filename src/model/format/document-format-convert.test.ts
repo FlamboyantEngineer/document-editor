@@ -89,6 +89,20 @@ describe('lenient reading', () => {
     ]);
   });
 
+  it('DOCE-FORMAT-1.5 lists the keys and section settings the format does not know', () => {
+    const file = {
+      formatVersion: 1,
+      sections: [{ name: 'body', columns: 2, content: [] }],
+      owner: 'ada',
+    };
+    expect(() => readDocumentFile(file, documentSchema)).toThrow('owner: unknown key owner');
+    const { problems } = readDocumentFile(file, documentSchema, { unknown: 'keep' });
+    expect(problems).toEqual([
+      { path: 'owner', message: 'unknown key owner', kept: false },
+      { path: 'sections[0].columns', message: 'unknown setting columns', kept: false },
+    ]);
+  });
+
   it('DOCE-FORMAT-1.5 keeps unknown nodes through HTML, as a copy and a paste carry them', () => {
     const { doc } = readDocumentFile(FILE, documentSchema, { unknown: 'keep' });
     const back = readHtml(writeHtml(doc, document), documentSchema, document);
