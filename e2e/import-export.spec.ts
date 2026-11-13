@@ -13,6 +13,7 @@ test.describe('import and export', () => {
     await expect(report(page)).toHaveText('The sample Markdown');
     await expect(content(page)).toContainText('Imported notes');
     await expect(content(page).locator('table')).toContainText('28 V');
+    await expect(content(page)).toContainText('The limits apply at sea level.');
     await expect(warnings(page)).toContainText('content-left-out');
   });
 
