@@ -33,6 +33,7 @@ export function useHostReach(
     layout: progress,
     openFind: find.open,
     panes,
+    references: props.referenceSource,
   });
   return { find, scope: { comments: props.comments, transactions, panes } };
 }

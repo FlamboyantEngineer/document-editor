@@ -462,6 +462,20 @@ Verification: `src/engine/snapshot.test.ts`, `src/engine/code-highlighting.test.
 Implementation: `src/components/document-editor/visible-elements.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
 Verification: `src/components/document-editor/visible-elements.test.ts`, `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-6.21 - Links in print
+
+A snapshot shall keep the document's links: the first element carrying each element id shall take it as its anchor (`id`), an internal reference that is not broken shall link to its target's anchor, a citation of another document shall link to the address the host gives it (`citationHref`, by default the `references` adapter's `href`, DOCE-HOST-1.9) and stay unlinked without one, each footnote marker shall take the anchor `fnref-<id>` and link to its entry, and each entry the anchor `fn-<id>`, its number linking back to the marker. Each link is an `a` inside the element it links, carrying `data-print-link` (`reference`, `citation`, `footnote` or `footnote-back`), and prints in the colour and decoration of the text around it, so a PDF made from the snapshot keeps working links that look as the editor shows them.
+
+Implementation: `src/engine/print-links.ts`, `src/engine/snapshot.ts`, `src/model/schema/reference-mark.ts`, `src/model/schema/footnote-nodes.ts`, `src/components/document-editor/editor-handle.ts`
+Verification: `src/engine/print-links.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.22 - Static numbers in print
+
+A snapshot shall write the number the template gives each numbered heading and object (`catalogDocument`), which the stylesheet's counters print, on the element that carries its anchor as static text (`data-number`), so a stylesheet, a converter or the print outline reads it without counting.
+
+Implementation: `src/engine/print-links.ts`, `src/engine/snapshot.ts`
+Verification: `src/engine/print-links.test.ts`
+
 ## DOCE-EDITOR-7 - Banners
 
 ### DOCE-EDITOR-7.1 - The banner region

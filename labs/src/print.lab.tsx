@@ -1,5 +1,5 @@
 // Shows a snapshot for printing (`exportSnapshot`): a document whose body sits on portrait pages
-// and whose appendix sits on landscape pages, proofed by a word-list proofer, with the layout
+// and whose appendix sits on landscape pages, citing the body with a footnote, proofed by a word-list proofer, with the layout
 // debugging and a comparison with the document as it opened on demand. The print preview shows
 // the snapshot in a frame, each section on its own sheet size, without the view-only decorations
 // (search matches, proofing issues, debugging), with a comparison's deleted text and change bars,
@@ -18,6 +18,7 @@ import {
   type DocumentFile,
   readDocumentFile,
   resolveTemplateFile,
+  type StoredNode,
   type TemplateFile,
 } from '../../src/model/index.js';
 import { chapter, text } from './lab-document.js';
@@ -44,6 +45,27 @@ const TEMPLATE = resolveTemplateFile(SECTIONED, {
 
 const PROOFER = createWordListProofer({ corrections: { teh: ['the'] } });
 
+// A chapter whose heading carries a fixed element id, for the appendix to cite.
+function citedChapter(name: string, id: string): StoredNode[] {
+  const [first, ...rest] = chapter(name);
+  return first ? [{ ...first, attrs: { ...first.attrs, id } }, ...rest] : rest;
+}
+
+// A paragraph citing the scope's heading, with a footnote: print links both ways.
+const linked: StoredNode = {
+  type: 'paragraph',
+  content: [
+    text('Terms follow '),
+    {
+      type: 'text',
+      text: 'the scope',
+      marks: [{ type: 'reference', attrs: { target: 'c0de5c0e' } }],
+    },
+    text(' of this document.'),
+    { type: 'footnote', attrs: { id: 'terms' }, content: [text('Listed by first use.')] },
+  ],
+};
+
 function sample(): DocumentFile {
   return {
     formatVersion: 1,
@@ -51,11 +73,11 @@ function sample(): DocumentFile {
       {
         name: null,
         content: [
-          ...chapter('Scope'),
+          ...citedChapter('Scope', 'c0de5c0e'),
           { type: 'paragraph', content: [text('Check teh limits before each release.')] },
         ],
       },
-      { name: 'appendix', content: chapter('Glossary') },
+      { name: 'appendix', content: [...chapter('Glossary'), linked] },
     ],
   };
 }

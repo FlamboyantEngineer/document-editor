@@ -62,7 +62,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.9 - Citations and the glossary
 
-The host's `references` adapter shall find citations of other documents, or of targets in them, by a query, each with its reference type, what it records of the document cited and its label, and may resolve citations, by the document and target they name, as they are now, null for one that is gone and `no-access` for one the reader may not read. The host's `glossary` adapter shall find entries by their abbreviation or expansion, add an entry and return it with its id, and resolve entries by id as they are now.
+The host's `references` adapter shall find citations of other documents, or of targets in them, by a query, each with its reference type, what it records of the document cited and its label, and may resolve citations, by the document and target they name, as they are now, null for one that is gone and `no-access` for one the reader may not read. It may also give the address a printed citation links to (`href`), answering at once (DOCE-EDITOR-6.21). The host's `glossary` adapter shall find entries by their abbreviation or expansion, add an entry and return it with its id, and resolve entries by id as they are now.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`

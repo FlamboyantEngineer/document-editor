@@ -1,5 +1,6 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type { CitationHref, PrintedCitation } from '../model/schema/reference-mark.js';
 export type {
   AbbreviationHealthOptions,
   AbbreviationIssue,

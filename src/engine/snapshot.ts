@@ -10,7 +10,9 @@ import {
   templatePageMetrics,
   templateProperties,
 } from '../model/index.js';
+import type { CitationHref } from '../model/schema/reference-mark.js';
 import { copyCodeHighlights } from './code-highlighting.js';
+import { addPrintLinks, elementNumbers, PRINT_LINK_ATTRIBUTE } from './print-links.js';
 import {
   applySuggestionMarkup,
   editorMarkup,
@@ -31,6 +33,8 @@ export interface SnapshotOptions {
   readonly stylesheets?: readonly string[] | undefined;
   /** How suggestions show; by default as the editor shows them, its simple markup as `final`. */
   readonly markup?: SnapshotMarkup | undefined;
+  /** Where a citation of another document links; by default the host's `references.href`. */
+  readonly citationHref?: CitationHref | undefined;
 }
 
 // The editing state a snapshot leaves out: attributes and the elements only an editor draws.
@@ -87,23 +91,28 @@ function printRules(template: TemplateFile, sizes: readonly string[]): string {
     '.pm-page { break-after: page; }',
     '.pm-section:last-child > .pm-page:last-child { break-after: auto; }',
     '@media print { body.de-snapshot { margin: 0; } .de-snapshot :is(.pm-section, .pm-page) { margin: 0 !important; gap: 0 !important; } }',
+    `.de-snapshot a[${PRINT_LINK_ATTRIBUTE}] { color: inherit; text-decoration: inherit; }`,
     ':root { color-scheme: light; } .de-snapshot, .de-snapshot * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }',
   ].join(' ');
 }
 
 // The document's pages as markup, without the editing state or view-only decorations, with the
-// code highlights the view paints and the suggestions the markup shows, each section marked with
-// its sheet.
+// code highlights the view paints, the suggestions the markup shows and the links print keeps,
+// each section marked with its sheet.
 function pagesMarkup(
   view: EditorView,
-  sections: readonly number[],
-  markup: SnapshotMarkup,
+  options: SnapshotOptions & { readonly sections: readonly number[]; markup: SnapshotMarkup },
 ): string {
+  const { sections, markup } = options;
   const copy = view.dom.cloneNode(true) as HTMLElement;
   copyCodeHighlights(view, copy);
   for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
   removeViewOnlyDecorations(copy, view);
   applySuggestionMarkup(copy, markup);
+  addPrintLinks(copy, {
+    numbers: elementNumbers(view.state.doc, options.template),
+    href: options.citationHref,
+  });
   for (const [index, element] of copy.querySelectorAll(':scope > .pm-section').entries()) {
     element.setAttribute(SHEET_ATTRIBUTE, String(sections[index] ?? 0));
   }
@@ -170,7 +179,7 @@ export function documentSnapshot(view: EditorView, options: SnapshotOptions): st
     links,
     styles,
     '</head><body class="de-snapshot">',
-    rootMarkup(view, pagesMarkup(view, sections, markup), markup),
+    rootMarkup(view, pagesMarkup(view, { ...options, sections, markup }), markup),
     '</body></html>',
   ].join('');
 }

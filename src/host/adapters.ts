@@ -5,10 +5,12 @@ import type { ReferenceBaseline } from '../model/reference-format.js';
 import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
 import type { CommentStoreAdapter } from './comment-adapters.js';
+import type { ExportsAdapter } from './export-adapters.js';
 import type { ProoferAdapter } from './proofing-adapters.js';
 import type { CollaborationAdapter, DraftsAdapter, LifecycleAdapter } from './session-adapters.js';
 
 export type * from './asset-adapters.js';
+export type * from './export-adapters.js';
 
 /** A failure the host reports for a request it could not complete. */
 export interface HostError {
@@ -251,6 +253,11 @@ export interface ReferenceSourceAdapter {
     citations: readonly { documentId: string; targetId: string | null }[],
     signal?: AbortSignal,
   ): Promise<HostResult<(ReferenceBaseline | null | 'no-access')[]>>;
+  /**
+   * The address a printed citation links to, such as the cited document in the host; null leaves
+   * it unlinked. Called while a snapshot is made, so it answers at once.
+   */
+  href?(citation: { refType: string; baseline: ReferenceBaseline }): string | null;
 }
 
 /** What an embed shows: content the host keeps elsewhere, by its kind and the host's id for it. */
@@ -348,6 +355,7 @@ export interface EditorHost {
   comments?: CommentStoreAdapter | undefined;
   versions?: VersionStoreAdapter | undefined;
   feedback?: FeedbackAdapter | undefined;
+  exports?: ExportsAdapter | undefined;
   telemetry?: TelemetryAdapter | undefined;
   proofer?: ProoferAdapter | undefined;
   variables?: VariablesAdapter | undefined;

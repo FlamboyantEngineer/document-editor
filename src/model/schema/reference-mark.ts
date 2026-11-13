@@ -4,7 +4,12 @@
 // resolving anything.
 
 import type { Mark, MarkSpec } from 'prosemirror-model';
-import { referenceFormatKeyForMark, referenceFormatKeys } from '../reference-format.js';
+import {
+  readReferenceBaseline,
+  type ReferenceBaseline,
+  referenceFormatKeyForMark,
+  referenceFormatKeys,
+} from '../reference-format.js';
 import type { DomAttributes } from './dom-attributes.js';
 import type { ResolvedSchemaOptions } from './schema-options.js';
 
@@ -25,7 +30,35 @@ const TEXT_ATTRS = [
   ['docPages', 'data-doc-pages'],
 ] as const;
 
-function readReferenceAttrs(dom: HTMLElement): Record<string, unknown> {
+/** A citation of another document as print links it: its reference type and what it records. */
+export interface PrintedCitation {
+  readonly refType: string;
+  readonly baseline: ReferenceBaseline;
+}
+
+/** The address a printed citation of another document links to; null leaves it unlinked. */
+export type CitationHref = (citation: PrintedCitation) => string | null;
+
+/**
+ * Where a reference links in print, from its stored attributes: an internal one to its target's
+ * anchor, the target's element id; a citation of another document where the host says (`href`);
+ * a broken one nowhere.
+ */
+export function referencePrintHref(
+  attrs: Readonly<Record<string, unknown>>,
+  href?: CitationHref,
+): string | null {
+  if (attrs.broken === true) return null;
+  const refType = typeof attrs.refType === 'string' ? attrs.refType : 'internal-heading';
+  if (refType.startsWith('internal-')) {
+    return typeof attrs.targetId === 'string' && attrs.targetId ? `#${attrs.targetId}` : null;
+  }
+  const baseline = readReferenceBaseline(attrs.referenceBaseline);
+  return baseline && href ? href({ refType, baseline }) : null;
+}
+
+/** A rendered reference's stored attributes, as its element writes them. */
+export function readReferenceAttrs(dom: Element): Record<string, unknown> {
   const attrs: Record<string, unknown> = {
     refType: dom.getAttribute('data-ref-type') || 'internal-heading',
     includeRevision: dom.getAttribute('data-include-revision') === 'true',
