@@ -15,7 +15,9 @@ export {
   normalizeGlossaryInput,
   prefillAbbreviation,
 } from './glossary.js';
+export { scaleColumns } from './layout/column-widths.js';
 export * from './layout/layout-sections.js';
+export { fitStoredTables } from './layout/stored-table-widths.js';
 export { parseCodeLines, sliceCodeLines } from './linked-code.js';
 export type { CaptionPlacement } from './numbering/caption-placement.js';
 export {
@@ -239,5 +241,14 @@ export {
   resolveRegionSpacing,
   sectionRestartsNumbering,
 } from './templates/template-scopes.js';
-export { findTemplateSection, requiredTemplateSections } from './templates/template-sections.js';
+export type {
+  ComposeDocumentOptions,
+  CreateDocumentOptions,
+} from './templates/template-sections.js';
+export {
+  composeDocumentFile,
+  createDocumentFile,
+  findTemplateSection,
+  requiredTemplateSections,
+} from './templates/template-sections.js';
 export * from './templates/template-settings.js';

@@ -208,6 +208,50 @@ describe('DocumentEditor', () => {
     expect(seen).toEqual([expect.stringContaining('Oh, Hello')]);
   });
 
+  it('DOCE-EDITOR-1.7 sets the text style chosen on the state shown', async () => {
+    const held: { current: EditorState | null } = { current: null };
+    function Shown() {
+      const [state, setState] = useState(initial);
+      useEffect(() => {
+        held.current = state;
+      });
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => setState(state.apply(state.tr.insertText('Oh, ', textStart(state))))}
+          >
+            Change
+          </button>
+          <DocumentEditor
+            state={state}
+            onStateChange={setState}
+            template={TEMPLATE}
+            layout="web"
+            toolbar
+            aria-label="Report"
+          />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Shown />);
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Report' })).toHaveTextContent('Oh, Hello'),
+    );
+    await user.click(screen.getByRole('button', { name: /Text style/ }));
+    await user.click(await screen.findByRole('option', { name: /Heading 1/ }));
+    const headings = () => {
+      const found: string[] = [];
+      held.current?.doc.descendants((node) => {
+        if (node.type.name === 'heading') found.push(node.textContent);
+      });
+      return found;
+    };
+    await waitFor(() => expect(headings()).toEqual(['Oh, Hello']));
+  });
+
   it('DOCE-EDITOR-1.8 draws the pages in a plain view, the host views in the editor', async () => {
     function HostParagraph({ nodeProps, children, ...props }: RichTextNodeViewProps) {
       void nodeProps;
