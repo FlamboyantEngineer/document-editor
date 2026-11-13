@@ -11,6 +11,7 @@ import {
 } from '../model/index.js';
 import { createCustomStyles } from './custom-styles.js';
 import { createDocumentSections } from './document-sections.js';
+import { createDynamicTemplates } from './dynamic-templates.js';
 
 // The keystroke hot path: plugins whose state follows the whole document skip walking it for a
 // change that only types text.
@@ -30,7 +31,14 @@ const READ = readDocumentFile(
   {
     formatVersion: 1,
     sections: [
-      { name: null, content: [paragraph('Plain text'), paragraph('Noted')] },
+      {
+        name: null,
+        content: [
+          paragraph('Plain text'),
+          { type: 'templateBlock', attrs: { source: '<p>Block</p>' } },
+          paragraph('Noted'),
+        ],
+      },
       { name: 'appendix', content: [paragraph('')] },
     ],
   },
@@ -57,6 +65,7 @@ const DOC = EditorState.create({ doc: READ }).apply(
 const PLUGINS = (): Plugin[] => [
   createCustomStyles({ template: () => TEMPLATE }),
   createDocumentSections({ template: () => TEMPLATE }),
+  createDynamicTemplates(),
 ];
 
 // Counts the walks over the document and its sections while a change applies.
@@ -78,7 +87,7 @@ afterEach(() => {
 });
 
 describe('keystroke hot path', () => {
-  it('DOCE-EDITING-3.4 types text without walking the document for custom styles and sections', () => {
+  it('DOCE-EDITING-3.4 types text without walking the document for custom styles, sections and template blocks', () => {
     const state = EditorState.create({ doc: DOC, plugins: PLUGINS() });
     const at = positionOf(DOC, 'Noted') + 2;
     const { next, count } = walksDuring(state, (from) =>
