@@ -6,7 +6,7 @@ import { BookOpenGlyph, GlobeGlyph } from '@flamboyantengineer/ui-components/cor
 import { NumberField } from '@flamboyantengineer/ui-components/number-field';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import type { EditorView } from 'prosemirror-view';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import type { DocumentLayout } from './use-document-layout.js';
@@ -22,8 +22,11 @@ export function scrollToPage(view: EditorView, page: number): boolean {
   return true;
 }
 
-/** The page status, which opens a field to go to a page by its number. */
-export function PageJump({
+/**
+ * The page status, which opens a field to go to a page by its number; drawn again only when the
+ * page or the count changes (DOCE-EDITOR-1.7).
+ */
+export const PageJump = memo(function PageJump({
   view,
   labels,
   page,
@@ -59,7 +62,7 @@ export function PageJump({
       </Popover>
     </PopoverTrigger>
   );
-}
+});
 
 /** Switches between the pages and the web layout: one button for each, the one shown pressed. */
 export function LayoutToggle({

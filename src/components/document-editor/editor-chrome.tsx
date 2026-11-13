@@ -4,7 +4,7 @@
 import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-control';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { memo, type RefObject, useEffect, useMemo } from 'react';
+import { memo, type RefObject, useDeferredValue, useEffect, useMemo } from 'react';
 import { customStyleNames } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
@@ -61,12 +61,22 @@ export type TopChromeProps = ChromeProps & {
 export type BottomChromeProps = ChromeProps & { openDialog: (dialog: ObjectDialog) => void };
 
 /**
- * The chrome above the document as it follows the editor: given the editor's values deferred
- * (`useDeferredValue`), it draws each state in a render after the one that draws the document,
- * which React may interrupt, and its controls read the editor's context as it draws them
- * (DOCE-EDITOR-1.7).
+ * The chrome above the document as it follows the editor: it takes the editor's values deferred
+ * (`useDeferredValue`), so it draws each state in a render of its own after the one that draws the
+ * document, which React may interrupt, and only it draws again in that render; its controls read
+ * the editor's context as it draws them (DOCE-EDITOR-1.7).
  */
-export const FollowingTopChrome = memo(function FollowingTopChrome(chrome: TopChromeProps) {
+export function FollowingTopChrome(chrome: TopChromeProps) {
+  return <ShownTopChrome chrome={useDeferredValue(chrome)} />;
+}
+
+/** The chrome below the document as it follows the editor, as `FollowingTopChrome`. */
+export function FollowingBottomChrome(chrome: BottomChromeProps) {
+  return <ShownBottomChrome chrome={useDeferredValue(chrome)} />;
+}
+
+// The chrome as the deferred values show it: the urgent render leaves it as it was.
+const ShownTopChrome = memo(function ShownTopChrome({ chrome }: { chrome: TopChromeProps }) {
   return (
     <DocumentEditorContext value={chrome.context}>
       <TopChrome {...chrome} />
@@ -74,10 +84,11 @@ export const FollowingTopChrome = memo(function FollowingTopChrome(chrome: TopCh
   );
 });
 
-/** The chrome below the document as it follows the editor, as `FollowingTopChrome`. */
-export const FollowingBottomChrome = memo(function FollowingBottomChrome(
-  chrome: BottomChromeProps,
-) {
+const ShownBottomChrome = memo(function ShownBottomChrome({
+  chrome,
+}: {
+  chrome: BottomChromeProps;
+}) {
   return (
     <DocumentEditorContext value={chrome.context}>
       <BottomChrome {...chrome} />
@@ -164,8 +175,9 @@ function TopChrome({
 }
 
 /** The status bar below the document. */
-function BottomChrome({ props, context }: BottomChromeProps) {
+function BottomChrome({ props, context, pages }: BottomChromeProps) {
   const { layout = 'page' } = props;
+  const zoom = useEditorZoom(props);
   return (
     <>
       {props.statusBar ? (
@@ -175,8 +187,9 @@ function BottomChrome({ props, context }: BottomChromeProps) {
           layout={layout}
           options={props.statusBar === true ? NO_STATUS_BAR_OPTIONS : props.statusBar}
           session={props.session}
-          zoom={editorZoom(props)}
+          zoom={zoom}
           onLayoutChange={props.onLayoutChange}
+          pages={pages}
         />
       ) : null}
     </>
@@ -213,10 +226,21 @@ export function EditorContextMenu({
 }
 
 // The zoom the status bar and the menubar offer, while the reader can zoom.
-function editorZoom(props: DocumentEditorProps): EditorZoom | null {
-  const { onZoomChange: onChange } = props;
+function editorZoom({
+  zoom = 100,
+  onZoomChange: onChange,
+  zoomLevels = ZOOM_LEVELS,
+}: Pick<DocumentEditorProps, 'zoom' | 'onZoomChange' | 'zoomLevels'>): EditorZoom | null {
   if (!onChange) return null;
-  return { value: props.zoom ?? 100, onChange, levels: props.zoomLevels ?? ZOOM_LEVELS };
+  return { value: zoom, onChange, levels: zoomLevels };
+}
+
+// The zoom as `editorZoom`, the same while its values are.
+function useEditorZoom({ zoom, onZoomChange, zoomLevels }: DocumentEditorProps) {
+  return useMemo(
+    () => editorZoom({ zoom, onZoomChange, zoomLevels }),
+    [zoom, onZoomChange, zoomLevels],
+  );
 }
 
 /** Ctrl+wheel, or Cmd+wheel, over the editor steps the zoom through its levels, while the reader can zoom. */
