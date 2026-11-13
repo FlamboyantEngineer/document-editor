@@ -52,16 +52,16 @@ Verification: `src/model/templates/template-scopes.test.ts`
 
 ### DOCE-TEMPLATES-3.2 - Footnote properties
 
-`buildFootnoteCssVarEntries(settings, fontStacks)` shall set the `--doc-footnote-*` custom properties of the suffix (an escaped CSS string), the separator border, the spacings, and the marker and text typography, each with its default.
+`buildFootnoteCssVarEntries(settings, fontStacks)` shall set the `--doc-footnote-*` custom properties of the suffix (an escaped CSS string), the separator border, the spacings, and the marker and text typography, each with its default, which a value that is not of its setting's kind (DOCE-TEMPLATES-5.2) takes too.
 
-Implementation: `src/model/templates/template-scopes.ts`
+Implementation: `src/model/templates/template-scopes.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-scopes.test.ts`
 
 ### DOCE-TEMPLATES-3.3 - Caption properties
 
-`buildCaptionCssVarEntries(styles, fontStacks)` shall set the caption label and text font family, size, weight and style of tables, figures and code blocks (`--doc-<kind>-caption-<label|text>-font-*`, kind `table`, `figure` or `code`) the table caption alignment (`--doc-table-caption-text-align`), and the text after the caption of a later part of a split object (`--doc-<kind>-caption-continued`, as CSS content, without a leading dash). An unset value shall be null, so a section inherits the document's and a caption falls back from label to text to paragraph.
+`buildCaptionCssVarEntries(styles, fontStacks)` shall set the caption label and text font family, size, weight and style of tables, figures and code blocks (`--doc-<kind>-caption-<label|text>-font-*`, kind `table`, `figure` or `code`) the table caption alignment (`--doc-table-caption-text-align`), and the text after the caption of a later part of a split object (`--doc-<kind>-caption-continued`, as CSS content, without a leading dash). An unset value, or one that is not of its setting's kind (DOCE-TEMPLATES-5.2), shall be null, so a section inherits the document's and a caption falls back from label to text to paragraph.
 
-Implementation: `src/model/templates/template-scopes.ts`
+Implementation: `src/model/templates/template-scopes.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-scopes.test.ts`
 
 ## DOCE-TEMPLATES-4 - Sections
@@ -91,9 +91,9 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.2 - Style properties
 
-`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies.
+`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies. The properties are joined into `style` attributes and a style element, and a template a host loads may not have been validated, so a value that is not of its setting's kind, as validation knows it (DOCE-FORMAT-2.2: a length, a hex color, a font weight, a line height, an alignment), shall be left out too, and text that is not such a value never reaches a style.
 
-Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`
+Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.3 - Numbering properties
@@ -133,14 +133,14 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.8 - Change bar properties
 
-`templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
+`templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind and left out when it is not a hex color, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
 
 Implementation: `src/model/templates/template-properties.ts`
 Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.9 - A section's change bars
 
-A template section may set its own change bars (`changeBars`): `templateProperties` for its scope shall write them over the document's, so the section's pages take them, and write none for a section without, which inherits the document's. The template editor edits them in a section's scope.
+A template section may set its own change bars (`changeBars`): `templateProperties` for its scope shall write them over the document's, merged setting by setting by the inheritance rule (DOCE-FORMAT-3.1), as a section's other settings are, so a section that sets only a kind's color keeps whether the document shows the kind, and the section's pages take them, and write none for a section without, which inherits the document's. The template editor edits them in a section's scope.
 
 Implementation: `src/model/templates/template-properties.ts`, `src/model/format/template-format-shape.ts`, `src/components/template-editor/template-scope.tsx`
 Verification: `src/model/templates/template-properties.test.ts`
@@ -149,7 +149,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-6.1 - Header and footer content
 
-`setPageRegions(tr, template, { editable, edits })` shall set every page's header and footer to its section's template region (DOCE-TEMPLATES-2.3 scopes: a section's own region, or the template's when it has none or inherits), or to the edit standing over it (DOCE-SECTIONS-5.1), read-only unless `editable`. A stored document shall never hold them. Setting regions that a document already holds shall change nothing.
+`setPageRegions(tr, template, { editable, edits })` shall set every page's header and footer to its section's template region (DOCE-TEMPLATES-2.3 scopes: a section's own region, or the template's when it has none or inherits), or to the edit standing over it (DOCE-SECTIONS-5.1), read-only unless `editable`. A stored document shall never hold them. Setting regions that a document already holds shall change nothing. A region shall keep what it holds when it cannot hold its content, which cannot be read or which a page header or footer does not allow, such as a column layout (DOCE-FORMAT-2.4 reports it for a template): the regions are set in a transaction of their own, where a refusal would stop every edit.
 
 Implementation: `src/model/templates/page-regions.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/templates/page-regions.test.ts`
@@ -165,16 +165,16 @@ Verification: `src/model/templates/page-regions.test.ts`
 
 ### DOCE-TEMPLATES-7.1 - Applying a custom style
 
-A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall apply to paragraphs and headings by name (`setCustomStyle`, `customStyleAt`), kept as the block's style; `createCustomStyles({ template })`, which the editing plugins install when given the template, gives each block in a style the style's values from its section's template or the document's (`customStyleProperties`, `--doc-custom-*`, with `data-custom-style`), in every view, again when the template changes. A built-in text style takes a block out of its custom style. The toolbar's text style field offers the custom styles after the built-in ones.
+A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall apply to paragraphs and headings by name (`setCustomStyle`, `customStyleAt`), kept as the block's style; `createCustomStyles({ template })`, which the editing plugins install when given the template, gives each block in a style the style's values from its section's template or the document's (`customStyleProperties`, `--doc-custom-*`, with `data-custom-style`), in every view, again when the template changes. A built-in text style takes a block out of its custom style. The toolbar's text style field offers the custom styles after the built-in ones. A block's style shall read from markup, and be written, as its `class` only when the class is one name a custom style may have (`CUSTOM_STYLE_NAME`): any other class, such as those markup pasted from a page carries, is not kept and not written, so a host's stylesheet never acts on it.
 
-Implementation: `src/engine/custom-styles.ts`, `src/model/templates/template-text-properties.ts`, `src/components/document-editor/toolbar-controls.tsx`
-Verification: `src/engine/custom-styles.test.ts`, `e2e/template-editor.spec.ts`
+Implementation: `src/engine/custom-styles.ts`, `src/model/schema/core-nodes.ts`, `src/model/templates/template-text-properties.ts`, `src/components/document-editor/toolbar-controls.tsx`
+Verification: `src/engine/custom-styles.test.ts`, `src/model/schema/core-nodes.test.ts`, `e2e/template-editor.spec.ts`
 
 ## DOCE-TEMPLATES-8 - Template content
 
 ### DOCE-TEMPLATES-8.1 - Tokens
 
-A template's content (a section's starting content, its headers and footers) shall be read with each `{{key}}` token in its text a live variable of that key (DOCE-PAGINATION-8.3), and a paragraph that is only a list token a list of contents of its kind (`readTemplateContent`); drift is judged on content read so. The list tokens are `table_of_contents`, `list_of_figures`, `list_of_tables`, `list_of_code`, `list_of_equations`, `list_of_references` and `list_of_abbreviations` (`CONTENTS_TOKENS`), or the tokens a host gives in their place (`contentsTokens`, token to kind), such as for its own kinds of list. `{{key}}` is the only token form: other bracketings stay text.
+A template's content (a section's starting content, its headers and footers) shall be read with each `{{key}}` token in its text a live variable of that key (DOCE-PAGINATION-8.3), and a paragraph that is only a list token a list of contents of its kind (`readTemplateContent`); drift is judged on content read so. The list tokens are `table_of_contents`, `list_of_figures`, `list_of_tables`, `list_of_code`, `list_of_equations`, `list_of_references` and `list_of_abbreviations` (`CONTENTS_TOKENS`), or the tokens a host gives in their place (`contentsTokens`, token to kind), such as for its own kinds of list. `{{key}}` is the only token form: other bracketings stay text. A token shall be read so only where its parent may hold what it stands for: in a code block or in math, which hold text only, it stays text, and a list token where no list of contents may stand, such as the first paragraph of a list item, is read as any other token, so content read from a template is always valid.
 
 Implementation: `src/model/templates/template-content.ts`, `src/model/templates/page-regions.ts`, `src/engine/document-sections.ts`, `src/engine/template-sync.ts`
 Verification: `src/model/templates/template-content.test.ts`

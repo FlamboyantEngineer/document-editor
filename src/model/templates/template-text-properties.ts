@@ -12,6 +12,14 @@ import { isBulletKeyword } from '../format/template-format-validate.js';
 import { escapeCssContent } from '../numbering/document-numbering.js';
 import { parseNumberingStyle, resolveCssCounterStyleToken } from '../numbering/numbering-format.js';
 import { resolveFontStack } from './template-css-values.js';
+import {
+  cssColor,
+  cssKeyword,
+  cssLength,
+  cssLineHeight,
+  cssWeight,
+  TEXT_ALIGNMENTS,
+} from './template-property-values.js';
 
 /** Custom property names and values. */
 export type CustomProperties = Record<string, string>;
@@ -44,22 +52,19 @@ function textProperties(
   const properties: CustomProperties = {};
   if (!text) return properties;
   set(properties, `${prefix}-font-family`, resolveFontStack(text.font, '', fontStacks));
-  set(properties, `${prefix}-font-size`, text.size);
-  if (typeof text.weight === 'number')
-    set(properties, `${prefix}-font-weight`, String(text.weight));
+  set(properties, `${prefix}-font-size`, cssLength(text.size));
+  set(properties, `${prefix}-font-weight`, cssWeight(text.weight));
   if (typeof text.italic === 'boolean') {
     set(properties, `${prefix}-font-style`, text.italic ? 'italic' : 'normal');
   }
   if (typeof text.underline === 'boolean') {
     set(properties, `${prefix}-text-decoration`, text.underline ? 'underline' : 'none');
   }
-  set(properties, `${prefix}-color`, text.color);
-  if (typeof text.lineHeight === 'number') {
-    set(properties, `${prefix}-line-height`, String(text.lineHeight));
-  }
-  set(properties, `${prefix}-text-align`, text.alignment);
-  set(properties, `${prefix}-margin-top`, text.spaceBefore);
-  set(properties, `${prefix}-margin-bottom`, text.spaceAfter);
+  set(properties, `${prefix}-color`, cssColor(text.color));
+  set(properties, `${prefix}-line-height`, cssLineHeight(text.lineHeight));
+  set(properties, `${prefix}-text-align`, cssKeyword(text.alignment, TEXT_ALIGNMENTS));
+  set(properties, `${prefix}-margin-top`, cssLength(text.spaceBefore));
+  set(properties, `${prefix}-margin-bottom`, cssLength(text.spaceAfter));
   return properties;
 }
 
@@ -73,9 +78,9 @@ function bulletStyle(bullet: string | null | undefined): string | null {
 
 function listProperties(properties: CustomProperties, list: ListSettings | null | undefined) {
   if (!list) return;
-  set(properties, '--doc-list-margin-top', list.spaceBefore);
-  set(properties, '--doc-list-margin-bottom', list.spaceAfter);
-  set(properties, '--doc-list-indentation', list.indentation);
+  set(properties, '--doc-list-margin-top', cssLength(list.spaceBefore));
+  set(properties, '--doc-list-margin-bottom', cssLength(list.spaceAfter));
+  set(properties, '--doc-list-indentation', cssLength(list.indentation));
   set(properties, '--doc-ul-list-style-type', bulletStyle(list.bullet));
   if (!list.format && !list.prefix && !list.suffix) return;
   const level = parseNumberingStyle(list.format || '1.').levels[0] ?? {
@@ -96,16 +101,14 @@ function listProperties(properties: CustomProperties, list: ListSettings | null 
 
 function tableProperties(properties: CustomProperties, table: TableSettings | null | undefined) {
   if (!table) return;
-  set(properties, '--doc-table-border-width', table.border?.width);
-  set(properties, '--doc-table-border-color', table.border?.color);
-  set(properties, '--doc-table-cell-padding', table.cellPadding);
-  set(properties, '--doc-table-header-background', table.header?.background);
-  set(properties, '--doc-table-header-color', table.header?.color);
-  if (typeof table.header?.weight === 'number') {
-    set(properties, '--doc-table-header-font-weight', String(table.header.weight));
-  }
-  set(properties, '--doc-table-row-odd-background', table.rows?.odd);
-  set(properties, '--doc-table-row-even-background', table.rows?.even);
+  set(properties, '--doc-table-border-width', cssLength(table.border?.width));
+  set(properties, '--doc-table-border-color', cssColor(table.border?.color));
+  set(properties, '--doc-table-cell-padding', cssLength(table.cellPadding));
+  set(properties, '--doc-table-header-background', cssColor(table.header?.background));
+  set(properties, '--doc-table-header-color', cssColor(table.header?.color));
+  set(properties, '--doc-table-header-font-weight', cssWeight(table.header?.weight));
+  set(properties, '--doc-table-row-odd-background', cssColor(table.rows?.odd));
+  set(properties, '--doc-table-row-even-background', cssColor(table.rows?.even));
 }
 
 function contentsProperties(
@@ -118,13 +121,13 @@ function contentsProperties(
   Object.assign(properties, textProperties('--doc-contents-entry', contents.entry, fontStacks));
   if (contents.leader?.character)
     properties['--doc-contents-leader'] = quoted(contents.leader.character);
-  set(properties, '--doc-contents-leader-spacing', contents.leader?.spacing);
+  set(properties, '--doc-contents-leader-spacing', cssLength(contents.leader?.spacing));
   contents.levels?.forEach((level, index) => {
     const prefix = `--doc-contents-level-${String(index + 1)}`;
-    set(properties, `${prefix}-indentation`, level?.indentation);
-    set(properties, `${prefix}-margin-top`, level?.spaceBefore);
-    set(properties, `${prefix}-margin-bottom`, level?.spaceAfter);
-    set(properties, `${prefix}-leader-spacing`, level?.leader?.spacing);
+    set(properties, `${prefix}-indentation`, cssLength(level?.indentation));
+    set(properties, `${prefix}-margin-top`, cssLength(level?.spaceBefore));
+    set(properties, `${prefix}-margin-bottom`, cssLength(level?.spaceAfter));
+    set(properties, `${prefix}-leader-spacing`, cssLength(level?.leader?.spacing));
   });
 }
 
@@ -151,8 +154,8 @@ export function textStyleProperties(
   for (const [style, name] of TEXT_STYLES) {
     Object.assign(properties, textProperties(`--doc-${name}`, styles?.[style], fontStacks));
   }
-  set(properties, '--doc-paragraph-indentation', styles?.paragraph?.indentation);
-  set(properties, '--doc-code-background', styles?.codeBlock?.background);
+  set(properties, '--doc-paragraph-indentation', cssLength(styles?.paragraph?.indentation));
+  set(properties, '--doc-code-background', cssColor(styles?.codeBlock?.background));
   listProperties(properties, styles?.list);
   tableProperties(properties, styles?.table);
   contentsProperties(properties, styles?.contents, fontStacks);

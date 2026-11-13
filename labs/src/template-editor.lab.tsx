@@ -125,7 +125,9 @@ function Lab() {
           template={resolved}
           layout={layout}
           onLayoutChange={setLayout}
-          onRegionChange={(change) => setOwn((template) => withRegionChange(template, change))}
+          onRegionChange={(change) =>
+            setOwn((template) => withRegionChange(template, change, resolve(template)))
+          }
           zoom={zoom}
           onZoomChange={setZoom}
           toolbar

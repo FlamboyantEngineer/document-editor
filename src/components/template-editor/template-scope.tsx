@@ -49,6 +49,20 @@ export const SECTION_SETTINGS: readonly TemplateSetting[] = [
   },
 ];
 
+/**
+ * A template with the sections its documents take: its own, or those it inherits while it has no
+ * list of its own. A template's list replaces its parent's whole (DOCE-FORMAT-3.1), so the editor
+ * shows the inherited sections, and its first change to one writes the whole list into the
+ * template: a list of the changed section alone would drop every other inherited section.
+ */
+export function withListedSections(
+  template: TemplateFile,
+  resolved: TemplateFile | undefined,
+): TemplateFile {
+  if (template.sections || !resolved?.sections) return template;
+  return { ...template, sections: resolved.sections };
+}
+
 /** A template with one of its sections changed, or taken out for null. */
 export function withSection(
   template: TemplateFile,

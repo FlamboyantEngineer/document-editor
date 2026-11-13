@@ -63,5 +63,12 @@ describe('paragraph numbering', () => {
     ).toBe(
       '--doc-paragraph-indentation: 40pt; --doc-paragraph-number-indent: 4px; --doc-paragraph-text-indent: 2em;',
     );
+    // A position that is not a length is not written: the style would carry its text.
+    expect(
+      paragraphNumberingIndentationStyle(
+        { styleConfig: null, numberIndent: '4px; position: fixed', textIndent: '2em' },
+        1,
+      ),
+    ).toBe('--doc-paragraph-text-indent: 2em;');
   });
 });
