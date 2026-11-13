@@ -75,6 +75,7 @@ function marksOf(doc: ProseMirrorNode): string[] {
 const REVIEWED =
   '<p data-id="aaaa0001" data-au="ada"><mark data-comment-id="c1">Noted</mark> ' +
   '<ins data-id="s1" data-au="bea">added</ins><del data-id="s2" data-au="bea">gone</del> ' +
+  '<span data-format-change="[]" data-id="s3" data-au="bea"><strong>set</strong></span> ' +
   '<span data-signature="ada" data-signature-name="Ada"></span>end</p>';
 
 describe('the paste pipeline', () => {
@@ -122,8 +123,12 @@ describe('the paste pipeline', () => {
       'Target',
     );
     pasteHtml(view, `${REVIEWED}<p data-id="aaaa0002" data-au="ada">Second</p>`);
-    expect(blocks(view.state.doc)).toEqual(['paragraph:Noted added end', 'paragraph:SecondTarget']);
-    expect(marksOf(view.state.doc)).toEqual([]);
+    expect(blocks(view.state.doc)).toEqual([
+      'paragraph:Noted added set end',
+      'paragraph:SecondTarget',
+    ]);
+    // The suggested formatting stays, as a change the copy has taken; its record does not.
+    expect(marksOf(view.state.doc)).toEqual(['strong']);
     const kept: unknown[] = [];
     view.state.doc.descendants((node) => {
       if (node.type.name === 'signature' || node.attrs.dataAuthor === 'ada') kept.push(node.attrs);

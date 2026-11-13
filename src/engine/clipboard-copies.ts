@@ -5,8 +5,12 @@
 import { Fragment, type Mark, type Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { clearCopiedIdentity } from './element-ids.js';
 
-/** The marks that anchor text to a comment or record it as a suggested insertion. */
-const anchorMarks = new Set(['comment_highlight', 'insertion']);
+/**
+ * The marks that anchor text to a comment or record it as a suggested insertion or a suggested
+ * change of formatting. A copy keeps the formatting itself, as a change it has taken: only the
+ * record, which names the suggestion and its comment thread, would tie it to the original.
+ */
+const anchorMarks = new Set(['comment_highlight', 'insertion', 'format_change']);
 
 /** The mark that records text as a suggested deletion. */
 const deletion = 'deletion';
@@ -16,9 +20,7 @@ const deletion = 'deletion';
  * from elsewhere takes none of them from where it lands.
  */
 export const isReviewMark = (mark: Mark): boolean =>
-  anchorMarks.has(mark.type.name) ||
-  mark.type.name === deletion ||
-  mark.type.name === 'format_change';
+  anchorMarks.has(mark.type.name) || mark.type.name === deletion;
 
 // Whether a node is one a paste never brings in: a node type whose spec says `pastable: false`, or
 // content a suggestion deletes, which the copy reads as gone.
@@ -55,8 +57,8 @@ function copyFragment(fragment: Fragment): Fragment {
 
 /**
  * Pasted content as a copy (DOCE-EDITING-5.2): nodes whose type is not pastable left out, text a
- * suggestion deletes left out, comment and insertion marks taken off the rest, and the identities
- * a copy clears cleared (`clearCopiedIdentity`). The slice keeps its open depths.
+ * suggestion deletes left out, the comment, insertion and format change marks taken off the rest,
+ * and the identities a copy clears cleared (`clearCopiedIdentity`). The slice keeps its open depths.
  */
 export function copyPastedSlice(slice: Slice): Slice {
   const content = copyFragment(slice.content);

@@ -181,7 +181,7 @@ Verification: `src/engine/clipboard.test.ts`, `src/engine/embeds.test.ts`
 
 ### DOCE-EDITING-5.2 - Pasted copies
 
-A pasted copy shall leave out the nodes whose type's spec says `pastable: false`, which a signature's does, so a paste never shows an approval nobody gave there. It shall leave out text and inline nodes a suggestion deletes, take the comment and suggested-insertion marks off the rest, so a copy never shares a comment's anchor or a suggestion's id with its original, and make its elements new (DOCE-EDITING-1.5). A suggestion made while pasting marks the copy as the paster's own insertion.
+A pasted copy shall leave out the nodes whose type's spec says `pastable: false`, which a signature's does, so a paste never shows an approval nobody gave there. It shall leave out text and inline nodes a suggestion deletes, take the comment and suggested-insertion marks and the record of a suggested formatting change off the rest, keeping the formatting itself, so a copy never shares a comment's anchor or a suggestion's id with its original, and make its elements new (DOCE-EDITING-1.5). A suggestion made while pasting marks the copy as the paster's own insertion.
 
 Implementation: `src/engine/clipboard-copies.ts`, `src/model/schema/inline-atom-nodes.ts`
 Verification: `src/engine/clipboard.test.ts`
