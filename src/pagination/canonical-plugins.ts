@@ -29,7 +29,9 @@ export interface CanonicalPluginsSource {
 }
 
 // The DOM events handed to the canonical plugins. A press starts the projection's own cell drag
-// first, so the canonical cell drag (`tableEditing`) does not take it.
+// first, so the canonical cell drag (`tableEditing`) does not take it. A drop and a paste are
+// among them: a plugin that tells content moved within the document from content pasted into it
+// does so by the drop it saw.
 const DOM_EVENTS = [
   'mousedown',
   'mousemove',
@@ -43,6 +45,8 @@ const DOM_EVENTS = [
   'cut',
   'contextmenu',
   'dragstart',
+  'drop',
+  'paste',
   'mouseup',
   'dblclick',
 ] as const;
