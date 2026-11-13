@@ -181,6 +181,7 @@ export {
   listFootnotes,
   numberFootnotes,
 } from './footnotes.js';
+export { isHostContentAt } from './host-content.js';
 export type {
   CompletionRequest,
   InlineCompletion,

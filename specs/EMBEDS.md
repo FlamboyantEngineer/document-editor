@@ -22,10 +22,10 @@ Verification: `src/engine/embeds.test.ts`
 
 ### DOCE-EMBEDS-2.1 - Locked content
 
-`createEmbeds()`, which the editing extension installs (DOCE-EDITING-3.1, priority 513), shall refuse a writer's change (`isWritersChange`) that changes what an embed holds (`touchesEmbed`): a step whose range starts or ends inside an embed, typing, marking text, setting a node's attributes, adding or removing a table's rows and columns, or a deletion reaching into it. A range around a whole embed, which adds, moves or deletes it, passes, as do comment highlights, undo and redo, remote, derived and system changes, and the host's own changes, which carry `embedsKey`.
+`createEmbeds()`, which the editing extension installs (DOCE-EDITING-3.1, priority 513), shall refuse a writer's change (`isWritersChange`) that changes what an embed holds (`touchesEmbed`): a step whose range starts or ends inside an embed, typing, marking text, setting a node's attributes, adding or removing a table's rows and columns, or a deletion reaching into it. A range around a whole embed, which adds, moves or deletes it, passes, as do comment highlights, undo and redo, remote, derived and system changes, and the host's own changes, which carry `embedsKey`. A refused change is dropped whole, so a command that changes text first asks `isHostContentAt(doc, pos)`, which tells whether a position is inside content the host owns, an embed's or a script block's output (DOCE-OBJECTS-4.3), and leaves that content out.
 
-Implementation: `src/engine/embeds.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/embeds.test.ts`, `src/engine/features.test.ts`
+Implementation: `src/engine/embeds.ts`, `src/engine/host-content.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/embeds.test.ts`, `src/engine/host-content.test.ts`, `src/engine/features.test.ts`
 
 ### DOCE-EMBEDS-2.2 - Pasting embeds as their content
 

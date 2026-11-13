@@ -27,7 +27,7 @@ Verification: `src/engine/search.test.ts`, `e2e/search.spec.ts`
 
 ### DOCE-SEARCH-1.4 - Locked content
 
-A match in locked content (DOCE-EDITING-4.1) shall stay found but never be replaced: `replaceMatch` refuses it, and `replaceAllMatches` replaces the others and is refused when only locked matches remain. Each replacement closes its own undo step.
+A match in locked content (DOCE-EDITING-4.1), or in content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1), shall stay found but never be replaced: `replaceMatch` refuses it, and `replaceAllMatches` replaces the others and is refused when only locked matches remain. Each replacement closes its own undo step.
 
 Implementation: `src/engine/search.ts`
 Verification: `src/engine/search.test.ts`

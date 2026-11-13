@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { type RegionKind, regionKind } from '../model/index.js';
 import { isPositionLocked } from './edit-lock.js';
+import { isHostContentAt } from './host-content.js';
 
 /** How a query matches. */
 export interface SearchOptions {
@@ -102,10 +103,12 @@ export function findMatches(
 
 /**
  * Whether the writer may replace a match: it is plain text, holding no inline node such as a
- * mention or a value the document shows, and none of it is locked.
+ * mention or a value the document shows, none of it is locked and it is not the host's content.
  */
 export function isMatchReplaceable(state: EditorState, match: SearchMatch): boolean {
   if (isPositionLocked(state, match.from) || isPositionLocked(state, match.to - 1)) return false;
+  // A match sits in one text block, so its start tells whether an embed or an output holds it.
+  if (isHostContentAt(state.doc, match.from)) return false;
   let plain = true;
   state.doc.nodesBetween(match.from, match.to, (node) => {
     if (node.isInline && !node.isText) plain = false;

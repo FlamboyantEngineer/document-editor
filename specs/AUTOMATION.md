@@ -48,7 +48,7 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.7 - Locked positions
 
-An edit at a locked position shall be refused as `locked`, whichever mode it is made in.
+An edit at a locked position shall be refused as `locked`, whichever mode it is made in, as shall one that changes content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1): text, blocks or attributes inside an embed or a script block's output, and an embed's own attributes. A comment on that text, and inserting beside, replacing or deleting the whole block, are not refused.
 
 Implementation: `src/engine/automation.ts`, `src/engine/edit-lock.ts`
 Verification: `src/engine/automation.test.ts`
@@ -64,7 +64,7 @@ Verification: `e2e/automation.spec.ts`
 
 ### DOCE-AUTOMATION-2.2 - Streaming text
 
-`streamText(view, at, { actor, mode })` shall write text piece by piece after the text streamed so far, at the address's offset or the end of the element's text, each piece its own change and, in suggest mode, all of them one suggestion. Before each piece it finds its place again by element id and offset, and it stops, refusing further pieces, once the writer has changed the streamed text. `cancel` takes the streamed text out while it is still there; `finish` keeps it.
+`streamText(view, at, { actor, mode })` shall write text piece by piece after the text streamed so far, at the address's offset or the end of the element's text, each piece its own change and, in suggest mode, all of them one suggestion. Before each piece it finds its place again by element id and offset, and it stops, refusing that piece and further ones, once the writer has changed the streamed text or a piece does not go in, as when its batch is refused or a plugin drops its change. `cancel` takes the streamed text out while it is still there; `finish` keeps it.
 
 Implementation: `src/engine/automation-stream.ts`, `labs/src/agent-panel.tsx`
 Verification: `src/engine/automation-stream.test.ts`, `e2e/automation.spec.ts`

@@ -3,6 +3,7 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
+import { createDocumentEditing } from './document-editing.js';
 import { createEditLock } from './edit-lock.js';
 import {
   createSearch,
@@ -92,6 +93,38 @@ describe('search', () => {
     expect(textOf(state)).toBe('dog here|Fixed cat');
     expect(searchKey.getState(state)?.matches).toHaveLength(1);
     expect(replaceAllMatches('dog')(state)).toBe(false);
+  });
+
+  it('DOCE-SEARCH-1.4 leaves a match in an embed found and replaces the others', () => {
+    const embed: StoredNode = {
+      type: 'embed',
+      attrs: { id: 'e0000001', kind: 'data-set', source: 'set-7', snapshot: 'r1', label: 'Set 7' },
+      content: [paragraph('pump total 42')],
+    };
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [paragraph('The pump starts.'), embed, paragraph('A pump stops.')],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let state = EditorState.create({
+      doc,
+      plugins: [...createDocumentEditing(documentSchema), createSearch()],
+    });
+    state = run(state, setSearch('pump'));
+    expect(searchResults(state).map((result) => result.replaceable)).toEqual([true, false, true]);
+    // Applied as a view does, so the embed's own lock would drop a change reaching into it whole.
+    expect(
+      replaceAllMatches('motor')(state, (tr) => (state = state.applyTransaction(tr).state)),
+    ).toBe(true);
+    expect(textOf(state)).toBe('The motor starts.|pump total 42|A motor stops.');
+    expect(replaceMatch('motor')(state)).toBe(false);
   });
 
   it('DOCE-SEARCH-3.1 gives each match in the text of its block, under its heading', () => {

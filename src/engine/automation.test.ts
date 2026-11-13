@@ -2,7 +2,12 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
-import { applyEdits, automationActor, type AutomationOptions } from './automation.js';
+import {
+  applyEdits,
+  automationActor,
+  type AutomationEdit,
+  type AutomationOptions,
+} from './automation.js';
 import { describeBlocks } from './automation-read.js';
 import { listCommentAnchors } from './comments.js';
 import { createEditLock } from './edit-lock.js';
@@ -205,6 +210,49 @@ describe('automation', () => {
       AGENT,
     );
     expect(result).toMatchObject({ ok: false, error: { kind: 'locked' } });
+  });
+
+  it('DOCE-AUTOMATION-1.7 refuses an edit inside an embed or a script’s output, not one of the whole block', () => {
+    const embed: StoredNode = {
+      type: 'embed',
+      attrs: { id: 'e0000001', kind: 'data-set', source: 'set-7', snapshot: 'r1', label: 'Set 7' },
+      content: [paragraph('c3c3c3c3', 'Total 42')],
+    };
+    const script: StoredNode = {
+      type: 'script',
+      attrs: { id: 'f0000001', source: 'one' },
+      content: [paragraph('d4d4d4d4', 'Ran one')],
+    };
+    const state = stateOf(paragraph('a1a1a1a1', 'Intro'), embed, script);
+    const refusal = (...edits: AutomationEdit[]) => {
+      const result = applyEdits(state, edits, AGENT);
+      return result.ok ? null : result.error.kind;
+    };
+    expect(refusal({ op: 'replaceText', at: { elementId: 'c3c3c3c3' }, text: 'Total 0' })).toBe(
+      'locked',
+    );
+    expect(refusal({ op: 'insertText', at: { elementId: 'd4d4d4d4' }, text: '!' })).toBe('locked');
+    expect(refusal({ op: 'deleteBlock', elementId: 'd4d4d4d4' })).toBe('locked');
+    expect(
+      refusal({ op: 'insertBlocks', after: 'c3c3c3c3', content: [paragraph('e5e5e5e5', 'More')] }),
+    ).toBe('locked');
+    // A comment changes nothing an embed holds.
+    expect(
+      refusal({ op: 'comment', at: { elementId: 'c3c3c3c3', from: 0, to: 5 }, text: 'Check' }),
+    ).toBeNull();
+    // An embed's attributes are the host's too.
+    expect(refusal({ op: 'setAttrs', elementId: 'e0000001', attrs: { label: 'Other' } })).toBe(
+      'locked',
+    );
+    const around = apply(
+      state,
+      [
+        { op: 'insertBlocks', after: 'e0000001', content: [paragraph('e5e5e5e5', 'Beside')] },
+        { op: 'deleteBlock', elementId: 'f0000001' },
+      ],
+      AGENT,
+    );
+    expect(textOf(around.state)).toBe('Intro|Total 42|Beside');
   });
 
   it('DOCE-AUTOMATION-1.2 edits an element the pages split as one', () => {
