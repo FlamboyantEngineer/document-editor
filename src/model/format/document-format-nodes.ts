@@ -84,6 +84,26 @@ interface ReadTarget {
   mappings: Readonly<Record<string, StoredTypeMapping>>;
 }
 
+// What is wrong with a value by the kinds its attribute takes (its `validate`, checked as
+// ProseMirror checks it), or null. ProseMirror checks them only once the whole document is built,
+// where a refusal names no place and no policy can read past it.
+function kindProblem(attribute: unknown, value: unknown): string | null {
+  const validate: unknown = isRecord(attribute) ? attribute.validate : undefined;
+  if (typeof validate === 'string') {
+    const kinds = validate.split('|');
+    return kinds.includes(value === null ? 'null' : typeof value)
+      ? null
+      : `it must be ${kinds.join(' or ')}`;
+  }
+  if (typeof validate !== 'function') return null;
+  try {
+    (validate as (value: unknown) => void)(value);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : 'it is not of its kind';
+  }
+}
+
 function readAttrs(stored: unknown, target: ReadTarget, at: Located): Attrs {
   if (stored === undefined) return {};
   if (!isRecord(stored)) {
@@ -93,11 +113,14 @@ function readAttrs(stored: unknown, target: ReadTarget, at: Located): Attrs {
   const { type } = target;
   const mapping = target.mappings[type.name];
   const attrs: Attrs = {};
-  for (const [storedName, value] of Object.entries(stored)) {
+  for (const [storedName, given] of Object.entries(stored)) {
     const name = schemaAttrName(mapping, storedName, type.spec);
+    const value = name === 'referenceBaseline' && isRecord(given) ? JSON.stringify(given) : given;
+    const problem = name ? kindProblem(type.spec.attrs?.[name], value) : null;
     if (!name) report(at, `unknown attribute ${storedName}`);
-    else
-      attrs[name] = name === 'referenceBaseline' && isRecord(value) ? JSON.stringify(value) : value;
+    // Left out, the attribute takes its default.
+    else if (problem) report(at, `attribute ${storedName} cannot be read: ${problem}`);
+    else attrs[name] = value;
   }
   return readFormatRecords(attrs, at.context.schema, {
     readMark: (each) => readMark(each, at),
@@ -126,7 +149,14 @@ function readMark(stored: unknown, at: Located): Mark | null {
     report(at, `unknown mark ${stored.type}`);
     return null;
   }
-  return type.create(readAttrs(stored.attrs, { type, mappings: STORED_MARK_TYPES }, at));
+  const attrs = readAttrs(stored.attrs, { type, mappings: STORED_MARK_TYPES }, at);
+  try {
+    return type.create(attrs);
+  } catch {
+    // A mark without an attribute it needs, such as a link without its address.
+    report(at, `a ${stored.type} mark cannot be read`);
+    return null;
+  }
 }
 
 const storedMarkName = (mark: Mark) => STORED_MARK_TYPES[mark.type.name]?.type ?? mark.type.name;

@@ -165,6 +165,24 @@ const textAlignOf = (value: unknown) => TEXT_ALIGNMENTS.find((each) => each === 
 const verticalAlignOf = (value: unknown) =>
   VERTICAL_ALIGNMENTS.find((each) => each === value) ?? 'middle';
 
+/** The most rows or columns a cell spans: the most columns HTML lets a cell span. */
+const MAX_SPAN = 1000;
+
+// A span from markup: a whole number within the limits, or 1 when it is not a number.
+function readSpan(dom: HTMLElement, name: 'colspan' | 'rowspan'): number {
+  const span = Math.trunc(Number(dom.getAttribute(name)));
+  return Number.isFinite(span) ? Math.min(MAX_SPAN, Math.max(1, span)) : 1;
+}
+
+// Refuses a span a table cannot hold. A table's column group and its cell map take an entry for
+// each row and column a cell spans, so a stored or synced span without a limit would hang the
+// editor of everyone who opens the document.
+function checkSpan(value: unknown): void {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_SPAN) {
+    throw new RangeError(`a cell spans 1 to ${String(MAX_SPAN)} rows or columns`);
+  }
+}
+
 function readColumnWidths(dom: HTMLElement): number[] | null {
   const value = dom.getAttribute('data-colwidth');
   if (!value) return null;
@@ -181,8 +199,8 @@ function readRowHeight(dom: HTMLElement): number | null {
 
 function readCellAttrs(dom: HTMLElement) {
   return {
-    colspan: Number(dom.getAttribute('colspan') || 1),
-    rowspan: Number(dom.getAttribute('rowspan') || 1),
+    colspan: readSpan(dom, 'colspan'),
+    rowspan: readSpan(dom, 'rowspan'),
     colwidth: readColumnWidths(dom),
     textAlign: textAlignOf(dom.getAttribute('data-text-align') || dom.style.textAlign),
     verticalAlign: verticalAlignOf(
@@ -229,6 +247,8 @@ function tableCell(name: CellName): NodeSpec {
     ...baseNodes[name],
     attrs: {
       ...baseNodes[name].attrs,
+      colspan: { default: 1, validate: checkSpan },
+      rowspan: { default: 1, validate: checkSpan },
       textAlign: { default: 'left' },
       verticalAlign: { default: 'middle' },
       rowHeight: { default: null },

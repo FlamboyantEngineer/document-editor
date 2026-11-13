@@ -647,8 +647,8 @@
       "marks": null,
       "flags": { "isolating": true },
       "attrs": {
-        "colspan": { "default": 1, "validate": "number" },
-        "rowspan": { "default": 1, "validate": "number" },
+        "colspan": { "default": 1, "validate": "function" },
+        "rowspan": { "default": 1, "validate": "function" },
         "colwidth": { "default": null, "validate": "function" },
         "textAlign": { "default": "left" },
         "verticalAlign": { "default": "middle" },
@@ -674,8 +674,8 @@
       "marks": null,
       "flags": { "isolating": true },
       "attrs": {
-        "colspan": { "default": 1, "validate": "number" },
-        "rowspan": { "default": 1, "validate": "number" },
+        "colspan": { "default": 1, "validate": "function" },
+        "rowspan": { "default": 1, "validate": "function" },
         "colwidth": { "default": null, "validate": "function" },
         "textAlign": { "default": "left" },
         "verticalAlign": { "default": "middle" },

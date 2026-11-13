@@ -70,6 +70,29 @@ describe('table nodes', () => {
     expect(dom).toHaveAttribute('data-vertical-align', 'middle');
   });
 
+  it('DOCE-SCHEMA-3.5 keeps a span between 1 and 1000 rows or columns', () => {
+    const pasted =
+      '<table><tr><td colspan="99999999" rowspan="-4">A</td><td colspan="2.7" rowspan="many">B</td></tr></table>';
+    const spans: unknown[] = [];
+    parseMarkup(pasted).descendants((node) => {
+      if (node.type.name === 'table_cell') spans.push([node.attrs.colspan, node.attrs.rowspan]);
+    });
+    expect(spans).toEqual([
+      [1000, 1],
+      [2, 1],
+    ]);
+    // A stored or synced span outside them is refused when the document is checked.
+    const { table_cell: cell, paragraph } = documentSchema.nodes;
+    if (!cell || !paragraph) throw new Error('The schema has tables');
+    for (const span of [0, -3, 2.5, 100_000, '2', null]) {
+      expect(() => cell.create({ colspan: span }, paragraph.create()).check()).toThrow(RangeError);
+      expect(() => cell.create({ rowspan: span }, paragraph.create()).check()).toThrow(RangeError);
+    }
+    expect(() =>
+      cell.create({ colspan: 1000, rowspan: 2 }, paragraph.create()).check(),
+    ).not.toThrow();
+  });
+
   it('DOCE-SCHEMA-3.5 sizes an unaligned table once every column has a width', () => {
     const { table, table_row: row, table_cell: cell, paragraph } = documentSchema.nodes;
     if (!table || !row || !cell || !paragraph) throw new Error('The schema has tables');

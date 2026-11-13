@@ -163,6 +163,60 @@ describe('lenient reading', () => {
   });
 });
 
+describe('attributes not of their kind', () => {
+  const plain: StoredNode = {
+    type: 'tableCell',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Volt' }] }],
+  };
+  const cell = (attrs: Record<string, unknown>): StoredNode => ({ ...plain, attrs });
+  const table: StoredNode = {
+    type: 'table',
+    content: [{ type: 'tableRow', content: [cell({ colspan: 100_000 }), cell({ rowspan: '2' })] }],
+  };
+  const linked: StoredNode = { type: 'text', text: 'site', marks: [{ type: 'link', attrs: {} }] };
+  const file: DocumentFile = {
+    formatVersion: 1,
+    sections: [{ content: [table, { type: 'paragraph', content: [linked] }] }],
+  };
+  const row = 'sections[0].content[0].content[0]';
+
+  it('DOCE-FORMAT-1.4 names an attribute whose value is not of its kind', () => {
+    expect(() => readDocumentFile(file, documentSchema)).toThrow(
+      `${row}.content[0]: attribute colspan cannot be read: a cell spans 1 to 1000 rows or columns`,
+    );
+  });
+
+  it('DOCE-FORMAT-1.5 leaves the attribute out, so it takes its default, and reads the rest', () => {
+    for (const unknown of ['drop', 'keep'] as const) {
+      const { doc, problems } = readDocumentFile(file, documentSchema, { unknown });
+      expect(problems).toEqual([
+        {
+          path: `${row}.content[0]`,
+          message: 'attribute colspan cannot be read: a cell spans 1 to 1000 rows or columns',
+          kept: false,
+        },
+        {
+          path: `${row}.content[1]`,
+          message: 'attribute rowspan cannot be read: a cell spans 1 to 1000 rows or columns',
+          kept: false,
+        },
+        {
+          path: 'sections[0].content[1].content[0].marks[0]',
+          message: 'a link mark cannot be read',
+          kept: false,
+        },
+      ]);
+      expect(() => {
+        doc.check();
+      }).not.toThrow();
+      expect(writeDocumentFile(doc).sections[0]?.content).toEqual([
+        { type: 'table', content: [{ type: 'tableRow', content: [plain, plain] }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'site' }] },
+      ]);
+    }
+  });
+});
+
 describe('marks that exclude each other', () => {
   const contributor = (author: string) => ({ type: 'contributor', attrs: { author } });
   const marks = [contributor('u2'), { type: 'bold' }, contributor('u1')];
