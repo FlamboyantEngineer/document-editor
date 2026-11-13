@@ -5,11 +5,13 @@
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { RefreshGlyph } from '@flamboyantengineer/ui-components/core';
 import { SearchField } from '@flamboyantengineer/ui-components/search-field';
+import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useMemo, useState } from 'react';
 import type { ScriptRunnerAdapter, ScriptVocabularyEntry } from '../../host/index.js';
 import {
+  isDocumentFormatError,
   readDocumentFile,
   type StoredContent,
   type TemplateFile,
@@ -22,18 +24,32 @@ import { groupScriptVocabulary } from './script-language.js';
 
 const hooks = createHooks('script-editor', ['preview', 'status', 'reference', 'entry']);
 
-/** Where a preview is: not run since the script changed, running, failed, or showing its output. */
+/**
+ * Where a preview is: not run since the script changed, running, failed, or showing the document
+ * its output makes, null when the script produced nothing.
+ */
 export type ScriptPreviewState =
   | { readonly status: 'idle' }
   | { readonly status: 'running' }
   | { readonly status: 'error'; readonly message: string }
-  | { readonly status: 'ready'; readonly output: StoredContent };
+  | { readonly status: 'ready'; readonly document: ProseMirrorNode | null };
 
-/** Runs a script for its preview, the document left as it is. */
+// The document a script's output makes; an output the schema refuses throws.
+function outputDocument(output: StoredContent, schema: Schema): ProseMirrorNode | null {
+  if (output.length === 0) return null;
+  return readDocumentFile({ formatVersion: 1, sections: [{ name: null, content: output }] }, schema)
+    .doc;
+}
+
+/**
+ * Runs a script for its preview, the document left as it is. The output is read here, where an
+ * output the document cannot hold is a failure to say, rather than while the preview renders,
+ * where it would take the editor down with it.
+ */
 export async function previewScript(
   view: EditorView,
   runner: ScriptRunnerAdapter,
-  source: string,
+  { source, labels }: { source: string; labels: DocumentEditorLabels },
 ): Promise<ScriptPreviewState> {
   const result = await runner
     .run({ blockId: 'preview', source, document: writeDocumentFile(view.state.doc) })
@@ -42,29 +58,26 @@ export async function previewScript(
       error: { kind: 'unavailable' as const, message: String(error) },
     }));
   if (!result.ok) return { status: 'error', message: result.error.message ?? '' };
-  return { status: 'ready', output: result.value };
+  try {
+    return { status: 'ready', document: outputDocument(result.value, view.state.schema) };
+  } catch (error) {
+    // Why the format refused it helps whoever wrote the script; anything else is not for them.
+    const reason = isDocumentFormatError(error) ? ` ${error.message}` : '';
+    return { status: 'error', message: `${labels.scriptOutputRefused}${reason}` };
+  }
 }
 
 // The output shown read-only, in the template's look, in the web layout.
 function PreviewDocument({
-  view,
-  output,
+  document,
   template,
   labels,
 }: {
-  view: EditorView;
-  output: StoredContent;
+  document: ProseMirrorNode;
   template: TemplateFile;
   labels: DocumentEditorLabels;
 }) {
-  const [state, setState] = useState(() =>
-    EditorState.create({
-      doc: readDocumentFile(
-        { formatVersion: 1, sections: [{ name: null, content: output }] },
-        view.state.schema,
-      ).doc,
-    }),
-  );
+  const [state, setState] = useState(() => EditorState.create({ doc: document }));
   return (
     <DocumentEditor
       state={state}
@@ -77,30 +90,27 @@ function PreviewDocument({
   );
 }
 
+// What the preview says in place of an output, or null while it shows one.
+function previewMessage(preview: ScriptPreviewState, labels: DocumentEditorLabels): string | null {
+  if (preview.status === 'idle') return labels.scriptPreviewIdle;
+  if (preview.status === 'running') return labels.scriptPreviewRunning;
+  if (preview.status === 'error') return preview.message;
+  return preview.document ? null : labels.scriptPreviewEmpty;
+}
+
 /** The preview: a button that runs the script, then what it produced, or why it failed. */
 export function ScriptPreview({
-  view,
   template,
   labels,
   preview,
   onRefresh,
 }: {
-  view: EditorView;
   template: TemplateFile;
   labels: DocumentEditorLabels;
   preview: ScriptPreviewState;
   onRefresh: () => void;
 }) {
-  const message =
-    preview.status === 'idle'
-      ? labels.scriptPreviewIdle
-      : preview.status === 'running'
-        ? labels.scriptPreviewRunning
-        : preview.status === 'error'
-          ? preview.message
-          : preview.output.length
-            ? null
-            : labels.scriptPreviewEmpty;
+  const message = previewMessage(preview, labels);
   return (
     <div {...hooks.slot('preview', { status: preview.status })}>
       <Button
@@ -116,8 +126,8 @@ export function ScriptPreview({
           {message}
         </p>
       )}
-      {preview.status === 'ready' && preview.output.length ? (
-        <PreviewDocument view={view} output={preview.output} template={template} labels={labels} />
+      {preview.status === 'ready' && preview.document ? (
+        <PreviewDocument document={preview.document} template={template} labels={labels} />
       ) : null}
     </div>
   );

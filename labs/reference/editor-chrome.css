@@ -25,10 +25,15 @@
 }
 
 /* The document between the panels beside it: the panels at its edges, the pages taking the rest. */
-.de-document-editor__workspace {
+.de-document-editor__workspace[data-panels] {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* Without a panel the workspace takes no box: the document lies in the editor as if it were not there. */
+.de-document-editor__workspace:not([data-panels]) {
+  display: contents;
 }
 
 .de-document-editor__workspace > .de-document-editor__viewport {

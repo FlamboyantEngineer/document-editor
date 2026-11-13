@@ -14,7 +14,7 @@ import {
   shortcutsOf,
 } from '../../engine/index.js';
 import type { EditorZoom } from './document-status-bar.js';
-import type { EditorContext } from './editor-context.js';
+import { type EditorContext, unavailableReason } from './editor-context.js';
 import { markupEntries, modeEntries, type ShellFeatures } from './mode-controls.js';
 import {
   disabledReasonOf,
@@ -61,6 +61,16 @@ export interface MenubarFeatures extends ToolsFeatures {
 }
 
 const separator = (id: string): MenuEntry => ({ type: 'separator', id });
+
+// Whether an entry is disabled, and why when the writer cannot change the document there.
+function unavailable(context: EditorContext, disabled: boolean) {
+  const reason = disabled ? unavailableReason(context) : undefined;
+  return {
+    isDisabled: disabled,
+    focusableWhenDisabled: reason !== undefined,
+    ...(reason === undefined ? {} : { description: reason }),
+  };
+}
 
 // A toolbar item as a menu entry: a button runs, a menu becomes a submenu; a control the host
 // draws has no entry.
@@ -222,7 +232,12 @@ function formatMenu(context: EditorContext, features: MenubarFeatures): Document
     entries: [
       ...groupEntries(features, 'marks', context),
       separator('format-style'),
-      { id: 'text-style', label: labels.blockType, isDisabled: !context.editable, items: styles },
+      {
+        id: 'text-style',
+        label: labels.blockType,
+        ...unavailable(context, !context.editable || context.locked),
+        items: styles,
+      },
       separator('format-lists'),
       ...groupEntries(features, 'lists', context),
       ...groupEntries(features, 'layout', context),
@@ -248,7 +263,7 @@ export function menubarMenus(
         {
           id: 'insert-table',
           label: labels.insertTable,
-          isDisabled: !context.canRun(insertTable({ rows: 3, columns: 3 })),
+          ...unavailable(context, !context.canRun(insertTable({ rows: 3, columns: 3 }))),
           onAction: () => context.run(insertTable({ rows: 3, columns: 3 })),
         },
         ...groupEntries(features, 'insert', context),

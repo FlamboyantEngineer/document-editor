@@ -124,6 +124,16 @@ export function unavailableReason(context: EditorContext): string | undefined {
   return context.locked ? context.labels.reasonLocked : undefined;
 }
 
+/** What the editor's props say of it in its context: its mode, markup, layout and zoom. */
+export function contextOptionsOf(
+  props: DocumentEditorProps,
+  { labels, openDialog }: Pick<EditorContextOptions, 'labels' | 'openDialog'>,
+): EditorContextOptions {
+  const { editable = true, suggesting, markup, layout, zoom } = props;
+  const commenting = Boolean(props.comments) && props.comments?.canComment !== false;
+  return { editable, labels, openDialog, suggesting, commenting, markup, layout, zoom };
+}
+
 /** The editor context of the view and the state shown, with the props' mode, markup, layout and zoom. */
 export function useShownContext(
   props: DocumentEditorProps,
@@ -137,8 +147,10 @@ export function useShownContext(
     openDialog: (dialog: ObjectDialog) => void;
   },
 ): EditorContext {
-  const { state, editable = true, suggesting, markup, layout, zoom } = props;
-  const commenting = Boolean(props.comments) && props.comments?.canComment !== false;
+  const { state } = props;
+  const { editable, suggesting, commenting, markup, layout, zoom } = contextOptionsOf(props, {
+    labels,
+  });
   return useMemo(
     () =>
       createEditorContext(view, state, {

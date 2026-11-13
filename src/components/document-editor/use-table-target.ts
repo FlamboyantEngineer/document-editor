@@ -98,7 +98,9 @@ export function resolveTarget(doc: ProseMirrorNode, target: TableTarget): TableT
   if (table === null || !node) return null;
   const inside =
     target.row < tableLineCount(node, 'row') && target.column < tableLineCount(node, 'column');
-  return inside ? { ...target, table } : null;
+  if (!inside) return null;
+  // The same target while its table stays where it was, so what follows it is not redone.
+  return table === target.table ? target : { ...target, table };
 }
 
 /**

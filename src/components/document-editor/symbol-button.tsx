@@ -10,7 +10,7 @@ import { SpecialCharacterGlyph } from '@flamboyantengineer/ui-components/core';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { useState } from 'react';
 import { insertCharacter } from '../../engine/index.js';
-import type { EditorContext } from './editor-context.js';
+import { type EditorContext, unavailableReason } from './editor-context.js';
 
 // The font of the text at the caret, which the symbols show in.
 function fontAtCaret({ view }: EditorContext): string | undefined {
@@ -31,15 +31,19 @@ export function SymbolButton({
 }) {
   const [isOpen, setOpen] = useState(false);
   const { labels } = context;
+  const isDisabled = !context.canRun(insertCharacter('Ω'));
+  // Disabled, the button stays focusable and says why in its tooltip, as the toolbar's buttons do.
+  const reason = isDisabled ? unavailableReason(context) : undefined;
   return (
-    <PopoverTrigger isOpen={isOpen && context.editable} onOpenChange={setOpen}>
+    <PopoverTrigger isOpen={isOpen && !isDisabled} onOpenChange={setOpen}>
       <Button
         data-item="symbol"
         label={labels.symbol}
-        tooltip={labels.symbol}
+        tooltip={reason === undefined ? labels.symbol : `${labels.symbol}: ${reason}`}
         size="sm"
         icon={SpecialCharacterGlyph}
-        isDisabled={!context.canRun(insertCharacter('Ω'))}
+        isDisabled={isDisabled}
+        focusableWhenDisabled={reason !== undefined}
       />
       <Popover placement="bottom start" aria-label={labels.symbol}>
         <CharacterGrid
