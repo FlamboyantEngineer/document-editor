@@ -220,4 +220,37 @@ describe('writeDocx', () => {
     expect(files.get('word/document.xml')).not.toContain('<w:hyperlink');
     expect(files.get('word/_rels/document.xml.rels')).not.toContain('javascript');
   });
+
+  it('DOCE-FORMAT-5.3 leaves out suggested blocks and writes variables with their values', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            { type: 'figure', attrs: { alt: 'Pond', suggestionKind: 'insertion' } },
+            {
+              type: 'paragraph',
+              attrs: { suggestionKind: 'deletion' },
+              content: [text('Gone paragraph', 'deletion')],
+            },
+            {
+              type: 'paragraph',
+              content: [text('Title: '), { type: 'variable', attrs: { key: 'document.title' } }],
+            },
+          ],
+        },
+      ],
+    };
+    const values = { variable: (key: string) => (key === 'document.title' ? 'Field notes' : null) };
+    const accepted = readStored(writeDocx(file, { values })).get('word/document.xml') ?? '';
+    expect(accepted).toContain('[Pond]');
+    expect(accepted).not.toContain('Gone paragraph');
+    expect(accepted).toContain('>Field notes</w:t>');
+    const rejected =
+      readStored(writeDocx(file, { suggestions: 'rejected' })).get('word/document.xml') ?? '';
+    expect(rejected).not.toContain('[Pond]');
+    expect(rejected).toContain('Gone paragraph');
+    expect(rejected).toContain('>{{document.title}}</w:t>');
+  });
 });
