@@ -99,6 +99,22 @@ describe('lenient reading', () => {
     expect(writeDocumentFile(doc).sections[0]?.content).toEqual([table]);
   });
 
+  it('DOCE-FORMAT-1.5 drops a mark it cannot read from a node that is not text', () => {
+    const mention = (marks: StoredNode['marks']): DocumentFile => ({
+      formatVersion: 1,
+      sections: [{ content: [{ type: 'paragraph', content: [{ type: 'mention', marks }] }] }],
+    });
+    const marks = [{ type: 'glow' }, { type: 'bold' }];
+    expect(() => readDocumentFile(mention(marks), documentSchema)).toThrow(
+      'sections[0].content[0].content[0].marks[0]: unknown mark glow',
+    );
+    const { doc, problems } = readDocumentFile(mention(marks), documentSchema, { unknown: 'drop' });
+    expect(problems.map((problem) => problem.message)).toEqual(['unknown mark glow']);
+    expect(writeDocumentFile(doc).sections[0]?.content[0]?.content).toEqual([
+      { type: 'mention', marks: [{ type: 'bold' }] },
+    ]);
+  });
+
   it('DOCE-FORMAT-1.5 still refuses a file that is not a stored document', () => {
     expect(() =>
       readDocumentFile({ formatVersion: 2, sections: [] }, documentSchema, { unknown: 'keep' }),

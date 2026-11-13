@@ -81,13 +81,14 @@ function writeChildren(node: ProseMirrorNode, context: WriteContext): StoredCont
   return content;
 }
 
+// A node's marks, left out when it has none.
+const writeMarks = (node: ProseMirrorNode) =>
+  node.marks.length ? { marks: node.marks.map(writeMark) } : {};
+
 function writeNode(node: ProseMirrorNode, context: WriteContext): StoredNode {
-  if (node.isText) {
-    const marks = node.marks.map(writeMark);
-    return { type: 'text', text: node.text ?? '', ...(marks.length ? { marks } : {}) };
-  }
+  if (node.isText) return { type: 'text', text: node.text ?? '', ...writeMarks(node) };
   if (KEPT_TYPES.has(node.type.name)) return cloneJson(node.attrs.stored as StoredNode);
-  return writeElement(node, context);
+  return { ...writeElement(node, context), ...writeMarks(node) };
 }
 
 function writeElement(node: ProseMirrorNode, context: WriteContext): StoredNode {

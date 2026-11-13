@@ -6,9 +6,9 @@ The library stores documents and templates in formats of its own, as JSON a host
 
 ### DOCE-FORMAT-1.1 - Stored document
 
-A stored document (`DocumentFile`) shall hold `formatVersion` 1, the `template` it uses, pinned at a revision (DOCE-TEMPLATES-11.1), and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), its own settings (DOCE-FORMAT-1.6) and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
+A stored document (`DocumentFile`) shall hold `formatVersion` 1, the `template` it uses, pinned at a revision (DOCE-TEMPLATES-11.1), and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), its own settings (DOCE-FORMAT-1.6) and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. A node of any type shall store the marks it carries as `marks`, a text's and those of any other node alike, such as a mention or a footnote marker a suggestion deletes, so they are read back. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
 
-Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-write.ts`, `src/model/format/document-format-convert.ts`
+Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-write.ts`, `src/model/format/document-format-convert.ts`, `src/model/format/document-format-nodes.ts`
 Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
 
 ### DOCE-FORMAT-1.2 - Read for the editor
@@ -29,14 +29,14 @@ Verification: `src/model/format/document-format.test.ts`
 
 A stored document that is not an object, has another `formatVersion`, or holds a node, mark or attribute the schema does not know, or content its type does not allow, shall not be read under the default policy (`unknown: 'throw'`): `readDocumentFile` shall throw a `DocumentFormatError` (`isDocumentFormatError`) whose `path` names the first problem, such as `sections[0].content[2]`.
 
-Implementation: `src/model/format/document-format-convert.ts`
+Implementation: `src/model/format/document-format-convert.ts`, `src/model/format/document-format-nodes.ts`
 Verification: `src/model/format/document-format.test.ts`
 
 ### DOCE-FORMAT-1.5 - Lenient reading
 
 With `unknown: 'drop'`, `readDocumentFile` shall leave out each node it cannot read, with its content, each mark and attribute the schema does not know, and each child or mark its parent does not allow, filling a parent that then needs content, and list each in `problems` as `{ path, message, kept: false }`. With `unknown: 'keep'`, it shall do the same, except that a node the schema does not know, or one whose content or marks its type does not allow, shall be kept whole as a kept block or inline node (`kept_block`, `kept_inline`), shown as an empty placeholder that cannot be edited and written back by `writeDocumentFile` exactly as it was stored, and listed with `kept: true`; a block a section does not allow, such as a lone list item, is left out. Under either policy a file that is not an object, has another `formatVersion` or has no `sections` list shall still throw. Kept nodes are never stored by their own names.
 
-Implementation: `src/model/format/document-format-convert.ts`, `src/model/format/document-format-write.ts`, `src/model/schema/kept-nodes.ts`
+Implementation: `src/model/format/document-format-convert.ts`, `src/model/format/document-format-nodes.ts`, `src/model/format/document-format-write.ts`, `src/model/schema/kept-nodes.ts`
 Verification: `src/model/format/document-format-convert.test.ts`
 
 ### DOCE-FORMAT-1.6 - Section settings
@@ -174,7 +174,7 @@ Verification: `src/model/schema/schema-fingerprint.test.ts`
 
 ### DOCE-FORMAT-7.2 - Stored-format golden files
 
-`test/fixtures/format/` shall hold a stored document for every stored node type, a type that sits only inside another (list items, table rows and cells, columns) within its parent's file, and one for every stored mark type, with each stored attribute set away from its default. Each shall read and write back unchanged (DOCE-FORMAT-1.1), and a stored type or attribute name that changes shall fail to read.
+`test/fixtures/format/` shall hold a stored document for every stored node type, a type that sits only inside another (list items, table rows and cells, columns) within its parent's file, and one for every stored mark type, with each stored attribute set away from its default, and a node other than text that carries marks. Each shall read and write back unchanged (DOCE-FORMAT-1.1), and a stored type or attribute name that changes shall fail to read.
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/stored-format-golden.test.ts`
