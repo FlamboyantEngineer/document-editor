@@ -69,9 +69,17 @@ test.describe('references', () => {
     page,
   }) => {
     await newParagraph(page, 'Power', 'Check the Battery Charging Unit');
-    for (const _ of [1, 2, 3]) await page.keyboard.press('Shift+ControlOrMeta+ArrowLeft');
-    await toolbar(page).getByRole('button', { name: 'Abbreviation…' }).click();
-    await expect(dialog(page).getByRole('textbox', { name: 'Abbreviation' })).toHaveValue('BCU');
+    // A layout may land between the presses and drop one, or before the editor reads the
+    // selection, so the words are selected again until the dialog opens on all three.
+    await expect(async () => {
+      if (await dialog(page).isVisible()) await page.keyboard.press('Escape');
+      await page.keyboard.press('End');
+      for (const _ of [1, 2, 3]) await page.keyboard.press('Shift+ControlOrMeta+ArrowLeft');
+      await toolbar(page).getByRole('button', { name: 'Abbreviation…' }).click();
+      await expect(dialog(page).getByRole('textbox', { name: 'Abbreviation' })).toHaveValue('BCU', {
+        timeout: 2000,
+      });
+    }).toPass();
     await expect(dialog(page).getByRole('textbox', { name: 'Expansion' })).toHaveValue(
       'Battery Charging Unit',
     );

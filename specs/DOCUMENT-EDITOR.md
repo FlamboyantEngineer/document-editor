@@ -462,6 +462,62 @@ Verification: `src/engine/snapshot.test.ts`, `src/engine/code-highlighting.test.
 Implementation: `src/components/document-editor/visible-elements.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
 Verification: `src/components/document-editor/visible-elements.test.ts`, `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-6.21 - Links in print
+
+A snapshot shall keep the document's links: the first element carrying each element id shall take it as its anchor (`id`), an internal reference that is not broken shall link to its target's anchor, a citation of another document shall link to the address the host gives it (`citationHref`, by default the `references` adapter's `href`, DOCE-HOST-1.9) and stay unlinked without one, each footnote marker shall take the anchor `fnref-<id>` and link to its entry, and each entry the anchor `fn-<id>`, its number linking back to the marker. Each link is an `a` inside the element it links, carrying `data-print-link` (`reference`, `citation`, `footnote` or `footnote-back`), and prints in the colour and decoration of the text around it, so a PDF made from the snapshot keeps working links that look as the editor shows them.
+
+Implementation: `src/engine/print-links.ts`, `src/engine/snapshot.ts`, `src/model/schema/reference-mark.ts`, `src/model/schema/footnote-nodes.ts`, `src/components/document-editor/editor-handle.ts`
+Verification: `src/engine/print-links.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.22 - Static numbers in print
+
+A snapshot shall write the number the template gives each numbered heading and object (`catalogDocument`), which the stylesheet's counters print, on the element that carries its anchor as static text (`data-number`), so a stylesheet, a converter or the print outline reads it without counting.
+
+Implementation: `src/engine/print-links.ts`, `src/engine/snapshot.ts`
+Verification: `src/engine/print-links.test.ts`
+
+### DOCE-EDITOR-6.23 - What a snapshot may hold
+
+A snapshot's pages shall hold only the elements and attributes on its allow-list (`allowSnapshotMarkup`): text, lists, tables, figures and images, links, vector drawings and math, with `class`, `id`, `style`, the `data-*` and `aria-*` hooks and the attributes those elements draw with. Whatever a node view or decoration drew, an element that runs, embeds another page or takes input (`script`, `style`, `iframe`, `object`, `embed`, form controls and the like) shall be left out with its content, any other element off the list shall give way to its content, event handlers and every other attribute off the list shall go, as shall a link to an address other than an anchor, a web page or a mail address, an image from one other than a web address, image data or a blob, and a style that runs script. A signature shall print from its stored vector through `signatureSvgMarkup`, which writes only validated geometry, drawn in the current colour, as the editor draws it, or nothing for a value that is not a signature.
+
+Implementation: `src/engine/print-allow-list.ts`, `src/engine/snapshot.ts`, `src/model/signature-vector.ts`
+Verification: `src/engine/print-allow-list.test.ts`, `src/model/signature-vector.test.ts`
+
+### DOCE-EDITOR-6.24 - The print outline
+
+The handle's `snapshotOutline()` shall give the document's headings as its pages show them now, for a printed document's bookmarks (`SnapshotOutlineEntry`): each heading with an element id once, in order, with its level, text and number, the page its first part prints on, from 0, and its top from that page's top in unscaled CSS pixels; a heading not on a page is left out, and an editor not mounted gives none. The print lab lists the outline beside its print preview.
+
+Implementation: `src/engine/print-outline.ts`, `src/components/document-editor/editor-handle.ts`, `labs/src/print.lab.tsx`
+Verification: `src/engine/print-outline.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.25 - Images in print
+
+A snapshot's images shall load at once (`loading="eager"`, `decoding="sync"`), never when scrolled to, and from the address the snapshot's `resolveImage` gives for the one the pages show, such as one a server printing it can reach, dropping their other sources; an image it gives no address for keeps its own.
+
+Implementation: `src/engine/print-images.ts`, `src/engine/snapshot.ts`
+Verification: `src/engine/print-images.test.ts`
+
+### DOCE-EDITOR-6.26 - Printing when ready
+
+The handle's `exportSnapshotAsync(options)` shall give the snapshot `exportSnapshot` gives once the pages are ready to print (`documentSnapshotWhenReady`): after they settle (`whenSettled`) and their fonts load, with each image's address as its `resolveImage` resolves it, once for each address, which may answer later; null before the editor is mounted. `printSnapshot(page, html, { timeout })`, from the server-safe `./document` entry, shall print a snapshot to PDF in a headless browser's page the host gives (`HeadlessPage`: `setContent`, `evaluate` and `pdf`, as Playwright and Puppeteer pages have): it loads the snapshot, waits until its fonts have loaded and every image has loaded or failed, then prints each page on its sheet with its backgrounds, naming the images that failed, and prints nothing when they are not ready in time (`timeout`, 30 seconds by default). The print lab's preview is made this way, and the print gate (DOCE-EDITOR-6.19) prints every snapshot through `printSnapshot`.
+
+Implementation: `src/engine/snapshot-ready.ts`, `src/document/headless-print.ts`, `src/components/document-editor/editor-handle.ts`, `labs/src/print.lab.tsx`
+Verification: `src/engine/snapshot-ready.test.ts`, `src/document/headless-print.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.27 - A static render of a stored document
+
+`renderPrintPage(file, template, options)`, from the server-safe `./document` entry, shall render a stored document as a standalone HTML page without an editor or a DOM, for a server's preview, an email or a print that needs no editor: the document as its schema renders it (`kit`, the host's schema choices and extensions), with the template's headers and footers and its footnotes numbered in order, inside the editor root's hooks in reading mode (`data-print="true"`, `data-markup`), in the template's properties, and styled by the host's stylesheets (`styles`, `stylesheets`). It shall keep what a print snapshot keeps: the anchors, links and footnote links (DOCE-EDITOR-6.21, `citationHref`), the static numbers (DOCE-EDITOR-6.22), the allow-list, with signatures drawn from their vectors (DOCE-EDITOR-6.23), the images loaded at once from `resolveImage`'s address (DOCE-EDITOR-6.25), and the suggestions as `markup` shows them (DOCE-EDITOR-6.16, `all` by default). Nothing is laid out on pages: each section prints on its template sheet with the template's margins, from a new sheet, the browser breaking its pages, and its header and footer show once, at its start and end.
+
+Implementation: `src/document/print.ts`, `src/document/print-tree.ts`
+Verification: `src/document/print.test.ts`
+
+### DOCE-EDITOR-6.28 - File > Export
+
+With the host's `exports` adapter (DOCE-HOST-1.22), the menubar's File menu shall offer an Export submenu (`exportMenu`) listing its entries in order, each running the export it names with the document as the editor shows it, in the stored format (`content`), its print snapshot once the pages are ready (`snapshot`, DOCE-EDITOR-6.26) and a signal aborted when the editor unmounts. An export shall run at most once at a time: its entry is disabled from the moment it starts until it ends, and choosing it again meanwhile does nothing. The editor shall tell the reader through the host's `feedback` when an export starts (`info`, `exportStarted`) and how it ends, its file made (`success`, `exportDone`) or failed with the host's reason (`error`, `exportFailed`), and nothing once the editor has unmounted. Without exports the File menu has no Export submenu. The full editor lab exports Markdown, a word processing document and a print snapshot.
+
+Implementation: `src/components/document-editor/use-document-exports.ts`, `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/export-labels.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-exports.ts`
+Verification: `src/components/document-editor/use-document-exports.test.tsx`, `e2e/print.spec.ts`
+
 ## DOCE-EDITOR-7 - Banners
 
 ### DOCE-EDITOR-7.1 - The banner region

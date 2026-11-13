@@ -12,12 +12,18 @@ import {
   type AutomationResult,
   commentAnchors,
   documentSnapshot,
+  documentSnapshotWhenReady,
   type EditAddress,
+  type ReadySnapshotOptions,
   revealElement,
   type RevealOptions,
   type SnapshotOptions,
+  snapshotOutline,
+  type SnapshotOutlineEntry,
 } from '../../engine/index.js';
+import type { ReferenceSourceAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
+import type { CitationHref } from '../../model/schema/reference-mark.js';
 import type { LayoutState, PaginationStats } from '../../pagination/index.js';
 import type {
   OpenComment,
@@ -75,6 +81,16 @@ export interface DocumentEditorHandle {
    * into a PDF (`documentSnapshot`); null before the editor is mounted.
    */
   exportSnapshot(options?: Omit<SnapshotOptions, 'template'>): string | null;
+  /**
+   * The document as `exportSnapshot` gives it, once the pages are ready to print: laid out with
+   * no layout due, in their fonts, with each image's address as `resolveImage` resolves it, which
+   * may answer later (`documentSnapshotWhenReady`); null before the editor is mounted.
+   */
+  exportSnapshotAsync(
+    options?: Omit<ReadySnapshotOptions, 'template' | 'whenSettled'>,
+  ): Promise<string | null>;
+  /** The headings as the pages show them now, for a printed document's bookmarks; empty unmounted. */
+  snapshotOutline(): SnapshotOutlineEntry[];
   /** Runs a command on the latest state; false when it does not apply. */
   run(command: Command): boolean;
   /** Applies a batch of automation edits (DOCE-AUTOMATION) and dispatches it when it is accepted. */
@@ -152,6 +168,10 @@ export function useCommentRefs(): CommentRefs {
   return useMemo(() => ({ startCommentRef, openThreadRef }), []);
 }
 
+// Where the host links a printed citation: its references adapter's `href`, when it gives one.
+const hrefOf = (references: ReferenceSourceAdapter | undefined): CitationHref | undefined =>
+  references?.href ? (citation) => references.href?.(citation) ?? null : undefined;
+
 /** Gives the host a handle on the editor through its `handleRef`. */
 export function useEditorHandle(
   ref: Ref<DocumentEditorHandle> | undefined,
@@ -163,8 +183,10 @@ export function useEditorHandle(
     layout,
     panes,
     openFind,
+    references,
   }: CommentRefs & {
     template: TemplateFile;
+    references: ReferenceSourceAdapter | undefined;
     layout: LayoutProgress;
     panes: EditorPanes;
     openFind: ((mode?: FindBarMode) => void) | null;
@@ -184,7 +206,20 @@ export function useEditorHandle(
         const opened = openThreadRef.current?.({ threadId, ...options }) ?? false;
         return placed || opened;
       },
-      exportSnapshot: (options) => (view ? documentSnapshot(view, { ...options, template }) : null),
+      exportSnapshot: (options) =>
+        view
+          ? documentSnapshot(view, { citationHref: hrefOf(references), ...options, template })
+          : null,
+      exportSnapshotAsync: async (options) =>
+        view
+          ? documentSnapshotWhenReady(view, {
+              citationHref: hrefOf(references),
+              ...options,
+              template,
+              whenSettled: layout.whenSettled,
+            })
+          : null,
+      snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
       startComment: (options) => {
         const start = startCommentRef.current;
         start?.(options);
@@ -211,6 +246,6 @@ export function useEditorHandle(
       visibleElements: () => (view ? measureVisibleElements(view) : []),
       revealPane: (paneId, options) => panes.reveal(paneId, options),
     }),
-    [view, startCommentRef, openThreadRef, template, layout, openFind, panes],
+    [view, startCommentRef, openThreadRef, template, layout, openFind, panes, references],
   );
 }
