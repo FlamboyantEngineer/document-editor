@@ -229,6 +229,16 @@ function layOutPages(session: Session) {
   );
 }
 
+// The selection the browser shows and has not reported yet is the one the new pages keep
+// (DOCE-EDITOR-1.4), not the one the layout would draw back over it; but pages that do not show
+// the canonical document yet, as when a change could not be mirrored, hold no selection of it;
+// nor do pages no view shows yet, which hold the canonical selection they started from.
+function keepShownSelection(session: Session): void {
+  if (!session.view || session.shown !== session.canonical.doc) return;
+  readDom(session);
+  syncSelection(session);
+}
+
 /**
  * Lays the pages out from the ghost, steps the projection onto them and builds the map again;
  * fails when layouts keep moving the pages with no change in between.
@@ -240,13 +250,7 @@ export function layout(session: Session): void {
   const { view, ghost, pace } = session;
   if (view?.isDestroyed || ghost.view.isDestroyed) return;
   if (view?.composing) return requestLayout(session);
-  // The selection the browser shows and has not reported yet is the one the new pages keep
-  // (DOCE-EDITOR-1.4), not the one the layout would draw back over it; but pages that do not show
-  // the canonical document yet, as when a change could not be mirrored, hold no selection of it.
-  if (session.shown === session.canonical.doc) {
-    readDom(session);
-    syncSelection(session);
-  }
+  keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
   else if (pace.passes >= LAYOUT_PASSES) return pace.readiness.fail();
   pace.changed = false;
@@ -270,13 +274,33 @@ export function layout(session: Session): void {
   session.options.onLayout?.(laidOut.tr);
 }
 
+/** How a canonical change is shown on the pages. */
+export interface Showing {
+  /** Lays the pages out on the next frame, not once the writer pauses (DOCE-PAGINATION-5.7). */
+  readonly now: boolean;
+  /** Scrolls the pages to the selection, as a transaction that made the change asked. */
+  readonly scroll: boolean;
+}
+
+/**
+ * How the transactions that made a change show it: laid out at once when one changed the
+ * structure, and scrolled to the selection when one asked, as a view of the canonical state does.
+ * A change nothing asked to scroll for, such as a collaborator's or a state the host replaced,
+ * leaves the pages where the writer reads them.
+ */
+export function shownBy(made: readonly Transaction[]): Showing {
+  return {
+    now: made.some(wantsLayoutNow),
+    scroll: made.some((each) => each.scrolledIntoView),
+  };
+}
+
 /**
  * Mirrors the canonical state onto the projection from the document shown, by `tr` when it made
  * the state from that document; or lays the pages out at once when a step cannot be placed. The
- * pages are laid out on the next frame when `now`, as after a change of structure
- * (DOCE-PAGINATION-5.7), or once the writer pauses.
+ * pages are laid out on the next frame or once the writer pauses, and scrolled, as `how` says.
  */
-export function showCanonical(session: Session, tr: Transform | null, now = false): void {
+export function showCanonical(session: Session, tr: Transform | null, how: Showing): void {
   const { projection, map, rules, canonical, shown } = session;
   const changed = canonical.doc !== shown;
   const by = changed && tr?.before === shown ? tr : null;
@@ -287,9 +311,9 @@ export function showCanonical(session: Session, tr: Transform | null, now = fals
   }
   session.map = mirrored.map;
   session.shown = canonical.doc;
-  take(session, changed ? mirrored.tr.scrollIntoView() : mirrored.tr);
+  take(session, how.scroll ? mirrored.tr.scrollIntoView() : mirrored.tr);
   if (!changed) return;
-  afterChange(session, now);
+  afterChange(session, how.now);
 }
 
 // A change shown on the pages: laid out on the next frame when `now`, or once the writer pauses.
@@ -298,9 +322,6 @@ function afterChange(session: Session, now: boolean): void {
   if (now) requestLayout(session);
   else session.edits.request();
 }
-
-// Whether the transactions a change made lay the pages out at once (DOCE-PAGINATION-5.7).
-const anyNow = (transactions: readonly Transaction[]) => transactions.some(wantsLayoutNow);
 
 /**
  * Readies the canonical state for input: the browser's selection read, unless the view has just
@@ -315,7 +336,7 @@ export function prepare(session: Session, { fromDom = true } = {}): void {
 /** Takes a transaction of the canonical state as it stands, and shows it on the pages at once. */
 export function dispatchCanonical(session: Session, tr: Transaction): void {
   const made = send(session, tr);
-  showCanonical(session, chain(tr.before, made), anyNow(made));
+  showCanonical(session, chain(tr.before, made), shownBy(made));
 }
 
 /** Runs a command on the canonical state, with the projection's selection mirrored there first. */
@@ -335,7 +356,7 @@ function routeInput(session: Session, tr: Transaction): void {
     const ctr = routeColumnWidth(tr, session);
     if (!ctr) return refuse(session);
     const made = send(session, ctr);
-    return showCanonical(session, chain(ctr.before, made), anyNow(made));
+    return showCanonical(session, chain(ctr.before, made), shownBy(made));
   }
   syncSelection(session);
   const { rules } = session;
@@ -345,17 +366,19 @@ function routeInput(session: Session, tr: Transaction): void {
   session.map = routed.atBreak ? createProjectionMap(doc, rules) : routed.map.on(doc);
   // The pages now show the routed document, which the canonical state takes next.
   session.shown = routed.canonical.doc;
+  // The mirror carries the edit's meta and not its scroll: scrolling to the caret reads its place,
+  // a layout, on each typed key.
   copyMeta(tr, routed.projection);
   take(session, routed.projection);
   const made = send(session, routed.canonical);
   showPages(session, session.shown);
-  const now = wantsLayoutNow(tr) || anyNow(made);
+  const how = shownBy([tr, ...made]);
   // What the canonical plugins appended, or a change they refused, is mirrored after the edit.
   if (session.canonical.doc !== session.shown) {
     const appended = made[0] === routed.canonical ? made.slice(1) : null;
-    return showCanonical(session, appended && chain(session.shown, appended), now);
+    return showCanonical(session, appended && chain(session.shown, appended), how);
   }
-  afterChange(session, now);
+  afterChange(session, how.now);
 }
 
 /**

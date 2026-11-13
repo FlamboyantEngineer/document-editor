@@ -95,6 +95,7 @@ const ELEMENT_ATTRS: Readonly<Record<string, string | null>> = Object.freeze({
   dataAiSession: 'aiSession',
   splitPartIndex: null,
   orphanedListContinuation: null,
+  continuationPlaceholder: null,
   suggestionSplitKind: 'suggestionKind',
   suggestionSplitId: 'suggestionId',
   suggestionFormat: 'suggestionFormat',

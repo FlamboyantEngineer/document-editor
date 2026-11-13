@@ -17,6 +17,7 @@ import {
 } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import { characterWidth } from './graphemes.js';
 import type { ProjectionMap } from './projection-map.js';
 
 // The projection position of a canonical one nearest `near`, where a page break gives two. A side
@@ -129,7 +130,8 @@ export function selectionAcrossBreak(
   const twin = at === null ? null : map.toProjection(at, direction);
   if (at === null || twin === null || twin === head) return null;
   const $at = map.canonical.resolve(at);
-  const next = at + direction;
+  // The canonical character beyond the break, its whole grapheme cluster.
+  const next = at + direction * characterWidth($at, direction);
   if (next < $at.start() || next > $at.end()) return null;
   const target = map.toProjection(next, direction);
   if (target === null) return null;

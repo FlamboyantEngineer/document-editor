@@ -36,6 +36,7 @@ const VOLATILE_ATTRS = new Set([
   'suggestionSplitKind',
   'suggestionSplitId',
   'orphanedListContinuation',
+  'continuationPlaceholder',
 ]);
 
 // The attributes the document generates: numbers, rendered output, layout ranges and status.

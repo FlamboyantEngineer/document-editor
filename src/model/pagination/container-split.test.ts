@@ -7,6 +7,7 @@ import {
   joinFragments,
   LAYOUT_RULES,
   type LayoutBlock,
+  layoutNextPage,
   splitContainer,
   type SplitContext,
   splitLayoutSection,
@@ -153,6 +154,27 @@ describe('container splits', () => {
     expect(splitTableWith(true)(measured(short, 35, layouts.slice(0, 2)), 20)).toBeNull();
     expect(createLayoutRules({ repeatTableHeader: false }).table?.split).toBeTypeOf('function');
   });
+
+  it('DOCE-PAGINATION-4.5 splits a table only between rows no cell spans', () => {
+    const cell = (text: string, rowspan = 1) => node('table_cell', { rowspan }, [paragraph(text)]);
+    const table = node('table', { dataId: 't1' }, [
+      node('table_row', null, [cell('A'), cell('B')]),
+      node('table_row', null, [cell('C', 2), cell('D')]),
+      node('table_row', null, [cell('E')]),
+      node('table_row', null, [cell('F'), cell('G')]),
+    ]);
+    // Rows two and three share a cell: the page ending after row two splits after row one.
+    const split = splitTableWith(false)(measured(table, 80, rows(4, 20)), 45);
+    expect(split?.head.node.textContent).toBe('AB');
+    expect(split?.tail[0]?.node.textContent).toBe('CDEFG');
+    // A cell spanning every body row leaves no place to split.
+    const spanning = node('table', null, [
+      node('table_row', null, [cell('A', 3), cell('B')]),
+      node('table_row', null, [cell('C')]),
+      node('table_row', null, [cell('D')]),
+    ]);
+    expect(splitTableWith(false)(measured(spanning, 60, rows(3, 20)), 45)).toBeNull();
+  });
 });
 
 describe('script block and layout section splits', () => {
@@ -242,5 +264,26 @@ describe('script block and layout section splits', () => {
     expect(split?.head.node.child(0).textContent).toBe('w00 w01 w02 w03 w04 w05 ');
     expect(split?.head.node.child(1).textContent).toBe('Side');
     expect(joinFragments(parts(split))[0]?.eq(section)).toBe(true);
+  });
+
+  it('DOCE-PAGINATION-4.7 keeps a column block taller than a page whole on the page after the split', () => {
+    const section = node('layout_section', { dataId: 'ls1', preset: 'halves' }, [
+      column('c1', [paragraph('Side', { dataId: 'p1' })]),
+      column('c2', [node('heading', { dataId: 'h1', level: 2 }, [documentSchema.text('Tall')])]),
+    ]);
+    const block = measured(section, 500, [
+      { top: 0, bottom: 20, measurement: { children: rows(1, 20) } },
+      { top: 0, bottom: 500, measurement: { children: rows(1, 500) } },
+    ]);
+    // A layout that kept splitting off the empty paragraphs would never end, so two pages are
+    // laid out by hand.
+    const queue = [block];
+    const pages = [0, 1].map((index) => layoutNextPage(queue, index, { pageHeight: 100 }));
+    expect(queue).toHaveLength(0);
+    expect(pages.map((page) => page.map((each) => each.node.textContent))).toEqual([
+      ['Side'],
+      ['Tall'],
+    ]);
+    expect(joinFragments(pages.flat().map((each) => each.node))[0]?.eq(section)).toBe(true);
   });
 });

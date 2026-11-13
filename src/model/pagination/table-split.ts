@@ -50,9 +50,36 @@ function lastFittingRow(
   return last;
 }
 
+// For each row, whether no cell spans past it: a table splits only after such a row.
+function closedRows(rows: readonly ProseMirrorNode[]): boolean[] {
+  let open = -1;
+  return rows.map((row, index) => {
+    row.forEach((cell) => {
+      const span = cell.attrs.rowspan as unknown;
+      const rowspan = typeof span === 'number' && span > 1 ? span : 1;
+      open = Math.max(open, index + rowspan - 1);
+    });
+    return open <= index;
+  });
+}
+
+// The last body row that fits and no cell spans past; -1 for none.
+function lastSplitRow(rows: readonly ProseMirrorNode[], layouts: readonly ChildLayout[], fit: Fit) {
+  const closed = closedRows(rows);
+  let last = lastFittingRow(layouts, fit.headerCount, fit.room);
+  while (last >= fit.headerCount && !closed[last]) last -= 1;
+  return last;
+}
+
+interface Fit {
+  readonly headerCount: number;
+  readonly room: number;
+}
+
 /**
- * A table split after its last body row that fits, the second part repeating the header rows when
- * `repeatHeader` is set; null when no body row fits or the table has one body row.
+ * A table split after its last body row that fits and no cell spans past, the second part
+ * repeating the header rows when `repeatHeader` is set; null when no such body row fits or the
+ * table has one body row.
  */
 export function splitTableWith(repeatHeader: boolean) {
   return (block: LayoutBlock, fitting: number): SplitBlock | null => {
@@ -64,7 +91,7 @@ export function splitTableWith(repeatHeader: boolean) {
     if (layouts.length !== rows.length || rows.length - headerCount <= 1) return null;
     const span = layouts.at(-1)?.bottom ?? 0;
     const overhead = Math.max(0, block.height - span);
-    const last = lastFittingRow(layouts, headerCount, fitting - overhead);
+    const last = lastSplitRow(rows, layouts, { headerCount, room: fitting - overhead });
     const next = layouts[last + 1];
     if (last < headerCount || !next) return null;
     const header = repeatHeader ? rows.slice(0, headerCount) : [];

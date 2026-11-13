@@ -6,6 +6,9 @@ import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { forgetMeasurement, type MeasureCache } from './measure-blocks.js';
 import type { PagedProjectionOptions } from './projection.js';
 
+// What ends a press on the editor.
+const RELEASES = ['mouseup', 'dragend', 'drop', 'blur'] as const;
+
 /**
  * Holds an edit's layout until the writer pauses for `settle` milliseconds, at most four times as
  * long after the first edit, and until no pointer button is down on the editor, so a layout never
@@ -51,10 +54,12 @@ export function settleEdits(
     /** Starts following the pointer on the editor; returns how to stop. */
     watch(editor: EditorView) {
       editor.dom.addEventListener('mousedown', press);
-      owner?.addEventListener('mouseup', release);
+      // A native drag ends with no mouseup, and a press may end in another window: the window's own
+      // blur, which an element's blur does not reach, as it does not bubble.
+      for (const event of RELEASES) owner?.addEventListener(event, release);
       return () => {
         editor.dom.removeEventListener('mousedown', press);
-        owner?.removeEventListener('mouseup', release);
+        for (const event of RELEASES) owner?.removeEventListener(event, release);
         cancel();
       };
     },

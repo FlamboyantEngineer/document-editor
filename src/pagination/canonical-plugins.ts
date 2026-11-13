@@ -8,7 +8,16 @@ import type { Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, type PluginView, type Transaction } from 'prosemirror-state';
 import { tableEditingKey } from 'prosemirror-tables';
 import type { EditorProps, EditorView } from 'prosemirror-view';
+import type { FragmentRules } from '../model/index.js';
 import { canonicalClipboard } from './canonical-clipboard.js';
+import {
+  canonicalAttributes,
+  canonicalDrop,
+  canonicalKeyPress,
+  canonicalScroll,
+  clickOn,
+  clickOnNode,
+} from './canonical-handlers.js';
 import { canonicalView } from './canonical-view.js';
 import type { ProjectionMap } from './projection-map.js';
 
@@ -16,6 +25,8 @@ import type { ProjectionMap } from './projection-map.js';
 export interface CanonicalPluginsSource {
   canonical(): EditorState;
   map(): ProjectionMap;
+  /** The rules the pages' fragments join by. */
+  rules(): FragmentRules;
   /** Takes a canonical transaction and shows it on the pages at once. */
   dispatch(tr: Transaction): void;
   /**
@@ -26,7 +37,9 @@ export interface CanonicalPluginsSource {
 }
 
 // The DOM events handed to the canonical plugins. A press starts the projection's own cell drag
-// first, so the canonical cell drag (`tableEditing`) does not take it.
+// first, so the canonical cell drag (`tableEditing`) does not take it. A drop and a paste are
+// among them: a plugin that tells content moved within the document from content pasted into it
+// does so by the drop it saw.
 const DOM_EVENTS = [
   'mousedown',
   'mousemove',
@@ -40,12 +53,14 @@ const DOM_EVENTS = [
   'cut',
   'contextmenu',
   'dragstart',
+  'drop',
+  'paste',
   'mouseup',
   'dblclick',
 ] as const;
 
 type Props = EditorProps;
-type Handler = (plugin: Plugin, view: EditorView) => boolean | void | undefined;
+export type Handler = (plugin: Plugin, view: EditorView) => boolean | void | undefined;
 
 // Each projection view as its canonical view.
 const canonicalViews = new WeakMap<EditorView, EditorView>();
@@ -64,8 +79,8 @@ export function canonicalViewOf(view: EditorView, source: CanonicalPluginsSource
 // selection the view holds, which it has just read; or not at all.
 type Input = 'read' | 'held' | false;
 
-// An event for the canonical plugins: which of them take it, and how each is handed it.
-interface Offer {
+/** An event for the canonical plugins: which of them take it, and how each is handed it. */
+export interface Offer {
   readonly has: (plugin: Plugin) => boolean;
   readonly handle: Handler;
 }
@@ -73,7 +88,7 @@ interface Offer {
 // Whether a canonical plugin handles an event, in order, on the canonical view; input that acts on
 // the selection has the selection the pages show mirrored first. With no plugin that takes it,
 // nothing is done, so typing costs nothing more.
-function offered(
+export function offered(
   view: EditorView,
   source: CanonicalPluginsSource,
   { has, handle, input }: Offer & { readonly input: Input },
@@ -86,7 +101,7 @@ function offered(
 }
 
 // Whether a canonical plugin handles input, with the selection the pages show mirrored first.
-const handled = (view: EditorView, source: CanonicalPluginsSource, offer: Offer) =>
+export const handled = (view: EditorView, source: CanonicalPluginsSource, offer: Offer) =>
   offered(view, source, { ...offer, input: 'read' });
 
 // The canonical plugins' views, started on the canonical view and updated as its state changes
@@ -118,21 +133,6 @@ function pluginViews(view: EditorView, source: CanonicalPluginsSource): PluginVi
       views = start(now);
     },
     destroy: stop,
-  };
-}
-
-// A click's handler on the canonical view, at the canonical position.
-function clickOn(
-  source: CanonicalPluginsSource,
-  prop: 'handleClick' | 'handleDoubleClick' | 'handleTripleClick',
-) {
-  return (view: EditorView, pos: number, event: MouseEvent): boolean => {
-    const at = source.map().toCanonical(pos);
-    if (at === null) return false;
-    return handled(view, source, {
-      has: (plugin) => Boolean(plugin.props[prop]),
-      handle: (plugin, canonical) => plugin.props[prop]?.call(plugin, canonical, at, event),
-    });
   };
 }
 
@@ -253,7 +253,8 @@ function lazyNodeViews(source: CanonicalPluginsSource): NodeViews {
 
 /**
  * A projection plugin that runs the canonical plugins' views on the canonical view, and hands
- * them text input, clicks and DOM events; keys and paste go through `canonicalKeys` and
+ * them text input, clicks, drops, key presses, scrolling and DOM events, and gives the editor
+ * their attributes; keys and paste go through `canonicalKeys` and
  * `canonicalPaste`, in the projection's own order.
  */
 export function canonicalPlugins(source: CanonicalPluginsSource): Plugin {
@@ -265,6 +266,13 @@ export function canonicalPlugins(source: CanonicalPluginsSource): Plugin {
       handleClick: clickOn(source, 'handleClick'),
       handleDoubleClick: clickOn(source, 'handleDoubleClick'),
       handleTripleClick: clickOn(source, 'handleTripleClick'),
+      handleClickOn: clickOnNode(source, 'handleClickOn'),
+      handleDoubleClickOn: clickOnNode(source, 'handleDoubleClickOn'),
+      handleTripleClickOn: clickOnNode(source, 'handleTripleClickOn'),
+      handleDrop: canonicalDrop(source),
+      handleKeyPress: canonicalKeyPress(source),
+      handleScrollToSelection: canonicalScroll(source),
+      attributes: canonicalAttributes(source),
       handleDOMEvents: domEvents(source),
       ...canonicalClipboard(source),
     },

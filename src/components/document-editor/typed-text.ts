@@ -7,12 +7,32 @@
 import type { EditorView } from 'prosemirror-view';
 import { readDomSelection } from '../../utils/dom-selection.js';
 
-/** Inserts a key's typed text through the view's text input handlers; whether it did. */
+// The controls a host's node view may draw that take typing of their own.
+const CONTROLS = 'input, textarea, select, [contenteditable]';
+
+/**
+ * The editable control an event's target is in, when it is one of its own inside `root`, such as a
+ * text field a host's node view draws, and not `root`'s own editable content; null otherwise.
+ */
+export function ownControlOf(target: EventTarget | null, root: HTMLElement): Element | null {
+  // Read by node type, which holds for nodes of any window.
+  const node = target as Node | null;
+  const element = node?.nodeType === 1 ? (node as Element) : (node?.parentElement ?? null);
+  const control = element?.closest(CONTROLS);
+  if (!control || control === root || !root.contains(control)) return null;
+  return control.getAttribute('contenteditable') === 'false' ? null : control;
+}
+
+/**
+ * Inserts a key's typed text through the view's text input handlers; whether it did. Text typed in
+ * a control of its own, such as a host view's text field, is that control's.
+ */
 export function insertTypedText(view: EditorView, event: InputEvent): boolean {
   const text = event.data;
   if (event.inputType !== 'insertText' || !text || event.isComposing || view.composing) {
     return false;
   }
+  if (ownControlOf(event.target, view.dom)) return false;
   // A click's caret the browser has not reported yet is where the text goes.
   readDomSelection(view);
   const { from, to } = view.state.selection;

@@ -21,6 +21,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { createHooks } from '../../utils/hooks.js';
+import { ownControlOf } from './typed-text.js';
 
 /** The host's React node views by node type name. */
 export type HostNodeViews = Readonly<Record<string, ComponentType<RichTextNodeViewProps>>>;
@@ -126,6 +127,10 @@ export function useHostNodeViews(views: HostNodeViews | undefined): {
             return true;
           },
           ignoreMutation: outsideContent(content),
+          // An event in a control the view draws, such as a text field, is that control's.
+          stopEvent: (event) =>
+            !(content && content.contains(event.target as Node | null)) &&
+            ownControlOf(event.target, dom) !== null,
           destroy: () => change((next) => next.delete(key)),
         };
       };

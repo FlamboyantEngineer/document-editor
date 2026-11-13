@@ -197,7 +197,8 @@ export interface DocumentEditorProps
   fonts?: FontsAdapter | undefined;
   /**
    * The host's layout rules by node type, over the library's: how its blocks split and keep
-   * together on pages. Read when the pages mount (DOCE-PAGINATION-1.7).
+   * together on pages. Other rules lay the pages out again; rules passed inline with the same
+   * settings do not, so keep any functions in them stable (DOCE-PAGINATION-5.11).
    */
   layoutRules?: LayoutRules | undefined;
   /** The host's fragment rules by node type, over `FRAGMENT_RULES`: how its fragments join. */
