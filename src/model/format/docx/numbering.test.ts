@@ -37,7 +37,7 @@ describe('Word numbering levels', () => {
     expect(levels[0]).toMatchObject({ format: 'decimal', text: '%1.' });
     expect(levels[1]).toEqual({
       format: 'lowerLetter',
-      text: '%1)',
+      text: '%2)',
       indent: { left: 240, hanging: 240 },
     });
     expect(
@@ -68,7 +68,7 @@ describe('Word numbering part', () => {
     const first = scope.paragraphs;
     restartParagraphs(numbering, scope);
     expect(scope.paragraphs).not.toBe(first);
-    const list = addNumberedList(numbering, scope, 4);
+    const list = addNumberedList(numbering, scope, { start: 4, level: 0 });
     const part = writeNumberingPart(numbering);
     for (const kind of ['Headings', 'Paragraphs', 'Bullets', 'Numbers']) {
       expect(part).toContain(`<w:name w:val="${kind}"/>`);

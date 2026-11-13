@@ -130,19 +130,21 @@ describe('writeDocx', () => {
       '_rels/.rels',
       'word/document.xml',
       'word/styles.xml',
+      'word/numbering.xml',
+      'word/settings.xml',
       'word/footnotes.xml',
       'word/_rels/document.xml.rels',
       'word/_rels/footnotes.xml.rels',
     ]);
     const document = files.get('word/document.xml') ?? '';
-    expect(document).toContain(
-      '<w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">Power</w:t>',
+    expect(document).toMatch(
+      /<w:pStyle w:val="Heading1"\/><w:numPr>.*?<\/w:pPr><w:r><w:t xml:space="preserve">Power<\/w:t>/,
     );
     expect(document).toContain('<w:rPr><w:b/></w:rPr><w:t xml:space="preserve">must</w:t>');
     expect(document).not.toContain('old');
     expect(document).toContain('<w:hyperlink r:id="rIdLink1">');
     expect(document).toContain('<w:footnoteReference w:id="1"/>');
-    expect(document).toContain('•\t');
+    expect(document).toContain('<w:pStyle w:val="ListParagraph"/><w:numPr>');
     expect(document).toContain('<w:pStyle w:val="TableHeader"/>');
     expect(document).toContain('<w:br w:type="page"/>');
     expect(document).toContain('w:orient="landscape"');

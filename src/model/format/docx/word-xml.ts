@@ -6,9 +6,9 @@ import { lengthToCssPx } from '../../templates/template-css-values.js';
 /** The declaration every part starts with. */
 export const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 
-/** The namespaces of the main document parts. */
+/** The namespaces of the main document parts; the 2010 and 2012 extensions may be ignored. */
 export const WORD_NAMESPACES =
-  'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml"';
+  'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="w14 w15"';
 
 /**
  * Text as XML character data or an attribute value. XML holds no control character but the tab and

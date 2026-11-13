@@ -52,20 +52,25 @@ function addDefinition(numbering: WordNumbering, kind: NumberingKind, levels: Wo
   return id;
 }
 
-/**
- * Records a number for a definition, its levels starting from 1 again, or the first level from
- * `start`, and returns its id.
- */
+/** How a number starts its definition's levels: how many from 1 again, and one from `start`. */
+export interface NumberStart {
+  readonly levels?: number | undefined;
+  readonly start?: number | undefined;
+  /** The level that starts from `start`, from 0. */
+  readonly startLevel?: number | undefined;
+}
+
+/** Records a number for a definition, starting its levels again, and returns its id. */
 export function addNumber(
   numbering: WordNumbering,
   definition: number,
-  { levels = 0, start = 1 }: { levels?: number; start?: number } = {},
+  { levels = 0, start = 1, startLevel = 0 }: NumberStart = {},
 ): number {
   const id = numbering.numbers.length + 1;
   const overrides = Array.from(
     { length: levels },
     (_, level) =>
-      `<w:lvlOverride w:ilvl="${String(level)}"><w:startOverride w:val="${String(level === 0 ? start : 1)}"/></w:lvlOverride>`,
+      `<w:lvlOverride w:ilvl="${String(level)}"><w:startOverride w:val="${String(level === startLevel ? start : 1)}"/></w:lvlOverride>`,
   ).join('');
   numbering.numbers.push(
     `<w:num w:numId="${String(id)}"><w:abstractNumId w:val="${String(definition)}"/>${overrides}</w:num>`,
@@ -96,13 +101,13 @@ export function restartParagraphs(numbering: WordNumbering, scope: NumberingScop
   scope.paragraphs = addNumber(numbering, scope.paragraphDefinition, { levels: 6 });
 }
 
-/** A numbered list's own number, starting at its first item's. */
+/** A numbered list's own number, its level counting from its first item's number. */
 export function addNumberedList(
   numbering: WordNumbering,
   scope: NumberingScope,
-  start: number,
+  { start, level }: { start: number; level: number },
 ): number {
-  return addNumber(numbering, scope.numbersDefinition, { levels: 9, start });
+  return addNumber(numbering, scope.numbersDefinition, { levels: 9, start, startLevel: level });
 }
 
 /** A paragraph's numbering properties: a number and the level in it, from 0. */

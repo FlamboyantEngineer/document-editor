@@ -38,18 +38,22 @@ function wordFormat(token: string | undefined): string {
 }
 
 /**
- * A level that prints the numbers of its first `depth` levels, as the template's format writes
+ * A level that prints `depth` level numbers, from level `first`, as the template's format writes
  * them, with its prefix and suffix; nothing when the format numbers fewer levels.
  */
 export function numberedLevel(
   config: NumberingStyleConfig,
   depth: number,
-  { prefix = '', suffix = '' }: { prefix?: string; suffix?: string } = {},
+  {
+    prefix = '',
+    suffix = '',
+    first = 1,
+  }: { prefix?: string; suffix?: string; first?: number } = {},
 ): WordLevel {
   if (config.levels.length < depth || depth < 1) return NONE;
   const shown = config.levels.slice(0, depth);
   let text = shown
-    .map((level, index) => `%${String(index + 1)}${index < depth - 1 ? level.separator : ''}`)
+    .map((level, index) => `%${String(first + index)}${index < depth - 1 ? level.separator : ''}`)
     .join('');
   if (config.hasTrailingSeparator) text += config.trailingSeparator;
   const lead = shouldInsertPrefixSeparator(prefix, config.trailingSeparator)
@@ -72,9 +76,12 @@ export function paragraphLevels(styles: TemplateStyles): WordLevel[] {
   return [1, 2, 3, 4, 5, 6].map((level) => {
     const style = resolveParagraphLevelStyle(config, level);
     const format = style.styleConfig;
-    const numbered = format?.levels.length
-      ? numberedLevel(format, Math.min(level, format.levels.length), config)
-      : NONE;
+    // A format with fewer levels than the paragraph's prints the paragraph's own last levels.
+    const depth = Math.min(level, format?.levels.length ?? 0);
+    const numbered =
+      format && depth
+        ? numberedLevel(format, depth, { ...config, first: level - depth + 1 })
+        : NONE;
     const left = toTwips(style.textIndent);
     const start = toTwips(style.numberIndent) ?? 0;
     const indent = left === null ? undefined : { left, hanging: Math.max(0, left - start) };
