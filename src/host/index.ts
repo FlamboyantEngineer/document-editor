@@ -70,6 +70,7 @@ export type {
   CompletionAvailability,
   CompletionContext,
 } from './completion-adapters.js';
+export type {
   DocumentExport,
   ExportRequest,
   ExportsAdapter,
