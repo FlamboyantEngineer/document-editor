@@ -15,6 +15,7 @@ import {
   type ReviewChange,
   type Suggestion,
 } from '../../engine/index.js';
+import type { TemplatePartChange } from '../../model/index.js';
 import { isPaginationTransaction } from '../../pagination/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
 import type { ChangeBar } from './use-change-notifications.js';
@@ -47,6 +48,11 @@ export interface DocumentEditorNotifications {
    * shows on every page of its section and is handed here to write into the template.
    */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
+  /**
+   * Makes a template's section content and placeholders editable in place on its preview shown in
+   * parts (`templatePreviewDocument`), handing each part's edit here to write into the template.
+   */
+  readonly onTemplatePartChange?: ((change: TemplatePartChange) => void) | undefined;
   /** The host's own keys, such as `Mod-s`, which run before the editor's. */
   readonly keymap?: Readonly<Record<string, Command>> | undefined;
 }

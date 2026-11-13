@@ -74,4 +74,36 @@ describe('editing regions in place', () => {
     expect(regionEdits(view.state).has(regionKey(null, 'header'))).toBe(false);
     view.destroy();
   });
+
+  it('DOCE-SECTIONS-5.3 hands on a mark set in a header, which changes no positions', () => {
+    const template: TemplateFile = { formatVersion: 1, id: 't', header: { content: text('Old') } };
+    const changes: RegionChange[] = [];
+    const plugins = [
+      createRegionEditing({
+        enabled: () => true,
+        template: () => template,
+        onChange: (change) => changes.push(change),
+      }),
+      createDocumentSections({ template: () => template }),
+    ];
+    let state = EditorState.create({ doc: twoPages(), plugins });
+    state = state.apply(setPageRegions(state.tr, template, { editable: true }));
+    const view = new EditorView(document.createElement('div'), { state });
+    let at = -1;
+    view.state.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'page_header') at = pos + 2;
+      return at < 0;
+    });
+    const bold = documentSchema.marks.strong;
+    if (!bold) throw new Error('The schema has no strong mark.');
+    view.dispatch(view.state.tr.addMark(at, at + 3, bold.create()));
+    expect(changes.at(-1)).toEqual({
+      section: null,
+      region: 'header',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Old', marks: [{ type: 'bold' }] }] },
+      ],
+    });
+    view.destroy();
+  });
 });

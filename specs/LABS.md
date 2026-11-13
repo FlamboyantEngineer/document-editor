@@ -133,6 +133,13 @@ The side panels lab shall show the panel at the document's start controlled by t
 Implementation: `labs/src/panels.lab.tsx`, `labs/panels.html`
 Verification: `e2e/panels.spec.ts`
 
+### DOCE-LABS-3.7 - Template content in place
+
+The template content lab shall show a template's preview in parts beside the template as JSON: a read-only sample, then each template section's content and placeholder, edited in place with the toolbar and its variable menu, and the headers and footers, each edit written into the template.
+
+Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
+Verification: `e2e/template-content.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.
