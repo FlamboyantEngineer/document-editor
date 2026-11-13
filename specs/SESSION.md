@@ -235,7 +235,7 @@ Verification: `src/session/drafts.test.ts`
 
 ### DOCE-SESSION-6.7 - Keeping room-mode drafts
 
-In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left: the document's state, the changes the room has not confirmed, the last state the room had confirmed all of (`confirmed`), taken as soon as the room confirms, and the room's generation.
+In room mode, `keepRoomDrafts` shall keep the shared document's draft through the `drafts` adapter after each change, local or remote, once changes pause (1000 milliseconds by default), when the room has confirmed every local change, and at once when the page is hidden or left: the document's state, the changes the room has not confirmed, the last state the room had confirmed all of (`confirmed`), and the room's generation. The confirmed state shall be taken when a draft is kept with no change unconfirmed, and at once when the connection is lost with none unconfirmed, so edits made offline before the next draft merge from it; it is not taken at each confirmation, which would read the whole document for every change the room echoes.
 
 Implementation: `src/collab/offline.ts`
 Verification: `src/collab/offline.test.ts`

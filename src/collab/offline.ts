@@ -110,7 +110,8 @@ export function captureRoomDraft(
 /**
  * Keeps a room document's draft through the drafts adapter after each change, local or remote, and
  * whenever the room confirms the local changes: the state, the unconfirmed changes and the last
- * state the room confirmed all of, for the room's generation (DOCE-SESSION-6.7).
+ * state the room confirmed all of, for the room's generation (DOCE-SESSION-6.7). That last state is
+ * taken when a draft is kept with nothing unconfirmed, and when the connection is lost so.
  */
 export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   const { documentId, drafts, connection } = options;
@@ -119,6 +120,7 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   const delay = options.delay ?? DEFAULT_DELAY;
   let confirmed: Uint8Array | null = options.restored?.confirmed ?? null;
   let unconfirmedBefore = connection.state().hasUnconfirmedChanges;
+  let connectedBefore = connection.state().status === 'connected';
   let timer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
 
@@ -147,12 +149,16 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   // What the document holds already, such as changes made before keeping started.
   schedule();
   const stopState = connection.subscribe((state) => {
-    // The room confirmed every local change: what the document holds now is the base to keep,
-    // taken at once, since the reader may go offline and edit before the draft is kept.
-    if (unconfirmedBefore && !state.hasUnconfirmedChanges) {
+    // The room confirmed every local change: the next draft kept takes that state as its base.
+    if (unconfirmedBefore && !state.hasUnconfirmedChanges) schedule();
+    // The connection is lost with every change confirmed: what the document holds now is the
+    // base, taken at once, since the reader may edit offline before the draft is kept. Taking it
+    // at each confirmation would read the whole document for every keystroke the room echoes.
+    const connected = state.status === 'connected';
+    if (connectedBefore && !connected && !state.hasUnconfirmedChanges) {
       confirmed = Y.encodeStateAsUpdate(doc);
-      schedule();
     }
+    connectedBefore = connected;
     unconfirmedBefore = state.hasUnconfirmedChanges;
   });
   const stopLifecycle = options.lifecycle?.subscribe((event) => {

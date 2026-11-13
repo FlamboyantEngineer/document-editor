@@ -140,7 +140,7 @@ describe('room-mode drafts', () => {
     kept.stop();
   });
 
-  it('DOCE-SESSION-6.7 takes the confirmed base at once, before the draft is kept', async () => {
+  it('DOCE-SESSION-6.7 takes the confirmed base when the connection is lost, before the draft is kept', async () => {
     const createSocket = startServer();
     const drafts = createMemoryDrafts();
     const provider = openProvider(createSocket, new Y.Doc());
