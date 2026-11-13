@@ -7,6 +7,7 @@ import { useEditorPanes } from '../document-panels/document-panels.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { useFindBar } from './document-find-bar.js';
 import { type CommentRefs, useEditorHandle } from './editor-handle.js';
+import { useDocumentExports } from './use-document-exports.js';
 import type { LayoutProgress } from './use-document-layout.js';
 import type { TransactionFeed } from './use-editor-engine.js';
 
@@ -19,7 +20,10 @@ export interface HostReachOptions {
   readonly transactions: TransactionFeed;
 }
 
-/** The editor's find bar and, for `EditorScope`, its comments, transactions and side panels. */
+/**
+ * The editor's find bar, its exports and, for `EditorScope`, its comments, transactions and side
+ * panels.
+ */
 export function useHostReach(
   props: DocumentEditorProps,
   view: EditorView | null,
@@ -33,6 +37,8 @@ export function useHostReach(
     layout: progress,
     openFind: find.open,
     panes,
+    references: props.referenceSource,
   });
-  return { find, scope: { comments: props.comments, transactions, panes } };
+  const exports = useDocumentExports(props, view, progress);
+  return { find, scope: { comments: props.comments, transactions, panes }, exports };
 }

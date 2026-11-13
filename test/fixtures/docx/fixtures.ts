@@ -213,3 +213,37 @@ export const IMAGES: DocxFixture = {
     A4,
   ].join(''),
 };
+
+/** What the library's writer adds: code captions, rules, list paragraphs, section-only paragraphs. */
+export const WRITER_SHAPES: DocxFixture = {
+  styles: [
+    styleDef('Code', 'Code'),
+    styleDef('Caption', 'caption'),
+    styleDef('ListParagraph', 'List Paragraph'),
+  ].join(''),
+  numbering: [
+    `<w:abstractNum w:abstractNumId="0"><w:name w:val="Bullets"/>${level(0, 'bullet')}${level(1, 'bullet')}</w:abstractNum>`,
+    '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>',
+  ].join(''),
+  body: [
+    paragraph(run('let rain = 1;'), style('Code')),
+    paragraph(run('Below the code'), style('Caption')),
+    paragraph(run('Above the code'), style('Caption')),
+    paragraph(run('let sun = 2;'), style('Code')),
+    paragraph(
+      '',
+      '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="auto"/></w:pBdr>',
+    ),
+    paragraph('', '<w:pBdr><w:top w:val="single"/><w:bottom w:val="single"/></w:pBdr>'),
+    paragraph(run('Plant'), `${style('ListParagraph')}${numbered('1')}`),
+    paragraph(run('Water it daily.'), style('ListParagraph')),
+    paragraph(run('Prune'), `${style('ListParagraph')}${numbered('1', 1)}`),
+    paragraph(run('Only in spring.'), style('ListParagraph')),
+    paragraph(run('After the list.')),
+    paragraph(run('Not in a list.'), style('ListParagraph')),
+    paragraph('', section(11906, 16838)),
+    paragraph('', section(11906, 16838)),
+    paragraph(run('Last section.')),
+    A4,
+  ].join(''),
+};

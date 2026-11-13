@@ -11,6 +11,7 @@ import {
 } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, type NodeView } from 'prosemirror-view';
+import { isInlineTextOnly } from './transaction-kind.js';
 
 /** A variable's text, or nothing to show none. */
 export type TemplateValue = (key: string) => string | null | undefined;
@@ -154,8 +155,12 @@ export function createDynamicTemplates(
     key: dynamicTemplatesKey,
     state: {
       init: (_config, state) => decorate(state.doc, options),
-      apply: (tr, set) =>
-        tr.docChanged || tr.getMeta(dynamicTemplatesKey) ? decorate(tr.doc, options) : set,
+      apply: (tr, set) => {
+        if (tr.getMeta(dynamicTemplatesKey)) return decorate(tr.doc, options);
+        if (!tr.docChanged) return set;
+        // A template block's markup is an attribute, so typed text cannot change what one shows.
+        return isInlineTextOnly(tr) ? set.map(tr.mapping, tr.doc) : decorate(tr.doc, options);
+      },
     },
     props: {
       decorations: (state) => dynamicTemplatesKey.getState(state) ?? null,

@@ -24,8 +24,23 @@ function onProjection(set: DecorationSet, map: ProjectionMap): DecorationSet {
   return projected;
 }
 
-/** A projection plugin that draws every decoration the canonical state's plugins draw. */
+// The sets drawn last and the set they made, kept while the same sets are drawn on the same pages.
+interface Merged {
+  readonly doc: EditorState['doc'];
+  readonly sets: readonly DecorationSet[];
+  readonly set: DecorationSet;
+}
+
+const sameSets = (left: readonly DecorationSet[], right: readonly DecorationSet[]) =>
+  left.length === right.length && left.every((set, index) => set === right[index]);
+
+/**
+ * A projection plugin that draws every decoration the canonical state's plugins draw. The sets are
+ * merged again only when one of them or the pages change, not for each state of the pages, such as
+ * a selection's (DOCE-PAGINATION-7.13).
+ */
 export function canonicalDecorations(source: DecorationSource): Plugin {
+  let merged: Merged | null = null;
   return new Plugin({
     props: {
       decorations(state) {
@@ -40,8 +55,14 @@ export function canonicalDecorations(source: DecorationSource): Plugin {
           }
         }
         if (sets.length === 0) return null;
-        const all = sets.flatMap((set) => set.find());
-        return DecorationSet.create(state.doc, all);
+        if (sets.length === 1) return sets[0];
+        if (merged?.doc === state.doc && sameSets(merged.sets, sets)) return merged.set;
+        const set = DecorationSet.create(
+          state.doc,
+          sets.flatMap((each) => each.find()),
+        );
+        merged = { doc: state.doc, sets, set };
+        return set;
       },
     },
   });

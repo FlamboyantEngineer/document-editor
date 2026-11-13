@@ -1,5 +1,6 @@
 // The template editor's text styles, one card each: the title, the headings and the paragraph;
-// and its custom styles, each a card that renames or deletes it, or overrides one inherited.
+// and its custom styles, each a card that renames or deletes it with what refers to it, or
+// overrides one inherited.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { DeleteGlyph, EditGlyph, PlusGlyph } from '@flamboyantengineer/ui-components/core';
@@ -10,34 +11,67 @@ import {
   PropertySection,
 } from '@flamboyantengineer/ui-components/property-panel';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import { useState } from 'react';
-import { CUSTOM_STYLE_NAME } from '../../model/index.js';
-import { isStyleOverridden, StyleRows, type StyleScope, styleSummary } from './style-fields.js';
+import { memo, useState } from 'react';
+import { customStyleNameError, withCustomStyleRenamed } from './custom-style-names.js';
+import { RUNNING_PARTS } from './object-settings.js';
+import { isSameRows, type ShownRows } from './same-rows.js';
+import { rows } from './setting-row.js';
+import { isStyleOverridden, type StyleScope, styleSummary } from './style-fields.js';
+import { StyleRows } from './style-rows.js';
 import type { Rows } from './template-rows.js';
-import { settingAt, TEXT_STYLES } from './template-settings.js';
+import { setting, settingAt, type StylePart, TEXT_STYLES } from './template-settings.js';
+
+// A text style's rows: running text's for the paragraph, a heading's with its numbering.
+const TEXT_PARTS: readonly StylePart[] = [
+  'font',
+  'face',
+  'align',
+  'colour',
+  'spacing',
+  'lineHeight',
+];
+const partsOf = (id: string): readonly StylePart[] =>
+  id === 'paragraph'
+    ? RUNNING_PARTS
+    : id.startsWith('heading')
+      ? [...TEXT_PARTS, 'numbering']
+      : TEXT_PARTS;
+
+const INDENTATION = setting('indentation', 'Indentation', { type: 'length' });
+
+// A built-in text style's card. It renders again only when what it shows changes.
+const TextStyleCard = memo(
+  function TextStyleCard({ context, id, label }: ShownRows & { id: string; label: string }) {
+    const scope: StyleScope = { context, path: ['styles', id] };
+    return (
+      <PropertyCard
+        name={label}
+        summary={styleSummary(scope)}
+        isOverridden={isStyleOverridden(scope)}
+      >
+        <StyleRows scope={scope} parts={partsOf(id)} />
+        {id === 'paragraph' ? rows(context, scope.path, [INDENTATION]) : null}
+      </PropertyCard>
+    );
+  },
+  (before, after) => before.id === after.id && isSameRows(before, after),
+);
 
 /** The built-in text styles' cards, in the order a document reads them: title, headings, text. */
 export function TextStyleSection({ context }: { context: Rows }) {
-  const { labels } = context;
+  const { labels, target } = context;
   return (
     <PropertySection id="text-styles" title={labels.textStyles}>
-      {TEXT_STYLES.map(({ id, label }) => {
-        const scope: StyleScope = { context, path: ['styles', id] };
-        return (
-          <PropertyCard
-            key={id}
-            name={label}
-            summary={styleSummary(scope)}
-            isOverridden={isStyleOverridden(scope)}
-          >
-            <StyleRows
-              scope={scope}
-              heading={id.startsWith('heading')}
-              running={id === 'paragraph'}
-            />
-          </PropertyCard>
-        );
-      })}
+      {TEXT_STYLES.map(({ id, label }) => (
+        <TextStyleCard
+          key={id}
+          context={context}
+          id={id}
+          label={label}
+          own={settingAt(target.own, ['styles', id])}
+          inherited={target.inherited ? settingAt(target.inherited, ['styles', id]) : undefined}
+        />
+      ))}
     </PropertySection>
   );
 }
@@ -60,18 +94,28 @@ function freshStyle(taken: readonly string[]): string {
   return `style_${String(index)}`;
 }
 
+// The template, or the section, with a custom style renamed or deleted, and what refers to it.
+function renameStyle(context: Rows, from: string, to: string | null) {
+  const { props, target } = context;
+  if (target.own === props.template) {
+    props.onChange(withCustomStyleRenamed(props.template, from, to));
+    return;
+  }
+  // A section's own: its custom styles, and its overrides of them.
+  const styles = settingAt(target.own, ['styles']);
+  target.set(['styles'], withCustomStyleRenamed(styles, from, to));
+}
+
 // Renames a custom style, keeping its settings, unless the name is taken or not a name.
 function rename(context: Rows, from: string, to: string) {
   const name = to.trim();
   const { own, all } = customNames(context);
-  if (name === from || !CUSTOM_STYLE_NAME.test(name) || all.includes(name) || !own.includes(from))
+  if (
+    !own.includes(from) ||
+    customStyleNameError(name, { current: from, taken: all, labels: context.labels }) !== null
+  )
     return;
-  const style = settingAt(context.target.own, ['styles', 'custom', from]);
-  const custom = settingAt(context.target.own, ['styles', 'custom']) as Record<string, unknown>;
-  const renamed = Object.fromEntries(
-    Object.entries(custom).map(([key, value]) => (key === from ? [name, style] : [key, value])),
-  );
-  context.target.set(['styles', 'custom'], renamed);
+  if (name !== from) renameStyle(context, from, name);
 }
 
 /**
@@ -83,17 +127,21 @@ export function NameField({
   label,
   isDisabled,
   maxLength,
+  check,
   onCommit,
 }: {
   name: string;
   label: string;
   isDisabled: boolean;
   maxLength?: number | undefined;
+  /** Why the name typed may not be committed, shown on the field; null while it may. */
+  check?: ((name: string) => string | null) | undefined;
   onCommit: (name: string) => void;
 }) {
   const [draft, setDraft] = useState(name);
   return (
     <TextField
+      errorMessage={check?.(draft.trim()) ?? undefined}
       label={label}
       labelLayout="control-only"
       density="compact"
@@ -140,7 +188,7 @@ function CustomStyleCard({
       label={labels.deleteCustomStyle}
       tooltip={labels.deleteCustomStyle}
       isDisabled={props.isDisabled}
-      onPress={() => context.target.set(['styles', 'custom', name], null)}
+      onPress={() => renameStyle(context, name, null)}
     />
   ) : (
     <Button
@@ -167,10 +215,13 @@ function CustomStyleCard({
           label={labels.styleName}
           isDisabled={Boolean(props.isDisabled) || !owned}
           maxLength={16}
+          check={(next) =>
+            customStyleNameError(next, { current: name, taken: customNames(context).all, labels })
+          }
           onCommit={(next) => rename(context, name, next)}
         />
       </PropertyRow>
-      <StyleRows scope={scope} heading={false} running />
+      <StyleRows scope={scope} parts={RUNNING_PARTS} />
     </PropertyCard>
   );
 }

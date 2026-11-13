@@ -1,6 +1,7 @@
 // A paragraph's inline content as Markdown: text in its formats and link, line breaks, math,
 // footnote references, abbreviations, mentions, variables and images.
 
+import { safeHref } from '../../schema/dom-attributes.js';
 import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { assetAddress, variableText } from '../writer-values.js';
@@ -51,13 +52,16 @@ function markedText(node: StoredNode, writing: Writing): string {
     const wrap = MARKS[mark.type];
     if (wrap) value = `${wrap[0]}${value}${wrap[1]}`;
   }
+  return `${lead}${linked(value, marks)}${trail}`;
+}
+
+// Text in its link, when it has one whose address a link may hold; otherwise the text alone.
+function linked(value: string, marks: readonly StoredMark[]): string {
   const link = marks.find((mark) => mark.type === 'link');
-  const href = text(link?.attrs?.href);
-  if (href) {
-    const title = text(link?.attrs?.title);
-    value = `[${value}](${linkAddress(href)}${title ? linkTitle(title) : ''})`;
-  }
-  return `${lead}${value}${trail}`;
+  const href = safeHref(link?.attrs?.href);
+  if (!href) return value;
+  const title = text(link?.attrs?.title);
+  return `[${value}](${linkAddress(href)}${title ? linkTitle(title) : ''})`;
 }
 
 function imageOf(node: StoredNode, writing: Writing): string {

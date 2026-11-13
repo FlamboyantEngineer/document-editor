@@ -43,7 +43,7 @@ Verification: `src/engine/object-commands.test.ts`
 
 ### DOCE-OBJECTS-1.6 - Links
 
-`setLink(href)` shall link the selected text to an address, or change the address of the link at the caret, the whole link; at a caret outside a link it types the address, linked. An empty address removes the link. `linkAt(state)` gives the address of the link at the selection.
+`setLink(href)` shall link the selected text to an address, or change the address of the link at the caret, the whole link; at a caret outside a link it types the address, linked, with the formatting at the caret and in one step, which suggest mode records as an insertion (DOCE-SUGGESTIONS-1.1). An empty address removes the link, and an address a link may not hold (DOCE-SCHEMA-3.8) is refused. `linkAt(state)` gives the address of the link at the selection.
 
 Implementation: `src/engine/object-commands.ts`
 Verification: `src/engine/object-commands.test.ts`
@@ -140,7 +140,7 @@ Verification: `src/document/scripts.test.ts`
 
 ### DOCE-OBJECTS-4.5 - Building a script's output
 
-The script output builders, in `./document`, shall write the stored content a script gives without the stored format's names: `buildScriptText(text)` the inline content of plain text or runs, each run bold, italic, code or linking to `href` as it says, empty runs left out; `buildScriptParagraph(text)` a paragraph; `buildScriptHeading(text, { level })` a heading of level 1 to 6, a level outside them taking the nearer; `buildScriptList(items, { ordered })` a bulleted or numbered list with a paragraph in each item; and `buildScriptTable(rows, { header })` a table with a paragraph in each cell, its first row of header cells when `header`. What they build is content the document reads.
+The script output builders, in `./document`, shall write the stored content a script gives without the stored format's names: `buildScriptText(text)` the inline content of plain text or runs, each run bold, italic, code or linking to `href` as it says, empty runs left out; `buildScriptParagraph(text)` a paragraph; `buildScriptHeading(text, { level, numbered })` a heading of level 1 to 6, a level outside them taking the nearer, unnumbered when `numbered` is false (DOCE-SCHEMA-3.10); `buildScriptList(items, { ordered })` a bulleted or numbered list with a paragraph in each item; and `buildScriptTable(rows, { header })` a table with a paragraph in each cell, its first row of header cells when `header`. What they build is content the document reads.
 
 Implementation: `src/document/script-output.ts`
 Verification: `src/document/script-output.test.ts`

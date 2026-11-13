@@ -130,18 +130,21 @@ describe('writeDocx', () => {
       '_rels/.rels',
       'word/document.xml',
       'word/styles.xml',
+      'word/numbering.xml',
+      'word/settings.xml',
       'word/footnotes.xml',
       'word/_rels/document.xml.rels',
+      'word/_rels/footnotes.xml.rels',
     ]);
     const document = files.get('word/document.xml') ?? '';
-    expect(document).toContain(
-      '<w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">Power</w:t>',
+    expect(document).toMatch(
+      /<w:pStyle w:val="Heading1"\/><w:numPr>.*?<\/w:pPr><w:r><w:t xml:space="preserve">Power<\/w:t>/,
     );
     expect(document).toContain('<w:rPr><w:b/></w:rPr><w:t xml:space="preserve">must</w:t>');
     expect(document).not.toContain('old');
     expect(document).toContain('<w:hyperlink r:id="rIdLink1">');
     expect(document).toContain('<w:footnoteReference w:id="1"/>');
-    expect(document).toContain('•\t');
+    expect(document).toContain('<w:pStyle w:val="ListParagraph"/><w:numPr>');
     expect(document).toContain('<w:pStyle w:val="TableHeader"/>');
     expect(document).toContain('<w:br w:type="page"/>');
     expect(document).toContain('w:orient="landscape"');
@@ -149,6 +152,75 @@ describe('writeDocx', () => {
     expect(files.get('word/_rels/document.xml.rels')).toContain(
       'Target="https://example.com/spec"',
     );
+  });
+
+  it('DOCE-FORMAT-5.2 gives a link in a footnote a relationship of the footnotes part', () => {
+    const linked = (href: string): StoredNode => ({
+      type: 'text',
+      text: 'here',
+      marks: [{ type: 'link', attrs: { href } }],
+    });
+    const note: StoredNode = {
+      type: 'footnote',
+      attrs: { id: 'n1' },
+      content: [text('See '), linked('https://example.com/note')],
+    };
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [{ type: 'paragraph', content: [linked('https://example.com/body'), note] }],
+          },
+        ],
+      }),
+    );
+    // Each part names its links by its own relationships.
+    expect(files.get('word/footnotes.xml')).toContain('<w:hyperlink r:id="rIdLink1">');
+    const ofNotes = files.get('word/_rels/footnotes.xml.rels') ?? '';
+    expect(ofNotes).toContain('Id="rIdLink1"');
+    expect(ofNotes).toContain('Target="https://example.com/note"');
+    const ofDocument = files.get('word/_rels/document.xml.rels') ?? '';
+    expect(ofDocument).toContain('Target="https://example.com/body"');
+    expect(ofDocument).not.toContain('https://example.com/note');
+  });
+
+  it('DOCE-FORMAT-5.2 leaves out the characters XML cannot hold', () => {
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'paragraph', content: [text('A\u000bB\u0001C\tD\uffffE')] },
+              { type: 'codeBlock', content: [text('x\u000c\ny')] },
+            ],
+          },
+        ],
+      }),
+    );
+    const document = files.get('word/document.xml') ?? '';
+    expect(document).toContain('<w:t xml:space="preserve">ABC\tDE</w:t>');
+    expect(document).not.toMatch(/[^\P{Cc}\t\n\r]|\uffff/u);
+  });
+
+  it('DOCE-FORMAT-5.2 writes a link whose address could run script as its text', () => {
+    const linked: StoredNode = {
+      type: 'text',
+      text: 'site',
+      marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }],
+    };
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [{ name: null, content: [{ type: 'paragraph', content: [linked] }] }],
+      }),
+    );
+    expect(files.get('word/document.xml')).toContain('<w:t xml:space="preserve">site</w:t>');
+    expect(files.get('word/document.xml')).not.toContain('<w:hyperlink');
+    expect(files.get('word/_rels/document.xml.rels')).not.toContain('javascript');
   });
 
   it('DOCE-FORMAT-5.3 leaves out suggested blocks and writes variables with their values', () => {
@@ -182,5 +254,36 @@ describe('writeDocx', () => {
     expect(rejected).not.toContain('[Pond]');
     expect(rejected).toContain('Gone paragraph');
     expect(rejected).toContain('>{{document.title}}</w:t>');
+  });
+
+  it('DOCE-FORMAT-5.5 leaves an unnumbered heading without a number, restarting paragraphs', () => {
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'paragraph', content: [text('Before')] },
+              { type: 'heading', attrs: { numbered: false }, content: [text('Preface')] },
+              { type: 'paragraph', content: [text('After')] },
+              { type: 'heading', content: [text('Start')] },
+            ],
+          },
+        ],
+      }),
+    );
+    const document = files.get('word/document.xml') ?? '';
+    expect(document).toContain(
+      '<w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">Preface',
+    );
+    expect(document).toMatch(/<w:pStyle w:val="Heading1"\/><w:numPr>.*?Start/);
+    // The paragraphs after it still count again, on a number of their own.
+    const numberOf = (word: string) =>
+      new RegExp(
+        `<w:numId w:val="(\\d+)"/></w:numPr></w:pPr><w:r><w:t xml:space="preserve">${word}`,
+      ).exec(document)?.[1];
+    expect(numberOf('Before')).toBeDefined();
+    expect(numberOf('After')).not.toBe(numberOf('Before'));
   });
 });

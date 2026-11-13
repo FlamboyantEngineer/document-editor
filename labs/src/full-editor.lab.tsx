@@ -15,6 +15,7 @@ import {
   DocumentEditor,
   type DocumentEditorHandle,
   type DocumentMarkup,
+  inlineCompletionItem,
 } from '../../src/components/index.js';
 import {
   assignElementIds,
@@ -38,6 +39,7 @@ import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HOST_DIALOGS, NOTE_ITEM } from './host-dialogs.js';
+import { labExports } from './host-exports.js';
 import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { labPanels, RevealPanes } from './host-panes.js';
@@ -167,11 +169,18 @@ const ASSETS = HOST.assets && labAssets(HOST.assets);
 const DIAGRAMS = ASSETS && labDiagrams(ASSETS);
 
 // A provider that completes one sentence, as a language model would.
+// Whether the writer suggests, which a taken completion follows.
+const SUGGESTING = { current: false };
+
 const COMPLETER = {
+  agent: 'lab-assistant',
   complete: ({ before }: { before: string }) =>
     Promise.resolve({
       ok: true as const,
-      value: before.endsWith('Recovery takes') ? ' less than one second.' : '',
+      value: {
+        text: before.endsWith('Recovery takes') ? ' less than one second.' : '',
+        session: 'lab-completion',
+      },
     }),
 };
 
@@ -288,7 +297,11 @@ function initialState(): EditorState {
     plugins: [
       createContents({ template: () => TEMPLATE }),
       createReferences({ template: () => TEMPLATE }),
-      createInlineCompletion({ provider: COMPLETER, delay: 300 }),
+      createInlineCompletion({
+        provider: COMPLETER,
+        delay: 300,
+        suggesting: () => SUGGESTING.current,
+      }),
       createProofing({ proofer: PROOFERS, delay: 200 }),
       createPresence(),
       ...createDocumentEditing(schema, {
@@ -307,7 +320,7 @@ function initialState(): EditorState {
 // The host's toolbar with its note dialog, scrolling when the window is narrow.
 const TOOLBAR = {
   ...HOST_TOOLBAR,
-  items: [...(HOST_TOOLBAR.items ?? []), NOTE_ITEM],
+  items: [...(HOST_TOOLBAR.items ?? []), NOTE_ITEM, inlineCompletionItem()],
   overflow: 'scroll' as const,
 };
 
@@ -318,6 +331,9 @@ function Lab() {
   const [state, setState] = useState(initialState);
   const [view, setView] = useState<EditorView | null>(null);
   const [mode, setMode] = useState<EditingMode>('edit');
+  useEffect(() => {
+    SUGGESTING.current = mode === 'suggest';
+  }, [mode]);
   const [restricted, setRestricted] = useState(false);
   const [markup, setMarkup] = useState<DocumentMarkup>('all');
   const [zoom, setZoom] = useState(100);
@@ -340,6 +356,10 @@ function Lab() {
   );
   const comments = HOST.comments;
   const menubar = useMemo(() => hostMenubar(() => setNotice('Saved')), []);
+  const exports = useMemo(
+    () => labExports((pages) => setSnapshot(`${String(pages)} pages printed`)),
+    [],
+  );
   return (
     <>
       <div className="lab-controls">
@@ -445,6 +465,7 @@ function Lab() {
         toolbar={TOOLBAR}
         dialogs={HOST_DIALOGS}
         menubar={menubar}
+        exports={exports}
         contextMenu={HOST_CONTEXT_MENU}
         scrollable
         statusBar

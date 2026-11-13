@@ -4,6 +4,7 @@
 
 import type { Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
+import { safeHref } from '../model/schema/dom-attributes.js';
 import { newBlockRange } from './tables.js';
 
 // Inserts a block where a new block goes, then places the caret as `caret` asks.
@@ -324,13 +325,16 @@ export function linkAt(state: EditorState): string | null {
 
 /**
  * Links the selected text to an address, or the link at the caret; at a caret outside a link it
- * types the address, linked. An empty address removes the link.
+ * types the address, linked. An empty address removes the link, and an address a link may not
+ * hold is refused.
  */
 export function setLink(href: string): Command {
   return (state, dispatch) => {
     const type = state.schema.marks.link;
     if (!type || !state.selection.$from.parent.inlineContent) return false;
     const address = href.trim();
+    // An address a link may not hold, such as one that could run script, is refused.
+    if (address && safeHref(address) === null) return false;
     const { empty } = state.selection;
     const range = empty
       ? linkRangeAt(state)
@@ -339,9 +343,11 @@ export function setLink(href: string): Command {
     if (dispatch) {
       const tr = state.tr;
       if (!range) {
-        const at = state.selection.from;
-        tr.insertText(address, at);
-        tr.addMark(at, at + address.length, type.create({ href: address }));
+        // Typed with its link in one step: suggest mode records an insertion, but has no
+        // formatting to record for a mark set on text the same change typed, and drops it.
+        const { from, $from } = state.selection;
+        const marks = type.create({ href: address }).addToSet(tr.storedMarks ?? $from.marks());
+        tr.replaceWith(from, from, state.schema.text(address, marks));
       } else {
         tr.removeMark(range.from, range.to, type);
         if (address) tr.addMark(range.from, range.to, type.create({ href: address }));

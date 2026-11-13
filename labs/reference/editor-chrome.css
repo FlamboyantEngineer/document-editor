@@ -517,6 +517,54 @@
   min-height: 0;
 }
 
+/* The template workspace: the toolbar and messages above the settings, the preview beside them and
+   the history at the end; the settings scroll on their own. */
+.de-template-workspace {
+  display: grid;
+  grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr) auto;
+  grid-auto-rows: auto;
+  align-content: start;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.de-template-workspace
+  > :not(
+    .de-template-workspace__settings,
+    .de-template-workspace__preview,
+    .de-template-workspace__history
+  ) {
+  grid-column: 1 / -1;
+}
+
+.de-template-workspace__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.de-template-workspace__settings {
+  grid-column: 1;
+  min-width: 0;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.de-template-workspace__preview {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.de-template-workspace__history {
+  grid-column: 3;
+  width: 18rem;
+}
+
+.de-template-picker {
+  min-width: 12rem;
+}
+
 /* The comments panel lists its threads one under another. */
 .de-comments-panel {
   display: flex;

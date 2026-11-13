@@ -270,6 +270,21 @@ describe('projection view', () => {
     expect(projection.stats().relaid).toBe(0);
   });
 
+  it('DOCE-PAGINATION-7.12 lays the pages out again when a change cannot be placed on pages that no longer join into the document', () => {
+    // A footnote entry no marker cites is left off the pages, so they do not join into the
+    // document, and the change that removes it maps outside them.
+    const plain = canonicalState();
+    const area = positionOf(plain.doc, 'Epsilon') + 'Epsilon five'.length + 3;
+    const orphan = documentSchema.node('footnote_entry', null, [documentSchema.text('Orphan')]);
+    const state = plain.apply(plain.tr.insert(area, orphan));
+    const { projection } = mount({ state });
+    expect(inSync(projection)).toBe(false);
+    const tr = state.tr.delete(area, area + orphan.nodeSize);
+    expect(() => projection.update(state.apply(tr), tr)).not.toThrow();
+    expect(inSync(projection)).toBe(true);
+    expect(projection.stats().relaid).toBe(1);
+  });
+
   it('DOCE-PAGINATION-7.12 takes back the state the host made from its own transaction without mirroring it again', () => {
     const sent: Transaction[] = [];
     const { projection } = mount({ dispatch: (tr) => sent.push(tr) });
@@ -292,6 +307,28 @@ describe('projection view', () => {
     const tr = state.tr.insertText('Big ', positionOf(state.doc, 'two'));
     projection.update(state.apply(tr), tr);
     expect(marked(view.dom)).toBe('two|Gamma');
+  });
+
+  it('DOCE-PAGINATION-7.13 draws the same decorations again while the sets and the pages are unchanged', () => {
+    const { projection } = mount({
+      state: canonicalState([steadyHighlight('two', 'Gamma'), steadyHighlight('Alpha', 'Alpha')]),
+    });
+    const { view } = projection;
+    // The set of the canonical decorations: the one drawing the highlights.
+    const drawn = () => {
+      let found: DecorationSet | null = null;
+      view.someProp('decorations', (decorations) => {
+        const set = decorations.call(view, view.state);
+        if (set instanceof DecorationSet && set.find().length === 2) found = set;
+      });
+      return found;
+    };
+    const before = drawn();
+    expect(before).not.toBeNull();
+    const at = positionOf(view.state.doc, 'Gamma');
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    expect(drawn()).toBe(before);
+    expect(marked(view.dom)).toBe('Alpha|two|Gamma');
   });
 
   it('DOCE-PAGINATION-8.5 hides the header and footer a section repeats on its later pages', () => {
@@ -629,6 +666,23 @@ function highlight(from: string, to: string): Plugin {
         ]),
     },
   });
+}
+
+// A highlight kept in the plugin's state, the same set until the document changes.
+function steadyHighlight(from: string, to: string): Plugin<DecorationSet> {
+  const plugin: Plugin<DecorationSet> = new Plugin<DecorationSet>({
+    state: {
+      init: (_config, state) =>
+        DecorationSet.create(state.doc, [
+          Decoration.inline(positionOf(state.doc, from), positionOf(state.doc, to) + to.length, {
+            class: 'found',
+          }),
+        ]),
+      apply: (tr, set) => set.map(tr.mapping, tr.doc),
+    },
+    props: { decorations: (state) => plugin.getState(state) },
+  });
+  return plugin;
 }
 
 const marked = (dom: HTMLElement) =>

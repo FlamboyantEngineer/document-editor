@@ -1,5 +1,6 @@
-// Shows a snapshot for printing (`exportSnapshot`): a document whose body sits on portrait pages
-// and whose appendix sits on landscape pages, proofed by a word-list proofer, with the layout
+// Shows a snapshot for printing once the pages are ready (`exportSnapshotAsync`): a document whose body sits on portrait pages
+// and whose appendix sits on landscape pages, citing the body with a footnote, with the outline
+// its bookmarks are made from, proofed by a word-list proofer, with the layout
 // debugging and a comparison with the document as it opened on demand. The print preview shows
 // the snapshot in a frame, each section on its own sheet size, without the view-only decorations
 // (search matches, proofing issues, debugging), with a comparison's deleted text and change bars,
@@ -9,7 +10,12 @@ import { EditorState } from 'prosemirror-state';
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DocumentEditor, type DocumentEditorHandle } from '../../src/components/index.js';
-import { assignElementIds, createDocumentEditing, createProofing } from '../../src/engine/index.js';
+import {
+  assignElementIds,
+  createDocumentEditing,
+  createProofing,
+  type SnapshotOutlineEntry,
+} from '../../src/engine/index.js';
 import { createWordListProofer } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
@@ -18,6 +24,7 @@ import {
   type DocumentFile,
   readDocumentFile,
   resolveTemplateFile,
+  type StoredNode,
   type TemplateFile,
 } from '../../src/model/index.js';
 import { chapter, text } from './lab-document.js';
@@ -44,6 +51,27 @@ const TEMPLATE = resolveTemplateFile(SECTIONED, {
 
 const PROOFER = createWordListProofer({ corrections: { teh: ['the'] } });
 
+// A chapter whose heading carries a fixed element id, for the appendix to cite.
+function citedChapter(name: string, id: string): StoredNode[] {
+  const [first, ...rest] = chapter(name);
+  return first ? [{ ...first, attrs: { ...first.attrs, id } }, ...rest] : rest;
+}
+
+// A paragraph citing the scope's heading, with a footnote: print links both ways.
+const linked: StoredNode = {
+  type: 'paragraph',
+  content: [
+    text('Terms follow '),
+    {
+      type: 'text',
+      text: 'the scope',
+      marks: [{ type: 'reference', attrs: { target: 'c0de5c0e' } }],
+    },
+    text(' of this document.'),
+    { type: 'footnote', attrs: { id: 'terms' }, content: [text('Listed by first use.')] },
+  ],
+};
+
 function sample(): DocumentFile {
   return {
     formatVersion: 1,
@@ -51,11 +79,11 @@ function sample(): DocumentFile {
       {
         name: null,
         content: [
-          ...chapter('Scope'),
+          ...citedChapter('Scope', 'c0de5c0e'),
           { type: 'paragraph', content: [text('Check teh limits before each release.')] },
         ],
       },
-      { name: 'appendix', content: chapter('Glossary') },
+      { name: 'appendix', content: [...chapter('Glossary'), linked] },
     ],
   };
 }
@@ -96,15 +124,17 @@ function Lab() {
   const [comparing, setComparing] = useState(false);
   const [markup, setMarkup] = useState<PreviewMarkup>('editor');
   const [snapshot, setSnapshot] = useState('');
+  const [outline, setOutline] = useState<readonly SnapshotOutlineEntry[]>([]);
   const handle = useRef<DocumentEditorHandle>(null);
-  const preview = () =>
-    setSnapshot(
-      handle.current?.exportSnapshot({
-        title: 'Print sample',
-        stylesheets: [stylesheet()],
-        markup: markup === 'editor' ? undefined : markup,
-      }) ?? '',
-    );
+  const preview = async () => {
+    setOutline(handle.current?.snapshotOutline() ?? []);
+    const html = await handle.current?.exportSnapshotAsync({
+      title: 'Print sample',
+      stylesheets: [stylesheet()],
+      markup: markup === 'editor' ? undefined : markup,
+    });
+    setSnapshot(html ?? '');
+  };
   return (
     <>
       <fieldset>
@@ -138,7 +168,7 @@ function Lab() {
             ))}
           </select>
         </label>
-        <button type="button" onClick={preview}>
+        <button type="button" onClick={() => void preview()}>
           Make a print preview
         </button>
       </fieldset>
@@ -154,6 +184,15 @@ function Lab() {
         aria-label="Sample document"
       />
       {snapshot ? <iframe title="Print preview" srcDoc={snapshot} /> : null}
+      {outline.length > 0 ? (
+        <ol aria-label="Print outline">
+          {outline.map((entry) => (
+            <li key={entry.elementId} data-level={entry.level} data-top={Math.round(entry.top)}>
+              {`${entry.number} ${entry.text}, page ${String(entry.page + 1)}`}
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </>
   );
 }

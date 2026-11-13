@@ -1,14 +1,33 @@
 // What the template editor edits: the document's settings, or one template section's, which a
-// section sets over the document's. A picker chooses among them, adds a section and deletes the
-// one shown; a section's own rows set its name, label and flags.
+// section sets over the document's, picked by the section's name. The picker adds a section after
+// the one shown, moves the one shown earlier or later, and deletes it once confirmed; a section's
+// own rows set its name, label and flags.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
-import { type Key, PlusGlyph } from '@flamboyantengineer/ui-components/core';
+import {
+  ArrowDownGlyph,
+  ArrowUpGlyph,
+  DeleteGlyph,
+  type Key,
+  PlusGlyph,
+} from '@flamboyantengineer/ui-components/core';
+import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
+import { TextField } from '@flamboyantengineer/ui-components/text-field';
+import { useState } from 'react';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { SettingRow } from './setting-row.js';
-import { NameField } from './style-sections.js';
+import type { TemplateScope } from './template-scope-state.js';
+import {
+  freshSectionName,
+  renameSection,
+  type SectionNameProblem,
+  withNamedSection,
+  withoutSection,
+  withSectionAt,
+  withSectionMoved,
+} from './template-section-list.js';
 import { settingAt, type TemplateSetting, withSetting } from './template-settings.js';
 
 /** The scope's text. */
@@ -16,22 +35,42 @@ export interface TemplateScopeLabels {
   readonly scope: string;
   readonly documentScope: string;
   readonly addSection: string;
+  readonly moveSectionUp: string;
+  readonly moveSectionDown: string;
   readonly deleteSection: string;
+  /** Asks to confirm deleting the named section. */
+  readonly deleteSectionTitle: (label: string) => string;
+  /** Says what deleting a section does. */
+  readonly deleteSectionMessage: string;
   readonly section: string;
+  readonly sectionName: string;
+  /** Says why a typed name cannot rename the section. */
+  readonly sectionNameProblems: Readonly<Record<SectionNameProblem, string>>;
   /** Names an inherited value, and where it comes from when known. */
   readonly inherited: (value: string, source?: string) => string;
 }
 
-const NAME_SETTING: TemplateSetting = {
-  id: 'name',
-  path: ['name'],
-  label: 'Name',
-  kind: { type: 'text' },
+/** The scope's English text. */
+export const DEFAULT_TEMPLATE_SCOPE_LABELS: Omit<TemplateScopeLabels, 'inherited'> = {
+  scope: 'Settings of',
+  documentScope: 'The document',
+  addSection: 'Add a section',
+  moveSectionUp: 'Move the section earlier',
+  moveSectionDown: 'Move the section later',
+  deleteSection: 'Delete the section',
+  deleteSectionTitle: (label) => `Delete the section “${label}”?`,
+  deleteSectionMessage:
+    'The template no longer defines it. Documents keep their content, without the section’s settings.',
+  section: 'Section',
+  sectionName: 'Section name',
+  sectionNameProblems: {
+    empty: 'A name needs a letter or a digit.',
+    taken: 'Another section has this name.',
+  },
 };
 
-/** The settings of a section only. */
+/** The settings of a section only, after its name. */
 export const SECTION_SETTINGS: readonly TemplateSetting[] = [
-  NAME_SETTING,
   { id: 'label', path: ['label'], label: 'Label', kind: { type: 'text' } },
   { id: 'required', path: ['required'], label: 'Every document has it', kind: { type: 'boolean' } },
   { id: 'editable', path: ['editable'], label: 'Writers may edit it', kind: { type: 'boolean' } },
@@ -49,61 +88,92 @@ export const SECTION_SETTINGS: readonly TemplateSetting[] = [
   },
 ];
 
-/** The ids of the editor's sections a template section may set. */
-export const SECTION_SCOPED = new Set([
-  'page',
-  'regions',
-  'lists',
-  'tables',
-  'code',
-  'footnotes',
-  'change-bars',
-]);
-
-/** A template with one of its sections changed, or taken out for null. */
-export function withSection(
+/**
+ * A template with the sections its documents take: its own, or those it inherits while it has no
+ * list of its own. A template's list replaces its parent's whole (DOCE-FORMAT-3.1), so the editor
+ * shows the inherited sections, and its first change to one writes the whole list into the
+ * template: a list of the changed section alone would drop every other inherited section.
+ */
+export function withListedSections(
   template: TemplateFile,
-  index: number,
-  section: TemplateSection | null,
+  resolved: TemplateFile | undefined,
 ): TemplateFile {
-  const sections = [...(template.sections ?? [])];
-  if (section) sections[index] = section;
-  else sections.splice(index, 1);
-  return { ...template, sections };
+  if (template.sections || !resolved?.sections) return template;
+  return { ...template, sections: resolved.sections };
 }
 
-// A name no section of the template has yet.
-function freshName(template: TemplateFile): string {
-  const names = new Set((template.sections ?? []).map((section) => section.name));
-  let index = names.size + 1;
-  while (names.has(`section_${String(index)}`)) index += 1;
-  return `section_${String(index)}`;
+// The picker's key for the document's settings: no section name has a `#`.
+const DOCUMENT_KEY = '#document';
+
+/** What the scope picker and a section's rows change. */
+export interface ScopeProps {
+  readonly template: TemplateFile;
+  readonly scope: TemplateScope;
+  readonly onScopeChange: (scope: TemplateScope) => void;
+  readonly onChange: (template: TemplateFile) => void;
+  /** Receives a section's old and new name once a rename is committed. */
+  readonly onSectionRename?: ((from: string, to: string) => void) | undefined;
+  readonly labels: TemplateScopeLabels;
+  readonly isDisabled?: boolean | undefined;
 }
 
-/** Picks the scope: the document, or a section; adds a section and deletes the one shown. */
-export function ScopePicker({
+const labelOf = (section: TemplateSection) => section.label || section.name;
+
+// Asks to confirm deleting the shown section, then deletes it and shows the document's settings.
+function DeleteSection({
   template,
   scope,
   onScopeChange,
   onChange,
   labels,
   isDisabled,
-}: {
-  template: TemplateFile;
-  scope: number | null;
-  onScopeChange: (scope: number | null) => void;
-  onChange: (template: TemplateFile) => void;
-  labels: TemplateScopeLabels;
-  isDisabled?: boolean | undefined;
-}) {
+}: ScopeProps) {
+  const [isOpen, setOpen] = useState(false);
+  const section = template.sections?.find((entry) => entry.name === scope);
+  if (!section || scope === null) return null;
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={DeleteGlyph}
+        label={labels.deleteSection}
+        tooltip={labels.deleteSection}
+        isDisabled={isDisabled}
+        onPress={() => setOpen(true)}
+      />
+      <Modal
+        role="alertdialog"
+        isOpen={isOpen}
+        onOpenChange={setOpen}
+        tone="danger"
+        size="sm"
+        title={labels.deleteSectionTitle(labelOf(section))}
+        description={labels.deleteSectionMessage}
+        primaryAction={{
+          label: labels.deleteSection,
+          onPress: (close) => {
+            close();
+            onScopeChange(null);
+            onChange(withoutSection(template, scope));
+          },
+        }}
+      />
+    </>
+  );
+}
+
+/**
+ * Picks the scope: the document, or a section by name. Adds a section after the one shown, or at
+ * the end from the document's settings; moves the one shown; deletes it once confirmed.
+ */
+export function ScopePicker(props: ScopeProps) {
+  const { template, scope, onScopeChange, onChange, labels, isDisabled } = props;
   const sections = template.sections ?? [];
-  const options = [
-    { id: 'document', label: labels.documentScope },
-    ...sections.map((section, index) => ({
-      id: String(index),
-      label: section.label || section.name,
-    })),
-  ];
+  const index = sections.findIndex((section) => section.name === scope);
+  const move = (by: number) => {
+    if (scope !== null) onChange(withSectionMoved(template, scope, by));
+  };
   return (
     <PropertyRow label={labels.scope}>
       <SelectField
@@ -111,10 +181,13 @@ export function ScopePicker({
         labelLayout="control-only"
         density="compact"
         tracksChanges={false}
-        options={options}
-        value={scope === null ? 'document' : String(scope)}
+        options={[
+          { id: DOCUMENT_KEY, label: labels.documentScope },
+          ...sections.map((section) => ({ id: section.name, label: labelOf(section) })),
+        ]}
+        value={scope ?? DOCUMENT_KEY}
         onChange={(key: Key | null) =>
-          onScopeChange(key === 'document' || key === null ? null : Number(key))
+          onScopeChange(typeof key === 'string' && key !== DOCUMENT_KEY ? key : null)
         }
         isDisabled={isDisabled}
       />
@@ -125,81 +198,94 @@ export function ScopePicker({
         tooltip={labels.addSection}
         isDisabled={isDisabled}
         onPress={() => {
-          onChange({ ...template, sections: [...sections, { name: freshName(template) }] });
-          onScopeChange(sections.length);
+          const name = freshSectionName(template);
+          onChange(withSectionAt(template, { name }, index < 0 ? undefined : index + 1));
+          onScopeChange(name);
         }}
       />
-      {scope === null ? null : (
-        <Button
-          size="sm"
-          variant="secondary"
-          isDisabled={isDisabled}
-          onPress={() => {
-            onScopeChange(null);
-            onChange(withSection(template, scope, null));
-          }}
-        >
-          {labels.deleteSection}
-        </Button>
+      {index < 0 ? null : (
+        <>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={ArrowUpGlyph}
+            label={labels.moveSectionUp}
+            tooltip={labels.moveSectionUp}
+            isDisabled={isDisabled || index === 0}
+            onPress={() => move(-1)}
+          />
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={ArrowDownGlyph}
+            label={labels.moveSectionDown}
+            tooltip={labels.moveSectionDown}
+            isDisabled={isDisabled || index === sections.length - 1}
+            onPress={() => move(1)}
+          />
+          <DeleteSection {...props} />
+        </>
       )}
     </PropertyRow>
   );
 }
 
-/**
- * A section name as a template writes one, lower-case letters, digits and underscores, from what
- * was typed: other characters become underscores. Empty when nothing is left.
- */
-export function sectionNameOf(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+// The section's name, renamed once committed on Enter or on leaving the field, with why a typed
+// name cannot be one.
+function SectionNameRow({ section, props }: { section: TemplateSection; props: ScopeProps }) {
+  const { template, onChange, onScopeChange, onSectionRename, labels, isDisabled } = props;
+  const [draft, setDraft] = useState(section.name);
+  const [problem, setProblem] = useState<SectionNameProblem | null>(null);
+  const commit = () => {
+    const renamed = renameSection(template, section.name, draft);
+    if ('problem' in renamed) {
+      setProblem(renamed.problem);
+      return;
+    }
+    setProblem(null);
+    setDraft(renamed.name);
+    if (renamed.name === section.name) return;
+    onChange(renamed.template);
+    onSectionRename?.(section.name, renamed.name);
+    onScopeChange(renamed.name);
+  };
+  return (
+    <PropertyRow label={labels.sectionName}>
+      <TextField
+        label={labels.sectionName}
+        labelLayout="control-only"
+        density="compact"
+        tracksChanges={false}
+        value={draft}
+        isDisabled={isDisabled}
+        errorMessage={problem ? labels.sectionNameProblems[problem] : undefined}
+        onChange={(text) => {
+          setDraft(text);
+          setProblem(null);
+        }}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') commit();
+          if (event.key === 'Escape') {
+            setDraft(section.name);
+            setProblem(null);
+          }
+        }}
+      />
+    </PropertyRow>
+  );
 }
 
-// Renames the section at an index, unless the name is empty or another section has it.
-function renameSection(template: TemplateFile, index: number, text: string) {
-  const name = sectionNameOf(text);
-  const sections = template.sections ?? [];
-  const section = sections[index];
-  if (!section || !name || name === section.name) return null;
-  if (sections.some((other, at) => at !== index && other.name === name)) return null;
-  return withSection(template, index, { ...section, name });
-}
-
-/** A section's own rows: its name, label and flags. */
-export function SectionRows({
-  template,
-  index,
-  onChange,
-  labels,
-  isDisabled,
-}: {
-  template: TemplateFile;
-  index: number;
-  onChange: (template: TemplateFile) => void;
-  labels: TemplateScopeLabels;
-  isDisabled?: boolean | undefined;
-}) {
-  const section = template.sections?.[index];
-  if (!section) return null;
+/** The shown section's own rows: its name, label and flags. */
+export function SectionRows(props: ScopeProps) {
+  const { template, scope, onChange, labels, isDisabled } = props;
+  const section = template.sections?.find((entry) => entry.name === scope);
+  if (!section || scope === null) return null;
   const own = section as unknown as TemplateFile;
   return (
     <PropertySection id="section" title={labels.section} defaultExpanded>
-      <PropertyRow label={NAME_SETTING.label}>
-        <NameField
-          key={section.name}
-          name={section.name}
-          label={NAME_SETTING.label}
-          isDisabled={Boolean(isDisabled)}
-          onCommit={(text) => {
-            const renamed = renameSection(template, index, text);
-            if (renamed) onChange(renamed);
-          }}
-        />
-      </PropertyRow>
-      {SECTION_SETTINGS.filter((setting) => setting !== NAME_SETTING).map((setting) => (
+      <SectionNameRow key={section.name} section={section} props={props} />
+      {SECTION_SETTINGS.map((setting) => (
         <SettingRow
           key={setting.id}
           setting={setting}
@@ -207,7 +293,7 @@ export function SectionRows({
           inherited={undefined}
           onChange={(value) => {
             const next = withSetting(own, setting.path, value) as unknown as TemplateSection;
-            onChange(withSection(template, index, next));
+            onChange(withNamedSection(template, scope, () => next));
           }}
           inheritedLabel={labels.inherited}
           isDisabled={isDisabled}

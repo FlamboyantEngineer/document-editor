@@ -24,6 +24,7 @@ After each of the writer's changes, `createFootnotes()`, which the editing plugi
 
 - an entry whose marker is gone is deleted, and its text kept for the session, so a marker that is cut and pasted gets its text back;
 - a marker with no entry gets one in its page's footnote area, with its kept text or empty;
+- a marker in another section than its entry, as after its paragraph is moved there, takes the entry to its own footnote area, with its text;
 - a marker repeated for one id, as a copy and paste makes, keeps its id where the original was, and each copy becomes a footnote of its own with a new id and a copy of the text;
 - an entry repeated for one id is deleted;
 - each footnote area lists its entries in marker order;
@@ -50,7 +51,7 @@ Verification: `src/engine/footnote-marks.test.ts`
 
 ### DOCE-FOOTNOTES-1.6 - Pasting where footnotes have rules
 
-`flattenFootnotePaste(slice, state)`, which the paste pipeline runs, shall repair pasted content by the footnote places (D13): pasted into a footnote entry, it becomes one run of text, its blocks joined by a space, keeping the inline content and marks an entry allows and no markers; pasted elsewhere, markers are kept only in paragraphs that may cite a footnote (DOCE-FOOTNOTES-1.2), and dropped where the caret may not cite one. It returns the slice unchanged when nothing needs repair.
+`flattenFootnotePaste(slice, state)`, which the paste pipeline runs, shall repair pasted content by the footnote places (D13): pasted into a footnote entry, it becomes one run of text, its blocks joined by a space, keeping the inline content and marks an entry allows and no markers; pasted elsewhere, markers are kept only in paragraphs that may cite a footnote (DOCE-FOOTNOTES-1.2). Content that joins the block at the caret, inline content and the text block an open slice starts with, keeps its markers only where the caret may cite one; the slice's whole blocks land beside that block and keep theirs where a paragraph there may cite one, so paragraphs pasted or moved with the caret in a heading keep their footnotes. It returns the slice unchanged when nothing needs repair.
 
 Implementation: `src/engine/footnote-paste.ts`
 Verification: `src/engine/footnote-paste.test.ts`
@@ -59,7 +60,7 @@ Verification: `src/engine/footnote-paste.test.ts`
 
 ### DOCE-FOOTNOTES-2.1 - Numbers in each section
 
-`numberFootnotes(tr, { restartEach: 'section' })` shall number the footnotes from 1 in each section, in marker order, reading the sections through the document structure (`documentSections`), never pages. `createSectionFootnoteNumbers({ enabled })` shall number them so after each change that is not only typing, and after a transaction with `sectionFootnoteNumbersKey` meta, out of the undo history, while `enabled` says so. `DocumentEditor` shall enable it in the web layout of a template that numbers footnotes on each page, where each section is one page and no pagination numbers them, and number them again when it enters the web layout or the template changes; on pages the pagination numbers them on each page.
+`numberFootnotes(tr, { restartEach: 'section' })` shall number the footnotes from 1 in each section, in marker order, reading the sections through the document structure (`documentSections`), never pages. `createSectionFootnoteNumbers({ enabled, isRemote })` shall number them so after each change that is neither only typing nor remote (DOCE-EDITING-3.3), and after a transaction with `sectionFootnoteNumbersKey` meta, out of the undo history, while `enabled` says so; a remote change keeps the numbers it came with. `DocumentEditor` shall enable it in the web layout of a template that numbers footnotes on each page, where each section is one page and no pagination numbers them, and number them again when it enters the web layout or the template changes; on pages the pagination numbers them on each page.
 
 Implementation: `src/engine/footnote-model.ts`, `src/engine/section-footnote-numbers.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/engine/footnotes.test.ts`, `src/components/document-editor/document-editor.test.tsx`

@@ -1,5 +1,5 @@
-// The rows of a text style's card: its font and size, its weight, slant, underline and alignment,
-// its colour, its spacing before and after, its line height and, for a heading, its numbering.
+// The rows of a style's card, by its parts: its font and size, its weight, slant, underline and
+// alignment, its colour, its spacing before and after, its line height and its numbering.
 // Each field holds the style's own value and shows the one it inherits while it has none.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
@@ -23,13 +23,22 @@ import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-cho
 import type { ReactNode } from 'react';
 import { SettingControl, type SettingRowProps, toPoints } from './setting-controls.js';
 import type { Rows } from './template-rows.js';
-import { DEFAULT_FONTS, NUMBERING_HINT, settingAt, type SettingKind } from './template-settings.js';
+import {
+  DEFAULT_CODE_FONTS,
+  DEFAULT_FONTS,
+  settingAt,
+  type SettingKind,
+} from './template-settings.js';
 
 /** What a style's rows edit: the rows' context and the path of the style in the template. */
 export interface StyleScope {
   readonly context: Rows;
   readonly path: readonly string[];
 }
+
+/** The fonts a font field suggests: the editor's code fonts for code, or its fonts. */
+export const fontsOf = ({ props }: Rows, code: boolean | undefined) =>
+  code ? (props.codeFonts ?? DEFAULT_CODE_FONTS) : (props.fonts ?? DEFAULT_FONTS);
 
 /** The style's own value at a key, and the one it inherits. */
 export function styleValue({ context, path }: StyleScope, key: readonly string[]) {
@@ -42,8 +51,8 @@ export function styleValue({ context, path }: StyleScope, key: readonly string[]
   };
 }
 
-// A field of the style, by its key, kind and label.
-function Field({
+/** A field of the style, by its key, kind and label. */
+export function Field({
   scope,
   name,
   label,
@@ -53,7 +62,7 @@ function Field({
   name: string;
   label: string;
   kind: SettingKind;
-}) {
+}): ReactNode {
   const { context } = scope;
   const value = styleValue(scope, name.split('.'));
   const props: SettingRowProps = {
@@ -63,18 +72,18 @@ function Field({
     onChange: value.set,
     inheritedLabel: context.labels.inherited,
     inheritedFrom: context.target.source,
-    fonts: context.props.fonts ?? DEFAULT_FONTS,
+    fonts: fontsOf(context, kind.type === 'font' && kind.code),
     isDisabled: context.props.isDisabled,
   };
   return <SettingControl {...props} />;
 }
 
 /** The font and its size in points, on one row. */
-export function FontRow({ scope }: { scope: StyleScope }) {
+export function FontRow({ scope, code }: { scope: StyleScope; code?: boolean | undefined }) {
   const { labels } = scope.context;
   return (
     <PropertyRow label={labels.font} keywords={[labels.size]} unit="pt">
-      <Field scope={scope} name="font" label={labels.font} kind={{ type: 'font' }} />
+      <Field scope={scope} name="font" label={labels.font} kind={{ type: 'font', code }} />
       <Field scope={scope} name="size" label={labels.size} kind={{ type: 'points' }} />
     </PropertyRow>
   );
@@ -125,15 +134,23 @@ const ALIGNMENT_GLYPHS = {
 const asFlag = (value: unknown) => (typeof value === 'boolean' ? value : null);
 const asBold = (value: unknown) => (typeof value === 'number' ? value >= 600 : null);
 
-/** The weight, slant and underline, and the alignment; justified for running text only. */
-export function FaceRow({ scope, justify }: { scope: StyleScope; justify: boolean }) {
+/**
+ * The weight, slant and underline, and the alignment, justified for running text only; a font
+ * alone has no alignment.
+ */
+export function FaceRow({
+  scope,
+  align,
+}: {
+  scope: StyleScope;
+  align: 'none' | 'plain' | 'justify';
+}) {
   const { labels } = scope.context;
   const alignment = styleValue(scope, ['alignment']);
   const own = typeof alignment.own === 'string' ? alignment.own : null;
   const inherited = typeof alignment.inherited === 'string' ? alignment.inherited : null;
-  const ids: readonly ('left' | 'center' | 'right' | 'justify')[] = justify
-    ? ['left', 'center', 'right', 'justify']
-    : ['left', 'center', 'right'];
+  const ids: readonly ('left' | 'center' | 'right' | 'justify')[] =
+    align === 'justify' ? ['left', 'center', 'right', 'justify'] : ['left', 'center', 'right'];
   const aligns = ids.map((id) => ({
     value: id,
     label: labels.alignments[id],
@@ -167,18 +184,20 @@ export function FaceRow({ scope, justify }: { scope: StyleScope; justify: boolea
           write={(on) => on}
         />
       </PropertyIconGroup>
-      <SegmentedChoice
-        aria-label={labels.alignment}
-        size="sm"
-        sizing="content"
-        iconOnly
-        isDisabled={scope.context.props.isDisabled}
-        options={aligns}
-        value={own ?? inherited}
-        isInherited={own === null}
-        isClearable
-        onChange={(picked) => alignment.set(picked)}
-      />
+      {align === 'none' ? null : (
+        <SegmentedChoice
+          aria-label={labels.alignment}
+          size="sm"
+          sizing="content"
+          iconOnly
+          isDisabled={scope.context.props.isDisabled}
+          options={aligns}
+          value={own ?? inherited}
+          isInherited={own === null}
+          isClearable
+          onChange={(picked) => alignment.set(picked)}
+        />
+      )}
     </PropertyRow>
   );
 }
@@ -235,41 +254,6 @@ export function LineHeightRow({ scope }: { scope: StyleScope }) {
   );
 }
 
-/** A heading's numbering: the text before its number, its format and the text after. */
-export function NumberingRow({ scope }: { scope: StyleScope }) {
-  const { labels } = scope.context;
-  return (
-    <PropertyRow label={labels.numbering} hint={NUMBERING_HINT}>
-      <PropertyStrip>
-        <PropertyStripCell letter="«" label={labels.numberPrefix}>
-          <Field
-            scope={scope}
-            name="numbering.prefix"
-            label={labels.numberPrefix}
-            kind={{ type: 'text' }}
-          />
-        </PropertyStripCell>
-        <PropertyStripCell letter="1" label={labels.numbering}>
-          <Field
-            scope={scope}
-            name="numbering.format"
-            label={labels.numbering}
-            kind={{ type: 'numbering' }}
-          />
-        </PropertyStripCell>
-        <PropertyStripCell letter="»" label={labels.numberSuffix}>
-          <Field
-            scope={scope}
-            name="numbering.suffix"
-            label={labels.numberSuffix}
-            kind={{ type: 'text' }}
-          />
-        </PropertyStripCell>
-      </PropertyStrip>
-    </PropertyRow>
-  );
-}
-
 /** What a style reads as in its card's header: its font and size, and its spacing. */
 export function styleSummary(scope: StyleScope): string {
   const read = (key: string) => {
@@ -288,28 +272,4 @@ export function styleSummary(scope: StyleScope): string {
 export function isStyleOverridden(scope: StyleScope): boolean {
   const own = settingAt(scope.context.target.own, scope.path);
   return Boolean(own && typeof own === 'object' && Object.keys(own).length);
-}
-
-/** The rows of a style's card. */
-export function StyleRows({
-  scope,
-  heading,
-  running,
-}: {
-  scope: StyleScope;
-  /** A heading has numbering. */
-  heading: boolean;
-  /** Running text may be justified and has a line height. */
-  running: boolean;
-}): ReactNode {
-  return (
-    <>
-      <FontRow scope={scope} />
-      <FaceRow scope={scope} justify={running} />
-      <ColourRow scope={scope} />
-      <SpacingRow scope={scope} />
-      {running ? <LineHeightRow scope={scope} /> : null}
-      {heading ? <NumberingRow scope={scope} /> : null}
-    </>
-  );
 }

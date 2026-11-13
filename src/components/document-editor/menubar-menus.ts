@@ -1,4 +1,4 @@
-// The menubar's menus as data: File, Edit, View, Insert, Format and Tools. They are built from the
+// The menubar's menus as data: File, with the host's exports, Edit, View, Insert, Format and Tools. They are built from the
 // toolbar's own items, so the menus and the toolbar run the same commands, beside entries the
 // toolbar has no room for: selecting everything, finding, the layouts, the zoom and the tools. The
 // host adds entries to any menu, or a menu of its own, and arranges them.
@@ -23,6 +23,7 @@ import {
   type ToolbarItem,
 } from './toolbar-items.js';
 import { toolsEntries, type ToolsFeatures } from './tools-entries.js';
+import type { DocumentExports } from './use-document-exports.js';
 import type { DocumentLayout } from './use-document-layout.js';
 
 /** A top-level menu of the menubar. */
@@ -55,6 +56,8 @@ export interface MenubarFeatures extends ToolsFeatures {
   readonly zoom?: EditorZoom | null;
   /** What the mode and markup controls change, while the host offers them. */
   readonly shell?: ShellFeatures | undefined;
+  /** The host's exports, offered under File > Export. */
+  readonly exports?: DocumentExports | undefined;
 }
 
 const separator = (id: string): MenuEntry => ({ type: 'separator', id });
@@ -97,6 +100,19 @@ const groupEntries = (features: MenubarFeatures, id: string, context: EditorCont
   (features.groups.find((group) => group.id === id)?.items ?? []).flatMap((item) =>
     entryOf(item, context),
   );
+
+// File > Export: the host's exports, each disabled while it runs.
+function fileEntries(context: EditorContext, exports: DocumentExports | undefined): MenuEntry[] {
+  if (!exports || exports.entries.length === 0) return [];
+  const { labels } = context;
+  const items: MenuEntry[] = exports.entries.map((entry) => ({
+    id: `export-${entry.id}`,
+    label: entry.label,
+    isDisabled: entry.isRunning,
+    onAction: () => exports.run(entry.id, labels),
+  }));
+  return [{ id: 'export', label: labels.exportMenu, items }];
+}
 
 function editMenu(context: EditorContext, features: MenubarFeatures): DocumentMenu {
   const { labels } = context;
@@ -222,7 +238,7 @@ export function menubarMenus(
 ): readonly DocumentMenu[] {
   const { labels } = context;
   const menus: DocumentMenu[] = [
-    { id: 'file', label: labels.menuFile, entries: [] },
+    { id: 'file', label: labels.menuFile, entries: fileEntries(context, features.exports) },
     editMenu(context, features),
     viewMenu(context, features),
     {
