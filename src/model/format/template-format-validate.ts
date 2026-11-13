@@ -2,11 +2,11 @@
 // kind, and the template's identity, references and sections are consistent. A template's content,
 // such as a header, is checked against the schema when one is given.
 
-import type { Schema } from 'prosemirror-model';
+import type { ContentMatch, Schema } from 'prosemirror-model';
 import { referenceFormatError, referenceFormatKeys } from '../reference-format.js';
 import { templateImageErrors } from '../templates/template-content.js';
-import { DOCUMENT_FORMAT_VERSION } from './document-format.js';
-import { readDocumentFile } from './document-format-convert.js';
+import { DOCUMENT_FORMAT_VERSION, STORED_NODE_TYPES } from './document-format.js';
+import { readDocumentFile, readStoredContent } from './document-format-convert.js';
 import { TEMPLATE_FORMAT_VERSION, type TemplateFile } from './template-format.js';
 import { type SettingShape, TEMPLATE_SHAPE } from './template-format-shape.js';
 
@@ -108,7 +108,21 @@ const LEAF_CHECKS: Readonly<Record<string, [(value: unknown) => boolean, string]
   any: [() => true, ''],
 };
 
-function checkContent(value: unknown, walk: Walk): void {
+// The first node of a region's content that a page header or footer does not allow, such as a
+// column layout, which only a section's content holds; null when the region can hold them all.
+function unheldByRegion(content: readonly unknown[], schema: Schema): string | null {
+  let match: ContentMatch | null | undefined = schema.nodes.page_header?.contentMatch;
+  for (const [index, node] of readStoredContent(content, schema).entries()) {
+    match = match?.matchType(node.type);
+    if (match === null) {
+      const name = STORED_NODE_TYPES[node.type.name]?.type ?? node.type.name;
+      return `[${String(index)}]: a page header or footer does not allow ${name}`;
+    }
+  }
+  return null;
+}
+
+function checkContent(value: unknown, walk: Walk, region = false): void {
   const { path } = walk;
   if (!Array.isArray(value)) {
     walk.errors.push(`${path} must be a list of content`);
@@ -120,6 +134,8 @@ function checkContent(value: unknown, walk: Walk): void {
       { formatVersion: DOCUMENT_FORMAT_VERSION, sections: [{ content: value }] },
       walk.schema,
     );
+    const unheld = region ? unheldByRegion(value, walk.schema) : null;
+    if (unheld) walk.errors.push(`${path}: ${unheld}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'is not valid content';
     walk.errors.push(`${path}: ${message.replace(/^sections\[0\]\.content/, '')}`);
@@ -143,8 +159,8 @@ function checkValue(shape: SettingShape, value: unknown, walk: Walk): void {
   if (value === null || value === undefined) return;
   const { path } = walk;
   if (typeof shape === 'string') {
-    if (shape === 'content') {
-      checkContent(value, walk);
+    if (shape === 'content' || shape === 'regionContent') {
+      checkContent(value, walk, shape === 'regionContent');
       return;
     }
     const [check, message] = LEAF_CHECKS[shape] ?? [() => true, ''];

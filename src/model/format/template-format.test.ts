@@ -97,6 +97,25 @@ describe('stored template format', () => {
       'template.header.content must be a list of content',
     ]);
   });
+
+  it('DOCE-FORMAT-2.4 reports content a page header or footer cannot hold', () => {
+    const columns = {
+      type: 'columns',
+      content: [{ type: 'column', content: [{ type: 'paragraph' }] }],
+    };
+    const errors = validateTemplateFile(
+      {
+        ...TEMPLATE,
+        header: { content: [{ type: 'paragraph' }, columns] },
+        sections: [{ name: 'body', content: [columns], footer: { content: [columns] } }],
+      },
+      { schema: documentSchema },
+    );
+    expect(errors).toEqual([
+      'template.header.content: [1]: a page header or footer does not allow columns',
+      'template.sections[0].footer.content: [0]: a page header or footer does not allow columns',
+    ]);
+  });
 });
 
 describe('template setting rules', () => {

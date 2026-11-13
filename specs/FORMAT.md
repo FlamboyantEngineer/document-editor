@@ -71,9 +71,9 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-2.4 - Template content
 
-Given a schema, `validateTemplateFile` shall read each content setting as stored content and report where it cannot be read.
+Given a schema, `validateTemplateFile` shall read each content setting as stored content and report where it cannot be read. A header's or footer's content shall hold only what a page header or footer holds, blocks: a node it does not allow, such as a column layout, which only a section's content holds, shall be reported by its place, such as `template.header.content: [1]: a page header or footer does not allow columns`. `TEMPLATE_SHAPE` names a region's content as a kind of its own, `regionContent`.
 
-Implementation: `src/model/format/template-format-validate.ts`
+Implementation: `src/model/format/template-format-validate.ts`, `src/model/format/template-format-shape.ts`
 Verification: `src/model/format/template-format.test.ts`
 
 ## DOCE-FORMAT-3 - Template inheritance

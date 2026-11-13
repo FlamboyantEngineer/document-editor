@@ -149,7 +149,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-6.1 - Header and footer content
 
-`setPageRegions(tr, template, { editable, edits })` shall set every page's header and footer to its section's template region (DOCE-TEMPLATES-2.3 scopes: a section's own region, or the template's when it has none or inherits), or to the edit standing over it (DOCE-SECTIONS-5.1), read-only unless `editable`. A stored document shall never hold them. Setting regions that a document already holds shall change nothing.
+`setPageRegions(tr, template, { editable, edits })` shall set every page's header and footer to its section's template region (DOCE-TEMPLATES-2.3 scopes: a section's own region, or the template's when it has none or inherits), or to the edit standing over it (DOCE-SECTIONS-5.1), read-only unless `editable`. A stored document shall never hold them. Setting regions that a document already holds shall change nothing. A region shall keep what it holds when it cannot hold its content, which cannot be read or which a page header or footer does not allow, such as a column layout (DOCE-FORMAT-2.4 reports it for a template): the regions are set in a transaction of their own, where a refusal would stop every edit.
 
 Implementation: `src/model/templates/page-regions.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/templates/page-regions.test.ts`
