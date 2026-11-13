@@ -21,6 +21,9 @@ describe('the import entry', () => {
       },
     ]);
     expect(entry.selectStoredContent(file, { section: 'none' })).toBeNull();
+    expect(entry.readMarkdown('# Read').file.sections[0]?.content[0]?.type).toBe('heading');
+    expect(entry.readDocx).toBeTypeOf('function');
+    expect(entry.DEFAULT_ZIP_LIMITS.files).toBe(5000);
     expect(typeof window).toBe('undefined');
   });
 });

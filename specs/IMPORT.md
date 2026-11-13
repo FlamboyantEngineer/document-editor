@@ -6,10 +6,84 @@ Bringing content in from elsewhere without the editor: documents of other format
 
 ### DOCE-IMPORT-1.1 - The import entry
 
-`@flamboyantengineer/document-editor/import` shall export `composeDocumentFile`, `createDocumentFile` and `selectStoredContent`, with their types, and shall import in Node with no `document` or `window` global and define neither.
+`@flamboyantengineer/document-editor/import` shall export the readers (`readDocx`, `readMarkdown`), `composeDocumentFile`, `createDocumentFile`, `selectStoredContent` and `createImportWarnings`, with their types, and shall import in Node with no `document` or `window` global and define neither.
 
 Implementation: `src/import/index.ts`, `package.json`
 Verification: `src/import/import-entry.test.ts`
+
+### DOCE-IMPORT-1.2 - Warnings
+
+A reader shall give the stored document it read beside its warnings: what it left out or kept in another form, each an `ImportWarning` of `{ code, detail, count }`, one per kind (`ImportWarningCode`) and detail, such as a style's or a tag's name, counting how often it happened, in the order each first happened (`createImportWarnings`). A document read by a reader has no template or element ids; `composeDocumentFile` gives it both (DOCE-IMPORT-3.2).
+
+Implementation: `src/import/import-warnings.ts`
+Verification: `src/import/import-warnings.test.ts`
+
+## DOCE-IMPORT-2 - Word processing documents
+
+The reader takes styles and numbering by the mapping the library's Word writer uses (DOCE-FORMAT-5), shared with it in `test/fixtures/docx/`, and by Word's built-in style names, so a document from either reads the same way.
+
+### DOCE-IMPORT-2.1 - Reading the file
+
+`readDocx(bytes, { template, imageSource, limits })` shall read a word processing document (`.docx`) with no DOM and no third-party converter: it shall inflate its zip archive with the platform's `DecompressionStream`, parse its XML parts with the library's own reader, and give `{ ok: true, file, warnings, comments, images, pages }`. Bytes that are not a zip archive, an archive without a main document part, a damaged archive or XML part, and an archive listing more files, or holding a file larger, than `limits` allow (`DEFAULT_ZIP_LIMITS`: 5000 files, 64 MB a file) shall give `{ ok: false, failure, message }`, with `failure` `unreadable`, `damaged` or `too-large`, and never throw.
+
+Implementation: `src/import/docx/read-docx.ts`, `src/import/zip-read.ts`, `src/import/xml-read.ts`, `src/import/import-error.ts`, `src/import/docx/docx-package.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.2 - Paragraphs and text
+
+A paragraph shall be read by its style: `Heading1` to `Heading6`, or a style named `heading 1` to `heading 6`, or one setting an outline level, as a heading at that level; `Title` as the title heading; `ParagraphLevel2` to `ParagraphLevel6` as a paragraph at that level; `Custom_<key>` as a paragraph, or a heading at the paragraph's own outline level, in custom style `<key>`, kept when no `template` is given or the template's `styles.custom` has the key, else left out with a `style-left-out` warning; consecutive `Quote` paragraphs as one quote; a `Code` paragraph as a code block, its line breaks as new lines; and any other style as a plain paragraph with a `style-left-out` warning naming it. Runs shall give bold, italic, underline, strikethrough, superscript, subscript and, in a monospace font, code; a colour, highlight or other font shall be left out with a `formatting-left-out` warning. A link to an outside target shall be a link mark; a line break a line break; a page break a page break between the paragraph's parts; a `PAGE` or `NUMPAGES` field the `page.current` or `page.total` variable; a run content control tagged `variable:<key>` that variable; another field its result as text with a `field-as-text` warning; an equation math holding its text, with an `equation-as-text` warning, a block of its own when it is the paragraph's display equation.
+
+Implementation: `src/import/docx/docx-styles.ts`, `src/import/docx/docx-paragraph.ts`, `src/import/docx/docx-inline.ts`, `src/import/docx/docx-blocks.ts`, `src/import/stored-inline.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.3 - Lists and numbering
+
+A paragraph numbered by its own properties or its style shall be a list item: bulleted when its level's format is a bullet or none, numbered otherwise, nested by its level, a numbered list starting at its level's start or start override. Consecutive items shall make one list, a change of kind at a depth starting a new list there. Numbering from an abstract numbering named `Paragraphs` shall give the paragraph its level (`ilvl` + 1) instead; numbering from one named `Headings` shall be ignored, since the template numbers headings.
+
+Implementation: `src/import/docx/docx-numbering.ts`, `src/import/docx/docx-blocks.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.4 - Tables
+
+A table shall be read with its grid's column widths in pixels as each cell's `colwidth`, a cell spanning grid columns as its `colspan`, cells merged down as the first cell's `rowspan`, header rows (`tblHeader`) as header cells, a cell's bottom or top vertical alignment and its shading colour, and the blocks in each cell, tables included. A `Caption` paragraph right before or after a table or figure shall be its caption, without the writer's `CaptionLabel` runs.
+
+Implementation: `src/import/docx/docx-tables.ts`, `src/import/docx/docx-blocks.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.5 - Sections, headers and footers
+
+Each section of the document shall be a stored section: its default header and footer, or the previous section's when it sets none, as its `header` and `footer` content, and its template section name from the writer's `sections` document variable when the document has one. `pages` shall give each section's page, in order: its named page size when one fits within a few pixels, its orientation, and its width, height and margins in points.
+
+Implementation: `src/import/docx/docx-sections.ts`, `src/import/docx/read-docx.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.6 - Footnotes
+
+A footnote or endnote reference shall be a footnote where it is cited, holding its note's text, its paragraphs joined by line breaks.
+
+Implementation: `src/import/docx/read-docx.ts`, `src/import/docx/docx-inline.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.7 - Comments and tracked changes
+
+The text in a comment's range, across paragraphs, shall take a comment mark naming its thread, `comment-<id>` after the thread's opening comment, with `state: 'resolved'` when that comment is done. `comments` shall give the threads (`CommentThread`): each opening comment with its replies, linked through the extended comments part, oldest first, each entry with its id, author name, text and date, and the text its marks cover as the thread's `quote`. A tracked insertion or deletion shall be an insertion or deletion mark.
+
+Implementation: `src/import/docx/docx-comments.ts`, `src/import/docx/docx-inline.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.8 - Images and what is left out
+
+An embedded PNG, JPEG, GIF, BMP, WebP or SVG picture shall be an image with its alternative text and size in pixels, or a figure when it is alone in its paragraph, its `src` the one `imageSource` gives, or a `data:` URL; `images` shall give each embedded picture's path, media type and bytes once. A picture in another format or a linked one shall be left out with an `image-left-out` warning; a chart, diagram, shape, text box, embedded object or embedded document with a `content-left-out` warning.
+
+Implementation: `src/import/docx/docx-drawing.ts`, `src/import/docx/docx-package.ts`, `src/import/docx/docx-inline.ts`
+Verification: `src/import/docx/read-docx.test.ts`
+
+### DOCE-IMPORT-2.9 - Documents the editor reads
+
+Every document the reader gives shall read with `readDocumentFile` under the default policy, and compose into a template with `composeDocumentFile`.
+
+Implementation: `src/import/docx/read-docx.ts`
+Verification: `src/import/docx/read-docx.test.ts`
 
 ## DOCE-IMPORT-3 - Composing documents
 
@@ -40,3 +114,26 @@ Verification: `src/model/layout/column-widths.test.ts`, `src/model/layout/stored
 
 Implementation: `src/import/select-content.ts`
 Verification: `src/import/select-content.test.ts`
+
+## DOCE-IMPORT-4 - Markdown
+
+### DOCE-IMPORT-4.1 - Reading Markdown
+
+`readMarkdown(markdown)` shall give `{ file, warnings }`: a stored document of one section read from CommonMark with GitHub's tables, strikethrough and footnotes. It shall read ATX and setext headings, paragraphs, quotes, bulleted and numbered lists, nested and with their start number, items of several blocks, fenced code with its language, indented code, `$$` display math, rules, and tables with their header row and column alignment; inline, it shall read strong, emphasis, strikethrough and code, the HTML tags for underline, superscript, subscript, strikethrough, emphasis, strong, code and line breaks, inline and reference links, autolinks, images, `$` inline math, `{{key}}` variables, escapes and hard line breaks, with marks in the schema's order and adjacent text with the same marks joined. A footnote reference shall become a footnote with its definition's text where it is cited. A paragraph holding only an image shall be a figure; an all-italic paragraph right before a table or right after a figure shall be its caption, as the writer places them. Front matter shall be left out.
+
+Implementation: `src/model/format/markdown-read.ts`, `src/model/format/markdown-read-blocks.ts`, `src/model/format/markdown-read-inline.ts`
+Verification: `src/model/format/markdown-read.test.ts`
+
+### DOCE-IMPORT-4.2 - Markdown left out
+
+An HTML block and an HTML tag the reader does not read shall be left out, the tag keeping its text, each with a `content-left-out` warning naming it.
+
+Implementation: `src/model/format/markdown-read-inline.ts`, `src/model/format/markdown-read-blocks.ts`
+Verification: `src/model/format/markdown-read.test.ts`
+
+### DOCE-IMPORT-4.3 - Reading back the writer
+
+Markdown that `writeMarkdown` (DOCE-FORMAT-4.1) wrote for a document of the regression set shall read into a document that `readDocumentFile` reads and that `writeMarkdown` writes as the same Markdown, apart from spaces at line ends, except where the writer itself drops content, which shall then write the same Markdown a second time.
+
+Implementation: `src/model/format/markdown-read.ts`
+Verification: `src/model/format/markdown-read.test.ts`
