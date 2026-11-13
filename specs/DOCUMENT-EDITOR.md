@@ -573,7 +573,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 
 ### DOCE-EDITOR-8.4 - Extending the properties
 
-The properties pane's pages and words shall be those the status bar counts (`documentStatistics`, DOCE-EDITOR-5.2). A host shall arrange its sections (`sections`: the built-in `document`, `section` and `selection` by id, and sections of its own, each with an id, a title, its rows and buttons after its title), add rows after a built-in section's own and buttons after its title (`extend`), and give a side panel's `properties` pane both (`properties`).
+The properties pane's pages and words shall be those the status bar counts (`documentStatistics`, DOCE-EDITOR-5.2), the pages counted again when the layout shows the same document on other pages. A host shall arrange its sections (`sections`: the built-in `document`, `section` and `selection` by id, and sections of its own, each with an id, a title, its rows and buttons after its title), add rows after a built-in section's own and buttons after its title (`extend`), and give a side panel's `properties` pane both (`properties`).
 
 Implementation: `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/built-in-panes.tsx`, `labs/src/host-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`

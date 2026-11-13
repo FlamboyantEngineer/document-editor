@@ -8,7 +8,8 @@ import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { type CommentThread, createMemoryHost } from '../../host/index.js';
-import { readDocumentFile, type TemplateFile } from '../../model/index.js';
+import { FRAGMENT_RULES, readDocumentFile, type TemplateFile } from '../../model/index.js';
+import { showOnPages } from '../../pagination/page-map.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
 import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
@@ -138,6 +139,30 @@ describe('DocumentSidePanel', () => {
     );
     await user.click(within(details()).getByRole('button', { name: /collapse/i }));
     expect(onExpandedChange).toHaveBeenCalledWith(false);
+  });
+
+  it('DOCE-EDITOR-8.4 counts the pages the document is shown on, as its layout gives them', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const panel = { panes: ['properties' as const], defaultSelectedPane: 'properties' as const };
+    const { rerender } = render(<Harness handleRef={handle} panel={panel} />);
+    const pages = () => within(details()).getByText('Pages').closest('[role="row"], div, dt');
+    await waitFor(() => expect(pages()?.parentElement).toHaveTextContent('1'));
+    const doc = handle.current?.view()?.state.doc;
+    if (!doc) throw new Error('The editor should show a document.');
+    // The layout shows the same document on three pages.
+    const content = doc.child(0).child(0);
+    const shown = doc.type.create(null, [
+      doc
+        .child(0)
+        .type.create(doc.child(0).attrs, [
+          content,
+          content.copy(content.content),
+          content.copy(content.content),
+        ]),
+    ]);
+    showOnPages(doc, { pages: shown, rules: FRAGMENT_RULES });
+    rerender(<Harness handleRef={handle} panel={{ ...panel }} />);
+    await waitFor(() => expect(pages()?.parentElement).toHaveTextContent('3'));
   });
 
   it('DOCE-EDITOR-8.1 holds its pane and expanded state when uncontrolled', async () => {
