@@ -297,10 +297,10 @@ Verification: `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-3.7 - Typing beside many threads
 
-In the scale lab's document of about 300 pages beside 500 open threads, typing shall cost about what it costs on the same pages with no comments: a card is drawn again only when what it shows changes (its thread, its suggestion's text, whether it is active, or where it sits), never because the document changed elsewhere, and the cards' context and callbacks stay the same from one state to the next. The keystroke time is a budget of DOCE-LABS-2.3. The check runs alone, after the lab tests and before the other timing tests (the `review-scale` Playwright project), so its load slows none of them.
+In the scale lab's document of about 300 pages beside 500 open threads, typing shall cost about what it costs on the same pages with no comments: a card of the margin or of the comments panel is drawn again only when what it shows changes (its thread, its suggestion's text, whether it is active, or where it sits in the margin), never because the document changed elsewhere, and the cards' context and callbacks stay the same from one state to the next. The panel, which is given every state also while its pane is hidden, follows each state after the document shows it, reads the document for its items once for its three filters, and reads a thread's mentions once for the thread. The keystroke time is a budget of DOCE-LABS-2.3. The check runs alone, after the lab tests and before the other timing tests (the `review-scale` Playwright project), so its load slows none of them.
 
-Implementation: `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/document-comments.tsx`, `labs/src/stress-scale.lab.tsx`, `labs/src/stress/scale-documents.ts`, `playwright.config.ts`
-Verification: `e2e/review-scale.performance.spec.ts`, `e2e/performance.spec.ts`
+Implementation: `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/use-card-context.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`, `src/components/document-comments/comment-filters.ts`, `labs/src/stress-scale.lab.tsx`, `labs/src/stress/scale-documents.ts`, `playwright.config.ts`
+Verification: `e2e/review-scale.performance.spec.ts`, `e2e/performance.spec.ts`, `src/components/document-comments/comments-panel.test.tsx`
 
 ## DOCE-COMMENTS-4 - Reviewing
 

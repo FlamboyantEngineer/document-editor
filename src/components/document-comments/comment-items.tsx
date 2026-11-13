@@ -56,11 +56,18 @@ export interface CommentItemsOptions {
   readonly mineResolved?: boolean | undefined;
 }
 
-function threadItems(state: EditorState, { threads, filter, mineResolved }: CommentItemsOptions) {
+/**
+ * Every item the document holds, whatever the filter: the threads it anchors that the store
+ * keeps, the thread the reader is starting, and the suggestions; in the order they are found.
+ */
+export function findCommentItems(
+  state: EditorState,
+  threads: ReadonlyMap<string, CommentThread>,
+): CommentItem[] {
   const items: CommentItem[] = [];
   for (const anchor of commentAnchors(state)) {
     const thread = threads.get(anchor.thread);
-    if (!thread || !isThreadShown(thread, filter, { resolved: mineResolved ?? false })) continue;
+    if (!thread) continue;
     const key = `comment:${anchor.thread}`;
     const target: AnchorTarget = { kind: 'comment', id: anchor.thread };
     items.push({ key, target, from: anchor.from, to: anchor.to, kind: 'thread', thread });
@@ -78,15 +85,7 @@ function threadItems(state: EditorState, { threads, filter, mineResolved }: Comm
       quote: state.doc.textBetween(draft.from, draft.to, ' ', ' '),
     });
   }
-  return items;
-}
-
-/** The open threads, the threads being started and the suggestions, in reading order. */
-export function listCommentItems(state: EditorState, options: CommentItemsOptions): CommentItem[] {
-  const items = threadItems(state, options);
   for (const suggestion of listSuggestions(state.doc)) {
-    const thread = suggestion.thread ? (options.threads.get(suggestion.thread) ?? null) : null;
-    if (!isSuggestionShown(suggestion, thread, options.filter)) continue;
     items.push({
       key: `suggestion:${suggestion.id}`,
       target: { kind: 'suggestion', id: suggestion.id },
@@ -94,9 +93,32 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
       to: suggestion.to,
       kind: 'suggestion',
       suggestion,
-      thread,
+      thread: suggestion.thread ? (threads.get(suggestion.thread) ?? null) : null,
     });
   }
+  return items;
+}
+
+function isItemShown(
+  item: CommentItem,
+  { filter, mineResolved }: Omit<CommentItemsOptions, 'threads'>,
+): boolean {
+  if (item.kind === 'thread')
+    return isThreadShown(item.thread, filter, { resolved: mineResolved ?? false });
+  if (item.kind === 'suggestion') return isSuggestionShown(item.suggestion, item.thread, filter);
+  return true;
+}
+
+/**
+ * The items a filter keeps of those found (`findCommentItems`), in reading order, with the offer
+ * to comment on a selection; so several filters list the items the document was read for once.
+ */
+export function keepCommentItems(
+  found: readonly CommentItem[],
+  state: EditorState,
+  options: Omit<CommentItemsOptions, 'threads'>,
+): CommentItem[] {
+  const items = found.filter((item) => isItemShown(item, options));
   const { from, to } = state.selection;
   // Comments may overlap: only the selection a thread was just anchored to offers none again.
   const anchored = items.some((item) => item.from === from && item.to === to);
@@ -104,6 +126,11 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
     items.push({ key: 'draft', target: { kind: 'selection' }, from, to, kind: 'draft' });
   }
   return items.sort((a, b) => a.from - b.from);
+}
+
+/** The open threads, the threads being started and the suggestions, in reading order. */
+export function listCommentItems(state: EditorState, options: CommentItemsOptions): CommentItem[] {
+  return keepCommentItems(findCommentItems(state, options.threads), state, options);
 }
 
 /** The card the caret is in: a thread's or a suggestion's, else the offer to comment on a selection. */

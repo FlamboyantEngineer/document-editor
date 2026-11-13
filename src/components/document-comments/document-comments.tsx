@@ -25,7 +25,6 @@ import {
   measureCardOffsets,
 } from './anchor-rects.js';
 import {
-  type CardContext,
   type CommentActionTarget,
   DEFAULT_COMMENTS_LABELS,
   type DocumentCommentsLabels,
@@ -34,17 +33,12 @@ import {
 } from './comment-cards.js';
 import { useCommentControls } from './comment-controls.js';
 import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
-import {
-  type OpenComment,
-  type OpenedComment,
-  type StartComment,
-  useCommentFocus,
-} from './comment-focus.js';
+import type { OpenComment, StartComment } from './comment-focus.js';
 import { caretKey, listCommentItems } from './comment-items.js';
-import { useCommentMentions } from './comment-mentions.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import { MarginCard, useStableCallbacks } from './margin-card.js';
 import type { ThreadPermissionPolicy } from './thread-permissions.js';
+import { useCardContext } from './use-card-context.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
 
@@ -196,67 +190,6 @@ function useAnchorRects(
 
 const MARGIN_CLASS = 'de-document-comments__margin';
 
-// What every card reads, with mentions of the people the host's identity finds, and which threads
-// and suggestions the margin shows.
-function useCardContext(
-  props: DocumentCommentsProps,
-  shared: Pick<CardContext, 'comments' | 'canComment' | 'labels'>,
-): { context: CardContext; filter: ThreadFilter; opened: OpenedComment | null } {
-  const mentions = useCommentMentions(props.identity, props.mentions);
-  const me = props.identity.currentPerson().id;
-  const { format, mentionCard, audience, commentActions, threadPermissions } = props;
-  const host = props.mentions;
-  const listed = useMemo(
-    () => ({
-      filter: props.filter ?? 'open',
-      me,
-      audience,
-      parse: mentions.parse,
-      includes: host?.includes?.bind(host),
-    }),
-    [props.filter, me, audience, mentions, host],
-  );
-  const focus = useCommentFocus();
-  const revealed = focus.opened?.threadId;
-  const filter = useMemo(() => ({ ...listed, revealed }), [listed, revealed]);
-  const { comments, canComment, labels } = shared;
-  const { documentId } = props;
-  const { opened, newText } = focus;
-  // The same context while the document changes, so the cards it reaches are not drawn again.
-  const context = useMemo<CardContext>(
-    () => ({
-      comments,
-      canComment,
-      labels,
-      mentions,
-      format,
-      mentionCard,
-      commentActions,
-      threadPermissions,
-      documentId,
-      me,
-      scope: 'margin',
-      opened,
-      newText,
-    }),
-    [
-      comments,
-      canComment,
-      labels,
-      mentions,
-      format,
-      mentionCard,
-      commentActions,
-      threadPermissions,
-      documentId,
-      me,
-      opened,
-      newText,
-    ],
-  );
-  return { context, filter, opened };
-}
-
 /**
  * Wraps the document's content in an annotation layer with a margin of cards: each open thread
  * and each suggestion level with its text, and, while text is selected, a button that starts a
@@ -292,7 +225,10 @@ function CommentsMargin(props: DocumentCommentsProps) {
   const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [active, setActive] = useState<Key | null>(null);
   const [layer, setLayer] = useState<HTMLDivElement | null>(null);
-  const { context, filter, opened } = useCardContext(props, { comments, canComment, labels });
+  const shared = { comments, canComment, labels, scope: 'margin' as const };
+  const { context, listed, opened } = useCardContext(props, shared);
+  const shown = props.filter ?? 'open';
+  const filter = useMemo<ThreadFilter>(() => ({ ...listed, filter: shown }), [listed, shown]);
   const { run, startThread } = useCommentControls({
     ...props,
     canComment,

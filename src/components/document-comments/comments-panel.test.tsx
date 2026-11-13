@@ -1,10 +1,13 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { type Command, TextSelection } from 'prosemirror-state';
+import { createRef } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 import { Harness, host, PARAGRAPH, seen, text, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
-import { listSuggestions } from '../../engine/index.js';
+import { listCommentAnchors, listSuggestions } from '../../engine/index.js';
 import { createMemoryHost } from '../../host/index.js';
+import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
 
 installEditorDom();
 
@@ -39,6 +42,22 @@ const mentioning = () =>
   });
 
 const panel = () => screen.getByRole('region', { name: 'All comments' });
+
+// Types a word at the end of the document, away from every thread.
+const typeAtEnd: Command = (state, dispatch) => {
+  dispatch?.(state.tr.insertText(' omega', TextSelection.atEnd(state.doc).head));
+  return true;
+};
+
+// Puts the caret inside the anchor of a thread.
+const caretIn =
+  (threadId: string): Command =>
+  (state, dispatch) => {
+    const anchor = listCommentAnchors(state.doc).find((each) => each.thread === threadId);
+    if (!anchor) return false;
+    dispatch?.(state.tr.setSelection(TextSelection.create(state.doc, anchor.from + 1)));
+    return true;
+  };
 
 describe('DocumentCommentsPanel', () => {
   it('DOCE-COMMENTS-4.1 lists suggestions with Accept and Reject in reading order', async () => {
@@ -118,6 +137,37 @@ describe('DocumentCommentsPanel', () => {
     expect(await within(margin).findByText('epsilon')).toBeInTheDocument();
     expect(within(margin).queryByText('zeta')).not.toBeInTheDocument();
     expect(within(margin).queryByRole('group', { name: 'Comment thread' })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-3.7 draws a card again only when what it shows changes, not as the reader types elsewhere', async () => {
+    // The host's actions are asked for each time a comment is drawn, in the margin and the panel.
+    const inMargin = vi.fn(() => []);
+    const inPanel = vi.fn(() => []);
+    const handle = createRef<DocumentEditorHandle>();
+    render(
+      <Harness
+        host={host()}
+        handleRef={handle}
+        options={{ commentActions: inMargin }}
+        panel={{ commentActions: inPanel }}
+      />,
+    );
+    await within(panel()).findByRole('heading', { name: 'Ada Lovelace' });
+    await waitFor(() => expect(handle.current).not.toBeNull());
+    const drawn = { margin: inMargin.mock.calls.length, panel: inPanel.mock.calls.length };
+    act(() => {
+      handle.current?.run(typeAtEnd);
+    });
+    await waitFor(() => expect(seen.state?.doc.textContent).toContain('omega'));
+    expect(inPanel).toHaveBeenCalledTimes(drawn.panel);
+    expect(inMargin).toHaveBeenCalledTimes(drawn.margin);
+    // The card the caret moves into is drawn again, as the active one.
+    act(() => {
+      handle.current?.run(caretIn('open'));
+    });
+    const card = within(panel()).getByRole('group', { name: 'Comment thread' });
+    await waitFor(() => expect(card).toHaveAttribute('data-selected', 'true'));
+    expect(inPanel.mock.calls.length).toBeGreaterThan(drawn.panel);
   });
 
   it('DOCE-COMMENTS-4.6 makes the card the caret is in the active one, as the margin does', async () => {

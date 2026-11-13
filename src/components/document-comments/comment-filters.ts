@@ -26,15 +26,32 @@ export interface ThreadFilter {
   readonly revealed?: string | null | undefined;
 }
 
+type Mention = { readonly kind: string; readonly id: string };
+
+// The mentions in each thread's comments, read once for a thread and the way its text is read. A
+// list is filtered again on every state of the document, and reading every comment again each time
+// would cost each keystroke that work.
+const threadMentions = new WeakMap<
+  CommentThread,
+  { readonly parse: ThreadFilter['parse']; readonly mentions: readonly Mention[] }
+>();
+
+function mentionsOf(thread: CommentThread, parse: ThreadFilter['parse']): readonly Mention[] {
+  const known = threadMentions.get(thread);
+  if (known?.parse === parse) return known.mentions;
+  const mentions = thread.entries.flatMap((entry) =>
+    parse(entry.text).flatMap((segment) =>
+      segment.kind === 'mention' ? [{ kind: segment.mentionKind ?? 'person', id: segment.id }] : [],
+    ),
+  );
+  threadMentions.set(thread, { parse, mentions });
+  return mentions;
+}
+
 /** Whether a thread's comments mention the reader, by name or through a group that includes them. */
 function isMentioned(thread: CommentThread, { me, parse, includes }: ThreadFilter): boolean {
-  return thread.entries.some((entry) =>
-    parse(entry.text).some((segment) => {
-      if (segment.kind !== 'mention') return false;
-      const kind = segment.mentionKind ?? 'person';
-      if (kind === 'person') return segment.id === me;
-      return includes?.({ kind, id: segment.id }, me) ?? false;
-    }),
+  return mentionsOf(thread, parse).some((mention) =>
+    mention.kind === 'person' ? mention.id === me : (includes?.(mention, me) ?? false),
   );
 }
 
