@@ -64,6 +64,9 @@ export function isEmptyDocument(doc: ProseMirrorNode): boolean {
   return empty;
 }
 
+// How many saves a flush makes while other writers' saves keep refusing its own.
+const flushAttempts = 3;
+
 // Runs `run` once `delay` milliseconds pass with no new `schedule`.
 function createPause(delay: number, run: () => void) {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -213,7 +216,13 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
     save,
     flush: async () => {
       cancelTimer();
-      if (state.dirty) await saveAutomatically();
+      // A save the store refuses for another writer's is merged into theirs and left to save. The
+      // flush saves that merge too, once for each save it meets, rather than report it unsaved.
+      for (let attempt = 0; attempt < flushAttempts && state.dirty && !state.held; attempt += 1) {
+        const { revision } = state.baseline;
+        await saveAutomatically();
+        if (state.baseline.revision === revision) break;
+      }
       if (saving) await saving;
       return !state.dirty;
     },

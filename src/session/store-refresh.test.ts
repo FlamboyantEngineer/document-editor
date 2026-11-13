@@ -117,6 +117,19 @@ describe('store-mode merges', () => {
     expect(stored).toContain('Second, theirs');
   });
 
+  it('DOCE-SESSION-2.5 saves the merge when a flush meets another writer’s save', async () => {
+    const host = hostWithoutFeed();
+    const session = open(host);
+    await session.ready;
+    await saveAsAnotherWriter(host, { id: 'a0000002', text: 'Second, theirs' });
+    typeAt(session, 'First', ', mine');
+    expect(await session.flush()).toBe(true);
+    expect(session.status.get()).toMatchObject({ save: 'saved', error: null, dirty: false });
+    const stored = await storedText(host);
+    expect(stored).toContain('First, mine');
+    expect(stored).toContain('Second, theirs');
+  });
+
   it('DOCE-SESSION-4.1 keeps the reader’s caret through the merge', async () => {
     const host = hostWithoutFeed();
     const session = open(host);

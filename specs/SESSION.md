@@ -78,10 +78,10 @@ Verification: `src/session/document-session.test.ts`
 
 ### DOCE-SESSION-2.5 - Flushing
 
-`flush()` shall save what is unsaved at once, as an automatic save does, wait for a save in flight, and resolve true once nothing is left unsaved.
+`flush()` shall save what is unsaved at once, as an automatic save does, wait for a save in flight, and resolve true once nothing is left unsaved. When the store refuses the save for another writer's and the two merge with no conflict (DOCE-SESSION-4.1), the flush shall save the merge too, making up to three saves while other saves keep arriving.
 
 Implementation: `src/session/store-saving.ts`
-Verification: `src/session/document-session.test.ts`
+Verification: `src/session/document-session.test.ts`, `src/session/store-refresh.test.ts`
 
 ## DOCE-SESSION-3 - Modes
 
