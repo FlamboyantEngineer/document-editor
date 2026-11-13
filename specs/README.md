@@ -34,6 +34,7 @@ Each file in this directory specifies one component, one family of components, o
 | [DOCUMENT-EDITOR.md](DOCUMENT-EDITOR.md) | The document editor component: its layouts, modes and hooks.                    |
 | [LABS.md](LABS.md)                       | Starting the labs, and the lab toolbar's stylesheet and theme.                  |
 | [ENTRY-POINTS.md](ENTRY-POINTS.md)       | The package's entry points and which of them a server imports.                  |
+| [IMPORT.md](IMPORT.md)                   | Reading other formats into stored documents and composing them into templates.  |
 | `<AREA>.md`                              | One area's behaviour and, for a component, **its hook list**.                   |
 
 A component's hooks are listed only in its own spec. No hook is declared in two specs.
