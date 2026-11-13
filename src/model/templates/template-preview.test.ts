@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { readDocumentFile } from '../format/document-format-convert.js';
 import type { TemplateFile } from '../format/template-format.js';
-import { templatePreviewDocument } from './template-preview.js';
+import {
+  templatePartSections,
+  templatePreviewDocument,
+  withTemplatePart,
+} from './template-preview.js';
 
 const TEMPLATE: TemplateFile = {
   formatVersion: 1,
@@ -18,6 +22,11 @@ const TEMPLATE: TemplateFile = {
     },
   ],
 };
+
+const paragraph = (value: string) => ({
+  type: 'paragraph',
+  content: [{ type: 'text', text: value }],
+});
 
 const types = (doc: ProseMirrorNode) => {
   const found = new Set<string>();
@@ -57,5 +66,60 @@ describe('template preview', () => {
     expect(all).toContain('Text in the note style.');
     expect(all).toContain('Appendix');
     expect(all).toContain('Approved by');
+  });
+
+  it('DOCE-TEMPLATES-8.6 shows each template section in parts, its content then its placeholder', () => {
+    const template: TemplateFile = {
+      ...TEMPLATE,
+      sections: [
+        ...(TEMPLATE.sections ?? []),
+        { name: 'summary', placeholder: [paragraph('Summarise.')] },
+      ],
+    };
+    const file = templatePreviewDocument(template, undefined, { parts: true });
+    expect(file.sections.map((section) => section.name)).toEqual([
+      null,
+      'appendix',
+      'appendix',
+      'approvals',
+      'approvals',
+      'summary',
+      'summary',
+    ]);
+    const doc = readDocumentFile(file, documentSchema).doc;
+    const parts = templatePartSections(doc);
+    expect(
+      parts.map(({ section, part, content }) => [section.name, part, content.node.textContent]),
+    ).toEqual([
+      ['appendix', 'content', ''],
+      ['appendix', 'placeholder', ''],
+      ['approvals', 'content', 'Approved by'],
+      ['approvals', 'placeholder', ''],
+      ['summary', 'content', ''],
+      ['summary', 'placeholder', 'Summarise.'],
+    ]);
+  });
+
+  it('DOCE-TEMPLATES-8.6 writes a part into the template, taking inherited sections as its own', () => {
+    const own: TemplateFile = { formatVersion: 1, id: 'child', parent: 'preview' };
+    const content = [paragraph('Scope and purpose.')];
+    const written = withTemplatePart(
+      own,
+      { section: 'appendix', part: 'content', content },
+      TEMPLATE,
+    );
+    expect(written.sections).toEqual([
+      { name: 'appendix', label: 'Appendix', content },
+      TEMPLATE.sections?.[1],
+    ]);
+    const cleared = withTemplatePart(written, {
+      section: 'appendix',
+      part: 'content',
+      content: [{ type: 'paragraph' }],
+    });
+    expect(cleared.sections?.[0]).toEqual({ name: 'appendix', label: 'Appendix' });
+    expect(
+      withTemplatePart(own, { section: 'missing', part: 'placeholder', content }, TEMPLATE),
+    ).toBe(own);
   });
 });

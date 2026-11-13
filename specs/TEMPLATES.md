@@ -205,7 +205,14 @@ Verification: `src/engine/template-variables.test.ts`
 `insertVariable(key)` shall put a live variable of the key in place of the selection, the caret after it, and refuse a key a `{{key}}` token cannot hold, a selection in code or across blocks, and a place the schema allows no variable. The toolbar's variable menu (`variable`, in the insert group, so also in the menubar's Insert menu) shall list the catalog, labelled by `editorVariables` and the host, each entry inserting its variable, while the host lists variables or the template's content is edited in place (`onRegionChange`).
 
 Implementation: `src/engine/template-variables.ts`, `src/components/document-editor/variable-menu.ts`, `src/components/document-editor/insert-controls.tsx`
-Verification: `src/engine/template-variables.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+Verification: `src/engine/template-variables.test.ts`, `src/components/document-editor/variable-menu.test.tsx`, `e2e/template-content.spec.ts`
+
+### DOCE-TEMPLATES-8.6 - A preview in parts
+
+`templatePreviewDocument(template, text, { parts: true })` shall show each template section as two sections of its name, its starting content and then its placeholder, each an empty paragraph while the template has none, for editing them in place (DOCE-SECTIONS-5.2); `templatePartSections(doc)` shall list them, the first section of a name its content and the second its placeholder. `withTemplatePart(template, change, resolved)` shall write a part into the template's section of that name, leaving the part out when it is one empty paragraph, a template that inherits its sections taking the resolved ones as its own first, and leave a template without that section as it is.
+
+Implementation: `src/model/templates/template-preview.ts`
+Verification: `src/model/templates/template-preview.test.ts`
 
 ## DOCE-TEMPLATES-9 - Template blocks
 

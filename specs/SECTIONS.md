@@ -117,9 +117,24 @@ While `createRegionEditing` is enabled, which the document editor's `onRegionCha
 Implementation: `src/engine/region-editing.ts`, `src/model/templates/page-regions.ts`, `src/engine/document-sections.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/engine/region-editing.test.ts`, `e2e/template-editor.spec.ts`
 
+### DOCE-SECTIONS-5.2 - Section content and placeholders in place
+
+While `createTemplateContentEditing` is enabled, which the document editor's `onTemplatePartChange` turns on, on a template's preview shown in parts (DOCE-TEMPLATES-8.6) each section shall be marked with what it holds (`data-template-part`: `content`, `placeholder` or `sample`), and a writer's edit of a template section's starting content or placeholder shall be handed to `onChange` as the section's name, the part and its stored content (`writeStoredContent`), which `withTemplatePart` writes into the template. An empty content part shows the template section's placeholder (DOCE-SECTIONS-1.3) as the template has it now. It marks nothing and hands on nothing while it is off.
+
+Implementation: `src/engine/template-content-editing.ts`, `src/model/templates/template-preview.ts`, `src/components/document-editor/use-document-layout.ts`, `labs/src/template-content.lab.tsx`
+Verification: `src/engine/template-content-editing.test.ts`, `e2e/template-content.spec.ts`
+
+### DOCE-SECTIONS-5.3 - The toolbar in template content and the read-only sample
+
+The editor's toolbar shall work in the pages' headers and footers and in a template section's content and placeholder as it does in a document, its marks, lists and variables handed on as edits of the region or part, an edit that only marks text or sets a node's attributes included. With `templatePreviewLock` as the editing lock (`isLocked` of `createDocumentEditing`), the sample around them shall be read-only, its toolbar disabled there, and while template content is edited a writer's change that would add, remove or rename a section shall be refused.
+
+Implementation: `src/engine/template-content-editing.ts`, `src/engine/region-editing.ts`, `labs/src/template-content.lab.tsx`
+Verification: `src/engine/template-content-editing.test.ts`, `src/engine/region-editing.test.ts`, `e2e/template-content.spec.ts`
+
 ## Hooks
 
-| Hook                     | Kind      | Values    | Description                                             |
-| ------------------------ | --------- | --------- | ------------------------------------------------------- |
-| `data-numbering`         | attribute | `restart` | On a section whose template section restarts numbering. |
-| `de-section-placeholder` | root      |           | The placeholder an empty section shows.                 |
+| Hook                     | Kind      | Values                             | Description                                                              |
+| ------------------------ | --------- | ---------------------------------- | ------------------------------------------------------------------------ |
+| `data-numbering`         | attribute | `restart`                          | On a section whose template section restarts numbering.                  |
+| `de-section-placeholder` | root      |                                    | The placeholder an empty section shows.                                  |
+| `data-template-part`     | attribute | `content`, `placeholder`, `sample` | On each section of a preview shown in parts while its content is edited. |
