@@ -231,6 +231,9 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
 export function createAwarenessPresence(options: AwarenessPresenceOptions): Plugin<Activity> {
   return new Plugin<Activity>({
     key: activityKey,
+    // Kept out of the paged layout's measuring view: a second view would share its own cursor and
+    // status for the reader, and take the changes that view follows for the reader's input.
+    measured: false,
     state: {
       init: () => ({ local: 0, remote: 0 }),
       apply(tr, value) {
