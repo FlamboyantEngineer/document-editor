@@ -29,6 +29,19 @@ function stateOf(...content: StoredNode[]) {
 
 const textOf = (state: EditorState) => state.doc.textBetween(0, state.doc.content.size, '|');
 
+// Each run of text with the actors its contributor marks name.
+function writers(state: EditorState): string[] {
+  const runs: string[] = [];
+  state.doc.descendants((node) => {
+    if (!node.isText) return;
+    const actors = node.marks
+      .filter((mark) => mark.type.name === 'contributor')
+      .map((mark) => String(mark.attrs.dataAuthor));
+    runs.push(`${node.text ?? ''}:${actors.join('+')}`);
+  });
+  return runs;
+}
+
 function apply(
   state: EditorState,
   ...args: Parameters<typeof applyEdits> extends [unknown, ...infer R] ? R : never
@@ -88,6 +101,26 @@ describe('automation', () => {
       }
     });
     expect(written).toEqual(['fault ', 'record']);
+  });
+
+  it('DOCE-AUTOMATION-1.2 gives text written inside an actor’s text that actor’s mark alone', () => {
+    const insert = (from: number, text: string) =>
+      [{ op: 'insertText', at: { elementId: 'a1a1a1a1', from }, text }] as const;
+    const first = apply(stateOf(paragraph('a1a1a1a1', 'The log.')), insert(4, 'fault '), AGENT);
+    const other: AutomationOptions = { actor: { id: 'agent-2', kind: 'agent' }, mode: 'direct' };
+    const second = apply(first.state, insert(6, 'XX'), other);
+    const third = apply(second.state, insert(5, 'YY'), AGENT);
+    expect(writers(third.state)).toEqual([
+      'The :',
+      'fYYa:agent-1',
+      'XX:agent-2',
+      'ult :agent-1',
+      'log.:',
+    ]);
+    // The contributor mark excludes itself: a document holding two on one text is not valid.
+    expect(() => {
+      third.state.doc.check();
+    }).not.toThrow();
   });
 
   it('DOCE-AUTOMATION-1.3 refuses a batch whole when an element is gone or its text changed', () => {

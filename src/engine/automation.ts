@@ -179,7 +179,12 @@ function applyText(batch: Batch, edit: TextEdit): Refusal | null {
     tr.delete(found.from, found.to);
     return null;
   }
-  const marks = [...tr.doc.resolve(found.from).marks(), ...writtenBy(state.schema, options.actor)];
+  // The actor's mark takes the place of the contributor mark the text there carries: the mark
+  // excludes itself, and a document holding two on one text no longer reads back.
+  const marks = writtenBy(state.schema, options.actor).reduce(
+    (set, mark) => mark.addToSet(set),
+    tr.doc.resolve(found.from).marks(),
+  );
   tr.replaceWith(found.from, found.to, state.schema.text(edit.text, marks));
   return null;
 }
