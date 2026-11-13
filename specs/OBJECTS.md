@@ -126,16 +126,16 @@ Verification: `src/engine/scripts.test.ts`, `src/components/document-editor/scri
 
 ### DOCE-OBJECTS-4.3 - The script's output
 
-The scripts plugin, which the editing plugins install, shall refuse the writer's own changes inside a script block's output, to its nodes, text, marks or attributes other than the ones that identify an element, while a run, an undo or a redo may change it and the writer may still add, move or delete whole blocks and change their script; it shall mark each block running, failed or empty (`data-script-state`).
+The scripts plugin, which the editing plugins install, shall refuse the writer's own changes inside a script block's output, to its nodes, text, marks or attributes other than the ones that identify an element, while a run, an undo or a redo may change it and the writer may still add, move or delete whole blocks and change their script; it shall mark each block running, failed, stale (DOCE-OBJECTS-4.7) or empty (`data-script-state`), in that order of precedence.
 
-Implementation: `src/engine/scripts.ts`
+Implementation: `src/engine/scripts.ts`, `src/engine/script-output.ts`
 Verification: `src/engine/scripts.test.ts`, `e2e/full-editor.spec.ts`
 
 ### DOCE-OBJECTS-4.4 - Scripts on a stored document
 
-`runStoredScripts(file, { schema, runner, ids, signal, now })`, in the server-safe `./document` entry, shall run the scripts of a stored document, or those of the blocks with the ids given, with no editor and no DOM: one at a time in document order, each against the document as stored, then put what they produced in their blocks as DOCE-OBJECTS-4.2 says, with the same element ids and `renderedAt`, an output the same as the one shown leaving its block as it is. It resolves with the document, the one given when nothing changed and otherwise the one given with its sections written again, content the schema does not know kept as stored, and with the blocks that failed, by id with their messages: a script the runner could not run or that threw, or an output the schema cannot read, which keeps the output it had. The signal goes to the runner with each script; once it aborts, the run stops and rejects with its reason, changing nothing.
+`runStoredScripts(file, { schema, runner, ids, signal, now })`, in the server-safe `./document` entry, shall run the scripts of a stored document, or those of the blocks with the ids given, with no editor and no DOM: one at a time in document order, each against the document as stored and for the purpose `stored` (DOCE-OBJECTS-4.6), then put what they produced in their blocks as DOCE-OBJECTS-4.2 says, with the same element ids and `renderedAt`, an output the same as the one shown leaving its block as it is. It resolves with the document, the one given when nothing changed and otherwise the one given with its sections written again, content the schema does not know kept as stored, and with the blocks that failed, by id with their messages: a script the runner could not run or that threw, or an output the schema cannot read, which keeps the output it had. The signal goes to the runner with each script; once it aborts, the run stops and rejects with its reason, changing nothing.
 
-Implementation: `src/document/scripts.ts`
+Implementation: `src/document/scripts.ts`, `src/engine/script-output.ts`
 Verification: `src/document/scripts.test.ts`
 
 ### DOCE-OBJECTS-4.5 - Building a script's output
@@ -144,6 +144,27 @@ The script output builders, in `./document`, shall write the stored content a sc
 
 Implementation: `src/document/script-output.ts`
 Verification: `src/document/script-output.test.ts`
+
+### DOCE-OBJECTS-4.6 - Why a script runs, and where its output came from
+
+Each run shall tell the runner why the script runs (`purpose`): `run` when asked, the default of `runScripts(view, runner, { purpose })`, `open` for `runOpeningScripts`, `preview` for the script editor's preview and `stored` for `runStoredScripts`, and give it the run's signal (`signal`). Once the signal aborts, `runScripts` shall stop, put nothing in, end its blocks' running state and reject with the signal's reason. What a script produced (`ScriptRunOutput`) is its content, where it came from (`provenance`) and the signatures it carries (`signatures`), which a run puts in its block's attributes with its content; an output whose content, provenance and signatures are all the same as the block's leaves it as it is, and one whose records alone changed changes only the block's attributes and `renderedAt`.
+
+Implementation: `src/engine/scripts.ts`, `src/engine/script-output.ts`, `src/document/scripts.ts`
+Verification: `src/engine/scripts.test.ts`, `src/document/scripts.test.ts`
+
+### DOCE-OBJECTS-4.7 - Stale output
+
+An output shall be stale when the runner's inputs key for its script (`inputsKey`, the key of what the script would read now, against the document as it is) differs from the one its output recorded (`provenance.inputs`), or when it recorded none; a runner without `inputsKey` finds no output stale, and a key the runner fails to give leaves its block not stale. `findStaleScripts(doc, runner, { document, ids, signal })` gives the stale blocks' ids, of the blocks with the ids given or of every one, in document order, rejecting with the signal's reason once it aborts, and `findStaleStoredScripts(file, { schema, runner, ids, signal })`, in `./document`, gives those of a stored document with no DOM. `checkStaleScripts(view, runner)` finds the view's stale blocks and marks them `stale` (`data-script-state`, kept in `scriptsState(state).stale`) until they run again with success; the scripts plugin given a runner with inputs keys, and the editor given a `scriptRunner` with them (DOCE-EDITOR-4.8), check once the opening scripts ran.
+
+Implementation: `src/engine/script-staleness.ts`, `src/engine/scripts.ts`, `src/document/scripts.ts`, `src/components/document-editor/script-entries.ts`
+Verification: `src/engine/script-staleness.test.ts`, `src/document/scripts.test.ts`, `src/components/document-editor/script-entries.test.tsx`
+
+### DOCE-OBJECTS-4.8 - The preview numbered in context
+
+The script editor's preview (DOCE-EDITOR-4.9) shall number what a script produced on from where its block is: the runner runs it with purpose `preview`, and the counters in effect just before the block edited, where it is now, or before the selection for a new block (`numberingCountersAt`, DOCE-CONTENTS-1.7), are published on the preview as `--de-script-editor-counters`, a `counter-reset` value naming each heading level's and numbered object kind's counter and its count (`previewCounters`), from which a stylesheet's counters number on. The preview publishes none until it has run.
+
+Implementation: `src/components/document-editor/script-panes.tsx`, `src/components/document-editor/script-dialog.tsx`, `labs/reference/editor-chrome.css`
+Verification: `src/components/document-editor/script-panes.test.tsx`
 
 ## Hooks
 
@@ -158,4 +179,4 @@ Verification: `src/document/script-output.test.ts`
 | `de-signature`       | root      |                                                                                              | A signature.                                                                                                     |
 | `de-signature__name` | slot      |                                                                                              | The signer's name.                                                                                               |
 | `data-signed`        | state     | `true`, `false`                                                                              | On a signature: whether it holds strokes.                                                                        |
-| `data-script-state`  | state     | `running`, `error`, `empty`                                                                  | On a script block: its last run.                                                                                 |
+| `data-script-state`  | state     | `running`, `error`, `stale`, `empty`                                                         | On a script block: its last run.                                                                                 |

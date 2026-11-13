@@ -1,5 +1,6 @@
 // The script editor's side panes: the preview, which runs the script on asking and shows what it
-// produced in the template's look, without changing the document; and the reference, the names a
+// produced in the template's look, numbered on from where its block is, without changing the
+// document; and the reference, the names a
 // script can use, by the object they belong to, found by a filter.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
@@ -8,10 +9,12 @@ import { SearchField } from '@flamboyantengineer/ui-components/search-field';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useMemo, useState } from 'react';
+import { type CSSProperties, useMemo, useState } from 'react';
 import type { ScriptRunnerAdapter, ScriptVocabularyEntry } from '../../host/index.js';
 import {
   isDocumentFormatError,
+  type NumberingCounters,
+  numberingCountersAt,
   readDocumentFile,
   type StoredContent,
   type TemplateFile,
@@ -26,19 +29,52 @@ const hooks = createHooks('script-editor', ['preview', 'status', 'reference', 'e
 
 /**
  * Where a preview is: not run since the script changed, running, failed, or showing the document
- * its output makes, null when the script produced nothing.
+ * its output makes, null when the script produced nothing, with the counters its block is under.
  */
 export type ScriptPreviewState =
   | { readonly status: 'idle' }
   | { readonly status: 'running' }
   | { readonly status: 'error'; readonly message: string }
-  | { readonly status: 'ready'; readonly document: ProseMirrorNode | null };
+  | {
+      readonly status: 'ready';
+      readonly document: ProseMirrorNode | null;
+      readonly counters: NumberingCounters;
+    };
+
+// The stylesheet's counters, for each numbered object kind.
+const OBJECT_COUNTERS = {
+  figure: 'figure',
+  table: 'table',
+  codeBlock: 'codeblock',
+  equation: 'equation',
+} as const;
+
+/**
+ * The counters as a `counter-reset` value, `--de-script-editor-counters`, so the preview's headings
+ * and objects number on from the ones before its block.
+ */
+export function previewCounters({ headings, objects }: NumberingCounters): string {
+  const levels = headings.map((count, index) => `h${String(index + 1)} ${String(count)}`);
+  const kinds = Object.entries(OBJECT_COUNTERS).map(
+    ([kind, counter]) => `${counter} ${String(objects[kind as keyof typeof OBJECT_COUNTERS])}`,
+  );
+  return [...levels, ...kinds, 'ordered-list 0'].join(' ');
+}
 
 // The document a script's output makes; an output the schema refuses throws.
 function outputDocument(output: StoredContent, schema: Schema): ProseMirrorNode | null {
   if (output.length === 0) return null;
   return readDocumentFile({ formatVersion: 1, sections: [{ name: null, content: output }] }, schema)
     .doc;
+}
+
+/** What a preview runs: the script, where its block is, and the template that numbers it. */
+export interface ScriptPreviewRequest {
+  readonly source: string;
+  /** The position of the script's block, or where a new one would go. */
+  readonly at: number;
+  readonly template: TemplateFile;
+  readonly labels: DocumentEditorLabels;
 }
 
 /**
@@ -49,17 +85,23 @@ function outputDocument(output: StoredContent, schema: Schema): ProseMirrorNode 
 export async function previewScript(
   view: EditorView,
   runner: ScriptRunnerAdapter,
-  { source, labels }: { source: string; labels: DocumentEditorLabels },
+  { source, at, template, labels }: ScriptPreviewRequest,
 ): Promise<ScriptPreviewState> {
+  const { doc } = view.state;
+  const request = { purpose: 'preview', blockId: 'preview', source } as const;
   const result = await runner
-    .run({ blockId: 'preview', source, document: writeDocumentFile(view.state.doc) })
+    .run({ ...request, document: writeDocumentFile(doc) })
     .catch((error: unknown) => ({
       ok: false as const,
       error: { kind: 'unavailable' as const, message: String(error) },
     }));
   if (!result.ok) return { status: 'error', message: result.error.message ?? '' };
   try {
-    return { status: 'ready', document: outputDocument(result.value, view.state.schema) };
+    return {
+      status: 'ready',
+      document: outputDocument(result.value.content, doc.type.schema),
+      counters: numberingCountersAt(doc, template, Math.min(at, doc.content.size)),
+    };
   } catch (error) {
     // Why the format refused it helps whoever wrote the script; anything else is not for them.
     const reason = isDocumentFormatError(error) ? ` ${error.message}` : '';
@@ -111,8 +153,12 @@ export function ScriptPreview({
   onRefresh: () => void;
 }) {
   const message = previewMessage(preview, labels);
+  const counters =
+    preview.status === 'ready'
+      ? ({ '--de-script-editor-counters': previewCounters(preview.counters) } as CSSProperties)
+      : undefined;
   return (
-    <div {...hooks.slot('preview', { status: preview.status })}>
+    <div {...hooks.slot('preview', { status: preview.status })} style={counters}>
       <Button
         size="sm"
         startIcon={RefreshGlyph}

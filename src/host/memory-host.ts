@@ -1,4 +1,4 @@
-import type { DocumentFile, StoredContent } from '../model/format/document-format.js';
+import type { StoredContent } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import { sliceCodeLines } from '../model/linked-code.js';
@@ -14,6 +14,7 @@ import type {
   ReferenceSourceAdapter,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
+  ScriptRunRequest,
   ScriptVocabularyEntry,
   StoredAsset,
   StoredDocument,
@@ -55,7 +56,12 @@ export interface MemoryHostOptions {
   /** Source files the code source resolves, by URL without its fragment. */
   code?: Readonly<Record<string, string>> | undefined;
   /** Produces a script's content; without it the host runs no scripts. A throw is a failure. */
-  scripts?: ((request: { source: string; document: DocumentFile }) => StoredContent) | undefined;
+  scripts?: ((request: ScriptRunRequest) => StoredContent) | undefined;
+  /**
+   * The key of what a script reads, recorded as each output's `provenance.inputs` and given as the
+   * runner's `inputsKey`; without it outputs record no inputs and none is stale.
+   */
+  scriptInputsKey?: ((request: Omit<ScriptRunRequest, 'purpose'>) => string) | undefined;
   /** The names the scripts can use, which the script editor completes and documents. */
   scriptVocabulary?: readonly ScriptVocabularyEntry[] | undefined;
   /** Checks a script without running it, returning its problems. */
@@ -184,16 +190,27 @@ function createMemoryCodeSource(files: Readonly<Record<string, string>>): CodeSo
 /** Runs scripts with the function given, its throw an `unavailable` failure with the thrown message. */
 function createMemoryScripts(
   produce: NonNullable<MemoryHostOptions['scripts']>,
-  { scriptVocabulary, checkScript }: MemoryHostOptions,
+  { scriptVocabulary, checkScript, scriptInputsKey }: MemoryHostOptions,
 ): ScriptRunnerAdapter {
   return {
     vocabulary: scriptVocabulary,
     ...(checkScript
       ? { check: (source: string) => Promise.resolve({ ok: true, value: checkScript(source) }) }
       : {}),
-    run: ({ source, document }) => {
+    ...(scriptInputsKey
+      ? {
+          inputsKey: (request: Omit<ScriptRunRequest, 'purpose'>) =>
+            Promise.resolve({ ok: true, value: scriptInputsKey(request) }),
+        }
+      : {}),
+    run: (request) => {
       try {
-        return Promise.resolve({ ok: true, value: produce({ source, document }) });
+        const content = produce(request);
+        const { blockId, source, document } = request;
+        const provenance = scriptInputsKey
+          ? { inputs: scriptInputsKey({ blockId, source, document }) }
+          : null;
+        return Promise.resolve({ ok: true, value: { content, provenance } });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         return Promise.resolve({ ok: false, error: { kind: 'unavailable', message } });

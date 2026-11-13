@@ -38,7 +38,9 @@ function openDialog(runner: ScriptRunnerAdapter) {
 }
 
 const runner = () => ({
-  run: vi.fn<ScriptRunnerAdapter['run']>(() => Promise.resolve({ ok: true, value: [] })),
+  run: vi.fn<ScriptRunnerAdapter['run']>(() =>
+    Promise.resolve({ ok: true, value: { content: [] } }),
+  ),
 });
 
 const scriptOf = (shown: EditorView) =>

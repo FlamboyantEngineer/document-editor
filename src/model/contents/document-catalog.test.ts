@@ -3,6 +3,7 @@ import { documentSchema } from '../../../test/document-markup.js';
 import {
   BASE_TEMPLATE,
   catalogDocument,
+  numberingCountersAt,
   readDocumentFile,
   type StoredNode,
   type TemplateFile,
@@ -263,5 +264,28 @@ describe('document catalog', () => {
       'RAM|Random access memory',
     ]);
     expect(used.nodeAt(abbreviations?.[1]?.pos ?? 0)?.attrs.abbr).toBe('RAM');
+  });
+
+  it('DOCE-CONTENTS-1.7 gives the counters a position is under, as the stylesheet counts them', () => {
+    const at = (value: string) => {
+      let found = -1;
+      doc.descendants((node, pos) => {
+        if (found < 0 && node.isBlock && node.textContent === value) found = pos;
+        return found < 0;
+      });
+      return found;
+    };
+    expect(numberingCountersAt(doc, appendix, 0)).toEqual({
+      headings: [0, 0, 0, 0, 0, 0],
+      objects: { figure: 0, table: 0, codeBlock: 0, equation: 0 },
+    });
+    expect(numberingCountersAt(doc, appendix, at('Interfaces'))).toMatchObject({
+      headings: [1, 1, 0, 0, 0, 0],
+      objects: { table: 1 },
+    });
+    expect(numberingCountersAt(doc, appendix, at('Detail'))).toMatchObject({
+      headings: [2, 0, 0, 0, 0, 0],
+      objects: { table: 1 },
+    });
   });
 });

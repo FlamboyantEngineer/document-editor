@@ -2,6 +2,7 @@ import type { DocumentFile, StoredContent } from '../model/format/document-forma
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
 import type { ReferenceBaseline } from '../model/reference-format.js';
+import type { ScriptProvenance, ScriptSignature } from '../model/schema/script-nodes.js';
 import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
 import type { CommentStoreAdapter } from './comment-adapters.js';
@@ -249,13 +250,40 @@ export interface ScriptDiagnostic {
   readonly severity?: 'error' | 'warning' | undefined;
 }
 
+/**
+ * Why a script runs: asked to (`run`), as the document opens (`open`), for the script editor's
+ * preview (`preview`), or on a stored document with no editor (`stored`).
+ */
+export type ScriptRunPurpose = 'run' | 'open' | 'preview' | 'stored';
+
+/** A script to run against the document as it is, for a script block or the preview. */
+export interface ScriptRunRequest {
+  purpose: ScriptRunPurpose;
+  blockId: string;
+  source: string;
+  document: DocumentFile;
+}
+
+/** What a script produced: its content, where it came from and the signatures it carries. */
+export interface ScriptRunOutput {
+  content: StoredContent;
+  /** Recorded on the block; its `inputs`, the key of what the script read, marks stale output. */
+  provenance?: ScriptProvenance | null | undefined;
+  signatures?: ScriptSignature[] | null | undefined;
+}
+
 /** Runs a document's scripts, producing the content each script block shows. */
 export interface ScriptRunnerAdapter {
-  /** The content a script produces, run against the document as it is. */
-  run(
-    request: { blockId: string; source: string; document: DocumentFile },
+  /** What a script produces, run against the document as it is; the signal stops it. */
+  run(request: ScriptRunRequest, signal?: AbortSignal): Promise<HostResult<ScriptRunOutput>>;
+  /**
+   * The key of what a script would read now. An output whose provenance records another key is
+   * stale; without it, no output is.
+   */
+  inputsKey?(
+    request: Omit<ScriptRunRequest, 'purpose'>,
     signal?: AbortSignal,
-  ): Promise<HostResult<StoredContent>>;
+  ): Promise<HostResult<string>>;
   /** The names a script can use, which the script editor completes and documents. */
   readonly vocabulary?: readonly ScriptVocabularyEntry[] | undefined;
   /** Checks a script without running it; an error keeps it from being applied. */

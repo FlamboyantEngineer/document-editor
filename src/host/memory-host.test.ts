@@ -374,24 +374,28 @@ describe('createMemoryHost', () => {
     const host = createMemoryHost({
       scriptVocabulary: [{ name: 'render', kind: 'object' }],
       checkScript: (source) => (source === 'bad' ? [{ message: 'Bad', line: 1 }] : []),
-      scripts: ({ source, document }) => {
+      scripts: ({ purpose, source, document }) => {
         if (source === 'fail') throw new Error('Broken');
         return [
           {
             type: 'paragraph',
-            content: [{ type: 'text', text: `${source} ${String(document.sections.length)}` }],
+            content: [{ type: 'text', text: `${purpose} ${String(document.sections.length)}` }],
           },
         ];
       },
     });
+    expect(host.scripts?.inputsKey).toBeUndefined();
     await expect(
-      host.scripts?.run({ blockId: 'b', source: 'count', document: CONTENT }),
+      host.scripts?.run({ purpose: 'stored', blockId: 'b', source: 'count', document: CONTENT }),
     ).resolves.toEqual({
       ok: true,
-      value: [{ type: 'paragraph', content: [{ type: 'text', text: 'count 1' }] }],
+      value: {
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'stored 1' }] }],
+        provenance: null,
+      },
     });
     await expect(
-      host.scripts?.run({ blockId: 'b', source: 'fail', document: CONTENT }),
+      host.scripts?.run({ purpose: 'run', blockId: 'b', source: 'fail', document: CONTENT }),
     ).resolves.toEqual({
       ok: false,
       error: { kind: 'unavailable', message: 'Broken' },
@@ -400,6 +404,22 @@ describe('createMemoryHost', () => {
     await expect(host.scripts?.check?.('bad')).resolves.toEqual({
       ok: true,
       value: [{ message: 'Bad', line: 1 }],
+    });
+  });
+
+  it('DOCE-HOST-1.11 DOCE-HOST-3.9 records and gives the inputs key of a script', async () => {
+    const host = createMemoryHost({
+      scripts: () => [],
+      scriptInputsKey: ({ blockId, source }) => `${blockId}:${source}`,
+    });
+    const request = { blockId: 'b', source: 'count', document: CONTENT };
+    await expect(host.scripts?.inputsKey?.(request)).resolves.toEqual({
+      ok: true,
+      value: 'b:count',
+    });
+    await expect(host.scripts?.run({ ...request, purpose: 'open' })).resolves.toEqual({
+      ok: true,
+      value: { content: [], provenance: { inputs: 'b:count' } },
     });
   });
 });
