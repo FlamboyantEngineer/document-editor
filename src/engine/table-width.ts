@@ -5,8 +5,10 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Mapping } from 'prosemirror-transform';
-import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
+import { fitColumns } from '../model/layout/column-widths.js';
 import { isRemoteTransaction } from './transaction-kind.js';
+
+export { fitColumns };
 
 // The widths of a table's columns, from the cells of its first row; null while one is unset.
 function widthsOf(table: ProseMirrorNode): number[] | null {
@@ -19,32 +21,6 @@ function widthsOf(table: ProseMirrorNode): number[] | null {
     widths.push(...colwidth);
   }
   return widths;
-}
-
-/**
- * The column widths that fit a width: the columns that grew since `before` shrink, the widest
- * first, by what the total is too much; unchanged when the table fits.
- */
-export function fitColumns(
-  widths: readonly number[],
-  before: readonly number[],
-  max: number,
-): number[] {
-  const fitted = [...widths];
-  let excess = fitted.reduce((sum, width) => sum + width, 0) - max;
-  const grown = fitted
-    .map((width, index) => ({ index, growth: width - (before[index] ?? width) }))
-    .filter(({ growth }) => growth > 0)
-    .sort((a, b) => (fitted[b.index] ?? 0) - (fitted[a.index] ?? 0));
-  for (const { index } of grown) {
-    if (excess <= 0) break;
-    const width = fitted[index] ?? 0;
-    const give = Math.min(excess, width - DEFAULT_TABLE_CELL_MIN_WIDTH);
-    if (give <= 0) continue;
-    fitted[index] = width - give;
-    excess -= give;
-  }
-  return fitted;
 }
 
 // Sets a table's column widths on each of its cells.

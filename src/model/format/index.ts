@@ -35,6 +35,8 @@ export type {
   PersonName,
 } from './markdown.js';
 export { writeMarkdown } from './markdown.js';
+export type { MarkdownRead } from './markdown-read.js';
+export { readMarkdown } from './markdown-read.js';
 export type * from './template-format.js';
 export { TEMPLATE_FORMAT_VERSION } from './template-format.js';
 export type { TemplateResolutionOptions } from './template-format-resolve.js';
