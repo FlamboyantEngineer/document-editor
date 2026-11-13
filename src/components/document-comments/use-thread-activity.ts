@@ -28,6 +28,8 @@ export interface TrackedChange {
   readonly isPending?: boolean | undefined;
   /** Offers to make the change again when it fails. */
   readonly retry?: (() => void) | undefined;
+  /** Shows no row when it fails, for a change whose own control reports the failure. */
+  readonly isQuiet?: boolean | undefined;
 }
 
 type Rows = ReadonlyMap<string, readonly ThreadActivity[]>;
@@ -140,6 +142,10 @@ export function useThreadActivity(
         setLocal((rows) => withRow(rows, threadId, { row: null, drop: key }));
         return value;
       } catch (cause) {
+        if (change.isQuiet) {
+          setLocal((rows) => withRow(rows, threadId, { row: null, drop: key }));
+          throw cause;
+        }
         const dismiss = () => setLocal((rows) => withRow(rows, threadId, { row: null, drop: key }));
         const row: ThreadActivity = {
           key,

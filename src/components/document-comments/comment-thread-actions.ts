@@ -61,7 +61,8 @@ export function threadActions(
   return {
     ...state,
     create: async (thread: NewCommentThread) =>
-      present(await change(thread.id, () => store.create(documentId, thread))),
+      // The composer that starts a thread reports its failure; the thread has no card to show it.
+      present(await change(thread.id, () => store.create(documentId, thread), { isQuiet: true })),
     reply,
     setState: async (threadId, next) =>
       present(await change(threadId, () => store.setState(documentId, threadId, next))),

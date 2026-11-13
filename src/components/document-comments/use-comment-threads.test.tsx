@@ -132,6 +132,26 @@ describe('useCommentThreads', () => {
     expect(result.current.activity.has('t1')).toBe(false);
   });
 
+  it('DOCE-COMMENTS-2.15 leaves a failed start to the composer, so the thread made next shows no error', async () => {
+    const { store, identity } = host([]);
+    let refuse = true;
+    const flaky: CommentStoreAdapter = {
+      ...store,
+      create: (documentId, made) =>
+        refuse
+          ? Promise.resolve({ ok: false, error: { kind: 'unavailable', message: 'Offline.' } })
+          : store.create(documentId, made),
+    };
+    const { result } = renderHook(() => useThreads(flaky, identity));
+    const started = { id: 't2', quote: 'blue', text: 'Say more', suggestion: null };
+    await act(() => expect(result.current.create(started)).rejects.toThrow('Offline.'));
+    expect(result.current.activity.has('t2')).toBe(false);
+    refuse = false;
+    await act(() => result.current.create(started));
+    expect(result.current.threads.has('t2')).toBe(true);
+    expect(result.current.activity.has('t2')).toBe(false);
+  });
+
   it('DOCE-COMMENTS-2.17 shows replies being written for the reader and people typing', async () => {
     const { store, identity } = host([
       {
