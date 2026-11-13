@@ -151,6 +151,13 @@ The editor's comments may take a `mentions` adapter (`MentionsAdapter`), which s
 Implementation: `src/host/mention-adapters.ts`
 Verification: `src/components/document-comments/comment-mentions.test.tsx`
 
+### DOCE-HOST-1.22 - Template store
+
+A host whose templates are edited shall pass a template store (`TemplateStoreAdapter`, a `TemplateSourceAdapter` with more requests): `list` the stored templates at their latest revisions (`TemplateSummary`: id, name, parent and saved state); `save` a template's new settings on the revision they were edited from (`TemplateSave`), refused as `conflict` when another revision is stored; `create` a template under its own id, refused as `conflict` when the id is taken; `remove` a template and its revisions, which a host may refuse as `denied`, such as while another template inherits it; and, optionally, list a template's saved revisions newest first (`versions`, each a `TemplateVersion` with when and by whom it was saved), each read with `load(id, { revision })`. A copy is a new template created from another's settings, and a restore saves an old revision's settings as the newest, so neither is a request of its own. Whether a template is for the web layout is the host's to say (DOCE-TEMPLATE-EDITOR-3.6); the stored template format does not hold it.
+
+Implementation: `src/host/adapters.ts`, `src/host/memory-templates.ts`
+Verification: `src/host/memory-templates.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
@@ -245,3 +252,10 @@ The in-memory host's `memory` controls shall make each store request (document l
 
 Implementation: `src/host/memory-session.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`
+
+### DOCE-HOST-3.11 - In-memory templates
+
+The in-memory host's `templates` shall be a template store (DOCE-HOST-1.22) over `options.templates`, a template listed again being its next revision: saves check the base revision and tell the template's subscribers, a created template needs a free id, a template another inherits cannot be removed, and each save is a version, recorded with the reader's id and the time `options.now` gives.
+
+Implementation: `src/host/memory-templates.ts`, `src/host/memory-host.ts`
+Verification: `src/host/memory-templates.test.ts`

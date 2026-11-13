@@ -297,3 +297,6 @@ export function TemplateEditor(props: TemplateEditorProps) {
     </PropertyFilter>
   );
 }
+
+export { templateIdOf } from './template-identity.js';
+export type { TemplateScope } from './template-scope-state.js';

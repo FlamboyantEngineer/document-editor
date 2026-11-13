@@ -443,3 +443,4 @@ export function DocumentEditor(given: DocumentEditorProps) {
 
 // What another component reaches the editor by.
 export { type DocumentMarkup, type EditorContext, useDocumentEditor } from './editor-context.js';
+export type { DocumentLayout } from './use-document-layout.js';
