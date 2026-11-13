@@ -73,7 +73,7 @@ export function sectionRules(latest: RefObject<DocumentLayoutOptions>): SectionL
     const scope = findTemplateSection(template, section.attrs.sectionName as string | null);
     const repeat =
       scope?.styles?.table?.repeatHeader ?? template.styles?.table?.repeatHeader ?? true;
-    if (made.layoutRules !== layoutRules) made = { layoutRules, byRepeat: new Map() };
+    if (!sameRules(made.layoutRules, layoutRules)) made = { layoutRules, byRepeat: new Map() };
     let rules = made.byRepeat.get(repeat);
     if (!rules) {
       rules = { ...createLayoutRules({ repeatTableHeader: repeat }), ...layoutRules };
@@ -81,6 +81,32 @@ export function sectionRules(latest: RefObject<DocumentLayoutOptions>): SectionL
     }
     return rules;
   };
+}
+
+// Whether two objects hold the same values under the same keys.
+function sameEntries(a: object | undefined, b: object | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const entries = Object.entries(a);
+  return (
+    entries.length === Object.keys(b).length &&
+    entries.every(([key, value]) => (b as Record<string, unknown>)[key] === value)
+  );
+}
+
+/**
+ * Whether two of the host's layout rules hold the same rules: the same node types, each with the
+ * same settings, as rules passed inline on each render do while their functions stay the same.
+ */
+export function sameRules(a: LayoutRules | undefined, b: LayoutRules | undefined): boolean {
+  if (a === b) return true;
+  const types = Object.entries(a ?? {});
+  return (
+    types.length === Object.keys(b ?? {}).length &&
+    types.every(([type, rule]) =>
+      sameEntries(rule as object | undefined, (b as Record<string, object> | undefined)?.[type]),
+    )
+  );
 }
 
 /** The rules the pages' fragments join by: the library's, with the host's over them. */

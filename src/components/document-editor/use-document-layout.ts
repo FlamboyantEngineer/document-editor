@@ -62,6 +62,7 @@ import {
   type LayoutRunner,
   type PagingRefs,
   type Redraw,
+  sameRules,
   startPaging,
 } from './start-paging.js';
 import type { PagedEditor } from './use-paged-projection.js';
@@ -238,6 +239,17 @@ function useHostVariables(
   }, [variables, refresh, redraw]);
 }
 
+// The pages laid out again when the host hands in other layout rules, so every section, not only
+// those that change next, takes them; rules passed inline with the same entries change nothing.
+function useHostRules(layoutRules: LayoutRules | undefined, refresh: PagingRefs['refresh']) {
+  const seen = useRef(layoutRules);
+  useEffect(() => {
+    if (sameRules(seen.current, layoutRules)) return;
+    seen.current = layoutRules;
+    refresh.current?.();
+  }, [layoutRules, refresh]);
+}
+
 // A state with each section's pages joined into one and its footnotes numbered for it, out of the
 // history.
 function joinPages(state: EditorState, rules: FragmentRules): EditorState {
@@ -352,6 +364,7 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [previous, display, suggestions, scopeKey]);
   useHostVariables(options, { refresh, redraw });
+  useHostRules(options.layoutRules, refresh);
   useLayoutDebug(options.debug, options.onStateChange, redraw);
   useRegionsEditable(
     `${String(Boolean(options.onRegionChange))} ${String(Boolean(options.onTemplatePartChange))}`,

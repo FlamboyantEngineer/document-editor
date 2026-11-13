@@ -344,8 +344,8 @@ describe('DocumentEditor', () => {
       />,
     );
     await handle.current?.whenSettled();
-    // The field on the pages, not the one the measuring view draws.
-    // The field on the pages, once the plain view draws them with the host views in it.
+    // The field on the pages, not the one the measuring view draws, once the plain view draws
+    // them with the host views in it.
     const pages = () => screen.getByRole('textbox', { name: 'Report' });
     await waitFor(() => expect(pages().querySelector('.de-host-view input')).not.toBeNull());
     const field = within(pages()).getByRole('textbox', { name: 'Note' });
@@ -685,5 +685,43 @@ describe('DocumentEditor host layout rules', () => {
     await waitFor(() =>
       expect(container.querySelectorAll('.de-document-editor__content .pm-page')).toHaveLength(2),
     );
+  });
+
+  it('DOCE-PAGINATION-5.11 lays every section out again when the host hands in other rules', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+    const state = EditorState.create({
+      doc: readDocumentFile(
+        { formatVersion: 1, sections: [{ content: [paragraph('One'), paragraph('Two')] }] },
+        documentSchema,
+      ).doc,
+      plugins: createDocumentEditing(documentSchema),
+    });
+    function Ruled({ ends }: { ends: boolean }) {
+      const [current, setCurrent] = useState(state);
+      return (
+        <DocumentEditor
+          state={current}
+          onStateChange={setCurrent}
+          template={TEMPLATE}
+          layout="page"
+          aria-label="Report"
+          handleRef={handle}
+          layoutRules={{ paragraph: { endsPage: ends } }}
+        />
+      );
+    }
+    const pages = () => document.querySelectorAll('.de-document-editor__content .pm-page');
+    const { rerender } = render(<Ruled ends />);
+    await waitFor(() => expect(pages()).toHaveLength(2));
+    await handle.current?.whenSettled();
+    // The same rules passed inline again, as on every render, lay nothing out again.
+    const laid = handle.current?.layoutStats()?.layouts;
+    rerender(<Ruled ends />);
+    await handle.current?.whenSettled();
+    expect(handle.current?.layoutStats()?.layouts).toBe(laid);
+    // The document is unchanged: only the rules are, so the section is laid out again for them.
+    rerender(<Ruled ends={false} />);
+    await waitFor(() => expect(pages()).toHaveLength(1));
   });
 });
