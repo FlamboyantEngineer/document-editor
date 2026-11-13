@@ -22,6 +22,7 @@ import {
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import { sectionOf } from './document-sections.js';
 import type { EditLockOptions } from './edit-lock.js';
+import { markSystemChange } from './transaction-kind.js';
 
 /** How a document's section drifted from its template. */
 export interface SectionDrift {
@@ -160,7 +161,8 @@ function carryScriptOutput(
  * Brings the document's sections back in line with the template: a section the writer cannot edit
  * takes the template's content again, a section of a name the template does not have becomes a
  * plain section, keeping its content, and a missing required section is added where the template
- * places it, with its starting content. Refused when nothing drifted.
+ * places it, with its starting content. The change is a system change (`markSystemChange`) outside
+ * the history. Refused when nothing drifted.
  */
 export function syncTemplateSections(
   template: TemplateFile,
@@ -184,7 +186,7 @@ export function syncTemplateSections(
           options,
         );
         const content = carryScriptOutput(blocks, blocksOf(contentOf(section)));
-        tr.replaceWith(pos, pos + node.nodeSize, sectionOf(node, node.attrs, content));
+        tr.replaceWith(pos, pos + node.nodeSize, sectionOf(node, { attrs: node.attrs, content }));
       } else if (name && unexpected.has(name)) {
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, sectionName: null });
       }
@@ -192,32 +194,45 @@ export function syncTemplateSections(
     for (const missing of drift.filter((each) => each.kind === 'missing')) {
       insertMissing(tr, { template, options }, missing.name);
     }
-    dispatch(tr.scrollIntoView());
+    // The template's change, not the writer's: it passes the lock on the very sections it brings
+    // back, and stays out of the history, where undoing it would be an edit the lock refuses.
+    dispatch(markSystemChange(tr).setMeta('addToHistory', false).scrollIntoView());
     return true;
   };
 }
 
-// Adds a required section after the last section the template places before it.
+// Where a required section goes: after the last section the template places before it. The plain
+// sections on the way count too, so a closing section lands after the writer's own, but none
+// behind a section the template places after it: a plain section has no place in the template,
+// and reading it as an early one put the added section past those it belongs ahead of.
+function placeOf(doc: ProseMirrorNode, order: readonly string[], rank: number): number {
+  let at = 0;
+  let passed = false;
+  doc.forEach((node, pos) => {
+    const other = order.indexOf(String(node.attrs.sectionName ?? ''));
+    if (other > rank) passed = true;
+    else if (other >= 0 || !passed) at = pos + node.nodeSize;
+  });
+  return at;
+}
+
+// Adds a required section in its place among the template's sections (`placeOf`).
 function insertMissing(
   tr: Transaction,
   { template, options }: { template: TemplateFile; options: TemplateContentOptions },
   name: string,
 ) {
   const order = (template.sections ?? []).map((section) => section.name);
-  const rank = order.indexOf(name);
   const like = tr.doc.firstChild;
   if (!like) return;
-  let at = 0;
-  tr.doc.forEach((node, pos) => {
-    const other = order.indexOf(String(node.attrs.sectionName ?? ''));
-    if (other < rank) at = pos + node.nodeSize;
-  });
+  const at = placeOf(tr.doc, order, order.indexOf(name));
   const blocks = templateContent(
     tr.doc.type.schema,
     findTemplateSection(template, name)?.content,
     options,
   );
-  tr.insert(at, sectionOf(like, { sectionName: name }, Fragment.from(blocks)));
+  const content = Fragment.from(blocks);
+  tr.insert(at, sectionOf(like, { attrs: { sectionName: name }, content }));
 }
 
 /**

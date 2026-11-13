@@ -343,9 +343,11 @@ export function setLink(href: string): Command {
     if (dispatch) {
       const tr = state.tr;
       if (!range) {
-        const at = state.selection.from;
-        tr.insertText(address, at);
-        tr.addMark(at, at + address.length, type.create({ href: address }));
+        // Typed with its link in one step: suggest mode records an insertion, but has no
+        // formatting to record for a mark set on text the same change typed, and drops it.
+        const { from, $from } = state.selection;
+        const marks = type.create({ href: address }).addToSet(tr.storedMarks ?? $from.marks());
+        tr.replaceWith(from, from, state.schema.text(address, marks));
       } else {
         tr.removeMark(range.from, range.to, type);
         if (address) tr.addMark(range.from, range.to, type.create({ href: address }));

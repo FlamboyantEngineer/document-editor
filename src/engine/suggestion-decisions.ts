@@ -5,6 +5,7 @@
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, PluginKey, type Transaction } from 'prosemirror-state';
 import { decideFormatting, formatPartsOf } from './suggested-formatting.js';
+import { keepSuggestedBlock, type ReplacedBlocks } from './suggested-split.js';
 import { suggestionsKey } from './suggestions.js';
 
 /** One suggestion: the text it inserts and deletes, and who suggested it. */
@@ -256,6 +257,7 @@ function dependentsOf(
 /**
  * Accepts or rejects suggestions, every one or those with the given ids: accepting keeps what a
  * suggestion inserts, attributed to its writer, and removes what it deletes; rejecting the reverse.
+ * The first half of an accepted split is the element it split (`keepSuggestedBlock`).
  * Returns what it decided, which the transaction also carries (`suggestionDecisionOf`), or null
  * when the document did not change.
  */
@@ -279,19 +281,18 @@ export function decideSuggestions(
   const [kept, removed] = decision === 'accept' ? [insertion, deletion] : [deletion, insertion];
   const removedKind = decision === 'accept' ? 'deletion' : 'insertion';
   const ranges: [number, number][] = [];
+  const replaced: ReplacedBlocks = new Map();
   const start = tr.steps.length;
   tr.doc.descendants((node, pos) => {
     const kind: unknown = node.attrs.suggestionSplitKind;
-    if (kind && chosenOf(keyOf(text(node.attrs.suggestionSplitId), null))) {
+    const split = text(node.attrs.suggestionSplitId);
+    if (kind && chosenOf(keyOf(split, null))) {
       if (kind === removedKind) {
         ranges.push([pos, pos + node.nodeSize]);
+        if (split && decision === 'accept') replaced.set(split, node.attrs);
         return false;
       }
-      tr.setNodeMarkup(pos, null, {
-        ...node.attrs,
-        suggestionSplitKind: null,
-        suggestionSplitId: null,
-      });
+      keepSuggestedBlock(tr, { node, pos }, replaced);
     }
     decideFormatting(tr, pos, {
       reject: decision === 'reject',
