@@ -182,6 +182,27 @@ describe('room-mode drafts', () => {
     kept.stop();
   });
 
+  it('DOCE-SESSION-6.7 keeps a change still waiting to be kept when it stops', async () => {
+    const createSocket = startServer();
+    const drafts = createMemoryDrafts();
+    const provider = openProvider(createSocket, new Y.Doc());
+    const connection = asConnection(provider);
+    await connection.whenSynced;
+    const kept = keepRoomDrafts({ documentId: 'doc', drafts, connection, delay: 1e6 });
+    provider.disconnect();
+    write(provider.doc, 0, 'Hello');
+    kept.stop();
+    const draft = await vi.waitFor(() => readDraft(drafts));
+    expect(draft.unconfirmed).not.toBeNull();
+    const restored = new Y.Doc();
+    Y.applyUpdate(restored, draft.state);
+    expect(textOf(restored)).toBe('Hello');
+    write(provider.doc, 5, ' again');
+    await kept.flush();
+    Y.applyUpdate(restored, (await readDraft(drafts)).state);
+    expect(textOf(restored)).toBe('Hello');
+  });
+
   it('DOCE-SESSION-6.8 sends edits made offline across a reload once connected again', async () => {
     const createSocket = startServer();
     const drafts = createMemoryDrafts();

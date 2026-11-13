@@ -73,7 +73,7 @@ export interface RoomDraftsOptions {
   now?: (() => Date) | undefined;
 }
 
-/** Keeps a room document's draft until stopped. */
+/** Keeps a room document's draft until stopped, when it keeps the one still waiting. */
 export interface RoomDrafts {
   /** The draft of the document as it is now (`captureRoomDraft`). */
   capture(): RoomDraft;
@@ -169,6 +169,8 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
     capture,
     flush: keep,
     stop: () => {
+      // A draft still waiting to be kept holds changes no draft has, and nothing keeps it later.
+      if (timer !== null) void keep();
       stopped = true;
       cancel();
       doc.off('update', onUpdate);
