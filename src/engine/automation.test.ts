@@ -173,6 +173,18 @@ describe('automation', () => {
     expect(added).toMatchObject({ dataAuthor: 'agent-1', dataAiSession: 's1', paragraphLevel: 2 });
   });
 
+  it('DOCE-AUTOMATION-1.4 refuses attributes that say which element it is, or that its type lacks', () => {
+    const state = stateOf(paragraph('a1a1a1a1', 'Keep this.'));
+    const refused = (attrs: Record<string, unknown>) => {
+      const result = applyEdits(state, [{ op: 'setAttrs', elementId: 'a1a1a1a1', attrs }], AGENT);
+      return result.ok ? null : result.error;
+    };
+    expect(refused({ dataId: 'ffffffff' })).toMatchObject({ kind: 'invalid', index: 0 });
+    expect(refused({ paragraphLevel: 2, dataAuthor: 'someone' })?.kind).toBe('invalid');
+    expect(refused({ noSuchAttribute: 1 })?.message).toContain('noSuchAttribute');
+    expect(refused({ paragraphLevel: 2 })).toBeNull();
+  });
+
   it('DOCE-AUTOMATION-1.5 records the changes as suggestions by the actor', () => {
     const state = stateOf(paragraph('a1a1a1a1', 'The log keeps a report.'));
     const { state: next } = apply(

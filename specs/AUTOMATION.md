@@ -20,14 +20,14 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.3 - Refusing a batch
 
-A batch shall be refused whole, naming the first edit that could not be made and why: `not-found` when an element is gone, `stale` when a range no longer holds the text the caller read (`expect`), `invalid` for a range outside the text, an element without text, a block with no anchor or content the schema cannot read, `locked` at a locked position (DOCE-EDITING-4.1), and `unsupported` when a suggestion cannot record the change.
+A batch shall be refused whole, naming the first edit that could not be made and why: `not-found` when an element is gone, `stale` when a range no longer holds the text the caller read (`expect`), `invalid` for a range outside the text, an element without text, a block with no anchor, content the schema cannot read or an attribute that may not be set (DOCE-AUTOMATION-1.4), `locked` at a locked position (DOCE-EDITING-4.1), and `unsupported` when a suggestion cannot record the change.
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.4 - Editing blocks
 
-`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes; blocks the actor adds are attributed to it (`dataAuthor`, `dataAiSession`).
+`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes, refused as `invalid` for an attribute that says which element it is (its id, its author and the schema's other identity attributes) or that its type does not define; blocks the actor adds are attributed to it (`dataAuthor`, `dataAiSession`).
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`

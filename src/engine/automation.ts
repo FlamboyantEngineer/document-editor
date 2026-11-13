@@ -6,6 +6,7 @@
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
 import { isEmbed, readStoredContent, type StoredNode } from '../model/index.js';
+import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import {
   type EditAddress,
   type FoundElement,
@@ -215,6 +216,20 @@ function insertBlocks(batch: Batch, edit: Extract<AutomationEdit, { op: 'insertB
 
 type BlockEdit = Extract<AutomationEdit, { op: 'replaceBlock' | 'deleteBlock' | 'setAttrs' }>;
 
+// A table's caption has an id of its own, kept on the table.
+const CAPTION_ID = 'captionDataId';
+
+// Why attributes may not be set on an element: one says which element it is, which comments,
+// references and later edits find it by, or its type does not define it.
+function refusedAttrs(node: ProseMirrorNode, attrs: Readonly<Record<string, unknown>>) {
+  const identity = new Set(identityAttributesOf(node.type).map(({ name }) => name));
+  const defined = node.type.spec.attrs ?? {};
+  const name = Object.keys(attrs).find(
+    (each) => each === CAPTION_ID || identity.has(each) || !(each in defined),
+  );
+  return name === undefined ? null : refuse('invalid', `${name} cannot be set on an element`);
+}
+
 function changeBlock(batch: Batch, edit: BlockEdit): Refusal | null {
   const { tr } = batch;
   const found = element(tr, edit.elementId);
@@ -225,6 +240,8 @@ function changeBlock(batch: Batch, edit: BlockEdit): Refusal | null {
   const locked = lockedAt(batch, found.pos + 1, end - 1) ?? hostOwnedAt(tr, changed);
   if (locked) return locked;
   if (edit.op === 'setAttrs') {
+    const refused = refusedAttrs(found.node, edit.attrs);
+    if (refused) return refused;
     tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...edit.attrs });
   } else if (edit.op === 'deleteBlock') {
     tr.delete(found.pos, end);
