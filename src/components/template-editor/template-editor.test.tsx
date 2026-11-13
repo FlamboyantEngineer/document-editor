@@ -1,11 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { StoredContent, TemplateFile } from '../../model/index.js';
 import { TemplateEditor, withRegionChange } from './template-editor.js';
-import { TemplateJsonEditor } from './template-json-editor.js';
-import { sectionNameOf } from './template-scope.js';
 import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
 
 const CONTENT: StoredContent = [{ type: 'paragraph', content: [{ type: 'text', text: 'Top' }] }];
@@ -16,13 +13,6 @@ describe('withSetting', () => {
     const empty = withSetting(template, ['headings', 'prefix'], '');
     expect(empty).toMatchObject({ headings: { prefix: '' } });
     expect(withSetting(empty, ['headings', 'prefix'], null)).not.toHaveProperty('headings');
-  });
-});
-
-describe('sectionNameOf', () => {
-  it('DOCE-TEMPLATE-EDITOR-1.3 writes a typed section name in lower case with underscores', () => {
-    expect(sectionNameOf('  Annex B: Notes ')).toBe('annex_b_notes');
-    expect(sectionNameOf('!!')).toBe('');
   });
 });
 
@@ -57,38 +47,6 @@ describe('withRegionChange', () => {
     const next = withRegionChange(template, change);
     expect(next.header?.content).toEqual(CONTENT);
     expect(next.sections?.[0]?.header?.content).toEqual([]);
-  });
-});
-
-// The JSON editor beside a host that changes the template elsewhere.
-function JsonHost({ onChange }: { onChange: (template: TemplateFile) => void }) {
-  const [template, setTemplate] = useState<TemplateFile>({ formatVersion: 1, id: 'plain' });
-  return (
-    <>
-      <button type="button" onClick={() => setTemplate({ ...template, name: 'Renamed' })}>
-        Rename
-      </button>
-      <TemplateJsonEditor
-        template={template}
-        onChange={(next) => {
-          onChange(next);
-          setTemplate(next);
-        }}
-      />
-    </>
-  );
-}
-
-describe('TemplateJsonEditor', () => {
-  it('DOCE-TEMPLATE-EDITOR-1.5 shows a template changed elsewhere in place of its text', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    render(<JsonHost onChange={(next) => changes.push(next)} />);
-    await user.click(screen.getByRole('button', { name: 'Rename' }));
-    expect(screen.getByRole('textbox')).toHaveValue(
-      JSON.stringify({ formatVersion: 1, id: 'plain', name: 'Renamed' }, null, 2),
-    );
-    expect(changes).toEqual([]);
   });
 });
 

@@ -2,16 +2,20 @@
 // the document and lays its pages out again as it is made. The template inherits from the base
 // template; its fields show the inherited values until it sets its own. The preview document shows
 // every style the template sets, and each of its sections. The pages' headers and footers are the
-// template's, edited in place.
+// template's, edited in place. The settings panel's scope is held here: while the preview shows,
+// picking a section scrolls the preview to it. The template's own `extensions.folder` is a host
+// setting in an extension slot.
 
 import { EditorState } from 'prosemirror-state';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
+  type DocumentEditorHandle,
   type DocumentLayout,
   TemplateEditor,
   TemplateJsonEditor,
+  type TemplateScope,
   withRegionChange,
 } from '../../src/components/index.js';
 import {
@@ -76,10 +80,39 @@ function initialState(file?: DocumentFile): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// The element id of the first block of the named section, which revealing the section shows.
+function sectionElement(state: EditorState, name: TemplateScope): string | null {
+  let id: string | null = null;
+  state.doc.forEach((section) => {
+    if (id !== null || name === null || section.attrs.sectionName !== name) return;
+    section.descendants((node) => {
+      if (id === null && node.isTextblock && typeof node.attrs.dataId === 'string') {
+        id = node.attrs.dataId;
+      }
+      return id === null;
+    });
+  });
+  return id;
+}
+
 function Lab() {
   const [state, setState] = useState(() => initialState());
   const [own, setOwn] = useState<TemplateFile>(OWN);
   const [json, setJson] = useState(false);
+  const [scope, setScope] = useState<TemplateScope>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const handle = useRef<DocumentEditorHandle>(null);
+  // The section to show once the preview's pages are drawn.
+  const reveal = useRef<TemplateScope>(null);
+  useEffect(() => {
+    const id = sectionElement(state, reveal.current);
+    reveal.current = null;
+    if (!id) return;
+    // The new preview's pages are laid out over a few renders; the section shows once they settle.
+    void handle.current
+      ?.whenSettled()
+      .then(() => handle.current?.revealElement(id, { behavior: 'instant' }));
+  }, [state]);
   const [zoom, setZoom] = useState(100);
   const [layout, setLayout] = useState<DocumentLayout>('page');
   const resolved = useMemo(() => resolve(own), [own]);
@@ -100,7 +133,11 @@ function Lab() {
         </label>
         <button
           type="button"
-          onClick={() => setState(initialState(templatePreviewDocument(resolved)))}
+          onClick={() => {
+            setPreviewing(true);
+            reveal.current = scope;
+            setState(initialState(templatePreviewDocument(resolved)));
+          }}
         >
           Preview the template
         </button>
@@ -111,13 +148,27 @@ function Lab() {
             template={own}
             resolved={resolved}
             onChange={setOwn}
+            scope={scope}
+            onScopeChange={(next) => {
+              setScope(next);
+              const id = previewing ? sectionElement(state, next) : null;
+              if (id) handle.current?.revealElement(id, { behavior: 'instant' });
+            }}
             parentOptions={[{ id: BASE_TEMPLATE_ID, label: 'Base template' }]}
+            extensions={{
+              rows: {
+                identity: [
+                  { id: 'folder', label: 'Folder', path: ['folder'], kind: { type: 'text' } },
+                ],
+              },
+            }}
           />
         )}
       </div>
       <DocumentEditor
         state={state}
         onStateChange={setState}
+        handleRef={handle}
         template={resolved}
         layout={layout}
         onLayoutChange={setLayout}
