@@ -82,4 +82,4 @@ Adapted from the agent-rules testing set ([coding-rules/README.md](coding-rules/
 
 ## Testing helpers
 
-Hosts test their screens with the helpers in `@flamboyantengineer/document-editor/testing` and `@flamboyantengineer/ui-components/testing`. The library's own tests may use them too; a helper that a host would need belongs there rather than in a test fixture.
+Hosts test their screens with the helpers in `@flamboyantengineer/ui-components/testing`, and with the in-memory host (`createMemoryHost` in `./host`). The library's own tests may use them too. The library has no testing entry of its own yet: a helper that a host would need is a reason to add one (`./testing`, with its spec) rather than keep it in a test fixture.
