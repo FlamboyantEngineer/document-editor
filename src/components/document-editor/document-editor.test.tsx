@@ -165,6 +165,49 @@ describe('DocumentEditor', () => {
     expect(container.querySelector('.de-document-editor')).toHaveAttribute('data-layout', 'page');
   });
 
+  it('DOCE-EDITOR-1.7 runs a toolbar button kept from an earlier state on the state shown', async () => {
+    const seen: string[] = [];
+    const toolbar = {
+      items: [
+        {
+          kind: 'button' as const,
+          id: 'host',
+          label: 'Host',
+          run: (context: { state: EditorState }) => seen.push(context.state.doc.textContent),
+        },
+      ],
+    };
+    function Shown() {
+      const [state, setState] = useState(initial);
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => setState(state.apply(state.tr.insertText('Oh, ', textStart(state))))}
+          >
+            Change
+          </button>
+          <DocumentEditor
+            state={state}
+            onStateChange={setState}
+            template={TEMPLATE}
+            layout="web"
+            toolbar={toolbar}
+            aria-label="Report"
+          />
+        </>
+      );
+    }
+    const user = userEvent.setup();
+    render(<Shown />);
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Report' })).toHaveTextContent('Oh, Hello'),
+    );
+    await user.click(await screen.findByRole('button', { name: 'Host' }));
+    expect(seen).toEqual([expect.stringContaining('Oh, Hello')]);
+  });
+
   it('DOCE-EDITOR-1.8 draws the pages in a plain view, the host views in the editor', async () => {
     function HostParagraph({ nodeProps, children, ...props }: RichTextNodeViewProps) {
       void nodeProps;

@@ -9,7 +9,7 @@ import {
   ToolbarRowGroup,
   ToolbarRowSeparator,
 } from '@flamboyantengineer/ui-components/layout';
-import { Fragment, useMemo } from 'react';
+import { Fragment, memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
@@ -45,25 +45,53 @@ interface DocumentToolbarProps {
 const tooltipOf = (label: string, reason: string | undefined) =>
   reason === undefined ? label : `${label}: ${reason}`;
 
-function ButtonItem({ item, context }: { item: ToolbarButtonItem; context: EditorContext }) {
-  const reason = disabledReasonOf(item, context);
+// A button as a state shows it: drawn again only when what it shows changes, not for each state
+// the chrome follows, as a key that leaves it as it was (DOCE-EDITOR-1.7).
+const ToolbarButton = memo(function ToolbarButton({
+  item,
+  isDisabled,
+  reason,
+  isSelected,
+  run,
+}: {
+  item: ToolbarButtonItem;
+  isDisabled: boolean;
+  reason: string | undefined;
+  isSelected: boolean | undefined;
+  run: () => void;
+}) {
   const shared = {
     'data-item': item.id,
     size: 'sm' as const,
     preventFocusOnPress: true,
-    isDisabled: !isItemEnabled(item, context),
+    isDisabled,
     focusableWhenDisabled: reason !== undefined,
     icon: item.icon,
     tooltip: tooltipOf(item.label, reason),
     shortcut: item.shortcut,
     ...(item.icon ? { label: item.label } : { children: item.label }),
   };
-  if (item.isPressed) {
-    return (
-      <Button {...shared} isSelected={item.isPressed(context)} onChange={() => item.run(context)} />
-    );
-  }
-  return <Button {...shared} onPress={() => item.run(context)} />;
+  if (isSelected !== undefined)
+    return <Button {...shared} isSelected={isSelected} onChange={run} />;
+  return <Button {...shared} onPress={run} />;
+});
+
+function ButtonItem({ item, context }: { item: ToolbarButtonItem; context: EditorContext }) {
+  // A press runs the item on the context drawn last.
+  const latest = useRef(context);
+  useLayoutEffect(() => {
+    latest.current = context;
+  });
+  const run = useCallback(() => item.run(latest.current), [item]);
+  return (
+    <ToolbarButton
+      item={item}
+      isDisabled={!isItemEnabled(item, context)}
+      reason={disabledReasonOf(item, context)}
+      isSelected={item.isPressed?.(context)}
+      run={run}
+    />
+  );
 }
 
 function MenuItem({ item, context }: { item: ToolbarMenuItem; context: EditorContext }) {
