@@ -1,118 +1,26 @@
-import { history, undo } from 'prosemirror-history';
+import { undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { joinDocumentPages, readDocumentFile, sameStructure } from '../model/index.js';
+import {
+  canonicalState,
+  edit,
+  mount,
+  pageCount,
+  positionOf,
+  textOf,
+  TEXTS,
+} from '../../test/projection-fixtures.js';
+import { joinDocumentPages, sameStructure } from '../model/index.js';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
 import { canonicalView } from './canonical-view.js';
 import { type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import { layoutNow } from './layout-latency.js';
 import { isPaginationTransaction, layoutStats, pageMetrics } from './layout-marks.js';
 import { pageMap } from './page-map.js';
-import { createProjectionView, type ProjectionViewOptions } from './projection-view.js';
-
-const PARAGRAPH_HEIGHT = 400;
-const TEXTS = ['Alpha one', 'Beta two', 'Gamma three', 'Delta four', 'Epsilon five'];
-
-// How the test DOM lays out: each paragraph `height` pixels tall, 400 by default so that pages
-// 1,000 pixels tall hold two paragraphs each; every other element and range measures as empty.
-// With `boxes`, elements are drawn with boxes, so the pages, drawn with no height, overflow.
-interface StubbedLayout {
-  readonly height?: number;
-  readonly boxes?: boolean;
-}
-
-function stubLayout({ height = PARAGRAPH_HEIGHT, boxes = false }: StubbedLayout) {
-  Object.assign(Range.prototype, {
-    getBoundingClientRect: () => new DOMRect(),
-    getClientRects: (): DOMRect[] => [],
-  });
-  const rect = (element: HTMLElement) =>
-    new DOMRect(0, 0, 100, element.tagName === 'P' ? height : 0);
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    return rect(this);
-  });
-  if (!boxes) return;
-  vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (
-    this: HTMLElement,
-  ) {
-    return [rect(this)] as unknown as DOMRectList;
-  });
-}
-
-function canonicalState(plugins: readonly Plugin[] = [], texts = TEXTS): EditorState {
-  const doc = readDocumentFile(
-    {
-      formatVersion: 1,
-      sections: [
-        {
-          content: texts.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })),
-        },
-      ],
-    },
-    documentSchema,
-  ).doc;
-  return EditorState.create({ doc, plugins: [history(), ...plugins] });
-}
-
-function mount(options: Partial<ProjectionViewOptions> = {}, layout: StubbedLayout = {}) {
-  stubLayout(layout);
-  const queue: (() => void)[] = [];
-  const projection = createProjectionView({
-    mount: document.body.appendChild(document.createElement('div')),
-    measureIn: document.body.appendChild(document.createElement('div')),
-    state: canonicalState(),
-    pageHeight: 1000,
-    settle: 0,
-    schedule: (run) => {
-      queue.push(run);
-      return () => {
-        const at = queue.indexOf(run);
-        if (at >= 0) queue.splice(at, 1);
-      };
-    },
-    ...options,
-  });
-  // Draws the next frame: what was scheduled before it.
-  const next = () => {
-    for (const run of queue.splice(0)) run();
-  };
-  const drain = () => {
-    while (queue.length) next();
-  };
-  return { projection, next, drain };
-}
-
-// Has the host make a change to the canonical state and show it on the projection.
-function edit(
-  projection: { readonly state: EditorState; update(state: EditorState, tr: Transaction): void },
-  make: (state: EditorState) => Transaction,
-) {
-  const tr = make(projection.state);
-  projection.update(projection.state.apply(tr), tr);
-}
-
-const pageCount = (doc: ProseMirrorNode) => doc.child(0).childCount;
-const textOf = (doc: ProseMirrorNode) => doc.textContent;
-
-// The position just before some text.
-function positionOf(doc: ProseMirrorNode, text: string): number {
-  let found = -1;
-  doc.descendants((node, pos) => {
-    if (found >= 0 || !node.isText) return found < 0;
-    const index = node.text?.indexOf(text) ?? -1;
-    if (index >= 0) found = pos + index;
-    return false;
-  });
-  if (found < 0) throw new Error(text);
-  return found;
-}
 
 // Whether the projection's pages join into the canonical document.
 const inSync = ({ view, state }: { view: { state: EditorState }; state: EditorState }) =>

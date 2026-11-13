@@ -15,6 +15,7 @@ import type {
 } from 'prosemirror-model';
 import {
   appendContributorAttrs,
+  CONTINUATION_PLACEHOLDER_ATTR,
   DATA_AI_SESSION_ATTR,
   DATA_CONTRIBUTOR_ATTR,
   DATA_ID_ATTR,
@@ -128,7 +129,9 @@ function elementAttrSpecs(name: string): NonNullable<NodeSpec['attrs']> {
           suggestionFormat: { default: null },
         }
       : {}),
-    ...(name === 'paragraph' ? { paragraphLevel: { default: 1 } } : {}),
+    ...(name === 'paragraph'
+      ? { paragraphLevel: { default: 1 }, continuationPlaceholder: { default: false } }
+      : {}),
     ...(name === 'list_item' ? { orphanedListContinuation: { default: false } } : {}),
   };
 }
@@ -158,6 +161,7 @@ function readElementAttrs(dom: HTMLElement): Record<string, unknown> {
     dataAiSession: dom.getAttribute(DATA_AI_SESSION_ATTR) || null,
     splitPartIndex: readSplitPartIndex(dom),
     orphanedListContinuation: dom.getAttribute(ORPHANED_LIST_CONTINUATION_ATTR) === 'true',
+    continuationPlaceholder: dom.getAttribute(CONTINUATION_PLACEHOLDER_ATTR) === 'true',
     suggestionSplitKind: dom.getAttribute(SUGGESTION_SPLIT_KIND_ATTR) || null,
     suggestionSplitId: dom.getAttribute(SUGGESTION_SPLIT_ID_ATTR) || null,
     suggestionFormat: readJsonAttr(dom.getAttribute(SUGGESTION_FORMAT_ATTR)),
@@ -190,6 +194,7 @@ function writeElementAttrs(node: ProseMirrorNode, attrs: DomAttributes): DomAttr
   appendContributorAttrs(attrs, node.attrs.dataAuthor, node.attrs.dataAiSession);
   if (Number.isInteger(splitPartIndex)) attrs[SPLIT_PART_INDEX_ATTR] = String(splitPartIndex);
   if (node.attrs.orphanedListContinuation) attrs[ORPHANED_LIST_CONTINUATION_ATTR] = 'true';
+  if (node.attrs.continuationPlaceholder) attrs[CONTINUATION_PLACEHOLDER_ATTR] = 'true';
   const { suggestionSplitKind, suggestionSplitId } = node.attrs;
   if (suggestionSplitKind) attrs[SUGGESTION_SPLIT_KIND_ATTR] = String(suggestionSplitKind);
   if (suggestionSplitId) attrs[SUGGESTION_SPLIT_ID_ATTR] = String(suggestionSplitId);

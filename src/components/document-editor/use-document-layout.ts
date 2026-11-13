@@ -62,6 +62,7 @@ import {
   type LayoutRunner,
   type PagingRefs,
   type Redraw,
+  sameRules,
   startPaging,
 } from './start-paging.js';
 import type { PagedEditor } from './use-paged-projection.js';
@@ -157,11 +158,14 @@ export interface DocumentLayoutOptions {
   /** Tells of each change of the layout state; the web layout is always settled. */
   readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
   /**
-   * The host's layout rules by node type, over the library's (`createLayoutRules`), read when the
-   * pages mount: how its blocks split and keep together (DOCE-PAGINATION-1.7).
+   * The host's layout rules by node type, over the library's (`createLayoutRules`), read as each
+   * section lays out: how its blocks split and keep together (DOCE-PAGINATION-1.7).
    */
   readonly layoutRules?: LayoutRules | undefined;
-  /** The host's fragment rules by node type, over `FRAGMENT_RULES`: how its fragments join. */
+  /**
+   * The host's fragment rules by node type, over `FRAGMENT_RULES`, read when the pages mount: how
+   * its fragments join.
+   */
   readonly fragmentRules?: FragmentRules | undefined;
   /** The host's font faces, which the pages wait for (DOCE-PAGINATION-5.6). */
   readonly fonts?: FontsAdapter | undefined;
@@ -233,6 +237,17 @@ function useHostVariables(
     show();
     return variables?.subscribe?.(show);
   }, [variables, refresh, redraw]);
+}
+
+// The pages laid out again when the host hands in other layout rules, so every section, not only
+// those that change next, takes them; rules passed inline with the same entries change nothing.
+function useHostRules(layoutRules: LayoutRules | undefined, refresh: PagingRefs['refresh']) {
+  const seen = useRef(layoutRules);
+  useEffect(() => {
+    if (sameRules(seen.current, layoutRules)) return;
+    seen.current = layoutRules;
+    refresh.current?.();
+  }, [layoutRules, refresh]);
 }
 
 // A state with each section's pages joined into one and its footnotes numbered for it, out of the
@@ -349,6 +364,7 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [previous, display, suggestions, scopeKey]);
   useHostVariables(options, { refresh, redraw });
+  useHostRules(options.layoutRules, refresh);
   useLayoutDebug(options.debug, options.onStateChange, redraw);
   useRegionsEditable(
     `${String(Boolean(options.onRegionChange))} ${String(Boolean(options.onTemplatePartChange))}`,

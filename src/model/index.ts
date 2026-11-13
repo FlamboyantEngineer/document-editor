@@ -103,6 +103,7 @@ export {
 } from './pagination/page-layout.js';
 export type { ProjectionOptions, SectionPages } from './pagination/page-projection.js';
 export { projectDocument } from './pagination/page-projection.js';
+export { contentSlice } from './pagination/page-slice.js';
 export type { PageJoinOptions } from './pagination/page-transform.js';
 export { joinDocumentPages, joinSectionPages } from './pagination/page-transform.js';
 export { repaginate, sameStructure } from './pagination/repaginate.js';

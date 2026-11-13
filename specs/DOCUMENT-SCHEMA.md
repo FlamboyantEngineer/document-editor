@@ -38,7 +38,7 @@ Verification: `src/model/schema/document-schema.test.ts`, `src/model/schema/page
 
 ### DOCE-SCHEMA-2.1 - Identity, authorship and splits
 
-Every node type but text shall carry `dataId` (`data-id`), `dataAuthor` (`data-au`), `dataAiSession` (`data-ai`) and `splitPartIndex` (`data-split-part-index`), read from and written to its element. Paragraphs shall also carry `paragraphLevel`; paragraphs, headings, figures and layout sections the suggestion attributes (`data-suggestion-split-kind`, `data-suggestion-split-id`); and list items `orphanedListContinuation` (`data-orphaned-list-continuation`). An attribute without a value shall not be written.
+Every node type but text shall carry `dataId` (`data-id`), `dataAuthor` (`data-au`), `dataAiSession` (`data-ai`) and `splitPartIndex` (`data-split-part-index`), read from and written to its element. Paragraphs shall also carry `paragraphLevel` and `continuationPlaceholder` (`data-continuation-placeholder`), which marks the empty paragraph a page split leaves (DOCE-PAGINATION-4.3) and is never stored; paragraphs, headings, figures and layout sections the suggestion attributes (`data-suggestion-split-kind`, `data-suggestion-split-id`); and list items `orphanedListContinuation` (`data-orphaned-list-continuation`). An attribute without a value shall not be written.
 
 Implementation: `src/model/schema/element-attributes.ts`, `src/model/schema/dom-attributes.ts`
 Verification: `src/model/schema/element-attributes.test.ts`, `src/model/schema/document-schema-node.test.ts`

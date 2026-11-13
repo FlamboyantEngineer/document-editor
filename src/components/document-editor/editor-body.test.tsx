@@ -113,7 +113,7 @@ describe('EditorBody', () => {
       }
       await user.click(report());
       await user.paste(imagePaste('board.png', 'chart.png'));
-      // The document's own figures: the hidden view the pages are measured in has copies of them.
+      // The document view's pictures, not the hidden measuring view's.
       const pictures = () =>
         [...report().querySelectorAll('figure img')].map((image) => image.getAttribute('alt'));
       await waitFor(() => expect(pictures()).toEqual(['board.png', 'chart.png']));

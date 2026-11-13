@@ -41,7 +41,7 @@ const UNTRACKED_MARKS = new Set([
 ]);
 
 // Block attributes the pagination sets: layout, not formatting.
-const layoutAttrs = new Set(['orphanedListContinuation']);
+const layoutAttrs = new Set(['orphanedListContinuation', 'continuationPlaceholder']);
 
 // Whether an attribute of a node type is no formatting a record keeps: layout, or identity as the
 // schema declares it, which covers the review attributes and a host's own (DOCE-SCHEMA-2.3).

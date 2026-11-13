@@ -1,5 +1,5 @@
 import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
@@ -321,6 +321,51 @@ describe('DocumentEditor', () => {
     await waitFor(() => expect(drawn()).toHaveTextContent('Oh, Hello'));
   });
 
+  it('DOCE-EDITOR-1.8 leaves text typed in a host view’s own field to the field', async () => {
+    function CaptionedParagraph({ nodeProps, children, ...props }: RichTextNodeViewProps) {
+      void nodeProps;
+      return (
+        <div {...props}>
+          <input aria-label="Note" />
+          <p>{children}</p>
+        </div>
+      );
+    }
+    const views = { paragraph: CaptionedParagraph };
+    const handle = createRef<DocumentEditorHandle>();
+    render(
+      <DocumentEditor
+        state={initial()}
+        onStateChange={() => undefined}
+        template={TEMPLATE}
+        nodeViews={views}
+        aria-label="Report"
+        handleRef={handle}
+      />,
+    );
+    await handle.current?.whenSettled();
+    // The field on the pages, not the one the measuring view draws, once the plain view draws
+    // them with the host views in it.
+    const pages = () => screen.getByRole('textbox', { name: 'Report' });
+    await waitFor(() => expect(pages().querySelector('.de-host-view input')).not.toBeNull());
+    const field = within(pages()).getByRole('textbox', { name: 'Note' });
+    const typed = new InputEvent('beforeinput', {
+      inputType: 'insertText',
+      data: 'x',
+      bubbles: true,
+      cancelable: true,
+    });
+    field.dispatchEvent(typed);
+    const erased = new KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    });
+    field.dispatchEvent(erased);
+    expect([typed.defaultPrevented, erased.defaultPrevented]).toEqual([false, false]);
+    expect(handle.current?.view()?.state.doc.textContent).toBe('Hello');
+  });
+
   it('DOCE-PAGINATION-7.19 gives the host the element ids the pages gave a new block', async () => {
     const handle = createRef<DocumentEditorHandle>();
     const held: { current: EditorState | null } = { current: null };
@@ -640,5 +685,43 @@ describe('DocumentEditor host layout rules', () => {
     await waitFor(() =>
       expect(container.querySelectorAll('.de-document-editor__content .pm-page')).toHaveLength(2),
     );
+  });
+
+  it('DOCE-PAGINATION-5.11 lays every section out again when the host hands in other rules', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const paragraph = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
+    const state = EditorState.create({
+      doc: readDocumentFile(
+        { formatVersion: 1, sections: [{ content: [paragraph('One'), paragraph('Two')] }] },
+        documentSchema,
+      ).doc,
+      plugins: createDocumentEditing(documentSchema),
+    });
+    function Ruled({ ends }: { ends: boolean }) {
+      const [current, setCurrent] = useState(state);
+      return (
+        <DocumentEditor
+          state={current}
+          onStateChange={setCurrent}
+          template={TEMPLATE}
+          layout="page"
+          aria-label="Report"
+          handleRef={handle}
+          layoutRules={{ paragraph: { endsPage: ends } }}
+        />
+      );
+    }
+    const pages = () => document.querySelectorAll('.de-document-editor__content .pm-page');
+    const { rerender } = render(<Ruled ends />);
+    await waitFor(() => expect(pages()).toHaveLength(2));
+    await handle.current?.whenSettled();
+    // The same rules passed inline again, as on every render, lay nothing out again.
+    const laid = handle.current?.layoutStats()?.layouts;
+    rerender(<Ruled ends />);
+    await handle.current?.whenSettled();
+    expect(handle.current?.layoutStats()?.layouts).toBe(laid);
+    // The document is unchanged: only the rules are, so the section is laid out again for them.
+    rerender(<Ruled ends={false} />);
+    await waitFor(() => expect(pages()).toHaveLength(1));
   });
 });

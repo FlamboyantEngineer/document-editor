@@ -1,6 +1,13 @@
+import type { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
-import { awaitReady, beforePaintIn, type Remeasure, remeasureOn } from './layout-triggers.js';
+import {
+  awaitReady,
+  beforePaintIn,
+  type Remeasure,
+  remeasureOn,
+  settleEdits,
+} from './layout-triggers.js';
 
 // Runs animation frames when the test says, so the events of one frame gather.
 function stubFrames() {
@@ -101,4 +108,34 @@ describe('first layout schedule', () => {
     await Promise.resolve();
     expect(ran).toEqual(['first']);
   });
+});
+
+describe('settling edits', () => {
+  it.each(['dragend', 'drop', 'blur'])(
+    'DOCE-PAGINATION-7.1 lays out the edits made during a press that ends with %s',
+    (ending) => {
+      vi.useFakeTimers();
+      let time = 1;
+      vi.spyOn(window.performance, 'now').mockImplementation(() => time);
+      try {
+        const request = vi.fn();
+        const measureIn = document.body.appendChild(document.createElement('div'));
+        const edits = settleEdits({ measureIn, settle: 10 }, request);
+        const dom = document.body.appendChild(document.createElement('div'));
+        const stop = edits.watch({ dom } as unknown as EditorView);
+        dom.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        edits.request();
+        time += 100;
+        vi.advanceTimersByTime(100);
+        expect(request).not.toHaveBeenCalled();
+        const target = ending === 'blur' ? window : dom;
+        target.dispatchEvent(new Event(ending, { bubbles: true }));
+        expect(request).toHaveBeenCalledOnce();
+        stop();
+      } finally {
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+      }
+    },
+  );
 });

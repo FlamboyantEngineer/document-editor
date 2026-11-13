@@ -35,7 +35,6 @@ import {
   type SectionLayoutRules,
   type SectionPageHeight,
 } from './layout-document.js';
-import { wantsLayoutNow } from './layout-latency.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import {
   awaitReady,
@@ -64,6 +63,7 @@ import {
   send,
   type Session,
   showCanonical,
+  shownBy,
   take,
   takeCaretBefore,
 } from './projection-session.js';
@@ -239,17 +239,19 @@ function sourceOf(session: () => Session): CanonicalPluginsSource {
   return {
     canonical: () => session().canonical,
     map: () => session().map,
+    rules: () => session().rules,
     dispatch: (tr) => dispatchCanonical(session(), tr),
     prepare: (options) => prepare(session(), options),
   };
 }
 
-// The projection's first state: the canonical document, with the plugins that route input to the
+// The projection's first state: the canonical document and selection, with the plugins that route input to the
 // canonical state and draw what it draws, and the host's.
 function projectionState(options: PagedProjectionOptions, session: () => Session): EditorState {
   const source = sourceOf(session);
   return EditorState.create({
     doc: options.state.doc,
+    selection: options.state.selection,
     plugins: [
       inputPlugin(session, source),
       canonicalPlugins(source),
@@ -357,7 +359,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       const replugged = state.plugins !== live.canonical.plugins;
       live.canonical = state;
       if (replugged) replug(live);
-      quietly(live, () => showCanonical(live, tr ?? null, tr ? wantsLayoutNow(tr) : false));
+      quietly(live, () => showCanonical(live, tr ?? null, shownBy(tr ? [tr] : [])));
     },
     run: (command) => runCommand(live, command),
     dispatch: (tr) => dispatchCanonical(live, tr),
@@ -374,6 +376,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
     stats: () => ({ ...live.pace.counter.stats(), ...live.counts }),
     destroy() {
       unlisten();
+      live.cells.release();
       live.cancelLayout?.();
       live.edits.cancel();
       live.pace.readiness.destroy();

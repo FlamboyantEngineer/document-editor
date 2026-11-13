@@ -9,6 +9,7 @@ export const DATA_CONTRIBUTOR_ATTR = 'data-au';
 export const DATA_AI_SESSION_ATTR = 'data-ai';
 export const SPLIT_PART_INDEX_ATTR = 'data-split-part-index';
 export const ORPHANED_LIST_CONTINUATION_ATTR = 'data-orphaned-list-continuation';
+export const CONTINUATION_PLACEHOLDER_ATTR = 'data-continuation-placeholder';
 export const SUGGESTION_SPLIT_KIND_ATTR = 'data-suggestion-split-kind';
 export const SUGGESTION_SPLIT_ID_ATTR = 'data-suggestion-split-id';
 export const SUGGESTION_FORMAT_ATTR = 'data-suggestion-format';

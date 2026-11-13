@@ -3,6 +3,7 @@
 // itself. The editor measures where each child sits; this module only decides, so it reads no DOM.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { continuationPlaceholder, isContinuationPlaceholder } from './fragments.js';
 import type { LayoutBlock, SplitBlock, SplitContext } from './page-layout.js';
 import { splitParagraphWith } from './text-split.js';
 
@@ -200,11 +201,6 @@ export function splitContainer(
   return split ? fragments(request, split, { head: {}, tail: {} }) : null;
 }
 
-// The empty paragraph a list item's second fragment opens with when it starts with another block.
-function isPlaceholder(node: ProseMirrorNode | undefined): boolean {
-  return node?.type.name === 'paragraph' && node.content.size === 0 && !node.attrs.dataId;
-}
-
 // A paragraph's second fragment in a list item loses the marker's indent, so it keeps three lines.
 const splitParagraphInItem = splitParagraphWith(3);
 
@@ -221,11 +217,11 @@ export function splitListItem(
 ): SplitBlock | null {
   const request = { block, fitting, context };
   const split = splitChildren(request, splitItemChild);
-  if (!split || !split.head.some((child) => !isPlaceholder(child))) return null;
-  if (!split.tail.some((child) => !isPlaceholder(child))) return null;
+  if (!split || !split.head.some((child) => !isContinuationPlaceholder(child))) return null;
+  if (!split.tail.some((child) => !isContinuationPlaceholder(child))) return null;
   const opensWithParagraph = split.tail[0]?.type.name === 'paragraph';
   if (!opensWithParagraph) {
-    const placeholder = block.node.type.schema.nodes.paragraph?.create();
+    const placeholder = continuationPlaceholder(block.node.type.schema);
     if (!placeholder) return null;
     split.tail.unshift(placeholder);
     split.tailLayouts.unshift({ top: 0, bottom: 0 });

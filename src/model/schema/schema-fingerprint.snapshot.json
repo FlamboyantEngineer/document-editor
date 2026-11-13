@@ -216,12 +216,13 @@
         "suggestionSplitKind": { "default": null },
         "suggestionSplitId": { "default": null },
         "suggestionFormat": { "default": null },
-        "paragraphLevel": { "default": 1 }
+        "paragraphLevel": { "default": 1 },
+        "continuationPlaceholder": { "default": false }
       },
       "parseDOM": [{ "tag": "p", "getAttrs": "function" }],
       "toDOM": {
         "defaults": "<p></p>",
-        "filled": "<p class=\"sample-className\" data-id=\"sample-dataId\" data-paragraph-level=\"3\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"></p>"
+        "filled": "<p class=\"sample-className\" data-id=\"sample-dataId\" data-paragraph-level=\"3\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-continuation-placeholder=\"true\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"></p>"
       }
     },
     {

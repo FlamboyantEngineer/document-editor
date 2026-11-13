@@ -18,6 +18,7 @@ import {
 import { cellAround, TableMap } from 'prosemirror-tables';
 import { ReplaceAroundStep, type Step } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
+import { characterWidth } from './graphemes.js';
 import type { ProjectionMap } from './projection-map.js';
 import { canonicalSelection } from './selection-mirror.js';
 
@@ -39,7 +40,7 @@ export interface RoutedEdit {
 
 /**
  * Deletes the character before (-1) or after (1) an empty selection inside a textblock, as the
- * browser would in its DOM; the canonical state has none.
+ * browser would in its DOM, its whole grapheme cluster; the canonical state has none.
  */
 export function deleteCharacter(direction: -1 | 1): Command {
   return (state, dispatch) => {
@@ -47,9 +48,7 @@ export function deleteCharacter(direction: -1 | 1): Command {
     if (!$cursor) return false;
     const { pos } = $cursor;
     if (pos === (direction < 0 ? $cursor.start() : $cursor.end())) return false;
-    const around = [pos, pos + direction * 2].sort((left, right) => left - right);
-    const text = state.doc.textBetween(around[0] ?? pos, around[1] ?? pos);
-    const width = text.length === 2 && /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(text) ? 2 : 1;
+    const width = characterWidth($cursor, direction);
     const [from, to] = direction < 0 ? [pos - width, pos] : [pos, pos + width];
     dispatch?.(state.tr.delete(from, to).scrollIntoView());
     return true;
