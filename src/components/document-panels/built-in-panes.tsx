@@ -32,11 +32,15 @@ export interface BuiltInSources {
   readonly threads: ContextType<typeof SharedCommentThreadsContext>;
 }
 
-// The open threads of the editor's comments, null while there are none or they are not known.
+// The open threads of the editor's comments that are for the reader, as the pane lists them; null
+// while there are none or they are not known.
 function openThreads({ comments, threads }: BuiltInSources): number | null {
   if (!comments || threads?.store !== comments.store) return null;
+  const { audience } = comments;
+  const me = audience ? comments.identity.currentPerson().id : '';
   let open = 0;
-  for (const thread of threads.threads.threads.values()) if (thread.state === 'open') open += 1;
+  for (const thread of threads.threads.threads.values())
+    if (thread.state === 'open' && (audience?.(thread, me) ?? true)) open += 1;
   return open > 0 ? open : null;
 }
 

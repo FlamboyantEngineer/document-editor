@@ -207,6 +207,20 @@ describe('DocumentSidePanel', () => {
     expect(await within(details()).findByText('Note two')).toBeInTheDocument();
   });
 
+  it('DOCE-EDITOR-8.3 DOCE-COMMENTS-4.2 counts no thread the reader is not among the audience of', async () => {
+    render(
+      <Harness
+        options={{ audience: (each) => each.id !== 'one' }}
+        panel={{ panes: ['comments', 'properties'] }}
+      />,
+    );
+    const tab = within(details()).getByRole('tab', { name: /Comments/ });
+    // Once the threads are listed, All keeps the resolved thread and the suggestion: the open
+    // thread is not for the reader.
+    await within(details()).findByRole('radio', { name: /All.*2/ });
+    expect(tab).not.toHaveTextContent('1');
+  });
+
   it('DOCE-COMMENTS-4.7 reveals the comments pane for a thread started or opened there', async () => {
     const handle = createRef<DocumentEditorHandle>();
     render(

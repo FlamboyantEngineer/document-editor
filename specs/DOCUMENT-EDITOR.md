@@ -566,7 +566,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 
 ### DOCE-EDITOR-8.3 - The comments pane
 
-The built-in `comments` pane shall show the comments panel (`DocumentCommentsPanel`) of the editor's `comments`, sharing the editor's thread state (DOCE-COMMENTS-2.14), with the open threads counted on its tab. The pane's filter is its own to choose, starting at the margin's `filter`. An editor without comments has no comments pane.
+The built-in `comments` pane shall show the comments panel (`DocumentCommentsPanel`) of the editor's `comments`, sharing the editor's thread state (DOCE-COMMENTS-2.14), with the open threads the reader is among the audience of (DOCE-COMMENTS-4.2) counted on its tab. The pane's filter is its own to choose, starting at the margin's `filter`. An editor without comments has no comments pane.
 
 Implementation: `src/components/document-panels/built-in-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
