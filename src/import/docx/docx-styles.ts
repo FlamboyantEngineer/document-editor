@@ -32,6 +32,8 @@ export interface DocxStyles {
   readonly numberingOf: (styleId: string | null) => XmlElement | null;
   /** Whether a character style is one the writer's caption label runs carry. */
   readonly isCaptionLabel: (styleId: string | null) => boolean;
+  /** Whether a paragraph style is Word's list paragraph style, which list items carry. */
+  readonly isListParagraph: (styleId: string | null) => boolean;
 }
 
 const PLAIN: ParagraphRole = { kind: 'paragraph', level: 1 };
@@ -124,5 +126,8 @@ export function readStyles(root: XmlElement | null): DocxStyles {
     roleOf: (styleId) => roleOf(styleId),
     numberingOf: (styleId) => numberingOf(styleId),
     isCaptionLabel: (styleId) => styleId === 'CaptionLabel',
+    isListParagraph: (styleId) =>
+      !!styleId &&
+      (styleId === 'ListParagraph' || styles.get(styleId)?.name.toLowerCase() === 'list paragraph'),
   };
 }

@@ -9,6 +9,7 @@ import {
   SECTIONS,
   STYLES,
   TABLES,
+  WRITER_SHAPES,
 } from '../../../test/fixtures/docx/fixtures.js';
 import type { DocumentFile, StoredNode } from '../../model/format/document-format.js';
 import { readDocumentFile } from '../../model/format/document-format-convert.js';
@@ -166,6 +167,62 @@ describe('reading word processing documents', () => {
     ]);
     expect(second?.content).toHaveLength(2);
     expect(second?.content?.[1]?.content?.[0]?.type).toBe('table');
+  });
+
+  it('DOCE-IMPORT-2.2 reads a bottom-border paragraph as a rule and leaves out section-only paragraphs', async () => {
+    const result = await read(WRITER_SHAPES);
+    expect(blocks(result).map((node) => node.type)).toEqual([
+      'codeBlock',
+      'codeBlock',
+      'rule',
+      'paragraph',
+      'bulletList',
+      'paragraph',
+      'paragraph',
+    ]);
+    expect(blocks(result)[3]).toEqual({ type: 'paragraph' });
+    expect(blocks(result).slice(5)).toEqual([
+      para(text('After the list.')),
+      para(text('Not in a list.')),
+    ]);
+    expect(blocks(result, 1)).toEqual([]);
+    expect(blocks(result, 2)).toEqual([para(text('Last section.'))]);
+  });
+
+  it('DOCE-IMPORT-2.3 reads a list paragraph after a list item as another paragraph of that item', async () => {
+    const list = blocks(await read(WRITER_SHAPES))[4];
+    expect(list).toEqual({
+      type: 'bulletList',
+      content: [
+        {
+          type: 'listItem',
+          content: [
+            para(text('Plant')),
+            para(text('Water it daily.')),
+            {
+              type: 'bulletList',
+              content: [
+                { type: 'listItem', content: [para(text('Prune')), para(text('Only in spring.'))] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('DOCE-IMPORT-2.4 reads a caption before or after a code block as its caption', async () => {
+    const [below, above] = blocks(await read(WRITER_SHAPES));
+    expect(below).toEqual({
+      type: 'codeBlock',
+      attrs: { caption: 'Below the code' },
+      content: [text('let rain = 1;')],
+    });
+    expect(above).toEqual({
+      type: 'codeBlock',
+      attrs: { caption: 'Above the code' },
+      content: [text('let sun = 2;')],
+    });
   });
 
   it('DOCE-IMPORT-2.5 reads sections with their names, pages, headers and footers', async () => {
