@@ -245,6 +245,7 @@ export function EditorContextMenu({
       linkedCode={Boolean(props.codeSource)}
       codeLanguages={props.codeLanguages}
       scriptRunner={props.scriptRunner}
+      suggesting={editable && (props.suggesting ?? false)}
       options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
     />
   );

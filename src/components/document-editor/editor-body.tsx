@@ -201,7 +201,11 @@ export function EditorBody({
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   const attributes = useContentAttributes(props);
-  useOpeningScripts(view, props.scriptRunner);
+  useOpeningScripts(view, {
+    plugins: state.plugins,
+    runner: props.scriptRunner,
+    enabled: editable && !suggesting,
+  });
   // With the comments in a pane, a thread started or opened shows that pane; focus stays put.
   const panes = useEditorPanesContext();
   // Only the document itself differs between the pages and the engine: the comments margin and the

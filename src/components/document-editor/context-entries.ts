@@ -42,6 +42,8 @@ export interface ContextEntriesOptions {
   readonly codeLanguages?: readonly string[] | undefined;
   /** Runs the script blocks, which the menu then offers to edit and run. */
   readonly scriptRunner?: ScriptRunnerAdapter | null | undefined;
+  /** Whether the writer's changes are recorded as suggestions. Defaults to false. */
+  readonly suggesting?: boolean | undefined;
 }
 
 const clipboardOf = (view: EditorView) =>
