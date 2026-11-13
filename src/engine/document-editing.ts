@@ -135,6 +135,11 @@ const atFootnoteEdge =
     return side < 0 ? $from.parentOffset === 0 : $from.parentOffset === $from.parent.content.size;
   };
 
+// Enter over a selected inline node removes it; a selected range of text is left to the split,
+// which replaces it (DOCE-EDITING-2.3).
+const deleteSelectedNode: Command = (state, dispatch) =>
+  state.selection instanceof NodeSelection && deleteSelection(state, dispatch);
+
 /**
  * A document's own keys, ahead of ProseMirror's base keymap: the shortcut table's document actions
  * (`DEFAULT_SHORTCUTS`, or a host's remapping of it) and the editing keys.
@@ -156,7 +161,7 @@ export function documentKeys(
         newlineInCode,
         listKey(splitListItem),
         createParagraphNear,
-        deleteSelection,
+        deleteSelectedNode,
         liftEmptyBlock,
         splitBlockKeepingLevel,
       ),
