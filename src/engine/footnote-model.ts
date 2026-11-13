@@ -1,7 +1,7 @@
 // What the footnote commands and plugin share: finding markers and entries, their order, the places
 // a footnote may be cited, the footnote area of a page, and the plugin's state.
 
-import type { Fragment, Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
 import { documentSections, regionBeside, regionKind } from '../model/index.js';
 
@@ -92,6 +92,20 @@ export function markerRanks(doc: ProseMirrorNode): Map<string, number> {
   return ranks;
 }
 
+/** The footnote entries, of those given, that content cites: those with a marker in it. */
+export function citedEntries(entries: Fragment, content: Fragment): Fragment {
+  const cited = new Set<string>();
+  content.descendants((node) => {
+    const id = isFootnoteMarker(node) ? idOf(node) : null;
+    if (id) cited.add(id);
+  });
+  const kept: ProseMirrorNode[] = [];
+  entries.forEach((entry) => {
+    if (cited.has(idOf(entry) ?? '')) kept.push(entry);
+  });
+  return Fragment.from(kept);
+}
+
 /** How footnotes are numbered: through the document, or from 1 again in each section. */
 export interface FootnoteNumbering {
   /** Starts the count again at each section, as in the web layout, where a section is one page. */
@@ -140,15 +154,28 @@ export function citingPlacesOf(state: EditorState): ReadonlySet<string> {
   return footnotesKey.getState(state)?.places ?? new Set(defaultCitingPlaces);
 }
 
-/** Whether a footnote may be cited at a position: in a paragraph of the page's body, in its places. */
-export function canCiteAt($pos: ResolvedPos, places: ReadonlySet<string>): boolean {
-  if ($pos.parent.type.name !== 'paragraph') return false;
-  for (let depth = $pos.depth - 1; depth > 0; depth -= 1) {
+// Whether the blocks around a position, from a depth up to the page's content, are all places a
+// footnote may be cited in.
+function inCitingPlaces($pos: ResolvedPos, from: number, places: ReadonlySet<string>): boolean {
+  for (let depth = from; depth > 0; depth -= 1) {
     const node = $pos.node(depth);
     if (regionKind(node) === 'content') return true;
     if (!places.has(node.type.name)) return false;
   }
   return false;
+}
+
+/** Whether a footnote may be cited at a position: in a paragraph of the page's body, in its places. */
+export function canCiteAt($pos: ResolvedPos, places: ReadonlySet<string>): boolean {
+  return $pos.parent.type.name === 'paragraph' && inCitingPlaces($pos, $pos.depth - 1, places);
+}
+
+/**
+ * Whether a paragraph beside the block a position is in may cite a footnote: where the whole
+ * blocks of pasted content land.
+ */
+export function canCiteBeside($pos: ResolvedPos, places: ReadonlySet<string>): boolean {
+  return inCitingPlaces($pos, $pos.parent.isTextblock ? $pos.depth - 1 : $pos.depth, places);
 }
 
 /** Whether the selection is where a footnote may be cited (`canCiteAt`). */
