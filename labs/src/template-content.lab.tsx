@@ -90,7 +90,8 @@ function Lab() {
   }, [resolved]);
   return (
     <div className="lab-split">
-      <div className="lab-template-panel">
+      {/* The panel scrolls, so a keyboard reaches it. */}
+      <div className="lab-template-panel" role="region" aria-label="Template" tabIndex={0}>
         <pre aria-label="Template JSON">{JSON.stringify(own, null, 2)}</pre>
       </div>
       <DocumentEditor
