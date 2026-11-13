@@ -66,6 +66,21 @@ describe('stored template format', () => {
     ]);
   });
 
+  it('DOCE-FORMAT-2.2 names a setting called like a member of every object', () => {
+    // As a host parses a stored template: `__proto__` is then a setting of its own.
+    const stored: unknown = JSON.parse(
+      '{"formatVersion":1,"id":"plain","constructor":{"size":"A4"},"__proto__":{"size":"A4"},' +
+        '"toString":null,"styles":{"hasOwnProperty":{},"paragraph":{"valueOf":"12pt"}}}',
+    );
+    expect(validateTemplateFile(stored)).toEqual([
+      'template.constructor is not a template setting',
+      'template.__proto__ is not a template setting',
+      'template.toString is not a template setting',
+      'template.styles.hasOwnProperty is not a template setting',
+      'template.styles.paragraph.valueOf is not a template setting',
+    ]);
+  });
+
   it('DOCE-FORMAT-2.3 checks the template identity, references and sections', () => {
     const errors = validateTemplateFile({
       ...TEMPLATE,

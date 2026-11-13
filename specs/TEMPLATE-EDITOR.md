@@ -34,7 +34,7 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/tem
 
 ### DOCE-TEMPLATE-EDITOR-1.5 - The template as JSON
 
-`TemplateJsonEditor` shall edit a template as JSON in the base library's code editor, check the text as it is typed (`validateTemplateFile`), show its errors, tell them to `onValidityChange`, and hand each valid template to `onChange`; a template changed elsewhere replaces the text, so the text never hands back a template older than the host's.
+`TemplateJsonEditor` shall edit a template as JSON in the base library's code editor, check the text as it is typed (`validateTemplateFile`), show its errors, or that the text is not JSON only when it cannot be parsed, tell them to `onValidityChange`, and hand each valid template to `onChange`; a template changed elsewhere replaces the text, so the text never hands back a template older than the host's.
 
 Implementation: `src/components/template-editor/template-json-editor.tsx`
 Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`

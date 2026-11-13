@@ -149,7 +149,8 @@ function checkObject(fields: Readonly<Record<string, SettingShape>>, value: unkn
     return;
   }
   for (const [key, entry] of Object.entries(value)) {
-    const shape = fields[key];
+    // Its own settings only: a key such as `constructor` names a member of every object, not one.
+    const shape = Object.hasOwn(fields, key) ? fields[key] : undefined;
     if (shape) checkValue(shape, entry, at(walk, `${path}.${key}`));
     else walk.errors.push(`${path}.${key} is not a template setting`);
   }

@@ -57,7 +57,7 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-2.2 - Setting validation
 
-`validateTemplateFile(template, options)` shall return an error naming each setting the format does not know and each value not of its setting's kind, such as `template.page.margins.top must be a length with a unit, such as 12pt`; an absent or null setting shall be valid.
+`validateTemplateFile(template, options)` shall return an error naming each setting the format does not know and each value not of its setting's kind, such as `template.page.margins.top must be a length with a unit, such as 12pt`; an absent or null setting shall be valid. A setting is known by the format's own names only: one named like a member of every object, such as `constructor` or `__proto__`, shall be reported as not a template setting, whatever its value, and never make validation throw.
 
 Implementation: `src/model/format/template-format-validate.ts`, `src/model/format/template-format-shape.ts`
 Verification: `src/model/format/template-format.test.ts`

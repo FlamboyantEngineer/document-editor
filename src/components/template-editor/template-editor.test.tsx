@@ -104,6 +104,27 @@ describe('TemplateJsonEditor', () => {
     );
     expect(changes).toEqual([]);
   });
+
+  it('DOCE-TEMPLATE-EDITOR-1.5 shows the errors of a template that is JSON, not that it is not', async () => {
+    const user = userEvent.setup();
+    const changes: TemplateFile[] = [];
+    const validity: (readonly string[])[] = [];
+    render(
+      <TemplateJsonEditor
+        template={{ formatVersion: 1, id: 'plain' }}
+        onChange={(next) => changes.push(next)}
+        onValidityChange={(errors) => validity.push(errors)}
+      />,
+    );
+    const text = screen.getByRole('textbox');
+    await user.clear(text);
+    await user.paste('{"formatVersion":1,"id":"plain","constructor":{"size":"A4"}}');
+    expect(validity.at(-1)).toEqual(['template.constructor is not a template setting']);
+    await user.clear(text);
+    await user.paste('{"formatVersion":1,');
+    expect(validity.at(-1)).toEqual(['The text is not valid JSON.']);
+    expect(changes).toEqual([]);
+  });
 });
 
 describe('TemplateEditor', () => {
