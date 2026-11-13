@@ -122,6 +122,13 @@ A script block (`section[data-block-type="scripted-content"]`) shall keep its sc
 Implementation: `src/model/schema/script-nodes.ts`, `src/model/format/document-format.ts`
 Verification: `src/model/schema/script-nodes.test.ts`
 
+### DOCE-SCHEMA-3.10 - Unnumbered headings
+
+A heading shall keep whether it is numbered (`numbered`, true by default; `data-numbered="false"` when not), stored as `numbered: false` on a `heading` node and left out when numbered. An unnumbered heading stays a structural heading where its place makes it one: the outline and the contents list it, with no number, and a reference to it shows its text. It takes no number and moves no counter: the catalog gives it an empty number and counts neither it nor the headings and objects it would restart, and the reference stylesheet neither increments nor sets a counter on it, nor prints its number. Paragraph numbering still starts again under it, as under any heading.
+
+Implementation: `src/model/schema/core-nodes.ts`, `src/model/format/document-format.ts`, `src/model/contents/document-catalog.ts`, `labs/reference/document.css`
+Verification: `test/unnumbered-headings.test.ts`
+
 ## DOCE-SCHEMA-4 - References
 
 ### DOCE-SCHEMA-4.1 - Format keys

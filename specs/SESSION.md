@@ -272,7 +272,7 @@ Verification: `src/session/store-refresh.test.ts`, `e2e/session.spec.ts`
 
 ### DOCE-SESSION-7.2 - Replacing the content in place
 
-`replaceDocumentContent(state, doc)` shall give a transaction that turns the state's document into `doc` by changing only the blocks, matched by element id, and the runs of text that differ, so the selection and every unchanged block stay. Page headers and footers are left for the section plugins to derive. The transaction is a system change (`markSystemChange`) outside the history.
+`replaceDocumentContent(state, doc)` shall give a transaction that turns the state's document into `doc` by changing only the blocks, matched by element id, and the runs of text that differ, so the selection and every unchanged block stay. An inline node that holds text, such as an equation, whose text differs is replaced whole, never in part. Page headers and footers are left for the section plugins to derive. The transaction is a system change (`markSystemChange`) outside the history.
 
 Implementation: `src/engine/replace-document-content.ts`
 Verification: `src/engine/replace-document-content.test.ts`, `src/session/store-refresh.test.ts`

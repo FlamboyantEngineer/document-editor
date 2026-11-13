@@ -1,11 +1,13 @@
-import { deleteSelection, splitBlock } from 'prosemirror-commands';
+import { deleteSelection, lift, splitBlock } from 'prosemirror-commands';
 import { history, undo } from 'prosemirror-history';
 import type { Node } from 'prosemirror-model';
+import { liftListItem, sinkListItem, wrapInList } from 'prosemirror-schema-list';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { documentSchema } from '../../test/document-markup.js';
+import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
 import { documentKeys } from './document-editing.js';
+import { insertFootnote } from './footnotes.js';
 import {
   acceptAllSuggestions,
   acceptSuggestion,
@@ -17,6 +19,7 @@ import {
   suggestionDecisionOf,
 } from './suggestion-decisions.js';
 import { suggestTransaction } from './suggestions.js';
+import { insertTable } from './tables.js';
 import { markSystemChange } from './transaction-kind.js';
 
 const paragraph = (value: string): StoredNode => ({
@@ -197,6 +200,42 @@ describe('suggest mode', () => {
     expect(suggestTransaction(split, inList)).toBeNull();
   });
 
+  it('DOCE-SUGGESTIONS-1.5 refuses a change of structure it cannot record', () => {
+    const { bullet_list: bullets, list_item: item } = documentSchema.nodes;
+    if (!bullets || !item) throw new Error('No lists');
+    const plain = EditorState.create({ doc: read(paragraph('One'), paragraph('Two')) });
+    expect(
+      suggest(select(plain, positionOf(plain.doc, 'One') + 1), wrapInList(bullets)),
+    ).toBeNull();
+    const listed = EditorState.create({
+      doc: read({
+        type: 'bulletList',
+        content: [
+          { type: 'listItem', content: [paragraph('One')] },
+          { type: 'listItem', content: [paragraph('Two')] },
+        ],
+      }),
+    });
+    const inSecond = select(listed, positionOf(listed.doc, 'Two') + 1);
+    expect(suggest(inSecond, sinkListItem(item))).toBeNull();
+    expect(suggest(inSecond, liftListItem(item))).toBeNull();
+    const quoted = EditorState.create({
+      doc: read({ type: 'blockquote', content: [paragraph('Said')] }),
+    });
+    expect(suggest(select(quoted, positionOf(quoted.doc, 'Said') + 1), lift)).toBeNull();
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 refuses to insert a block that cannot be suggested', () => {
+    const state = EditorState.create({ doc: read(paragraph('One')) });
+    const inText = select(state, positionOf(state.doc, 'One') + 1);
+    let offered = 0;
+    for (const insert of [insertTable({ rows: 2, columns: 2 }), insertFootnote()]) {
+      if (insert(inText)) offered += 1;
+      expect(suggest(inText, insert)).toBeNull();
+    }
+    expect(offered).toBe(2);
+  });
+
   it('DOCE-SUGGESTIONS-1.5 leaves a system change as it is', () => {
     const state = EditorState.create({ doc: read(paragraph('Alpha')) });
     const tr = markSystemChange(state.tr.insertText('X', 1));
@@ -246,6 +285,30 @@ describe('deciding suggestions', () => {
     expect(kept && markup(kept.doc)).toEqual(['Alpha', ' blue']);
     const undone = decide(split, rejectAllSuggestions);
     expect(undone && markup(undone.doc)).toEqual(['Alpha blue']);
+  });
+
+  it('DOCE-SUGGESTIONS-2.2 keeps the element’s id and writer on the first half of an accepted split', () => {
+    const doc = parseMarkup('<h1 data-id="aaaa0001" data-au="ada">Heading text</h1>');
+    const split = suggest(
+      select(EditorState.create({ doc }), positionOf(doc, ' text')),
+      splitBlock,
+      'bea',
+    );
+    const elements = (state: EditorState | null) => {
+      const found: string[] = [];
+      state?.doc.descendants((node) => {
+        if (!node.isTextblock) return true;
+        const { dataId, dataAuthor } = node.attrs;
+        found.push(`${node.textContent}:${String(dataId)}:${String(dataAuthor)}`);
+        return false;
+      });
+      return found;
+    };
+    expect(elements(decide(split, acceptAllSuggestions))).toEqual([
+      'Heading:aaaa0001:ada',
+      ' text:null:bea',
+    ]);
+    expect(elements(decide(split, rejectAllSuggestions))).toEqual(['Heading text:aaaa0001:ada']);
   });
 
   it('DOCE-SUGGESTIONS-2.3 stores suggestions with their id and author', () => {

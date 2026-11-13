@@ -130,19 +130,21 @@ describe('writeDocx', () => {
       '_rels/.rels',
       'word/document.xml',
       'word/styles.xml',
+      'word/numbering.xml',
+      'word/settings.xml',
       'word/footnotes.xml',
       'word/_rels/document.xml.rels',
       'word/_rels/footnotes.xml.rels',
     ]);
     const document = files.get('word/document.xml') ?? '';
-    expect(document).toContain(
-      '<w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">Power</w:t>',
+    expect(document).toMatch(
+      /<w:pStyle w:val="Heading1"\/><w:numPr>.*?<\/w:pPr><w:r><w:t xml:space="preserve">Power<\/w:t>/,
     );
     expect(document).toContain('<w:rPr><w:b/></w:rPr><w:t xml:space="preserve">must</w:t>');
     expect(document).not.toContain('old');
     expect(document).toContain('<w:hyperlink r:id="rIdLink1">');
     expect(document).toContain('<w:footnoteReference w:id="1"/>');
-    expect(document).toContain('•\t');
+    expect(document).toContain('<w:pStyle w:val="ListParagraph"/><w:numPr>');
     expect(document).toContain('<w:pStyle w:val="TableHeader"/>');
     expect(document).toContain('<w:br w:type="page"/>');
     expect(document).toContain('w:orient="landscape"');
@@ -252,5 +254,36 @@ describe('writeDocx', () => {
     expect(rejected).not.toContain('[Pond]');
     expect(rejected).toContain('Gone paragraph');
     expect(rejected).toContain('>{{document.title}}</w:t>');
+  });
+
+  it('DOCE-FORMAT-5.5 leaves an unnumbered heading without a number, restarting paragraphs', () => {
+    const files = readStored(
+      writeDocx({
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'paragraph', content: [text('Before')] },
+              { type: 'heading', attrs: { numbered: false }, content: [text('Preface')] },
+              { type: 'paragraph', content: [text('After')] },
+              { type: 'heading', content: [text('Start')] },
+            ],
+          },
+        ],
+      }),
+    );
+    const document = files.get('word/document.xml') ?? '';
+    expect(document).toContain(
+      '<w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t xml:space="preserve">Preface',
+    );
+    expect(document).toMatch(/<w:pStyle w:val="Heading1"\/><w:numPr>.*?Start/);
+    // The paragraphs after it still count again, on a number of their own.
+    const numberOf = (word: string) =>
+      new RegExp(
+        `<w:numId w:val="(\\d+)"/></w:numPr></w:pPr><w:r><w:t xml:space="preserve">${word}`,
+      ).exec(document)?.[1];
+    expect(numberOf('Before')).toBeDefined();
+    expect(numberOf('After')).not.toBe(numberOf('Before'));
   });
 });

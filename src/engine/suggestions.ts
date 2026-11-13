@@ -269,9 +269,7 @@ function rewriteSteps(
       // The suggested blocks already carry the attributes the command sets on them.
     } else {
       const mapped = step.map(mapping);
-      if (!mapped) return null;
-      const formatted = suggestFormatting(suggesting, mapped, { markup: isMarkupStep(step) });
-      if (formatted === false || (formatted === undefined && out.maybeStep(mapped).failed))
+      if (!mapped || !suggestFormatting(suggesting, mapped, { markup: isMarkupStep(step) }))
         return null;
     }
     const next = new Mapping();

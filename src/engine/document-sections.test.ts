@@ -3,6 +3,7 @@ import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import type { DecorationSet } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { note, text } from '../../test/footnote-fixtures.js';
 import {
   BASE_TEMPLATE,
   readDocumentFile,
@@ -48,6 +49,20 @@ const outline = (doc: Node) =>
         .map((block) => (block.content ?? []).map((child) => child.text ?? '').join(''))
         .join(',')}`,
   );
+
+// Each section's footnote entries, as `id=text`.
+const footnotes = (doc: Node) => {
+  const sections: string[][] = [];
+  doc.forEach((section) => {
+    const entries: string[] = [];
+    section.descendants((node) => {
+      if (node.type.name === 'footnote_entry')
+        entries.push(`${String(node.attrs.footnoteId)}=${node.textContent}`);
+    });
+    sections.push(entries);
+  });
+  return sections;
+};
 
 function positionOf(doc: Node, value: string): number {
   let found = -1;
@@ -179,6 +194,21 @@ describe('section commands', () => {
       { name: 'cover', content: [paragraph('Two')] },
     );
     expect(run(stateAt(required, 'Two'), joinDocumentSectionBackward(TEMPLATE))).toBeNull();
+  });
+
+  it('DOCE-SECTIONS-2.1 DOCE-SECTIONS-2.3 keeps each footnote’s text with its marker when a section is split or joined', () => {
+    const cited = read({
+      name: null,
+      content: [
+        { type: 'paragraph', content: [text('One'), note('n1', 'First note')] },
+        { type: 'paragraph', content: [text('Two'), note('n2', 'Second note')] },
+      ],
+    });
+    expect(footnotes(cited)).toEqual([['n1=First note', 'n2=Second note']]);
+    const split = run(stateAt(cited, 'One'), insertDocumentSection(TEMPLATE, null));
+    expect(split && footnotes(split.doc)).toEqual([['n1=First note'], ['n2=Second note']]);
+    const joined = split && run(split, joinDocumentSectionBackward(TEMPLATE));
+    expect(joined && footnotes(joined.doc)).toEqual([['n1=First note', 'n2=Second note']]);
   });
 
   it('DOCE-SECTIONS-2.4 works on the whole document, a section being one page of whole blocks', () => {

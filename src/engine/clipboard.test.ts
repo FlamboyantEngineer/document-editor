@@ -2,7 +2,7 @@ import { Fragment, type Node as ProseMirrorNode, Slice } from 'prosemirror-model
 import { EditorState, type Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
-import { documentSchema } from '../../test/document-markup.js';
+import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
 import { caretAt, footnoteParts, footnoteState, note } from '../../test/footnote-fixtures.js';
 import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
@@ -75,6 +75,7 @@ function marksOf(doc: ProseMirrorNode): string[] {
 const REVIEWED =
   '<p data-id="aaaa0001" data-au="ada"><mark data-comment-id="c1">Noted</mark> ' +
   '<ins data-id="s1" data-au="bea">added</ins><del data-id="s2" data-au="bea">gone</del> ' +
+  '<span data-format-change="[]" data-id="s3" data-au="bea"><strong>set</strong></span> ' +
   '<span data-signature="ada" data-signature-name="Ada"></span>end</p>';
 
 describe('the paste pipeline', () => {
@@ -122,8 +123,12 @@ describe('the paste pipeline', () => {
       'Target',
     );
     pasteHtml(view, `${REVIEWED}<p data-id="aaaa0002" data-au="ada">Second</p>`);
-    expect(blocks(view.state.doc)).toEqual(['paragraph:Noted added end', 'paragraph:SecondTarget']);
-    expect(marksOf(view.state.doc)).toEqual([]);
+    expect(blocks(view.state.doc)).toEqual([
+      'paragraph:Noted added set end',
+      'paragraph:SecondTarget',
+    ]);
+    // The suggested formatting stays, as a change the copy has taken; its record does not.
+    expect(marksOf(view.state.doc)).toEqual(['strong']);
     const kept: unknown[] = [];
     view.state.doc.descendants((node) => {
       if (node.type.name === 'signature' || node.attrs.dataAuthor === 'ada') kept.push(node.attrs);
@@ -178,6 +183,22 @@ describe('the paste pipeline', () => {
       'paragraph:Two',
       'paragraph:Target',
     ]);
+    view.destroy();
+  });
+
+  it('DOCE-EDITING-5.3 DOCE-SUGGESTIONS-1.8 pastes plain text with the formatting at the caret, outside the suggestion there', () => {
+    const struck = parseMarkup(
+      '<p data-id="aaaa0001">Keep <strong><del data-id="s2" data-au="bea">gone</del></strong> rest</p>',
+    );
+    const view = viewOf(struck, [createClipboard()], 'gone');
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(struck, at(struck, 'gone', 2))));
+    pasteText(view, 'new');
+    expect(blocks(view.state.doc)).toEqual(['paragraph:Keep gonewne rest']);
+    const pasted: string[] = [];
+    view.state.doc.descendants((node) => {
+      if (node.text === 'new') pasted.push(...node.marks.map((mark) => mark.type.name));
+    });
+    expect(pasted).toEqual(['strong']);
     view.destroy();
   });
 

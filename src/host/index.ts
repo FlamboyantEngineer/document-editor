@@ -70,6 +70,11 @@ export type {
   CompletionAvailability,
   CompletionContext,
 } from './completion-adapters.js';
+  DocumentExport,
+  ExportRequest,
+  ExportsAdapter,
+  ExportSnapshotOptions,
+} from './export-adapters.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHost, MemoryHostOptions } from './memory-host.js';

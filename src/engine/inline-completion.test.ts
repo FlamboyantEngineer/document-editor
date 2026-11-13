@@ -209,7 +209,7 @@ describe('asking the provider', () => {
     vi.useRealTimers();
   });
 
-  it('DOCE-AUTOMATION-3.3 DOCE-HOST-1.22 asks once the writer pauses and offers the answer after the caret', async () => {
+  it('DOCE-AUTOMATION-3.3 DOCE-HOST-1.23 asks once the writer pauses and offers the answer after the caret', async () => {
     vi.useFakeTimers();
     const { view, complete, answer } = asking();
     type(view, ' one');

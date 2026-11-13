@@ -316,6 +316,7 @@
       "attrs": {
         "level": { "default": 1 },
         "docTitle": { "default": false },
+        "numbered": { "default": true },
         "className": { "default": "" },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
@@ -335,7 +336,7 @@
       ],
       "toDOM": {
         "defaults": "<h1></h1>",
-        "filled": "<h3 data-doc-title=\"true\" class=\"sample-className\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"></h3>"
+        "filled": "<h3 data-doc-title=\"true\" data-numbered=\"false\" class=\"sample-className\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-suggestion-split-kind=\"sample-suggestionSplitKind\" data-suggestion-split-id=\"sample-suggestionSplitId\" data-suggestion-format=\"&quot;sample-suggestionFormat&quot;\"></h3>"
       }
     },
     {
@@ -1125,7 +1126,7 @@
     {
       "name": "insertion",
       "ordinal": 10,
-      "inclusive": null,
+      "inclusive": false,
       "excludes": "",
       "group": null,
       "spanning": null,
@@ -1143,7 +1144,7 @@
     {
       "name": "deletion",
       "ordinal": 11,
-      "inclusive": null,
+      "inclusive": false,
       "excludes": "",
       "group": null,
       "spanning": null,

@@ -1,5 +1,6 @@
 // The editing runtime: commands and plugins an editor installs.
 
+export type { CitationHref, PrintedCitation } from '../model/schema/reference-mark.js';
 export type {
   AbbreviationHealthOptions,
   AbbreviationIssue,
@@ -121,7 +122,7 @@ export {
   renderTemplateBlock,
   templateBlockKeys,
 } from './dynamic-templates.js';
-export type { EditLockOptions } from './edit-lock.js';
+export type { EditLockOptions, EditLockState, HistoryDirection } from './edit-lock.js';
 export { createEditLock, editLockKey, isLockedIn, isPositionLocked } from './edit-lock.js';
 export {
   changeParagraphLevel,
@@ -233,6 +234,9 @@ export {
   type PresenceRange,
   presenceSelection,
 } from './presence-address.js';
+export type { ResolveImage } from './print-images.js';
+export type { SnapshotOutlineEntry } from './print-outline.js';
+export { snapshotOutline } from './print-outline.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
 export { touchesReferences } from './reference-updates.js';
@@ -257,6 +261,8 @@ export {
   shortcutsKey,
   shortcutsOf,
 } from './shortcuts.js';
+export type { ReadySnapshotOptions, ResolveImageAsync } from './snapshot-ready.js';
+export { documentSnapshotWhenReady } from './snapshot-ready.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';

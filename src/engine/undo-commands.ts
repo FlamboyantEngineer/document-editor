@@ -4,6 +4,8 @@
 
 import { redo as historyRedo, undo as historyUndo } from 'prosemirror-history';
 import type { Command, EditorState, Plugin } from 'prosemirror-state';
+import { editLockKey, type HistoryDirection, isRefusedBy } from './edit-lock.js';
+import { captureTransaction } from './table-parts.js';
 
 /** An undo and a redo command. */
 export interface UndoCommands {
@@ -31,7 +33,29 @@ export function undoCommandsOf(state: EditorState): UndoCommands {
   return HISTORY_COMMANDS;
 }
 
-const HISTORY_COMMANDS: UndoCommands = { undo: historyUndo, redo: historyRedo };
+// The history's undo or redo under an edit lock. An undo is the writer's change, so the lock
+// refuses one into content locked since, and the history, which a refused change leaves as it
+// was, offers the same one again: undo stops there. Run, the command tells the lock so instead of
+// dispatching a change that goes nowhere, and still handles its key, which the browser's own undo
+// would otherwise take. Asked, it then answers false. Telling takes the change built and each of
+// its steps checked, the cost of the undo itself, so it is found when the writer undoes and kept
+// in the lock's state, not worked out each time a control asks.
+function underLock(direction: HistoryDirection, command: Command): Command {
+  return (state, dispatch, view) => {
+    const lock = editLockKey.getState(state);
+    if (!lock) return command(state, dispatch, view);
+    if (!dispatch) return command(state) && lock.refused !== direction;
+    const offered = captureTransaction(command, state);
+    if (!offered) return false;
+    dispatch(isRefusedBy(lock, offered) ? state.tr.setMeta(editLockKey, direction) : offered);
+    return true;
+  };
+}
+
+const HISTORY_COMMANDS: UndoCommands = {
+  undo: underLock('undo', historyUndo),
+  redo: underLock('redo', historyRedo),
+};
 
 /** Undoes the writer's last change, with the state's undo (`undoCommandsOf`). */
 export const undoCommand: Command = (state, dispatch, view) =>

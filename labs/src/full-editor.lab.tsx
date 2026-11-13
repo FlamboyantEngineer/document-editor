@@ -39,6 +39,7 @@ import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
 import { HOST_DIALOGS, NOTE_ITEM } from './host-dialogs.js';
+import { labExports } from './host-exports.js';
 import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { labPanels, RevealPanes } from './host-panes.js';
@@ -355,6 +356,10 @@ function Lab() {
   );
   const comments = HOST.comments;
   const menubar = useMemo(() => hostMenubar(() => setNotice('Saved')), []);
+  const exports = useMemo(
+    () => labExports((pages) => setSnapshot(`${String(pages)} pages printed`)),
+    [],
+  );
   return (
     <>
       <div className="lab-controls">
@@ -460,6 +465,7 @@ function Lab() {
         toolbar={TOOLBAR}
         dialogs={HOST_DIALOGS}
         menubar={menubar}
+        exports={exports}
         contextMenu={HOST_CONTEXT_MENU}
         scrollable
         statusBar

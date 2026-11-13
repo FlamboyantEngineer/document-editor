@@ -29,7 +29,7 @@ Verification: `src/engine/document-sections.test.ts`, `e2e/sections.spec.ts`
 
 ### DOCE-SECTIONS-2.1 - Starting a section
 
-`insertDocumentSection(template, name)` shall start a section of a template section's name, or a plain section for `null`, after the top-level block the caret is in: the blocks after it shall move to the new section, which starts with its template section's content, or an empty paragraph, when there are none. The caret shall move to the new section's start.
+`insertDocumentSection(template, name)` shall start a section of a template section's name, or a plain section for `null`, after the top-level block the caret is in: the blocks after it shall move to the new section, which starts with its template section's content, or an empty paragraph, when there are none. The caret shall move to the new section's start. Each footnote's entry shall stay with its marker, with its text: each of the two sections holds the entries its blocks cite.
 
 Implementation: `src/engine/document-sections.ts`
 Verification: `src/engine/document-sections.test.ts`
@@ -43,7 +43,7 @@ Verification: `src/engine/document-sections.test.ts`
 
 ### DOCE-SECTIONS-2.3 - Joining sections
 
-`joinDocumentSectionBackward(template)` shall join the section the caret is in into the one before, its blocks after that section's, keeping the earlier section's name and the caret where it was. It shall refuse in the first section and in a section its template section requires.
+`joinDocumentSectionBackward(template)` shall join the section the caret is in into the one before, its blocks after that section's, keeping the earlier section's name and the caret where it was. It shall refuse in the first section and in a section its template section requires. The joined section shall hold the footnote entries of both, each with its text.
 
 Implementation: `src/engine/document-sections.ts`
 Verification: `src/engine/document-sections.test.ts`
@@ -96,7 +96,7 @@ Verification: `src/engine/template-sync.test.ts`
 
 ### DOCE-SECTIONS-4.2 - Bringing sections back in line
 
-`syncTemplateSections(template, options)` shall give each stale section the template's content again, each of its script blocks keeping the output and run time of the section's script block of the same script, in order, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it, with its starting content; it is refused when nothing drifted.
+`syncTemplateSections(template, options)` shall give each stale section the template's content again, each of its script blocks keeping the output and run time of the section's script block of the same script, in order, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it and the plain sections up to the next section the template places after it, with its starting content; it is refused when nothing drifted. The change shall be a system change (`markSystemChange`, DOCE-EDITING-3.2) outside the undo history, so the edit lock on the sections it brings back (DOCE-SECTIONS-4.3) and suggest mode let it pass.
 
 Implementation: `src/engine/template-sync.ts`, `src/engine/document-sections.ts`
 Verification: `src/engine/template-sync.test.ts`

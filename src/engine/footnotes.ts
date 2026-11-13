@@ -13,7 +13,6 @@ import {
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { createElementId } from './element-ids.js';
-import { boundaryMarks } from './footnote-marks.js';
 import {
   canInsertFootnote,
   defaultCitingPlaces,
@@ -30,6 +29,7 @@ import {
 } from './footnote-model.js';
 import { reconcileFootnotes } from './footnote-reconcile.js';
 import { isInlineTextOnly, isRemoteTransaction } from './transaction-kind.js';
+import { typingMarks } from './typing-marks.js';
 
 export type { FootnoteAt } from './footnote-model.js';
 export { canInsertFootnote, listFootnotes, numberFootnotes } from './footnote-model.js';
@@ -209,8 +209,9 @@ function reconcileAfter(
 
 /**
  * Keeps footnote entries with their markers after each of the writer's changes (`reconcileFootnotes`),
- * numbers them in document order, gives the caret beside a marker the marks of the text around it,
- * and marks the part of a footnote the reader was taken to with `data-de-revealed`.
+ * numbers them in document order, gives the caret the marks typing there takes (`typingMarks`:
+ * beside a marker those of the text around it, inside struck text none of the deletion), and marks
+ * the part of a footnote the reader was taken to with `data-de-revealed`.
  */
 export function createFootnotes(options: FootnotesOptions = {}): Plugin<FootnotesPluginState> {
   return new Plugin<FootnotesPluginState>({
@@ -228,9 +229,9 @@ export function createFootnotes(options: FootnotesOptions = {}): Plugin<Footnote
       let changed = reconcileAfter(transactions, [before, tr], options);
       const moved = transactions.some((t) => t.docChanged || t.selectionSet);
       const marks = moved && !transactions.some((t) => t.storedMarksSet);
-      const beside = marks && tr.selection.empty ? boundaryMarks(tr.selection.$from) : null;
-      if (beside) {
-        tr.setStoredMarks(beside);
+      const typing = marks && tr.selection.empty ? typingMarks(tr.selection.$from) : null;
+      if (typing) {
+        tr.setStoredMarks(typing);
         changed = true;
       }
       return changed ? tr : null;
