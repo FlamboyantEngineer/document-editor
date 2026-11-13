@@ -25,7 +25,16 @@ export type { DocxOptions } from './docx.js';
 export { writeDocx } from './docx.js';
 export * from './format-upgrade.js';
 export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
-export type { MarkdownOptions } from './markdown.js';
+export type { SuggestionsMode } from './left-out.js';
+export { isLeftOut } from './left-out.js';
+export type {
+  FrontMatterValue,
+  MarkdownComment,
+  MarkdownOptions,
+  MarkdownThread,
+  MarkdownValues,
+  PersonName,
+} from './markdown.js';
 export { writeMarkdown } from './markdown.js';
 export type * from './template-format.js';
 export { TEMPLATE_FORMAT_VERSION } from './template-format.js';

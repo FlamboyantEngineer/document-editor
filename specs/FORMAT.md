@@ -110,17 +110,66 @@ Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-FORMAT-4.1 - Writing Markdown
 
-`writeMarkdown(file)` shall write a stored document as Markdown with GitHub's tables, strikethrough and footnotes: headings, paragraphs and their formats, links, lists, quotes, fenced code with its language, linked code, inline and display math, its stored `source`, between dollar signs, tables with their caption, figures as images with their caption, rules, and footnotes as numbered definitions at the end; underline, superscript and subscript as HTML; page breaks and lists of contents left out.
+`writeMarkdown(file)` shall write a stored document as Markdown with GitHub's tables, strikethrough and footnotes: headings, paragraphs and their formats, links, lists, quotes, fenced code with its language and caption, linked code, inline and display math, its stored `source`, between dollar signs, tables with their caption, figures and inline images as images, a figure with its caption, rules, and footnotes as numbered definitions at the end; underline, superscript and subscript as HTML; page breaks and lists of contents left out.
 
-Implementation: `src/model/format/markdown.ts`
+Implementation: `src/model/format/markdown.ts`, `src/model/format/markdown/blocks.ts`, `src/model/format/markdown/inlines.ts`
 Verification: `src/model/format/markdown.test.ts`
 
 ### DOCE-FORMAT-4.2 - Suggestions and escapes
 
-The suggestions shall be written as if accepted, or rejected when asked (`suggestions`), and the characters Markdown reads as formatting escaped in text.
+The suggestions shall be written as if accepted, or rejected when asked (`suggestions`), and the characters Markdown reads as formatting escaped in text. What Markdown would read at the start of a line as a block, a heading's number sign, a list item's marker or number, or a rule, shall be escaped there, also after a line break; the spaces at the edges of formatted or linked text shall be written outside its markers; and a pipe in code or math inside a table shall be escaped, so it does not end the cell.
+
+Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
+Verification: `src/model/format/markdown.test.ts`
+
+### DOCE-FORMAT-4.3 - Suggested blocks
+
+A writer that writes the suggestions as accepted shall leave out each block suggested for deletion, such as a figure or the paragraph a suggestion splits, and one that writes them as rejected each block suggested as an insertion (`isLeftOut`), with its content; a list item whose blocks are all left out shall be left out with its marker.
+
+Implementation: `src/model/format/left-out.ts`, `src/model/format/markdown/blocks.ts`
+Verification: `src/model/format/left-out.test.ts`, `src/model/format/markdown.test.ts`
+
+### DOCE-FORMAT-4.4 - Fidelity
+
+Code shall be fenced by a run of backticks longer than any it holds, three at least for a block, and a code span that starts or ends with a backtick padded with a space. A link's address shall be written so that nothing in it ends the link: a space, a control character or a backslash percent-encoded and a parenthesis escaped, with the link's title quoted after it; a code span keeps its link. An entity reference in text and a heading's closing run of number signs shall be escaped. A table's merged cell shall be written in its first place, and the places it covers left empty, so each row is as wide as the table; a cell's paragraphs and line breaks shall be joined by `<br>` on its one line. A figure or image stored by asset with no address of its own shall be written at the address `values.asset({ id, revision })` gives, and a figure with no address as its caption alone.
+
+Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/tables.ts`, `src/model/format/markdown/writing.ts`
+Verification: `src/model/format/markdown-fidelity.test.ts`
+
+### DOCE-FORMAT-4.5 - Values and format changes
+
+A variable shall be written as the text `values.variable(key)` gives, or as its key in braces when it gives none. A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept; a template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
+
+Implementation: `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
+Verification: `src/model/format/markdown-fidelity.test.ts`
+
+### DOCE-FORMAT-4.6 - Title and front matter
+
+`frontMatter` shall be written first as YAML front matter between `---` lines, each property's value as JSON, which YAML reads as the same value, and a key YAML would not read as itself quoted; a property whose value is undefined is left out. `title` shall be written next as a level-1 heading.
+
+Implementation: `src/model/format/markdown/front-matter.ts`, `src/model/format/markdown.ts`
+Verification: `src/model/format/markdown-appendix.test.ts`
+
+### DOCE-FORMAT-4.7 - Comment threads
+
+The comment threads given as `threads` (a host's `CommentThread` is one) shall be listed after the text under a "Comments" heading, in the order of their first anchor in the document and threads with none, such as one about the whole document, last. Each shall name the text it is on, or the document, and whether it is resolved, with its comments in order, each by its author's name (`person`, or the id when it gives none) and date. A reply still being written or that failed shall not be listed, and a thread with no comment left is not listed.
+
+Implementation: `src/model/format/markdown/appendix.ts`
+Verification: `src/model/format/markdown-appendix.test.ts`
+
+### DOCE-FORMAT-4.8 - Suggestion list
+
+With `suggestionList`, the document's suggestions shall be listed under a "Suggestions" heading, in the order of their place in the document, one item for each suggestion by its id or thread: what it inserts, deletes, replaces or formats, with a block that holds no text, such as a figure, named by its type, and its author's name when it is stored. Neither list shall be written when there is nothing to list.
+
+Implementation: `src/model/format/markdown/appendix.ts`
+Verification: `src/model/format/markdown-appendix.test.ts`
+
+### DOCE-FORMAT-4.9 - Golden Markdown
+
+`test/fixtures/markdown/` shall hold each regression-set document (`test/fixtures/documents/`) as `writeMarkdown` writes it, the comments document with its threads and suggestion list and with its suggestions rejected, the variables document with its values, title and front matter, and the figures document with its asset addresses; each document shall be written exactly as its golden file.
 
 Implementation: `src/model/format/markdown.ts`
-Verification: `src/model/format/markdown.test.ts`
+Verification: `src/model/format/markdown-golden.test.ts`
 
 ## DOCE-FORMAT-5 - Word processing documents
 
