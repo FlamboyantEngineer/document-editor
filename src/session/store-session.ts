@@ -107,13 +107,23 @@ export function createSessionStores(
 export type SessionStores = ReturnType<typeof createSessionStores>;
 type StoreSaving = ReturnType<typeof createStoreSaving>;
 
-/** Shows another template the document pins; null when it cannot load or the document is gone. */
+// How many template changes each session's stores were asked for: only the last one asked shows.
+const templateAsks = new WeakMap<SessionStores, number>();
+
+/**
+ * Shows another template the document pins; null when it cannot load, the document is gone, or
+ * another change was asked for since, whichever load ends first.
+ */
 export async function changeTemplate(
   { host, signal }: { host: DocumentSessionOptions['host']; signal: AbortSignal },
-  { status, document }: SessionStores,
+  stores: SessionStores,
   pin: TemplatePin | null,
 ) {
+  const { status, document } = stores;
+  const ask = (templateAsks.get(stores) ?? 0) + 1;
+  templateAsks.set(stores, ask);
   const loaded = await loadPinnedTemplate(host, pin, signal);
+  if (templateAsks.get(stores) !== ask) return null;
   const shown = document.get();
   if (!loaded.ok) status.set({ ...status.get(), error: loaded.error });
   if (!loaded.ok || !shown || signal.aborted) return null;

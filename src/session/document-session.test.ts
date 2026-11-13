@@ -142,6 +142,43 @@ describe('createDocumentSession in store mode', () => {
   });
 });
 
+describe('template changes in quick succession', () => {
+  it('DOCE-SESSION-1.5 shows the template asked for last, whichever load ends last', async () => {
+    const host = createMemoryHost({
+      documents: [
+        { id: 'doc', content: { ...DOCUMENT, template: { id: 'memo', revision: 'rev-1' } } },
+      ],
+      templates: [
+        { formatVersion: 1, id: 'memo' },
+        { formatVersion: 1, id: 'memo', page: { size: 'US Letter' } },
+      ],
+    });
+    const templates = host.templates;
+    if (!templates) throw new Error('The host has no templates.');
+    const load = templates.load.bind(templates);
+    const held: (() => void)[] = [];
+    templates.load = async (...args) => {
+      const loaded = await load(...args);
+      // The first revision asked for answers only once the test lets it.
+      if (args[1]?.revision === 'rev-1') await new Promise<void>((resolve) => held.push(resolve));
+      return loaded;
+    };
+    const session = open(host);
+    const ready = session.ready;
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    held.shift()?.();
+    await ready;
+    const older = session.setTemplate({ id: 'memo', revision: 'rev-1' });
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    const newer = await session.setTemplate({ id: 'memo', revision: 'rev-2' });
+    held.shift()?.();
+    expect(newer).toBe(true);
+    expect(await older).toBe(false);
+    expect(shown(session).pin).toEqual({ id: 'memo', revision: 'rev-2' });
+    expect(shown(session).template.page?.size).toBe('US Letter');
+  });
+});
+
 describe('store-mode saving', () => {
   it('DOCE-SESSION-2.1 leaves a document clean after a change of ids or authorship alone', async () => {
     const session = open(hostWith());

@@ -34,7 +34,7 @@ Verification: `src/session/document-session.test.ts`
 
 ### DOCE-SESSION-1.5 - Template changes
 
-When the host saves a revision of the pinned template newer than the pinned one (`templates.subscribe`), the session's document shall name it (`templateUpdate`), so the reader may move to it. `setTemplate(pin)` shall load and resolve another template or revision, show it, and count the new pin as a change to save.
+When the host saves a revision of the pinned template newer than the pinned one (`templates.subscribe`), the session's document shall name it (`templateUpdate`), so the reader may move to it. `setTemplate(pin)` shall load and resolve another template or revision, show it, and count the new pin as a change to save. Of changes asked for in quick succession, as a reader's choice and another writer's pin, the last asked for shows, whichever load ends last; the others resolve false.
 
 Implementation: `src/session/session-follow.ts`, `src/session/store-session.ts`
 Verification: `src/session/document-session.test.ts`
