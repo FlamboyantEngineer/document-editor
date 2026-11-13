@@ -155,16 +155,22 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Page setup',
     scope: ['page'],
     settings: [
-      setting(
-        'size',
-        'Page size',
-        select(...PAGE_SIZES.map((size): [string, string] => [size, pageSizeLabel(size)])),
-      ),
-      setting(
-        'orientation',
-        'Orientation',
-        choice(['portrait', 'Portrait'], ['landscape', 'Landscape']),
-      ),
+      {
+        ...setting(
+          'size',
+          'Page size',
+          select(...PAGE_SIZES.map((size): [string, string] => [size, pageSizeLabel(size)])),
+        ),
+        pagesOnly: true,
+      },
+      {
+        ...setting(
+          'orientation',
+          'Orientation',
+          choice(['portrait', 'Portrait'], ['landscape', 'Landscape']),
+        ),
+        pagesOnly: true,
+      },
       setting('margins', 'Margins', { type: 'sides', unit: 'page', side: 'margin' }),
     ],
   },
@@ -184,6 +190,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     id: 'regions',
     title: 'Header & footer',
     scope: [],
+    pagesOnly: true,
     settings: [
       ...region('header', 'Header', 'Space below the header'),
       ...region('footer', 'Footer', 'Space above the footer'),

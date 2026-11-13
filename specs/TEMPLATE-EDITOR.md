@@ -149,10 +149,76 @@ In the template editor lab, the template's preview document (DOCE-TEMPLATE-EDITO
 Implementation: `labs/src/template-editor.lab.tsx`
 Verification: `e2e/template-editor.spec.ts`
 
+## DOCE-TEMPLATE-EDITOR-3 - The template workspace
+
+### DOCE-TEMPLATE-EDITOR-3.1 - Opening templates
+
+`TemplateWorkspace` (`de-template-workspace`) shall edit the templates of a host's template store (`store`, DOCE-HOST-1.24) one at a time: a toolbar (`toolbar`) picks a stored template (DOCE-TEMPLATE-EDITOR-3.8), opening it at its latest revision in the template editor (`settings`, DOCE-TEMPLATE-EDITOR-1) with the other stored templates as its parents, and tells the host which template is open (`onTemplateIdChange`). `defaultTemplateId` opens one at first. What the template inherits is loaded through the store, the base template from the library when the store has none, and the editor shows it as the inherited values. The root publishes `data-dirty` while the open template has changes it has not saved.
+
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-workspace/template-requests.ts`, `labs/src/template-workspace.lab.tsx`, `labs/template-workspace.html`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.2 - Saving with a revision guard
+
+Save shall store the open template's changes on the revision it was opened or last saved at; a store that refuses the save as a conflict, because another save came between, leaves the changes and asks the reader to reload the template as stored now, dropping them, or to keep them, saving them over the stored revision. Another failure shows the store's message.
+
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.3 - New templates and copies
+
+New template shall open an unsaved template with a free id (`template`, then `template-2` and on) and a name, whose id is a row until its first save (DOCE-TEMPLATE-EDITOR-2.6), which creates it in the store. Save as shall create a copy of the open template's settings, changes included, under an id and name the reader gives in a dialog, and open the copy; an id the store already has is refused, saying so.
+
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-workspace/template-dialogs.tsx`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.4 - Deleting a template
+
+Delete shall remove the open template from the store once the reader confirms in an alert dialog, leaving no template open; a store that refuses, such as for a template another inherits, shows why.
+
+Implementation: `src/components/template-workspace/template-dialogs.tsx`, `src/components/template-workspace/use-template-workspace.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`
+
+### DOCE-TEMPLATE-EDITOR-3.5 - History and restoring
+
+With a store that lists versions, History shall show the open template's saved versions (`history`) on the base library's `VersionHistory`, newest first and the current one marked. Selecting another version shows its settings read-only in the editor and the preview, with a banner naming it, which returns to the template or restores the version; restoring, from the banner or the history after its confirmation, saves the version's settings as the template's newest revision.
+
+Implementation: `src/components/template-workspace/template-history.tsx`, `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.6 - The preview and web-layout templates
+
+`renderPreview` shall draw the template shown, resolved with what it inherits, beside the settings (`preview`, a region named by `preview`), with the scope the settings show and, while the template is editable, `onRegionChange`, which writes a header or footer edited on the preview's pages into the open template (`withRegionChange`). Whether a template is for pages or the web layout is the host's to say (`layoutOf`, pages by default), since the stored format does not hold it; the preview is told the layout and the root publishes it as `data-layout`, so a web-layout template previews as the web layout shows a document, and the template editor, given the layout (`layout`), shows no page size, orientation, header or footer rows for it (`pagesOnly`), keeping its margins, which inset the web layout's content.
+
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/template-rows.tsx`, `src/components/template-editor/settings-catalog.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.7 - Guarding unsaved changes
+
+The workspace shall register its unsaved changes with the base library's `UnsavedChangesGuard`, named by the template: opening another template or a new one while the open one has changes first asks the reader to save, discard or stay, and leaving the page asks the browser to confirm. Discarding drops the changes of a saved template and closes an unsaved one.
+
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.8 - The template picker
+
+`TemplatePicker` (`de-template-picker`) shall offer the templates given, as a template store lists them, in a select field, by name in alphabetical order with the id under it, or by id alone for one without a name, and hand the id of the one picked to `onSelectionChange`.
+
+Implementation: `src/components/template-workspace/template-picker.tsx`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`
+
 ## Hooks
 
-| Hook                      | Kind      | Values                | Description                                      |
-| ------------------------- | --------- | --------------------- | ------------------------------------------------ |
-| `de-template-editor`      | root      |                       | The template editor's settings panel.            |
-| `de-template-json-editor` | root      |                       | The template's JSON editor.                      |
-| `data-scope`              | attribute | `document`, `section` | On the template editor: whose settings it shows. |
+| Hook                              | Kind      | Values                | Description                                                   |
+| --------------------------------- | --------- | --------------------- | ------------------------------------------------------------- |
+| `de-template-editor`              | root      |                       | The template editor's settings panel.                         |
+| `de-template-json-editor`         | root      |                       | The template's JSON editor.                                   |
+| `data-scope`                      | attribute | `document`, `section` | On the template editor: whose settings it shows.              |
+| `de-template-workspace`           | root      |                       | The template workspace.                                       |
+| `de-template-workspace__toolbar`  | slot      |                       | The workspace's toolbar: the picker and the template actions. |
+| `de-template-workspace__settings` | slot      |                       | The open template's settings.                                 |
+| `de-template-workspace__preview`  | slot      |                       | The host's preview of the template shown.                     |
+| `de-template-workspace__history`  | slot      |                       | The open template's saved versions.                           |
+| `de-template-picker`              | root      |                       | The template picker's field.                                  |
+| `data-dirty`                      | attribute | `true`                | On the workspace: the open template has unsaved changes.      |
+| `data-layout`                     | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.       |

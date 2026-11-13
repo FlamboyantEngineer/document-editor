@@ -270,6 +270,21 @@ describe('projection view', () => {
     expect(projection.stats().relaid).toBe(0);
   });
 
+  it('DOCE-PAGINATION-7.12 lays the pages out again when a change cannot be placed on pages that no longer join into the document', () => {
+    // A footnote entry no marker cites is left off the pages, so they do not join into the
+    // document, and the change that removes it maps outside them.
+    const plain = canonicalState();
+    const area = positionOf(plain.doc, 'Epsilon') + 'Epsilon five'.length + 3;
+    const orphan = documentSchema.node('footnote_entry', null, [documentSchema.text('Orphan')]);
+    const state = plain.apply(plain.tr.insert(area, orphan));
+    const { projection } = mount({ state });
+    expect(inSync(projection)).toBe(false);
+    const tr = state.tr.delete(area, area + orphan.nodeSize);
+    expect(() => projection.update(state.apply(tr), tr)).not.toThrow();
+    expect(inSync(projection)).toBe(true);
+    expect(projection.stats().relaid).toBe(1);
+  });
+
   it('DOCE-PAGINATION-7.12 takes back the state the host made from its own transaction without mirroring it again', () => {
     const sent: Transaction[] = [];
     const { projection } = mount({ dispatch: (tr) => sent.push(tr) });

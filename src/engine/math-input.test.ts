@@ -65,6 +65,29 @@ describe('math input rules', () => {
     expect(paragraphText(shown, 0)).toBe('Energy is E = mc^2 here');
   });
 
+  it('DOCE-OBJECTS-1.8 leaves a closing dollar as text when the LaTeX before it would hold math', () => {
+    const math = nodes.math_inline?.create(null, documentSchema.text('x'));
+    const paragraph = nodes.paragraph?.create(null, [
+      documentSchema.text('Say $a'),
+      ...(math ? [math] : []),
+      documentSchema.text('b'),
+    ]);
+    const doc = paragraph && documentSchema.topNodeType.createAndFill(null, [paragraph]);
+    if (!doc) throw new Error('The document is valid');
+    const state = EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) });
+    const end = 1 + (paragraph?.content.size ?? 0);
+    view = new EditorView(document.createElement('div'), {
+      state: state.apply(state.tr.setSelection(TextSelection.create(state.doc, end))),
+    });
+    type(view, '$');
+    expect(paragraphText(view, 0)).toBe('Say $axb$');
+    let count = 0;
+    view.state.doc.descendants((node) => {
+      if (node.type.name === 'math_inline') count += 1;
+    });
+    expect(count).toBe(1);
+  });
+
   it('DOCE-OBJECTS-1.8 leaves dollars next to spaces, escaped dollars and dollars in code as text', () => {
     const shown = viewOf(['']);
     type(shown, 'From $5 to $8, \\$x$ or $ y$');

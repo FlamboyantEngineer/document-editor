@@ -43,14 +43,23 @@ function difference(from: ProseMirrorNode, to: ProseMirrorNode): Transform | nul
   return tr.doc.eq(to) ? tr : null;
 }
 
+type MirroredChange = { readonly tr: Transaction; readonly map: ProjectionMap } | null;
+
 /**
  * The projection transaction that mirrors a canonical change, with the map after it; null when a
- * step cannot be placed, and the pages are then laid out again instead.
+ * step cannot be placed, even one the map places outside the pages because they no longer join into
+ * the document shown, and the pages are then laid out again instead (DOCE-PAGINATION-7.12).
  */
-export function mirrorChange(
-  target: MirrorTarget,
-  change: CanonicalChange,
-): { readonly tr: Transaction; readonly map: ProjectionMap } | null {
+export function mirrorChange(target: MirrorTarget, change: CanonicalChange): MirroredChange {
+  try {
+    return mirrorSteps(target, change);
+  } catch (error) {
+    if (error instanceof RangeError) return null;
+    throw error;
+  }
+}
+
+function mirrorSteps(target: MirrorTarget, change: CanonicalChange): MirroredChange {
   const { projection } = target;
   const steps = change.tr ?? difference(change.from, change.canonical.doc);
   if (!steps) return null;

@@ -2,7 +2,12 @@ import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
-import { applyEdits, automationActor, type AutomationOptions } from './automation.js';
+import {
+  applyEdits,
+  automationActor,
+  type AutomationEdit,
+  type AutomationOptions,
+} from './automation.js';
 import { describeBlocks } from './automation-read.js';
 import { listCommentAnchors } from './comments.js';
 import { createEditLock } from './edit-lock.js';
@@ -28,6 +33,19 @@ function stateOf(...content: StoredNode[]) {
 }
 
 const textOf = (state: EditorState) => state.doc.textBetween(0, state.doc.content.size, '|');
+
+// Each run of text with the actors its contributor marks name.
+function writers(state: EditorState): string[] {
+  const runs: string[] = [];
+  state.doc.descendants((node) => {
+    if (!node.isText) return;
+    const actors = node.marks
+      .filter((mark) => mark.type.name === 'contributor')
+      .map((mark) => String(mark.attrs.dataAuthor));
+    runs.push(`${node.text ?? ''}:${actors.join('+')}`);
+  });
+  return runs;
+}
 
 function apply(
   state: EditorState,
@@ -90,6 +108,26 @@ describe('automation', () => {
     expect(written).toEqual(['fault ', 'record']);
   });
 
+  it('DOCE-AUTOMATION-1.2 gives text written inside an actor’s text that actor’s mark alone', () => {
+    const insert = (from: number, text: string) =>
+      [{ op: 'insertText', at: { elementId: 'a1a1a1a1', from }, text }] as const;
+    const first = apply(stateOf(paragraph('a1a1a1a1', 'The log.')), insert(4, 'fault '), AGENT);
+    const other: AutomationOptions = { actor: { id: 'agent-2', kind: 'agent' }, mode: 'direct' };
+    const second = apply(first.state, insert(6, 'XX'), other);
+    const third = apply(second.state, insert(5, 'YY'), AGENT);
+    expect(writers(third.state)).toEqual([
+      'The :',
+      'fYYa:agent-1',
+      'XX:agent-2',
+      'ult :agent-1',
+      'log.:',
+    ]);
+    // The contributor mark excludes itself: a document holding two on one text is not valid.
+    expect(() => {
+      third.state.doc.check();
+    }).not.toThrow();
+  });
+
   it('DOCE-AUTOMATION-1.3 refuses a batch whole when an element is gone or its text changed', () => {
     const state = stateOf(paragraph('a1a1a1a1', 'Keep this.'));
     const stale = applyEdits(
@@ -135,6 +173,18 @@ describe('automation', () => {
     expect(added).toMatchObject({ dataAuthor: 'agent-1', dataAiSession: 's1', paragraphLevel: 2 });
   });
 
+  it('DOCE-AUTOMATION-1.4 refuses attributes that say which element it is, or that its type lacks', () => {
+    const state = stateOf(paragraph('a1a1a1a1', 'Keep this.'));
+    const refused = (attrs: Record<string, unknown>) => {
+      const result = applyEdits(state, [{ op: 'setAttrs', elementId: 'a1a1a1a1', attrs }], AGENT);
+      return result.ok ? null : result.error;
+    };
+    expect(refused({ dataId: 'ffffffff' })).toMatchObject({ kind: 'invalid', index: 0 });
+    expect(refused({ paragraphLevel: 2, dataAuthor: 'someone' })?.kind).toBe('invalid');
+    expect(refused({ noSuchAttribute: 1 })?.message).toContain('noSuchAttribute');
+    expect(refused({ paragraphLevel: 2 })).toBeNull();
+  });
+
   it('DOCE-AUTOMATION-1.5 records the changes as suggestions by the actor', () => {
     const state = stateOf(paragraph('a1a1a1a1', 'The log keeps a report.'));
     const { state: next } = apply(
@@ -172,6 +222,49 @@ describe('automation', () => {
       AGENT,
     );
     expect(result).toMatchObject({ ok: false, error: { kind: 'locked' } });
+  });
+
+  it('DOCE-AUTOMATION-1.7 refuses an edit inside an embed or a script’s output, not one of the whole block', () => {
+    const embed: StoredNode = {
+      type: 'embed',
+      attrs: { id: 'e0000001', kind: 'data-set', source: 'set-7', snapshot: 'r1', label: 'Set 7' },
+      content: [paragraph('c3c3c3c3', 'Total 42')],
+    };
+    const script: StoredNode = {
+      type: 'script',
+      attrs: { id: 'f0000001', source: 'one' },
+      content: [paragraph('d4d4d4d4', 'Ran one')],
+    };
+    const state = stateOf(paragraph('a1a1a1a1', 'Intro'), embed, script);
+    const refusal = (...edits: AutomationEdit[]) => {
+      const result = applyEdits(state, edits, AGENT);
+      return result.ok ? null : result.error.kind;
+    };
+    expect(refusal({ op: 'replaceText', at: { elementId: 'c3c3c3c3' }, text: 'Total 0' })).toBe(
+      'locked',
+    );
+    expect(refusal({ op: 'insertText', at: { elementId: 'd4d4d4d4' }, text: '!' })).toBe('locked');
+    expect(refusal({ op: 'deleteBlock', elementId: 'd4d4d4d4' })).toBe('locked');
+    expect(
+      refusal({ op: 'insertBlocks', after: 'c3c3c3c3', content: [paragraph('e5e5e5e5', 'More')] }),
+    ).toBe('locked');
+    // A comment changes nothing an embed holds.
+    expect(
+      refusal({ op: 'comment', at: { elementId: 'c3c3c3c3', from: 0, to: 5 }, text: 'Check' }),
+    ).toBeNull();
+    // An embed's attributes are the host's too.
+    expect(refusal({ op: 'setAttrs', elementId: 'e0000001', attrs: { label: 'Other' } })).toBe(
+      'locked',
+    );
+    const around = apply(
+      state,
+      [
+        { op: 'insertBlocks', after: 'e0000001', content: [paragraph('e5e5e5e5', 'Beside')] },
+        { op: 'deleteBlock', elementId: 'f0000001' },
+      ],
+      AGENT,
+    );
+    expect(textOf(around.state)).toBe('Intro|Total 42|Beside');
   });
 
   it('DOCE-AUTOMATION-1.2 edits an element the pages split as one', () => {

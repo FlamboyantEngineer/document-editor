@@ -324,4 +324,50 @@ test.describe('comments lab', () => {
       .poll(() => page.evaluate(() => document.documentElement.dataset.labCopied))
       .toBe('c0ffee01/e1');
   });
+  test('DOCE-COMMENTS-2.22 keeps the reader to the host thread permissions', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    const thread = card(page, 'Is one second measured');
+    await thread.getByText('Grace Hopper').first().click();
+    await expect(thread.getByRole('button', { name: 'Resolve' })).toBeVisible();
+    await page.getByLabel('Threads by others read only').check();
+    await thread.getByText('Grace Hopper').first().click();
+    await expect(thread.getByRole('button', { name: 'Resolve' })).toHaveCount(0);
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveCount(0);
+  });
+
+  test('DOCE-COMMENTS-2.10 offers only the decisions the host allows', async ({ lab, page }) => {
+    await lab.open('comments');
+    const suggestion = card(page, 'every');
+    await expect(suggestion.getByRole('button', { name: 'Reject' })).toBeVisible();
+    await page.getByLabel('Reject only my own suggestions').check();
+    await expect(suggestion.getByRole('button', { name: 'Reject' })).toHaveCount(0);
+    await expect(suggestion.getByRole('button', { name: 'Accept' })).toBeVisible();
+  });
+
+  test('DOCE-COMMENTS-2.21 starts a thread for the reader’s suggestion once they pause', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Suggesting').check();
+    await page.getByLabel('A thread for each suggestion').check();
+    await content(page).getByText('The log keeps').click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' Twice');
+    await expect(card(page, 'Twice')).toBeVisible();
+  });
+
+  test('DOCE-COMMENTS-2.11 tells the host the panel filter the reader picks', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Comments panel').check();
+    const panel = page.getByRole('region', { name: 'All comments' });
+    await panel.getByRole('radio', { name: /All/ }).check();
+    await expect(page.getByRole('status', { name: 'Panel filter' })).toHaveText('all');
+  });
 });

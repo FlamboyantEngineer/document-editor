@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { type RegionKind, regionKind } from '../model/index.js';
 import { isPositionLocked } from './edit-lock.js';
+import { isHostContentAt } from './host-content.js';
 
 /** How a query matches. */
 export interface SearchOptions {
@@ -78,34 +79,66 @@ export function searchedText(
   return { text, spans };
 }
 
+type Query = { readonly query: string; readonly options: SearchOptions };
+
+// Each match of a pattern in one text block.
+function blockMatches(node: ProseMirrorNode, pos: number, regexp: RegExp): SearchMatch[] {
+  const { text, spans } = searchedText(node, pos);
+  const matches: SearchMatch[] = [];
+  for (const match of text.matchAll(regexp)) {
+    const first = spans[match.index];
+    const last = spans[match.index + match[0].length - 1];
+    if (first && last) matches.push({ from: first.from, to: last.to });
+  }
+  return matches;
+}
+
 /** Each match of a query in the document's text blocks, page headers and footers left out. */
-export function findMatches(
-  doc: ProseMirrorNode,
-  { query, options }: { query: string; options: SearchOptions },
-): SearchMatch[] {
+export function findMatches(doc: ProseMirrorNode, { query, options }: Query): SearchMatch[] {
   const regexp = pattern(query, options);
   if (!regexp) return [];
   const matches: SearchMatch[] = [];
   doc.descendants((node, pos) => {
     if (skipped.has(regionKind(node))) return false;
     if (!node.isTextblock) return true;
-    const { text, spans } = searchedText(node, pos);
-    for (const match of text.matchAll(regexp)) {
-      const first = spans[match.index];
-      const last = spans[match.index + match[0].length - 1];
-      if (first && last) matches.push({ from: first.from, to: last.to });
-    }
+    matches.push(...blockMatches(node, pos, regexp));
     return false;
   });
   return matches;
 }
 
 /**
+ * Each match of a query in the text blocks at some positions, in their order, those in page
+ * headers and footers left out; as `findMatches` finds them, without walking the document.
+ */
+export function findMatchesInBlocks(
+  doc: ProseMirrorNode,
+  blocks: readonly number[],
+  { query, options }: Query,
+): SearchMatch[] {
+  const regexp = pattern(query, options);
+  if (!regexp) return [];
+  const matches: SearchMatch[] = [];
+  for (const pos of blocks) {
+    const node = doc.nodeAt(pos);
+    const $pos = doc.resolve(pos);
+    let shown = Boolean(node?.isTextblock);
+    for (let depth = $pos.depth; shown && depth > 0; depth -= 1) {
+      if (skipped.has(regionKind($pos.node(depth)))) shown = false;
+    }
+    if (node && shown) matches.push(...blockMatches(node, pos, regexp));
+  }
+  return matches;
+}
+
+/**
  * Whether the writer may replace a match: it is plain text, holding no inline node such as a
- * mention or a value the document shows, and none of it is locked.
+ * mention or a value the document shows, none of it is locked and it is not the host's content.
  */
 export function isMatchReplaceable(state: EditorState, match: SearchMatch): boolean {
   if (isPositionLocked(state, match.from) || isPositionLocked(state, match.to - 1)) return false;
+  // A match sits in one text block, so its start tells whether an embed or an output holds it.
+  if (isHostContentAt(state.doc, match.from)) return false;
   let plain = true;
   state.doc.nodesBetween(match.from, match.to, (node) => {
     if (node.isInline && !node.isText) plain = false;

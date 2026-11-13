@@ -207,6 +207,29 @@ describe('proofing', () => {
     expect(proofingUpdate(stale.insertText('x', 4))).toBeNull();
   });
 
+  it('DOCE-PROOFING-1.4 commits results held for a press once a native drag ends it', async () => {
+    const doc = stateOf(paragraph(text('teh cat'))).doc;
+    const plugins = [createProofing({ proofer: newProofer(), delay: 0 })];
+    const view = new EditorView(document.body.appendChild(document.createElement('div')), {
+      state: EditorState.create({ doc, plugins }),
+      // The press only: no selection is made from it.
+      handleDOMEvents: { mousedown: () => true },
+    });
+    try {
+      view.dom.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      // A native drag fires dragend, and no mouseup, when it ends.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(issueTexts(view.state)).toEqual([]);
+      view.dom.dispatchEvent(new Event('dragend', { bubbles: true }));
+      await vi.waitFor(() => {
+        expect(issueTexts(view.state)).toEqual(['spelling:teh']);
+      });
+    } finally {
+      view.destroy();
+      document.body.replaceChildren();
+    }
+  });
+
   it('DOCE-PROOFING-2.4 replaces every issue like one as one change', async () => {
     const state = await checked(stateOf(paragraph(text('teh one and teh two, recieve'))));
     const [first] = listProofingIssues(state);

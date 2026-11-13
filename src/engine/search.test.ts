@@ -1,8 +1,10 @@
+import { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { BASE_TEMPLATE, readDocumentFile, type StoredNode } from '../model/index.js';
+import { createDocumentEditing } from './document-editing.js';
 import { createEditLock } from './edit-lock.js';
 import {
   createSearch,
@@ -56,6 +58,42 @@ describe('search', () => {
     expect(searchKey.getState(state)?.matches).toEqual([]);
   });
 
+  it('DOCE-SEARCH-1.1 follows typed text by searching again only the blocks it changed', () => {
+    let state = run(stateOf('log one', 'two', 'log three', 'log four'), setSearch('log'));
+    state = run(state, selectNextMatch);
+    let typedAt = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'two') typedAt = pos + 3;
+    });
+    const descendants = vi.spyOn(Node.prototype, 'descendants');
+    const typed = state.apply(state.tr.insertText('lo', typedAt).insertText('g', typedAt + 2));
+    const walked = descendants.mock.contexts.filter(
+      (node) => (node as Node).type.name === 'doc',
+    ).length;
+    descendants.mockRestore();
+    expect(walked).toBe(0);
+    const fresh = run(
+      EditorState.create({ doc: typed.doc, plugins: [createSearch()] }),
+      setSearch('log'),
+    );
+    const found = searchState(typed);
+    expect(found?.matches).toEqual(searchState(fresh)?.matches);
+    expect(found?.matches).toHaveLength(4);
+    const marks = (each: EditorState) =>
+      (searchKey.getState(each)?.decorations.find() ?? []).map((decoration) => [
+        decoration.from,
+        decoration.to,
+        (decoration as unknown as { type: { attrs: Record<string, string> } }).type.attrs[
+          SEARCH_MATCH_ATTR
+        ],
+      ]);
+    expect(marks(typed).map(([from, to]) => [from, to])).toEqual(
+      found?.matches.map((match) => [match.from, match.to]),
+    );
+    expect(marks(typed).filter(([, , kind]) => kind === 'current')).toHaveLength(1);
+    expect(marks(typed)[found?.current ?? -1]?.[2]).toBe('current');
+  });
+
   it('DOCE-SEARCH-1.2 moves between matches, wrapping around', () => {
     let state = run(stateOf('one two one two one'), setSearch('one'));
     state = run(state, selectNextMatch);
@@ -76,6 +114,26 @@ describe('search', () => {
     expect(searchKey.getState(state)?.matches).toEqual([]);
   });
 
+  it('DOCE-SEARCH-1.3 goes on to the match after a replacement that holds the query', () => {
+    let state = run(stateOf('a cat and a cat'), setSearch('cat'));
+    state = run(state, replaceMatch('cats'));
+    expect(searchKey.getState(state)?.current).toBe(1);
+    state = run(state, replaceMatch('cats'));
+    expect(textOf(state)).toBe('a cats and a cats');
+  });
+
+  it('DOCE-SEARCH-1.3 goes on to the match after a replacement, not back to the one before it', () => {
+    let state = run(stateOf('ababab'), setSearch('ab'));
+    state = run(state, selectNextMatch);
+    state = run(state, replaceMatch('X'));
+    expect(textOf(state)).toBe('abXab');
+    expect(searchKey.getState(state)?.current).toBe(1);
+    state = run(state, replaceMatch('X'));
+    expect(textOf(state)).toBe('abXX');
+    // After the last match the search wraps to the first.
+    expect(searchKey.getState(state)?.current).toBe(0);
+  });
+
   it('DOCE-SEARCH-1.4 leaves matches in locked content found and unchanged', () => {
     const doc = stateOf('cat here', 'Fixed cat').doc;
     let state = EditorState.create({
@@ -92,6 +150,38 @@ describe('search', () => {
     expect(textOf(state)).toBe('dog here|Fixed cat');
     expect(searchKey.getState(state)?.matches).toHaveLength(1);
     expect(replaceAllMatches('dog')(state)).toBe(false);
+  });
+
+  it('DOCE-SEARCH-1.4 leaves a match in an embed found and replaces the others', () => {
+    const embed: StoredNode = {
+      type: 'embed',
+      attrs: { id: 'e0000001', kind: 'data-set', source: 'set-7', snapshot: 'r1', label: 'Set 7' },
+      content: [paragraph('pump total 42')],
+    };
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [paragraph('The pump starts.'), embed, paragraph('A pump stops.')],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let state = EditorState.create({
+      doc,
+      plugins: [...createDocumentEditing(documentSchema), createSearch()],
+    });
+    state = run(state, setSearch('pump'));
+    expect(searchResults(state).map((result) => result.replaceable)).toEqual([true, false, true]);
+    // Applied as a view does, so the embed's own lock would drop a change reaching into it whole.
+    expect(
+      replaceAllMatches('motor')(state, (tr) => (state = state.applyTransaction(tr).state)),
+    ).toBe(true);
+    expect(textOf(state)).toBe('The motor starts.|pump total 42|A motor stops.');
+    expect(replaceMatch('motor')(state)).toBe(false);
   });
 
   it('DOCE-SEARCH-3.1 gives each match in the text of its block, under its heading', () => {
