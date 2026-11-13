@@ -1,5 +1,5 @@
 // The stress labs' page: a generated document in the document editor with its toolbar, status bar
-// and scrolling frame, proofed by a word-list proofer, and the time its pages took to settle, first
+// and scrolling frame, proofed by a word-list proofer and completed inline, and the time its pages took to settle, first
 // and after the latest edit. A size picker builds a larger document.
 
 import { EditorState, type Transaction } from 'prosemirror-state';
@@ -9,15 +9,18 @@ import {
   DocumentEditor,
   type DocumentEditorHandle,
   type DocumentLayout,
+  inlineCompletionItem,
 } from '../../../src/components/index.js';
 import {
   assignElementIds,
   createContents,
   createDocumentEditing,
+  createInlineCompletion,
   createProofing,
 } from '../../../src/engine/index.js';
 import {
   type CommentThread,
+  type CompletionAdapter,
   createMemoryHost,
   createWordListProofer,
 } from '../../../src/host/index.js';
@@ -39,6 +42,17 @@ const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
 });
 
 const PROOFER = createWordListProofer({ corrections: { teh: ['the'], recieve: ['receive'] } });
+
+// A provider that offers the same few words after every pause, so the typing budgets count what
+// completion costs each key: asking, the offer drawn, and the next key dismissing it.
+const COMPLETER: CompletionAdapter = {
+  agent: 'lab-assistant',
+  complete: () =>
+    Promise.resolve({ ok: true, value: { text: ' as planned.', session: 'lab-completion' } }),
+};
+
+// The editor's toolbar with the completion toggle a host that completes adds.
+const TOOLBAR = { items: [inlineCompletionItem()] };
 
 /** A stress lab's document, by the size the reader picks. */
 export interface StressLabOptions {
@@ -80,6 +94,7 @@ function stateOf(file: DocumentFile): EditorState {
     doc: readDocumentFile(file, schema).doc,
     plugins: [
       createContents({ template: () => TEMPLATE }),
+      createInlineCompletion({ provider: COMPLETER }),
       createProofing({ proofer: PROOFER }),
       ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
     ],
@@ -205,7 +220,7 @@ function StressLab({ build, sizes, remote, threads }: StressLabOptions) {
         onStateChange={setState}
         template={TEMPLATE}
         layout={layout}
-        toolbar
+        toolbar={TOOLBAR}
         scrollable
         statusBar
         className="lab-document-editor"
