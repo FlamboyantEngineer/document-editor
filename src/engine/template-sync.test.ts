@@ -88,6 +88,32 @@ describe('template sections', () => {
     expect(syncTemplateSections(TEMPLATE)(state)).toBe(false);
   });
 
+  it('DOCE-SECTIONS-4.2 adds a missing section ahead of the sections the template places after it', () => {
+    const template: TemplateFile = {
+      ...BASE_TEMPLATE,
+      sections: [
+        { name: 'cover', required: true, content: [paragraph('Cover text')] },
+        { name: 'summary', required: true, content: [paragraph('Summary text')] },
+        { name: 'appendix', insertable: true },
+      ],
+    };
+    const state = EditorState.create({
+      doc: read(
+        { name: 'cover', content: [paragraph('Cover text')] },
+        { name: null, content: [paragraph('Body')] },
+        { name: 'appendix', content: [paragraph('More')] },
+        { name: null, content: [paragraph('Notes')] },
+      ),
+    });
+    expect(outline(run(state, syncTemplateSections(template)).doc)).toEqual([
+      'cover:Cover text',
+      '-:Body',
+      'summary:Summary text',
+      'appendix:More',
+      '-:Notes',
+    ]);
+  });
+
   it('DOCE-SECTIONS-4.2 DOCE-EDITING-3.2 brings a locked section back in line as a system change outside the history', () => {
     const state = EditorState.create({
       doc: read(

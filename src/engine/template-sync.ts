@@ -201,21 +201,31 @@ export function syncTemplateSections(
   };
 }
 
-// Adds a required section after the last section the template places before it.
+// Where a required section goes: after the last section the template places before it. The plain
+// sections on the way count too, so a closing section lands after the writer's own, but none
+// behind a section the template places after it: a plain section has no place in the template,
+// and reading it as an early one put the added section past those it belongs ahead of.
+function placeOf(doc: ProseMirrorNode, order: readonly string[], rank: number): number {
+  let at = 0;
+  let passed = false;
+  doc.forEach((node, pos) => {
+    const other = order.indexOf(String(node.attrs.sectionName ?? ''));
+    if (other > rank) passed = true;
+    else if (other >= 0 || !passed) at = pos + node.nodeSize;
+  });
+  return at;
+}
+
+// Adds a required section in its place among the template's sections (`placeOf`).
 function insertMissing(
   tr: Transaction,
   { template, options }: { template: TemplateFile; options: TemplateContentOptions },
   name: string,
 ) {
   const order = (template.sections ?? []).map((section) => section.name);
-  const rank = order.indexOf(name);
   const like = tr.doc.firstChild;
   if (!like) return;
-  let at = 0;
-  tr.doc.forEach((node, pos) => {
-    const other = order.indexOf(String(node.attrs.sectionName ?? ''));
-    if (other < rank) at = pos + node.nodeSize;
-  });
+  const at = placeOf(tr.doc, order, order.indexOf(name));
   const blocks = templateContent(
     tr.doc.type.schema,
     findTemplateSection(template, name)?.content,
