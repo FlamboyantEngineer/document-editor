@@ -476,6 +476,27 @@ A snapshot shall write the number the template gives each numbered heading and o
 Implementation: `src/engine/print-links.ts`, `src/engine/snapshot.ts`
 Verification: `src/engine/print-links.test.ts`
 
+### DOCE-EDITOR-6.23 - What a snapshot may hold
+
+A snapshot's pages shall hold only the elements and attributes on its allow-list (`allowSnapshotMarkup`): text, lists, tables, figures and images, links, vector drawings and math, with `class`, `id`, `style`, the `data-*` and `aria-*` hooks and the attributes those elements draw with. Whatever a node view or decoration drew, an element that runs, embeds another page or takes input (`script`, `style`, `iframe`, `object`, `embed`, form controls and the like) shall be left out with its content, any other element off the list shall give way to its content, event handlers and every other attribute off the list shall go, as shall a link to an address other than an anchor, a web page or a mail address, an image from one other than a web address, image data or a blob, and a style that runs script. A signature shall print from its stored vector through `signatureSvgMarkup`, which writes only validated geometry, drawn in the current colour, as the editor draws it, or nothing for a value that is not a signature.
+
+Implementation: `src/engine/print-allow-list.ts`, `src/engine/snapshot.ts`, `src/model/signature-vector.ts`
+Verification: `src/engine/print-allow-list.test.ts`, `src/model/signature-vector.test.ts`
+
+### DOCE-EDITOR-6.24 - The print outline
+
+The handle's `snapshotOutline()` shall give the document's headings as its pages show them now, for a printed document's bookmarks (`SnapshotOutlineEntry`): each heading with an element id once, in order, with its level, text and number, the page its first part prints on, from 0, and its top from that page's top in unscaled CSS pixels; a heading not on a page is left out, and an editor not mounted gives none. The print lab lists the outline beside its print preview.
+
+Implementation: `src/engine/print-outline.ts`, `src/components/document-editor/editor-handle.ts`, `labs/src/print.lab.tsx`
+Verification: `src/engine/print-outline.test.ts`, `e2e/print.spec.ts`
+
+### DOCE-EDITOR-6.25 - Images in print
+
+A snapshot's images shall load at once (`loading="eager"`, `decoding="sync"`), never when scrolled to, and from the address the snapshot's `resolveImage` gives for the one the pages show, such as one a server printing it can reach, dropping their other sources; an image it gives no address for keeps its own.
+
+Implementation: `src/engine/print-images.ts`, `src/engine/snapshot.ts`
+Verification: `src/engine/print-images.test.ts`
+
 ## DOCE-EDITOR-7 - Banners
 
 ### DOCE-EDITOR-7.1 - The banner region

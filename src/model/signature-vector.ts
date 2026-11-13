@@ -154,3 +154,29 @@ export function normalizeSignatureVector(value: unknown): SignatureVector | null
   const result = parseSignatureVector(value);
   return result.ok ? result.vector : null;
 }
+
+const escapeMarkup = (value: string) =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * A signature vector as SVG markup, drawn in `currentColor` as the editor draws it, for print and
+ * static renders without a DOM. It reads the value through `normalizeSignatureVector`, so only
+ * validated geometry is written; null when the value holds no signature. `label` names the image.
+ */
+export function signatureSvgMarkup(value: unknown, label = ''): string | null {
+  const vector = normalizeSignatureVector(value);
+  if (!vector) return null;
+  const { width, height } = vector.viewBox;
+  const paths = vector.paths.map((path) => {
+    const attrs = [
+      `d="${escapeMarkup(path.d)}"`,
+      `fill="${path.fill ? 'currentColor' : 'none'}"`,
+      `stroke="${path.fill ? 'none' : 'currentColor'}"`,
+      path.strokeWidth === null ? '' : `stroke-width="${String(path.strokeWidth)}"`,
+      path.transform ? `transform="matrix(${path.transform.join(' ')})"` : '',
+    ];
+    return `<path ${attrs.filter(Boolean).join(' ')}></path>`;
+  });
+  const box = `0 0 ${String(width)} ${String(height)}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" role="img" aria-label="${escapeMarkup(label)}">${paths.join('')}</svg>`;
+}

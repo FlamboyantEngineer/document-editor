@@ -1,5 +1,6 @@
 // Shows a snapshot for printing (`exportSnapshot`): a document whose body sits on portrait pages
-// and whose appendix sits on landscape pages, citing the body with a footnote, proofed by a word-list proofer, with the layout
+// and whose appendix sits on landscape pages, citing the body with a footnote, with the outline
+// its bookmarks are made from, proofed by a word-list proofer, with the layout
 // debugging and a comparison with the document as it opened on demand. The print preview shows
 // the snapshot in a frame, each section on its own sheet size, without the view-only decorations
 // (search matches, proofing issues, debugging), with a comparison's deleted text and change bars,
@@ -9,7 +10,12 @@ import { EditorState } from 'prosemirror-state';
 import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DocumentEditor, type DocumentEditorHandle } from '../../src/components/index.js';
-import { assignElementIds, createDocumentEditing, createProofing } from '../../src/engine/index.js';
+import {
+  assignElementIds,
+  createDocumentEditing,
+  createProofing,
+  type SnapshotOutlineEntry,
+} from '../../src/engine/index.js';
 import { createWordListProofer } from '../../src/host/index.js';
 import {
   BASE_TEMPLATE,
@@ -118,8 +124,10 @@ function Lab() {
   const [comparing, setComparing] = useState(false);
   const [markup, setMarkup] = useState<PreviewMarkup>('editor');
   const [snapshot, setSnapshot] = useState('');
+  const [outline, setOutline] = useState<readonly SnapshotOutlineEntry[]>([]);
   const handle = useRef<DocumentEditorHandle>(null);
-  const preview = () =>
+  const preview = () => {
+    setOutline(handle.current?.snapshotOutline() ?? []);
     setSnapshot(
       handle.current?.exportSnapshot({
         title: 'Print sample',
@@ -127,6 +135,7 @@ function Lab() {
         markup: markup === 'editor' ? undefined : markup,
       }) ?? '',
     );
+  };
   return (
     <>
       <fieldset>
@@ -176,6 +185,15 @@ function Lab() {
         aria-label="Sample document"
       />
       {snapshot ? <iframe title="Print preview" srcDoc={snapshot} /> : null}
+      {outline.length > 0 ? (
+        <ol aria-label="Print outline">
+          {outline.map((entry) => (
+            <li key={entry.elementId} data-level={entry.level} data-top={Math.round(entry.top)}>
+              {`${entry.number} ${entry.text}, page ${String(entry.page + 1)}`}
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </>
   );
 }

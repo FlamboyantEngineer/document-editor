@@ -16,6 +16,8 @@ import {
   revealElement,
   type RevealOptions,
   type SnapshotOptions,
+  snapshotOutline,
+  type SnapshotOutlineEntry,
 } from '../../engine/index.js';
 import type { ReferenceSourceAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
@@ -77,6 +79,8 @@ export interface DocumentEditorHandle {
    * into a PDF (`documentSnapshot`); null before the editor is mounted.
    */
   exportSnapshot(options?: Omit<SnapshotOptions, 'template'>): string | null;
+  /** The headings as the pages show them now, for a printed document's bookmarks; empty unmounted. */
+  snapshotOutline(): SnapshotOutlineEntry[];
   /** Runs a command on the latest state; false when it does not apply. */
   run(command: Command): boolean;
   /** Applies a batch of automation edits (DOCE-AUTOMATION) and dispatches it when it is accepted. */
@@ -196,6 +200,7 @@ export function useEditorHandle(
         view
           ? documentSnapshot(view, { citationHref: hrefOf(references), ...options, template })
           : null,
+      snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
       startComment: (options) => {
         const start = startCommentRef.current;
         start?.(options);

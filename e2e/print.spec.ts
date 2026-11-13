@@ -111,6 +111,30 @@ test.describe('print links', () => {
   });
 });
 
+test.describe('print outline', () => {
+  test('DOCE-EDITOR-6.24 gives each heading the page it prints on and its top there', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('print');
+    const sections = await content(page)
+      .locator('.pm-section')
+      .evaluateAll((elements) =>
+        elements.map((section) => section.querySelectorAll('.pm-page').length),
+      );
+    await page.getByRole('button', { name: 'Make a print preview' }).click();
+    const outline = page.getByRole('list', { name: 'Print outline' }).getByRole('listitem');
+    await expect(outline.first()).toHaveText('1. Scope, page 1');
+    const glossary = outline.filter({ hasText: /^\d+\. Glossary,/ });
+    await expect(glossary).toHaveText(`2. Glossary, page ${String((sections[0] ?? 0) + 1)}`);
+    // Each heading sits below its page's top margin.
+    const tops = await outline.evaluateAll((items) =>
+      items.map((item) => Number(item.getAttribute('data-top'))),
+    );
+    expect(tops.every((top) => top > 0)).toBe(true);
+  });
+});
+
 test.describe('print a comparison', () => {
   test('DOCE-EDITOR-6.17 prints the deleted text and change bars of a comparison', async ({
     lab,

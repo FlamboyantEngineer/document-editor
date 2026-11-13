@@ -12,6 +12,8 @@ import {
 } from '../model/index.js';
 import type { CitationHref } from '../model/schema/reference-mark.js';
 import { copyCodeHighlights } from './code-highlighting.js';
+import { allowSnapshotMarkup } from './print-allow-list.js';
+import { prepareSnapshotImages, type ResolveImage } from './print-images.js';
 import { addPrintLinks, elementNumbers, PRINT_LINK_ATTRIBUTE } from './print-links.js';
 import {
   applySuggestionMarkup,
@@ -35,6 +37,8 @@ export interface SnapshotOptions {
   readonly markup?: SnapshotMarkup | undefined;
   /** Where a citation of another document links; by default the host's `references.href`. */
   readonly citationHref?: CitationHref | undefined;
+  /** The address each image prints from, given the one the pages show; by default that one. */
+  readonly resolveImage?: ResolveImage | undefined;
 }
 
 // The editing state a snapshot leaves out: attributes and the elements only an editor draws.
@@ -113,6 +117,8 @@ function pagesMarkup(
     numbers: elementNumbers(view.state.doc, options.template),
     href: options.citationHref,
   });
+  prepareSnapshotImages(copy, options.resolveImage);
+  allowSnapshotMarkup(copy);
   for (const [index, element] of copy.querySelectorAll(':scope > .pm-section').entries()) {
     element.setAttribute(SHEET_ATTRIBUTE, String(sections[index] ?? 0));
   }
