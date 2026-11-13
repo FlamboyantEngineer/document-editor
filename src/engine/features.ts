@@ -211,16 +211,10 @@ export {
   REMOTE_META,
   SYSTEM_META,
 } from './transaction-kind.js';
-export type {
-  ChangeLineMark,
-  VersionChangeDisplay,
-  VersionChangesOptions,
-} from './version-changes.js';
+export type { VersionChangesOptions } from './version-changes.js';
 export {
-  changeLineMarks,
   createVersionChanges,
   refreshVersionChanges,
-  versionChangeDecorations,
   versionChanges,
   versionChangesKey,
 } from './version-changes.js';
@@ -231,3 +225,5 @@ export type {
   VersionChangeKind,
 } from './version-compare.js';
 export { collectVersionBlocks, compareVersions } from './version-compare.js';
+export type { ChangeLineMark, VersionChangeDisplay } from './version-decorations.js';
+export { changeLineMarks, versionChangeDecorations } from './version-decorations.js';

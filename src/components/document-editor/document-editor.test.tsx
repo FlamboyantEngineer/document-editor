@@ -162,6 +162,7 @@ describe('DocumentEditor', () => {
     const { container } = render(<Harness editable layout="page" />);
     const measure = container.querySelector('.de-document-editor__measure');
     expect(measure).toHaveAttribute('aria-hidden', 'true');
+    expect(measure).toHaveAttribute('inert');
     expect(container.querySelector('.de-document-editor')).toHaveAttribute('data-layout', 'page');
   });
 

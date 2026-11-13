@@ -15,8 +15,8 @@ Verification: `src/engine/version-compare.test.ts`
 
 A block both versions hold that left the longest run of blocks kept in order shall be a `move`; one whose text is unchanged but whose attributes or text formatting changed shall be `formatting`.
 
-Implementation: `src/engine/version-compare.ts`
-Verification: `src/engine/version-compare.test.ts`
+Implementation: `src/engine/version-compare.ts`, `src/engine/common-subsequence.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequence.test.ts`
 
 ### DOCE-VERSIONS-1.3 - Where deletions go
 
@@ -34,10 +34,10 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.5 - Word by word
 
-A changed block's text shall be compared word by word (`diffText`), spaces and punctuation as words of their own, giving the runs it kept, inserted and deleted in order. A word changed only by characters added to or removed from it shall keep the characters it shares.
+A changed block's text shall be compared word by word (`diffText`), spaces and punctuation as words of their own, giving the runs it kept, inserted and deleted in order. A word changed only by characters added to or removed from it shall keep the characters it shares. A comparison shall take bounded time and memory: between their first and their last difference, two texts with more than a million pairs of words shall be compared by the words each holds once, kept in order, and between those word by word while a million pairs last; the words then left unmatched shall read as deleted and inserted.
 
 Implementation: `src/engine/text-diff.ts`, `src/engine/common-subsequence.ts`
-Verification: `src/engine/version-compare.test.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequence.test.ts`
 
 ### DOCE-VERSIONS-1.6 - Suggestions accepted
 
@@ -80,12 +80,12 @@ Verification: `src/engine/version-compare.test.ts`
 
 `versionChangeDecorations(doc, changes, display)` shall mark each changed block's parts with `data-diff-change` and the block before which, or after which, blocks were deleted with `data-diff-deletion`. A block whose text changed shall also be marked `data-diff-lines`, `formatting` when its formatting changed too, else `kept`, and what changed in it marked by kind (`data-diff-line`, from `changeLineMarks`): a run inserted (`insertion`), a run replacing deleted text (`modification`), and where text was deleted without a replacement (`deletion`). In `markup` it shall also mark inserted words (`data-diff-change="insertion"`), show deleted words as `del` elements where they were, and show each deleted block's text as a `del` element with `data-diff-block` inside the block it is placed at; in `bars` it shall do neither.
 
-Implementation: `src/engine/version-changes.ts`
+Implementation: `src/engine/version-decorations.ts`
 Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-2.2 - Following the document
 
-`createVersionChanges({ previous, display })` shall compare the document with the older version `previous` gives after each change and show the changes; without an older version it shall show none. A transaction marked with `refreshVersionChanges` shall read the older version and the display again, and `versionChanges(state)` shall give the changes shown.
+`createVersionChanges({ previous, display })` shall show the changes from the older version `previous` gives to the document, as the document is after each change (DOCE-VERSIONS-2.5); without an older version it shall show none. A transaction marked with `refreshVersionChanges` shall read the older version and the display again, and `versionChanges(state)` shall give the changes shown.
 
 Implementation: `src/engine/version-changes.ts`
 Verification: `src/engine/version-compare.test.ts`
@@ -106,10 +106,10 @@ Verification: `src/engine/change-lines.test.ts`, `src/components/document-editor
 
 ### DOCE-VERSIONS-2.5 - Comparing only when needed
 
-`previous` may give `opened`: the document as it was when the version changes started. A document equal to the older version shall show no change without being compared. A transaction that only follows the layout shall keep the changes shown, mapped, without comparing again: one out of the history (`addToHistory: false`), a derived one, or, in a scoped comparison, one that only types or deletes text outside the scope. A remote change and a system change shall always be compared again.
+`previous` may give `opened`: the document as it was when the version changes started. A document equal to the older version shall show no change without being compared. A transaction that only follows the layout shall keep the changes shown, mapped, without comparing again: one out of the history (`addToHistory: false`), a derived one, or, in a scoped comparison, one that only types or deletes text outside the scope. A remote change and a system change shall always be compared again. The older version shall be read once, and again only when `previous` gives another or its suggestions count otherwise. A local change that only types or deletes text in at most eight text blocks shall compare those blocks alone, each with the older version's block of its element id, and keep the other changes, mapped, so it shows what comparing the versions would without reading either again. Where a block typed in cannot be compared alone (it has no element id, is a part of a split block or a block a suggestion inserts, or is inside a block read as one or a region drawn around the content), the versions shall be compared, as for any other change.
 
-Implementation: `src/engine/version-changes.ts`, `src/engine/version-scope.ts`
-Verification: `src/engine/version-changes.test.ts`
+Implementation: `src/engine/version-changes.ts`, `src/engine/version-compare.ts`, `src/engine/version-scope.ts`
+Verification: `src/engine/version-changes.test.ts`, `src/engine/hot-path.test.ts`
 
 ### DOCE-VERSIONS-2.6 - Scope and counts
 

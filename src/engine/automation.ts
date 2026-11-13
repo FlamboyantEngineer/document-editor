@@ -5,7 +5,8 @@
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
-import { readStoredContent, type StoredNode } from '../model/index.js';
+import { isEmbed, readStoredContent, type StoredNode } from '../model/index.js';
+import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import {
   type EditAddress,
   type FoundElement,
@@ -16,6 +17,7 @@ import {
 import { anchorCommentRanges } from './comments.js';
 import { isLockedIn } from './edit-lock.js';
 import { createElementId } from './element-ids.js';
+import { isHostContentAt } from './host-content.js';
 import { suggestTransaction } from './suggestions.js';
 
 /** Who makes a change. */
@@ -114,6 +116,11 @@ function lockedAt({ state, tr }: Batch, from: number, to: number): Refusal | nul
   return locked ? refuse('locked', 'The position is locked') : null;
 }
 
+// Refuses a change at a position inside an embed or a script's output: the plugins keeping that
+// content would drop the whole batch once dispatched, while the caller was told it applied.
+const hostOwnedAt = (tr: Transaction, pos: number): Refusal | null =>
+  isHostContentAt(tr.doc, pos) ? refuse('locked', 'The content there is not the writer’s') : null;
+
 // The range an address names in its text block, checked against what the caller read.
 function range(batch: Batch, at: EditAddress) {
   const block = element(batch.tr, at.elementId);
@@ -175,11 +182,18 @@ function applyText(batch: Batch, edit: TextEdit): Refusal | null {
     batch.threads.push({ id, quote: found.text, text: edit.text, actor: options.actor });
     return null;
   }
+  const owned = hostOwnedAt(tr, found.from);
+  if (owned) return owned;
   if (edit.op === 'deleteText' || !edit.text) {
     tr.delete(found.from, found.to);
     return null;
   }
-  const marks = [...tr.doc.resolve(found.from).marks(), ...writtenBy(state.schema, options.actor)];
+  // The actor's mark takes the place of the contributor mark the text there carries: the mark
+  // excludes itself, and a document holding two on one text no longer reads back.
+  const marks = writtenBy(state.schema, options.actor).reduce(
+    (set, mark) => mark.addToSet(set),
+    tr.doc.resolve(found.from).marks(),
+  );
   tr.replaceWith(found.from, found.to, state.schema.text(edit.text, marks));
   return null;
 }
@@ -192,7 +206,9 @@ function insertBlocks(batch: Batch, edit: Extract<AutomationEdit, { op: 'insertB
   const pos = edit.after ? found.pos + found.node.nodeSize : found.pos;
   const nodes = blocks(batch.state.schema, edit.content, batch.options.actor);
   if (isRefusal(nodes)) return nodes;
-  const locked = lockedAt(batch, found.pos + 1, found.pos + found.node.nodeSize - 1);
+  const locked =
+    lockedAt(batch, found.pos + 1, found.pos + found.node.nodeSize - 1) ??
+    hostOwnedAt(batch.tr, pos);
   if (locked) return locked;
   batch.tr.insert(pos, nodes);
   return null;
@@ -200,14 +216,32 @@ function insertBlocks(batch: Batch, edit: Extract<AutomationEdit, { op: 'insertB
 
 type BlockEdit = Extract<AutomationEdit, { op: 'replaceBlock' | 'deleteBlock' | 'setAttrs' }>;
 
+// A table's caption has an id of its own, kept on the table.
+const CAPTION_ID = 'captionDataId';
+
+// Why attributes may not be set on an element: one says which element it is, which comments,
+// references and later edits find it by, or its type does not define it.
+function refusedAttrs(node: ProseMirrorNode, attrs: Readonly<Record<string, unknown>>) {
+  const identity = new Set(identityAttributesOf(node.type).map(({ name }) => name));
+  const defined = node.type.spec.attrs ?? {};
+  const name = Object.keys(attrs).find(
+    (each) => each === CAPTION_ID || identity.has(each) || !(each in defined),
+  );
+  return name === undefined ? null : refuse('invalid', `${name} cannot be set on an element`);
+}
+
 function changeBlock(batch: Batch, edit: BlockEdit): Refusal | null {
   const { tr } = batch;
   const found = element(tr, edit.elementId);
   if (isRefusal(found)) return found;
   const end = found.pos + found.node.nodeSize;
-  const locked = lockedAt(batch, found.pos + 1, end - 1);
+  // A whole embed may be replaced or deleted, but its attributes are the host's, as its content is.
+  const changed = edit.op === 'setAttrs' && isEmbed(found.node) ? found.pos + 1 : found.pos;
+  const locked = lockedAt(batch, found.pos + 1, end - 1) ?? hostOwnedAt(tr, changed);
   if (locked) return locked;
   if (edit.op === 'setAttrs') {
+    const refused = refusedAttrs(found.node, edit.attrs);
+    if (refused) return refused;
     tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, ...edit.attrs });
   } else if (edit.op === 'deleteBlock') {
     tr.delete(found.pos, end);

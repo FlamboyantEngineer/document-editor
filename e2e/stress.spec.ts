@@ -37,6 +37,10 @@ test.describe('stress labs', () => {
       await page.keyboard.press('End');
       await page.keyboard.type(' and more');
       await expect(metrics(page)).toContainText(/after the latest edit \d+ ms/);
+      // Once the writer pauses, the provider's words are offered after the caret.
+      await expect(page.locator('.de-document-editor__content .de-inline-completion')).toHaveText(
+        ' as planned.',
+      );
       expect(await overflowing(page)).toEqual([]);
     });
   }

@@ -74,21 +74,18 @@ function cellAt(view: EditorView, target: EventTarget | null) {
   return null;
 }
 
-// Drags a row's bottom border, setting its height once the pointer is released.
-function dragRow(
-  view: EditorView,
-  event: MouseEvent,
-  cell: NonNullable<ReturnType<typeof cellAt>>,
-) {
+// Drags a row's bottom border, setting its height once the pointer is released. The document may
+// change under the drag, as a collaborator's edit does, so the row is where the cell pressed is at
+// the release; a cell no longer drawn sets nothing.
+function dragRow(view: EditorView, event: MouseEvent, pressed: Element) {
   const owner = view.dom.ownerDocument;
   const start = event.clientY;
-  const height = cell.element.getBoundingClientRect().height;
+  const height = pressed.getBoundingClientRect().height;
   const done = (up: MouseEvent) => {
     owner.removeEventListener('mouseup', done);
-    const next = height + up.clientY - start;
-    if (Math.abs(up.clientY - start) > 1) {
-      setRowHeight(cell.table, cell.row, next)(view.state, view.dispatch);
-    }
+    const cell = view.isDestroyed ? null : cellAt(view, pressed);
+    if (!cell || Math.abs(up.clientY - start) <= 1) return;
+    setRowHeight(cell.table, cell.row, height + up.clientY - start)(view.state, view.dispatch);
   };
   owner.addEventListener('mouseup', done);
 }
@@ -112,7 +109,7 @@ export function createTablePointer(): Plugin {
           const { bottom } = cell.element.getBoundingClientRect();
           if (bottom - event.clientY > BORDER_GRAB || event.clientY > bottom) return false;
           event.preventDefault();
-          dragRow(view, event, cell);
+          dragRow(view, event, cell.element);
           return true;
         },
       },

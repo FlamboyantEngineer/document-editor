@@ -69,6 +69,34 @@ export function countVersionChanges(changes: readonly VersionChange[]): VersionC
   return { ...counts, total: changes.length };
 }
 
+// Whether a mapping changes nothing from one position to another, so every position between them
+// moves as far as the first.
+function movesWhole(mapping: Mapping, from: number, to: number): boolean {
+  let start = from;
+  let end = to;
+  for (const map of mapping.maps) {
+    let whole = true;
+    map.forEach((changedFrom, changedTo) => {
+      whole &&= changedTo < start || changedFrom > end;
+    });
+    if (!whole) return false;
+    start = map.map(start);
+    end = map.map(end);
+  }
+  return true;
+}
+
+// A block's character positions mapped: one by one only where the mapping changes the block, as a
+// document with many changes has each character of every changed block mapped on each key typed.
+function mapPositions(positions: readonly number[], mapping: Mapping): readonly number[] {
+  const first = positions[0];
+  const last = positions.at(-1);
+  if (first === undefined || last === undefined) return positions;
+  if (!movesWhole(mapping, first, last)) return positions.map((pos) => mapping.map(pos));
+  const moved = mapping.map(first) - first;
+  return moved === 0 ? positions : positions.map((pos) => pos + moved);
+}
+
 /** A change's positions mapped through a transaction that did not change what it compares. */
 export function mapVersionChange(change: VersionChange, mapping: Mapping): VersionChange {
   const span = <T extends VersionSpan>(part: T): T => ({
@@ -80,7 +108,7 @@ export function mapVersionChange(change: VersionChange, mapping: Mapping): Versi
     ...change,
     parts: change.parts.map(span),
     at: change.at ? span(change.at) : null,
-    positions: change.positions.map((pos) => mapping.map(pos)),
+    positions: mapPositions(change.positions, mapping),
   };
 }
 

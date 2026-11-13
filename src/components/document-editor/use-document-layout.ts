@@ -28,6 +28,7 @@ import {
   createRegionEditing,
   createSearch,
   createSectionFootnoteNumbers,
+  createTemplateContentEditing,
   createVersionChanges,
   documentSectionsKey,
   refreshDynamicTemplates,
@@ -43,6 +44,7 @@ import {
   type LayoutRules,
   resolveFootnoteSettings,
   type TemplateFile,
+  type TemplatePartChange,
 } from '../../model/index.js';
 import {
   type CanonicalChange,
@@ -87,6 +89,10 @@ function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
       template: () => latest.current.template,
       onChange: (change) => latest.current.onRegionChange?.(change),
     }),
+    createTemplateContentEditing({
+      enabled: () => Boolean(latest.current.onTemplatePartChange),
+      onChange: (change) => latest.current.onTemplatePartChange?.(change),
+    }),
     createDocumentSections({ template: () => latest.current.template }),
     createChangeLines(),
     createVersionChanges({
@@ -100,7 +106,7 @@ function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
 
 // Editing the regions in place, or no longer, sets them again: editable or read-only.
 function useRegionsEditable(
-  editable: boolean,
+  editable: string,
   onStateChange: (update: RichTextStateUpdate) => void,
 ) {
   const latest = useRef(onStateChange);
@@ -161,6 +167,8 @@ export interface DocumentLayoutOptions {
   readonly fonts?: FontsAdapter | undefined;
   /** Edits the pages' headers and footers in place, handing each edit here. */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
+  /** Edits a template's section content and placeholders in place, handing each edit here. */
+  readonly onTemplatePartChange?: ((change: TemplatePartChange) => void) | undefined;
   /** The host's variables, shown in the headers, footers and text (`createPageVariables`). */
   readonly variables?: VariablesAdapter | undefined;
   /**
@@ -342,7 +350,10 @@ export function useDocumentLayout(
   }, [previous, display, suggestions, scopeKey]);
   useHostVariables(options, { refresh, redraw });
   useLayoutDebug(options.debug, options.onStateChange, redraw);
-  useRegionsEditable(Boolean(options.onRegionChange), options.onStateChange);
+  useRegionsEditable(
+    `${String(Boolean(options.onRegionChange))} ${String(Boolean(options.onTemplatePartChange))}`,
+    options.onStateChange,
+  );
   const progress = useLayoutProgress(active);
   return useMemo(() => ({ ...progress, paged }), [progress, paged]);
 }

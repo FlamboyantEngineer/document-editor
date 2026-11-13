@@ -167,6 +167,29 @@ describe('embed lock', () => {
     expect(state.apply(cut).doc.eq(state.doc)).toBe(true);
   });
 
+  it('DOCE-EMBEDS-2.1 refuses a mark taken off across a whole embed, which would change what it holds', () => {
+    const bold = (value: string): StoredNode => ({ ...text(value), marks: [{ type: 'strong' }] });
+    const state = stateWith([
+      { type: 'paragraph', content: [bold('Before')] },
+      embedded('r1', [{ type: 'paragraph', content: [bold('Total 42')] }]),
+      { type: 'paragraph', content: [bold('After')] },
+    ]);
+    const strong = defined(documentSchema.marks.strong);
+    // One step from the text before the embed to the text after it: neither end is inside it.
+    const across = state.tr.removeMark(0, state.doc.content.size, strong);
+    expect(across.steps).toHaveLength(1);
+    expect(touchesEmbed(across)).toBe(true);
+    expect(state.apply(across).doc.eq(state.doc)).toBe(true);
+    // Taken off the text before it alone, the mark goes.
+    const before = textPos(state.doc, 'Before');
+    const beside = state.tr.removeMark(before, before + 'Before'.length, strong);
+    expect(touchesEmbed(beside)).toBe(false);
+    expect(state.apply(beside).doc.eq(state.doc)).toBe(false);
+    // A comment across the embed changes nothing it holds.
+    const comment = defined(documentSchema.marks.comment_highlight).create({ commentId: 't1' });
+    expect(touchesEmbed(state.tr.addMark(0, state.doc.content.size, comment))).toBe(false);
+  });
+
   it('DOCE-EMBEDS-2.1 lets the writer comment on, move and delete a whole embed', () => {
     const state = stateWith(STORED);
     const inCell = textPos(state.doc, 'Pump');
@@ -272,6 +295,28 @@ describe('embed status and updates', () => {
     view.destroy();
   });
 
+  it('DOCE-EMBEDS-3.1 asks again on a refresh after a first resolve that failed', async () => {
+    let asked = 0;
+    const adapter: EmbedSourceAdapter = {
+      ...source({}),
+      resolve: () => {
+        asked += 1;
+        return Promise.resolve({ ok: false as const, error: { kind: 'unavailable' as const } });
+      },
+    };
+    const plugins = [
+      ...createDocumentEditing(documentSchema),
+      createEmbedStatus({ source: adapter, delay: 0 }),
+    ];
+    const view = viewOf(stateWith([embedded('r1', rows('One'))], plugins));
+    await settle();
+    expect(asked).toBe(1);
+    expect(refreshEmbedStatus(view.state, view.dispatch)).toBe(true);
+    await settle();
+    expect(asked).toBe(2);
+    view.destroy();
+  });
+
   it('DOCE-EMBEDS-3.2 takes an update: the content as it is now, with stable ids, undoable', async () => {
     const now: EmbedContent = {
       snapshot: 'r2',
@@ -316,6 +361,48 @@ describe('embed status and updates', () => {
     const adapter = source({});
     const view = viewOf(stateWith(STORED));
     expect(await updateEmbed(view, adapter, { pos: embedOf(view.state).pos })).toBe(false);
+    expect(embedOf(view.state).node.attrs.snapshot).toBe('r1');
+    view.destroy();
+  });
+
+  it('DOCE-EMBEDS-3.2 takes an update where the embed is once the host loaded, the document changed around it', async () => {
+    const now: EmbedContent = { snapshot: 'r2', label: 'Set 7', content: rows('Pump', 'Tank') };
+    const view = viewOf(stateWith(STORED));
+    const pending = updateEmbed(view, source({ load: now }), { pos: embedOf(view.state).pos });
+    // A collaborator types above the embed while the host loads.
+    const typed = view.state.tr.insertText('Well ', textPos(view.state.doc, 'Before'));
+    view.dispatch(markRemote(typed));
+    expect(await pending).toBe(true);
+    expect(textOf(view.state.doc)).toBe('Well BeforePumpTankAfter');
+    expect(embedOf(view.state).node.attrs.snapshot).toBe('r2');
+    view.destroy();
+  });
+
+  it('DOCE-EMBEDS-3.2 leaves alone an embed that changed, or went, while the host loaded', async () => {
+    const now: EmbedContent = { snapshot: 'r2', label: 'Set 7', content: rows('Pump', 'Tank') };
+    const view = viewOf(stateWith(STORED));
+    const { pos, node } = embedOf(view.state);
+    let pending = updateEmbed(view, source({ load: now }), { pos });
+    view.dispatch(markRemote(view.state.tr.setNodeAttribute(pos, 'label', 'Set 7 (C)')));
+    expect(await pending).toBe(false);
+    expect(embedOf(view.state).node.attrs).toMatchObject({ snapshot: 'r1', label: 'Set 7 (C)' });
+    pending = updateEmbed(view, source({ load: now }), { pos });
+    view.dispatch(markRemote(view.state.tr.delete(pos, pos + node.nodeSize)));
+    expect(await pending).toBe(false);
+    expect(textOf(view.state.doc)).toBe('BeforeAfter');
+    view.destroy();
+  });
+
+  it('DOCE-EMBEDS-3.2 refuses content of the host that the document cannot read', async () => {
+    const unreadable: EmbedContent = {
+      snapshot: 'r2',
+      label: 'Set 7',
+      content: [{ type: 'gauge', content: [text('Pump')] }],
+    };
+    const view = viewOf(stateWith(STORED));
+    const { pos } = embedOf(view.state);
+    expect(applyEmbedUpdate(pos, unreadable)(view.state, view.dispatch)).toBe(false);
+    expect(await updateEmbed(view, source({ load: unreadable }), { pos })).toBe(false);
     expect(embedOf(view.state).node.attrs.snapshot).toBe('r1');
     view.destroy();
   });

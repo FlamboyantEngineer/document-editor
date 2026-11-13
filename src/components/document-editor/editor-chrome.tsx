@@ -109,7 +109,7 @@ function useInsertFeatures(props: TopChromeProps['props']): InsertFeatures {
   const symbols = props.symbols ?? DEFAULT_SYMBOLS;
   const custom = customStyleNames(props.template).join('\n');
   const { variables } = props;
-  const templateContent = Boolean(props.onRegionChange);
+  const templateContent = Boolean(props.onRegionChange ?? props.onTemplatePartChange);
   return useMemo<InsertFeatures>(
     () => ({
       linkedCode,

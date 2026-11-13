@@ -297,6 +297,9 @@ const hooks = createHooks('document-editor', [
 ]);
 
 // The parts of the layout debugging shown: `true` shows the pages'.
+// The measuring view is hidden from assistive technology and out of the keyboard's reach.
+const MEASURE_SLOT = { 'aria-hidden': 'true', inert: true, spellCheck: false } as const;
+
 function debugParts(debug: DocumentEditorProps['debug']): DocumentEditorDebug {
   return typeof debug === 'object' ? debug : { pages: debug ?? false };
 }
@@ -423,7 +426,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
         }
       >
         {layout === 'page' ? (
-          <div {...hooks.slot('measure')} ref={measureIn} aria-hidden="true" spellCheck={false} />
+          <div {...hooks.slot('measure')} {...MEASURE_SLOT} ref={measureIn} />
         ) : null}
         <EditorSurface
           chrome={chrome}

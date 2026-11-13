@@ -78,7 +78,7 @@ Verification: `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-2.4 - Column widths
 
-Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. While the pointer is on a border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`. On release the widths are kept in every cell of the whole table (`setColumnWidths`); a release where it was pressed changes nothing. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags.
+Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. While the pointer is on a border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`. On release the widths are kept in every cell of the whole table (`setColumnWidths`); a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags.
 
 Implementation: `src/engine/table-resize.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
 Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
@@ -122,10 +122,10 @@ Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-3.6 - Row heights
 
-Dragging a row's bottom border in an editable document shall set the row's height (`setRowHeight`) on each of its cells once the pointer is released, never below `MIN_ROW_HEIGHT` (16 pixels).
+Dragging a row's bottom border in an editable document shall set the row's height (`setRowHeight`) on each of its cells once the pointer is released, never below `MIN_ROW_HEIGHT` (16 pixels). The row is the one the pressed cell is in at the release, whatever changed meanwhile, such as rows a collaborator added above it; a cell no longer in the document sets nothing.
 
 Implementation: `src/engine/table-pointer.ts`
-Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
+Verification: `src/engine/table-format.test.ts`, `src/engine/table-pointer.test.ts`, `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-3.7 - Within the page
 

@@ -12,6 +12,7 @@ import {
 import { createCustomStyles } from './custom-styles.js';
 import { createDocumentSections } from './document-sections.js';
 import { createDynamicTemplates } from './dynamic-templates.js';
+import { createVersionChanges, versionChanges } from './version-changes.js';
 
 // The keystroke hot path: plugins whose state follows the whole document skip walking it for a
 // change that only types text.
@@ -129,5 +130,35 @@ describe('keystroke hot path', () => {
     expect(placeholders(typed)).toHaveLength(0);
     const cleared = typed.apply(typed.tr.delete(blockAt + 1, blockAt + 2));
     expect(placeholders(cleared)).toHaveLength(1);
+  });
+
+  it('DOCE-VERSIONS-2.5 types text while changes show without reading either version again', () => {
+    const identified = (id: string, value: string): StoredNode => ({
+      ...paragraph(value),
+      attrs: { id },
+    });
+    const version = (...content: StoredNode[]) =>
+      readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema)
+        .doc;
+    const older = version(identified('a0000001', 'Plain text'), identified('a0000002', 'Noted'));
+    const newer = version(
+      identified('a0000001', 'Plain text'),
+      identified('a0000002', 'Noted twice'),
+    );
+    const state = EditorState.create({
+      doc: newer,
+      plugins: [createVersionChanges({ previous: () => older })],
+    });
+    const at = positionOf(newer, 'Plain text') + 2;
+    // Reading a version walks its descendants.
+    const descendants = vi.spyOn(Node.prototype, 'descendants');
+    const next = state.apply(state.tr.insertText('x', at));
+    expect(descendants.mock.contexts.filter((node) => (node as Node).type.name === 'doc')).toEqual(
+      [],
+    );
+    expect(versionChanges(next).map((change) => change.text)).toEqual([
+      'Plxain text',
+      'Noted twice',
+    ]);
   });
 });

@@ -4,7 +4,7 @@
 // suggestion rejected, and the blocks a suggestion inserts are not compared, or, when asked, with
 // every suggestion accepted.
 
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import { regionKind } from '../model/index.js';
 import { commonSubsequence } from './common-subsequence.js';
 import { diffText, type TextSegment } from './text-diff.js';
@@ -67,6 +67,15 @@ export interface VersionBlock extends VersionBlockReading {
   generated: string;
   /** Its containers, outermost first, by kind and attributes. */
   readonly container: string;
+}
+
+/** An older version read once, so newer versions are compared with it without reading it again. */
+export interface OlderVersion {
+  readonly doc: ProseMirrorNode;
+  /** How it was read, and how versions are compared with it. */
+  readonly options: CompareOptions;
+  readonly blocks: readonly VersionBlock[];
+  readonly byKey: ReadonlyMap<string, VersionBlock>;
 }
 
 /** How two versions are compared. */
@@ -238,6 +247,56 @@ const insertionOf = (block: VersionBlock): VersionChange => ({
   positions: block.positions,
 });
 
+/** Reads an older version's blocks, to compare newer versions with it (`compareWithOlder`). */
+export function readOlderVersion(doc: ProseMirrorNode, options: CompareOptions = {}): OlderVersion {
+  const blocks = collectVersionBlocks(doc, options.suggestions);
+  return { doc, options, blocks, byKey: new Map(blocks.map((block) => [block.key, block])) };
+}
+
+// Whether a text block compares by its element id alone: whole, not a block a suggestion inserts,
+// and neither inside a block read as one nor in the regions drawn around the content.
+function comparesAlone(node: ProseMirrorNode, $pos: ResolvedPos): boolean {
+  const { dataId, splitPartIndex, suggestionSplitKind } = node.attrs;
+  if (typeof dataId !== 'string' || !node.isTextblock) return false;
+  if ((splitPartIndex ?? null) !== null || (suggestionSplitKind ?? null) !== null) return false;
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    const outer = $pos.node(depth);
+    if (outer.isAtom || isPageChrome(outer)) return false;
+  }
+  return true;
+}
+
+/**
+ * How the text block at a position changed from an older version, compared alone, after a change
+ * that only typed in it: `shown` is the change the block showed before, which says whether it
+ * moved or was inserted, as typing changes neither. Null for a block that reads as it did;
+ * undefined for a block that cannot be compared alone, such as one without an element id or a part
+ * of a split block, whose versions are compared whole.
+ */
+export function compareBlockWithOlder(
+  older: OlderVersion,
+  newer: ProseMirrorNode,
+  { pos, shown }: { pos: number; shown: VersionChange | undefined },
+): VersionChange | null | undefined {
+  const node = newer.nodeAt(pos);
+  const $pos = newer.resolve(pos);
+  if (!node || !comparesAlone(node, $pos)) return undefined;
+  const id = String(node.attrs.dataId);
+  const { container, generated } = containersOf($pos);
+  const suggestions = older.options.suggestions ?? 'rejected';
+  const read = readVersionBlock(node, { pos, suggestions, generated });
+  const parts = [{ from: pos, to: pos + node.nodeSize }];
+  const block = { ...read, key: id, id, type: node.type.name, parts, container };
+  if (shown?.kind === 'insertion') return insertionOf(block);
+  const previous = older.byKey.get(id);
+  if (!previous) return undefined;
+  return changeOf(block, previous, { moved: shown?.kind === 'move', options: older.options });
+}
+
+/** Where a change is among a version's changes: a deletion comes before the block it is placed at. */
+export const placeOfVersionChange = (change: VersionChange): number =>
+  change.parts[0]?.from ?? (change.at ? change.at.from - (change.at.after ? -0.5 : 0.5) : 0);
+
 /**
  * The changes from an older version of a document to a newer one, in the newer one's order:
  * blocks inserted, deleted, moved, with changed text or targets, or with changed formatting or
@@ -249,10 +308,19 @@ export function compareVersions(
   newer: ProseMirrorNode,
   options: CompareOptions = {},
 ): VersionChange[] {
-  const before = collectVersionBlocks(older, options.suggestions);
+  return compareWithOlder(readOlderVersion(older, options), newer);
+}
+
+/**
+ * The changes from an older version read before (`readOlderVersion`) to a newer one, as
+ * `compareVersions` gives them with the options the older version was read with.
+ */
+export function compareWithOlder(older: OlderVersion, newer: ProseMirrorNode): VersionChange[] {
+  const { options } = older;
+  const before = older.blocks;
   const after = collectVersionBlocks(newer, options.suggestions);
   pairBlocksWithoutIds(before, after);
-  const olderByKey = new Map(before.map((block) => [block.key, block]));
+  const olderByKey = older.byKey;
   const newerByKey = new Map(after.map((block) => [block.key, block]));
   const kept = keptInOrder(
     before.filter((block) => newerByKey.has(block.key)).map((block) => block.key),
@@ -267,8 +335,5 @@ export function compareVersions(
     if (change) changes.push(change);
   }
   changes.push(...deletionsOf(before, newerByKey, after.at(-1)));
-  // A deletion placed before a block comes before that block's own change.
-  const placeOf = (change: VersionChange) =>
-    change.parts[0]?.from ?? (change.at ? change.at.from - (change.at.after ? -0.5 : 0.5) : 0);
-  return changes.sort((a, b) => placeOf(a) - placeOf(b));
+  return changes.sort((a, b) => placeOfVersionChange(a) - placeOfVersionChange(b));
 }

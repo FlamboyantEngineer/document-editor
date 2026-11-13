@@ -71,7 +71,7 @@ Verification: `e2e/contents.spec.ts`
 
 ### DOCE-CONTENTS-2.4 - Going to an entry
 
-Choosing an entry shall put the caret at the start of the heading or object it names, scroll it into view and focus the editor.
+Choosing an entry, with a click or with Enter or Space, shall put the caret at the start of the heading or object it names, scroll it into view and focus the editor. A list's entries shall be reachable with the keyboard: one of them is in the tab order, and the arrow keys, Home and End move the focus between them.
 
 Implementation: `src/engine/contents.ts`
 Verification: `e2e/contents.spec.ts`

@@ -13,21 +13,21 @@ Verification: `src/engine/automation.test.ts`, `src/document/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.2 - Editing text
 
-`applyEdits(state, edits, { actor, mode })` shall make a batch of edits as one change marked with its actor (`automationActor(tr)`): `insertText` at an offset of an element's text, or its end; `replaceText` and `deleteText` over a range of it, the whole text by default. An element the pages split is edited whole, as the editing state holds it. Text an actor that is not a person writes carries the contributor mark with its id and session.
+`applyEdits(state, edits, { actor, mode })` shall make a batch of edits as one change marked with its actor (`automationActor(tr)`): `insertText` at an offset of an element's text, or its end; `replaceText` and `deleteText` over a range of it, the whole text by default. An element the pages split is edited whole, as the editing state holds it. Text an actor that is not a person writes carries one contributor mark, with its id and session, in place of the one the text there carries.
 
 Implementation: `src/engine/automation.ts`, `src/engine/automation-address.ts`
 Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.3 - Refusing a batch
 
-A batch shall be refused whole, naming the first edit that could not be made and why: `not-found` when an element is gone, `stale` when a range no longer holds the text the caller read (`expect`), `invalid` for a range outside the text, an element without text, a block with no anchor or content the schema cannot read, `locked` at a locked position (DOCE-EDITING-4.1), and `unsupported` when a suggestion cannot record the change.
+A batch shall be refused whole, naming the first edit that could not be made and why: `not-found` when an element is gone, `stale` when a range no longer holds the text the caller read (`expect`), `invalid` for a range outside the text, an element without text, a block with no anchor, content the schema cannot read or an attribute that may not be set (DOCE-AUTOMATION-1.4), `locked` at a locked position (DOCE-EDITING-4.1), and `unsupported` when a suggestion cannot record the change.
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.4 - Editing blocks
 
-`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes; blocks the actor adds are attributed to it (`dataAuthor`, `dataAiSession`).
+`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes, refused as `invalid` for an attribute that says which element it is (its id, its author and the schema's other identity attributes) or that its type does not define; blocks the actor adds are attributed to it (`dataAuthor`, `dataAiSession`).
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`
@@ -48,7 +48,7 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.7 - Locked positions
 
-An edit at a locked position shall be refused as `locked`, whichever mode it is made in.
+An edit at a locked position shall be refused as `locked`, whichever mode it is made in, as shall one that changes content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1): text, blocks or attributes inside an embed or a script block's output, and an embed's own attributes. A comment on that text, and inserting beside, replacing or deleting the whole block, are not refused.
 
 Implementation: `src/engine/automation.ts`, `src/engine/edit-lock.ts`
 Verification: `src/engine/automation.test.ts`
@@ -64,10 +64,10 @@ Verification: `e2e/automation.spec.ts`
 
 ### DOCE-AUTOMATION-2.2 - Streaming text
 
-`streamText(view, at, { actor, mode })` shall write text piece by piece after the text streamed so far, at the address's offset or the end of the element's text, each piece its own change and, in suggest mode, all of them one suggestion. Before each piece it finds its place again by element id and offset, and it stops, refusing further pieces, once the writer has changed the streamed text. `cancel` takes the streamed text out while it is still there; `finish` keeps it.
+`streamText(view, at, { actor, mode })` shall write text piece by piece after the text streamed so far, at the address's offset or the end of the element's text, each piece its own change and, in suggest mode, all of them one suggestion. Before each piece it finds its place again by element id and offset, and it stops, refusing that piece and further ones, once the writer has changed the streamed text or a piece does not go in, as when its batch is refused or a plugin drops its change. `cancel` takes the streamed text out while it is still there; `finish` keeps it.
 
 Implementation: `src/engine/automation-stream.ts`, `labs/src/agent-panel.tsx`
-Verification: `e2e/automation.spec.ts`
+Verification: `src/engine/automation-stream.test.ts`, `e2e/automation.spec.ts`
 
 ## DOCE-AUTOMATION-3 - Inline completion
 

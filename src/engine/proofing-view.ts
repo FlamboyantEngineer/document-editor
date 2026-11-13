@@ -35,14 +35,16 @@ function pointerOn(view: EditorView) {
       for (const resolve of resolved) resolve();
     }, 0);
   };
+  // A native drag ends with dragend or drop, and no mouseup; a press may also end out of the window.
+  const ends = ['mouseup', 'dragend', 'drop', 'blur'] as const;
   view.dom.addEventListener('mousedown', press);
-  owner?.addEventListener('mouseup', release);
+  for (const end of ends) owner?.addEventListener(end, release, true);
   return {
     released: () =>
       pressed ? new Promise<void>((resolve) => waiting.push(resolve)) : Promise.resolve(),
     destroy() {
       view.dom.removeEventListener('mousedown', press);
-      owner?.removeEventListener('mouseup', release);
+      for (const end of ends) owner?.removeEventListener(end, release, true);
       for (const resolve of waiting) resolve();
     },
   };

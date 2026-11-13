@@ -151,13 +151,15 @@ export function createAbbreviationHealth({
         const missing = wanted.filter((id) => !asked.has(id));
         if (!missing.length) return;
         asked = new Set([...asked, ...missing]);
-        glossary.resolve(missing).then(
-          (result) => {
-            if (view.isDestroyed || !result.ok) return;
-            recordGlossaryEntries(missing, result.value)(view.state, view.dispatch);
-          },
-          () => undefined,
-        );
+        // Entries the glossary could not answer for are asked again after the next change.
+        const forget = () => {
+          asked = new Set([...asked].filter((id) => !missing.includes(id)));
+        };
+        glossary.resolve(missing).then((result) => {
+          if (!result.ok) forget();
+          if (view.isDestroyed || !result.ok) return;
+          recordGlossaryEntries(missing, result.value)(view.state, view.dispatch);
+        }, forget);
       };
       const schedule = () => {
         owner?.clearTimeout(timer);
@@ -166,7 +168,7 @@ export function createAbbreviationHealth({
       schedule();
       return {
         update(current, previous) {
-          if (!current.state.doc.eq(previous.doc)) schedule();
+          if (current.state.doc !== previous.doc) schedule();
         },
         destroy() {
           owner?.clearTimeout(timer);
