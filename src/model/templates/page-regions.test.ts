@@ -52,6 +52,42 @@ describe('page regions', () => {
     expect(setPageRegions(new Transform(tr.doc), template).steps).toHaveLength(0);
   });
 
+  it('DOCE-TEMPLATES-6.1 leaves a region as it is when it cannot hold the content', () => {
+    // A column layout sits in a section's content, never in a header or footer.
+    const columns: StoredNode = {
+      type: 'columns',
+      content: [
+        { type: 'column', content: [paragraph(text('Left'))] },
+        { type: 'column', content: [paragraph(text('Right'))] },
+      ],
+    };
+    const unheld: TemplateFile = {
+      ...template,
+      header: { content: [columns] },
+      footer: { content: [{ type: 'poster' }] },
+    };
+    const filled = setPageRegions(new Transform(document()), template).doc;
+    const tr = setPageRegions(new Transform(filled), unheld);
+    expect(tr.steps).toHaveLength(0);
+    expect(textIn(tr.doc, 0, 0)).toBe('Interface notes');
+    expect(textIn(tr.doc, 0, 3)).toBe('Page ');
+    // Whether the regions can be edited still changes, with the content they hold.
+    const editable = setPageRegions(new Transform(filled), unheld, { editable: true });
+    expect(regionOf(editable.doc, 0, 0).attrs.editable).toBe(true);
+    expect(textIn(editable.doc, 0, 0)).toBe('Interface notes');
+    // A document section's own region that the page cannot hold is left as it is too.
+    const own = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [{ name: null, header: { content: [columns] }, content: [paragraph(text('B'))] }],
+      },
+      documentSchema,
+    ).doc;
+    expect(
+      setPageRegions(new Transform(own), template).doc.child(0).child(0).child(0).childCount,
+    ).toBe(0);
+  });
+
   it("DOCE-TEMPLATES-6.2 shows a document section's own header and footer over its template's", () => {
     const doc = readDocumentFile(
       {

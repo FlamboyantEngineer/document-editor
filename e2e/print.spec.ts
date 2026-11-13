@@ -67,6 +67,74 @@ test.describe('print', () => {
   });
 });
 
+// The named destinations a PDF's links go to, in the order they are written.
+function pdfLinkDestinations(pdf: Buffer): string[] {
+  const text = pdf.toString('latin1');
+  return [...text.matchAll(/\/Subtype \/Link[^>]*?\/Dest \/([^\s>/]+)/g)].map(
+    ([, name = '']) => name,
+  );
+}
+
+test.describe('print links', () => {
+  test('DOCE-EDITOR-6.21 keeps references and footnotes linked in the PDF', async ({
+    lab,
+    page,
+    context,
+  }) => {
+    await lab.open('print');
+    await page.getByRole('button', { name: 'Make a print preview' }).click();
+    const snapshot = (await page.getByTitle('Print preview').getAttribute('srcdoc')) ?? '';
+    const printed = await context.newPage();
+    await printed.setContent(snapshot, { waitUntil: 'load' });
+    const reference = printed.locator('a[data-print-link="reference"]');
+    await expect(reference).toHaveText('the scope');
+    await expect(reference).toHaveAttribute('href', '#c0de5c0e');
+    await expect(printed.locator('#c0de5c0e')).toHaveText('Scope');
+    await expect(printed.locator('a[data-print-link="footnote"]')).toHaveAttribute(
+      'href',
+      '#fn-terms',
+    );
+    await expect(printed.locator('#fn-terms a[data-print-link="footnote-back"]')).toHaveAttribute(
+      'href',
+      '#fnref-terms',
+    );
+    // A link prints as the text around it.
+    const look = await reference.evaluate((element) => {
+      const own = getComputedStyle(element);
+      const around = getComputedStyle(element.parentElement ?? element);
+      return [own.color === around.color, own.textDecorationLine === around.textDecorationLine];
+    });
+    expect(look).toEqual([true, true]);
+    const pdf = await printed.pdf({ preferCSSPageSize: true });
+    expect(pdfLinkDestinations(pdf).sort()).toEqual(['c0de5c0e', 'fn-terms', 'fnref-terms']);
+    await printed.close();
+  });
+});
+
+test.describe('print outline', () => {
+  test('DOCE-EDITOR-6.24 gives each heading the page it prints on and its top there', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('print');
+    const sections = await content(page)
+      .locator('.pm-section')
+      .evaluateAll((elements) =>
+        elements.map((section) => section.querySelectorAll('.pm-page').length),
+      );
+    await page.getByRole('button', { name: 'Make a print preview' }).click();
+    const outline = page.getByRole('list', { name: 'Print outline' }).getByRole('listitem');
+    await expect(outline.first()).toHaveText('1. Scope, page 1');
+    const glossary = outline.filter({ hasText: /^\d+\. Glossary,/ });
+    await expect(glossary).toHaveText(`2. Glossary, page ${String((sections[0] ?? 0) + 1)}`);
+    // Each heading sits below its page's top margin.
+    const tops = await outline.evaluateAll((items) =>
+      items.map((item) => Number(item.getAttribute('data-top'))),
+    );
+    expect(tops.every((top) => top > 0)).toBe(true);
+  });
+});
+
 test.describe('print a comparison', () => {
   test('DOCE-EDITOR-6.17 prints the deleted text and change bars of a comparison', async ({
     lab,
@@ -138,4 +206,29 @@ test.describe('print equals the editor', () => {
       });
     });
   }
+});
+
+test.describe('File > Export', () => {
+  test('DOCE-EDITOR-6.28 runs the host exports from File > Export, once at a time', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('full-editor');
+    const menubar = page.getByRole('menubar');
+    await menubar.getByRole('menuitem', { name: 'File' }).click();
+    await page.getByRole('menuitem', { name: 'Export' }).click();
+    const items = page.getByRole('menu').last().getByRole('menuitem');
+    await expect(items).toHaveText(['Markdown', 'Word document', 'Print snapshot']);
+    await items.filter({ hasText: 'Print snapshot' }).click();
+    await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText(
+      'Print snapshot export is ready',
+    );
+    await expect(page.getByLabel('Snapshot', { exact: true })).toHaveText(
+      /^[1-9]\d* pages printed$/,
+    );
+    const pages = await content(page).locator('.pm-page').count();
+    await expect(page.getByLabel('Snapshot', { exact: true })).toHaveText(
+      `${String(pages)} pages printed`,
+    );
+  });
 });

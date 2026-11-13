@@ -42,15 +42,18 @@ test.describe('automation', () => {
     await lab.open('document-editor');
     await page.getByRole('button', { name: 'Stream a note' }).click();
     await expect(report(page)).toHaveText('Streamed a note');
-    // The pieces make one suggestion: their marks share its id and spell the note.
-    const pieces = await content(page)
-      .locator('ins')
-      .evaluateAll((all) =>
-        all.map((each) => [each.getAttribute('data-id'), each.textContent ?? '']),
+    // The pieces make one suggestion: their marks share its id and spell the note. The pages are
+    // drawn after the report, so the last piece may land a frame later.
+    await expect(async () => {
+      const pieces = await content(page)
+        .locator('ins')
+        .evaluateAll((all) =>
+          all.map((each) => [each.getAttribute('data-id'), each.textContent ?? '']),
+        );
+      expect(new Set(pieces.map(([id]) => id)).size).toBe(1);
+      expect(pieces.map(([, text]) => text).join('')).toContain(
+        'The agent writes this note piece by piece.',
       );
-    expect(new Set(pieces.map(([id]) => id)).size).toBe(1);
-    expect(pieces.map(([, text]) => text).join('')).toContain(
-      'The agent writes this note piece by piece.',
-    );
+    }).toPass();
   });
 });

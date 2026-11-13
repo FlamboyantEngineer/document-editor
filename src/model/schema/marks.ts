@@ -15,6 +15,7 @@ import {
   type DomAttributes,
   FORMAT_CHANGE_ATTR,
   readContributorAuthorAttr,
+  safeHref,
 } from './dom-attributes.js';
 import { DOCUMENT_MARK_ORDER } from './node-order.js';
 import { createReferenceMark } from './reference-mark.js';
@@ -51,16 +52,23 @@ function link(options: ResolvedSchemaOptions): MarkSpec {
     parseDOM: [
       {
         tag: 'a[href]',
-        getAttrs: (dom: HTMLElement) => ({
-          href: dom.getAttribute('href'),
-          target: dom.getAttribute('target') === '_blank' ? '_blank' : null,
-          title: readTooltip(dom, options),
-          ...readAuthorAttrs(dom),
-        }),
+        getAttrs(dom: HTMLElement) {
+          const href = safeHref(dom.getAttribute('href'));
+          // An anchor whose address a link may not hold reads as its text alone.
+          if (href === null) return false;
+          return {
+            href,
+            target: dom.getAttribute('target') === '_blank' ? '_blank' : null,
+            title: readTooltip(dom, options),
+            ...readAuthorAttrs(dom),
+          };
+        },
       },
     ],
     toDOM(mark: Mark) {
-      const attrs: DomAttributes = { href: mark.attrs.href as string };
+      // A link stored or synced with another address stays a link, but leads nowhere.
+      const href = safeHref(mark.attrs.href);
+      const attrs: DomAttributes = href === null ? {} : { href };
       if (mark.attrs.target === '_blank') {
         attrs.target = '_blank';
         attrs.rel = 'noopener noreferrer';
@@ -162,6 +170,8 @@ const commentHighlight: MarkSpec = {
 /** A suggested insertion or deletion, which only an element with an id or comment id is. */
 function suggestionMark(tag: 'ins' | 'del'): MarkSpec {
   return {
+    // A suggestion ends at its text: what a writer types right after it is no part of it.
+    inclusive: false,
     excludes: '',
     attrs: {
       dataId: { default: null },

@@ -1,9 +1,9 @@
 // One paragraph of a word processing document as the pieces of stored content it gives: a heading,
 // a paragraph at its level and in its style, a list item, part of a quote, a code block, a figure,
-// display math or a caption, split where a page break falls inside it.
+// display math, a rule or a caption, split where a page break falls inside it.
 
 import type { StoredNode } from '../../model/format/document-format.js';
-import { childElement, childValue, type XmlElement } from '../xml-read.js';
+import { childElement, childElements, childValue, type XmlElement } from '../xml-read.js';
 import { type DocxReading, readInlineContent } from './docx-inline.js';
 import { numberingOf, type NumberingRole } from './docx-numbering.js';
 import type { ParagraphRole } from './docx-styles.js';
@@ -17,6 +17,8 @@ export type Piece =
       readonly node: StoredNode;
     }
   | { readonly kind: 'quote'; readonly node: StoredNode }
+  /** A paragraph that, right after a list item, is another paragraph of that item. */
+  | { readonly kind: 'more'; readonly node: StoredNode }
   | { readonly kind: 'caption'; readonly text: string };
 
 /** What paragraph reading needs beyond a part's reading: the custom styles it may keep. */
@@ -118,23 +120,39 @@ function roleOf(p: XmlElement, reading: ParagraphReading): ParagraphRole {
   return { kind: 'paragraph', level: 1 };
 }
 
-// The piece one part of a paragraph, between page breaks, gives.
-function pieceOf(
+interface ParagraphShape {
+  readonly role: ParagraphRole;
+  readonly numbering: NumberingRole | null;
+  readonly outline: number | null;
+  readonly display: boolean;
+  readonly listParagraph: boolean;
+}
+
+// The piece a part of a text paragraph gives: a list item, another paragraph of the item before
+// it, or a heading or paragraph by its role.
+function textPiece(
   content: StoredNode[],
-  {
-    role,
-    numbering,
-    outline,
-    display,
-  }: {
-    role: ParagraphRole;
-    numbering: NumberingRole | null;
-    outline: number | null;
-    display: boolean;
-  },
+  { role, numbering, outline, listParagraph }: ParagraphShape,
 ): Piece {
-  const object = objectBlock(content, display);
+  const paragraph =
+    numbering?.kind === 'paragraph' ? numbering.level : role.kind === 'paragraph' ? role.level : 1;
+  const isText = role.kind === 'paragraph' || role.kind === 'other';
+  if (numbering?.kind === 'list' && isText) {
+    return { kind: 'item', list: numbering, node: withContent('paragraph', {}, content) };
+  }
+  if (listParagraph && isText && !numbering)
+    return { kind: 'more', node: withContent('paragraph', {}, content) };
+  return {
+    kind: 'block',
+    node: textBlock(role, { outline, paragraph }, content) ?? withContent('paragraph', {}, content),
+  };
+}
+
+// The piece one part of a paragraph, between page breaks, gives.
+function pieceOf(content: StoredNode[], shape: ParagraphShape): Piece {
+  const object = objectBlock(content, shape.display);
   if (object) return { kind: 'block', node: object };
+  const { role } = shape;
   if (role.kind === 'code') {
     const text = plainText(content);
     return {
@@ -143,17 +161,20 @@ function pieceOf(
     };
   }
   if (role.kind === 'caption') return { kind: 'caption', text: plainText(content).trim() };
-  const paragraph =
-    numbering?.kind === 'paragraph' ? numbering.level : role.kind === 'paragraph' ? role.level : 1;
   if (role.kind === 'quote') return { kind: 'quote', node: withContent('paragraph', {}, content) };
-  const isText = role.kind === 'paragraph' || role.kind === 'other';
-  if (numbering?.kind === 'list' && isText) {
-    return { kind: 'item', list: numbering, node: withContent('paragraph', {}, content) };
-  }
-  return {
-    kind: 'block',
-    node: textBlock(role, { outline, paragraph }, content) ?? withContent('paragraph', {}, content),
-  };
+  return textPiece(content, shape);
+}
+
+// What an empty paragraph gives when it is not an empty paragraph: nothing when its only content is
+// its section's properties, which the writer adds for an empty section or one ending in a table,
+// and a rule when its only border is the bottom one.
+function emptyPieces(pPr: XmlElement | null): Piece[] | null {
+  if (childElement(pPr, 'w:pageBreakBefore')) return null;
+  if (childElement(pPr, 'w:sectPr')) return [];
+  const borders = childElements(childElement(pPr, 'w:pBdr'));
+  if (borders.length === 1 && borders[0]?.name === 'w:bottom')
+    return [{ kind: 'block', node: { type: 'rule' } }];
+  return null;
 }
 
 /** The pieces a paragraph (`w:p`) gives (DOCE-IMPORT-2.2). */
@@ -162,16 +183,20 @@ export function readParagraph(p: XmlElement, reading: ParagraphReading): Piece[]
   const styleId = childValue(pPr, 'w:pStyle');
   const role = roleOf(p, reading);
   const outlineValue = childValue(pPr, 'w:outlineLvl');
-  const shape = {
+  const shape: ParagraphShape = {
     role,
     numbering: reading.numbering.roleOf(numberingOf(pPr) ?? reading.styles.numberingOf(styleId)),
     outline: outlineValue === null ? null : Number(outlineValue) + 1,
     display: !!childElement(p, 'm:oMathPara'),
+    listParagraph: reading.styles.isListParagraph(styleId),
   };
+  const content = readInlineContent(p, reading);
+  const empty = content.length ? null : emptyPieces(pPr);
+  if (empty) return empty;
   const pieces: Piece[] = childElement(pPr, 'w:pageBreakBefore')
     ? [{ kind: 'block', node: { type: 'pageBreak' } }]
     : [];
-  const parts = splitAtPageBreaks(readInlineContent(p, reading));
+  const parts = splitAtPageBreaks(content);
   parts.forEach((part, index) => {
     if (part === null) pieces.push({ kind: 'block', node: { type: 'pageBreak' } });
     // The empty part a page break at a paragraph's start or end leaves is not a paragraph.

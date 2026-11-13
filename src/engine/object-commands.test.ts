@@ -1,4 +1,10 @@
-import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
+import {
+  type Command,
+  EditorState,
+  NodeSelection,
+  TextSelection,
+  type Transaction,
+} from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { parseCodeLines, readDocumentFile, type StoredNode } from '../model/index.js';
@@ -19,6 +25,7 @@ import {
   setMathSource,
   setObjectLayout,
 } from './object-commands.js';
+import { suggestTransaction } from './suggestions.js';
 
 const text = (value: string): StoredNode => ({ type: 'text', text: value });
 const paragraph = (value: string): StoredNode => ({
@@ -177,5 +184,34 @@ describe('object commands', () => {
     state = run(select(state, 'here'), setLink('https://c.example'));
     expect(state.doc.textBetween(0, state.doc.content.size)).toContain('https://c.examplehere');
     expect(setLink('')(select(state, 'See'))).toBe(false);
+  });
+
+  it('DOCE-OBJECTS-1.6 refuses an address that could run script', () => {
+    const state = select(stateOf(paragraph('See the spec here.')), 'spec', 4);
+    expect(setLink('javascript:alert(1)')(state)).toBe(false);
+    expect(setLink(' JavaScript:alert(1)')(state)).toBe(false);
+    expect(setLink('mailto:ada@example.com')(state)).toBe(true);
+  });
+
+  it('DOCE-OBJECTS-1.6 DOCE-SUGGESTIONS-1.1 types a linked address a suggestion records as an insertion', () => {
+    const strong = [{ type: 'bold' }];
+    const state = select(
+      stateOf({ type: 'paragraph', content: [{ type: 'text', text: 'See here.', marks: strong }] }),
+      'here',
+    );
+    const changes: Transaction[] = [];
+    expect(setLink('https://a.example')(state, (tr) => changes.push(tr))).toBe(true);
+    const [typed] = changes;
+    if (!typed) throw new Error('No change');
+    const marksAt = (next: EditorState) =>
+      next.doc
+        .nodeAt(find(next, 'https://a.example'))
+        ?.marks.map((mark) => mark.type.name)
+        .sort();
+    expect(marksAt(state.apply(typed))).toEqual(['link', 'strong']);
+    expect(state.apply(typed).selection.from).toBe(state.selection.from + 17);
+    const suggested = suggestTransaction(typed, state, { author: 'ada' });
+    if (!suggested) throw new Error('Dropped');
+    expect(marksAt(state.apply(suggested))).toEqual(['insertion', 'link', 'strong']);
   });
 });

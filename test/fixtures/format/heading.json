@@ -12,6 +12,7 @@
           "attrs": {
             "level": 3,
             "title": true,
+            "numbered": false,
             "style": "sample-className",
             "id": "heading-1",
             "author": "author-1",

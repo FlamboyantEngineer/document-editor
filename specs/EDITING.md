@@ -48,7 +48,7 @@ Verification: `src/model/format/document-format-ids.test.ts`
 
 ### DOCE-EDITING-1.7 - An element lifecycle
 
-A host shall be able to build an element lifecycle of its own (states, stamping and gating) from the library's parts, as `docs/recipes/element-lifecycle.md` shows: the state declared as an identity attribute that a copy clears (DOCE-SCHEMA-2.3), a plugin stamping elements without a state, and the edit lock (DOCE-EDITING-4.1) refusing edits inside, and joins into, an element in a frozen state. The library holds no states or transitions.
+A host shall be able to build an element lifecycle of its own (states, stamping and gating) from the library's parts, as `docs/recipes/element-lifecycle.md` shows: the state declared as an identity attribute that a copy clears (DOCE-SCHEMA-2.3), a plugin stamping elements without a state, and the edit lock (DOCE-EDITING-4.1) refusing edits inside, joins into, and a list or a quote put around, an element in a frozen state. The library holds no states or transitions.
 
 Implementation: `src/model/schema/element-attributes.ts`, `src/engine/edit-lock.ts`
 Verification: `test/element-lifecycle.test.ts`
@@ -71,7 +71,7 @@ Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-EDITING-2.3 - Enter
 
-Enter shall add a line in code, split a list item, add a paragraph after a selected block, lift an empty block out of its parent, or split the text block; a split paragraph's new half shall keep its level. A split at the start of a text block, or of a list item, shall keep the element's identity with its content and make the empty block before it the new element, with a fresh id by the writer (`keepIdentityWithContent`), so a referenced heading keeps its id; a block split by the pagination is left to it.
+Enter shall add a line in code, split a list item, add a paragraph after a selected block, lift an empty block out of its parent, or split the text block, replacing a selected range of text; a split paragraph's new half shall keep its level. A split at the start of a text block, or of a list item, shall keep the element's identity with its content and make the empty block before it the new element, with a fresh id by the writer (`keepIdentityWithContent`), so a referenced heading keeps its id; a block split by the pagination is left to it.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`, `src/engine/split-identity.ts`
 Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
@@ -142,26 +142,28 @@ Verification: `src/engine/transaction-kind.test.ts`
 
 ### DOCE-EDITING-3.3 - No derived writes on remote changes
 
-A plugin that writes to the document in response to other changes (element ids, footnote numbering, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
+A plugin that writes to the document in response to other changes (element ids, footnote numbering, in the document and in each section, keeping tables within the page, page regions of sections) shall write only in response to a change that is not remote (DOCE-COLLAB-2.1), so a change applied from elsewhere, which already carries the sender's derived writes, takes no further writes on the receiving side. Each such plugin takes an `isRemote` option, `isRemoteTransaction` by default, and the editing extension passes its own on.
 
-Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/footnotes.ts`, `src/engine/document-editing.ts`
-Verification: `src/engine/two-state-collab.test.ts`
+Implementation: `src/engine/table-width.ts`, `src/engine/document-sections.ts`, `src/engine/element-ids.ts`, `src/engine/footnotes.ts`, `src/engine/section-footnote-numbers.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/two-state-collab.test.ts`, `src/engine/footnotes.test.ts`
 
 ### DOCE-EDITING-3.4 - Typing without walking the document
 
-A plugin whose state follows the whole document shall not walk it for a change that only types or deletes text (`isInlineTextOnly`, DOCE-EDITING-3.2): it maps what it holds through the change instead. Custom styles (DOCE-TEMPLATES-7.1) do so for every such change; sections (DOCE-SECTIONS-1.1) do so, and append no page regions, when the text is in the pages' content and its block holds text before and after the change, so a section placeholder still appears and goes as its block empties and fills.
+A plugin whose state follows the whole document shall not walk it for a change that only types or deletes text (`isInlineTextOnly`, DOCE-EDITING-3.2): it maps what it holds through the change instead. Custom styles (DOCE-TEMPLATES-7.1) do so for every such change; sections (DOCE-SECTIONS-1.1) do so, and append no page regions, when the text is in the pages' content and its block holds text before and after the change, so a section placeholder still appears and goes as its block empties and fills. Template blocks (`createDynamicTemplates`) map their render keys through such a change, since typed text cannot change what a template block shows.
 
-Implementation: `src/engine/custom-styles.ts`, `src/engine/document-sections.ts`
+Implementation: `src/engine/custom-styles.ts`, `src/engine/document-sections.ts`, `src/engine/dynamic-templates.ts`
 Verification: `src/engine/hot-path.test.ts`
 
 ## DOCE-EDITING-4 - Locked positions
 
 ### DOCE-EDITING-4.1 - The edit lock
 
-`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records that is neither remote, derived nor a system change (DOCE-EDITING-3.2), when any of its steps changes a position `isLocked(doc, pos)` reports locked: any position of a range it replaces or marks, the inside of every block and inline node that range covers, the edges a structure change replaces around the content it keeps, the inside of a node it sets attributes or marks on, or the point it inserts at. A step that spans a locked block between two open ones is refused. A comment's highlight may be added to and removed from locked content. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, and system changes pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
+`createEditLock({ isLocked })` shall refuse a writer's change, one the undo history records that is neither remote, derived nor a system change (DOCE-EDITING-3.2), when any of its steps changes a position `isLocked(doc, pos)` reports locked: any position of a range it replaces or marks, the inside of every block and inline node that range covers, the edges a structure change replaces around the content it keeps, the inside of a node it sets attributes or marks on, or the point it inserts at. A step that spans a locked block between two open ones is refused. A structure change that moves the content it keeps into or out of a block, as a list or a quote put around it, a lift out of one and a list item's indent do, is refused when that content holds a locked position, since the edges of such a change lie between blocks; a change of the type or the attributes of a block around a locked one changes only that block, and is judged by its own positions. A comment's highlight may be added to and removed from locked content. Changes kept out of the history, such as layouts, ids, proofing results and remote changes, and system changes pass. `isPositionLocked(state, pos)` reports the lock at a position, and false without one.
 
-Implementation: `src/engine/edit-lock.ts`
-Verification: `src/engine/edit-lock.test.ts`
+An undo or a redo of the history is a writer's change, so one that would change a position locked since is refused, and the history, which a refused change leaves as it was, offers the same one again: undo stops at that change until the lock opens. `undoCommand` and `redoCommand`, run on the history under a lock, shall then dispatch no such change but a transaction that reports it to the lock (`editLockKey` meta, `undo` or `redo`), still handling their key, and asked without a dispatch they shall answer false from then on, so a control that asks shows undo as unavailable, until a change the history records gives it another to offer. The lock's state holds what it refused (`refused`).
+
+Implementation: `src/engine/edit-lock.ts`, `src/engine/undo-commands.ts`
+Verification: `src/engine/edit-lock.test.ts`, `src/engine/undo-commands.test.ts`
 
 ### DOCE-EDITING-4.2 - Locked sections by default
 
@@ -181,14 +183,14 @@ Verification: `src/engine/clipboard.test.ts`, `src/engine/embeds.test.ts`
 
 ### DOCE-EDITING-5.2 - Pasted copies
 
-A pasted copy shall leave out the nodes whose type's spec says `pastable: false`, which a signature's does, so a paste never shows an approval nobody gave there. It shall leave out text and inline nodes a suggestion deletes, take the comment and suggested-insertion marks off the rest, so a copy never shares a comment's anchor or a suggestion's id with its original, and make its elements new (DOCE-EDITING-1.5). A suggestion made while pasting marks the copy as the paster's own insertion.
+A pasted copy shall leave out the nodes whose type's spec says `pastable: false`, which a signature's does, so a paste never shows an approval nobody gave there. It shall leave out text and inline nodes a suggestion deletes, take the comment and suggested-insertion marks and the record of a suggested formatting change off the rest, keeping the formatting itself, so a copy never shares a comment's anchor or a suggestion's id with its original, and make its elements new (DOCE-EDITING-1.5). A suggestion made while pasting marks the copy as the paster's own insertion.
 
 Implementation: `src/engine/clipboard-copies.ts`, `src/model/schema/inline-atom-nodes.ts`
 Verification: `src/engine/clipboard.test.ts`
 
 ### DOCE-EDITING-5.3 - Plain text
 
-Pasted plain text shall become one paragraph for each of its lines, an empty line an empty paragraph, with the marks at the paste position. In code, it stays one run of text.
+Pasted plain text shall become one paragraph for each of its lines, an empty line an empty paragraph, with the formatting marks at the paste position and none that ties text to a comment or a suggestion there (comment highlights, suggested insertions and deletions, format changes), so text pasted inside text a suggestion deletes is pasted (DOCE-SUGGESTIONS-1.8). In code, it stays one run of text.
 
 Implementation: `src/engine/clipboard-text.ts`
 Verification: `src/engine/clipboard.test.ts`

@@ -8,6 +8,7 @@ import type {
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { nodes as basicNodes } from 'prosemirror-schema-basic';
 import { bulletList, listItem, orderedList } from 'prosemirror-schema-list';
+import { CUSTOM_STYLE_NAME } from '../format/template-format-validate.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 
 /** The groups block content and top-level layouts belong to. */
@@ -15,22 +16,42 @@ export const BLOCK_GROUP = 'block';
 
 const HEADING_LEVELS = [1, 2, 3, 4, 5, 6];
 
+// A block's style is the name of a custom style (DOCE-TEMPLATES-7.1), read from and written as
+// its class. Markup pasted from a page carries that page's classes, which the host's stylesheet
+// could act on, to hide the block or lay it over the page, so a class is a style only when it is
+// one name a custom style may have.
+function styleName(value: unknown): string {
+  const name = typeof value === 'string' ? value.trim() : '';
+  return CUSTOM_STYLE_NAME.test(name) ? name : '';
+}
+
+// The class a block in a style writes.
+function styleClass(node: ProseMirrorNode): Record<string, string> {
+  const name = styleName(node.attrs.className);
+  return name ? { class: name } : {};
+}
+
 const paragraph: NodeSpec = {
   attrs: { className: { default: '' } },
   content: 'inline*',
   group: BLOCK_GROUP,
   parseDOM: [
-    { tag: 'p', getAttrs: (dom: HTMLElement) => ({ className: dom.getAttribute('class') || '' }) },
+    {
+      tag: 'p',
+      getAttrs: (dom: HTMLElement) => ({ className: styleName(dom.getAttribute('class')) }),
+    },
   ],
-  toDOM(node: ProseMirrorNode) {
-    const attrs: Record<string, string> = {};
-    if (node.attrs.className) attrs.class = String(node.attrs.className);
-    return ['p', attrs, 0];
-  },
+  toDOM: (node: ProseMirrorNode) => ['p', styleClass(node), 0],
 };
 
 const heading: NodeSpec = {
-  attrs: { level: { default: 1 }, docTitle: { default: false }, className: { default: '' } },
+  attrs: {
+    level: { default: 1 },
+    docTitle: { default: false },
+    /** False for a heading that takes no number and moves no counter, though it stays structural. */
+    numbered: { default: true },
+    className: { default: '' },
+  },
   content: 'inline*',
   group: BLOCK_GROUP,
   defining: true,
@@ -39,13 +60,16 @@ const heading: NodeSpec = {
     getAttrs: (dom: HTMLElement) => ({
       level,
       docTitle: dom.getAttribute('data-doc-title') === 'true',
-      className: dom.getAttribute('class') || '',
+      numbered: dom.getAttribute('data-numbered') !== 'false',
+      className: styleName(dom.getAttribute('class')),
     }),
   })),
   toDOM(node: ProseMirrorNode) {
-    const attrs: Record<string, string> = {};
-    if (node.attrs.docTitle) attrs['data-doc-title'] = 'true';
-    if (node.attrs.className) attrs.class = String(node.attrs.className);
+    const attrs: Record<string, string> = {
+      ...(node.attrs.docTitle ? { 'data-doc-title': 'true' } : {}),
+      ...(node.attrs.numbered === false ? { 'data-numbered': 'false' } : {}),
+      ...styleClass(node),
+    };
     // Clamped, so an out-of-range level never writes an invalid tag.
     const level = Math.min(6, Math.max(1, Number(node.attrs.level) || 1));
     return [`h${String(level)}`, attrs, 0];

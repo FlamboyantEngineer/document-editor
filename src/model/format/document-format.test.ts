@@ -82,6 +82,33 @@ describe('stored document format', () => {
     expect(writeDocumentFile(readDocumentFile(file, documentSchema).doc)).toEqual(file);
   });
 
+  it('DOCE-FORMAT-1.1 keeps the marks of a node that is not text', () => {
+    const deletion = { type: 'deletion', attrs: { id: 's1', author: 'u2' } };
+    const paragraph = {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Ask ' },
+        { type: 'mention', attrs: { person: 'u1', label: 'Ada' }, marks: [deletion] },
+        {
+          type: 'footnote',
+          attrs: { id: 'fn1' },
+          content: [{ type: 'text', text: 'Why.' }],
+          marks: [deletion],
+        },
+        { type: 'math', attrs: { source: 'x' }, marks: [{ type: 'bold' }] },
+      ],
+    };
+    const file: DocumentFile = {
+      formatVersion: 1,
+      template: null,
+      sections: [{ name: null, content: [paragraph] }],
+    };
+    const doc = readDocumentFile(file, documentSchema).doc;
+    expect(findNode(doc, 'mention')?.marks.map((mark) => mark.type.name)).toEqual(['deletion']);
+    expect(findNode(doc, 'math_inline')?.marks.map((mark) => mark.type.name)).toEqual(['strong']);
+    expect(writeDocumentFile(doc)).toEqual(file);
+  });
+
   it('DOCE-FORMAT-1.2 lays each stored section out on one page for the editor', () => {
     const doc = readDocumentFile(FILE, documentSchema).doc;
     const section = doc.firstChild;
