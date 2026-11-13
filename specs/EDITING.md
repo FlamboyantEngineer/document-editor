@@ -149,9 +149,9 @@ Verification: `src/engine/two-state-collab.test.ts`, `src/engine/footnotes.test.
 
 ### DOCE-EDITING-3.4 - Typing without walking the document
 
-A plugin whose state follows the whole document shall not walk it for a change that only types or deletes text (`isInlineTextOnly`, DOCE-EDITING-3.2): it maps what it holds through the change instead. Custom styles (DOCE-TEMPLATES-7.1) do so for every such change; sections (DOCE-SECTIONS-1.1) do so, and append no page regions, when the text is in the pages' content and its block holds text before and after the change, so a section placeholder still appears and goes as its block empties and fills.
+A plugin whose state follows the whole document shall not walk it for a change that only types or deletes text (`isInlineTextOnly`, DOCE-EDITING-3.2): it maps what it holds through the change instead. Custom styles (DOCE-TEMPLATES-7.1) do so for every such change; sections (DOCE-SECTIONS-1.1) do so, and append no page regions, when the text is in the pages' content and its block holds text before and after the change, so a section placeholder still appears and goes as its block empties and fills. Template blocks (`createDynamicTemplates`) map their render keys through such a change, since typed text cannot change what a template block shows.
 
-Implementation: `src/engine/custom-styles.ts`, `src/engine/document-sections.ts`
+Implementation: `src/engine/custom-styles.ts`, `src/engine/document-sections.ts`, `src/engine/dynamic-templates.ts`
 Verification: `src/engine/hot-path.test.ts`
 
 ## DOCE-EDITING-4 - Locked positions

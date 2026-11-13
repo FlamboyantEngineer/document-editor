@@ -177,7 +177,7 @@ describe('document keys', () => {
     const doc = read(paragraph('One two three'));
     const state = run(stateAt(doc, ['two', 'two']), key('Enter'));
     expect(outline(state)).toEqual(['paragraph:One ', 'paragraph: three']);
-    expect(state.selection.$from.parent.textContent).toBe(' three');
+    expect(String(state.selection.$from.parent.textContent)).toBe(' three');
   });
 
   it('DOCE-EDITING-2.3 keeps the id with the content when Enter splits at a block start', () => {
