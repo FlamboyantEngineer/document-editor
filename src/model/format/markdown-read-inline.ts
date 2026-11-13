@@ -95,20 +95,30 @@ const math: Reader = ({ source }, at) => {
   };
 };
 
-// A bracketed label and what follows it: an inline `(href "title")` or a `[reference]`.
-function linkTarget(source: string, at: number, context: InlineContext) {
+// The index of the bracket that closes the one at `at`, skipping escapes and nested brackets.
+function closingBracket(source: string, at: number): number {
   let depth = 0;
-  let close = -1;
-  for (let index = at; index < source.length && close === -1; index += 1) {
+  for (let index = at; index < source.length; index += 1) {
     const char = source[index];
     if (char === '\\') index += 1;
     else if (char === '[') depth += 1;
-    else if (char === ']' && --depth === 0) close = index;
+    else if (char === ']' && --depth === 0) return index;
   }
+  return -1;
+}
+
+// A bracketed label and what follows it: an inline `(href "title")` or a `[reference]`.
+function linkTarget(source: string, at: number, context: InlineContext) {
+  const close = closingBracket(source, at);
   if (close === -1) return null;
   const label = source.slice(at + 1, close);
-  const inline = /^\(\s*<?([^\s)>]*)>?(?:\s+"[^"]*")?\s*\)/.exec(source.slice(close + 1));
-  if (inline) return { label, href: inline[1] ?? '', end: close + 1 + inline[0].length };
+  const inline = /^\(\s*<?([^\s)>]*)>?(?:\s+"((?:[^"\\]|\\.)*)")?\s*\)/.exec(
+    source.slice(close + 1),
+  );
+  if (inline) {
+    const title = inline[2]?.replace(/\\(.)/g, '$1');
+    return { label, href: inline[1] ?? '', title, end: close + 1 + inline[0].length };
+  }
   const reference = /^\[([^\]]*)\]/.exec(source.slice(close + 1));
   const key = (reference?.[1] || label).toLowerCase();
   const href = context.links.get(key);
@@ -122,7 +132,10 @@ const link: Reader = ({ source, marks, context }, at) => {
   const inner = readInline(
     target.label,
     context,
-    withMark(marks, { type: 'link', attrs: { href: target.href } }),
+    withMark(marks, {
+      type: 'link',
+      attrs: { href: target.href, ...(target.title ? { title: target.title } : {}) },
+    }),
   );
   return { nodes: inner, end: target.end };
 };

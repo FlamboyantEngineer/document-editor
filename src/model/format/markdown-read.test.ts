@@ -94,7 +94,11 @@ describe('reading Markdown', () => {
       text(' '),
       text('a*b', 'code'),
       text(' '),
-      { type: 'text', text: 'site', marks: [link] },
+      {
+        type: 'text',
+        text: 'site',
+        marks: [{ type: 'link', attrs: { ...link.attrs, title: 't' } }],
+      },
       text(' '),
       text('u', 'underline'),
       text(' x'),
