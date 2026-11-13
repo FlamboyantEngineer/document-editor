@@ -165,7 +165,7 @@ Verification: `e2e/comments.spec.ts`
 Given `decide(suggestion, me)`, a suggestion's card shall offer Accept and Reject only as it allows, to a reader who may decide at all; both by default.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.11 - The comments panel
 
@@ -242,14 +242,14 @@ Verification: `src/collab/comment-store.test.ts`
 With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes, what it does (`change`: insert, delete or replace) and `automatic`, and name it on the suggestion's marks outside the reader's history; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions are left to that writer's editor (`planSuggestionThreads`).
 
 Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.22 - What the reader may do in a thread
 
 Given `threadPermissions(thread, me)`, the margin and the comments panel shall offer in each thread only what it allows of what `canComment` allows: replying, resolving and reopening, reacting, and editing and deleting the reader's own comments (`resolveThreadPermissions`). What it leaves out is allowed, and it cannot grant a reader who may not comment anything.
 
 Implementation: `src/components/document-comments/thread-permissions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`
-Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
 
 ## DOCE-COMMENTS-3 - Comments in the browser
 

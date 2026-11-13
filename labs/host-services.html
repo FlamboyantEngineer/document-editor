@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="The host's services mimicked in the browser: embedded data, variables, fonts, telemetry and feedback."
+    />
+    <title>Host services · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/host-services.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Host services</h1>
+      <p>
+        Each service a host would run on a backend is mimicked in the page. Insert embedded data,
+        change, remove or deny it at the host and take the update; edit the variables the page
+        headers show; make fonts slow or fail; and read what the editor measured and told the
+        reader.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>

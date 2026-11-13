@@ -105,6 +105,34 @@ The full editor lab shall show the document editor with every feature on, as a h
 Implementation: `labs/src/full-editor.lab.tsx`, `labs/full-editor.html`
 Verification: `e2e/full-editor.spec.ts`
 
+### DOCE-LABS-3.3 - Host services mimicked in the page
+
+The host services lab shall mimic in the page each host service that needs a backend, so a person can try it by hand: embedded content the host keeps (`EmbedSourceAdapter`), which the controls change, remove or deny at the host and the writer checks and takes in again; the host's variables in the page headers (`VariablesAdapter`), changed while the document is open; font loading (`FontsAdapter`) that is immediate, slow or failing; and logs of what the editor measured (`TelemetryAdapter`) and told the reader (`FeedbackAdapter`). The editor shows the host's zoom levels, symbols and code languages, and can be hidden (`active`).
+
+Implementation: `labs/src/host-services.lab.tsx`, `labs/host-services.html`
+Verification: `e2e/host-services.spec.ts`
+
+### DOCE-LABS-3.4 - Import and export
+
+The import and export lab shall read a word processing document, Markdown, HTML (pasted or from a file) or a stored document into the section of a template it picks, listing the reader's warnings and refusing an archive past the limits it sets, and write the open document, whole or one section, as Markdown (with its title, front matter, comments and suggestions), HTML, a word processing document or the stored format, with its suggestions accepted or rejected.
+
+Implementation: `labs/src/import-export.lab.tsx`, `labs/import-export.html`
+Verification: `e2e/import-export.spec.ts`
+
+### DOCE-LABS-3.5 - Automation on stored documents
+
+The automation lab shall mimic a host's server over the in-memory store: an agent, person or system reads the stored document and sends a batch of edits against the revision it read, directly or as suggestions, and the host saves the result and keeps the threads the batch opened. Another writer saving first makes the batch a conflict, and a locked section or text that moved refuses it. The host runs the document's scripts, accepts or rejects every suggestion, lists what changed since the save before and shows the JSON Schemas it offers an agent.
+
+Implementation: `labs/src/automation.lab.tsx`, `labs/automation.html`
+Verification: `e2e/automation-lab.spec.ts`
+
+### DOCE-LABS-3.6 - Side panels
+
+The side panels lab shall show the panel at the document's start controlled by the host (its selected pane, whether it shows and its width between a narrowest and widest, each change reported) or left to itself, remembering its pane, expanded state and width across reloads under a key through the page's storage; and the outline, search, properties and contributors panes on their own beside the document, the outline leaving out the title or collapsing the headings below a level.
+
+Implementation: `labs/src/panels.lab.tsx`, `labs/panels.html`
+Verification: `e2e/panels.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.

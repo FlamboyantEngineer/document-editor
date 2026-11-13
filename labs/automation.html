@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-reference-document>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="An agent editing a stored document through a mimicked host server: read, send a batch, conflicts, scripts, suggestions and comparisons."
+    />
+    <link rel="icon" href="data:," />
+    <style>
+      html[data-lab-stylesheet-state='loading'] :is(#lab-root, #lab-index) {
+        visibility: hidden;
+      }
+    </style>
+    <script src="build/boot.js"></script>
+    <meta
+      name="description"
+      content="The host's services mimicked in the browser: embedded data, variables, fonts, telemetry and feedback."
+    />
+    <title>Automation on stored documents · Labs</title>
+    <script type="module" src="build/chrome.js"></script>
+    <script type="module" src="build/automation.js"></script>
+  </head>
+  <body>
+    <header id="lab-chrome"></header>
+    <main id="lab-root">
+      <h1>Automation on stored documents</h1>
+      <p>
+        The host's server is mimicked over the in-memory store. Read the document as an agent, pick
+        or write a batch of edits and send it, directly or as suggestions. Have another writer save
+        first to see the batch refused as a conflict; run the document's scripts, decide its
+        suggestions, and list what changed since the save before.
+      </p>
+      <div id="lab-editor"></div>
+    </main>
+  </body>
+</html>
