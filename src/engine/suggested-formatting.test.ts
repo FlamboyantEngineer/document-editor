@@ -2,8 +2,15 @@ import { setBlockType, toggleMark } from 'prosemirror-commands';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
+import { documentSchema, parseMarkup } from '../../test/document-markup.js';
+import {
+  createDocumentSchema,
+  type IdentityAttribute,
+  readDocumentFile,
+  type StoredNode,
+  writeDocumentFile,
+} from '../model/index.js';
+import { setTextblockType } from './block-type.js';
 import {
   decideSuggestions,
   listSuggestions,
@@ -168,6 +175,34 @@ describe('tracked formatting', () => {
     ).toBeNull();
     const identity = refused((state) => state.tr.setNodeAttribute(pos, 'dataId', 'c0de0001'));
     expect(identity?.doc.nodeAt(pos)?.attrs.dataId).toBe('c0de0001');
+  });
+
+  it('DOCE-SUGGESTIONS-4.2 keeps a host’s identity attribute out of the record, so rejecting leaves it as set since', () => {
+    const reviewState: IdentityAttribute = {
+      name: 'reviewState',
+      dom: 'data-review-state',
+      scope: ['paragraph', 'heading'],
+      onCopy: 'clear',
+    };
+    const schema = createDocumentSchema({ schema: { identityAttributes: [reviewState] } });
+    const doc = parseMarkup('<p data-id="aaaa0001" data-review-state="draft">Alpha</p>', schema);
+    const heading = schema.nodes.heading;
+    if (!heading) throw new Error('No heading');
+    const pos = positionOf(doc, 'Alpha') - 1;
+    const changed = suggest(
+      selectText(EditorState.create({ doc }), 'Alpha'),
+      setTextblockType(heading, { level: 2 }),
+    );
+    expect(changed.doc.nodeAt(pos)?.attrs.suggestionFormat).toEqual(
+      expect.objectContaining({ type: 'paragraph', attrs: {} }),
+    );
+    // The host moves the element on, outside the history.
+    const reviewed = changed.apply(
+      changed.tr.setNodeAttribute(pos, 'reviewState', 'review').setMeta('addToHistory', false),
+    );
+    const rejected = decided(reviewed, 'reject').nodeAt(pos);
+    expect(rejected?.type.name).toBe('paragraph');
+    expect(rejected?.attrs.reviewState).toBe('review');
   });
 
   it('DOCE-SUGGESTIONS-4.3 leaves formatting of the writer’s own insertion and system changes alone', () => {

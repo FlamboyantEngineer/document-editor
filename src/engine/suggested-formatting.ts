@@ -3,7 +3,7 @@
 // restores that formatting and accepting it drops the record. Text marks record it in a format
 // change mark; blocks in their `suggestionFormat` attribute.
 
-import type { Attrs, Mark, Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Attrs, Mark, Node as ProseMirrorNode, NodeType } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 import {
   AddMarkStep,
@@ -13,6 +13,7 @@ import {
   RemoveNodeMarkStep,
   type Step,
 } from 'prosemirror-transform';
+import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import { inlineRuns, type Suggesting } from './suggestions.js';
 
 /** A mark as a format change records it. */
@@ -39,17 +40,13 @@ const UNTRACKED_MARKS = new Set([
   'reference',
 ]);
 
-// Block attributes that are not formatting: identity, layout and review.
-const UNTRACKED_ATTRS = new Set([
-  'dataId',
-  'dataAuthor',
-  'dataAiSession',
-  'splitPartIndex',
-  'orphanedListContinuation',
-  'suggestionSplitKind',
-  'suggestionSplitId',
-  'suggestionFormat',
-]);
+// Block attributes the pagination sets: layout, not formatting.
+const layoutAttrs = new Set(['orphanedListContinuation']);
+
+// Whether an attribute of a node type is no formatting a record keeps: layout, or identity as the
+// schema declares it, which covers the review attributes and a host's own (DOCE-SCHEMA-2.3).
+const isUntrackedAttr = (type: NodeType, name: string) =>
+  layoutAttrs.has(name) || identityAttributesOf(type).some((attribute) => attribute.name === name);
 
 const formattingOf = (marks: readonly Mark[]): RecordedMark[] =>
   marks
@@ -62,7 +59,7 @@ function formatAttrsOf(node: ProseMirrorNode): Attrs {
   return Object.fromEntries(
     Object.entries(node.attrs).filter(
       ([name, value]) =>
-        !UNTRACKED_ATTRS.has(name) &&
+        !isUntrackedAttr(node.type, name) &&
         JSON.stringify(value) !== JSON.stringify(specs[name]?.default),
     ),
   );
@@ -127,7 +124,7 @@ function recordMarks(suggesting: Suggesting, step: AddMarkStep | RemoveMarkStep)
 // the writer's own suggested block.
 function isLeftAlone(suggesting: Suggesting, step: Step, node: ProseMirrorNode | null) {
   if (!node) return true;
-  if (step instanceof AttrStep && UNTRACKED_ATTRS.has(step.attr)) return true;
+  if (step instanceof AttrStep && isUntrackedAttr(node.type, step.attr)) return true;
   const { suggestionSplitKind, dataAuthor } = node.attrs;
   return suggestionSplitKind === 'insertion' && dataAuthor === suggesting.author;
 }
@@ -230,7 +227,7 @@ export function decideFormatting(
   if (block && chosen(block.id, null)) {
     const type = reject ? tr.doc.type.schema.nodes[block.type] : node.type;
     const kept = Object.fromEntries(
-      Object.entries(node.attrs).filter(([name]) => UNTRACKED_ATTRS.has(name)),
+      Object.entries(node.attrs).filter(([name]) => isUntrackedAttr(node.type, name)),
     );
     const attrs = reject ? { ...block.attrs, ...kept } : node.attrs;
     try {
