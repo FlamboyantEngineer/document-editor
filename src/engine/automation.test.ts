@@ -42,8 +42,24 @@ describe('automation', () => {
   it('DOCE-AUTOMATION-1.1 reads each element once, with its text', () => {
     const state = stateOf(paragraph('a1a1a1a1', 'First block'), paragraph('b2b2b2b2', 'Second'));
     expect(describeBlocks(state.doc)).toEqual([
-      { elementId: 'a1a1a1a1', type: 'paragraph', text: 'First block', length: 11, parentId: null },
-      { elementId: 'b2b2b2b2', type: 'paragraph', text: 'Second', length: 6, parentId: null },
+      {
+        elementId: 'a1a1a1a1',
+        type: 'paragraph',
+        text: 'First block',
+        length: 11,
+        parentId: null,
+        section: 0,
+        number: '',
+      },
+      {
+        elementId: 'b2b2b2b2',
+        type: 'paragraph',
+        text: 'Second',
+        length: 6,
+        parentId: null,
+        section: 0,
+        number: '',
+      },
     ]);
   });
 
