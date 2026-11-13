@@ -248,6 +248,39 @@ describe('createDocumentVersions', () => {
     expect(versions.returnFromView()).toBeNull();
   });
 
+  it('DOCE-VERSIONS-5.1 shows only the version picked last, and none read after a return', async () => {
+    const { host, session, versions } = await openWithVersions();
+    typeText(session, 'X');
+    await session.save();
+    typeText(session, 'Y');
+    await session.save();
+    await versions.refresh();
+    const store = host.versions;
+    if (!store) throw new Error('no versions');
+    const load = store.load.bind(store);
+    const held: (() => void)[] = [];
+    vi.spyOn(store, 'load').mockImplementation(
+      (...args) =>
+        new Promise((resolve) => {
+          held.push(() => void load(...args).then(resolve));
+        }),
+    );
+    const first = versions.viewVersion('rev-1', { returnTo: 'edit' });
+    const second = versions.viewVersion('rev-2', { returnTo: 'edit' });
+    held[1]?.();
+    await second;
+    held[0]?.();
+    await first;
+    expect(String(versions.view.get()?.version.state.doc.textContent)).toBe('FXirst');
+    // Picked, then gone back from before it was read: it does not show.
+    versions.returnFromView();
+    const late = versions.viewVersion('rev-1', { returnTo: 'edit' });
+    expect(versions.returnFromView()).toBeNull();
+    held[2]?.();
+    await late;
+    expect(versions.view.get()).toBeNull();
+  });
+
   it('DOCE-VERSIONS-5.2 DOCE-VERSIONS-5.3 compares two versions and keeps the first return', async () => {
     const { host, versions } = await openWithVersions();
     await host.documents.save('doc', { content: paragraph('Second'), baseRevision: 'rev-1' });

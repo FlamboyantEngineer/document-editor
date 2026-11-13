@@ -195,18 +195,27 @@ export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
   const [picked, setPicked] = useState<ReadonlySet<Key>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const current = list.versions[0]?.revision ?? null;
+  // Only the reader's latest pick says why it could not be shown.
+  const picks = useRef(0);
   const show = (revision: string, compareWith?: string) => {
     setError(null);
+    const pick = (picks.current += 1);
+    const fail = (message: string) => {
+      if (pick === picks.current) setError(message);
+    };
     versions.viewVersion(revision, { returnTo, compareWith }).then(
       (shown) => {
-        if (!shown.ok) setError(shown.error.message ?? shown.error.kind);
+        if (!shown.ok) fail(shown.error.message ?? shown.error.kind);
       },
       // A version that could not be read at all says so too, as one the host refused does.
-      (cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause)),
+      (cause: unknown) => fail(cause instanceof Error ? cause.message : String(cause)),
     );
   };
+  // Going back also stops a version still being read from showing later.
   const leave = () => {
-    if (view) onReturn(versions.returnFromView() ?? returnTo);
+    picks.current += 1;
+    const back = versions.returnFromView();
+    if (view) onReturn(back ?? returnTo);
   };
   if (!capabilities.history)
     return <Banner className={props.className} description={labels.noHistory} />;

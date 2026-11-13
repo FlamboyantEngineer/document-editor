@@ -217,7 +217,7 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 ### DOCE-VERSIONS-5.1 - Viewing a version
 
-`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own, read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. The document's own state and saving shall go on unchanged.
+`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own (only the version asked for last is shown, and none still being read when the reader returns), read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. The document's own state and saving shall go on unchanged.
 
 Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
 Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`

@@ -86,14 +86,20 @@ export interface DocumentVersions<R> {
   saveVersion(label: string | null): Promise<HostResult<DocumentVersion>>;
   /** Names a version, or takes its name away with null. */
   rename(revision: string, label: string | null): Promise<HostResult<DocumentVersion>>;
-  /** Shows a version in place of the document, compared with an older one when given. */
+  /**
+   * Shows a version in place of the document, compared with an older one when given; a version
+   * read after a later call, or after a return, is not shown.
+   */
   viewVersion(
     revision: string,
     options: { returnTo: R; compareWith?: string | null | undefined },
   ): Promise<HostResult<HistoricalView<R>>>;
   /** Commits the editor state of the version shown, such as a new selection: the view's `onStateChange`. */
   updateView(update: SessionStateUpdate): void;
-  /** Ends the historical view, giving back what the reader had before it; null when none shows. */
+  /**
+   * Ends the historical view, and any version still being read, giving back what the reader had
+   * before it; null when none shows.
+   */
   returnFromView(): R | null;
   /**
    * Makes a version's content and template the document's: through the host's own restore in
@@ -199,9 +205,13 @@ function createHistoricalView<R>(
   open: (revision: string) => Promise<HostResult<OpenedVersion>>,
 ): ViewParts<R> {
   const view = createValueStore<HistoricalView<R> | null>(null);
+  // Each call to show a version, and each return, counts: only the latest call shows its version.
+  let asked = 0;
   return {
     view,
     viewVersion: async (revision, { returnTo, compareWith = null }) => {
+      asked += 1;
+      const ask = asked;
       const [version, previous] = await Promise.all([
         open(revision),
         compareWith === null ? null : open(compareWith),
@@ -214,7 +224,7 @@ function createHistoricalView<R>(
         previous: previous?.value ?? null,
         returnTo: view.get()?.returnTo ?? returnTo,
       };
-      view.set(shown);
+      if (ask === asked) view.set(shown);
       return { ok: true, value: shown };
     },
     updateView: (update) => {
@@ -224,6 +234,7 @@ function createHistoricalView<R>(
       view.set({ ...shown, version: { ...shown.version, state } });
     },
     returnFromView: () => {
+      asked += 1;
       const shown = view.get();
       view.set(null);
       return shown?.returnTo ?? null;
