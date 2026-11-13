@@ -22,6 +22,7 @@ import {
   SECTION_SCOPED,
   SectionRows,
   type TemplateScopeLabels,
+  withListedSections,
   withSection,
 } from './template-scope.js';
 import { TEMPLATE_SECTIONS, withSetting } from './template-settings.js';
@@ -182,7 +183,8 @@ function targetOf(
   labels: TemplateEditorLabels,
 ): Target {
   const { template, resolved, onChange } = props;
-  const section = scope === null ? undefined : template.sections?.[scope];
+  const listed = withListedSections(template, resolved);
+  const section = scope === null ? undefined : listed.sections?.[scope];
   if (scope === null || !section) {
     const parent = props.parentOptions?.find((option) => option.id === template.parent);
     return {
@@ -199,7 +201,7 @@ function targetOf(
     source: labels.documentSettings,
     set: (path, value) =>
       onChange(
-        withSection(template, scope, withSetting(own, path, value) as unknown as TemplateSection),
+        withSection(listed, scope, withSetting(own, path, value) as unknown as TemplateSection),
       ),
   };
 }
@@ -207,11 +209,17 @@ function targetOf(
 /**
  * A template with a region edited on the pages written into it, where the section's pages take the
  * region from (`resolveSectionRegion`): into the section's own region while it has one that does
- * not inherit, and into the document's otherwise.
+ * not inherit, and into the document's otherwise. Given the resolved template, a section the
+ * template inherits counts too, and the template takes the inherited sections with the edit.
  */
-export function withRegionChange(template: TemplateFile, change: RegionChange): TemplateFile {
-  const index = template.sections?.findIndex((section) => section.name === change.section) ?? -1;
-  const section = index >= 0 ? template.sections?.[index] : undefined;
+export function withRegionChange(
+  template: TemplateFile,
+  change: RegionChange,
+  resolved?: TemplateFile,
+): TemplateFile {
+  const listed = withListedSections(template, resolved);
+  const index = listed.sections?.findIndex((section) => section.name === change.section) ?? -1;
+  const section = index >= 0 ? listed.sections?.[index] : undefined;
   const own = section?.[change.region];
   if (section && own && own.inherit !== true) {
     const own = withSetting(
@@ -219,7 +227,7 @@ export function withRegionChange(template: TemplateFile, change: RegionChange): 
       [change.region, 'content'],
       change.content,
     );
-    return withSection(template, index, own as unknown as TemplateSection);
+    return withSection(listed, index, own as unknown as TemplateSection);
   }
   return withSetting(template, [change.region, 'content'], change.content);
 }
@@ -228,9 +236,11 @@ export function withRegionChange(template: TemplateFile, change: RegionChange): 
 export function TemplateEditor(props: TemplateEditorProps) {
   const labels = { ...DEFAULT_TEMPLATE_EDITOR_LABELS, ...props.labels };
   const [picked, setScope] = useState<number | null>(null);
-  const scope = picked !== null && props.template.sections?.[picked] ? picked : null;
+  const { onChange, isDisabled } = props;
+  // The sections the picker and a section's rows show and change: the inherited ones too.
+  const template = withListedSections(props.template, props.resolved);
+  const scope = picked !== null && template.sections?.[picked] ? picked : null;
   const context: Rows = { props, labels, target: targetOf(props, scope, labels) };
-  const { template, onChange, isDisabled } = props;
   const sections = TEMPLATE_SECTIONS.filter(
     (section) => scope === null || SECTION_SCOPED.has(section.id),
   );

@@ -115,7 +115,7 @@ Verification: `src/model/numbering/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-3.4 - Paragraph indentation
 
-`paragraphNumberingIndentationStyle` shall indent a numbered paragraph 20pt per level below the first (`--doc-paragraph-indentation`) and set `--doc-paragraph-number-indent` and `--doc-paragraph-text-indent` when its level sets the number and text positions.
+`paragraphNumberingIndentationStyle` shall indent a numbered paragraph 20pt per level below the first (`--doc-paragraph-indentation`) and set `--doc-paragraph-number-indent` and `--doc-paragraph-text-indent` when its level sets the number and text positions as lengths; a position that is not a length (DOCE-TEMPLATES-5.2) is left out.
 
 Implementation: `src/model/numbering/paragraph-numbering.ts`
 Verification: `src/model/numbering/paragraph-numbering.test.ts`

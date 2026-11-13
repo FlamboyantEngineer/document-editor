@@ -116,6 +116,51 @@ describe('template footnotes and captions', () => {
     });
   });
 
+  it('DOCE-TEMPLATES-3.2 writes the default for a footnote value that is not of its kind', () => {
+    const stored = JSON.parse(`{
+      "footnotes": {
+        "separator": { "thickness": "1px; top: 0", "color": "red; top: 0" },
+        "spacingToContent": "1em; top: 0",
+        "entrySpacing": "3pt",
+        "marker": { "size": "1em; top: 0", "color": "red;", "weight": "bold; top: 0" },
+        "text": { "size": "9px", "weight": 9000, "lineHeight": "1; top: 0", "alignment": "left;" }
+      }
+    }`) as Pick<TemplateFile, 'footnotes'>;
+    const entries = Object.fromEntries(buildFootnoteCssVarEntries(resolveFootnoteSettings(stored)));
+    for (const value of Object.values(entries)) expect(value).not.toMatch(/;|top/);
+    expect(entries).toMatchObject({
+      '--doc-footnote-separator-border': '1px solid #111827',
+      '--doc-footnote-spacing-to-content': '12pt',
+      '--doc-footnote-entry-spacing': '3pt',
+      '--doc-footnote-marker-font-size': '0.85em',
+      '--doc-footnote-marker-font-weight': '600',
+      '--doc-footnote-marker-color': '#111827',
+      '--doc-footnote-text-font-size': '9px',
+      '--doc-footnote-text-font-weight': '400',
+      '--doc-footnote-text-line-height': '1.4',
+      '--doc-footnote-text-align': 'left',
+    });
+  });
+
+  it('DOCE-TEMPLATES-3.3 leaves a caption value that is not of its kind unset', () => {
+    const stored = JSON.parse(`{
+      "table": {
+        "caption": {
+          "alignment": "center; top: 0",
+          "label": { "size": "1em; top: 0", "weight": "bold; top: 0" },
+          "text": { "size": "9pt", "weight": 600 }
+        }
+      }
+    }`) as TemplateFile['styles'];
+    expect(Object.fromEntries(buildCaptionCssVarEntries(stored))).toMatchObject({
+      '--doc-table-caption-text-align': null,
+      '--doc-table-caption-label-font-size': null,
+      '--doc-table-caption-label-font-weight': null,
+      '--doc-table-caption-text-font-size': '9pt',
+      '--doc-table-caption-text-font-weight': '600',
+    });
+  });
+
   it('DOCE-TEMPLATES-3.3 sets caption typography and leaves unset values to inherit', () => {
     const entries = Object.fromEntries(
       buildCaptionCssVarEntries(
