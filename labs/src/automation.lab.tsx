@@ -4,7 +4,10 @@
 // `AUTOMATION_SCHEMAS`), directly or as suggestions, and the host saves the result and keeps the
 // comment threads the batch opened. Another writer saving first makes the batch a conflict. The
 // host also runs the document's scripts (`runStoredScripts`), decides its suggestions
-// (`decideSuggestions`) and lists what changed since the save before (`compareVersions`).
+// (`decideSuggestions`) and lists what changed since the save before (`compareVersions`). The
+// stored-file readers answer a server's questions without an editor: the element with an id, the
+// text, citations, reference targets, required sections and thread anchors; and the host moves the
+// document to a stricter template or decides one suggestion on the stored file.
 
 import { EditorState } from 'prosemirror-state';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -16,11 +19,19 @@ import {
   AUTOMATION_SCHEMAS,
   type AutomationEdit,
   compareVersions,
+  decideStoredSuggestions,
   decideSuggestions,
   describeDocument,
   type DocumentDescription,
+  documentTargets,
+  findStoredElement,
   listSuggestions,
+  replaceTemplate,
   runStoredScripts,
+  storedCitations,
+  storedDocumentText,
+  threadAnchors,
+  validateRequiredSections,
 } from '../../src/document/index.js';
 import { assignElementIds, createDocumentEditing } from '../../src/engine/index.js';
 import { createMemoryHost, type StoredDocument } from '../../src/host/index.js';
@@ -62,6 +73,22 @@ const TEMPLATE = resolveTemplateFile(LAB_TEMPLATE, {
   baseTemplateId: BASE_TEMPLATE_ID,
 });
 
+// A stricter revision of the template, which also requires an appendix.
+const STRICT_TEMPLATE = resolveTemplateFile(
+  {
+    ...LAB_TEMPLATE,
+    id: 'automation-strict',
+    sections: [
+      ...(LAB_TEMPLATE.sections ?? []),
+      { name: 'appendix', label: 'Appendix', required: true },
+    ],
+  },
+  {
+    loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
+    baseTemplateId: BASE_TEMPLATE_ID,
+  },
+);
+
 const SCHEMA = createDocumentSchema();
 
 const read = (file: DocumentFile) => readDocumentFile(file, SCHEMA, { unknown: 'keep' }).doc;
@@ -89,7 +116,23 @@ function initialContent(): DocumentFile {
   const state = EditorState.create({ doc: read(file) });
   const tr = state.tr;
   assignElementIds(tr, {});
-  return writeDocumentFile(tr.doc, { template: TEMPLATE });
+  const stored = writeDocumentFile(tr.doc, { template: TEMPLATE });
+  // A citation of the Timing heading, which the readers list.
+  const body = stored.sections[1]?.content ?? [];
+  const timing = body.find(
+    (node) => node.type === 'heading' && node.content?.[0]?.text === 'Timing',
+  );
+  const target = typeof timing?.attrs?.id === 'string' ? timing.attrs.id : null;
+  if (target) {
+    body.push({
+      type: 'paragraph',
+      content: [
+        text('See '),
+        { type: 'text', text: 'Timing', marks: [{ type: 'reference', attrs: { target } }] },
+      ],
+    });
+  }
+  return stored;
 }
 
 const HOST = createMemoryHost({
@@ -169,6 +212,8 @@ function Lab() {
   const [threads, setThreads] = useState(0);
   const [counted, setCounted] = useState<'accepted' | 'rejected'>('accepted');
   const [generated, setGenerated] = useState(false);
+  const [elementId, setElementId] = useState('');
+  const [readerOutput, setReaderOutput] = useState('');
 
   const reload = useCallback(async () => {
     const loaded = await HOST.documents.load(DOCUMENT_ID);
@@ -280,6 +325,44 @@ function Lab() {
         generated,
       }).map((change) => `${change.kind}: ${change.text || change.previousText || ''}`),
     );
+  };
+
+  // The readers, run on the stored file as a server would, without an editor.
+  const readStored = (reader: (file: DocumentFile) => unknown) => {
+    if (stored) setReaderOutput(JSON.stringify(reader(stored.content), null, 2));
+  };
+  const findElement = () =>
+    readStored((file) => {
+      const found = findStoredElement(file, elementId.trim());
+      return found
+        ? {
+            type: found.node.type,
+            path: found.path,
+            section: found.section.name,
+            parentId: found.parentId,
+          }
+        : `No element has the id ${elementId}`;
+    });
+  const moveToStrict = async () => {
+    const current = await reload();
+    if (!current) return;
+    const moved = replaceTemplate(current.content, { schema: SCHEMA, template: STRICT_TEMPLATE });
+    await save(current, moved, 'Moved to the strict template');
+  };
+  const acceptFirst = async () => {
+    const current = await reload();
+    if (!current) return;
+    const first = listSuggestions(read(current.content))[0];
+    if (!first) {
+      setResult('No suggestions to decide');
+      return;
+    }
+    const decided = decideStoredSuggestions(current.content, {
+      schema: SCHEMA,
+      decision: 'accept',
+      ids: [first.id],
+    });
+    await save(current, decided.file, `Accepted ${decided.decided.join(', ')}`);
   };
 
   // The stored document as the reader sees it, read again on each save.
@@ -400,13 +483,61 @@ function Lab() {
             <pre tabIndex={0}>{JSON.stringify(AUTOMATION_SCHEMAS, null, 2)}</pre>
           </details>
         </fieldset>
+        <fieldset>
+          <legend>Stored-file readers</legend>
+          <label>
+            Element id{' '}
+            <input
+              value={elementId}
+              onChange={(event) => setElementId(event.currentTarget.value)}
+            />
+          </label>{' '}
+          <button type="button" onClick={findElement}>
+            Find the element
+          </button>{' '}
+          <button
+            type="button"
+            onClick={() => readStored((file) => storedDocumentText(file, SCHEMA))}
+          >
+            Read the text
+          </button>{' '}
+          <button type="button" onClick={() => readStored(storedCitations)}>
+            List the citations
+          </button>{' '}
+          <button
+            type="button"
+            onClick={() =>
+              readStored((file) => documentTargets(file, { schema: SCHEMA, template: TEMPLATE }))
+            }
+          >
+            List the reference targets
+          </button>{' '}
+          <button
+            type="button"
+            onClick={() => readStored((file) => validateRequiredSections(file, STRICT_TEMPLATE))}
+          >
+            Check against the strict template
+          </button>{' '}
+          <button type="button" onClick={() => readStored(threadAnchors)}>
+            List the thread anchors
+          </button>{' '}
+          <button type="button" onClick={() => void moveToStrict()}>
+            Move to the strict template
+          </button>{' '}
+          <button type="button" onClick={() => void acceptFirst()}>
+            Accept the first suggestion only
+          </button>
+          <section aria-label="Reader output">
+            <pre tabIndex={0}>{readerOutput}</pre>
+          </section>
+        </fieldset>
       </div>
       {stored && view ? (
         <DocumentEditor
           key={stored.revision}
           state={view}
           onStateChange={() => undefined}
-          template={TEMPLATE}
+          template={stored.content.template?.id === STRICT_TEMPLATE.id ? STRICT_TEMPLATE : TEMPLATE}
           editable={false}
           aria-label="Stored document"
         />
