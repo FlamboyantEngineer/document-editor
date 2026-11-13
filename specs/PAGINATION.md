@@ -417,7 +417,7 @@ Verification: `src/pagination/projection-view.test.ts`
 
 ### DOCE-PAGINATION-7.13 - Canonical decorations on the pages
 
-The projection shall draw every decoration the canonical state's plugins draw (search, proofing, comments, changes), mapped onto its pages, including one that crosses a page break; a decoration on content only the projection holds, such as a repeated header row, is not drawn there. Whatever renders the projection (`createPagedProjection`, without a view of its own) shall render it with the plugins its state carries, pass each of its transactions to `receive`, and take each new projection state from `onProjection`.
+The projection shall draw every decoration the canonical state's plugins draw (search, proofing, comments, changes), mapped onto its pages, including one that crosses a page break; a decoration on content only the projection holds, such as a repeated header row, is not drawn there. A set unchanged on pages unchanged shall be drawn as it was, not merged or mapped again, so a state of the pages that changes neither, such as a selection's, costs nothing more for them. Whatever renders the projection (`createPagedProjection`, without a view of its own) shall render it with the plugins its state carries, pass each of its transactions to `receive`, and take each new projection state from `onProjection`.
 
 Implementation: `src/pagination/canonical-decorations.ts`, `src/pagination/projection.ts`
 Verification: `src/pagination/projection-view.test.ts`
