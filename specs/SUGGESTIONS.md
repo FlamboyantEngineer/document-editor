@@ -53,6 +53,13 @@ Text typed beside the same writer's suggested deletion, as after Backspace or De
 Implementation: `src/engine/suggestions.ts`
 Verification: `src/engine/suggestions.test.ts`
 
+### DOCE-SUGGESTIONS-1.8 - Editing beside a suggestion without suggesting
+
+Text a writer adds without suggesting shall stay outside the suggestions beside it. The suggested insertion and deletion marks shall end at their text (`inclusive: false`), so text typed right after a suggestion takes neither. With the caret inside text a suggestion deletes, typing shall take the formatting there without the deletion (`typingMarks`, which the footnote plugin sets on the caret, keeping marks the writer chose), so accepting the deletion never removes it, and plain text pasted there takes the formatting marks alone (DOCE-EDITING-5.3). Text typed inside a suggested insertion joins it. While suggesting, typed text is the writer's own insertion as before (DOCE-SUGGESTIONS-1.1).
+
+Implementation: `src/model/schema/marks.ts`, `src/engine/typing-marks.ts`, `src/engine/footnotes.ts`, `src/engine/clipboard-text.ts`
+Verification: `src/engine/typing-marks.test.ts`, `src/engine/clipboard.test.ts`
+
 ## DOCE-SUGGESTIONS-2 - Deciding suggestions
 
 ### DOCE-SUGGESTIONS-2.1 - One suggestion

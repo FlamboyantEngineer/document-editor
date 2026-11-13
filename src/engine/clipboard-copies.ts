@@ -11,6 +11,15 @@ const anchorMarks = new Set(['comment_highlight', 'insertion']);
 /** The mark that records text as a suggested deletion. */
 const deletion = 'deletion';
 
+/**
+ * Whether a mark ties text to a comment or a suggestion, rather than formats it: text that arrives
+ * from elsewhere takes none of them from where it lands.
+ */
+export const isReviewMark = (mark: Mark): boolean =>
+  anchorMarks.has(mark.type.name) ||
+  mark.type.name === deletion ||
+  mark.type.name === 'format_change';
+
 // Whether a node is one a paste never brings in: a node type whose spec says `pastable: false`, or
 // content a suggestion deletes, which the copy reads as gone.
 const isLeftOut = (node: ProseMirrorNode) =>

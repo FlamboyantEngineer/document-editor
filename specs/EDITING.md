@@ -188,7 +188,7 @@ Verification: `src/engine/clipboard.test.ts`
 
 ### DOCE-EDITING-5.3 - Plain text
 
-Pasted plain text shall become one paragraph for each of its lines, an empty line an empty paragraph, with the marks at the paste position. In code, it stays one run of text.
+Pasted plain text shall become one paragraph for each of its lines, an empty line an empty paragraph, with the formatting marks at the paste position and none that ties text to a comment or a suggestion there (comment highlights, suggested insertions and deletions, format changes), so text pasted inside text a suggestion deletes is pasted (DOCE-SUGGESTIONS-1.8). In code, it stays one run of text.
 
 Implementation: `src/engine/clipboard-text.ts`
 Verification: `src/engine/clipboard.test.ts`
