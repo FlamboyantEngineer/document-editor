@@ -1,7 +1,7 @@
 // A paragraph's inline content as Markdown: text in its formats and link, line breaks, math,
 // footnote references, abbreviations, mentions, variables and images.
 
-import { type StoredMark, storedMathSource,type StoredNode } from '../document-format.js';
+import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { codeSpan, escapeText, linkAddress, linkTitle } from './escape.js';
 import { addressOf, text, type Writing } from './writing.js';

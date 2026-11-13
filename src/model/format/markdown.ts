@@ -14,7 +14,7 @@ import {
 } from './markdown/appendix.js';
 import { blocks } from './markdown/blocks.js';
 import { escapeHeadingEnd, escapeText } from './markdown/escape.js';
-import { frontMatterOf,type FrontMatterValue } from './markdown/front-matter.js';
+import { frontMatterOf, type FrontMatterValue } from './markdown/front-matter.js';
 import type { MarkdownValues, Writing } from './markdown/writing.js';
 
 export type { MarkdownComment, MarkdownThread, PersonName } from './markdown/appendix.js';

@@ -2,7 +2,7 @@
 // figures, rules and template blocks. A block a suggestion leaves out, a page break and a list of
 // contents are left out.
 
-import { storedMathSource,type StoredNode } from '../document-format.js';
+import { storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { codeFence, escapeHeadingEnd, escapeLineStart, escapeText, linkAddress } from './escape.js';
 import { inlines } from './inlines.js';
