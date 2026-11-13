@@ -4,7 +4,7 @@ import type { Node } from 'prosemirror-model';
 import { liftListItem, sinkListItem, wrapInList } from 'prosemirror-schema-list';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { documentSchema } from '../../test/document-markup.js';
+import { documentSchema, parseMarkup } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode, writeDocumentFile } from '../model/index.js';
 import { documentKeys } from './document-editing.js';
 import {
@@ -272,6 +272,30 @@ describe('deciding suggestions', () => {
     expect(kept && markup(kept.doc)).toEqual(['Alpha', ' blue']);
     const undone = decide(split, rejectAllSuggestions);
     expect(undone && markup(undone.doc)).toEqual(['Alpha blue']);
+  });
+
+  it('DOCE-SUGGESTIONS-2.2 keeps the element’s id and writer on the first half of an accepted split', () => {
+    const doc = parseMarkup('<h1 data-id="aaaa0001" data-au="ada">Heading text</h1>');
+    const split = suggest(
+      select(EditorState.create({ doc }), positionOf(doc, ' text')),
+      splitBlock,
+      'bea',
+    );
+    const elements = (state: EditorState | null) => {
+      const found: string[] = [];
+      state?.doc.descendants((node) => {
+        if (!node.isTextblock) return true;
+        const { dataId, dataAuthor } = node.attrs;
+        found.push(`${node.textContent}:${String(dataId)}:${String(dataAuthor)}`);
+        return false;
+      });
+      return found;
+    };
+    expect(elements(decide(split, acceptAllSuggestions))).toEqual([
+      'Heading:aaaa0001:ada',
+      ' text:null:bea',
+    ]);
+    expect(elements(decide(split, rejectAllSuggestions))).toEqual(['Heading text:aaaa0001:ada']);
   });
 
   it('DOCE-SUGGESTIONS-2.3 stores suggestions with their id and author', () => {

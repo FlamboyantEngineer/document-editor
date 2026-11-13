@@ -71,9 +71,9 @@ Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-2.2 - Every suggestion
 
-`acceptAllSuggestions` and `rejectAllSuggestions` shall decide every suggestion, blocks included: accepting removes blocks suggested for deletion and keeps inserted ones, rejecting removes inserted blocks and keeps the others. `decideSuggestions(tr, decision, { ids })` shall do the same on a transaction.
+`acceptAllSuggestions` and `rejectAllSuggestions` shall decide every suggestion, blocks included: accepting removes blocks suggested for deletion and keeps inserted ones, rejecting removes inserted blocks and keeps the others. `decideSuggestions(tr, decision, { ids })` shall do the same on a transaction. Accepting a split (DOCE-SUGGESTIONS-1.4) shall leave the element it split in its first half: that half takes the removed block's element id, writer and the host's identity attributes (DOCE-SCHEMA-2.3), so what refers to the element by id still finds it, and the second half is the new element, as after a split made directly (DOCE-EDITING-2.3).
 
-Implementation: `src/engine/suggestion-decisions.ts`
+Implementation: `src/engine/suggestion-decisions.ts`, `src/engine/suggested-split.ts`
 Verification: `src/engine/suggestions.test.ts`
 
 ### DOCE-SUGGESTIONS-2.3 - Stored suggestions
