@@ -261,6 +261,12 @@ export { toggleHeaderLines } from './table-headers.js';
 export { splitTableCell } from './table-split.js';
 export type { TableEditingOptions } from './tables.js';
 export {
+  EDITOR_VARIABLES,
+  type EditorVariable,
+  insertVariable,
+  variableCatalog,
+} from './template-variables.js';
+export {
   provideUndoCommands,
   redoCommand,
   undoCommand,

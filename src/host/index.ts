@@ -30,6 +30,7 @@ export type {
   TelemetryAdapter,
   TemplateLoadOptions,
   TemplateSourceAdapter,
+  VariableEntry,
   VariablesAdapter,
   VersionStoreAdapter,
 } from './adapters.js';

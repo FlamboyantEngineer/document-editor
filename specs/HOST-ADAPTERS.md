@@ -83,7 +83,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.12 - Variables
 
-The host's `variables` adapter shall give the text of each variable it knows (`value`), such as `document.name`, beside `page.current`, `page.total` and `date.current`, which the editor gives itself; null or undefined shows none. It may tell the editor whenever a value may have changed (`subscribe`) until the editor unsubscribes.
+The host's `variables` adapter shall give the text of each variable it knows (`value`), such as `document.name`, beside `page.current`, `page.total` and `date.current`, which the editor gives itself; null or undefined shows none. It may tell the editor whenever a value may have changed (`subscribe`) until the editor unsubscribes. It may list the variables a writer may insert (`catalog`), each by key with its label, which the variable menu offers after the editor's own (DOCE-TEMPLATES-8.4).
 
 Implementation: `src/host/adapters.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`
