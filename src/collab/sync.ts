@@ -5,8 +5,15 @@
 
 import type * as Y from '@y/y';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { CONTENT_TYPE } from './delta.js';
-import { type Binding, bindView, type CollabChange, type LocalSteps } from './sync-binding.js';
+import {
+  type Binding,
+  type BindingSource,
+  bindView,
+  type CollabChange,
+  type LocalSteps,
+} from './sync-binding.js';
 
 /** How an editor joins a shared document. */
 export interface CollabSyncOptions {
@@ -23,6 +30,11 @@ export interface CollabSyncOptions {
    * at the end of the current task by default (`queueMicrotask`).
    */
   schedule?: ((run: () => void) => void) | undefined;
+  /**
+   * Told once of a shared document the schema cannot read, such as one with a block of a newer
+   * schema, as the plugin stops taking and sending changes. Throws the error by default.
+   */
+  onUnreadable?: ((error: unknown) => void) | undefined;
 }
 
 /** A sync plugin's shared document and the origins of the changes it makes there. */
@@ -48,6 +60,16 @@ const syncs = new WeakMap<Plugin, CollabSync>();
 
 const NOT_TRACKING: LocalSteps = { base: null, steps: [] };
 
+// Binds a view, or tells of a shared document the schema cannot read as it joins.
+function join(view: EditorView, source: BindingSource): Binding | null {
+  try {
+    return bindView(view, source);
+  } catch (error) {
+    source.onUnreadable(error);
+    return null;
+  }
+}
+
 /**
  * A plugin that keeps the editor's document and the shared document the same, both ways (decision
  * D30). Changes from the shared document reach the editor in one transaction per burst, marked
@@ -59,11 +81,21 @@ export function createCollabSync({
   // Called as a function of its own: the platform's `queueMicrotask` throws when called on another
   // object, as the binding calls its source's scheduler.
   schedule = (run) => queueMicrotask(run),
+  onUnreadable = (error) => {
+    throw error;
+  },
 }: CollabSyncOptions): Plugin<LocalSteps> {
   const type = doc.get(CONTENT_TYPE);
   const origin = { collabSync: 'local' };
   const derivedOrigin = { collabSync: 'derived' };
   let binding: Binding | null = null;
+  // Once the schema could not read the shared document no view binds again: the editor would take
+  // or send changes of a document it does not show.
+  let unreadable = false;
+  const stop = (error: unknown) => {
+    unreadable = true;
+    onUnreadable(error);
+  };
   const plugin: Plugin<LocalSteps> = new Plugin<LocalSteps>({
     key: collabSyncKey,
     // Kept out of the paged layout's hidden measuring view, which would bind a second time.
@@ -82,17 +114,19 @@ export function createCollabSync({
     view(view) {
       // One view at a time takes the shared document's changes: a second binding would replay
       // each change on a document that already holds it.
-      if (binding) return {};
-      const bound = bindView(view, {
+      if (binding || unreadable) return {};
+      const bound = join(view, {
         doc,
         type,
         origin,
         derivedOrigin,
         isRemoteOrigin,
         schedule,
+        onUnreadable: stop,
         tag: (tr, change) => tr.setMeta(collabSyncKey, change),
         tracked: (state) => collabSyncKey.getState(state) ?? NOT_TRACKING,
       });
+      if (!bound) return {};
       binding = bound;
       return {
         update: () => bound.update(),

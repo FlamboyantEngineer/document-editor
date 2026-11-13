@@ -5,7 +5,7 @@
 // from the binding's own undo manager reach the editor at once.
 
 import * as Y from '@y/y';
-import type { Node } from 'prosemirror-model';
+import type { Node, Schema } from 'prosemirror-model';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { type Step, Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
@@ -41,6 +41,8 @@ export interface BindingSource {
   readonly tag: (tr: Transaction, change: CollabChange) => void;
   /** The local steps since a document, as the plugin's state records them. */
   readonly tracked: (state: EditorState) => LocalSteps;
+  /** Told once, as the binding stops, of a shared document the schema cannot read. */
+  readonly onUnreadable: (error: unknown) => void;
 }
 
 /** The local steps since a document, `base`; `null` while the plugin records none. */
@@ -154,7 +156,15 @@ function joinChange(
   return { kind: 'system', replay };
 }
 
-/** Binds a view to the shared document: the shared content wins, and an empty one takes the view's. */
+// Replays a change of the shared document as steps; throws on what the schema cannot read.
+const replayEvent = (schema: Schema, event: Y.YEvent<never>) => (tr: Transform) => {
+  replayChange({ tr, schema, at: -1 }, event.deltaDeep as unknown as AnyDelta);
+};
+
+/**
+ * Binds a view to the shared document: the shared content wins, and an empty one takes the view's.
+ * Throws on a shared document the schema cannot read.
+ */
 export function bindView(view: EditorView, source: BindingSource): Binding {
   const { type, origin, derivedOrigin } = source;
   let confirmed = view.state.doc;
@@ -205,12 +215,16 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
     const from = transaction.origin;
     if (from === origin || from === derivedOrigin) return;
     const kind = kindOf(from, source);
-    wait(kind, from, (tr) => {
-      replayChange(
-        { tr, schema: view.state.schema, at: -1 },
-        event.deltaDeep as unknown as AnyDelta,
-      );
-    });
+    try {
+      wait(kind, from, replayEvent(view.state.schema, event));
+    } catch (error) {
+      // The shared document holds what the schema cannot read, such as a block of a newer schema:
+      // the editor no longer shows what it holds, so nothing more is taken from it or sent to it,
+      // where the editor's changes would land in the wrong places.
+      destroyed = true;
+      type.unobserveDeep(observer as never);
+      return source.onUnreadable(error);
+    }
     if (kind === 'undo') flush();
     else later();
   };
@@ -232,6 +246,7 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
     },
     flush,
     destroy() {
+      if (destroyed) return;
       if (!waiting && !flushing && view.state.doc !== confirmed) send(view.state.doc, origin);
       destroyed = true;
       type.unobserveDeep(observer as never);

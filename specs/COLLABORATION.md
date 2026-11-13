@@ -145,6 +145,13 @@ The binding relies on the shared document integrating each update it receives. Y
 Implementation: `src/collab/sync-binding.ts`
 Verification: `src/collab/yjs-pending.test.ts`
 
+### DOCE-COLLAB-4.7 - A shared document the schema cannot read
+
+When the shared document holds what the editor's schema cannot read, such as a block of a type a newer schema added, as the plugin binds or in a change it takes, the plugin shall stop: it takes no further change from the shared document and sends none to it, since the editor no longer shows what the shared document holds and its changes would land in the wrong places, and no view binds again. It shall tell the host once (`onUnreadable(error)`), and throw the error when the host gave no such callback.
+
+Implementation: `src/collab/sync.ts`, `src/collab/sync-binding.ts`
+Verification: `src/collab/sync.test.ts`, `src/session/room-session.test.ts`
+
 ## DOCE-COLLAB-5 - Connection
 
 ### DOCE-COLLAB-5.1 - Connection phases

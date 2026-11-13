@@ -2,7 +2,7 @@
 // adapter and kept by the room, which every writer edits at once. The session never saves the
 // document itself: its status follows the room's, and saving waits for the room to store it.
 
-import type { Schema } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import type { HostResult, SavedState } from '../host/adapters.js';
 import { type EditorCapabilities, READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
 import type { TemplatePin } from '../model/format/template-format.js';
@@ -17,7 +17,7 @@ import type { DraftOffer } from './drafts.js';
 import { loadPinnedTemplate } from './open-document.js';
 import { createRoomDrafts } from './room-drafts.js';
 import { followConnection, readConnection } from './room-follow.js';
-import { type OpenedRoom, openRoom, type RoomDraft, whenKept } from './room-open.js';
+import { type OpenedRoom, openRoom, type RoomDraft, roomFailure, whenKept } from './room-open.js';
 import { followSession, withCapabilities } from './session-follow.js';
 import {
   changeTemplate,
@@ -40,6 +40,15 @@ const NO_DRAFT_OFFER: Pick<DocumentSession, 'draft' | 'restoreDraft' | 'discardD
   discardDraft: () => undefined,
 };
 
+// The content the room holds, or why the schema cannot read it, such as a block of a newer schema.
+function roomContent({ binding }: OpenedRoom): HostResult<ProseMirrorNode | null> {
+  try {
+    return { ok: true, value: binding.content() };
+  } catch (error) {
+    return { ok: false, error: roomFailure(error) };
+  }
+}
+
 // The document the room holds, read for the editor with the room's plugins.
 async function readRoom(
   room: OpenedRoom,
@@ -50,7 +59,9 @@ async function readRoom(
   const template = await loadPinnedTemplate(options.host, pin, options.signal);
   if (!template.ok) return template;
   options.stores.setLoaded(template.value.template);
-  const doc = binding.content() ?? options.schema.topNodeType.createAndFill();
+  const content = roomContent(room);
+  if (!content.ok) return content;
+  const doc = content.value ?? options.schema.topNodeType.createAndFill();
   if (!doc) throw new Error('The schema cannot make an empty document.');
   const create = options.createState ?? defaultState(options.schema);
   const state = create(doc, { ...options.stores.context, room: { plugins: binding.plugins } });
@@ -109,17 +120,22 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
   current.room = room;
   run.granted = room.capabilities;
   document.set(read.value.document);
-  const following = { cached: room.draft !== null, granted: () => run.granted };
+  const { unreadable } = room;
+  const following = { cached: room.draft !== null, granted: () => run.granted, unreadable };
   current.stops.push(followConnection(room.connection, stores, following));
   current.stops.push(room.binding.followPin((pin) => void run.showPin(pin)));
   // The session may have closed, or left this room, by the time the refused draft was read. A
-  // connection that fails to close does not keep the room from opening again.
+  // connection that fails to close does not keep the room from opening again, and a room that
+  // cannot be opened again fails the session, with the draft still kept.
   const reopen = (draft: RoomDraft) => {
     if (signal.aborted || current.room !== room) return;
     try {
       leaveRoom(run);
     } finally {
-      void loadRoom(run, draft);
+      loadRoom(run, draft).catch((error: unknown) => {
+        status.set({ ...status.get(), load: 'failed', error: roomFailure(error) });
+        leaveRoom(run);
+      });
     }
   };
   current.stops.push(run.drafts.follow(room, reopen));
@@ -127,6 +143,25 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
   await run.drafts.start(room, merged);
   status.set({ ...status.get(), load: 'ready' });
   return true;
+}
+
+// With no editor bound nothing keeps the state and the room the same: the change is made on what
+// the room holds by then and written there, or the editor that binds next would take the room's
+// content over it. A whole state was made from what the session showed, so it is written only
+// while the room still holds that, never over what the others changed since.
+function roomUpdate(run: RoomRun): DocumentSession['update'] {
+  const { document } = run.stores;
+  return (update) => {
+    const shown = document.get();
+    if (!shown) return;
+    const binding = run.current.room?.binding;
+    const held = binding?.held(shown.state) ?? shown.state;
+    const whole = typeof update !== 'function';
+    const state = whole ? update : update(held);
+    if (state === shown.state) return;
+    if (!whole || held === shown.state) binding?.write(state);
+    document.set({ ...shown, state });
+  };
 }
 
 /** Opens a document in its shared room (DOCE-SESSION-3.2 to 3.6). */
@@ -187,21 +222,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     conflicts: stores.conflicts,
     connection: stores.connection,
     ready: loadRoom(run),
-    // With no editor bound nothing keeps the state and the room the same: the change is made on
-    // what the room holds by then and written there, or the editor that binds next would take the
-    // room's content over it. A whole state was made from what the session showed, so it is
-    // written only while the room still holds that, never over what the others changed since.
-    update: (update) => {
-      const shown = document.get();
-      if (!shown) return;
-      const binding = room()?.binding;
-      const held = binding?.held(shown.state) ?? shown.state;
-      const whole = typeof update !== 'function';
-      const state = whole ? update : update(held);
-      if (state === shown.state) return;
-      if (!whole || held === shown.state) binding?.write(state);
-      document.set({ ...shown, state });
-    },
+    update: roomUpdate(run),
     setTemplate: async (pin) => {
       const opened = room();
       if (!opened || document.get()?.editingMode !== 'edit') return false;

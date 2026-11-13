@@ -23,7 +23,7 @@ const TEMPLATE_ATTR = 'template';
 
 /** A room's shared document, as a session uses it. */
 export interface RoomBinding {
-  /** The document the room holds, or null while it holds none. */
+  /** The document the room holds, or null while it holds none; throws on one it cannot read. */
   content(): ProseMirrorNode | null;
   /**
    * The plugins that keep the editor and the room the same, with the writer's own undo, and the
@@ -60,6 +60,8 @@ export interface RoomBindingOptions {
   awareness: unknown;
   /** The reader as the others see them, and the page's lifecycle (DOCE-SESSION-3.9). */
   presence: Omit<AwarenessPresenceOptions, 'awareness'>;
+  /** Told once when the room comes to hold what the schema cannot read (DOCE-COLLAB-4.7). */
+  onUnreadable: (error: unknown) => void;
 }
 
 // Presence through the room's awareness, when the connection has one.
@@ -87,14 +89,31 @@ export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBind
   const meta = doc.get(META_TYPE);
   const origin = { session: 'template' };
   const content = () => readContent(schema, doc.get(CONTENT_TYPE));
+  // Once the editor stopped on content the schema cannot read, the session neither reads the
+  // room's content nor writes over it.
+  let unreadable = false;
+  const onUnreadable = (error: unknown) => {
+    unreadable = true;
+    options.onUnreadable(error);
+  };
+  // What the room holds for a state no editor is bound to; nothing when it cannot be read, which
+  // the editor tells of when it binds.
+  const heldFor = (state: EditorState) => {
+    if (!unbound(state) || unreadable) return null;
+    try {
+      return content();
+    } catch {
+      return null;
+    }
+  };
   return {
     content,
     held: (state) => {
-      const held = unbound(state) ? content() : null;
+      const held = heldFor(state);
       return held && !held.eq(state.doc) ? withContent(state, held) : state;
     },
     write: (state) => {
-      const held = unbound(state) ? content() : null;
+      const held = heldFor(state);
       if (!held || held.eq(state.doc)) return;
       const change = diffNodes(held, state.doc);
       doc.transact(() => {
@@ -103,7 +122,7 @@ export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBind
     },
     plugins: [
       ...presencePlugins(options),
-      createCollabSync({ doc, isRemoteOrigin }),
+      createCollabSync({ doc, isRemoteOrigin, onUnreadable }),
       createCollabUndo(),
     ],
     pin: () => asPin(meta.getAttr(TEMPLATE_ATTR)),

@@ -1,3 +1,5 @@
+import type * as Y from '@y/y';
+import * as delta from 'lib0/delta';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -76,6 +78,17 @@ function mount(session: DocumentSession) {
   return view;
 }
 
+// Writes a block of a type no schema here has into the room through a person's connection, as a
+// reader on a newer schema would.
+function writeUnknownBlock(room: SessionRooms, person: string) {
+  const doc = room.providerOf(person)?.doc;
+  if (!doc) throw new Error(`${person} has no connection.`);
+  const below = (type: Y.Type, index: number) => type.get(index) as Y.Type;
+  const blocks = below(below(below(doc.get('content'), 0), 0), 1);
+  const added = delta.create('hologram').insert('Seen from every side.').done();
+  blocks.applyDelta(delta.create().retain(1).insert([added]).done() as never);
+}
+
 describe('createDocumentSession in room mode', () => {
   it('DOCE-SESSION-3.2 opens a document in its room once the connection synced', async () => {
     roomsFor();
@@ -105,6 +118,19 @@ describe('createDocumentSession in room mode', () => {
     expect(await refused.ready).toBe(false);
     expect(refused.status.get()).toMatchObject({ load: 'failed', error: { kind: 'denied' } });
     expect(refused.document.get()).toBeNull();
+  });
+
+  it('DOCE-SESSION-3.2 fails to open a room whose document its schema cannot read', async () => {
+    const room = roomsFor();
+    const grace = openAs('grace');
+    await grace.ready;
+    writeUnknownBlock(room, 'grace');
+    await grace.flush();
+    const ada = openAs('ada');
+    expect(await ada.ready).toBe(false);
+    expect(ada.status.get()).toMatchObject({ load: 'failed', error: { kind: 'unavailable' } });
+    expect(ada.status.get().error?.message).toContain('hologram');
+    expect(ada.document.get()).toBeNull();
   });
 
   it('DOCE-SESSION-3.2 keeps two readers of a room on the same document', async () => {
@@ -194,6 +220,27 @@ describe('createDocumentSession in room mode', () => {
       comment: true,
     });
     expect(shown(session).editingMode).toBe('comment');
+  });
+
+  it('DOCE-SESSION-3.4 DOCE-COLLAB-4.7 locks the document once the room holds what its schema cannot read', async () => {
+    const room = roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const view = mount(ada);
+    writeUnknownBlock(room, 'grace');
+    await vi.waitFor(() => expect(ada.status.get().error?.kind).toBe('unavailable'));
+    expect(ada.status.get()).toMatchObject({ load: 'ready', save: 'error' });
+    expect(ada.status.get().error?.message).toContain('hologram');
+    expect(ada.connection.get()?.gate).toEqual({ editable: false, locked: true });
+    expect(shown(ada).capabilities).toMatchObject({ edit: false, suggest: false, comment: false });
+    expect(shown(ada).editingMode).toBe('read');
+    // The error stands while the connection's state goes on changing.
+    room.providerOf('ada')?.disconnect();
+    await vi.waitFor(() => expect(ada.connection.get()?.phase).toBe('offline'));
+    expect(ada.status.get().error?.kind).toBe('unavailable');
+    expect(ada.connection.get()?.gate).toEqual({ editable: false, locked: true });
+    expect(textOf(view.state)).toBe('Hello');
   });
 
   it('DOCE-SESSION-3.8 tells the connection’s phase and gate', async () => {

@@ -151,6 +151,39 @@ describe('room-mode drafts in a session', () => {
     expect(again.conflicts.get()).toEqual([]);
   });
 
+  it('DOCE-SESSION-6.10 fails when the room cannot be opened again without the draft', async () => {
+    const room = roomsFor(file('Hello', 'World'));
+    const host = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });
+    await editOffline(room, host);
+    await room.startOver([{ id: 'doc', content: file('Hello', 'World anew') }]);
+    const adapter = room.adapter('ada');
+    let connections = 0;
+    const again = createDocumentSession({
+      host: {
+        ...host,
+        collaboration: {
+          connect: (...args) => {
+            connections += 1;
+            if (connections > 1) throw new Error('The rooms are away.');
+            return adapter.connect(...args);
+          },
+        },
+      },
+      documentId: 'doc',
+      mode: 'room',
+    });
+    sessions.push(again);
+    await again.ready;
+    await vi.waitFor(() => expect(again.status.get().load).toBe('failed'));
+    expect(again.status.get().error).toEqual({
+      kind: 'unavailable',
+      message: 'The rooms are away.',
+    });
+    // The draft stays kept for the next time the document opens.
+    const draft = await host.drafts.get('doc', 'room');
+    expect(draft.ok && draft.value?.mode === 'room' && draft.value.unconfirmed).toBeTruthy();
+  });
+
   it('DOCE-SESSION-6.10 leaves a block both changed for the reader to settle', async () => {
     const room = roomsFor(file('Hello', 'World'));
     const host = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });
