@@ -3,7 +3,7 @@ import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, writeDocumentFile } from '../model/index.js';
+import { readDocumentFile, type StoredContent, writeDocumentFile } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
 import {
   insertScriptBlock,
@@ -25,17 +25,19 @@ const runner = {
     ),
 };
 
-function viewWith(scriptText: string) {
+// A document of an introduction and a script block for each script, with ids counted from 1.
+function viewWith(...scripts: string[]) {
+  const blocks = scripts.map((source, index) => ({
+    type: 'script',
+    attrs: { id: `a000000${String(index + 1)}`, source },
+  }));
   const doc = readDocumentFile(
     {
       formatVersion: 1,
       sections: [
         {
           name: null,
-          content: [
-            { type: 'paragraph', content: [{ type: 'text', text: 'Intro' }] },
-            { type: 'script', attrs: { id: 'a0000001', source: scriptText } },
-          ],
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Intro' }] }, ...blocks],
         },
       ],
     },
@@ -95,6 +97,64 @@ describe('script blocks', () => {
     view.destroy();
   });
 
+  it('DOCE-OBJECTS-4.2 records an output it cannot read as a failure, and keeps the other outputs', async () => {
+    const unread: StoredContent = [{ type: 'no-such-node' }];
+    const odd = {
+      run: ({ source }: { source: string }) =>
+        source === 'unread'
+          ? Promise.resolve({ ok: true as const, value: unread })
+          : runner.run({ source }),
+    };
+    const view = viewWith('one', 'unread', 'two');
+    expect(await runScripts(view, odd)).toEqual(['a0000002']);
+    const { running, failed } = scriptsState(view.state);
+    expect([...running]).toEqual([]);
+    expect(failed.get('a0000002')).toContain('no-such-node');
+    expect(listScriptBlocks(view.state.doc).map((block) => block.node.textContent)).toEqual([
+      'Ran one',
+      '',
+      'Ran two',
+    ]);
+    expect(view.dom.querySelectorAll('[data-script-state="error"]')).toHaveLength(1);
+    expect(view.dom.querySelectorAll('[data-script-state="running"]')).toHaveLength(0);
+    view.destroy();
+  });
+
+  it('DOCE-OBJECTS-4.2 records a runner that throws as a failure and ends the run', async () => {
+    const broken = {
+      run: ({ source }: { source: string }) => {
+        if (source === 'throws') throw new Error('No runner');
+        return runner.run({ source });
+      },
+    };
+    const view = viewWith('throws', 'one');
+    expect(await runScripts(view, broken)).toEqual(['a0000001']);
+    expect(scriptsState(view.state).failed.get('a0000001')).toBe('No runner');
+    expect([...scriptsState(view.state).running]).toEqual([]);
+    expect(listScriptBlocks(view.state.doc)[1]?.node.textContent).toBe('Ran one');
+    view.destroy();
+  });
+
+  it('DOCE-OBJECTS-4.2 keeps another run’s blocks running, and its failures, until that run ends', async () => {
+    let release: () => void = () => undefined;
+    const slow = {
+      run: async ({ source }: { source: string }) => {
+        if (source === 'slow') await new Promise<void>((resolve) => (release = resolve));
+        return runner.run({ source });
+      },
+    };
+    const view = viewWith('slow', 'fail');
+    const first = runScripts(view, slow, { ids: ['a0000001'] });
+    expect(await runScripts(view, slow, { ids: ['a0000002'] })).toEqual(['a0000002']);
+    expect([...scriptsState(view.state).running]).toEqual(['a0000001']);
+    release();
+    expect(await first).toEqual([]);
+    const { running, failed } = scriptsState(view.state);
+    expect([...running]).toEqual([]);
+    expect([...failed.keys()]).toEqual(['a0000002']);
+    view.destroy();
+  });
+
   it('DOCE-OBJECTS-4.2 gives an output the same element ids on every run, and leaves an identical rerun alone', async () => {
     const first = viewWith('one');
     const second = viewWith('one');
@@ -149,6 +209,28 @@ describe('script blocks', () => {
     expect(outputText(view)).toBe('Ran one');
     view.dispatch(view.state.tr.delete(block.pos, block.pos + block.node.nodeSize));
     expect(listScriptBlocks(view.state.doc)).toHaveLength(0);
+    view.destroy();
+  });
+
+  it('DOCE-OBJECTS-4.3 refuses the writer changing an attribute inside an output', async () => {
+    const view = viewWith('one');
+    await runScripts(view, {
+      run: () =>
+        Promise.resolve({
+          ok: true as const,
+          value: [
+            { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Results' }] },
+          ],
+        }),
+    });
+    const levelOf = () =>
+      listScriptBlocks(view.state.doc)[0]?.node.firstChild?.attrs.level as unknown;
+    const at = (listScriptBlocks(view.state.doc)[0]?.pos ?? 0) + 1;
+    view.dispatch(view.state.tr.setNodeAttribute(at, 'level', 3));
+    expect(levelOf()).toBe(1);
+    // The ids the editing plugins give an output's elements are not the writer's change.
+    view.dispatch(view.state.tr.setNodeAttribute(at, 'dataId', '0000beef'));
+    expect(listScriptBlocks(view.state.doc)[0]?.node.firstChild?.attrs.dataId).toBe('0000beef');
     view.destroy();
   });
 });
