@@ -92,6 +92,7 @@ export const TOOLBAR_GROUPS = {
     'abbreviation',
     'script',
     'section',
+    'variable',
     'symbol',
   ],
   layout: ['layout'],
