@@ -85,7 +85,7 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-2.3 - Abbreviation issues
 
-`createAbbreviationHealth({ glossary, delay })` shall resolve the entries the document's abbreviations cite through the host's glossary a moment after each change that adds an entry it has not asked for (500 milliseconds by default), and mark an abbreviation whose entry the glossary no longer has `missing`, one whose entry is archived `archived`, and one that reads the same abbreviation, ignoring case, as another entry the document cites `duplicate` (`data-abbreviation-issue`, `abbreviationIssueAt`). `abbreviationIssues(doc, answer)` gives those issues from the glossary's answer, judging only the entries it was asked for.
+`createAbbreviationHealth({ glossary, delay })` shall resolve the entries the document's abbreviations cite through the host's glossary a moment after each change that adds an entry it has not asked for, or whose last resolve failed (500 milliseconds by default), and mark an abbreviation whose entry the glossary no longer has `missing`, one whose entry is archived `archived`, and one that reads the same abbreviation, ignoring case, as another entry the document cites `duplicate` (`data-abbreviation-issue`, `abbreviationIssueAt`). `abbreviationIssues(doc, answer)` gives those issues from the glossary's answer, judging only the entries it was asked for.
 
 Implementation: `src/engine/abbreviation-health.ts`
 Verification: `src/engine/abbreviation-health.test.ts`

@@ -1,7 +1,8 @@
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import type { GlossaryAdapter } from '../host/index.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import {
   abbreviationIssueAt,
@@ -97,6 +98,38 @@ describe('abbreviation health', () => {
       'missing',
     ]);
     view.destroy();
+  });
+
+  it('DOCE-REFERENCES-2.3 asks the glossary again after a resolve that failed', async () => {
+    vi.useFakeTimers();
+    try {
+      const resolve = vi
+        .fn<GlossaryAdapter['resolve']>()
+        .mockResolvedValueOnce({ ok: false, error: { kind: 'unavailable' } })
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({ ok: true, value: [] });
+      const cited = citing([GSE]);
+      const state = EditorState.create({
+        doc: cited.doc,
+        plugins: [createAbbreviationHealth({ glossary: { resolve }, delay: 10 })],
+      });
+      const view = new EditorView(document.createElement('div'), { state });
+      const edit = async () => {
+        view.dispatch(view.state.tr.insertText('x', 1));
+        await vi.advanceTimersByTimeAsync(20);
+      };
+      await vi.advanceTimersByTimeAsync(20);
+      expect(resolve).toHaveBeenCalledTimes(1);
+      await edit();
+      expect(resolve).toHaveBeenCalledTimes(2);
+      await edit();
+      expect(resolve).toHaveBeenCalledTimes(3);
+      await edit();
+      expect(resolve).toHaveBeenCalledTimes(3);
+      view.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('DOCE-REFERENCES-2.1 keeps the marks of the text it replaces, and gives them back', () => {
