@@ -66,6 +66,21 @@ describe('stored template format', () => {
     ]);
   });
 
+  it('DOCE-FORMAT-2.2 names a setting called like a member of every object', () => {
+    // As a host parses a stored template: `__proto__` is then a setting of its own.
+    const stored: unknown = JSON.parse(
+      '{"formatVersion":1,"id":"plain","constructor":{"size":"A4"},"__proto__":{"size":"A4"},' +
+        '"toString":null,"styles":{"hasOwnProperty":{},"paragraph":{"valueOf":"12pt"}}}',
+    );
+    expect(validateTemplateFile(stored)).toEqual([
+      'template.constructor is not a template setting',
+      'template.__proto__ is not a template setting',
+      'template.toString is not a template setting',
+      'template.styles.hasOwnProperty is not a template setting',
+      'template.styles.paragraph.valueOf is not a template setting',
+    ]);
+  });
+
   it('DOCE-FORMAT-2.3 checks the template identity, references and sections', () => {
     const errors = validateTemplateFile({
       ...TEMPLATE,
@@ -95,6 +110,25 @@ describe('stored template format', () => {
     expect(errors).toEqual(['template.header.content: [0]: unknown node poster']);
     expect(validateTemplateFile({ ...TEMPLATE, header: { content: 'Header' } })).toEqual([
       'template.header.content must be a list of content',
+    ]);
+  });
+
+  it('DOCE-FORMAT-2.4 reports content a page header or footer cannot hold', () => {
+    const columns = {
+      type: 'columns',
+      content: [{ type: 'column', content: [{ type: 'paragraph' }] }],
+    };
+    const errors = validateTemplateFile(
+      {
+        ...TEMPLATE,
+        header: { content: [{ type: 'paragraph' }, columns] },
+        sections: [{ name: 'body', content: [columns], footer: { content: [columns] } }],
+      },
+      { schema: documentSchema },
+    );
+    expect(errors).toEqual([
+      'template.header.content: [1]: a page header or footer does not allow columns',
+      'template.sections[0].footer.content: [0]: a page header or footer does not allow columns',
     ]);
   });
 });

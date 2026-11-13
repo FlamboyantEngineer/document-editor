@@ -4,6 +4,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Length } from '../format/template-format.js';
 import { normalizeParagraphLevel } from '../schema/element-attributes.js';
+import { cssLength } from '../templates/template-property-values.js';
 import type { ParagraphNumberingConfig } from './document-numbering.js';
 import { type NumberingStyleConfig, parseNumberingStyle } from './numbering-format.js';
 
@@ -69,10 +70,13 @@ export function paragraphNumberingIndentationStyle(
   style: ParagraphLevelStyle,
   level: number,
 ): string {
+  // A position is written into a style, so one that is not a length is left out.
+  const numberIndent = cssLength(style.numberIndent);
+  const textIndent = cssLength(style.textIndent);
   return [
     level > 1 ? `--doc-paragraph-indentation: ${String((level - 1) * 20)}pt;` : '',
-    style.numberIndent ? `--doc-paragraph-number-indent: ${style.numberIndent};` : '',
-    style.textIndent ? `--doc-paragraph-text-indent: ${style.textIndent};` : '',
+    numberIndent ? `--doc-paragraph-number-indent: ${numberIndent};` : '',
+    textIndent ? `--doc-paragraph-text-indent: ${textIndent};` : '',
   ]
     .filter(Boolean)
     .join(' ');

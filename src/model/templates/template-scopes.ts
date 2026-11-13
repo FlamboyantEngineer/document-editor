@@ -14,6 +14,14 @@ import { mergeTemplateSettings, resolveSectionRegion } from '../format/template-
 import { escapeCssContent } from '../numbering/document-numbering.js';
 import { normalizeCaptionContinuedSuffix } from '../schema/caption-text.js';
 import { lengthToCssPx, resolveFontStack } from './template-css-values.js';
+import {
+  cssColor,
+  cssKeyword,
+  cssLength,
+  cssLineHeight,
+  cssWeight,
+  TEXT_ALIGNMENTS,
+} from './template-property-values.js';
 
 const HEADING_STYLES = [
   'heading1',
@@ -58,6 +66,7 @@ export interface ResolvedFootnoteSettings {
 }
 
 const FOOTNOTE_COLOR = '#111827';
+const FOOTNOTE_DEFAULTS = { thickness: '1px', spacingToContent: '12pt', entrySpacing: '6pt' };
 
 /**
  * A section's footnote settings: the section's over the template's, with defaults for what neither
@@ -75,17 +84,19 @@ export function resolveFootnoteSettings(
     suffix: settings.suffix ?? '',
     separator: {
       enabled: separator.enabled !== false,
-      thickness: separator.thickness ?? '1px',
+      thickness: separator.thickness ?? FOOTNOTE_DEFAULTS.thickness,
       color: separator.color ?? FOOTNOTE_COLOR,
     },
-    spacingToContent: settings.spacingToContent ?? '12pt',
-    entrySpacing: settings.entrySpacing ?? '6pt',
+    spacingToContent: settings.spacingToContent ?? FOOTNOTE_DEFAULTS.spacingToContent,
+    entrySpacing: settings.entrySpacing ?? FOOTNOTE_DEFAULTS.entrySpacing,
     marker: settings.marker ?? {},
     text: settings.text ?? {},
   };
 }
 
 type CssVarEntry = [string, string | null];
+
+const CAPTION_ALIGNMENTS = ['left', 'center', 'right'];
 
 const CAPTION_KINDS = [
   ['table', 'table'],
@@ -100,8 +111,8 @@ function fontEntries(
 ): CssVarEntry[] {
   return [
     [`${prefix}-family`, font?.font ? resolveFontStack(font.font, '', fontStacks) || null : null],
-    [`${prefix}-size`, font?.size ?? null],
-    [`${prefix}-weight`, typeof font?.weight === 'number' ? String(font.weight) : null],
+    [`${prefix}-size`, cssLength(font?.size)],
+    [`${prefix}-weight`, cssWeight(font?.weight)],
     [
       `${prefix}-style`,
       typeof font?.italic === 'boolean' ? (font.italic ? 'italic' : 'normal') : null,
@@ -121,7 +132,9 @@ export function buildCaptionCssVarEntries(
   return CAPTION_KINDS.flatMap(([kind, cssKind]) => {
     const caption = styles?.[kind]?.caption;
     const alignment: CssVarEntry[] =
-      kind === 'table' ? [['--doc-table-caption-text-align', caption?.alignment ?? null]] : [];
+      kind === 'table'
+        ? [['--doc-table-caption-text-align', cssKeyword(caption?.alignment, CAPTION_ALIGNMENTS)]]
+        : [];
     const suffix = caption?.continuedSuffix;
     // The text after the caption of a later part of a split object, as CSS content.
     const continued: CssVarEntry[] = [
@@ -141,7 +154,10 @@ export function buildCaptionCssVarEntries(
   });
 }
 
-/** The custom properties a scope's footnote settings set. */
+/**
+ * The custom properties a scope's footnote settings set. A value that is not of its setting's kind
+ * is written as the default.
+ */
 export function buildFootnoteCssVarEntries(
   settings: ResolvedFootnoteSettings,
   fontStacks?: Readonly<Record<string, string>>,
@@ -153,21 +169,29 @@ export function buildFootnoteCssVarEntries(
     ['--doc-footnote-numbering-suffix', `"${escapeCssContent(settings.suffix)}"`],
     [
       '--doc-footnote-separator-border',
-      separator.enabled ? `${separator.thickness} solid ${separator.color}` : 'none',
+      separator.enabled
+        ? `${cssLength(separator.thickness) ?? FOOTNOTE_DEFAULTS.thickness} solid ${cssColor(separator.color) ?? FOOTNOTE_COLOR}`
+        : 'none',
     ],
-    ['--doc-footnote-spacing-to-content', settings.spacingToContent],
-    ['--doc-footnote-entry-spacing', settings.entrySpacing],
+    [
+      '--doc-footnote-spacing-to-content',
+      cssLength(settings.spacingToContent) ?? FOOTNOTE_DEFAULTS.spacingToContent,
+    ],
+    [
+      '--doc-footnote-entry-spacing',
+      cssLength(settings.entrySpacing) ?? FOOTNOTE_DEFAULTS.entrySpacing,
+    ],
     ['--doc-footnote-marker-font-family', font(marker.font)],
-    ['--doc-footnote-marker-font-size', marker.size ?? '0.85em'],
-    ['--doc-footnote-marker-font-weight', String(marker.weight ?? 600)],
+    ['--doc-footnote-marker-font-size', cssLength(marker.size) ?? '0.85em'],
+    ['--doc-footnote-marker-font-weight', cssWeight(marker.weight) ?? '600'],
     ['--doc-footnote-marker-font-style', style(marker.italic)],
-    ['--doc-footnote-marker-color', marker.color ?? FOOTNOTE_COLOR],
+    ['--doc-footnote-marker-color', cssColor(marker.color) ?? FOOTNOTE_COLOR],
     ['--doc-footnote-text-font-family', font(text.font)],
-    ['--doc-footnote-text-font-size', text.size ?? '10px'],
-    ['--doc-footnote-text-font-weight', String(text.weight ?? 400)],
+    ['--doc-footnote-text-font-size', cssLength(text.size) ?? '10px'],
+    ['--doc-footnote-text-font-weight', cssWeight(text.weight) ?? '400'],
     ['--doc-footnote-text-font-style', style(text.italic)],
-    ['--doc-footnote-text-color', text.color ?? FOOTNOTE_COLOR],
-    ['--doc-footnote-text-line-height', String(text.lineHeight ?? 1.4)],
-    ['--doc-footnote-text-align', text.alignment ?? 'left'],
+    ['--doc-footnote-text-color', cssColor(text.color) ?? FOOTNOTE_COLOR],
+    ['--doc-footnote-text-line-height', cssLineHeight(text.lineHeight) ?? '1.4'],
+    ['--doc-footnote-text-align', cssKeyword(text.alignment, TEXT_ALIGNMENTS) ?? 'left'],
   ];
 }
