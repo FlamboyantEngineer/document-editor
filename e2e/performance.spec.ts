@@ -1,9 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import type { Page } from '@playwright/test';
 import {
   type Budget,
   BUDGETS,
   caretAtEnd,
   keystrokeLatencies,
+  keystrokeWork,
   measureRemoteKeystrokes,
   measureSectionsEdit,
   measureStyleScope,
@@ -99,21 +101,44 @@ test.describe('performance', () => {
     expect(growth).toBeGreaterThan(0);
   });
 
-  test('DOCE-LABS-2.3 answers keystrokes on 40 and 300 pages, and beside 500 threads', async ({
+  // The typing budgets are enforced, on each key's own work (`keystrokeWork`).
+  async function typingWork(lab: Parameters<typeof openScale>[0], page: Page, size: number) {
+    await openScale(lab, page, size);
+    await caretAtEnd(page, 3);
+    return percentile(await keystrokeWork(page, 60), 0.95);
+  }
+
+  function expectMeets(budget: Budget, value: number) {
+    report(budget, value);
+    expect(budget.meets(value), `${budget.metric}: ${String(value)}, target ${budget.target}`).toBe(
+      true,
+    );
+  }
+
+  test('DOCE-LABS-2.3 answers each keystroke on 300 pages within its budget', async ({
     lab,
     page,
   }) => {
-    for (const [size, budget] of [
-      [SIZE.pages40, BUDGETS.latency40],
-      [SIZE.pages300, BUDGETS.latency300],
-      [SIZE.review300, BUDGETS.latencyReview300],
-    ] as const) {
-      await openScale(lab, page, size);
-      await caretAtEnd(page, 3);
-      const latencies = await keystrokeLatencies(page, 30);
-      report(budget, percentile(latencies, 0.95));
-      expect(latencies.length).toBeGreaterThan(0);
-    }
+    expectMeets(BUDGETS.latency300, await typingWork(lab, page, SIZE.pages300));
+  });
+
+  test('DOCE-LABS-2.3 answers each keystroke on 40 pages within its budget', async ({
+    lab,
+    page,
+  }) => {
+    // Missed by the cost every key takes, about as long on 5 pages: handling the key and drawing
+    // its frame, not the document's size.
+    test.info().annotations.push({ type: 'gap', description: 'P3 per-keystroke cost' });
+    test.fail();
+    expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40));
+  });
+
+  test('DOCE-LABS-2.3 answers keystrokes beside 500 threads', async ({ lab, page }) => {
+    await openScale(lab, page, SIZE.review300);
+    await caretAtEnd(page, 3);
+    const latencies = await keystrokeLatencies(page, 30);
+    report(BUDGETS.latencyReview300, percentile(latencies, 0.95));
+    expect(latencies.length).toBeGreaterThan(0);
   });
 
   test('DOCE-LABS-2.3 settles 24 pages on load', async ({ lab, page }) => {
