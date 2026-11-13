@@ -1,8 +1,8 @@
 // The script editor: a script block's script in a code editor that completes the names a script
 // can use and documents the one under the pointer, beside a preview that runs the script on asking
 // and the reference of those names. The host's check marks the problems it finds, which keep the
-// script from being applied. Applying sets the script of the block selected, or inserts one, and
-// runs it.
+// script from being applied. Applying sets the script of the block that was selected, wherever
+// it is by then, or inserts one, and runs it.
 
 import { type CodeDiagnostic, CodeEditor } from '@flamboyantengineer/ui-components/code-editor';
 import { Tab, TabList, TabPanel, Tabs } from '@flamboyantengineer/ui-components/tabs';
@@ -14,7 +14,6 @@ import {
   listScriptBlocks,
   runScripts,
   scriptBlockAt,
-  setScriptSource,
 } from '../../engine/index.js';
 import type { ScriptRunnerAdapter, ScriptVocabularyEntry } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
@@ -57,26 +56,42 @@ function useScriptCheck(runner: ScriptRunnerAdapter, script: string): readonly C
   return found.script === script ? found.diagnostics : [];
 }
 
-// Sets the script of the block found, or inserts a block with it, and runs that block.
+type OpenedBlock = NonNullable<ReturnType<typeof scriptBlockAt>>;
+
+// The block the dialog edits, where it is now. The document may have changed while the dialog was
+// open, as when another writer adds a paragraph before the block, so the place it had on opening
+// may hold something else: the block is found again by its element id. One without an id is known
+// only while it is still the node at that place. Null once the block is gone.
+function editedBlock(view: EditorView, opened: OpenedBlock) {
+  const id = opened.node.attrs.dataId as unknown;
+  if (typeof id === 'string' && id) {
+    return listScriptBlocks(view.state.doc).find((block) => block.id === id) ?? null;
+  }
+  return view.state.doc.nodeAt(opened.pos) === opened.node ? { ...opened, id: null } : null;
+}
+
+// Sets the script of the block the dialog edits and selects it, or inserts a block with the script;
+// gives the ids of the blocks to run. Throws with `gone` when the block edited is no longer there.
 function applyScript(
   view: EditorView,
-  runner: ScriptRunnerAdapter,
-  { found, script }: { found: ReturnType<typeof scriptBlockAt>; script: string },
-) {
-  const before = new Set(listScriptBlocks(view.state.doc).map((block) => block.id));
-  if (found) {
-    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, found.pos)));
-    setScriptSource(script)(view.state, view.dispatch);
-  } else insertScriptBlock(script)(view.state, view.dispatch);
-  // The block edited runs, by its id, or the block inserted, by the id it was given.
-  const edited = found?.node.attrs.dataId as string | undefined;
-  const ids = edited
-    ? [edited]
-    : listScriptBlocks(view.state.doc)
-        .map((block) => block.id)
-        .filter((id) => !before.has(id));
-  view.focus();
-  return runScripts(view, runner, { ids });
+  { opened, script, gone }: { opened: OpenedBlock | null; script: string; gone: string },
+): string[] {
+  if (!opened) {
+    const before = new Set(listScriptBlocks(view.state.doc).map((block) => block.id));
+    insertScriptBlock(script)(view.state, view.dispatch);
+    // The block inserted runs, by the id it was given.
+    return listScriptBlocks(view.state.doc)
+      .map((block) => block.id)
+      .filter((id) => !before.has(id));
+  }
+  const block = editedBlock(view, opened);
+  if (!block) throw new Error(gone);
+  const tr = view.state.tr;
+  if (block.node.attrs.script !== script) {
+    tr.setNodeMarkup(block.pos, undefined, { ...block.node.attrs, script });
+  }
+  view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, block.pos)));
+  return block.id === null ? [] : [block.id];
 }
 
 // The preview's state: run on asking, and back to not run whenever the script changes.
@@ -172,9 +187,13 @@ export function ScriptDialog({
       primaryAction={{
         label: labels.applyAndRun,
         isDisabled: !script.trim() || blocked,
+        // The dialog closes once the script is in the document: while its block is gone the
+        // dialog stays, saying so, with the script the writer would otherwise lose.
         onPress: (close: () => void) => {
+          const ids = applyScript(view, { opened: found, script, gone: labels.scriptBlockGone });
           close();
-          return applyScript(view, runner, { found, script });
+          view.focus();
+          return runScripts(view, runner, { ids });
         },
       }}
     >

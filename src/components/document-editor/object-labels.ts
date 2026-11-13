@@ -27,6 +27,8 @@ export interface ObjectLabels {
   readonly scriptPreviewIdle: string;
   readonly scriptPreviewRunning: string;
   readonly scriptPreviewEmpty: string;
+  /** Says the script block being edited was deleted meanwhile, so its script cannot be applied. */
+  readonly scriptBlockGone: string;
   /** Says a script's output is not content the document can hold; the reason follows it. */
   readonly scriptOutputRefused: string;
   readonly filterScriptReference: string;
@@ -186,6 +188,7 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   scriptPreviewIdle: 'Refresh the preview to run the script.',
   scriptPreviewRunning: 'Updating the preview…',
   scriptPreviewEmpty: 'The script produced nothing.',
+  scriptBlockGone: 'The script block is no longer in the document.',
   scriptOutputRefused: 'The script produced content the document cannot hold.',
   filterScriptReference: 'Filter the reference',
   scriptGlobals: 'Globals',
