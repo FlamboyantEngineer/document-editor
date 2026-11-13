@@ -1,7 +1,7 @@
 // What the footnote commands and plugin share: finding markers and entries, their order, the places
 // a footnote may be cited, the footnote area of a page, and the plugin's state.
 
-import type { Fragment, Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
+import { Fragment, type Node as ProseMirrorNode, type ResolvedPos } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
 import { documentSections, regionBeside, regionKind } from '../model/index.js';
 
@@ -90,6 +90,20 @@ export function markerRanks(doc: ProseMirrorNode): Map<string, number> {
     return false;
   });
   return ranks;
+}
+
+/** The footnote entries, of those given, that content cites: those with a marker in it. */
+export function citedEntries(entries: Fragment, content: Fragment): Fragment {
+  const cited = new Set<string>();
+  content.descendants((node) => {
+    const id = isFootnoteMarker(node) ? idOf(node) : null;
+    if (id) cited.add(id);
+  });
+  const kept: ProseMirrorNode[] = [];
+  entries.forEach((entry) => {
+    if (cited.has(idOf(entry) ?? '')) kept.push(entry);
+  });
+  return Fragment.from(kept);
 }
 
 /** How footnotes are numbered: through the document, or from 1 again in each section. */

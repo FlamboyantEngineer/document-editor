@@ -184,7 +184,7 @@ export function syncTemplateSections(
           options,
         );
         const content = carryScriptOutput(blocks, blocksOf(contentOf(section)));
-        tr.replaceWith(pos, pos + node.nodeSize, sectionOf(node, node.attrs, content));
+        tr.replaceWith(pos, pos + node.nodeSize, sectionOf(node, { attrs: node.attrs, content }));
       } else if (name && unexpected.has(name)) {
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, sectionName: null });
       }
@@ -217,7 +217,8 @@ function insertMissing(
     findTemplateSection(template, name)?.content,
     options,
   );
-  tr.insert(at, sectionOf(like, { sectionName: name }, Fragment.from(blocks)));
+  const content = Fragment.from(blocks);
+  tr.insert(at, sectionOf(like, { attrs: { sectionName: name }, content }));
 }
 
 /**
