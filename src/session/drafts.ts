@@ -162,6 +162,13 @@ function unknownBase(schema: Schema) {
   return doc ? { content: writeDocumentFile(doc), doc } : null;
 }
 
+// The base of a draft from an older revision than the one stored: that revision when the host
+// gives it, and the unknown base otherwise.
+async function outdatedBase(context: SessionDraftsContext, draft: StoreDraft, pinned: boolean) {
+  const loaded = pinned ? await draftBase(context, draft) : null;
+  return loaded ?? unknownBase(context.schema);
+}
+
 // Saving from the revision a draft was edited from: a draft from an older one then conflicts with
 // the newer save and merges into it from that base, rather than overwriting it.
 function rebaseOnDraft(
@@ -191,8 +198,7 @@ async function showDraft(
   const pin = draft.content.template ?? null;
   const pinned = samePin(document.get()?.pin ?? null, pin) || (await context.setTemplate(pin));
   const outdated = saving()?.baseline().revision !== draft.baseRevision;
-  const loaded = pinned && outdated ? await draftBase(context, draft) : null;
-  const base = outdated ? (loaded ?? unknownBase(context.schema)) : null;
+  const base = outdated ? await outdatedBase(context, draft, pinned) : null;
   const shown = document.get();
   const saver = saving();
   if (!pinned || !shown || !saver || !current() || (outdated && !base)) return false;
