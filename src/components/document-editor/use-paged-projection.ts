@@ -55,7 +55,7 @@ function hostCommit(
     made,
   }: {
     onStateChange: CanonicalCommit['onStateChange'];
-    resync(): void;
+    resync(made?: CanonicalChange | null): void;
     made: CanonicalChange | null;
   },
 ): RichTextEngineCommit & { readonly committed: () => boolean } {
@@ -64,7 +64,7 @@ function hostCommit(
     onStateChange((state) => {
       if (made && next === tr && state === made.from) return made.to;
       if (next.before.eq(state.doc)) return state.apply(next);
-      queueMicrotask(resync);
+      queueMicrotask(() => resync());
       return state;
     });
   return {
@@ -152,9 +152,13 @@ export function usePagedEditor(options: PagedEditorOptions) {
     latestRef.current = options;
   });
   return useMemo(() => {
-    const resync = () => {
+    // Shows the host's state again on the pages. After a transaction the host did not commit, as
+    // proofing results it takes as an update of its own, that is the state before the transaction,
+    // not the state React last drew, which may predate a selection the pages have since sent, as
+    // a key extending it, and would draw it back over the browser's (DOCE-PAGINATION-7.12).
+    const resync = (made: CanonicalChange | null = null) => {
       const { projection, host } = targetRef.current;
-      projection?.update(host);
+      projection?.update(made && projection.state === made.to ? made.from : host);
     };
     return {
       targetRef,
@@ -165,7 +169,7 @@ export function usePagedEditor(options: PagedEditorOptions) {
         events.onTransaction?.(tr, view);
         const host = hostCommit(tr, { onStateChange, resync, made });
         body(tr, held.doc === tr.before ? onHostState(view, held) : view, host);
-        if (!host.committed()) resync();
+        if (!host.committed()) resync(made);
       },
       onLayout(tr: Transaction) {
         const { view } = targetRef.current;
