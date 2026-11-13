@@ -1,5 +1,12 @@
+import { DOMSerializer } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
-import { findNode, parseMarkup, roundTrip, writeMarkup } from '../../../test/document-markup.js';
+import {
+  documentSchema,
+  findNode,
+  parseMarkup,
+  roundTrip,
+  writeMarkup,
+} from '../../../test/document-markup.js';
 import { createDocumentSchema } from '../index.js';
 
 const previewSchema = createDocumentSchema({
@@ -21,6 +28,39 @@ describe('figure nodes', () => {
       height: 200,
     });
     expect(roundTrip(html)).toBe(html);
+  });
+
+  it('DOCE-SCHEMA-3.3 writes a size only when it is a positive number', () => {
+    const figure = documentSchema.nodes.figure;
+    if (!figure) throw new Error('The schema has figures');
+    const written = (attrs: Record<string, unknown>) =>
+      DOMSerializer.fromSchema(documentSchema).serializeNode(
+        figure.create({ src: 'a.png', ...attrs }),
+      ) as HTMLElement;
+    // A stored or synced figure holds what it was given: text that is not a size is not written.
+    const unsafe = written({ width: '1px;position:fixed;inset:0', height: -5 });
+    const image = unsafe.querySelector('img');
+    expect(image).not.toHaveStyle({ position: 'fixed' });
+    expect(image).not.toHaveAttribute('width');
+    expect(image).not.toHaveAttribute('height');
+    expect(unsafe).not.toHaveAttribute('data-figure-width');
+    expect(unsafe).not.toHaveAttribute('data-figure-height');
+    const fitted = written({
+      objectLayout: 'fit-page-width',
+      width: '2/1;position:fixed',
+      height: 1,
+    });
+    expect(fitted.querySelector('img')).not.toHaveStyle({ position: 'fixed' });
+    expect(written({ width: 320, height: 200 }).querySelector('img')).toHaveStyle({
+      width: '320px',
+      height: '200px',
+    });
+    // Markup with a size that is not a number reads as a figure with no size.
+    const pasted = `<figure data-figure-width="wide" data-figure-height="-3"><img src="a.png">${CAPTION}</figure>`;
+    expect(findNode(parseMarkup(pasted), 'figure')?.attrs).toMatchObject({
+      width: null,
+      height: null,
+    });
   });
 
   it('DOCE-SCHEMA-3.3 stores an uploaded figure as its asset and previews it where the host says', () => {

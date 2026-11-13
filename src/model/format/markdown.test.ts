@@ -114,6 +114,24 @@ describe('writeMarkdown', () => {
     expect(markdown).toContain('$$\nb_1\n$$');
   });
 
+  it('DOCE-FORMAT-4.1 writes a link by its address, and as its text when the address could run script', () => {
+    const linked = (href: string): StoredNode => ({
+      type: 'text',
+      text: 'site',
+      marks: [{ type: 'link', attrs: { href } }],
+    });
+    const markdown = writeMarkdown({
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [paragraph(linked('https://example.com/a'), text(' '), linked('javascript:x'))],
+        },
+      ],
+    });
+    expect(markdown).toBe('[site](https://example.com/a) site\n');
+  });
+
   it('DOCE-FORMAT-4.2 writes the suggestions rejected when asked, escaping what reads as Markdown', () => {
     const markdown = writeMarkdown(FILE, { suggestions: 'rejected' });
     expect(markdown).toContain('stay above 5 V');
