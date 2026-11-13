@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 // Runs every check of `npm run check`. The checks of a stage run side by side and print their
 // output once each finishes; a stage starts only when every check of the one before it passed.
+// `--skip <check>` leaves a check out, for hosted CI, which runs the browser tests in parallel jobs.
 
+import { parseArgs } from 'node:util';
 import { startNpm } from './lib/npm.mjs';
 
 const STAGES = [
   ['lint', 'format:check', 'typecheck', 'check:references', 'check:specs', 'build', 'build:labs'],
   ['test', 'test:labs'],
 ];
+
+const skipped = parseArgs({ options: { skip: { type: 'string', multiple: true, default: [] } } })
+  .values.skip;
+const unknown = skipped.filter((script) => !STAGES.flat().includes(script));
+if (unknown.length > 0) throw new Error(`--skip names no check: ${unknown.join(', ')}`);
 
 function run(script) {
   const started = Date.now();
@@ -30,7 +37,7 @@ function run(script) {
   });
 }
 
-for (const stage of STAGES) {
+for (const stage of STAGES.map((checks) => checks.filter((script) => !skipped.includes(script)))) {
   const results = await Promise.all(stage.map(run));
   if (results.includes(false)) {
     console.log(`\n${stage.filter((_, index) => !results[index]).join(', ')} failed.`);

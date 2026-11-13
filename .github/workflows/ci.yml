@@ -13,9 +13,49 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  gates:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # The base component library is a private git dependency. npm fetches GitHub dependencies over
+      # SSH first, so every GitHub URL form is rewritten to HTTPS with the read token.
+      - name: Let git read the base component library
+        env:
+          TOKEN: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
+        run: |
+          base="https://x-access-token:${TOKEN}@github.com/FlamboyantEngineer/"
+          git config --global --add url."$base".insteadOf "https://github.com/FlamboyantEngineer/"
+          git config --global --add url."$base".insteadOf "ssh://git@github.com/FlamboyantEngineer/"
+          git config --global --add url."$base".insteadOf "git@github.com:FlamboyantEngineer/"
+      - run: npm ci
+      # scripts/check.mjs is the one list of gates, shared with `npm run check` locally. The browser
+      # tests run in the labs jobs beside it.
+      - name: Checks
+        run: npm run check -- --skip test:labs
+
+  labs:
+    # The browser tests of `npm run test:labs`, split across runners: the Chromium lab tests in
+    # shards, and the timing tests in a job of their own, so no other test shares their machine.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: chromium 1 of 3, args: --project=chromium --shard=1/3 }
+          - { name: chromium 2 of 3, args: --project=chromium --shard=2/3 }
+          - { name: chromium 3 of 3, args: --project=chromium --shard=3/3 }
+          # Without their dependency on the lab tests, which the shards run; the heaviest timing test
+          # still runs alone before the others.
+          - name: performance
+            args: --project=review-scale --no-deps
+            then: --project=performance --no-deps
+    name: labs (${{ matrix.name }})
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -37,5 +77,23 @@ jobs:
       - run: npx playwright install --with-deps chromium
       # The print tests read each printed sheet's text with pdftotext.
       - run: sudo apt-get install -y poppler-utils
-      - name: Checks
-        run: npm run check
+      - run: npm run build:labs
+      - name: Lab browser tests (${{ matrix.name }})
+        run: |
+          npx playwright test ${{ matrix.args }}
+          if [ -n "$THEN" ]; then npx playwright test $THEN; fi
+        env:
+          THEN: ${{ matrix.then }}
+
+  check:
+    # The status the dev branch rules require: it passes only when the gates and every browser test
+    # job passed, so a failed, cancelled or skipped job fails it.
+    if: ${{ !cancelled() }}
+    needs: [gates, labs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Gates and browser tests passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: for result in $RESULTS; do test "$result" = success || exit 1; done

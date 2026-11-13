@@ -222,7 +222,7 @@ Verification: `e2e/document-panels.spec.ts`
 
 ### DOCE-EDITOR-4.12 - Editing mode and markup
 
-With `onModeChange`, the toolbar's `mode` group (`data-item="mode"`, named by `editingModeControl`) and View's Mode submenu shall offer the editing modes, Editing, Suggesting, Commenting and Reading, the current one (DOCE-EDITOR-4.4) selected, telling the host the one picked; the host then sets `editable`, `suggesting` and its comments. A mode `modeReasons` gives a reason for is disabled, focusable, and shows the reason, unless it is the current one. With `onMarkupChange`, the `markup` item (`data-item="markup"`, named by `markup`) and View's Markup submenu shall offer one choice for suggestions and comparisons: No markup (`final`), Change bars (`simple`) and Inline (`all`), the current one selected and shown on the trigger; `original` shows as no markup. The host applies the choice to `markup` and to its comparison's `display`.
+With `onModeChange`, the toolbar's `mode` group (`data-item="mode"`, its trigger named by `editingModeControl` then the current mode) and View's Mode submenu shall offer the editing modes, Editing, Suggesting, Commenting and Reading, the current one (DOCE-EDITOR-4.4) selected, telling the host the one picked; the host then sets `editable`, `suggesting` and its comments. A mode `modeReasons` gives a reason for is disabled, focusable, and shows the reason, unless it is the current one. With `onMarkupChange`, the `markup` item (`data-item="markup"`, its trigger named by `markup` then the current choice) and View's Markup submenu shall offer one choice for suggestions and comparisons: No markup (`final`), Change bars (`simple`) and Inline (`all`), the current one selected and shown on the trigger; `original` shows as no markup. The host applies the choice to `markup` and to its comparison's `display`.
 
 Implementation: `src/components/document-editor/mode-controls.tsx`, `src/components/document-editor/editor-context.ts`, `src/components/document-editor/menubar-menus.ts`, `labs/src/full-editor.lab.tsx`
 Verification: `src/components/document-editor/mode-controls.test.tsx`, `e2e/full-editor.spec.ts`
@@ -236,10 +236,10 @@ Verification: `src/components/document-editor/layout-items.test.ts`, `e2e/full-e
 
 ### DOCE-EDITOR-4.14 - Disabled reasons
 
-A disabled toolbar button or menu entry shall stay focusable and say why it is disabled: a button in its tooltip after its label, a menu entry in its description. The reason is the item's `disabledReason`, or, by default, that the document is read (`reasonReading`) or the position locked (`reasonLocked`) (`unavailableReason`); an item without a reason is plainly disabled.
+A disabled toolbar button, toolbar menu or menu entry shall stay focusable and say why it is disabled: a button or a menu's trigger in its tooltip after its label, a menu entry in its description. The reason is the item's `disabledReason`, or, by default, that the document is read (`reasonReading`) or the position locked (`reasonLocked`) (`unavailableReason`); an item without a reason is plainly disabled.
 
 Implementation: `src/components/document-editor/toolbar-items.ts`, `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/menubar-menus.ts`
-Verification: `src/components/document-editor/toolbar-items.test.ts`, `e2e/full-editor.spec.ts`
+Verification: `src/components/document-editor/toolbar-items.test.ts`, `src/components/document-editor/document-editor.test.tsx`, `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-4.15 - Toolbar overflow and attached groups
 

@@ -121,7 +121,7 @@ export {
   renderTemplateBlock,
   templateBlockKeys,
 } from './dynamic-templates.js';
-export type { EditLockOptions } from './edit-lock.js';
+export type { EditLockOptions, EditLockState, HistoryDirection } from './edit-lock.js';
 export { createEditLock, editLockKey, isLockedIn, isPositionLocked } from './edit-lock.js';
 export {
   changeParagraphLevel,

@@ -1,4 +1,5 @@
 import { Slice } from 'prosemirror-model';
+import { wrapInList } from 'prosemirror-schema-list';
 import { EditorState, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import {
@@ -80,5 +81,18 @@ describe('the element lifecycle recipe', () => {
     expect(states(state)).toEqual(['Fixed:approved', 'Open:draft']);
     state = apply(state, state.tr.insertText('ed', draftStart + 'Open'.length));
     expect(states(state)).toEqual(['Fixed:approved', 'Opened:draft']);
+  });
+
+  it('DOCE-EDITING-1.7 DOCE-EDITING-4.1 refuses a list around a frozen element', () => {
+    const { bullet_list: bullets } = schema.nodes;
+    if (!bullets) throw new Error('No lists');
+    const start = open(SOURCE);
+    const listedFrom = (pos: number) => {
+      let state = apply(start, start.tr.setSelection(TextSelection.create(start.doc, pos)));
+      wrapInList(bullets)(state, (tr) => (state = apply(state, tr)));
+      return state.doc.children.map((node) => node.type.name);
+    };
+    expect(listedFrom(1)).toEqual(['paragraph', 'paragraph']);
+    expect(listedFrom(start.doc.child(0).nodeSize + 1)).toEqual(['paragraph', 'bullet_list']);
   });
 });

@@ -1,5 +1,6 @@
 // Operations on whole documents that need no editor view: comparing versions, deciding
-// suggestions, references, the outline, element ids, automation and template sections. Nothing
+// suggestions, references, the outline, element ids, automation, template sections and the
+// stored-file readers. Nothing
 // here reads the DOM when it loads, so a server imports this entry beside `./model` and `./host`.
 
 export type {
@@ -64,3 +65,20 @@ export {
 } from './script-output.js';
 export type { StoredScriptsOptions, StoredScriptsRun } from './scripts.js';
 export { runStoredScripts } from './scripts.js';
+export type {
+  StoredCitation,
+  StoredElement,
+  StoredThreadAnchor,
+  ThreadMarkType,
+} from './stored-elements.js';
+export { findStoredElement, storedCitations, threadAnchors } from './stored-elements.js';
+export type { StoredDecision, StoredDecisionOptions } from './stored-suggestions.js';
+export { decideStoredSuggestions } from './stored-suggestions.js';
+export type {
+  ReplaceTemplateOptions,
+  RequiredSectionProblem,
+  StoredTarget,
+  StoredTemplateOptions,
+} from './stored-template.js';
+export { documentTargets, replaceTemplate, validateRequiredSections } from './stored-template.js';
+export { storedDocumentText } from './stored-text.js';
