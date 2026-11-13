@@ -214,7 +214,7 @@ Verification: `src/session/drafts.test.ts`
 
 ### DOCE-SESSION-6.4 - Drafts from an older revision
 
-A draft edited from an older revision than the store holds shall be offered as `outdated`. Once restored, it shall be saved against the revision it was edited from, with that revision's content (`versions.load`) as its base, so the store refuses it as a `conflict` and the session merges it into the newer save (DOCE-SESSION-4) rather than losing either; blocks both changed wait for the reader.
+A draft edited from an older revision than the store holds shall be offered as `outdated`. Once restored, it shall be saved against the revision it was edited from, with that revision's content (`versions.load`) as its base, so the store refuses it as a `conflict` and the session merges it into the newer save (DOCE-SESSION-4) rather than losing either; blocks both changed wait for the reader. When the host cannot give that revision, having no `versions` adapter or failing to load it, the base shall be an empty document, so every block the draft and the newer save hold differently waits for the reader.
 
 Implementation: `src/session/drafts.ts`
 Verification: `src/session/drafts.test.ts`

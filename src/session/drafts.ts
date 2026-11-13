@@ -154,6 +154,14 @@ async function draftBase(context: SessionDraftsContext, draft: StoreDraft) {
   return read.ok ? { content: loaded.value, doc: read.value.doc } : null;
 }
 
+// The base of a draft whose revision the host cannot give: an empty document. Merged from it,
+// every block the draft and the newer save hold differently waits for the reader, where saving the
+// draft as a plain change would write it over that save.
+function unknownBase(schema: Schema) {
+  const doc = schema.topNodeType.createAndFill();
+  return doc ? { content: writeDocumentFile(doc), doc } : null;
+}
+
 const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
   (one?.id ?? null) === (other?.id ?? null) &&
   (one?.revision ?? null) === (other?.revision ?? null);
@@ -187,10 +195,11 @@ async function showDraft(
   const pin = draft.content.template ?? null;
   const pinned = samePin(document.get()?.pin ?? null, pin) || (await context.setTemplate(pin));
   const outdated = saving()?.baseline().revision !== draft.baseRevision;
-  const base = pinned && outdated ? await draftBase(context, draft) : null;
+  const loaded = pinned && outdated ? await draftBase(context, draft) : null;
+  const base = outdated ? (loaded ?? unknownBase(context.schema)) : null;
   const shown = document.get();
   const saver = saving();
-  if (!pinned || !shown || !saver || !current()) return false;
+  if (!pinned || !shown || !saver || !current() || (outdated && !base)) return false;
   const state = context.createState(read.value.doc);
   document.set({ ...shown, state });
   if (base) rebaseOnDraft(saver, { ...draft, documentId: context.documentId }, base);
