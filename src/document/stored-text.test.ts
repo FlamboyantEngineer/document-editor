@@ -65,4 +65,32 @@ describe('storedDocumentText', () => {
     };
     expect(storedDocumentText(file, documentSchema)).toBe('North\ngate');
   });
+
+  it('DOCE-FORMAT-9.2 reads the captions objects show and the code linked code holds', () => {
+    expect(storedDocumentText(readRegressionDocument('figures'), documentSchema)).toContain(
+      'Plot plan of the north beds\nWater flow',
+    );
+    expect(
+      storedDocumentText(readRegressionDocument('linked-code'), documentSchema).split('\n'),
+    ).toContain('line 3: reading = sensor.read(2)');
+    expect(
+      storedDocumentText(readRegressionDocument('table-simple'), documentSchema).split('\n')[1],
+    ).toBe('Weekly rainfall');
+    const hidden: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'codeBlock',
+              attrs: { id: 'a0000001', caption: 'Hidden caption', captionEnabled: false },
+              content: [{ type: 'text', text: 'const shown = 1;' }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(storedDocumentText(hidden, documentSchema)).toBe('const shown = 1;');
+  });
 });
