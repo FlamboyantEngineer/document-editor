@@ -3,7 +3,7 @@
 // whole before it is handed back: an element that is gone, a range whose text is no longer what the
 // caller read, or a locked position refuses it.
 
-import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import type { Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
 import { isEmbed, readStoredContent, type StoredNode } from '../model/index.js';
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
@@ -14,6 +14,7 @@ import {
   textRange,
   wholeElement,
 } from './automation-address.js';
+import { isReviewMark } from './clipboard-copies.js';
 import { anchorCommentRanges } from './comments.js';
 import { editLockKey, touchesLock } from './edit-lock.js';
 import { createElementId } from './element-ids.js';
@@ -144,25 +145,51 @@ function writtenBy(schema: Schema, actor: Actor) {
   return [contributor.create({ dataAuthor: actor.id, dataAiSession: actor.session ?? null })];
 }
 
-// A node and every node inside it attributed to the actor, where its type records who wrote it.
+// Whether stored content holds what ties it to a suggestion or a comment thread: a review mark,
+// or a block suggested whole. Content an actor gives is its own, so it may say neither.
+function holdsReview(nodes: readonly ProseMirrorNode[]): boolean {
+  let found = false;
+  const visit = (node: ProseMirrorNode) => {
+    found ||= node.marks.some(isReviewMark) || Boolean(node.attrs.suggestionSplitKind);
+    return !found;
+  };
+  for (const node of nodes) {
+    if (visit(node)) node.descendants(visit);
+  }
+  return found;
+}
+
+// A node and every node inside it attributed to the actor: where its type records who wrote it,
+// and in its contributor mark, which says the actor wrote it whoever the content names.
 function authored(node: ProseMirrorNode, actor: Actor): ProseMirrorNode {
-  if (node.isText) return node;
+  const { schema } = node.type;
+  const others: readonly Mark[] = node.marks.filter(
+    (mark) => mark.type !== schema.marks.contributor,
+  );
+  const marks = node.isInline
+    ? writtenBy(schema, actor).reduce((set, mark) => mark.addToSet(set), others)
+    : node.marks;
+  if (node.isText) return node.mark(marks);
   const children: ProseMirrorNode[] = [];
   node.content.forEach((child) => children.push(authored(child, actor)));
   const attrs =
     'dataAuthor' in node.attrs
       ? { ...node.attrs, dataAuthor: actor.id, dataAiSession: actor.session ?? null }
       : node.attrs;
-  return node.type.create(attrs, children, node.marks);
+  return node.type.create(attrs, children, marks);
 }
 
-// Stored blocks as the actor's: each, and each node inside it, attributed to it.
+// Stored blocks as the actor's: each, and each node inside it, attributed to it; refused when
+// they carry a suggestion or a comment's anchor.
 function blocks(schema: Schema, content: readonly StoredNode[], actor: Actor) {
   let nodes: ProseMirrorNode[];
   try {
     nodes = readStoredContent(content, schema);
   } catch (error) {
     return refuse('invalid', error instanceof Error ? error.message : 'Unreadable content');
+  }
+  if (holdsReview(nodes)) {
+    return refuse('invalid', 'Content may not carry suggestions or comment anchors');
   }
   return nodes.map((node) => authored(node, actor));
 }
