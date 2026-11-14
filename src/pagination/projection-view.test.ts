@@ -193,6 +193,35 @@ describe('projection view', () => {
     expect(projection.stats().relaid).toBe(1);
   });
 
+  it('DOCE-PAGINATION-7.12 keeps a selection the browser shows over a later state that changes only the selection', () => {
+    const { projection } = mount();
+    const { view } = projection;
+    const click = projection.state.apply(
+      projection.state.tr.setSelection(
+        TextSelection.create(projection.state.doc, positionOf(projection.state.doc, 'Beta')),
+      ),
+    );
+    // The browser holds a range the keys made after the click, which the view reads on a flush.
+    const from = positionOf(view.state.doc, 'Delta');
+    const observer = (view as unknown as { domObserver: { flush(): void } }).domObserver;
+    const flush = vi.spyOn(observer, 'flush').mockImplementationOnce(() => {
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, from, from + 5)),
+      );
+    });
+    projection.update(click);
+    const selected = ({ doc, selection }: EditorState) =>
+      doc.textBetween(selection.from, selection.to);
+    expect(selected(view.state)).toBe('Delta');
+    expect(selected(projection.state)).toBe('Delta');
+    // With nothing newer in the browser, the state's selection is drawn.
+    projection.update(click);
+    expect(view.state.selection.from).toBe(
+      projection.map.toProjection(positionOf(click.doc, 'Beta')),
+    );
+    flush.mockRestore();
+  });
+
   it('DOCE-PAGINATION-7.12 takes back the state the host made from its own transaction without mirroring it again', () => {
     const sent: Transaction[] = [];
     const { projection } = mount({ dispatch: (tr) => sent.push(tr) });
