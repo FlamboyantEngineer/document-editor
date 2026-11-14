@@ -5,7 +5,7 @@
 import {
   ScrollOverview,
   type ScrollOverviewSourceLayer,
-} from '@flamboyantengineer/ui-components/scroll-overview';
+} from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PROOFING_ISSUE_ATTR } from '../../engine/proofing.js';

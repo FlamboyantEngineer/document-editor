@@ -50,7 +50,9 @@ function figureFields(node: ProseMirrorNode | null, figureType: FigureType) {
     caption: text('caption'),
     width: side('width'),
     height: side('height'),
-    objectLayout: undefined as FigureSource['objectLayout'],
+    objectLayout: (attrs.objectLayout === 'fit-page-width'
+      ? 'fit'
+      : attrs.objectLayout) as FigureSource['objectLayout'],
     locked: true,
   };
 }
@@ -119,6 +121,22 @@ function SizeFields({
         value={fields.height}
         onChange={resize('height')}
       />
+      <SegmentedChoice
+        aria-label={labels.align}
+        options={[
+          { value: 'default', label: labels.alignDefault },
+          { value: 'left', label: labels.alignLeft },
+          { value: 'center', label: labels.alignCenter },
+          { value: 'right', label: labels.alignRight },
+          { value: 'fit', label: labels.alignFit },
+        ]}
+        value={fields.objectLayout ?? 'default'}
+        onChange={(value) => {
+          if (value === 'default') onChange({ objectLayout: null });
+          else if (value === 'left' || value === 'center' || value === 'right' || value === 'fit')
+            onChange({ objectLayout: value });
+        }}
+      />
       <Checkbox isSelected={fields.locked} onChange={(locked) => onChange({ locked })}>
         {labels.keepProportions}
       </Checkbox>
@@ -137,9 +155,9 @@ function diagramFields(diagram: StoredDiagram, fields: FigureFields, bounds: Fig
 }
 
 function pickedFields(picked: PickedAsset, bounds: FigureBounds): Partial<FigureFields> {
-  const { asset, alt, size, align, locked } = picked;
+  const { asset, alt, size, locked } = picked;
   const clamped = clampFigureSize(size, { locked, ratio: sizeRatio(size), bounds });
-  return { asset, src: '', alt, ...clamped, objectLayout: align, locked };
+  return { asset, src: '', alt, ...clamped, locked };
 }
 
 type FigureDialogProps = DialogProps & {

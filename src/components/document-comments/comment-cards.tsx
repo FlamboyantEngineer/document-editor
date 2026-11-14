@@ -16,7 +16,7 @@ import {
 import { ChatBubblePlusGlyph } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
-import { UserCard } from '@flamboyantengineer/ui-components/user-card';
+import { UserIdentity } from '@flamboyantengineer/ui-components/user-identity';
 import type { ReactNode } from 'react';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -172,7 +172,7 @@ function mentionCardOf(context: CardContext): CommentTextProps['renderCard'] {
   if (mentionCard === null) return undefined;
   return (
     mentionCard ??
-    ((target) => <UserCard name={target.name} src={comments.people.get(target.id)?.src} />)
+    ((target) => <UserIdentity name={target.name} src={comments.people.get(target.id)?.src} />)
   );
 }
 

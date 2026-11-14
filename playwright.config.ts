@@ -46,6 +46,8 @@ export default defineConfig({
       testMatch: /\.performance\.spec\.ts$/,
       testIgnore: /\/review-scale\.performance\.spec\.ts$/,
       dependencies: ['review-scale'],
+      // Timing files must not compete for frames when functional tests use several workers.
+      workers: 1,
       fullyParallel: false,
     },
     // The performance harness (DOCE-LABS-2.3), run on its own with `npm run test:perf`.

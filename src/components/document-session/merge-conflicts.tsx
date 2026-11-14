@@ -3,12 +3,8 @@
 // writer's, or, for text, keep both.
 
 import { Banner } from '@flamboyantengineer/ui-components/banner';
-import { Button } from '@flamboyantengineer/ui-components/button';
-import { ButtonGroup } from '@flamboyantengineer/ui-components/button-group';
-import {
-  createInlineWordDiff,
-  InlineTextDiff,
-} from '@flamboyantengineer/ui-components/inline-text-diff';
+import { Button, ButtonGroup } from '@flamboyantengineer/ui-components/button';
+import { createInlineWordDiff, InlineTextDiff } from '@flamboyantengineer/ui-components/text-diff';
 import type { StoredNode } from '../../model/format/document-format.js';
 import type { DocumentSession } from '../../session/document-session.js';
 import type { MergeConflict } from '../../session/merge.js';

@@ -3,9 +3,9 @@
 // the newest version after a confirmation.
 
 import type { Key } from '@flamboyantengineer/ui-components/core';
-import { VersionHistory } from '@flamboyantengineer/ui-components/version-history';
 import { useEffect, useState } from 'react';
 import type { TemplateStoreAdapter, TemplateVersion } from '../../host/adapters.js';
+import { RevisionList } from '../document-panels/document-panels.js';
 import { workspaceHooks } from './template-workspace-hooks.js';
 import type { TemplateWorkspaceState } from './use-template-workspace.js';
 import type { TemplateWorkspaceLabels } from './workspace-labels.js';
@@ -50,7 +50,8 @@ export function TemplateHistory({ store, workspace, labels, onRestore }: Templat
   };
   return (
     <div {...workspaceHooks.slot('history')}>
-      <VersionHistory
+      <RevisionList
+        labels={labels}
         aria-label={labels.history}
         versions={(versions ?? []).map((version) => ({
           id: version.revision,

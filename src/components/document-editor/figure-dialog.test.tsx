@@ -3,7 +3,7 @@ import { userEvent } from '@testing-library/user-event';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
-import { documentSchema } from '../../../test/document-markup.js';
+import { documentSchema, writeMarkup } from '../../../test/document-markup.js';
 import type { AssetAdapter, DiagramAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredNode } from '../../model/index.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
@@ -41,6 +41,12 @@ const figureAttrs = (view: EditorView) => {
   });
   return attrs as Record<string, unknown> | null;
 };
+
+function figureMargins(view: EditorView) {
+  const image = view.dom.querySelector('figure img');
+  if (!(image instanceof HTMLElement)) throw new Error('Figure image is missing.');
+  return [getComputedStyle(image).marginLeft, getComputedStyle(image).marginRight];
+}
 
 const ASSETS: AssetAdapter = {
   upload: () => Promise.resolve({ ok: false, error: { kind: 'unavailable' } }),
@@ -108,6 +114,8 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     await user.click(within(picker).getByRole('button', { name: 'Insert' }));
     expect(screen.getByRole('textbox', { name: 'Width (px)' })).toHaveValue('600');
     expect(screen.getByRole('textbox', { name: 'Height (px)' })).toHaveValue('300');
+    expect(screen.getByRole('radio', { name: 'Default' })).toBeChecked();
+    await user.click(screen.getByRole('radio', { name: 'Center' }));
     await user.click(screen.getByRole('button', { name: 'Insert' }));
     expect(figureAttrs(view)).toMatchObject({
       figureType: 'image',
@@ -115,7 +123,7 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
       snapshotId: 'wide',
       width: 600,
       height: 300,
-      objectLayout: 'left',
+      objectLayout: 'center',
     });
   });
 
@@ -138,6 +146,7 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     await user.click(screen.getByRole('button', { name: 'Insert' }));
     expect(figureAttrs(view)).toMatchObject({
       figureType: 'diagram',
+      objectLayout: null,
       fileAssetId: 'drawing-1',
       width: 480,
       height: 240,
@@ -153,5 +162,93 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Apply' }));
     expect(figureAttrs(view)).toMatchObject({ fileAssetId: 'drawing-2', width: 480 });
+  });
+});
+
+describe('Inherited figure alignment', () => {
+  it.each(['Caption', 'Alternative text'])(
+    'DOCE-OBJECTS-1.4 preserves inherited alignment while changing %s',
+    async (field) => {
+      const user = userEvent.setup();
+      const view = editorView({ ...FIGURE, attrs: { ...FIGURE.attrs, layout: null } });
+      const { container } = render(
+        <>
+          <style>{'figure img { margin-left: auto; margin-right: auto; }'}</style>
+          <FigureDialog
+            view={view}
+            labels={{ ...DEFAULT_EDITOR_LABELS, alignDefault: 'Use template' }}
+            onClose={() => {}}
+          />
+        </>,
+      );
+      container.append(view.dom);
+      expect(figureMargins(view)).toEqual(['auto', 'auto']);
+      expect(screen.getByRole('radio', { name: 'Use template' })).toBeChecked();
+      await user.clear(screen.getByRole('textbox', { name: field }));
+      await user.type(screen.getByRole('textbox', { name: field }), 'Updated');
+      await user.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(figureAttrs(view)?.objectLayout).toBeNull();
+      expect(figureMargins(view)).toEqual(['auto', 'auto']);
+      // No inline alignment may override a template's centered image margins.
+      expect(writeMarkup(view.state.doc)).not.toContain('data-object-layout');
+      expect(writeMarkup(view.state.doc)).not.toContain('margin-left');
+      expect(writeMarkup(view.state.doc)).not.toContain('margin-right');
+    },
+  );
+
+  it('DOCE-OBJECTS-1.4 inserts a URL image without an explicit alignment override', async () => {
+    const user = userEvent.setup();
+    const view = editorView();
+    render(<FigureDialog view={view} labels={DEFAULT_EDITOR_LABELS} onClose={() => {}} />);
+    expect(screen.getByRole('radio', { name: 'Default' })).toBeChecked();
+    await user.type(
+      screen.getByRole('textbox', { name: 'Image address' }),
+      'https://example.com/image.png',
+    );
+    await user.click(screen.getByRole('button', { name: 'Insert' }));
+    expect(figureAttrs(view)).toMatchObject({
+      src: 'https://example.com/image.png',
+      objectLayout: null,
+    });
+  });
+
+  it('DOCE-OBJECTS-1.4 preserves a page-width override and lets Default clear it', async () => {
+    const user = userEvent.setup();
+    const view = editorView({
+      ...FIGURE,
+      attrs: { ...FIGURE.attrs, layout: 'fit-page-width' },
+    });
+    const { unmount } = render(
+      <FigureDialog view={view} labels={DEFAULT_EDITOR_LABELS} onClose={() => {}} />,
+    );
+    expect(screen.getByRole('radio', { name: 'Page width' })).toBeChecked();
+    await user.type(screen.getByRole('textbox', { name: 'Caption' }), 'Caption');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(figureAttrs(view)?.objectLayout).toBe('fit-page-width');
+    unmount();
+    render(<FigureDialog view={view} labels={DEFAULT_EDITOR_LABELS} onClose={() => {}} />);
+    await user.click(screen.getByRole('radio', { name: 'Default' }));
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(figureAttrs(view)?.objectLayout).toBeNull();
+  });
+
+  it('DOCE-OBJECTS-1.4 keeps an explicit alignment when choosing a replacement asset', async () => {
+    const user = userEvent.setup();
+    const view = editorView({ ...FIGURE, attrs: { ...FIGURE.attrs, layout: 'right' } });
+    render(
+      <FigureDialog
+        view={view}
+        labels={DEFAULT_EDITOR_LABELS}
+        onClose={() => {}}
+        assets={ASSETS}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Choose an image…' }));
+    const picker = await screen.findByRole('group', { name: 'Choose an image…' });
+    await user.click(await within(picker).findByRole('row', { name: 'Wide panel' }));
+    await user.click(within(picker).getByRole('button', { name: 'Insert' }));
+    expect(screen.getByRole('radio', { name: 'Right' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(figureAttrs(view)).toMatchObject({ fileAssetId: 'wide', objectLayout: 'right' });
   });
 });

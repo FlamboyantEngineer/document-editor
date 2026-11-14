@@ -4,12 +4,12 @@
 
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
+import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import {
   ToolbarRow,
   ToolbarRowGroup,
   ToolbarRowSeparator,
-} from '@flamboyantengineer/ui-components/layout';
-import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
+} from '@flamboyantengineer/ui-components/toolbar-row';
 import {
   createContext,
   Fragment,

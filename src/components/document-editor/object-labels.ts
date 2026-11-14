@@ -82,6 +82,8 @@ export interface ObjectLabels {
   readonly uploading: string;
   readonly uploadFailed: string;
   readonly align: string;
+  /** Keeps the figure's alignment inherited from its template or stylesheet. */
+  readonly alignDefault: string;
   readonly alignLeft: string;
   readonly alignCenter: string;
   readonly alignRight: string;
@@ -235,6 +237,7 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   uploading: 'Uploading…',
   uploadFailed: 'The image could not be uploaded.',
   align: 'Align',
+  alignDefault: 'Default',
   alignLeft: 'Left',
   alignCenter: 'Center',
   alignRight: 'Right',

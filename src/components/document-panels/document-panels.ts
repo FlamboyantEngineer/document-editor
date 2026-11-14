@@ -59,3 +59,8 @@ export function useEditorPanes(comments: DocumentCommentsOptions | undefined): E
 export function useEditorPanesContext(): EditorPanes | null {
   return useContext(EditorPanesContext);
 }
+
+// Shared revision presentation for the document's and template's saved histories.
+export type { RevisionLabels } from './revision-labels.js';
+export { DEFAULT_REVISION_LABELS } from './revision-labels.js';
+export { RevisionList } from './revision-list.js';
