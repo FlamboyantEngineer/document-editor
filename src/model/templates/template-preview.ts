@@ -114,7 +114,7 @@ function objects(words: TemplatePreviewText): StoredNode[] {
       attrs: { language: 'javascript', caption: words.codeCaption, captionEnabled: true },
       content: [text(words.code)],
     },
-    { type: 'mathBlock', content: [text(words.equation)] },
+    { type: 'mathBlock', attrs: { source: words.equation } },
   ];
 }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { writeDocumentFile } from './document-format-write.js';
 import { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
@@ -23,6 +23,14 @@ describe('HTML interchange', () => {
     expect(html).toContain('<h1');
     expect(html).toContain('<strong>bold</strong>');
     expect((window as unknown as { hit?: number }).hit).toBeUndefined();
+    // The markup is parsed into a document of its own, with no window to run it in.
+    const parse = vi.spyOn(window.DOMParser.prototype, 'parseFromString');
+    readHtml('<p>Again</p>', documentSchema, document);
+    const parsed = parse.mock.results[0]?.value as Document | undefined;
+    parse.mockRestore();
+    expect(parsed).toBeDefined();
+    expect(parsed).not.toBe(document);
+    expect(parsed?.defaultView).toBeNull();
     expect(
       writeDocumentFile(readHtml(html, documentSchema, document)).sections[0]?.content[0]?.type,
     ).toBe('heading');

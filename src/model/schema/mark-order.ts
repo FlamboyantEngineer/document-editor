@@ -70,11 +70,16 @@ export function orderDocumentMarks(doc: ProseMirrorNode): ProseMirrorNode {
     if (ordered !== child) changed = true;
     children.push(ordered);
   });
-  if (!changed) return doc;
+  // An inline node that holds content, such as inline math, has marks of its own too.
+  const marks = doc.isInline ? orderMarks(doc.marks) : doc.marks;
+  if (!changed && marks === doc.marks) return doc;
   // Appending joins neighbouring runs whose marks are now the same.
-  return doc.copy(
-    children.reduce((content, child) => content.append(Fragment.from(child)), Fragment.empty),
-  );
+  const copy = changed
+    ? doc.copy(
+        children.reduce((content, child) => content.append(Fragment.from(child)), Fragment.empty),
+      )
+    : doc;
+  return marks === doc.marks ? copy : copy.mark(marks);
 }
 
 /**

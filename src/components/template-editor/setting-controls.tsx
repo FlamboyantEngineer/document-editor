@@ -166,9 +166,12 @@ function NumberControl({ setting, value, onChange, common, placeholder }: Contro
   );
 }
 
-// A size in points, written as one, such as `12pt`; one in another unit shows in points.
-function PointsControl({ value, inherited, onChange, common }: ControlProps) {
+// A size in points, written as one, such as `12pt`; one in another absolute unit shows in points,
+// and one in a relative unit, such as `1.5em`, shows as typed in a length field.
+function PointsControl(props: ControlProps) {
+  const { value, inherited, onChange, common } = props;
   const own = toPoints(value);
+  if (own === null && !hasNothing(value)) return <LengthControl {...props} />;
   const from = toPoints(inherited);
   return (
     <NumberField

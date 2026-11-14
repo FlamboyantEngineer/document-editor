@@ -23,16 +23,18 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       # The base component library is a private git dependency. npm fetches GitHub dependencies over
-      # SSH first, so every GitHub URL form is rewritten to HTTPS with the read token.
-      - name: Let git read the base component library
+      # SSH first, so every GitHub URL form is rewritten to HTTPS with the read token, for the
+      # install alone: the rewrite lives in this step's environment and is never written to disk.
+      - name: Install, reading the base component library with the read token
         env:
-          TOKEN: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
-        run: |
-          base="https://x-access-token:${TOKEN}@github.com/FlamboyantEngineer/"
-          git config --global --add url."$base".insteadOf "https://github.com/FlamboyantEngineer/"
-          git config --global --add url."$base".insteadOf "ssh://git@github.com/FlamboyantEngineer/"
-          git config --global --add url."$base".insteadOf "git@github.com:FlamboyantEngineer/"
-      - run: npm ci
+          GIT_CONFIG_COUNT: 3
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/FlamboyantEngineer/
+          GIT_CONFIG_KEY_1: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
+          GIT_CONFIG_VALUE_1: ssh://git@github.com/FlamboyantEngineer/
+          GIT_CONFIG_KEY_2: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
+          GIT_CONFIG_VALUE_2: git@github.com:FlamboyantEngineer/
+        run: npm ci
       # scripts/check.mjs is the one list of gates, shared with `npm run check` locally. The browser
       # tests run in the labs jobs beside it.
       - name: Checks
@@ -62,17 +64,17 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      # The base component library is a private git dependency. npm fetches GitHub dependencies over
-      # SSH first, so every GitHub URL form is rewritten to HTTPS with the read token.
-      - name: Let git read the base component library
+      # The base component library is a private git dependency, read with the token as in the gates job.
+      - name: Install, reading the base component library with the read token
         env:
-          TOKEN: ${{ secrets.UI_COMPONENTS_READ_TOKEN }}
-        run: |
-          base="https://x-access-token:${TOKEN}@github.com/FlamboyantEngineer/"
-          git config --global --add url."$base".insteadOf "https://github.com/FlamboyantEngineer/"
-          git config --global --add url."$base".insteadOf "ssh://git@github.com/FlamboyantEngineer/"
-          git config --global --add url."$base".insteadOf "git@github.com:FlamboyantEngineer/"
-      - run: npm ci
+          GIT_CONFIG_COUNT: 3
+          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
+          GIT_CONFIG_VALUE_0: https://github.com/FlamboyantEngineer/
+          GIT_CONFIG_KEY_1: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
+          GIT_CONFIG_VALUE_1: ssh://git@github.com/FlamboyantEngineer/
+          GIT_CONFIG_KEY_2: url.https://x-access-token:${{ secrets.UI_COMPONENTS_READ_TOKEN }}@github.com/FlamboyantEngineer/.insteadOf
+          GIT_CONFIG_VALUE_2: git@github.com:FlamboyantEngineer/
+        run: npm ci
       # The browser tests need Playwright's own Chromium, which the runner image does not carry.
       - run: npx playwright install --with-deps chromium
       # The print tests read each printed sheet's text with pdftotext.

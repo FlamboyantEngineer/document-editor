@@ -915,10 +915,10 @@
         "dataAiSession": { "default": null },
         "splitPartIndex": { "default": null }
       },
-      "parseDOM": [],
+      "parseDOM": [{ "tag": "div[data-kept-node]", "getAttrs": "function" }],
       "toDOM": {
-        "defaults": "<div class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\"></div>",
-        "filled": "<div class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
+        "defaults": "<div class=\"kept-node\" data-kept-type=\"\" data-kept-node=\"null\" contenteditable=\"false\"></div>",
+        "filled": "<div class=\"kept-node\" data-kept-type=\"\" data-kept-node=\"&quot;sample-stored&quot;\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></div>"
       }
     },
     {
@@ -935,10 +935,10 @@
         "dataAiSession": { "default": null },
         "splitPartIndex": { "default": null }
       },
-      "parseDOM": [],
+      "parseDOM": [{ "tag": "span[data-kept-node]", "getAttrs": "function" }],
       "toDOM": {
-        "defaults": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\"></span>",
-        "filled": "<span class=\"kept-node\" data-kept-type=\"\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></span>"
+        "defaults": "<span class=\"kept-node\" data-kept-type=\"\" data-kept-node=\"null\" contenteditable=\"false\"></span>",
+        "filled": "<span class=\"kept-node\" data-kept-type=\"\" data-kept-node=\"&quot;sample-stored&quot;\" contenteditable=\"false\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\"></span>"
       }
     },
     {

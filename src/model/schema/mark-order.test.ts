@@ -95,6 +95,17 @@ describe('mark order', () => {
     expect(orderDocumentMarks(ordered)).toBe(ordered);
   });
 
+  it('DOCE-SCHEMA-5.1 orders the marks of an inline node that holds content, as of a run', () => {
+    const math = nodes.math_inline?.create(null, documentSchema.text('x^2'), [
+      comment('c2'),
+      comment('c1'),
+    ]) as Node;
+    const doc = nodes.paragraph?.create(null, [documentSchema.text('Alpha '), math]) as Node;
+    const ordered = orderDocumentMarks(doc);
+    expect(ids(ordered.lastChild)).toEqual(['c1', 'c2']);
+    expect(orderDocumentMarks(ordered)).toBe(ordered);
+  });
+
   it('DOCE-SUGGESTIONS-1.6 orders overlapping suggested insertions by suggestion id', () => {
     const reversed = paragraphWith([insertion('s2'), insertion('s1')]);
     expect(ids(reversed.child(1))).toEqual(['s2', 's1']);

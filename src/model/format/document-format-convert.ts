@@ -82,8 +82,12 @@ function readSection(stored: unknown, at: Located): ProseMirrorNode | null {
   return schemaNode(schema, 'page_section').create(readSectionAttrs(stored, at), [page]);
 }
 
+// The keys a stored document and a stored section hold.
+const FILE_KEYS = new Set(['formatVersion', 'template', 'sections']);
+const SECTION_KEYS = new Set(['id', 'name', 'editable', 'header', 'footer', 'content']);
+
 // A section's settings as its node's attributes; under a lenient policy, a setting of the wrong
-// kind is left out and listed.
+// kind, or one the format does not know, is left out and listed.
 function readSectionAttrs(stored: Attrs, at: Located): Attrs {
   const setting = (key: string, valid: (value: unknown) => boolean) => {
     const value = stored[key];
@@ -94,6 +98,9 @@ function readSectionAttrs(stored: Attrs, at: Located): Attrs {
   };
   const region = (value: unknown) =>
     isRecord(value) && (value.content === undefined || Array.isArray(value.content));
+  for (const key of Object.keys(stored))
+    if (!SECTION_KEYS.has(key))
+      report({ ...at, path: `${at.path}.${key}` }, `unknown setting ${key}`);
   return {
     dataId: setting('id', (value) => typeof value === 'string'),
     sectionName: setting('name', (value) => typeof value === 'string') || null,
@@ -126,6 +133,8 @@ export function readDocumentFile(
     footnotes: [],
     footnoteIds: createFootnoteIds(file),
   };
+  for (const key of Object.keys(file))
+    if (!FILE_KEYS.has(key)) report({ context, path: key }, `unknown key ${key}`);
   const sections = file.sections
     .map((section, index) => readSection(section, { context, path: `sections[${String(index)}]` }))
     .filter((section): section is ProseMirrorNode => section !== null);

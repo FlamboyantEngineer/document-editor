@@ -11,14 +11,16 @@ The library is in early `0.x` development and has no release yet.
 
 ## Entry points
 
-| Entry point                                    | Contents                                                                   |
-| ---------------------------------------------- | -------------------------------------------------------------------------- |
-| `@flamboyantengineer/document-editor`          | Everything below.                                                          |
-| `@flamboyantengineer/document-editor/host`     | Host adapter contracts, capabilities and an in-memory host.                |
-| `@flamboyantengineer/document-editor/model`    | The document schema and stored-markup helpers, safe to import on a server. |
-| `@flamboyantengineer/document-editor/document` | Operations on whole documents that need no editor view, safe on a server.  |
+| Entry point                                    | Contents                                                                                    |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `@flamboyantengineer/document-editor`          | Everything below.                                                                           |
+| `@flamboyantengineer/document-editor/host`     | Host adapter contracts, capabilities and an in-memory host.                                 |
+| `@flamboyantengineer/document-editor/model`    | The document schema and stored-markup helpers, safe to import on a server.                  |
+| `@flamboyantengineer/document-editor/document` | Operations on whole documents that need no editor view, safe on a server.                   |
+| `@flamboyantengineer/document-editor/collab`   | The shared-room binding and the conversion a room server runs, safe on a server.            |
+| `@flamboyantengineer/document-editor/import`   | Documents of other formats read into stored documents, and content composed into templates. |
 
-`./model`, `./document` and `./host` read no DOM when they load ([specs/ENTRY-POINTS.md](specs/ENTRY-POINTS.md)); `test/node-entry.test.ts` imports them in Node to keep it so.
+`./model`, `./document`, `./host` and `./collab` read no DOM when they load ([specs/ENTRY-POINTS.md](specs/ENTRY-POINTS.md)); `test/node-entry.test.ts` imports them in Node to keep it so.
 
 ## Develop
 

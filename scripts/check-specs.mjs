@@ -68,7 +68,9 @@ function checkRequirement(file, requirement) {
       problems.push(`${file}: ${id} verification path ${path} is not a test file`);
       continue;
     }
-    if (readFileSync(full, 'utf8').includes(id)) named = true;
+    // The ID itself, not the start of a longer one: DOCE-EDITOR-6.1 is not named by DOCE-EDITOR-6.18.
+    const exact = new RegExp(`${id.replaceAll('.', '\\.')}(?![\\da-z]|\\.\\d)`, 'u');
+    if (exact.test(readFileSync(full, 'utf8'))) named = true;
   }
   if (tests.length > 0 && !named) {
     problems.push(`${file}: ${id} is not named by any test it lists in Verification:`);
