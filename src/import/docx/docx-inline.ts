@@ -45,10 +45,10 @@ export interface DocxReading {
 }
 
 /** The page fields read as variables. */
-const PAGE_FIELDS: Readonly<Record<string, string>> = {
-  PAGE: 'page.current',
-  NUMPAGES: 'page.total',
-};
+const PAGE_FIELDS: ReadonlyMap<string, string> = new Map([
+  ['PAGE', 'page.current'],
+  ['NUMPAGES', 'page.total'],
+]);
 
 const MONOSPACE =
   /^(courier( new)?|consolas|menlo|monaco|lucida console|source code pro|monospace)$/i;
@@ -127,7 +127,7 @@ function fieldLink(field: Field, reading: DocxReading): StoredMark | null {
 function endField(reading: DocxReading): StoredNode[] {
   const field = reading.open.fields.pop();
   const name = fieldName(field);
-  const key = PAGE_FIELDS[name];
+  const key = PAGE_FIELDS.get(name);
   if (key) return [{ type: 'variable', attrs: { key } }];
   const linked = name === 'HYPERLINK' && field?.link;
   if (name && !linked) reading.warnings.add('field-as-text', name);
@@ -136,7 +136,7 @@ function endField(reading: DocxReading): StoredNode[] {
 
 // Whether text being read now is a page field's instruction or result, which is not kept.
 function inHiddenField(reading: DocxReading): boolean {
-  return reading.open.fields.some((field) => !field.result || fieldName(field) in PAGE_FIELDS);
+  return reading.open.fields.some((field) => !field.result || PAGE_FIELDS.has(fieldName(field)));
 }
 
 function fieldChar(element: XmlElement, reading: DocxReading): StoredNode[] {
@@ -169,9 +169,12 @@ const breakOf: RunChildReader = (element) => {
   return element.attrs['w:type'] === 'column' ? [] : [{ type: 'lineBreak' }];
 };
 
+// A symbol by its character code; a code no character has gives nothing.
 const symbol: RunChildReader = (element, _reading, marks) => {
   const code = Number.parseInt(element.attrs['w:char'] ?? '', 16);
-  return Number.isFinite(code) ? [textNode(String.fromCodePoint(code), marks)] : [];
+  return Number.isInteger(code) && code >= 0 && code <= 0x10ffff
+    ? [textNode(String.fromCodePoint(code), marks)]
+    : [];
 };
 
 const noteReference: RunChildReader = (element, reading) => {
@@ -185,39 +188,41 @@ const drawing: RunChildReader = (element, reading) => {
   return image ? [image] : [];
 };
 
-const RUN_CHILDREN: Readonly<Record<string, RunChildReader>> = {
-  'w:t': text,
-  'w:delText': text,
-  'w:instrText': (element, reading) => {
-    const field = reading.open.fields[reading.open.fields.length - 1];
-    if (field) field.instruction += element.children.join('');
-    return [];
-  },
-  'w:fldChar': (element, reading) => fieldChar(element, reading),
-  'w:br': breakOf,
-  'w:cr': () => [{ type: 'lineBreak' }],
-  'w:sym': symbol,
-  'w:footnoteReference': noteReference,
-  'w:endnoteReference': noteReference,
-  'w:drawing': drawing,
-  'w:pict': drawing,
-  'w:object': (_element, reading) => {
-    reading.warnings.add('content-left-out', 'embedded object');
-    return [];
-  },
-  'mc:AlternateContent': (element, reading, marks) =>
-    readRunContent(alternativeContent(element), reading, marks),
-  ...Object.fromEntries(
-    Object.entries(SYMBOLS).map(([name, value]): [string, RunChildReader] => [
-      name,
-      (_element, _reading, marks) => [textNode(value, marks)],
-    ]),
-  ),
-};
+const RUN_CHILDREN: ReadonlyMap<string, RunChildReader> = new Map(
+  Object.entries({
+    'w:t': text,
+    'w:delText': text,
+    'w:instrText': (element, reading) => {
+      const field = reading.open.fields[reading.open.fields.length - 1];
+      if (field) field.instruction += element.children.join('');
+      return [];
+    },
+    'w:fldChar': (element, reading) => fieldChar(element, reading),
+    'w:br': breakOf,
+    'w:cr': () => [{ type: 'lineBreak' }],
+    'w:sym': symbol,
+    'w:footnoteReference': noteReference,
+    'w:endnoteReference': noteReference,
+    'w:drawing': drawing,
+    'w:pict': drawing,
+    'w:object': (_element, reading) => {
+      reading.warnings.add('content-left-out', 'embedded object');
+      return [];
+    },
+    'mc:AlternateContent': (element, reading, marks) =>
+      readRunContent(alternativeContent(element), reading, marks),
+    ...Object.fromEntries(
+      Object.entries(SYMBOLS).map(([name, value]): [string, RunChildReader] => [
+        name,
+        (_element, _reading, marks) => [textNode(value, marks)],
+      ]),
+    ),
+  } satisfies Record<string, RunChildReader>),
+);
 
 // One child of a run.
 function runChild(element: XmlElement, reading: DocxReading, marks: StoredMark[]): StoredNode[] {
-  return RUN_CHILDREN[element.name]?.(element, reading, marks) ?? [];
+  return RUN_CHILDREN.get(element.name)?.(element, reading, marks) ?? [];
 }
 
 function readRunContent(

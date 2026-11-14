@@ -9,7 +9,7 @@ import { childElement, childElements, childValue, type XmlElement } from '../xml
 /** Twentieths of a point per CSS pixel. */
 const TWIPS_PER_PIXEL = 15;
 
-const VERTICAL: Readonly<Record<string, string>> = { top: 'top', bottom: 'bottom' };
+const VERTICAL: ReadonlySet<string> = new Set(['top', 'bottom']);
 
 interface Cell {
   readonly type: string;
@@ -36,7 +36,8 @@ function cellOf(
   const merge = childElement(tcPr, 'w:vMerge');
   const continues = !!merge && merge.attrs['w:val'] !== 'restart';
   const colwidth = widths.slice(column, column + span);
-  const vertical = VERTICAL[childValue(tcPr, 'w:vAlign') ?? ''];
+  const align = childValue(tcPr, 'w:vAlign');
+  const vertical = align !== null && VERTICAL.has(align) ? align : null;
   const fill = childValue(tcPr, 'w:shd', 'w:fill');
   const attrs: Record<string, unknown> = {
     ...(span > 1 ? { colspan: span } : {}),
@@ -45,6 +46,12 @@ function cellOf(
     ...(fill && /^[0-9a-f]{6}$/i.test(fill) ? { background: `#${fill.toLowerCase()}` } : {}),
   };
   return { span, continues, attrs, type: header ? 'tableHeader' : 'tableCell' };
+}
+
+function shrinkRowspan(cell: Cell): void {
+  const rowspan = Number(cell.attrs.rowspan) - 1;
+  if (rowspan > 1) cell.attrs.rowspan = rowspan;
+  else delete cell.attrs.rowspan;
 }
 
 /**
@@ -62,12 +69,14 @@ export function readTable(tbl: XmlElement, readCell: (tc: XmlElement) => StoredN
   for (const tr of childElements(tbl, 'w:tr')) {
     const header = !!childElement(childElement(tr, 'w:trPr'), 'w:tblHeader');
     const cells: Cell[] = [];
+    const extended: Cell[] = [];
     let column = Number(childValue(childElement(tr, 'w:trPr'), 'w:gridBefore') ?? 0);
     for (const tc of childElements(tr, 'w:tc')) {
       const read = cellOf(tc, { header, widths }, column);
       const started = above.get(column);
       if (read.continues && started && (Number(started.attrs.rowspan) || 1) < MAX_SPAN) {
         started.attrs.rowspan = (Number(started.attrs.rowspan) || 1) + 1;
+        extended.push(started);
       } else {
         const content = readCell(tc);
         const cell = {
@@ -81,6 +90,8 @@ export function readTable(tbl: XmlElement, readCell: (tc: XmlElement) => StoredN
       column += read.span;
     }
     if (cells.length) rows.push({ type: 'tableRow', content: cells });
+    // A row with no cell of its own is left out, so the cells merged down into it span one less.
+    else for (const cell of extended) shrinkRowspan(cell);
   }
   return {
     type: 'table',

@@ -43,7 +43,10 @@ export interface DocxReadOptions {
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
   /** How much the archive may hold; `DEFAULT_ZIP_LIMITS` by default. */
   readonly limits?: Partial<ZipLimits> | undefined;
-  /** Makes the id of each tracked change's suggestion; eight random hexadecimal digits by default. */
+  /**
+   * Makes the id of each tracked change's suggestion and of each comment (`comment-<id>`); eight
+   * random hexadecimal digits by default.
+   */
   readonly newId?: (() => string) | undefined;
 }
 
@@ -230,14 +233,15 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
   const parts = await openParts(bytes, options, warnings);
   const root = async (kind: string) => (await parts.related(kind))?.root ?? null;
   const custom = options.template?.styles?.custom;
+  const newId = options.newId ?? randomId;
   const shared: Shared = {
     parts,
     warnings,
     styles: readStyles(await root('styles')),
     numbering: readNumbering(await root('numbering')),
-    comments: readComments(await root('comments'), await root('commentsExtended')),
+    comments: readComments(await root('comments'), await root('commentsExtended'), newId),
     keepsStyle: (key) => !options.template || Object.hasOwn(custom ?? {}, key),
-    changeMark: changeMarks(options.newId ?? randomId),
+    changeMark: changeMarks(newId),
     notes: () => null,
   };
   const footnotes = notesReader(await parts.related('footnotes'), shared);

@@ -16,17 +16,18 @@ export interface XmlElement {
 /** An element or a run of text. */
 export type XmlNode = XmlElement | string;
 
-const ENTITIES: Readonly<Record<string, string>> = {
-  lt: '<',
-  gt: '>',
-  amp: '&',
-  quot: '"',
-  apos: "'",
-};
+// The predefined entities, in a map so a name such as `constructor` finds nothing.
+const ENTITIES: ReadonlyMap<string, string> = new Map([
+  ['lt', '<'],
+  ['gt', '>'],
+  ['amp', '&'],
+  ['quot', '"'],
+  ['apos', "'"],
+]);
 
 const decode = (value: string) =>
   value.replace(/&(#x[0-9a-f]+|#\d+|\w+);/gi, (entity: string, name: string) => {
-    if (name[0] !== '#') return ENTITIES[name] ?? entity;
+    if (name[0] !== '#') return ENTITIES.get(name) ?? entity;
     const code =
       name[1] === 'x' || name[1] === 'X'
         ? Number.parseInt(name.slice(2), 16)
