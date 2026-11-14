@@ -312,7 +312,7 @@ Verification: `src/engine/writing-helpers.test.ts`
 
 ### DOCE-EDITING-10.3 - A trailing paragraph
 
-`trailingParagraph` (`createTrailingParagraph`) shall add an empty paragraph, out of the undo history, at the end of each section's content that ends with a block that is no paragraph, after each local change; it is off by default.
+`trailingParagraph` (`createTrailingParagraph`) shall add an empty paragraph at the end of each section's content that ends with a block that is no paragraph, after each of the writer's own edits; it is off by default. It adds none after a remote, derived or system change, nor where the edit lock holds the section's end, and the paragraph is a derived change: no suggestion and no undo step of its own.
 
 Implementation: `src/engine/writing-helpers.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/writing-helpers.test.ts`

@@ -86,6 +86,31 @@ describe('the trailing paragraph', () => {
     expect(blocks(again)).toEqual(blocks(state));
   });
 
+  it('DOCE-EDITING-10.3 adds no paragraph after a remote change or where the end is locked', () => {
+    const doc = docOf(paragraph('Text'), { type: 'rule' });
+    const remote = atFirstEnd(
+      EditorState.create({
+        doc,
+        plugins: createDocumentEditing(documentSchema, { trailingParagraph: true }),
+      }),
+    );
+    expect(blocks(remote.apply(markRemote(remote.tr.insertText('!')))).at(-1)).toBe(
+      'horizontal_rule',
+    );
+    let rule = 0;
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'horizontal_rule') rule = pos;
+    });
+    const plugins = createDocumentEditing(documentSchema, {
+      trailingParagraph: true,
+      isLocked: (_doc, pos) => pos > rule,
+    });
+    let locked = atFirstEnd(EditorState.create({ doc, plugins }));
+    locked = locked.apply(locked.tr.insertText('!'));
+    expect(locked.doc.textBetween(0, locked.doc.content.size)).toBe('Text!');
+    expect(blocks(locked).at(-1)).toBe('horizontal_rule');
+  });
+
   it('DOCE-EDITING-10.3 is off by default', () => {
     const plugins = createDocumentEditing(documentSchema);
     let state = atFirstEnd(

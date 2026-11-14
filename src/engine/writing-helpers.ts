@@ -5,7 +5,8 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { countTextWords, documentRegions, type RegionKind } from '../model/index.js';
-import { isRemoteTransaction } from './transaction-kind.js';
+import { isPositionLocked } from './edit-lock.js';
+import { isLocalEdit, isRemoteTransaction, markDerived } from './transaction-kind.js';
 
 /** How many words and characters a document's body holds. */
 export interface DocumentCounts {
@@ -120,20 +121,25 @@ function missingParagraphs(doc: ProseMirrorNode): number[] {
 
 /**
  * Keeps an empty paragraph at the end of each section's content when it would otherwise end with a
- * table, a figure or another block that is no paragraph, after each local change.
+ * table, a figure or another block that is no paragraph, after each of the writer's own edits: not
+ * after a remote, derived or system change, and not where the edit lock holds the section's end.
+ * The paragraph is a derived change, so it is no suggestion and no undo step of its own.
  */
 export function createTrailingParagraph({
   isRemote = isRemoteTransaction,
 }: WritingHelperOptions = {}): Plugin {
   return new Plugin({
     appendTransaction(transactions: readonly Transaction[], _old, state) {
-      if (!transactions.some((tr) => tr.docChanged && !isRemote(tr))) return null;
+      const edited = transactions.some(
+        (tr) => isLocalEdit(tr, isRemote) && tr.getMeta('addToHistory') !== false,
+      );
+      if (!edited) return null;
       const paragraph = state.schema.nodes.paragraph;
-      const ends = missingParagraphs(state.doc);
+      const ends = missingParagraphs(state.doc).filter((end) => !isPositionLocked(state, end));
       if (!paragraph || ends.length === 0) return null;
       const tr = state.tr;
       for (const end of ends.toReversed()) tr.insert(end, paragraph.create());
-      return tr.setMeta('addToHistory', false);
+      return markDerived(tr);
     },
   });
 }
