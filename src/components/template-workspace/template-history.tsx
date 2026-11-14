@@ -14,6 +14,8 @@ interface TemplateHistoryProps {
   readonly store: TemplateStoreAdapter;
   readonly workspace: TemplateWorkspaceState;
   readonly labels: TemplateWorkspaceLabels;
+  /** Restores a version by revision, once unsaved changes are saved or discarded. */
+  readonly onRestore: (revision: string) => Promise<unknown>;
 }
 
 // The template's versions, listed again after each save.
@@ -36,7 +38,7 @@ function useVersions(store: TemplateStoreAdapter, templateId: string, revision: 
 }
 
 /** The open template's history; nothing before its first save. */
-export function TemplateHistory({ store, workspace, labels }: TemplateHistoryProps) {
+export function TemplateHistory({ store, workspace, labels, onRestore }: TemplateHistoryProps) {
   const { open, viewing } = workspace;
   const saved = open?.saved;
   const { versions, error } = useVersions(store, open?.draft.id ?? '', saved?.revision ?? '');
@@ -57,7 +59,7 @@ export function TemplateHistory({ store, workspace, labels }: TemplateHistoryPro
         currentKey={saved.revision}
         selectedKeys={viewing ? [viewing.version.revision] : []}
         onSelectionChange={select}
-        onRestore={(key) => workspace.restore(String(key))}
+        onRestore={(key) => onRestore(String(key))}
         showFilters={false}
         isLoading={versions === null && error === null}
         error={error ?? undefined}
