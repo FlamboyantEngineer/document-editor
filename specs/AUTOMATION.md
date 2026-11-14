@@ -27,7 +27,7 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.4 - Editing blocks
 
-`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes, refused as `invalid` for an attribute that says which element it is (its id, its author and the schema's other identity attributes) or that its type does not define; blocks the actor adds are attributed to it (`dataAuthor`, `dataAiSession`).
+`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes, refused as `invalid` for an attribute that says which element it is (its id, its author and the schema's other identity attributes) or that its type does not define; blocks the actor adds, and every node inside them that records who wrote it, are attributed to it (`dataAuthor`, `dataAiSession`).
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`
@@ -48,7 +48,7 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.7 - Locked positions
 
-An edit at a locked position shall be refused as `locked`, whichever mode it is made in, as shall one that changes content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1): text, blocks or attributes inside an embed or a script block's output, and an embed's own attributes. A comment on that text, and inserting beside, replacing or deleting the whole block, are not refused.
+An edit at a locked position shall be refused as `locked`, whichever mode it is made in, as the edit lock would refuse its changes (`touchesLock`, DOCE-EDITING-4.1), so a change to a block holding a locked block is refused, an insertion beside a locked block that the lock lets through is not, and a batch the caller is told applied is never dropped once dispatched; as shall one that changes content the host owns (`isHostContentAt`, DOCE-EMBEDS-2.1): text, blocks or attributes inside an embed or a script block's output, and an embed's own attributes. A comment on that text, and inserting beside, replacing or deleting the whole block, are not refused.
 
 Implementation: `src/engine/automation.ts`, `src/engine/edit-lock.ts`
 Verification: `src/engine/automation.test.ts`
