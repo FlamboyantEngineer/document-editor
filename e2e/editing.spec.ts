@@ -117,6 +117,28 @@ test.describe('editing lab', () => {
     await expect(item.locator('strong')).toHaveText('bold');
   });
 
+  test('DOCE-EDITING-7.2 makes a typed checklist item, ticks it from its box and adds a clear one on Enter', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('editing');
+    await caretIn(scopeConditions(page));
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('[ ] Pack the tent');
+    const item = page.locator('.lab-pages li[data-checked]', { hasText: 'Pack the tent' });
+    await expect(item).toHaveAttribute('data-checked', 'false');
+    await item.locator('.de-task-box').click();
+    await expect(item).toHaveAttribute('data-checked', 'true');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Fill the bottles');
+    const next = page.locator('.lab-pages li[data-checked]', { hasText: 'Fill the bottles' });
+    await expect(next).toHaveAttribute('data-checked', 'false');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    await expect(next).toHaveAttribute('data-checked', 'true');
+  });
+
   test('DOCE-PAGINATION-7.15 types with a mark turned on at the caret, and without it once off', async ({
     lab,
     page,

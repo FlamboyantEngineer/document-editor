@@ -32,10 +32,15 @@ function listOf(node: StoredNode, writing: Writing): string {
   const ordered = node.type === 'orderedList';
   const start = typeof node.attrs?.start === 'number' ? node.attrs.start : 1;
   // An item whose blocks are all left out, as by a suggestion, is left out with its marker.
+  // A checklist item leads with its box, as task lists write it: `- [ ] ` or `- [x] `.
+  const box = (item: StoredNode) =>
+    typeof item.attrs?.checked === 'boolean' ? (item.attrs.checked ? '[x] ' : '[ ] ') : '';
   return (node.content ?? [])
-    .map((item) => blocks(item.content, writing).join('\n\n'))
-    .filter((item) => item !== '')
-    .map((item, index) => prefixed(item, [ordered ? `${String(start + index)}. ` : '- ']))
+    .map((item) => ({ item, text: blocks(item.content, writing).join('\n\n') }))
+    .filter(({ text: written }) => written !== '')
+    .map(({ item, text: written }, index) =>
+      prefixed(`${box(item)}${written}`, [ordered ? `${String(start + index)}. ` : '- ']),
+    )
     .join('\n');
 }
 

@@ -41,7 +41,7 @@ import {
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { commandItem, listItems, markItems } from './format-items.js';
+import { checklistItems, commandItem, listItems, markItems } from './format-items.js';
 import { type InsertFeatures, insertItems, linkItem } from './insert-controls.js';
 import { layoutItem } from './layout-items.js';
 import { type ShellFeatures, shellItems } from './mode-controls.js';
@@ -286,7 +286,13 @@ export function builtInToolbarGroups(
       ],
     },
     { id: 'marks', items: [...markItems(schema, labels, shortcuts), linkItem(labels)] },
-    { id: 'lists', items: listItems(schema, labels, shortcuts) },
+    {
+      id: 'lists',
+      items: [
+        ...listItems(schema, labels, shortcuts),
+        ...checklistItems(schema, labels, shortcuts),
+      ],
+    },
     {
       id: 'insert',
       items: [

@@ -155,7 +155,7 @@ export {
   normalizeCaptionContinuedSuffix,
   normalizeCaptionText,
 } from './schema/caption-text.js';
-export { BLOCK_GROUP } from './schema/core-nodes.js';
+export { BLOCK_GROUP, TASK_BOX_CLASS } from './schema/core-nodes.js';
 export type { DocumentKitOptions } from './schema/document-schema.js';
 export {
   createDocumentKit,

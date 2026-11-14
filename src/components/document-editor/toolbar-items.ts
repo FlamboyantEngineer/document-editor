@@ -79,7 +79,7 @@ export const TOOLBAR_GROUPS = {
     'subscript',
     'link',
   ],
-  lists: ['bullet-list', 'numbered-list'],
+  lists: ['bullet-list', 'numbered-list', 'checklist'],
   insert: [
     'insert-table',
     'page-break',

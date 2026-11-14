@@ -10,6 +10,16 @@ export {
   setChangeLines,
   strongerChange,
 } from './change-lines.js';
+export {
+  checklistCommands,
+  createChecklists,
+  isInChecklist,
+  isTaskItem,
+  itemAtSelection,
+  splitChecklistItem,
+  toggleChecklist,
+  toggleItemChecked,
+} from './checklists.js';
 export type { ClipboardOptions, PasteFilter } from './clipboard.js';
 export { createClipboard } from './clipboard.js';
 export {

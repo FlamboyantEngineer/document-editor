@@ -16,6 +16,16 @@ const text = (value: unknown) => (typeof value === 'string' ? value : '');
 
 const isList = (node: StoredNode) => node.type === 'bulletList' || node.type === 'orderedList';
 
+/** The boxes a checklist item leads with in Word, ticked and clear, which the reader reads back. */
+export const CHECKLIST_BOXES = { ticked: '\u2612', clear: '\u2610' } as const;
+
+// A checklist item's box, as a character before its text; nothing for a plain item.
+function checklistBox(item: StoredNode): string {
+  const checked = item.attrs?.checked;
+  if (typeof checked !== 'boolean') return '';
+  return run(`${checked ? CHECKLIST_BOXES.ticked : CHECKLIST_BOXES.clear} `);
+}
+
 /** Where a list is: its depth, and the number of the numbered list it is in, if any. */
 interface ListPlace {
   readonly depth: number;
@@ -44,7 +54,11 @@ function listOf(node: StoredNode, writing: Writing, place: ListPlace): string {
           }
           if (child.type !== 'paragraph') return writeBlocks([child], inner);
           const properties = index === 0 ? numberingProperties(number, level) : '';
-          return paragraph(inlines(child.content, inner), styled('ListParagraph', properties));
+          const box = index === 0 ? checklistBox(item) : '';
+          return paragraph(
+            box + inlines(child.content, inner),
+            styled('ListParagraph', properties),
+          );
         })
         .join(''),
     )

@@ -136,6 +136,13 @@ A section's markup shall be read region by region, each by its class: a page's `
 Implementation: `src/model/schema/page-nodes.ts`
 Verification: `src/model/schema/page-nodes.test.ts`
 
+### DOCE-SCHEMA-3.12 - Checklist items
+
+A list item shall carry `checked`, `null` for a plain item and `true` or `false` for a checklist item, ticked or clear, stored as `checked` only when it is set. A checklist item shall render `data-checked`, a box (`de-task-box`) that is not editable and holds no text, and its blocks in `de-task-content`; it shall read from `data-checked`, or from a checkbox an item of pasted markup leads with. A plain item shall render as before.
+
+Implementation: `src/model/schema/core-nodes.ts`, `src/model/format/document-format.ts`
+Verification: `src/engine/checklists.test.ts`
+
 ## DOCE-SCHEMA-4 - References
 
 ### DOCE-SCHEMA-4.1 - Format keys

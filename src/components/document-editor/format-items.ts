@@ -7,6 +7,7 @@ import {
   ItalicGlyph,
   ListBulletGlyph,
   ListNumberedGlyph,
+  ListTaskGlyph,
   StrikethroughGlyph,
   SubscriptGlyph,
   SuperscriptGlyph,
@@ -17,9 +18,11 @@ import type { MarkType, NodeType, Schema } from 'prosemirror-model';
 import { liftListItem } from 'prosemirror-schema-list';
 import type { Command, EditorState } from 'prosemirror-state';
 import {
+  isInChecklist,
   type ShortcutId,
   shortcutLabel,
   type ShortcutTable,
+  toggleChecklist,
   wrapInListAndJoin,
 } from '../../engine/index.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -56,7 +59,7 @@ function isInList(state: EditorState, type: NodeType): boolean {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const node = $from.node(depth);
     if (node.type.name === 'bullet_list' || node.type.name === 'ordered_list') {
-      return node.type === type;
+      return node.type === type && !isInChecklist(state);
     }
   }
   return false;
@@ -121,4 +124,26 @@ export function listItems(schema: Schema, labels: DocumentEditorLabels, shortcut
       ),
     ];
   });
+}
+
+/** The checklist item: makes the list a checklist, or a checklist a bulleted list, while pressed. */
+export function checklistItems(
+  schema: Schema,
+  labels: DocumentEditorLabels,
+  shortcuts: ShortcutTable,
+): ToolbarItem[] {
+  const bullets = schema.nodes.bullet_list;
+  if (!bullets || !schema.nodes.list_item?.spec.attrs?.checked) return [];
+  return [
+    commandItem(
+      {
+        id: 'checklist',
+        label: labels.checklist,
+        icon: ListTaskGlyph,
+        shortcut: shortcutLabel(shortcuts, 'checklist'),
+        isPressed: (context) => isInChecklist(context.state),
+      },
+      toggleChecklist(bullets),
+    ),
+  ];
 }

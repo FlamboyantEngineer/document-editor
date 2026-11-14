@@ -127,7 +127,7 @@ export const STORED_NODE_TYPES: Readonly<Record<string, StoredTypeMapping>> = Ob
   text: { type: 'text' },
   bullet_list: { type: 'bulletList' },
   ordered_list: { type: 'orderedList', attrs: { order: 'start' } },
-  list_item: { type: 'listItem' },
+  list_item: { type: 'listItem', attrs: { checked: 'checked' } },
   code_block: {
     type: 'codeBlock',
     attrs: {

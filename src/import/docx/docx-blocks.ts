@@ -33,11 +33,29 @@ function withCaption(node: StoredNode, caption: string): StoredNode {
   return { ...node, attrs: { ...attrs, caption } };
 }
 
+// A bulleted item whose text starts with a box character and a space, as the writer writes a
+// checklist item and as checklists typed in Word look, is a checklist item without the box.
+const BOX = /^([\u2610\u2611\u2612])[ \u00a0]/;
+
+function checklistItem(paragraph: StoredNode, ordered: boolean): StoredNode {
+  const [first, ...rest] = paragraph.content ?? [];
+  const box = !ordered && first?.type === 'text' ? BOX.exec(first.text ?? '') : null;
+  if (!first || !box) return { type: 'listItem', content: [paragraph] };
+  const text = (first.text ?? '').slice(box[0].length);
+  const content = text ? [{ ...first, text }, ...rest] : rest;
+  const { content: _, ...bare } = paragraph;
+  return {
+    type: 'listItem',
+    attrs: { checked: box[1] !== '\u2610' },
+    content: [content.length ? { ...bare, content } : bare],
+  };
+}
+
 // A list item placed in the open lists: in the list at its depth when it is of the same kind and
 // numbering, a new one nested in the last item above it, or a new list at the top.
 function placeItem(assembly: Assembly, piece: Extract<Piece, { kind: 'item' }>): void {
   const { depth, ordered, start, list: numbering } = piece.list;
-  const item: StoredNode = { type: 'listItem', content: [piece.node] };
+  const item = checklistItem(piece.node, ordered);
   let lists = assembly.lists.filter((list) => list.depth <= depth);
   const top = lists[lists.length - 1];
   if (top?.depth === depth && top.ordered === ordered && top.list === numbering) {

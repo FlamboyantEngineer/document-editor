@@ -76,6 +76,45 @@ const heading: NodeSpec = {
   },
 };
 
+/** The class of a checklist item's box, which the writer clicks to tick or clear it. */
+export const TASK_BOX_CLASS = 'de-task-box';
+
+// `true` or `false` makes an item a checklist item, ticked or not; `null` leaves it a plain item.
+function readChecked(dom: HTMLElement): boolean | null {
+  const stated = dom.getAttribute('data-checked');
+  if (stated === 'true' || stated === 'false') return stated === 'true';
+  // A task list pasted from a page: the item's own leading checkbox.
+  const box = dom.firstElementChild;
+  if (box?.tagName === 'INPUT' && box.getAttribute('type') === 'checkbox')
+    return box.hasAttribute('checked') || (box as HTMLInputElement).checked;
+  return null;
+}
+
+// A list item; a checklist item leads with its box, which is not part of the text.
+const listItemNode: NodeSpec = {
+  ...listItem,
+  attrs: { checked: { default: null, validate: 'boolean|null' } },
+  content: 'paragraph block*',
+  parseDOM: [
+    {
+      tag: 'li',
+      getAttrs: (dom: HTMLElement) => ({ checked: readChecked(dom) }),
+      contentElement: (dom: HTMLElement) =>
+        dom.querySelector<HTMLElement>(':scope > .de-task-content') ?? dom,
+    },
+  ],
+  toDOM(node: ProseMirrorNode) {
+    const { checked } = node.attrs;
+    if (typeof checked !== 'boolean') return ['li', 0];
+    const state = String(checked);
+    const box = [
+      'span',
+      { class: TASK_BOX_CLASS, contenteditable: 'false', 'aria-hidden': 'true' },
+    ];
+    return ['li', { 'data-checked': state }, box, ['div', { class: 'de-task-content' }, 0]];
+  },
+};
+
 function placed(name: keyof typeof DOCUMENT_NODE_ORDER, spec: NodeSpec): RichTextExtensionNode {
   return { name, spec, order: DOCUMENT_NODE_ORDER[name] };
 }
@@ -94,6 +133,6 @@ export const coreNodesExtension: RichTextExtension = {
     placed('hard_break', basicNodes.hard_break),
     placed('ordered_list', { ...orderedList, content: 'list_item+', group: BLOCK_GROUP }),
     placed('bullet_list', { ...bulletList, content: 'list_item+', group: BLOCK_GROUP }),
-    placed('list_item', { ...listItem, content: 'paragraph block*' }),
+    placed('list_item', listItemNode),
   ],
 };
