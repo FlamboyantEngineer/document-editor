@@ -1,8 +1,14 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
 import { readRegressionDocument } from '../../test/stored-fixtures.js';
-import type { DocumentFile } from '../model/index.js';
-import { findStoredElement, storedCitations, threadAnchors } from './stored-elements.js';
+import { type DocumentFile, readDocumentFile, writeDocumentFile } from '../model/index.js';
+import {
+  findStoredElement,
+  storedCitations,
+  storedEmbeds,
+  threadAnchors,
+} from './stored-elements.js';
 
 const text = (value: string, marks?: { type: string; attrs?: Record<string, unknown> }[]) =>
   marks ? { type: 'text', text: value, marks } : { type: 'text', text: value };
@@ -190,5 +196,52 @@ describe('stored-file readers on the stored JSON', () => {
         elementIds: ['a0000001', 'a0000002'],
       },
     ]);
+  });
+
+  it('DOCE-FORMAT-9.9 lists the embeds of a stored document read through the schema', () => {
+    const embed = {
+      type: 'embed',
+      attrs: { id: 'a0000002', kind: 'data-set', source: 'set-7', label: 'Tide table' },
+      content: [{ type: 'paragraph', attrs: { id: 'a0000003' }, content: [text('High at six.')] }],
+    };
+    const stored: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: 'body',
+          content: [
+            { type: 'paragraph', attrs: { id: 'a0000001' }, content: [text('Before.')] },
+            embed,
+            {
+              type: 'embed',
+              attrs: { id: 'a0000004', kind: 'record', source: 'r-1', snapshot: 's-2', label: '' },
+              content: [{ type: 'paragraph', attrs: { id: 'a0000005' } }],
+            },
+          ],
+        },
+      ],
+    };
+    const file = writeDocumentFile(readDocumentFile(stored, documentSchema).doc);
+    expect(storedEmbeds(file)).toEqual([
+      {
+        id: 'a0000002',
+        kind: 'data-set',
+        source: 'set-7',
+        snapshot: null,
+        label: 'Tide table',
+        path: 'sections[0].content[1]',
+        parentId: null,
+      },
+      {
+        id: 'a0000004',
+        kind: 'record',
+        source: 'r-1',
+        snapshot: 's-2',
+        label: '',
+        path: 'sections[0].content[2]',
+        parentId: null,
+      },
+    ]);
+    expect(storedEmbeds(readRegressionDocument('minimal-paragraph'))).toEqual([]);
   });
 });

@@ -301,16 +301,22 @@ A server reads and changes stored documents without the editor's view through th
 
 Each server job that reads or writes document content maps to one reader. The table lists the jobs each reader covers; the host's inventory of its own server code adds a row for each job it finds, by the job, never by the host's names.
 
-| Reader                     | Reads                 | Server job                                                     |
-| -------------------------- | --------------------- | -------------------------------------------------------------- |
-| `findStoredElement`        | stored JSON           | Look up an element by its id, such as a link or an agent edit. |
-| `storedDocumentText`       | schema                | Search projection, summaries and word-level indexing.          |
-| `storedCitations`          | stored JSON           | Citation lists and checks of what a document cites.            |
-| `documentTargets`          | schema, template      | Reference pickers and checks of what may be cited.             |
-| `validateRequiredSections` | stored JSON, template | Checking a document is complete before it moves on.            |
-| `threadAnchors`            | stored JSON           | Comment resolution: which threads still hold text, and what.   |
-| `replaceTemplate`          | schema, template      | Moving documents to another template or revision.              |
-| `decideStoredSuggestions`  | schema                | Accepting or rejecting suggestions outside the editor.         |
+| Reader                     | Reads                 | Server job                                                                                                                              |
+| -------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `findStoredElement`        | stored JSON           | Look up an element by its id, such as a link, an agent edit, a figure to replace or the text around a thread for an assistant's prompt. |
+| `storedDocumentText`       | schema                | Search projection, summaries and previews, and word-level indexing.                                                                     |
+| `storedCitations`          | stored JSON           | Citation lists, checks of what a document cites and the inbound "cited by" lists of the documents and records it cites.                 |
+| `storedEmbeds`             | stored JSON           | The records and data sets a document embeds, for their inbound lists.                                                                   |
+| `documentTargets`          | schema, template      | Reference pickers and checks of what may be cited.                                                                                      |
+| `validateRequiredSections` | stored JSON, template | Checking a document is complete before it moves on.                                                                                     |
+| `threadAnchors`            | stored JSON           | Comment resolution: which threads still hold text, and what; dropping threads whose text is gone.                                       |
+| `updateStoredThreads`      | schema                | Resolving, reopening or removing a thread outside the editor.                                                                           |
+| `replaceTemplate`          | schema, template      | Moving documents to another template or revision.                                                                                       |
+| `decideStoredSuggestions`  | schema                | Accepting or rejecting suggestions outside the editor, and reading a document with its pending suggestions applied or left out.         |
+| `storedContributors`       | stored JSON           | Contributor lists, and who changed a document since a version.                                                                          |
+| `authoredContent`          | stored JSON           | Review evidence: whether the reviewed content, or a heading's span of it, changed since it was approved.                                |
+
+Jobs on stored documents that other entries cover: agent and assistant edits, and comments anchored on exact text, are `applyStoredEdits`, with `describeDocument` to read what they target (AUTOMATION.md); script runs, signature output and generated content are `runStoredScripts`; comparing two versions is `compareVersions`, and merging a save into the latest one is `mergeDocuments` (SESSION.md), both in `./document`; a shared room's seed and its saved state are `documentToYjs` and `yjsToDocument` in `./collab`; imported files are `readDocx` and `composeDocumentFile` in `./import`; print and PDF pages are `printSnapshot`.
 
 ### DOCE-FORMAT-9.1 - Element by id
 
@@ -367,3 +373,31 @@ Verification: `src/document/stored-template.test.ts`, `e2e/automation-lab.spec.t
 
 Implementation: `src/document/stored-suggestions.ts`
 Verification: `src/document/stored-suggestions.test.ts`, `e2e/automation-lab.spec.ts`
+
+### DOCE-FORMAT-9.9 - Embeds
+
+`storedEmbeds(file)` shall list a stored document's embeds in reading order: each one's element id, its `kind`, `source`, `snapshot` (null when it records none) and `label`, its path and the id of the element holding it (null at a section's top).
+
+Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
+Verification: `src/document/stored-elements.test.ts`
+
+### DOCE-FORMAT-9.10 - Contributors
+
+`storedContributors(file, { since })` shall list a stored document's writers, each once, in the reading order of what they wrote: the `author` each element records and the `author` each mark on its inline content records, such as a contributor mark or a suggestion. Given an earlier version (`since`), it shall list only an element's author when the element is new, and a mark's writer when the element holding the mark is new or differs from its earlier version.
+
+Implementation: `src/document/stored-contributors.ts`, `src/document/stored-walk.ts`
+Verification: `src/document/stored-contributors.test.ts`
+
+### DOCE-FORMAT-9.11 - Thread changes
+
+`updateStoredThreads(file, { schema, changes })` shall mark each named thread's comment anchor open or resolved, or remove it and leave its text, as the editor does (`setCommentState`, `removeCommentAnchor`), and give the document with its template pin and the threads whose anchor changed, in the order given. A suggestion the thread discusses shall stay as it is. When no anchor changes, it shall give the document back as it was.
+
+Implementation: `src/document/stored-threads.ts`, `src/engine/comments.ts`
+Verification: `src/document/stored-threads.test.ts`
+
+### DOCE-FORMAT-9.12 - Authored content
+
+`authoredContent(file, { headings, attrs, leaveOutput })` shall give a stored document's authored content as canonical JSON text, with object keys sorted, that a host hashes, and the heading ids it did not find (`missing`). It shall leave out comment anchors and contributor marks, the attributes that record who wrote (`author`, `aiSession`), which thread discusses a suggestion (`thread`) and when and how a script ran (`renderedAt`, `provenance`, `signatures`), the stored attributes named in `attrs`, such as a host's element state, and the output of each script whose source `leaveOutput` names; text nodes beside one another with the same marks shall read as one. With `headings`, it shall read only the span of each named heading at a section's top that is not the title: from the heading to the next such heading of its level or above, across sections.
+
+Implementation: `src/document/authored-content.ts`, `src/session/stored-equality.ts`
+Verification: `src/document/authored-content.test.ts`
