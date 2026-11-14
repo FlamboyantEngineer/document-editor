@@ -1,7 +1,7 @@
 // Comparing stored values, such as two versions of a block, by what they hold.
 
-// JSON text with object keys sorted, so two values compare equal whatever order they were built in.
-function stableKey(value: unknown): string {
+/** JSON text with object keys sorted, so two values compare equal whatever order they were built in. */
+export function stableKey(value: unknown): string {
   return JSON.stringify(value, (_key, each: unknown) =>
     each && typeof each === 'object' && !Array.isArray(each)
       ? Object.fromEntries(Object.entries(each).sort(([a], [b]) => (a < b ? -1 : 1)))

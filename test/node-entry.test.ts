@@ -45,6 +45,20 @@ describe('server-safe entry points', () => {
     expect(diffText('Alpha', 'Alpha beta').map(({ kind }) => kind)).toContain('inserted');
   });
 
+  it('DOCE-ENTRY-1.1 exports the stored-file readers and the merge a server runs', async () => {
+    const documents = await import('../src/document/index.js');
+    for (const name of [
+      'mergeDocuments',
+      'storedEmbeds',
+      'storedContributors',
+      'updateStoredThreads',
+      'authoredContent',
+    ] as const) {
+      expect(documents[name]).toBeTypeOf('function');
+    }
+    expect(typeof document).toBe('undefined');
+  });
+
   it('DOCE-ENTRY-1.3 seeds a shared room and reads it back without DOM globals', async () => {
     const { createDocumentSchema } = await import('../src/model/index.js');
     const { documentToYjs, yjsToDocument } = await import('../src/collab/index.js');

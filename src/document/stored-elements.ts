@@ -1,7 +1,13 @@
 // Stored-file readers that walk a stored document's own JSON, with no schema and no editor: an
-// element by its id, the citations it holds and the text each comment thread is anchored to.
+// element by its id, the citations and embeds it holds and the text each comment thread is
+// anchored to.
 
-import type { DocumentFile, StoredNode, StoredSection } from '../model/index.js';
+import {
+  type DocumentFile,
+  EMBED_NODE,
+  type StoredNode,
+  type StoredSection,
+} from '../model/index.js';
 import { storedElementId, storedMarkRuns, walkStoredFile } from './stored-walk.js';
 
 /** A stored element and where it is. */
@@ -30,6 +36,23 @@ export interface StoredCitation {
   readonly parentId: string | null;
   /** The mark's stored attributes, such as the recorded data of a target outside the document. */
   readonly attrs: Readonly<Record<string, unknown>>;
+}
+
+/** An embed of a stored document: content the host keeps elsewhere, shown in the document. */
+export interface StoredEmbed {
+  /** The embed's element id. */
+  readonly id: string | null;
+  /** The host's kind of content. */
+  readonly kind: string;
+  /** The host's id of the content within its kind. */
+  readonly source: string;
+  /** The host's id of the state of the content the embed shows, or null when it records none. */
+  readonly snapshot: string | null;
+  readonly label: string;
+  /** Where it is. */
+  readonly path: string;
+  /** The id of the element holding it, or null at a section's top. */
+  readonly parentId: string | null;
 }
 
 /** A stored mark type that ties text to a comment thread. */
@@ -82,6 +105,27 @@ export function storedCitations(file: DocumentFile): StoredCitation[] {
       attrs,
     };
   });
+}
+
+/** The embeds of a stored document in reading order. */
+export function storedEmbeds(file: DocumentFile): StoredEmbed[] {
+  const embeds: StoredEmbed[] = [];
+  walkStoredFile(file, ({ node, path, parentId }) => {
+    if (node.type !== EMBED_NODE) return undefined;
+    const attrs = node.attrs ?? {};
+    embeds.push({
+      id: storedElementId(node),
+      kind: stringOf(attrs.kind) ?? '',
+      source: stringOf(attrs.source) ?? '',
+      snapshot: stringOf(attrs.snapshot),
+      label: stringOf(attrs.label) ?? '',
+      path,
+      parentId,
+    });
+    // An embed holds no other embed.
+    return false;
+  });
+  return embeds;
 }
 
 /**

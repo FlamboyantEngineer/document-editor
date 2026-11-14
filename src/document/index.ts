@@ -1,4 +1,4 @@
-// Operations on whole documents that need no editor view: comparing versions, deciding
+// Operations on whole documents that need no editor view: comparing and merging versions, deciding
 // suggestions, references, the outline, element ids, automation, template sections and the
 // stored-file readers. Nothing
 // here reads the DOM when it loads, so a server imports this entry beside `./model` and `./host`.
@@ -34,6 +34,10 @@ export type {
   VersionChangeTarget,
 } from '../engine/version-compare.js';
 export { compareVersions } from '../engine/version-compare.js';
+export type { DocumentMerge, MergeConflict, MergeInput } from '../session/merge.js';
+export { mergeDocuments } from '../session/merge.js';
+export type { AuthoredContent, AuthoredContentOptions } from './authored-content.js';
+export { authoredContent } from './authored-content.js';
 export type {
   DescribedSection,
   DocumentDescription,
@@ -65,13 +69,21 @@ export {
 } from './script-output.js';
 export type { StoredScriptsOptions, StoredScriptsRun } from './scripts.js';
 export { findStaleStoredScripts, runStoredScripts } from './scripts.js';
+export type { StoredContributorsOptions } from './stored-contributors.js';
+export { storedContributors } from './stored-contributors.js';
 export type {
   StoredCitation,
   StoredElement,
+  StoredEmbed,
   StoredThreadAnchor,
   ThreadMarkType,
 } from './stored-elements.js';
-export { findStoredElement, storedCitations, threadAnchors } from './stored-elements.js';
+export {
+  findStoredElement,
+  storedCitations,
+  storedEmbeds,
+  threadAnchors,
+} from './stored-elements.js';
 export type { StoredDecision, StoredDecisionOptions } from './stored-suggestions.js';
 export { decideStoredSuggestions } from './stored-suggestions.js';
 export type {
@@ -82,3 +94,9 @@ export type {
 } from './stored-template.js';
 export { documentTargets, replaceTemplate, validateRequiredSections } from './stored-template.js';
 export { storedDocumentText } from './stored-text.js';
+export type {
+  StoredThreadChange,
+  StoredThreadsOptions,
+  StoredThreadsResult,
+} from './stored-threads.js';
+export { updateStoredThreads } from './stored-threads.js';
