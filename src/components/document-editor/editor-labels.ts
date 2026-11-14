@@ -29,6 +29,8 @@ export interface DocumentEditorLabels
   readonly insertTable: string;
   readonly pageBreak: string;
   readonly contextMenu: string;
+  /** Names the floating toolbar over selected text. */
+  readonly selectionToolbar: string;
   readonly cut: string;
   readonly copy: string;
   readonly paste: string;
@@ -131,6 +133,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   insertTable: 'Insert table',
   pageBreak: 'Page break',
   contextMenu: 'Document actions',
+  selectionToolbar: 'Selection formatting',
   cut: 'Cut',
   copy: 'Copy',
   paste: 'Paste',

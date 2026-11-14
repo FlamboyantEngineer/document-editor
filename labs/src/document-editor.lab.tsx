@@ -132,6 +132,7 @@ function Lab() {
   const [scrollable, setScrollable] = useState(true);
   const [debug, setDebug] = useState<DocumentEditorDebug>({});
   const [statusBar, setStatusBar] = useState(true);
+  const [selectionToolbar, setSelectionToolbar] = useState(false);
   const [hostItems, setHostItems] = useState(true);
   const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
@@ -187,6 +188,15 @@ function Lab() {
               onChange={(event) => setScrollable(event.currentTarget.checked)}
             />{' '}
             Scrolling frame
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="selection-toolbar"
+              checked={selectionToolbar}
+              onChange={(event) => setSelectionToolbar(event.currentTarget.checked)}
+            />{' '}
+            Selection toolbar
           </label>
           {DEBUG_PARTS.map(({ part, label }) => (
             <label key={part}>
@@ -264,6 +274,7 @@ function Lab() {
         editable={editable}
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
+        selectionToolbar={selectionToolbar}
         debug={debug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
         lead={hostItems ? <p className="lab-lead">Sample document · draft</p> : undefined}

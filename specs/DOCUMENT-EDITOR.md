@@ -283,6 +283,13 @@ Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/doc
 Implementation: `src/components/document-editor/editor-store.ts`, `src/components/document-editor/editor-scope.tsx`
 Verification: `src/components/document-editor/editor-store.test.tsx`
 
+### DOCE-EDITOR-4.21 - The toolbar over selected text
+
+`selectionToolbar` shall show the base library's `FloatingToolbar` (`de-document-editor__selection-toolbar`, named by the `selectionToolbar` label) over the selected text while text is selected, focus is in the document or in the toolbar, and no pointer is still pressed on the document; it is off by default. While the writer can edit it holds the character formats and the link (`marks`), then the comment item while the reader may comment (`comment`, `SELECTION_TOOLBAR_GROUPS`); while they cannot, only the comment item. The host's items join its groups and `arrange` rearranges them, as the toolbar's (DOCE-EDITOR-4.3), and they read the editor context. It never takes focus as it shows; Alt+F10 in the document moves focus to its first control, and Escape in it hides it until the selection changes and returns focus to the document.
+
+Implementation: `src/components/document-editor/selection-toolbar.tsx`, `src/components/document-editor/editor-chrome.tsx`
+Verification: `src/components/document-editor/selection-toolbar.test.tsx`, `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -618,6 +625,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-document-editor__lead`              | slot      |                                                                        | The host's lead before the document (DOCE-EDITOR-4.18).                                 |
 | `de-document-editor__placeholder`       | slot      |                                                                        | The placeholder until the pages are first laid out (DOCE-EDITOR-4.18).                  |
 | `de-document-editor__overview`          | slot      |                                                                        | The scroll overview over the frame (DOCE-EDITOR-4.19).                                  |
+| `de-document-editor__selection-toolbar` | slot      |                                                                        | The toolbar over selected text, with `selectionToolbar` (DOCE-EDITOR-4.21).             |
 | `de-document-editor__banners`           | slot      |                                                                        | The banner region above the document (DOCE-EDITOR-7.1).                                 |
 | `data-banner`                           | attribute | `EDITOR_BANNERS`, the host's ids                                       | On a banner: which it is.                                                               |
 | `de-document-editor__status-bar`        | slot      |                                                                        | The editor's status bar, with `statusBar`.                                              |

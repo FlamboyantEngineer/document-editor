@@ -198,6 +198,24 @@ function useShownGroups(groups: readonly ToolbarGroup[], context: EditorContext)
   }, [groups, visible]);
 }
 
+// Each group's items, separated, as a toolbar row holds them.
+function GroupList({ groups }: { groups: readonly ToolbarGroup[] }) {
+  return groups.map((group, index) => (
+    <Fragment key={group.id}>
+      {index > 0 ? <ToolbarRowSeparator /> : null}
+      <ToolbarRowGroup
+        aria-label={group.label}
+        attached={group.attached ?? false}
+        data-group={group.id}
+      >
+        {group.items.map((item) => (
+          <Item key={item.id} item={item} />
+        ))}
+      </ToolbarRowGroup>
+    </Fragment>
+  ));
+}
+
 // The row of groups, drawn again only when the groups shown change (DOCE-EDITOR-1.7).
 const ToolbarGroups = memo(function ToolbarGroups({
   groups,
@@ -218,24 +236,32 @@ const ToolbarGroups = memo(function ToolbarGroups({
       overflow={options.overflow ?? 'wrap'}
     >
       {options.start ? <div {...hooks.slot('toolbar-start')}>{options.start}</div> : null}
-      {groups.map((group, index) => (
-        <Fragment key={group.id}>
-          {index > 0 ? <ToolbarRowSeparator /> : null}
-          <ToolbarRowGroup
-            aria-label={group.label}
-            attached={group.attached ?? false}
-            data-group={group.id}
-          >
-            {group.items.map((item) => (
-              <Item key={item.id} item={item} />
-            ))}
-          </ToolbarRowGroup>
-        </Fragment>
-      ))}
+      <GroupList groups={groups} />
       {options.end ? <div {...hooks.slot('toolbar-end')}>{options.end}</div> : null}
     </ToolbarRow>
   );
 });
+
+// The groups alone, drawn again only when the groups shown change.
+const ShownGroupList = memo(GroupList);
+
+/**
+ * Groups of toolbar items, as the context shows them, for a row the caller draws, such as the
+ * floating toolbar over the selection.
+ */
+export function ToolbarItemGroups({
+  groups,
+  context,
+}: {
+  groups: readonly ToolbarGroup[];
+  context: EditorContext;
+}) {
+  return (
+    <ItemContext value={context}>
+      <ShownGroupList groups={useShownGroups(groups, context)} />
+    </ItemContext>
+  );
+}
 
 /** The editor's toolbar, reading the state shown and running its commands on the view. */
 export function DocumentToolbar(props: DocumentToolbarProps) {

@@ -265,6 +265,33 @@ test.describe('document editor lab', () => {
     await expect(bold).toBeDisabled();
   });
 
+  test('DOCE-EDITOR-4.21 floats a toolbar over the selected text on pages', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByLabel('Selection toolbar').check();
+    const floating = page.getByRole('toolbar', { name: 'Selection formatting' });
+    await selectText(page, 'Normal operation');
+    await expect(floating).toBeVisible();
+    // Above the selected text, and focus stays in the document.
+    const point = await pointAt(page, 'Normal operation');
+    const box = await floating.boundingBox();
+    expect(box && box.y + box.height).toBeLessThanOrEqual(point.y);
+    expect(box && Math.abs(box.x - point.left)).toBeLessThan(40);
+    await expect(content(page)).toBeFocused();
+    await floating.getByRole('button', { name: 'Italic' }).click();
+    await expect(content(page).locator('em', { hasText: 'Normal operation' })).toHaveCount(1);
+    await expect(content(page)).toBeFocused();
+    await page.keyboard.press('Alt+F10');
+    await expect(floating.getByRole('button', { name: 'Bold' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(floating).toBeHidden();
+    await expect(content(page)).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(floating).toBeHidden();
+  });
+
   test('DOCE-EDITOR-4.2 DOCE-PAGINATION-7.1 scrolls the document in its frame below the toolbar, and lays it out again once remounted', async ({
     lab,
     page,
