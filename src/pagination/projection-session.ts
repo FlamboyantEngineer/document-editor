@@ -179,6 +179,17 @@ export function readDom(session: Session): void {
   if (session.view) readDomSelection(session.view);
 }
 
+/**
+ * Whether the browser shows a selection the view had not read yet, which it reads now and sends on
+ * to the canonical state: a newer one than a state that changes only the selection, as after keys
+ * pressed while the host still rendered a click's, so that state is not drawn over it.
+ */
+export function showsNewerSelection(session: Session): boolean {
+  const before = session.projection.selection;
+  readDom(session);
+  return !session.projection.selection.eq(before);
+}
+
 /** Mirrors the projection's selection onto the canonical state, unless a cell selection stands. */
 export function syncSelection(session: Session): void {
   const { map, projection, canonical, cells } = session;

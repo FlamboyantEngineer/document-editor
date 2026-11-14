@@ -64,6 +64,7 @@ import {
   type Session,
   showCanonical,
   shownBy,
+  showsNewerSelection,
   take,
   takeCaretBefore,
 } from './projection-session.js';
@@ -359,6 +360,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       const replugged = state.plugins !== live.canonical.plugins;
       live.canonical = state;
       if (replugged) replug(live);
+      if (state.doc === live.shown && showsNewerSelection(live)) return;
       quietly(live, () => showCanonical(live, tr ?? null, shownBy(tr ? [tr] : [])));
     },
     run: (command) => runCommand(live, command),
