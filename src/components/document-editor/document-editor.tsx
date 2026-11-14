@@ -67,6 +67,7 @@ import { EditorScope } from './editor-scope.js';
 import { EditorSurface } from './editor-surface.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
+import { debugParts, rootData } from './root-data.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
 import { usePinnedScripts } from './script-entries.js';
 import type { TextChromeProps } from './text-chrome.js';
@@ -308,32 +309,8 @@ const hooks = createHooks('document-editor', [
   'find',
 ]);
 
-// The parts of the layout debugging shown: `true` shows the pages'.
 // The measuring view is hidden from assistive technology and out of the keyboard's reach.
 const MEASURE_SLOT = { 'aria-hidden': 'true', inert: true, spellCheck: false } as const;
-
-function debugParts(debug: DocumentEditorProps['debug']): DocumentEditorDebug {
-  return typeof debug === 'object' ? debug : { pages: debug ?? false };
-}
-
-// The editor root's hook values.
-function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
-  const { layout = 'page', editable = true, suggesting = false, compare } = props;
-  const debug = debugParts(props.debug);
-  return {
-    markup: props.markup ?? 'all',
-    layout,
-    mode: editable ? 'authoring' : 'reading',
-    suggesting: editable && suggesting,
-    comparing: compare ? (compare.display ?? 'markup') : undefined,
-    scrollable: props.scrollable ?? false,
-    authorship: props.authorship ?? false,
-    debug: debug.pages ?? false,
-    debugBlocks: debug.blocks ?? false,
-    debugMeasure: debug.measure ?? false,
-    layoutState,
-  };
-}
 
 // Where the pages are measured, and the editor's context, which the ghost's node views read too.
 interface EditorLayoutRefs {

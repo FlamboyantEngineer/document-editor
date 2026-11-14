@@ -149,6 +149,8 @@ function Lab() {
   const [selectionToolbar, setSelectionToolbar] = useState(false);
   const [slashMenu, setSlashMenu] = useState(false);
   const [mentions, setMentions] = useState(false);
+  const [formattingMarks, setFormattingMarks] = useState(false);
+  const [caretBlock, setCaretBlock] = useState(false);
   const [hostItems, setHostItems] = useState(true);
   const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
@@ -232,6 +234,24 @@ function Lab() {
             />{' '}
             Mentions
           </label>
+          <label>
+            <input
+              type="checkbox"
+              name="formatting-marks"
+              checked={formattingMarks}
+              onChange={(event) => setFormattingMarks(event.currentTarget.checked)}
+            />{' '}
+            Formatting marks
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="caret-block"
+              checked={caretBlock}
+              onChange={(event) => setCaretBlock(event.currentTarget.checked)}
+            />{' '}
+            Caret block
+          </label>
           {DEBUG_PARTS.map(({ part, label }) => (
             <label key={part}>
               <input
@@ -311,6 +331,9 @@ function Lab() {
         selectionToolbar={selectionToolbar}
         slashMenu={slashMenu && { emptyLineButton: true }}
         mentions={mentions ? LAB_MENTIONS : undefined}
+        placeholderText={slashMenu ? { emptyLine: 'Type / to insert a block' } : undefined}
+        formattingMarks={formattingMarks}
+        caretBlock={caretBlock}
         debug={debug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
         lead={hostItems ? <p className="lab-lead">Sample document · draft</p> : undefined}

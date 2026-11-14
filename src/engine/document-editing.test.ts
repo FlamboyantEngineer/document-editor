@@ -250,6 +250,7 @@ describe('the editing extension', () => {
     const kit = createDocumentKit({ extensions: [createDocumentEditingExtension()] });
     expect(kit.pluginOrder).toEqual([
       'history',
+      'content-limit',
       'edit-lock',
       'element-ids',
       'footnotes',
@@ -268,6 +269,7 @@ describe('the editing extension', () => {
       'table-width',
       'tables',
       'gap-cursor',
+      'trailing-paragraph',
       'keymap',
     ]);
     expect(kit.buildPlugins(undefined)).toHaveLength(22);

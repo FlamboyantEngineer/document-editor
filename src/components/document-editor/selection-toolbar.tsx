@@ -89,8 +89,8 @@ function selectionRect(view: EditorView, from: number, to: number): DOMRect | nu
   }
 }
 
-/** Whether focus is in the document, and whether a pointer is pressed on it, as the reader selects. */
-export function useDocumentFocus(view: EditorView | null) {
+// Whether focus is in the document, and whether a pointer is pressed on it, as the reader selects.
+function useDocumentFocus(view: EditorView | null) {
   const [focused, setFocused] = useState(() => view?.hasFocus() ?? false);
   const [pressing, setPressing] = useState(false);
   useEffect(() => {

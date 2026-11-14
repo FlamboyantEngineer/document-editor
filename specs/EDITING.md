@@ -293,3 +293,26 @@ Verification: `src/engine/active.test.ts`, `test/extension-guide.test.ts`
 
 Implementation: `src/engine/text-triggers.ts`
 Verification: `src/engine/text-triggers.test.ts`
+
+## DOCE-EDITING-10 - Writing helpers
+
+### DOCE-EDITING-10.1 - Counting words and characters
+
+`documentCounts(doc)` shall count the words and the characters of a document's body and footnotes, leaving out page headers and footers, an inline object counting one character; each block is counted once for as long as it is unchanged.
+
+Implementation: `src/engine/writing-helpers.ts`
+Verification: `src/engine/writing-helpers.test.ts`
+
+### DOCE-EDITING-10.2 - A content limit
+
+`limit` (`createContentLimit`) shall refuse a local change that takes the body past its most words or characters, or further past them, and keep every change that shortens it and every change from elsewhere; `contentLimitOf(state)` shall give the limit kept.
+
+Implementation: `src/engine/writing-helpers.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/writing-helpers.test.ts`
+
+### DOCE-EDITING-10.3 - A trailing paragraph
+
+`trailingParagraph` (`createTrailingParagraph`) shall add an empty paragraph, out of the undo history, at the end of each section's content that ends with a block that is no paragraph, after each local change; it is off by default.
+
+Implementation: `src/engine/writing-helpers.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/writing-helpers.test.ts`

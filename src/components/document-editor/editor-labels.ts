@@ -82,6 +82,8 @@ export interface DocumentEditorLabels
   readonly pageStatus: (page: number, pages: number) => string;
   /** The document's words, or the selection's among them: `1,204 words`, `12 of 1,204 words`. */
   readonly wordStatus: (words: number, selected: number | null) => string;
+  /** The words or characters the document's body holds against its limit. */
+  readonly limitStatus: (used: number, limit: number, unit: 'words' | 'characters') => string;
   readonly editingMode: string;
   readonly suggestingMode: string;
   readonly readingMode: string;
@@ -188,6 +190,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
     const total = `${count.format(words)} ${words === 1 ? 'word' : 'words'}`;
     return selected === null ? total : `${count.format(selected)} of ${total}`;
   },
+  limitStatus: (used, limit, unit) => `${count.format(used)} / ${count.format(limit)} ${unit}`,
   editingMode: 'Editing',
   suggestingMode: 'Suggesting',
   readingMode: 'Reading',
