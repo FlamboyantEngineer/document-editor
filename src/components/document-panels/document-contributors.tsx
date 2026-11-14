@@ -4,10 +4,11 @@
 
 import { Switch } from '@flamboyantengineer/ui-components/switch';
 import { UserIdentity } from '@flamboyantengineer/ui-components/user-identity';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { documentAuthors, isAuthorshipShown } from '../../engine/index.js';
-import type { EditorPerson, IdentityAdapter } from '../../host/index.js';
+import type { IdentityAdapter } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { usePeople } from '../../utils/use-people.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
 import { DEFAULT_PANELS_LABELS, type DocumentPanelsLabels } from './panel-labels.js';
 
@@ -26,23 +27,6 @@ export interface DocumentContributorsProps {
 }
 
 const hooks = createHooks('document-contributors', ['list', 'contributor']);
-
-// The people the adapter knows among `ids`, looked up again only when the ids change.
-function usePeople(identity: IdentityAdapter | undefined, ids: readonly string[]) {
-  const [people, setPeople] = useState<ReadonlyMap<string, EditorPerson>>(new Map());
-  const key = ids.join('\n');
-  useEffect(() => {
-    if (!identity || !key) return;
-    let current = true;
-    void identity.resolvePeople(key.split('\n')).then((found) => {
-      if (current) setPeople(new Map(found.map((person) => [person.id, person])));
-    });
-    return () => {
-      current = false;
-    };
-  }, [identity, key]);
-  return people;
-}
 
 /** The document's writers, with a switch for showing who wrote what. */
 export function DocumentContributors(props: DocumentContributorsProps) {

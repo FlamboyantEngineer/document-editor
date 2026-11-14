@@ -64,7 +64,7 @@ Verification: `src/engine/typing-marks.test.ts`, `src/engine/clipboard.test.ts`
 
 ### DOCE-SUGGESTIONS-2.1 - One suggestion
 
-`listSuggestions(doc)` shall give each suggestion in reading order with its id, writer, comment thread, range, inserted and deleted text. `acceptSuggestion(id)` shall keep what the suggestion inserts and remove what it deletes; `rejectSuggestion(id)` the reverse. Other suggestions shall stay.
+`listSuggestions(doc)` shall give each suggestion in reading order with its id, writer, comment thread, range, inserted and deleted text. It shall read a document once and give the same frozen list for it again, since the margin, the panel and the editor ask for it many times on each change. `acceptSuggestion(id)` shall keep what the suggestion inserts and remove what it deletes; `rejectSuggestion(id)` the reverse. Other suggestions shall stay.
 
 Implementation: `src/engine/suggestion-decisions.ts`
 Verification: `src/engine/suggestions.test.ts`

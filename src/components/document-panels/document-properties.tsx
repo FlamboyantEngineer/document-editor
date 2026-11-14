@@ -19,6 +19,7 @@ import {
   sectionAt,
   type TemplateFile,
 } from '../../model/index.js';
+import { pageMap } from '../../pagination/index.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
 import { DEFAULT_PANELS_LABELS, type DocumentPanelsLabels } from './panel-labels.js';
 
@@ -87,8 +88,10 @@ function DocumentRows(described: Described) {
   const { context, template, labels } = described;
   const { state } = context;
   const sections = documentSections(state.doc).length;
-  // The pages and words the status bar counts.
-  const statistics = useMemo(() => documentStatistics(state), [state]);
+  // The pages and words the status bar counts. The pages a projection shows the state on change
+  // as it lays them out, the state unchanged.
+  const pages = pageMap(state);
+  const statistics = useMemo(() => documentStatistics(state, pages), [state, pages]);
   return (
     <PropertySection id="document" title={labels.document} actions={extraActions(described)}>
       <PropertyRow label={labels.template}>

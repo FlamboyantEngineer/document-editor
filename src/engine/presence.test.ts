@@ -1,5 +1,6 @@
 import { EditorState } from 'prosemirror-state';
-import { describe, expect, it } from 'vitest';
+import { EditorView } from 'prosemirror-view';
+import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
 import { createPresence, listPeers, placePeers, presenceKey, setPeers } from './presence.js';
@@ -25,6 +26,19 @@ const start = (state: EditorState) => {
   return found;
 };
 
+const views: EditorView[] = [];
+
+afterEach(() => {
+  for (const view of views.splice(0)) view.destroy();
+});
+
+// A view drawing the peers, as the editor's does.
+function viewOf(value: string): EditorView {
+  const view = new EditorView(document.createElement('div'), { state: stateOf(value) });
+  views.push(view);
+  return view;
+}
+
 describe('presence', () => {
   it('DOCE-COLLAB-1.1 draws each peer’s caret and selection', () => {
     const state = stateOf('Shared text');
@@ -38,6 +52,36 @@ describe('presence', () => {
     const decorations = presenceKey.getState(next)?.decorations.find() ?? [];
     expect(decorations).toHaveLength(3);
     expect(listPeers(next).map((peer) => peer.name)).toEqual(['Grace', 'Alan']);
+  });
+
+  it('DOCE-COLLAB-1.1 writes a peer’s colour only when it is a plain colour', () => {
+    const view = viewOf('Shared text');
+    const at = start(view.state);
+    view.dispatch(
+      setPeers(view.state, [
+        { id: 'alan', name: 'Alan', color: 'rgb(204 0 0)', anchor: at, head: at + 2 },
+        {
+          id: 'grace',
+          name: 'Grace',
+          color: 'red; position: fixed; inset: 0; background: url(https://example.invalid/x)',
+          anchor: at + 3,
+          head: at + 6,
+        },
+      ]),
+    );
+    const drawn = (peer: string) =>
+      [...view.dom.querySelectorAll(`[data-presence-peer="${peer}"]`)].map((element) =>
+        element.getAttribute('style'),
+      );
+    expect(drawn('alan')).toEqual([
+      '--de-presence-color: rgb(204 0 0);',
+      '--de-presence-color: rgb(204 0 0)',
+    ]);
+    // What is not a colour is left out, and the peer shows in their slot's colour.
+    expect(drawn('grace')).toEqual([null, null]);
+    expect(view.dom.querySelector('[data-presence-peer="grace"]')).toHaveAttribute(
+      'data-presence-slot',
+    );
   });
 
   it('DOCE-COLLAB-1.2 moves the peers with the writer’s changes until the next update', () => {
@@ -97,5 +141,19 @@ describe('presence', () => {
       return attrs['data-presence-status'] ?? null;
     });
     expect(statuses.sort()).toEqual(['away', 'away', null]);
+  });
+
+  it('DOCE-COLLAB-1.6 draws a caret again when its peer goes idle, or changes name or colour, where it stands', () => {
+    const view = viewOf('Shared text');
+    const grace = { id: 'grace', name: 'Grace', head: start(view.state) + 2 };
+    view.dispatch(setPeers(view.state, [grace]));
+    const caret = () => view.dom.querySelector('.de-presence-caret');
+    expect(caret()).not.toHaveAttribute('data-presence-status');
+    view.dispatch(
+      setPeers(view.state, [{ ...grace, name: 'Grace H.', status: 'idle', color: '#c00' }]),
+    );
+    expect(caret()).toHaveAttribute('data-presence-status', 'idle');
+    expect(caret()).toHaveTextContent('Grace H.');
+    expect(caret()?.getAttribute('style')).toContain('#c00');
   });
 });

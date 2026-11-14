@@ -239,7 +239,10 @@ export function ThreadCard({
       quote={thread.quote}
       highlightedId={opened?.entryId ? entryElementId(context, opened.entryId) : undefined}
       isResolved={thread.state === 'resolved'}
-      onResolvedChange={may.resolve ? (resolved) => void onResolve(resolved) : undefined}
+      // A refusal shows on the thread as a row; nothing else waits on it.
+      onResolvedChange={
+        may.resolve ? (resolved) => void onResolve(resolved).catch(() => undefined) : undefined
+      }
       composer={
         may.reply ? (
           <DraftComposer
@@ -264,11 +267,14 @@ export function ThreadCard({
 
 /** A thread the reader is starting: its quote and the composer of its opening comment. */
 export function PendingCard({
+  id,
   quote,
   context,
   onSubmit,
   onCancel,
 }: {
+  /** The thread's id, which keeps the text typed for it apart from any other thread's. */
+  id: string;
   quote: string;
   context: CardContext;
   onSubmit: (text: string) => Promise<unknown>;
@@ -286,7 +292,9 @@ export function PendingCard({
           mentions={context.mentions}
           autoFocus
           defaultValue={context.newText ?? undefined}
-          persistKey={context.newText == null ? `de-comments:${context.documentId}:new` : undefined}
+          persistKey={
+            context.newText == null ? `de-comments:${context.documentId}:new:${id}` : undefined
+          }
           submitLabel={context.labels.comment}
           onSubmit={onSubmit}
           onCancel={onCancel}

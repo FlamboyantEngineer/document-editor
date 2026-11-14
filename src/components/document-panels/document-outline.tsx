@@ -4,6 +4,7 @@
 // editor's context.
 
 import { Outline } from '@flamboyantengineer/ui-components/outline';
+import { EditorState } from 'prosemirror-state';
 import { useMemo } from 'react';
 import { documentOutline, type OutlineEntry, revealElement } from '../../engine/index.js';
 import type { TemplateFile } from '../../model/index.js';
@@ -30,17 +31,21 @@ export function DocumentOutline(props: DocumentOutlineProps) {
   const context = props.context ?? held;
   const { template, include } = props;
   const state = context?.state ?? null;
+  // The headings are found again only when the document changes, not as the caret moves.
+  const doc = state?.doc ?? null;
   const entries = useMemo(
     () =>
-      state
-        ? documentOutline(state, template).filter(
+      doc
+        ? documentOutline(EditorState.create({ doc }), template).filter(
             (entry) => entry.elementId !== null && (include?.(entry) ?? true),
           )
         : [],
-    [state, template, include],
+    [doc, template, include],
   );
+  const head = state?.selection.head ?? 0;
   if (!context) return null;
-  const active = entries.find((entry) => entry.active);
+  // The heading the caret is under: the last that starts before it.
+  const active = entries.findLast((entry) => entry.pos <= head + 1);
   return (
     <Outline
       className={props.className}

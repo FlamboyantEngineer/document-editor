@@ -49,10 +49,20 @@ export function threadActions(
       isPending: true,
       retry: () => void reply(threadId, text),
     }).catch(() => null);
+  // Records a decision, offering Retry on the thread each time the store refuses it.
+  function record(
+    decision: ThreadDecision,
+    ask: NonNullable<typeof decide>,
+  ): Promise<CommentThread | null> {
+    return change(decision.threadId, () => ask.call(store, documentId, decision), {
+      retry: () => void record(decision, ask).catch(() => undefined),
+    });
+  }
   return {
     ...state,
     create: async (thread: NewCommentThread) =>
-      present(await change(thread.id, () => store.create(documentId, thread))),
+      // The composer that starts a thread reports its failure; the thread has no card to show it.
+      present(await change(thread.id, () => store.create(documentId, thread), { isQuiet: true })),
     reply,
     setState: async (threadId, next) =>
       present(await change(threadId, () => store.setState(documentId, threadId, next))),
@@ -71,15 +81,7 @@ export function threadActions(
       ? async (reaction) =>
           present(await change(reaction.threadId, () => react.call(store, documentId, reaction)))
       : null,
-    decide: decide
-      ? async (decision) =>
-          present(
-            await change(decision.threadId, () => decide.call(store, documentId, decision), {
-              retry: () =>
-                void change(decision.threadId, () => decide.call(store, documentId, decision)),
-            }),
-          )
-      : null,
+    decide: decide ? async (decision) => present(await record(decision, decide)) : null,
     update: update
       ? async (threadId, fields) =>
           present(await change(threadId, () => update.call(store, documentId, threadId, fields)))

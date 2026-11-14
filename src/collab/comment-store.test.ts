@@ -10,9 +10,10 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type CommentThread, createMemoryHost } from '../host/index.js';
-import { createRoomCommentStore, readRoomThreads } from './comment-store.js';
+import { readRoomThreads } from './comment-records.js';
+import { createRoomCommentStore } from './comment-store.js';
 
 // The write rules of docs/collaboration.md: a commenter may write the `comments` type only.
 const writeRules: RoomWriteRules = {
@@ -218,5 +219,174 @@ describe('createRoomCommentStore', () => {
       ok: false,
       error: { kind: 'not-found' },
     });
+  });
+});
+
+// Two writers' documents, which take each other's changes when asked, as a room relays them.
+function writers() {
+  const [first, second] = [new Y.Doc(), new Y.Doc()];
+  const exchange = () => {
+    Y.applyUpdate(second, Y.encodeStateAsUpdate(first, Y.encodeStateVector(second)));
+    Y.applyUpdate(first, Y.encodeStateAsUpdate(second, Y.encodeStateVector(first)));
+  };
+  const storeOf = (doc: Y.Doc, name: string) => {
+    let ids = 0;
+    return createRoomCommentStore({
+      doc,
+      identity: createMemoryHost({ person: { id: name, name } }).identity,
+      now: () => new Date('2026-01-02T03:04:05Z'),
+      createId: () => `${name}-${String((ids += 1))}`,
+    });
+  };
+  return { first, second, exchange, ada: storeOf(first, 'ada'), bea: storeOf(second, 'bea') };
+}
+
+const attribute = (doc: Y.Doc, key: readonly string[], record: unknown) =>
+  doc.get('comments').setAttr(JSON.stringify(key), record);
+
+// The names of the attributes the room keeps.
+function attributeNames(doc: Y.Doc): string[] {
+  const names: string[] = [];
+  doc.get('comments').forEachAttr((_value: unknown, name: string | number) => {
+    names.push(String(name));
+  });
+  return names.sort();
+}
+
+describe('readRoomThreads', () => {
+  it('DOCE-COMMENTS-2.20 leaves out what is not a thread or a comment, keeping the rest', async () => {
+    const { first, second, exchange, ada } = writers();
+    const told: CommentThread[][] = [];
+    ada.subscribe?.('doc', (threads) => told.push(threads));
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    exchange();
+    // What another writer's document may hold: any value under any key.
+    attribute(second, ['entry', 't1', 'no-fields'], { id: 'no-fields' });
+    attribute(second, ['entry', 't1', 'not-a-record'], 'Second');
+    attribute(second, ['thread', 'no-quote'], { id: 'no-quote', state: 'open' });
+    attribute(second, ['thread', 'not-a-record'], 7);
+    attribute(second, ['thread', 'renamed'], { id: 'another', quote: 'red', target: 'here' });
+    exchange();
+    const listed = value(await ada.list('doc'));
+    expect(listed).toEqual([
+      expect.objectContaining({ id: 't1', entries: [expect.objectContaining({ text: 'First' })] }),
+      // A thread is the one its key names, whatever its record says.
+      { id: 'renamed', quote: 'red', suggestion: null, state: 'open', entries: [] },
+    ]);
+    expect(told.at(-1)).toEqual(listed);
+    expect(readRoomThreads(first.get('comments'))).toEqual(listed);
+  });
+});
+
+describe('createRoomCommentStore, with changes made at once', () => {
+  it('DOCE-COMMENTS-2.20 keeps a resolution, a decision and an update two writers make at once', async () => {
+    const { exchange, ada, bea } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: '', suggestion: 's1' });
+    await ada.create('doc', { id: 't2', quote: 'red', text: '', suggestion: 's2' });
+    exchange();
+    const change = { kind: 'insert', inserted: 'blue sky' } as const;
+    await ada.update?.('doc', 't1', { quote: 'blue sky', change });
+    await bea.setState('doc', 't1', 'resolved');
+    await ada.update?.('doc', 't2', { quote: 'red rose' });
+    await bea.decide?.('doc', { threadId: 't2', suggestion: 's2', decision: 'reject' });
+    exchange();
+    for (const store of [ada, bea]) {
+      expect(value(await store.list('doc'))).toMatchObject([
+        { id: 't1', quote: 'blue sky', change, state: 'resolved', resolvedBy: 'bea' },
+        {
+          id: 't2',
+          quote: 'red rose',
+          state: 'resolved',
+          decision: { decision: 'reject', suggestion: 's2', by: 'bea' },
+        },
+      ]);
+    }
+  });
+
+  it('DOCE-COMMENTS-2.20 keeps a thread removed while another writer changes it', async () => {
+    const { second, exchange, ada, bea } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    await ada.create('doc', { id: 't2', quote: 'red', text: 'Second' });
+    exchange();
+    await ada.remove('doc', 't1');
+    await ada.remove('doc', 't2');
+    await bea.setState('doc', 't1', 'resolved');
+    await bea.reply('doc', 't1', 'Too late');
+    // An earlier editor resolves by writing the thread's whole record again.
+    attribute(second, ['thread', 't2'], { id: 't2', quote: 'red', state: 'resolved' });
+    exchange();
+    for (const store of [ada, bea]) expect(value(await store.list('doc'))).toEqual([]);
+    await expect(bea.create('doc', { id: 't1', quote: 'blue', text: 'Again' })).resolves.toEqual({
+      ok: false,
+      error: { kind: 'conflict' },
+    });
+  });
+
+  it('DOCE-COMMENTS-2.20 reads a thread an earlier editor kept as one record, and changes it', async () => {
+    const { first, ada } = writers();
+    const decision = {
+      decision: 'accept',
+      suggestion: 's1',
+      by: 'cy',
+      at: '2025-06-01T00:00:00.000Z',
+    };
+    attribute(first, ['thread', 'old'], {
+      id: 'old',
+      quote: 'blue',
+      suggestion: 's1',
+      state: 'resolved',
+      resolvedBy: 'cy',
+      resolvedAt: '2025-06-01T00:00:00.000Z',
+      author: 'cy',
+      createdAt: '2025-05-01T00:00:00.000Z',
+      updatedAt: '2025-06-01T00:00:00.000Z',
+      decision,
+    });
+    const [kept] = value(await ada.list('doc'));
+    expect(kept).toMatchObject({ id: 'old', state: 'resolved', resolvedBy: 'cy', decision });
+    const reopened = value(await ada.setState('doc', 'old', 'open'));
+    expect(reopened).toMatchObject({
+      state: 'open',
+      decision,
+      updatedAt: '2026-01-02T03:04:05.000Z',
+    });
+    expect(reopened).not.toHaveProperty('resolvedBy');
+    expect(reopened).not.toHaveProperty('resolvedAt');
+    expect(
+      value((await ada.update?.('doc', 'old', { quote: 'blues' })) ?? { ok: false }),
+    ).toMatchObject({ quote: 'blues', state: 'open' });
+  });
+});
+
+describe('createRoomCommentStore, its comments', () => {
+  it('DOCE-COMMENTS-2.20 removes a comment with the reactions to it', async () => {
+    const { first, exchange, ada, bea } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    exchange();
+    await bea.reply('doc', 't1', 'Second');
+    exchange();
+    await ada.react?.('doc', { threadId: 't1', entryId: 'bea-1', emoji: '👍', reacted: true });
+    await ada.react?.('doc', { threadId: 't1', entryId: 'ada-1', emoji: '🎉', reacted: true });
+    exchange();
+    await bea.removeEntry?.('doc', { threadId: 't1', entryId: 'bea-1' });
+    exchange();
+    expect(attributeNames(first)).toEqual([
+      '["entry","t1","ada-1"]',
+      '["reaction","t1","ada-1","🎉","ada"]',
+      '["thread","t1"]',
+    ]);
+  });
+
+  it('DOCE-COMMENTS-2.20 makes its own ids where the page is not a secure context', async () => {
+    // Only a secure context has `crypto.randomUUID`.
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    const doc = new Y.Doc();
+    const { identity } = createMemoryHost({ person: { id: 'ada', name: 'Ada' } });
+    const store = createRoomCommentStore({ doc, identity });
+    await store.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    const thread = value(await store.reply('doc', 't1', 'Second'));
+    const ids = thread.entries.map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) expect(id).toMatch(/^[\da-f]{32}$/);
   });
 });

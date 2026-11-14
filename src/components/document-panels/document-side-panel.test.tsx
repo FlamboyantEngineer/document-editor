@@ -8,7 +8,9 @@ import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { type CommentThread, createMemoryHost } from '../../host/index.js';
-import { readDocumentFile, type TemplateFile } from '../../model/index.js';
+import { FRAGMENT_RULES, readDocumentFile, type TemplateFile } from '../../model/index.js';
+import { showOnPages } from '../../pagination/page-map.js';
+import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { DocumentEditor } from '../document-editor/document-editor.js';
 import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
 import { DocumentContributors } from './document-contributors.js';
@@ -68,11 +70,14 @@ function Harness({
   handleRef,
   comments = true,
   placement,
+  options,
 }: {
   panel: Omit<DocumentSidePanelProps, 'position'>;
   handleRef?: Ref<DocumentEditorHandle>;
   comments?: boolean;
   placement?: 'margin' | 'pane';
+  /** The comments' other options. */
+  options?: Partial<DocumentCommentsOptions>;
 }) {
   const [state, setState] = useState(initial);
   const [memory] = useState(host);
@@ -86,7 +91,13 @@ function Harness({
       handleRef={handleRef}
       comments={
         comments && memory.comments
-          ? { store: memory.comments, documentId: 'doc', identity: memory.identity, placement }
+          ? {
+              store: memory.comments,
+              documentId: 'doc',
+              identity: memory.identity,
+              placement,
+              ...options,
+            }
           : undefined
       }
       panels={{ end: <DocumentSidePanel position="end" template={TEMPLATE} {...panel} /> }}
@@ -128,6 +139,30 @@ describe('DocumentSidePanel', () => {
     );
     await user.click(within(details()).getByRole('button', { name: /collapse/i }));
     expect(onExpandedChange).toHaveBeenCalledWith(false);
+  });
+
+  it('DOCE-EDITOR-8.4 counts the pages the document is shown on, as its layout gives them', async () => {
+    const handle = createRef<DocumentEditorHandle>();
+    const panel = { panes: ['properties' as const], defaultSelectedPane: 'properties' as const };
+    const { rerender } = render(<Harness handleRef={handle} panel={panel} />);
+    const pages = () => within(details()).getByText('Pages').closest('[role="row"], div, dt');
+    await waitFor(() => expect(pages()?.parentElement).toHaveTextContent('1'));
+    const doc = handle.current?.view()?.state.doc;
+    if (!doc) throw new Error('The editor should show a document.');
+    // The layout shows the same document on three pages.
+    const content = doc.child(0).child(0);
+    const shown = doc.type.create(null, [
+      doc
+        .child(0)
+        .type.create(doc.child(0).attrs, [
+          content,
+          content.copy(content.content),
+          content.copy(content.content),
+        ]),
+    ]);
+    showOnPages(doc, { pages: shown, rules: FRAGMENT_RULES });
+    rerender(<Harness handleRef={handle} panel={{ ...panel }} />);
+    await waitFor(() => expect(pages()?.parentElement).toHaveTextContent('3'));
   });
 
   it('DOCE-EDITOR-8.1 holds its pane and expanded state when uncontrolled', async () => {
@@ -185,6 +220,30 @@ describe('DocumentSidePanel', () => {
     unmount();
     render(<Harness comments={false} panel={{ panes: ['comments', 'properties'] }} />);
     expect(within(details()).queryByRole('tab', { name: /Comments/ })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-8.3 DOCE-COMMENTS-4.2 leaves the comments pane its own filter, whatever the margin’s', async () => {
+    const user = userEvent.setup();
+    render(<Harness options={{ filter: 'open' }} panel={{ panes: ['comments'] }} />);
+    const filter = await within(details()).findByRole('radiogroup', { name: 'Show' });
+    expect(within(filter).getByRole('radio', { name: /Open/ })).toBeChecked();
+    await user.click(within(filter).getByRole('radio', { name: /All/ }));
+    expect(within(filter).getByRole('radio', { name: /All/ })).toBeChecked();
+    expect(await within(details()).findByText('Note two')).toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-8.3 DOCE-COMMENTS-4.2 counts no thread the reader is not among the audience of', async () => {
+    render(
+      <Harness
+        options={{ audience: (each) => each.id !== 'one' }}
+        panel={{ panes: ['comments', 'properties'] }}
+      />,
+    );
+    const tab = within(details()).getByRole('tab', { name: /Comments/ });
+    // Once the threads are listed, All keeps the resolved thread and the suggestion: the open
+    // thread is not for the reader.
+    await within(details()).findByRole('radio', { name: /All.*2/ });
+    expect(tab).not.toHaveTextContent('1');
   });
 
   it('DOCE-COMMENTS-4.7 reveals the comments pane for a thread started or opened there', async () => {

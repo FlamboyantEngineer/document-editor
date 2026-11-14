@@ -5,29 +5,37 @@
 // in the document; the one the caret is in, or the reader was taken to, is the active one. With the
 // threads placed in the pane alone, it holds the thread being started too.
 
-import { Button } from '@flamboyantengineer/ui-components/button';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-choice';
-import { type Command, TextSelection } from 'prosemirror-state';
+import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import {
   canStartComment,
+  commentAnchors,
   createElementId,
+  listSuggestions,
   startCommentDraft,
   type SuggestionPolicy,
 } from '../../engine/index.js';
-import { createHooks } from '../../utils/hooks.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
-import { type CardContext, DEFAULT_COMMENTS_LABELS, ThreadCard } from './comment-cards.js';
+import type { AnchorTarget } from './anchor-rects.js';
+import { DEFAULT_COMMENTS_LABELS } from './comment-cards.js';
 import type { CommentsFilter } from './comment-filters.js';
 import { useCommentFocus } from './comment-focus.js';
-import { caretKey, renderCommentCard } from './comment-items.js';
-import { useCommentMentions } from './comment-mentions.js';
+import { caretKey } from './comment-items.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
+import { hooks } from './comments-panel-hooks.js';
 import { usePanelLists } from './comments-panel-items.js';
 import type { DocumentCommentsOptions } from './document-comments.js';
-import { type CommentThreads, useProvidedCommentThreads } from './use-comment-threads.js';
+import { useStableCallbacks } from './margin-card.js';
+import { PanelCard, UnanchoredCard } from './panel-card.js';
+import { useCardContext } from './use-card-context.js';
+import {
+  type CommentThreads,
+  useProvidedCommentThreads,
+  useSuggestionAuthors,
+} from './use-comment-threads.js';
 
 export type { CommentsFilter } from './comment-filters.js';
 
@@ -45,11 +53,20 @@ export interface DocumentCommentsPanelProps extends DocumentCommentsOptions {
   readonly className?: string | undefined;
 }
 
-const hooks = createHooks('comments-panel', ['thread', 'suggestion']);
+// Where an item's text starts in the document as the view now has it, which a card drawn for an
+// earlier state does not know.
+function startOf(state: EditorState, target: AnchorTarget): number | null {
+  if (target.kind === 'comment')
+    return commentAnchors(state).find((anchor) => anchor.thread === target.id)?.from ?? null;
+  if (target.kind === 'suggestion')
+    return listSuggestions(state.doc).find((each) => each.id === target.id)?.from ?? null;
+  return null;
+}
 
-// Puts the caret at a position and scrolls it into view.
-function goTo(view: EditorView | null, at: number) {
-  if (!view) return;
+// Puts the caret where an item's text starts and scrolls it into view.
+function showIn(view: EditorView, target: AnchorTarget) {
+  const at = startOf(view.state, target);
+  if (at === null) return;
   const selection = TextSelection.create(view.state.doc, at);
   view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
   view.focus();
@@ -79,120 +96,69 @@ function usePanelFilter(props: DocumentCommentsPanelProps) {
   return [props.filter ?? own, choose] as const;
 }
 
-// What every card of the panel reads.
-function usePanelCards(props: DocumentCommentsPanelProps, comments: CommentThreads) {
-  const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
-  const mentions = useCommentMentions(props.identity, props.mentions);
-  const me = props.identity.currentPerson().id;
-  const { audience } = props;
-  const focus = useCommentFocus();
-  const revealed = focus.opened?.threadId;
-  const base = useMemo(
-    () => ({
-      me,
-      audience,
-      parse: mentions.parse,
-      includes: props.mentions?.includes?.bind(props.mentions),
-      revealed,
-    }),
-    [me, audience, mentions, revealed, props.mentions],
-  );
-  const card: CardContext = {
-    comments,
-    me,
-    canComment: props.canComment ?? true,
-    labels,
-    documentId: props.documentId,
-    mentions,
-    format: props.format,
-    mentionCard: props.mentionCard,
-    commentActions: props.commentActions,
-    threadPermissions: props.threadPermissions,
-    scope: 'panel',
-    opened: focus.opened,
-    newText: focus.newText,
-  };
-  return { card, base, focus };
-}
-
-// An item of the panel, scrolled into view within the panel when it becomes the active one.
-function PanelItem({
-  isActive,
-  slot,
-  children,
-}: {
-  isActive: boolean;
-  slot: ReturnType<typeof hooks.slot>;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (isActive) ref.current?.scrollIntoView?.({ block: 'nearest' });
-  }, [isActive]);
-  return (
-    <div ref={ref} {...slot}>
-      {children}
-    </div>
-  );
-}
-
-// Runs commands on the editor's view, and starts a thread there, as the margin would.
-function usePanelCommands(view: EditorView | null, focus: ReturnType<typeof useCommentFocus>) {
+// Runs commands on the editor's view, and starts a thread there, as the margin would; the same
+// functions from one state of the document to the next, so they draw no card again.
+function usePanelCommands(view: EditorView | null) {
+  const { setNewText } = useCommentFocus();
   const run = (command: Command) => {
     if (view) command(view.state, view.dispatch);
   };
   const startThread = () => {
     if (!view || !canStartComment(view.state)) return;
-    focus.setNewText(null);
+    setNewText(null);
     run(startCommentDraft(createElementId()));
   };
-  return { run, startThread };
+  const onShow = useMemo(
+    () => (view ? (target: AnchorTarget) => showIn(view, target) : undefined),
+    [view],
+  );
+  return { ...useStableCallbacks({ run, startThread }), onShow };
 }
 
 // The editor's one decide policy (DOCE-SUGGESTIONS-2.8): a reader who edits may decide, as
-// `decide` allows, and a writer may withdraw their own suggestion, while suggesting too.
-function policyOf(
+// `decide` allows, and a writer may withdraw their own suggestion, while suggesting too. A new one
+// only when what it says or the threads change, so the suggestions' cards are drawn again only then.
+function usePanelPolicy(
   props: DocumentCommentsPanelProps,
-  {
-    context,
-    me,
-    threads,
-  }: { context: EditorContext | null; me: string; threads: CommentThreads['threads'] },
+  context: EditorContext | null,
+  { threads }: CommentThreads,
 ): SuggestionPolicy {
+  const me = props.identity.currentPerson().id;
   const editable = context?.editable ?? false;
-  return {
-    me,
-    canDecide: props.canDecide ?? (editable && !(context?.suggesting ?? false)),
-    canWithdraw: editable,
-    decide: props.decide,
-    threadAuthor: (thread) => threads.get(thread)?.entries[0]?.author,
-  };
+  const canDecide = props.canDecide ?? (editable && !(context?.suggesting ?? false));
+  const { decide } = props;
+  return useMemo(
+    () => ({
+      me,
+      canDecide,
+      canWithdraw: editable,
+      decide,
+      threadAuthor: (thread: string) => threads.get(thread)?.entries[0]?.author,
+    }),
+    [me, canDecide, editable, decide, threads],
+  );
 }
 
 function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const held = useDocumentEditor();
   const context = props.context ?? held;
-  const comments = useProvidedCommentThreads(props);
+  // The panel follows each state after the document shows it, and skips those typed past.
+  const state = useDeferredValue(context?.state ?? null);
+  // The writers of suggestions are named on their cards, as in the margin.
+  const comments = useProvidedCommentThreads(props, useSuggestionAuthors(state));
   const [filter, choose] = usePanelFilter(props);
-  const { card, base, focus } = usePanelCards(props, comments);
-  const state = context?.state ?? null;
-  const pane = { placed: props.placement === 'pane', canComment: card.canComment };
-  const { lists, counts } = usePanelLists(state, comments.threads, { base, pane });
+  const labels = useMemo(() => ({ ...DEFAULT_COMMENTS_LABELS, ...props.labels }), [props.labels]);
+  const canComment = props.canComment ?? true;
+  const shared = { comments, canComment, labels, scope: 'panel' as const };
+  const { context: card, listed, opened } = useCardContext(props, shared);
+  const pane = { placed: props.placement === 'pane', canComment };
+  const { lists, counts } = usePanelLists(state, comments.threads, { base: listed, pane });
   const { items, unanchored } = lists.get(filter) ?? { items: [], unanchored: [] };
   const count = (each: CommentsFilter) => counts.get(each) ?? 0;
-  const view = context?.view ?? null;
-  const { run, startThread } = usePanelCommands(view, focus);
-  const opened = focus.opened ? `comment:${focus.opened.threadId}` : null;
+  const { run, startThread, onShow } = usePanelCommands(context?.view ?? null);
   const caret = state ? caretKey(items, state) : null;
-  const active = caret && caret !== 'draft' ? caret : opened;
-  const policy = policyOf(props, { context, me: card.me, threads: comments.threads });
-  const { labels } = card;
-  const showIn = (at: number): ReactNode =>
-    view ? (
-      <Button size="sm" variant="ghost" onPress={() => goTo(view, at)}>
-        {labels.showInDocument}
-      </Button>
-    ) : null;
+  const active = caret && caret !== 'draft' ? caret : opened && `comment:${opened.threadId}`;
+  const policy = usePanelPolicy(props, context, comments);
   return (
     <section {...hooks.root({ className: props.className })} aria-label={labels.commentsPanel}>
       <SegmentedChoice
@@ -206,41 +172,25 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
         onChange={choose}
       />
       {count(filter) === 0 && items.length === 0 ? <p>{labels.noComments}</p> : null}
-      {items.map((item) => (
-        <PanelItem
-          key={item.key}
-          isActive={item.key === active}
-          slot={hooks.slot(item.kind === 'suggestion' ? 'suggestion' : 'thread', {
-            anchored: true,
-          })}
-        >
-          {renderCommentCard(item, {
-            context: card,
-            isActive: item.key === active,
-            policy,
-            run,
-            startThread,
-          })}
-          {item.kind === 'thread' || item.kind === 'suggestion' ? showIn(item.from) : null}
-        </PanelItem>
-      ))}
-      {unanchored.map((thread) => (
-        <PanelItem
-          key={thread.id}
-          isActive={`comment:${thread.id}` === active}
-          slot={hooks.slot('thread', { anchored: false })}
-        >
-          <ThreadCard
+      {/* The list takes focus when its last card goes, the region around it naming it. */}
+      <div {...hooks.slot('list')} role="list" tabIndex={-1}>
+        {items.map((item) => (
+          <PanelCard
+            key={item.key}
+            item={item}
+            actions={{ context: card, isActive: item.key === active, policy, run, startThread }}
+            onShow={onShow}
+          />
+        ))}
+        {unanchored.map((thread) => (
+          <UnanchoredCard
+            key={thread.id}
             thread={thread}
             isActive={`comment:${thread.id}` === active}
             context={card}
-            onResolve={async (resolved) => {
-              await comments.setState(thread.id, resolved ? 'resolved' : 'open');
-            }}
-            onRemove={() => comments.remove(thread.id)}
           />
-        </PanelItem>
-      ))}
+        ))}
+      </div>
     </section>
   );
 }

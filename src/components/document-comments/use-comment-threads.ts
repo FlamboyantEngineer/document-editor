@@ -5,15 +5,15 @@
 
 import type { AvatarIdentity } from '@flamboyantengineer/ui-components/avatar';
 import type { EditorState } from 'prosemirror-state';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 import { listSuggestions } from '../../engine/index.js';
 import type {
   CommentStoreAdapter,
   CommentThread,
-  HostResult,
   IdentityAdapter,
   NewCommentThread,
 } from '../../host/index.js';
+import { usePeople } from '../../utils/use-people.js';
 import {
   type EntryChange,
   threadActions,
@@ -21,7 +21,7 @@ import {
   type ThreadDecision,
 } from './comment-thread-actions.js';
 import { useThreadList } from './comment-thread-list.js';
-import { type ThreadActivity, useThreadActivity } from './use-thread-activity.js';
+import { type ThreadActivity, useThreadActivity, valueOf } from './use-thread-activity.js';
 
 /** The threads of a document and the changes the reader can make to them. */
 export interface CommentThreads {
@@ -78,6 +78,11 @@ export interface SharedCommentThreads {
   readonly store: CommentStoreAdapter;
   readonly documentId: string;
   readonly threads: CommentThreads;
+  /**
+   * Whether the provider records the decisions the editor's transactions make on suggestions; a
+   * command that goes through the editor's view then records none itself (DOCE-COMMENTS-2.19).
+   */
+  readonly recordsDecisions?: boolean | undefined;
 }
 
 /** The thread state of the nearest `CommentThreadsProvider`, if any. */
@@ -87,16 +92,33 @@ const NO_AUTHORS: readonly string[] = [];
 const NO_THREADS: ReadonlyMap<string, CommentThread> = new Map();
 const NO_PEOPLE: ReadonlyMap<string, AvatarIdentity> = new Map();
 
-function valueOf<T>(result: HostResult<T>, failed: string): T {
-  if (result.ok) return result.value;
-  throw new Error(result.error.message ?? failed);
-}
-
 /** Whose names to look up: the threads' authors and `others`, less the people `known` names. */
 interface PeopleSources {
   readonly threads: ReadonlyMap<string, CommentThread>;
   readonly others: readonly string[];
   readonly known: ReadonlyMap<string, AvatarIdentity>;
+}
+
+// Everyone a thread names: who started it, wrote or reacted to its comments, and decided it.
+function peopleOf(thread: CommentThread, ids: Set<string>) {
+  if (thread.author) ids.add(thread.author);
+  if (thread.decision) ids.add(thread.decision.by);
+  for (const entry of thread.entries) {
+    ids.add(entry.author);
+    for (const people of Object.values(entry.reactions ?? {})) for (const id of people) ids.add(id);
+  }
+}
+
+// The people the activity rows name, such as those writing in a thread, the same list while
+// they stay the same.
+function useActivePeople(activity: ReadonlyMap<string, readonly ThreadActivity[]>) {
+  const key = useMemo(() => {
+    const ids = new Set<string>();
+    for (const rows of activity.values())
+      for (const row of rows) if (row.person) ids.add(row.person);
+    return [...ids].sort().join('\n');
+  }, [activity]);
+  return useMemo(() => (key ? key.split('\n') : NO_AUTHORS), [key]);
 }
 
 // Each author's name and picture, looked up once for every id the threads and `others` name;
@@ -105,35 +127,19 @@ function useCommentPeople(
   identity: IdentityAdapter,
   { threads, others, known }: PeopleSources,
 ): ReadonlyMap<string, AvatarIdentity> {
-  const [people, setPeople] = useState<ReadonlyMap<string, AvatarIdentity>>(new Map());
   const authors = useMemo(() => {
     const ids = new Set<string>(others);
-    for (const thread of threads.values())
-      for (const entry of thread.entries) ids.add(entry.author);
-    return [...ids].sort();
-  }, [threads, others]);
-  const missing = authors.filter((id) => !people.has(id) && !known.has(id));
-  const key = missing.join('\n');
-  useEffect(() => {
-    if (!key) return;
-    let current = true;
-    void identity.resolvePeople(key.split('\n')).then((found) => {
-      if (!current) return;
-      setPeople((known) => {
-        const next = new Map(known);
-        for (const person of found)
-          next.set(person.id, { name: person.name, src: person.avatarUrl });
-        return next;
-      });
-    });
-    return () => {
-      current = false;
-    };
-  }, [identity, key]);
-  return useMemo(
-    () => (known.size === 0 ? people : people.size === 0 ? known : new Map([...known, ...people])),
-    [known, people],
-  );
+    for (const thread of threads.values()) peopleOf(thread, ids);
+    return [...ids].filter((id) => !known.has(id));
+  }, [threads, others, known]);
+  const found = usePeople(identity, authors);
+  return useMemo(() => {
+    if (found.size === 0) return known;
+    const people = new Map(known);
+    for (const person of found.values())
+      people.set(person.id, { name: person.name, src: person.avatarUrl });
+    return people;
+  }, [known, found]);
 }
 
 /** Lists a document's threads from the host's store and keeps them as the reader changes them. */
@@ -145,7 +151,8 @@ export function useCommentThreads({
 }: CommentThreadsOptions): CommentThreads {
   const { threads, error, write, settle } = useThreadList(store, { documentId, failed });
   const { activity, track } = useThreadActivity(store, { documentId, threads, failed });
-  const people = useCommentPeople(identity, { threads, others: NO_AUTHORS, known: NO_PEOPLE });
+  const active = useActivePeople(activity);
+  const people = useCommentPeople(identity, { threads, others: active, known: NO_PEOPLE });
   // Makes a change to a thread: noted before the store is asked, kept as the store returns it,
   // and shown as the thread's activity while it is made and when it fails.
   const change = useCallback<ThreadChange>(
@@ -179,11 +186,15 @@ export function useSharedCommentThreads({
 }
 
 /** The people who made the document's suggestions, the same list while they stay the same. */
-export function useSuggestionAuthors(state: EditorState): readonly string[] {
-  const doc = state.doc;
+export function useSuggestionAuthors(state: EditorState | null): readonly string[] {
+  const doc = state?.doc ?? null;
   const key = useMemo(
     () =>
-      [...new Set(listSuggestions(doc).flatMap(({ author }) => (author ? [author] : [])))]
+      [
+        ...new Set(
+          (doc ? listSuggestions(doc) : []).flatMap(({ author }) => (author ? [author] : [])),
+        ),
+      ]
         .sort()
         .join('\n'),
     [doc],

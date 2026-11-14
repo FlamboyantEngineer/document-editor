@@ -4,6 +4,7 @@
 // unmarked when the editor knows no writer, so an agent's attribution never bleeds into a person's
 // typing.
 
+import { isHistoryTransaction } from 'prosemirror-history';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Transaction } from 'prosemirror-state';
 import { ReplaceStep } from 'prosemirror-transform';
@@ -152,8 +153,12 @@ export function markContributors(
   { contributor = () => null, isRemote = isRemoteTransaction }: ContributorMarksOptions = {},
 ): boolean {
   if (!tr.doc.type.schema.marks.contributor) return false;
+  // An undo or a redo brings text back as it was written: it writes none of the reader's own.
   const own = (each: Transaction) =>
-    isLocalEdit(each, isRemote) && each.getMeta('addToHistory') !== false && !automationActor(each);
+    isLocalEdit(each, isRemote) &&
+    each.getMeta('addToHistory') !== false &&
+    !isHistoryTransaction(each) &&
+    !automationActor(each);
   const ranges = insertedRanges(transactions, own);
   if (!ranges.length) return false;
   const writer = contributor();

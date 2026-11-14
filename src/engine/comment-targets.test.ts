@@ -6,9 +6,11 @@ import { documentSchema } from '../../test/document-markup.js';
 import type { CommentTarget } from '../host/index.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { commentAnchors, createCommentAnchors } from './comment-anchors.js';
+import { createCommentDraft, startCommentDraft } from './comment-draft.js';
 import {
   anchorThreads,
   describeCommentTarget,
+  describeDraftTarget,
   reanchorThread,
   reconcileThreads,
   resolveCommentTarget,
@@ -70,6 +72,17 @@ describe('portable comment targets', () => {
       ranges: anchor?.ranges,
       exact: true,
     });
+  });
+
+  it('DOCE-COMMENTS-1.10 describes the thread being started as its anchor would be', () => {
+    const state = EditorState.create({
+      doc: DOC,
+      selection: TextSelection.create(DOC, positionOf(DOC, 'blue'), positionOf(DOC, 'Gamma') + 5),
+      plugins: [createCommentDraft()],
+    });
+    expect(describeDraftTarget(state)).toBeNull();
+    const started = run(state, startCommentDraft('t2'));
+    expect(started && describeDraftTarget(started)).toEqual(TARGET);
   });
 
   it('DOCE-COMMENTS-1.10 finds moved text in its element, then the quote anywhere', () => {

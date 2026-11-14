@@ -2,8 +2,13 @@
 // changes the store refused, replies still being written for the reader, such as an assistant's,
 // and other people writing in it. The cards show them as the thread's activity rows.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CommentActivity, CommentStoreAdapter, CommentThread } from '../../host/index.js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type {
+  CommentActivity,
+  CommentStoreAdapter,
+  CommentThread,
+  HostResult,
+} from '../../host/index.js';
 
 /** One row of a thread's activity. */
 export interface ThreadActivity {
@@ -23,11 +28,22 @@ export interface TrackedChange {
   readonly isPending?: boolean | undefined;
   /** Offers to make the change again when it fails. */
   readonly retry?: (() => void) | undefined;
+  /** Shows no row when it fails, for a change whose own control reports the failure. */
+  readonly isQuiet?: boolean | undefined;
 }
 
 type Rows = ReadonlyMap<string, readonly ThreadActivity[]>;
 
+/** What the store answered, or the error a refusal is: its message, else the failure message. */
+export function valueOf<T>(result: HostResult<T>, failed: string): T {
+  if (result.ok) return result.value;
+  throw new Error(result.error.message ?? failed);
+}
+
 const NO_ACTIVITY: Rows = new Map();
+
+// How many changes have been tracked, which keys each change's row apart from every other.
+let tracked = 0;
 const NO_TYPING: readonly CommentActivity[] = [];
 
 function withRow(
@@ -114,12 +130,11 @@ export function useThreadActivity(
   },
 ) {
   const [local, setLocal] = useState<Rows>(NO_ACTIVITY);
-  const changes = useRef(0);
   const typing = useTyping(store, documentId);
   const track = useCallback(
     async <T>(threadId: string, change: TrackedChange, made: Promise<T>): Promise<T> => {
-      changes.current += 1;
-      const key = `change:${String(changes.current)}`;
+      tracked += 1;
+      const key = `change:${String(tracked)}`;
       if (change.isPending)
         setLocal((rows) => withRow(rows, threadId, { row: { key, kind: 'pending' }, drop: '' }));
       try {
@@ -127,6 +142,10 @@ export function useThreadActivity(
         setLocal((rows) => withRow(rows, threadId, { row: null, drop: key }));
         return value;
       } catch (cause) {
+        if (change.isQuiet) {
+          setLocal((rows) => withRow(rows, threadId, { row: null, drop: key }));
+          throw cause;
+        }
         const dismiss = () => setLocal((rows) => withRow(rows, threadId, { row: null, drop: key }));
         const row: ThreadActivity = {
           key,
@@ -147,16 +166,21 @@ export function useThreadActivity(
     [failed],
   );
   const { settleEntry } = store;
+  // A reply written for the reader, cancelled or retried; a refusal shows on the thread as a row,
+  // and nothing else waits on it.
+  const settle = useCallback(
+    (threadId: string, entryId: string, action: 'cancel' | 'retry') => {
+      if (!settleEntry) return;
+      const asked = settleEntry
+        .call(store, documentId, { threadId, entryId, action })
+        .then((result) => valueOf(result, failed));
+      void track(threadId, {}, asked).catch(() => undefined);
+    },
+    [settleEntry, store, documentId, track, failed],
+  );
   const entries = useMemo(
-    () =>
-      entryRows(
-        threads,
-        settleEntry
-          ? (threadId, entryId, action) =>
-              void settleEntry.call(store, documentId, { threadId, entryId, action })
-          : null,
-      ),
-    [threads, settleEntry, store, documentId],
+    () => entryRows(threads, settleEntry ? settle : null),
+    [threads, settleEntry, settle],
   );
   const activity = useMemo(() => joinRows(local, entries, typing), [local, entries, typing]);
   return { activity, track };

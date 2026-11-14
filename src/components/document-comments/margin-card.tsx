@@ -1,8 +1,10 @@
 // A card of the comments margin, drawn again only when what it shows changes: typing beside
-// hundreds of threads redraws the cards the caret moves between, not every card (DOCE-COMMENTS-3.7).
+// hundreds of threads redraws the cards the caret moves between, not every card
+// (DOCE-COMMENTS-3.7). The panel's cards are compared the same way.
 
 import { type CSSProperties, memo, useLayoutEffect, useMemo, useRef } from 'react';
 import type { Suggestion } from '../../engine/index.js';
+import { useFocusHandOver } from './card-focus.js';
 import { hooks } from './comment-cards.js';
 import { type CardActions, type CommentItem, renderCommentCard } from './comment-items.js';
 
@@ -36,17 +38,16 @@ function isSameItem(a: CommentItem, b: CommentItem): boolean {
   }
 }
 
-interface MarginCardProps {
+/** A card as the margin and the panel draw one: its item and what it does. */
+export interface ShownCard {
   readonly item: CommentItem;
-  /** How far the card moves across to sit beside its anchor's page. */
-  readonly offset?: number | undefined;
   readonly actions: CardActions;
 }
 
-function isSameCard(previous: MarginCardProps, next: MarginCardProps): boolean {
+/** Whether two cards show the same, wherever the document now has their text. */
+export function isSameCardShown(previous: ShownCard, next: ShownCard): boolean {
   const [a, b] = [previous.actions, next.actions];
   return (
-    previous.offset === next.offset &&
     a.isActive === b.isActive &&
     a.context === b.context &&
     a.policy === b.policy &&
@@ -56,10 +57,21 @@ function isSameCard(previous: MarginCardProps, next: MarginCardProps): boolean {
   );
 }
 
+interface MarginCardProps extends ShownCard {
+  /** How far the card moves across to sit beside its anchor's page. */
+  readonly offset?: number | undefined;
+}
+
+const isSameCard = (previous: MarginCardProps, next: MarginCardProps) =>
+  previous.offset === next.offset && isSameCardShown(previous, next);
+
 /** A card beside its anchor's page, whatever the page's size and orientation. */
 export const MarginCard = memo(function MarginCard({ item, offset = 0, actions }: MarginCardProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusHandOver(ref);
   return (
     <div
+      ref={ref}
       {...hooks.slot('card')}
       style={{ '--de-comment-offset': `${String(offset)}px` } as CSSProperties}
     >

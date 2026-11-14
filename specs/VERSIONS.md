@@ -201,7 +201,7 @@ Verification: `src/session/versions.test.ts`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-4.6 - The history pane
 
-`DocumentHistory` shall show the versions on the base library's VersionHistory, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2). It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
+`DocumentHistory` shall show the versions on the base library's VersionHistory, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
 
 Implementation: `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
 Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
@@ -217,7 +217,7 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 ### DOCE-VERSIONS-5.1 - Viewing a version
 
-`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own, read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. The document's own state and saving shall go on unchanged.
+`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own (only the version asked for last is shown, and none still being read when the reader returns), read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. The document's own state and saving shall go on unchanged.
 
 Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
 Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`

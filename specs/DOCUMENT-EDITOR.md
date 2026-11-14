@@ -566,14 +566,14 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 
 ### DOCE-EDITOR-8.3 - The comments pane
 
-The built-in `comments` pane shall show the comments panel (`DocumentCommentsPanel`) of the editor's `comments`, sharing the editor's thread state (DOCE-COMMENTS-2.14), with the open threads counted on its tab. An editor without comments has no comments pane.
+The built-in `comments` pane shall show the comments panel (`DocumentCommentsPanel`) of the editor's `comments`, sharing the editor's thread state (DOCE-COMMENTS-2.14), with the open threads the reader is among the audience of (DOCE-COMMENTS-4.2) counted on its tab. The pane's filter is its own to choose, starting at the margin's `filter`. An editor without comments has no comments pane.
 
 Implementation: `src/components/document-panels/built-in-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
 
 ### DOCE-EDITOR-8.4 - Extending the properties
 
-The properties pane's pages and words shall be those the status bar counts (`documentStatistics`, DOCE-EDITOR-5.2). A host shall arrange its sections (`sections`: the built-in `document`, `section` and `selection` by id, and sections of its own, each with an id, a title, its rows and buttons after its title), add rows after a built-in section's own and buttons after its title (`extend`), and give a side panel's `properties` pane both (`properties`).
+The properties pane's pages and words shall be those the status bar counts (`documentStatistics`, DOCE-EDITOR-5.2), the pages counted again when the layout shows the same document on other pages. A host shall arrange its sections (`sections`: the built-in `document`, `section` and `selection` by id, and sections of its own, each with an id, a title, its rows and buttons after its title), add rows after a built-in section's own and buttons after its title (`extend`), and give a side panel's `properties` pane both (`properties`).
 
 Implementation: `src/components/document-panels/document-properties.tsx`, `src/components/document-panels/built-in-panes.tsx`, `labs/src/host-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`

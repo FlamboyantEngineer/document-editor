@@ -9,6 +9,7 @@ import {
   commitCommentDraft,
   createElementId,
   decideWithPolicy,
+  describeDraftTarget,
   linkSuggestionThread,
   listSuggestions,
   removeCommentAnchor,
@@ -18,7 +19,7 @@ import {
   suggestionPermissions,
   type SuggestionPolicy,
 } from '../../engine/index.js';
-import type { CommentThread } from '../../host/index.js';
+import type { CommentTarget, CommentThread } from '../../host/index.js';
 import type { AnchorTarget } from './anchor-rects.js';
 import { type CardContext, DraftCard, PendingCard, ThreadCard } from './comment-cards.js';
 import { isSuggestionShown, isThreadShown, type ThreadFilter } from './comment-filters.js';
@@ -56,11 +57,18 @@ export interface CommentItemsOptions {
   readonly mineResolved?: boolean | undefined;
 }
 
-function threadItems(state: EditorState, { threads, filter, mineResolved }: CommentItemsOptions) {
+/**
+ * Every item the document holds, whatever the filter: the threads it anchors that the store
+ * keeps, the thread the reader is starting, and the suggestions; in the order they are found.
+ */
+export function findCommentItems(
+  state: EditorState,
+  threads: ReadonlyMap<string, CommentThread>,
+): CommentItem[] {
   const items: CommentItem[] = [];
   for (const anchor of commentAnchors(state)) {
     const thread = threads.get(anchor.thread);
-    if (!thread || !isThreadShown(thread, filter, { resolved: mineResolved ?? false })) continue;
+    if (!thread) continue;
     const key = `comment:${anchor.thread}`;
     const target: AnchorTarget = { kind: 'comment', id: anchor.thread };
     items.push({ key, target, from: anchor.from, to: anchor.to, kind: 'thread', thread });
@@ -78,15 +86,7 @@ function threadItems(state: EditorState, { threads, filter, mineResolved }: Comm
       quote: state.doc.textBetween(draft.from, draft.to, ' ', ' '),
     });
   }
-  return items;
-}
-
-/** The open threads, the threads being started and the suggestions, in reading order. */
-export function listCommentItems(state: EditorState, options: CommentItemsOptions): CommentItem[] {
-  const items = threadItems(state, options);
   for (const suggestion of listSuggestions(state.doc)) {
-    const thread = suggestion.thread ? (options.threads.get(suggestion.thread) ?? null) : null;
-    if (!isSuggestionShown(suggestion, thread, options.filter)) continue;
     items.push({
       key: `suggestion:${suggestion.id}`,
       target: { kind: 'suggestion', id: suggestion.id },
@@ -94,9 +94,32 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
       to: suggestion.to,
       kind: 'suggestion',
       suggestion,
-      thread,
+      thread: suggestion.thread ? (threads.get(suggestion.thread) ?? null) : null,
     });
   }
+  return items;
+}
+
+function isItemShown(
+  item: CommentItem,
+  { filter, mineResolved }: Omit<CommentItemsOptions, 'threads'>,
+): boolean {
+  if (item.kind === 'thread')
+    return isThreadShown(item.thread, filter, { resolved: mineResolved ?? false });
+  if (item.kind === 'suggestion') return isSuggestionShown(item.suggestion, item.thread, filter);
+  return true;
+}
+
+/**
+ * The items a filter keeps of those found (`findCommentItems`), in reading order, with the offer
+ * to comment on a selection; so several filters list the items the document was read for once.
+ */
+export function keepCommentItems(
+  found: readonly CommentItem[],
+  state: EditorState,
+  options: Omit<CommentItemsOptions, 'threads'>,
+): CommentItem[] {
+  const items = found.filter((item) => isItemShown(item, options));
   const { from, to } = state.selection;
   // Comments may overlap: only the selection a thread was just anchored to offers none again.
   const anchored = items.some((item) => item.from === from && item.to === to);
@@ -104,6 +127,11 @@ export function listCommentItems(state: EditorState, options: CommentItemsOption
     items.push({ key: 'draft', target: { kind: 'selection' }, from, to, kind: 'draft' });
   }
   return items.sort((a, b) => a.from - b.from);
+}
+
+/** The open threads, the threads being started and the suggestions, in reading order. */
+export function listCommentItems(state: EditorState, options: CommentItemsOptions): CommentItem[] {
+  return keepCommentItems(findCommentItems(state, options.threads), state, options);
 }
 
 /** The card the caret is in: a thread's or a suggestion's, else the offer to comment on a selection. */
@@ -127,6 +155,39 @@ export interface CardActions {
   readonly startThread: () => void;
 }
 
+// A change of the document a comment makes, made only where the reader may change the document.
+// A reader who may only comment, as in a shared room's comment mode, leaves the document as it is:
+// the store keeps the thread and its target, and the editor places its anchor without marks.
+function inDocument(command: Command, otherwise: Command = () => true): Command {
+  return (state, dispatch, view) =>
+    view && !view.editable ? otherwise(state, dispatch, view) : command(state, dispatch, view);
+}
+
+// The portable target of the thread being started, read from the state the command runs on.
+function draftTarget(run: CardActions['run']): CommentTarget | null {
+  let target: CommentTarget | null = null;
+  run((state) => {
+    target = describeDraftTarget(state) ?? target;
+    return true;
+  });
+  return target;
+}
+
+// A command that anchors a thread just stored. When the document no longer allows it, as when a
+// collaborator deleted the text or decided the suggestion while the thread was stored, the thread
+// is removed again rather than kept with no anchor.
+function anchorOrRemove(context: CardContext, threadId: string, command: Command): Command {
+  let refused = false;
+  return (state, dispatch, view) => {
+    const anchored = command(state, dispatch, view);
+    if (dispatch && !anchored && !refused) {
+      refused = true;
+      void context.comments.remove(threadId).catch(() => undefined);
+    }
+    return anchored;
+  };
+}
+
 function renderSuggestion(
   item: Extract<CommentItem, { kind: 'suggestion' }>,
   actions: CardActions,
@@ -143,7 +204,7 @@ function renderSuggestion(
     const id = createElementId();
     const quote = suggestion.inserted || suggestion.deleted;
     const created = await context.comments.create({ id, quote, text, suggestion: suggestion.id });
-    run(linkSuggestionThread(suggestion.id, id));
+    run(anchorOrRemove(context, id, inDocument(linkSuggestionThread(suggestion.id, id))));
     return created;
   };
   return (
@@ -168,11 +229,19 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
     case 'pending':
       return (
         <PendingCard
+          id={item.id}
           quote={item.quote}
           context={context}
           onSubmit={async (text) => {
-            await context.comments.create({ id: item.id, quote: item.quote, text });
-            run(commitCommentDraft(item.id));
+            const target = draftTarget(run);
+            await context.comments.create({ id: item.id, quote: item.quote, text, target });
+            run(
+              anchorOrRemove(
+                context,
+                item.id,
+                inDocument(commitCommentDraft(item.id), clearCommentDraft),
+              ),
+            );
           }}
           onCancel={() => run(clearCommentDraft)}
         />
@@ -186,11 +255,11 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           onResolve={async (resolved) => {
             const state = resolved ? 'resolved' : 'open';
             await context.comments.setState(item.thread.id, state);
-            run(setCommentState(item.thread.id, state));
+            run(inDocument(setCommentState(item.thread.id, state)));
           }}
           onRemove={async () => {
             await context.comments.remove(item.thread.id);
-            run(removeCommentAnchor(item.thread.id));
+            run(inDocument(removeCommentAnchor(item.thread.id)));
           }}
         />
       );

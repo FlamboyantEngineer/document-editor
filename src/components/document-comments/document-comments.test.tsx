@@ -1,12 +1,44 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { type Command, TextSelection } from 'prosemirror-state';
+import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Harness, host, PARAGRAPH, seen, text, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
-import { listCommentAnchors, listSuggestions } from '../../engine/index.js';
-import { createMemoryHost } from '../../host/index.js';
+import {
+  clearCommentDraft,
+  commentDraft,
+  listCommentAnchors,
+  listSuggestions,
+} from '../../engine/index.js';
+import { type CommentStoreAdapter, createMemoryHost } from '../../host/index.js';
+import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
 
 installEditorDom();
+
+// Selects the first occurrence of some text.
+const selectText =
+  (wanted: string): Command =>
+  (state, dispatch) => {
+    let found: number | null = null;
+    state.doc.descendants((node, pos) => {
+      const at = node.isText ? (node.text ?? '').indexOf(wanted) : -1;
+      if (found === null && at >= 0) found = pos + at;
+    });
+    if (found === null) return false;
+    dispatch?.(
+      state.tr.setSelection(TextSelection.create(state.doc, found, found + wanted.length)),
+    );
+    return true;
+  };
+
+// Deletes the text of the thread being started, as a collaborator's change may.
+const deleteDraftText: Command = (state, dispatch) => {
+  const draft = commentDraft(state);
+  if (!draft) return false;
+  dispatch?.(state.tr.delete(draft.from, draft.to));
+  return true;
+};
 
 describe('DocumentComments', () => {
   it('DOCE-COMMENTS-2.1 shows open threads and suggestions beside the document, not resolved ones', async () => {
@@ -53,6 +85,87 @@ describe('DocumentComments', () => {
     ]);
   });
 
+  it('DOCE-COMMENTS-2.2 removes a thread stored after its text was deleted, and keeps no draft for the next', async () => {
+    const user = userEvent.setup();
+    const made = host();
+    const store = made.comments;
+    if (!store) throw new Error('The host should keep comments.');
+    let stored: (() => void) | null = null;
+    const held: CommentStoreAdapter = {
+      ...store,
+      create: (documentId, thread) =>
+        new Promise((resolve) => {
+          stored = () => void store.create(documentId, thread).then(resolve);
+        }),
+    };
+    const handle = createRef<DocumentEditorHandle>();
+    render(<Harness host={{ ...made, comments: held }} select="gamma" handleRef={handle} />);
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'Say more');
+    await user.click(screen.getByRole('button', { name: 'Comment' }));
+    await waitFor(() => expect(stored).not.toBeNull());
+    // A collaborator deletes the quoted text while the thread is stored.
+    act(() => {
+      handle.current?.run(deleteDraftText);
+    });
+    act(() => stored?.());
+    await waitFor(async () => {
+      const listed = await store.list('doc');
+      expect(listed.ok && listed.value.map((each) => each.id)).toEqual(['open', 'done']);
+    });
+    expect(seen.state && listCommentAnchors(seen.state.doc).map((each) => each.text)).toEqual([
+      'blue',
+      'delta',
+    ]);
+  });
+
+  it('DOCE-COMMENTS-2.12 keeps the text typed for a thread being started to that thread', async () => {
+    const user = userEvent.setup();
+    const handle = createRef<DocumentEditorHandle>();
+    render(<Harness host={host()} select="gamma" handleRef={handle} />);
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'For gamma');
+    // The thread is left without Cancel, and another is started elsewhere.
+    act(() => {
+      handle.current?.run(clearCommentDraft);
+      handle.current?.run(selectText('Alpha'));
+    });
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    expect(screen.getByRole('textbox', { name: 'Add a comment' })).toHaveTextContent('');
+  });
+
+  it('DOCE-COMMENTS-2.2 lets a reader who may only comment start a thread without changing the document', async () => {
+    const user = userEvent.setup();
+    const store = host();
+    const { container } = render(
+      <Harness host={store} select="gamma" editable={false} canComment />,
+    );
+    const before = seen.state?.doc;
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'Say more');
+    await user.click(screen.getByRole('button', { name: 'Comment' }));
+    expect(await screen.findByText('Say more')).toBeInTheDocument();
+    // The store keeps where the thread is; the document is as it was, its anchor placed.
+    const listed = await store.comments?.list('doc');
+    const started = listed?.ok ? listed.value.find((each) => each.quote === 'gamma') : undefined;
+    expect(started?.target).toMatchObject({ quote: 'gamma', ranges: [{ text: 'gamma' }] });
+    expect(seen.state?.doc.eq(before ?? seen.state.doc)).toBe(true);
+    await waitFor(() =>
+      expect(
+        container.querySelector(`mark[data-comment-id="${started?.id ?? ''}"]`),
+      ).toHaveAttribute('data-comment-placed', 'true'),
+    );
+    // Resolving it changes the store only.
+    await user.click(screen.getAllByRole('button', { name: 'Resolve' }).at(-1) as HTMLElement);
+    await waitFor(async () => {
+      const after = await store.comments?.list('doc');
+      expect(after?.ok && after.value.find((each) => each.id === started?.id)?.state).toBe(
+        'resolved',
+      );
+    });
+    expect(seen.state?.doc.eq(before ?? seen.state.doc)).toBe(true);
+  });
+
   it('DOCE-COMMENTS-2.3 replies to and resolves a thread', async () => {
     const user = userEvent.setup();
     const store = host();
@@ -74,6 +187,37 @@ describe('DocumentComments', () => {
     await expect(store.comments?.list('doc')).resolves.toMatchObject({
       value: [{ id: 'open', state: 'resolved' }, { id: 'done' }],
     });
+  });
+
+  it('DOCE-COMMENTS-2.3 hands keyboard focus to the next card when a resolved thread’s card goes', async () => {
+    const user = userEvent.setup();
+    render(<Harness host={host()} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    await within(margin).findByText('Is blue right?');
+    await user.click(within(margin).getByRole('button', { name: 'Resolve' }));
+    await waitFor(() =>
+      expect(within(margin).queryByText('Is blue right?')).not.toBeInTheDocument(),
+    );
+    // The suggestion's card is the one after the thread's.
+    const next = within(margin).getByText('epsilon').closest('[role="listitem"]');
+    await waitFor(() => expect(next).toHaveFocus());
+  });
+
+  it('DOCE-COMMENTS-2.15 shows a refused Resolve on the thread, which stays open', async () => {
+    const user = userEvent.setup();
+    const made = host();
+    if (!made.comments) throw new Error('The host should keep comments.');
+    const refusing: CommentStoreAdapter = {
+      ...made.comments,
+      setState: () => Promise.resolve({ ok: false, error: { kind: 'denied', message: 'No.' } }),
+    };
+    render(<Harness host={{ ...made, comments: refusing }} />);
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    await within(margin).findByText('Is blue right?');
+    await user.click(within(margin).getByRole('button', { name: 'Resolve' }));
+    expect(await within(margin).findAllByText('No.')).not.toHaveLength(0);
+    expect(within(margin).getByText('Is blue right?')).toBeInTheDocument();
+    expect(seen.state && listCommentAnchors(seen.state.doc)[0]).toMatchObject({ state: 'open' });
   });
 
   it('DOCE-COMMENTS-2.4 accepts a suggestion and discusses one in its own thread', async () => {
@@ -207,9 +351,11 @@ describe('DocumentComments', () => {
     expect(await within(margin).findByText('(2 spaces)')).toBeInTheDocument();
   });
 
-  it('DOCE-COMMENTS-2.19 records a decision on the thread of the suggestion in the store', async () => {
+  it('DOCE-COMMENTS-2.19 records a decision once on the thread of the suggestion in the store', async () => {
     const user = userEvent.setup();
     const store = host();
+    if (!store.comments?.decide) throw new Error('The store should record decisions.');
+    const decide = vi.spyOn(store.comments, 'decide');
     render(<Harness host={store} />);
     const margin = screen.getByRole('list', { name: 'Comments' });
     const card = (await within(margin).findByText('epsilon')).closest('[role="listitem"]');
@@ -227,26 +373,70 @@ describe('DocumentComments', () => {
         decision: { decision: 'reject', suggestion: 's1', by: 'ada' },
       });
     });
+    expect(decide).toHaveBeenCalledTimes(1);
   });
 
-  it('DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause', async () => {
-    const store = host();
-    render(<Harness host={store} options={{ suggestionThreads: { delay: 0 } }} />);
-    await waitFor(() =>
-      expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(expect.any(String)),
+  it('DOCE-COMMENTS-2.15 DOCE-COMMENTS-2.17 shows a refused reply on the card of its suggestion', async () => {
+    const user = userEvent.setup();
+    const made = createMemoryHost({
+      person: { id: 'ada', name: 'Ada Lovelace' },
+      comments: {
+        threads: { doc: [{ ...thread('about', 'open', 'Why epsilon?'), suggestion: 's1' }] },
+      },
+    });
+    if (!made.comments) throw new Error('The host should keep comments.');
+    const refusing: CommentStoreAdapter = {
+      ...made.comments,
+      reply: () =>
+        Promise.resolve({ ok: false, error: { kind: 'unavailable', message: 'Offline.' } }),
+    };
+    render(
+      <Harness
+        host={{ ...made, comments: refusing }}
+        content={[
+          text('Alpha '),
+          text('epsilon', [
+            { type: 'insertion', attrs: { id: 's1', author: 'ada', thread: 'about' } },
+          ]),
+        ]}
+      />,
     );
-    const [suggestion] = seen.state ? listSuggestions(seen.state.doc) : [];
-    const listed = await store.comments?.list('doc');
-    expect(listed?.ok && listed.value.find((each) => each.id === suggestion?.thread)).toMatchObject(
-      {
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('Why epsilon?')).closest('[role="listitem"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show its thread.');
+    await user.type(within(card).getByRole('textbox', { name: 'Reply' }), 'Because');
+    await user.click(within(card).getByRole('button', { name: 'Reply' }));
+    // The row says why, and is announced too.
+    expect(await within(card).findAllByText('Offline.')).not.toHaveLength(0);
+    expect(within(card).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['margin', {}],
+    ['pane', { placement: 'pane' as const }],
+  ])(
+    'DOCE-COMMENTS-2.21 starts a thread for the reader’s own suggestion once they pause, in the %s',
+    async (_where, placed) => {
+      const store = host();
+      render(<Harness host={store} options={{ suggestionThreads: { delay: 0 }, ...placed }} />);
+      await waitFor(() =>
+        expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(
+          expect.any(String),
+        ),
+      );
+      const [suggestion] = seen.state ? listSuggestions(seen.state.doc) : [];
+      const listed = await store.comments?.list('doc');
+      expect(
+        listed?.ok && listed.value.find((each) => each.id === suggestion?.thread),
+      ).toMatchObject({
         suggestion: 's1',
         quote: 'epsilon',
         automatic: true,
         change: { kind: 'insert', inserted: 'epsilon' },
         entries: [],
-      },
-    );
-  });
+      });
+    },
+  );
 
   it('DOCE-COMMENTS-4.11 offers the host’s own actions in a comment’s menu', async () => {
     const user = userEvent.setup();

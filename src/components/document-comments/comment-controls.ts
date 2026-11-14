@@ -4,15 +4,17 @@
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type RefObject, useEffect } from 'react';
+import { type RefObject, useContext, useEffect, useRef } from 'react';
 import {
+  anchorThreads,
   canStartComment,
   createElementId,
   startCommentDraft,
   suggestionDecisionOf,
 } from '../../engine/index.js';
+import type { CommentThread } from '../../host/index.js';
 import { type OpenComment, type StartComment, useCommentFocus } from './comment-focus.js';
-import type { CommentThreads } from './use-comment-threads.js';
+import { type CommentThreads, SharedCommentThreadsContext } from './use-comment-threads.js';
 import { recordDecision } from './use-decision-records.js';
 
 /** The ways in that the comments give the editor, and what they act on. */
@@ -38,18 +40,22 @@ export interface CommentControlsOptions {
 
 /**
  * Runs a command through the view's dispatch, else on the latest state the caller holds. A command
- * that decides suggestions has its decision recorded on their threads, read from a run on the
- * state shown, since the caller may apply it later and outside the editor's transactions.
+ * that decides suggestions has its decision recorded on their threads once: by the provider that
+ * follows the view's transactions, or else here, read from a run on the state shown, since the
+ * caller may apply it later and outside the editor's transactions.
  */
 function useRunCommand(
   { onStateChange, view }: Pick<CommentControlsOptions, 'onStateChange' | 'view'>,
   { state, comments }: { state: EditorState; comments: CommentThreads },
 ) {
+  const isFollowed = useContext(SharedCommentThreadsContext)?.recordsDecisions ?? false;
   return (command: Command) => {
-    command(state, (tr) => {
-      const report = suggestionDecisionOf(tr);
-      if (report) recordDecision(comments, report);
-    });
+    if (!view || !isFollowed) {
+      command(state, (tr) => {
+        const report = suggestionDecisionOf(tr);
+        if (report) recordDecision(comments, report);
+      });
+    }
     if (view) {
       command(view.state, view.dispatch, view);
       return;
@@ -62,6 +68,23 @@ function useRunCommand(
       return next;
     });
   };
+}
+
+// The threads the store keeps with a target and no marks, as a reader who may only comment starts
+// them, placed in the document without changing it, for every reader (DOCE-COMMENTS-1.12), again
+// whenever the threads change.
+function usePlacedThreads(
+  threads: ReadonlyMap<string, CommentThread>,
+  run: (command: Command) => void,
+) {
+  const latest = useRef(run);
+  useEffect(() => {
+    latest.current = run;
+  });
+  useEffect(() => {
+    const listed = [...threads.values()];
+    if (listed.some((thread) => thread.target)) latest.current(anchorThreads(listed));
+  }, [threads]);
 }
 
 /** Gives the editor its ways in to the comments, and returns the way to start a thread. */
@@ -83,6 +106,7 @@ export function useCommentControls(options: CommentControlsOptions) {
     options.onOpen?.();
     return true;
   };
+  usePlacedThreads(comments.threads, run);
   useEffect(() => {
     if (startRef) startRef.current = canComment ? startThread : null;
     if (openRef) openRef.current = open;

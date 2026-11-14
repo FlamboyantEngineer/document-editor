@@ -11,6 +11,7 @@ import {
 } from '@flamboyantengineer/ui-components/inline-text-diff';
 import type { Suggestion } from '../../engine/index.js';
 import type { CommentThread as StoredThread } from '../../host/index.js';
+import { activityRows } from './comment-activity-rows.js';
 import { type CardContext, DraftComposer, renderEntries } from './comment-cards.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
 
@@ -66,7 +67,7 @@ export function SuggestionCard({
   onDecide: (accept: boolean) => void;
   onReply: (text: string) => Promise<unknown>;
 }) {
-  const { canComment, labels } = context;
+  const { canComment, labels, comments } = context;
   const { author, split, action } = summaryOf(suggestion, context);
   return (
     <Card
@@ -107,6 +108,7 @@ export function SuggestionCard({
           }
           isReadOnly={!canComment}
           isSelected={isActive}
+          activity={thread ? activityRows(comments.activity.get(thread.id), context) : undefined}
         >
           {thread ? renderEntries({ thread, context }) : null}
         </CommentThread>
