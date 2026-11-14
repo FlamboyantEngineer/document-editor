@@ -837,3 +837,8 @@
   background: transparent;
   box-shadow: none;
 }
+
+/* The mention menu takes the base library's completion list at a readable width. */
+.de-document-editor__mention-menu {
+  min-width: 12rem;
+}

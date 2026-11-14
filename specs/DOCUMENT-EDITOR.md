@@ -297,6 +297,13 @@ Verification: `src/components/document-editor/selection-toolbar.test.tsx`, `e2e/
 Implementation: `src/components/document-editor/slash-menu.tsx`, `src/components/document-editor/trigger-menu.tsx`, `src/components/document-editor/editor-body.tsx`
 Verification: `src/components/document-editor/slash-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-4.23 - Mentions
+
+`mentions` shall open the typed menu (`de-document-editor__mention-menu`, named by the `mentionMenu` label) below an `@` the writer types at the start of a text block or after whitespace, while they can edit there and the schema has mentions, its query holding single spaces between words (DOCE-EDITING-9.1). It shall ask `mentions.find` (a mentions adapter's, DOCE-HOST-1.21) for the targets matching the query once it rests for 120 ms, cancelling the request before through its abort signal, and show the people among them, by name with their second line, since the document's mentions name a person; it keeps those found last while the next are on their way; the `noPeople` label shows while the host finds nobody. Choosing a person, by the keys or a pointer as in the slash menu (DOCE-EDITOR-4.22), shall replace the typed text with a mention of them (their id and name) and a space after it, and tell `mentions.onMention` of them.
+
+Implementation: `src/components/document-editor/mention-menu.tsx`, `src/components/document-editor/trigger-menu.tsx`
+Verification: `src/components/document-editor/mention-menu.test.tsx`, `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -635,6 +642,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-document-editor__selection-toolbar` | slot      |                                                                        | The toolbar over selected text, with `selectionToolbar` (DOCE-EDITOR-4.21).             |
 | `de-document-editor__slash-menu`        | slot      |                                                                        | The menu a typed `/` opens, with `slashMenu` (DOCE-EDITOR-4.22).                        |
 | `de-document-editor__insert-block`      | slot      |                                                                        | The button before an empty line that opens the slash menu (DOCE-EDITOR-4.22).           |
+| `de-document-editor__mention-menu`      | slot      |                                                                        | The menu a typed `@` opens, with `mentions` (DOCE-EDITOR-4.23).                         |
 | `de-document-editor__banners`           | slot      |                                                                        | The banner region above the document (DOCE-EDITOR-7.1).                                 |
 | `data-banner`                           | attribute | `EDITOR_BANNERS`, the host's ids                                       | On a banner: which it is.                                                               |
 | `de-document-editor__status-bar`        | slot      |                                                                        | The editor's status bar, with `statusBar`.                                              |

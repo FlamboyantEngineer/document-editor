@@ -322,6 +322,27 @@ test.describe('document editor lab', () => {
     await expect(content(page)).not.toContainText('/head');
   });
 
+  test('DOCE-EDITOR-4.23 mentions a person found for a typed @, on pages', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByLabel('Mentions').check();
+    const point = await pointAt(page, 'Normal operation');
+    await page.mouse.click(point.right + 2, point.y);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' for @gra');
+    const list = page.getByRole('listbox', { name: 'People' });
+    await expect(list.getByRole('option')).toHaveCount(1);
+    await expect(list.getByRole('option')).toContainText('Grace Hopper');
+    await page.keyboard.press('Enter');
+    await expect(list).toBeHidden();
+    const mention = content(page).locator('[data-mention-user-id="grace"]');
+    await expect(mention).toHaveText('@Grace Hopper');
+    await page.keyboard.type('today');
+    await expect(content(page)).toContainText('Normal operation for @Grace Hopper today');
+  });
+
   test('DOCE-EDITOR-4.2 DOCE-PAGINATION-7.1 scrolls the document in its frame below the toolbar, and lays it out again once remounted', async ({
     lab,
     page,

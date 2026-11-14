@@ -37,6 +37,10 @@ export interface DocumentEditorLabels
   readonly noMatches: string;
   /** The button on an empty line that opens the slash menu. */
   readonly insertBlock: string;
+  /** Names the menu `@` opens in the text. */
+  readonly mentionMenu: string;
+  /** Shown in the mention menu while the host finds nobody for what was typed. */
+  readonly noPeople: string;
   readonly cut: string;
   readonly copy: string;
   readonly paste: string;
@@ -143,6 +147,8 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   slashMenu: 'Insert',
   noMatches: 'No matches',
   insertBlock: 'Insert block',
+  mentionMenu: 'People',
+  noPeople: 'No people found',
   cut: 'Cut',
   copy: 'Copy',
   paste: 'Paste',

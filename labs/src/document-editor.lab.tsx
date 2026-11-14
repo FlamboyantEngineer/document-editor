@@ -124,6 +124,20 @@ const DEBUG_PARTS = [
   { part: 'measure', label: 'Measuring view' },
 ] as const;
 
+// The people the lab's mentions find, as a host's mentions adapter would.
+const LAB_PEOPLE = [
+  { kind: 'person', id: 'ada', name: 'Ada Lovelace', description: 'Analysis' },
+  { kind: 'person', id: 'grace', name: 'Grace Hopper', description: 'Compilers' },
+  { kind: 'person', id: 'alan', name: 'Alan Turing', description: 'Computability' },
+];
+
+const LAB_MENTIONS = {
+  find: (query: string) =>
+    Promise.resolve(
+      LAB_PEOPLE.filter((person) => person.name.toLowerCase().includes(query.toLowerCase())),
+    ),
+};
+
 function Lab() {
   const [state, setState] = useState(initialState);
   const [layout, setLayout] = useState<DocumentLayout>('page');
@@ -134,6 +148,7 @@ function Lab() {
   const [statusBar, setStatusBar] = useState(true);
   const [selectionToolbar, setSelectionToolbar] = useState(false);
   const [slashMenu, setSlashMenu] = useState(false);
+  const [mentions, setMentions] = useState(false);
   const [hostItems, setHostItems] = useState(true);
   const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
@@ -207,6 +222,15 @@ function Lab() {
               onChange={(event) => setSlashMenu(event.currentTarget.checked)}
             />{' '}
             Slash menu
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="mentions"
+              checked={mentions}
+              onChange={(event) => setMentions(event.currentTarget.checked)}
+            />{' '}
+            Mentions
           </label>
           {DEBUG_PARTS.map(({ part, label }) => (
             <label key={part}>
@@ -286,6 +310,7 @@ function Lab() {
         scrollable={scrollable}
         selectionToolbar={selectionToolbar}
         slashMenu={slashMenu && { emptyLineButton: true }}
+        mentions={mentions ? LAB_MENTIONS : undefined}
         debug={debug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
         lead={hostItems ? <p className="lab-lead">Sample document · draft</p> : undefined}

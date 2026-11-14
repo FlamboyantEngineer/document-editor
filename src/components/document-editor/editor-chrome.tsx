@@ -27,6 +27,7 @@ import {
 } from './editor-context.js';
 import { figurePasteOptions } from './figure-paste.js';
 import type { InsertFeatures } from './insert-controls.js';
+import { DocumentMentionMenu } from './mention-menu.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
 import { DocumentSelectionToolbar, type SelectionToolbarOptions } from './selection-toolbar.js';
@@ -280,16 +281,27 @@ export function EditorContextMenu({
  */
 export function EditorTypedMenus({ props, context, view, menuKeys, templateStyle }: ChromeProps) {
   const features = useInsertFeatures(props);
-  if (!props.slashMenu) return null;
   return (
-    <DocumentSlashMenu
-      context={context}
-      view={view}
-      menuKeys={menuKeys}
-      options={props.slashMenu === true ? NO_SLASH_OPTIONS : props.slashMenu}
-      features={features}
-      templateStyle={templateStyle}
-    />
+    <>
+      {props.slashMenu ? (
+        <DocumentSlashMenu
+          context={context}
+          view={view}
+          menuKeys={menuKeys}
+          options={props.slashMenu === true ? NO_SLASH_OPTIONS : props.slashMenu}
+          features={features}
+          templateStyle={templateStyle}
+        />
+      ) : null}
+      {props.mentions ? (
+        <DocumentMentionMenu
+          context={context}
+          view={view}
+          menuKeys={menuKeys}
+          options={props.mentions}
+        />
+      ) : null}
+    </>
   );
 }
 
