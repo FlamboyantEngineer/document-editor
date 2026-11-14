@@ -76,7 +76,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-1.11 - Script runner
 
-The host's `scripts` adapter shall run a script block's script against the document as it is and resolve with the content it produced, as stored content, or a failure with a message. It may give the names a script can use (`vocabulary`: each name, its kind, signature, description, documentation and the text a completion inserts), and check a script without running it (`check`), resolving with its problems by line and column.
+The host's `scripts` adapter shall run a script block's script against the document as it is, told why it runs (`purpose`: `run`, `open`, `preview` or `stored`) and stopped by the signal given, and resolve with what it produced (`ScriptRunOutput`: its content, as stored content, where it came from and the signatures it carries), or a failure with a message. It may give the key of what a script would read now (`inputsKey`), which marks an output that recorded another stale (DOCE-OBJECTS-4.7). It may give the names a script can use (`vocabulary`: each name, its kind, signature, description, documentation and the text a completion inserts), and check a script without running it (`check`), resolving with its problems by line and column.
 
 Implementation: `src/host/adapters.ts`
 Verification: `src/host/memory-host.test.ts`
@@ -255,7 +255,7 @@ Verification: `src/host/memory-host.test.ts`
 
 ### DOCE-HOST-3.9 - In-memory scripts
 
-The in-memory host shall run scripts with `options.scripts`, giving it the script and the document, and resolve with what it returns, or an `unavailable` failure with the message of what it throws, give the names of `options.scriptVocabulary` and check a script with `options.checkScript`; without `options.scripts` it has no script runner.
+The in-memory host shall run scripts with `options.scripts`, giving it the request, and resolve with what it returns as the output's content, recording as its provenance's `inputs` the key `options.scriptInputsKey` gives the script, which it also gives as the runner's `inputsKey`, or an `unavailable` failure with the message of what it throws, give the names of `options.scriptVocabulary` and check a script with `options.checkScript`; without `options.scripts` it has no script runner.
 
 Implementation: `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`

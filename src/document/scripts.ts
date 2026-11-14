@@ -1,9 +1,11 @@
 // Script runs on a stored document, with no editor: a server refreshes what the script blocks of a
-// stored file show, as the editor's run does (DOCE-OBJECTS-4.2), and writes the file back.
+// stored file show, as the editor's run does (DOCE-OBJECTS-4.2), and writes the file back, and
+// finds the blocks whose output is stale.
 
 import { Fragment, type Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
-import { applyScriptOutputs, listScriptBlocks } from '../engine/scripts.js';
+import { Transform } from 'prosemirror-transform';
+import { listScriptBlocks, putScriptOutputs, type ScriptOutput } from '../engine/script-output.js';
+import { findStaleScripts } from '../engine/script-staleness.js';
 import type { ScriptRunnerAdapter } from '../host/index.js';
 import {
   type DocumentFile,
@@ -34,7 +36,7 @@ export interface StoredScriptsRun {
   failed: ReadonlyMap<string, string>;
 }
 
-type Produced = { ok: true; content: Fragment } | { ok: false; message: string };
+type Produced = { ok: true; output: ScriptOutput } | { ok: false; message: string };
 
 // Runs one script against the stored document and reads what it produced; the runner failing,
 // throwing, or giving content the schema cannot read is the script's failure, not the run's.
@@ -43,9 +45,11 @@ async function produce(
   { schema, runner, signal }: StoredScriptsOptions,
 ): Promise<Produced> {
   try {
-    const result = await runner.run(request, signal);
+    const result = await runner.run({ purpose: 'stored', ...request }, signal);
     if (!result.ok) return { ok: false, message: result.error.message ?? '' };
-    return { ok: true, content: Fragment.from(readStoredContent(result.value, schema)) };
+    const { content, provenance, signatures } = result.value;
+    const read = Fragment.from(readStoredContent(content, schema));
+    return { ok: true, output: { script: request.source, content: read, provenance, signatures } };
   } catch (error) {
     signal?.throwIfAborted();
     return { ok: false, message: error instanceof Error ? error.message : '' };
@@ -66,19 +70,33 @@ export async function runStoredScripts(
   const { schema, ids, signal, now = () => new Date() } = options;
   signal?.throwIfAborted();
   const { doc } = readDocumentFile(file, schema, { unknown: 'keep' });
-  const outputs = new Map<string, { script: string; content: Fragment }>();
+  const blocks = listScriptBlocks(doc);
+  const outputs = new Map<string, ScriptOutput>();
   const failed = new Map<string, string>();
-  for (const block of listScriptBlocks(doc)) {
+  for (const block of blocks) {
     if (ids && !ids.includes(block.id)) continue;
     const script = String(block.node.attrs.script ?? '');
     const produced = await produce({ blockId: block.id, source: script, document: file }, options);
     signal?.throwIfAborted();
-    if (produced.ok) outputs.set(block.id, { script, content: produced.content });
+    if (produced.ok) outputs.set(block.id, produced.output);
     else failed.set(block.id, produced.message);
   }
-  let written = file;
-  applyScriptOutputs(outputs, now().toISOString())(EditorState.create({ doc }), (tr) => {
-    written = { ...file, sections: writeDocumentFile(tr.doc).sections };
-  });
+  const tr = new Transform(doc);
+  putScriptOutputs(tr, blocks, { outputs, renderedAt: now().toISOString() });
+  const written = tr.docChanged ? { ...file, sections: writeDocumentFile(tr.doc).sections } : file;
   return { file: written, failed };
+}
+
+/**
+ * The ids of a stored document's script blocks, or of those with the ids given, whose output is
+ * stale: the runner's inputs key for the script differs from the one its output recorded, or it
+ * recorded none. A runner without inputs keys finds none stale.
+ */
+export function findStaleStoredScripts(
+  file: DocumentFile,
+  { schema, runner, ids, signal }: Omit<StoredScriptsOptions, 'now'>,
+): Promise<string[]> {
+  signal?.throwIfAborted();
+  const { doc } = readDocumentFile(file, schema, { unknown: 'keep' });
+  return findStaleScripts(doc, runner, { document: file, ids, signal });
 }

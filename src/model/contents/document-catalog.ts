@@ -159,6 +159,8 @@ interface Counting {
   readonly inline: boolean;
   readonly catalog: Record<string, CatalogEntry[]>;
   readonly doc: ProseMirrorNode;
+  /** Where counting stops: nodes from this position on are not counted. */
+  readonly end: number;
 }
 
 function scopeOf(template: TemplateFile, section: TemplateSection | null): Scope {
@@ -274,6 +276,7 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
 
 function countBlocks(content: ProseMirrorNode, start: number, counting: Counting) {
   content.descendants((node, offset) => {
+    if (start + offset >= counting.end) return false;
     const isHeading = node.type.name === 'heading';
     // The title and a heading set in a list, a table or a quote are neither numbered nor listed.
     if (!isHeading || isStructuralHeading(counting.doc, start + offset)) {
@@ -312,8 +315,47 @@ export function catalogDocument(
     inline: listsInline(doc, kinds),
     catalog: Object.fromEntries(Object.keys(kinds).map((key) => [key, []])),
     doc,
+    end: Infinity,
   };
-  for (const section of documentSections(doc)) {
+  countSections(template, counting);
+  return arrangeEntries(counting.catalog, kinds);
+}
+
+/** The counters a position is under: each heading level's and each numbered object kind's. */
+export interface NumberingCounters {
+  readonly headings: readonly number[];
+  readonly objects: Readonly<Record<NumberedObjectKind, number>>;
+}
+
+/**
+ * The counters in effect just before a position under a resolved template, as the stylesheet
+ * counts them, so content put there numbers on from them.
+ */
+export function numberingCountersAt(
+  doc: ProseMirrorNode,
+  template: TemplateFile,
+  pos: number,
+): NumberingCounters {
+  const counting: Counting = {
+    scope: scopeOf(template, null),
+    headings: [0, 0, 0, 0, 0, 0],
+    objects: zeroObjects(),
+    page: 0,
+    kinds: [],
+    inline: false,
+    catalog: {},
+    doc,
+    end: pos,
+  };
+  countSections(template, counting);
+  return { headings: counting.headings, objects: counting.objects };
+}
+
+// Counts the document's sections, each by its own scope, restarting where the section does, up to
+// where counting ends.
+function countSections(template: TemplateFile, counting: Counting) {
+  for (const section of documentSections(counting.doc)) {
+    if (section.pos >= counting.end) return;
     const scope = findTemplateSection(template, section.name);
     counting.scope = scopeOf(template, scope);
     if (sectionRestartsNumbering(scope)) {
@@ -325,7 +367,6 @@ export function catalogDocument(
       countBlocks(content.node, content.pos + 1, counting);
     }
   }
-  return arrangeEntries(counting.catalog, kinds);
 }
 
 // Each kind's entries, its first one of each text alone if it asks, in the order it asks.

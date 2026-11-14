@@ -117,12 +117,15 @@ export {
 } from './region-editing.js';
 export type { RevealOptions } from './reveal.js';
 export { revealElement } from './reveal.js';
-export type { ScriptBlockAt } from './scripts.js';
+export type { ScriptBlockAt, ScriptOutput } from './script-output.js';
+export { listScriptBlocks } from './script-output.js';
+export { findStaleScripts } from './script-staleness.js';
+export type { ScriptRunOptions } from './scripts.js';
 export {
   applyScriptOutputs,
+  checkStaleScripts,
   createScripts,
   insertScriptBlock,
-  listScriptBlocks,
   runOpeningScripts,
   runScripts,
   scriptBlockAt,

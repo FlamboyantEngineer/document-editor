@@ -46,6 +46,13 @@ The default `abbreviations` kind shall list each abbreviation the document uses 
 Implementation: `src/model/contents/document-catalog.ts`
 Verification: `src/model/contents/document-catalog.test.ts`
 
+### DOCE-CONTENTS-1.7 - Counters at a position
+
+`numberingCountersAt(doc, template, pos)` shall give the counters in effect just before a position, as the catalog and the stylesheet count them: each heading level's count and each numbered object kind's, with the restarts of the sections and headings before it, so content shown elsewhere can number on from them.
+
+Implementation: `src/model/contents/document-catalog.ts`
+Verification: `src/model/contents/document-catalog.test.ts`
+
 ## DOCE-CONTENTS-2 - Lists of contents
 
 ### DOCE-CONTENTS-2.1 - Listing entries

@@ -685,6 +685,11 @@
   align-self: stretch;
 }
 
+/* The preview numbers on from the headings and objects before its block (DOCE-OBJECTS-4.8). */
+.de-script-editor__preview[data-status='ready'] .de-document-editor .ProseMirror {
+  counter-reset: var(--de-script-editor-counters);
+}
+
 .de-script-editor__status {
   margin: 0;
   color: var(--ref-text-muted, #59636e);

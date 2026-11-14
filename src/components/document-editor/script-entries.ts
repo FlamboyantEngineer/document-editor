@@ -5,7 +5,12 @@ import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState } from 'react';
-import { runOpeningScripts, runScripts, scriptBlockAt } from '../../engine/index.js';
+import {
+  checkStaleScripts,
+  runOpeningScripts,
+  runScripts,
+  scriptBlockAt,
+} from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -92,7 +97,8 @@ export interface OpeningScriptsOptions {
  * Runs the scripts that run each time the document opens, once for each document the editor is
  * given, however many views it makes of it, as when the layout switches. They run for a writer who
  * edits directly: their output changes the document, which a reader does not, and which no
- * suggestion tracks.
+ * suggestion tracks. When the runner keys the inputs a script reads, the other scripts' outputs are
+ * then checked, and the ones whose inputs changed marked stale.
  */
 export function useOpeningScripts(view: EditorView | null, options: OpeningScriptsOptions): void {
   const { runner, enabled } = options;
@@ -111,7 +117,9 @@ export function useOpeningScripts(view: EditorView | null, options: OpeningScrip
     if (!view || !run || !enabled || opened.current?.document === document) return;
     const opening = { document };
     opened.current = opening;
+    // The opening scripts record the inputs they read before the rest are checked for stale output.
     void runOpeningScripts(view, run)
+      .then(() => (run.inputsKey && !view.isDestroyed ? checkStaleScripts(view, run) : []))
       .catch(() => undefined)
       .then(() => {
         // A view replaced while its scripts ran, as when the pages start, took none of their

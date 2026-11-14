@@ -40,7 +40,9 @@ describe('scriptEntries', () => {
       { id: 'a0000001', source: 'first()' },
       { id: 'a0000002', source: 'second()' },
     ]);
-    const run = vi.fn<ScriptRunnerAdapter['run']>(() => Promise.resolve({ ok: true, value: [] }));
+    const run = vi.fn<ScriptRunnerAdapter['run']>(() =>
+      Promise.resolve({ ok: true, value: { content: [] } }),
+    );
     const entries = scriptEntries(shown, { labels, openDialog: null, scriptRunner: { run } });
     press(entries, 'run-script');
     await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
@@ -102,14 +104,17 @@ const counting = () => ({
   run: vi.fn<ScriptRunnerAdapter['run']>(() =>
     Promise.resolve({
       ok: true,
-      value: [{ type: 'paragraph', content: [{ type: 'text', text: 'Twelve' }] }],
+      value: { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Twelve' }] }] },
     }),
   ),
 });
 
 // The editor on a document with a script that runs on opening; the host can open another.
-function Harness(props: Partial<DocumentEditorProps>) {
-  const [state, setState] = useState<EditorState>(() => scriptState([OPENING]));
+function Harness({
+  scripts = [OPENING],
+  ...props
+}: Partial<DocumentEditorProps> & { scripts?: readonly TestScript[] }) {
+  const [state, setState] = useState<EditorState>(() => scriptState(scripts));
   return (
     <>
       <button type="button" onClick={() => setState(scriptState([OPENING]))}>
@@ -173,4 +178,27 @@ describe('the scripts that run on opening', () => {
       expect(scriptRunner.run).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('DOCE-OBJECTS-4.7 check the other outputs for stale inputs once the opening scripts ran', async () => {
+    const run = vi.fn<ScriptRunnerAdapter['run']>(() =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Twelve' }] }],
+          provenance: { inputs: 'k1' },
+        },
+      }),
+    );
+    const inputsKey = vi.fn<NonNullable<ScriptRunnerAdapter['inputsKey']>>(() =>
+      Promise.resolve({ ok: true, value: 'k1' }),
+    );
+    const manual: TestScript = { id: 'a0000002', source: 'other()' };
+    render(<Harness scripts={[OPENING, manual]} scriptRunner={{ run, inputsKey }} layout="web" />);
+    await waitFor(() =>
+      expect(document.querySelector('[data-script-state="stale"]')).toBeInTheDocument(),
+    );
+    expect(document.querySelectorAll('[data-script-state="stale"]')).toHaveLength(1);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(inputsKey.mock.calls.map(([request]) => request.blockId)).toContain('a0000002');
+  });
 });

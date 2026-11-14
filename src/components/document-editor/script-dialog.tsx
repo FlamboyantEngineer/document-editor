@@ -108,11 +108,22 @@ function applyScript(
   return block.id === null ? [] : [block.id];
 }
 
-// The preview's state: run on asking, and back to not run whenever the script changes.
+// The preview's state: run on asking, numbered on from where the block edited is now (or where a
+// new one would go), and back to not run whenever the script changes.
 function useScriptPreview(
   view: EditorView,
   runner: ScriptRunnerAdapter,
-  { script, labels }: { script: string; labels: DialogProps['labels'] },
+  {
+    script,
+    opened,
+    template,
+    labels,
+  }: {
+    script: string;
+    opened: OpenedBlock | null;
+    template: TemplateFile;
+    labels: DialogProps['labels'];
+  },
 ) {
   const [preview, setPreview] = useState<ScriptPreviewState>({ status: 'idle' });
   // Each preview run is the latest only until the script changes again.
@@ -122,7 +133,9 @@ function useScriptPreview(
     refresh: () => {
       const current = (run.current += 1);
       setPreview({ status: 'running' });
-      void previewScript(view, runner, { source: script, labels }).then((next) => {
+      const at = opened ? editedBlock(view, opened)?.pos : view.state.selection.from;
+      const request = { source: script, at: at ?? view.state.selection.from, template, labels };
+      void previewScript(view, runner, request).then((next) => {
         if (run.current === current) setPreview(next);
       });
     },
@@ -184,7 +197,12 @@ export function ScriptDialog({
 }: DialogProps & { runner: ScriptRunnerAdapter; template: TemplateFile }) {
   const [found] = useState(() => scriptBlockAt(view.state));
   const [script, setScript] = useState(String(found?.node.attrs.script ?? ''));
-  const { preview, refresh, reset } = useScriptPreview(view, runner, { script, labels });
+  const { preview, refresh, reset } = useScriptPreview(view, runner, {
+    script,
+    opened: found,
+    template,
+    labels,
+  });
   const { diagnostics, pending } = useScriptCheck(runner, script);
   const vocabulary = useMemo(
     () => [...(runner.vocabulary ?? []), ...SCRIPT_STANDARD_VOCABULARY],
