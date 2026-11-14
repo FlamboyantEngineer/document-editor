@@ -276,6 +276,20 @@ describe('readRoomThreads', () => {
     expect(told.at(-1)).toEqual(listed);
     expect(readRoomThreads(first.get('comments'))).toEqual(listed);
   });
+  it('DOCE-COMMENTS-2.20 reads reactions under any emoji, even the names objects have', async () => {
+    const { first, second, exchange, ada } = writers();
+    await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
+    exchange();
+    for (const emoji of ['constructor', '__proto__', 'toString'])
+      attribute(second, ['reaction', 't1', '', emoji, 'bea'], true);
+    exchange();
+    const [thread] = readRoomThreads(first.get('comments'));
+    expect(Object.entries(thread?.reactions ?? {})).toEqual([
+      ['constructor', ['bea']],
+      ['__proto__', ['bea']],
+      ['toString', ['bea']],
+    ]);
+  });
 });
 
 describe('createRoomCommentStore, with changes made at once', () => {

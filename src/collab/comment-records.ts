@@ -184,9 +184,10 @@ function addReaction(
   reactions: Record<string, string[]> | undefined,
   { emoji, person }: { emoji: string; person: string },
 ): Record<string, string[]> {
-  const next = { ...reactions };
-  next[emoji] = [...(next[emoji] ?? []), person].sort();
-  return next;
+  // The emoji comes from a record's key, so it may be a name every object has, such as
+  // `constructor`: only the reactions' own entries are read, and the new list is an own entry too.
+  const people = reactions && Object.hasOwn(reactions, emoji) ? (reactions[emoji] ?? []) : [];
+  return { ...reactions, ...Object.fromEntries([[emoji, [...people, person].sort()]]) };
 }
 
 type Stored = readonly [key: RecordKey, value: unknown];
