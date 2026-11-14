@@ -107,7 +107,12 @@ async function inflate(data: Uint8Array, budget: Budget): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+  // Damaged deflate data makes the stream fail with the platform's own error.
+  const next = () =>
+    reader.read().catch(() => {
+      throw importError('damaged', 'A file in the archive is damaged.');
+    });
+  for (let chunk = await next(); !chunk.done; chunk = await next()) {
     total += chunk.value.length;
     try {
       checkBudget(budget, total, chunk.value.length);

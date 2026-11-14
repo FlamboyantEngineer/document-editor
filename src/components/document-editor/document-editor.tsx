@@ -42,6 +42,7 @@ import {
   type FragmentRules,
   type LayoutRules,
   type TemplateFile,
+  type TemplatePin,
   templateProperties,
 } from '../../model/index.js';
 import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
@@ -67,6 +68,7 @@ import { EditorSurface } from './editor-surface.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
+import { usePinnedScripts } from './script-entries.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
@@ -108,6 +110,11 @@ export interface DocumentEditorProps
   onStateChange: (update: RichTextStateUpdate) => void;
   /** The resolved template the document is shown in. */
   template: TemplateFile;
+  /**
+   * The template the document pins (`SessionDocument.pin`), written with the document an export or
+   * a script is given; none for the base template.
+   */
+  templatePin?: TemplatePin | null | undefined;
   /** On pages (the default), or as one page per section that fills the surface. */
   layout?: DocumentLayout | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
@@ -373,7 +380,7 @@ function useEditorLayout(
  * with overlay scrollbars.
  */
 export function DocumentEditor(given: DocumentEditorProps) {
-  const props = useActiveProps(given);
+  const props = usePinnedScripts(useActiveProps(given));
   const { state, template, layout = 'page', editable = true, className } = props;
   const measureIn = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);

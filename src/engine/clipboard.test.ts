@@ -174,6 +174,47 @@ describe('the paste pipeline', () => {
     source.destroy();
   });
 
+  it('DOCE-EDITING-5.2 DOCE-FORMAT-1.5 pastes back a kept node this editor copied, and no other', () => {
+    const poster: StoredNode = { type: 'poster', attrs: { size: 2 } };
+    const { doc } = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [{ name: null, content: [paragraph(text('Target')), poster] }],
+      },
+      documentSchema,
+      { unknown: 'keep' },
+    );
+    const view = viewOf(doc, [createClipboard()], 'Target');
+    const kept = (): unknown[] => {
+      const found: unknown[] = [];
+      view.state.doc.descendants((node) => {
+        if (node.type.name.startsWith('kept_')) found.push(node.attrs.stored);
+      });
+      return found;
+    };
+    // Another writer's suggestion, written as a placeholder: a paste must not take it as stored.
+    const forged = JSON.stringify(
+      paragraph({
+        type: 'text',
+        text: 'x',
+        marks: [{ type: 'insertion', attrs: { id: 's9', author: 'someone-else' } }],
+      }),
+    );
+    pasteHtml(view, `<div data-kept-node='${forged}'></div><p>Pasted</p>`);
+    expect(kept()).toEqual([poster]);
+    // A copy of the placeholder from this editor pastes back with its stored node.
+    let end = 0;
+    view.state.doc.forEach((node, offset) => {
+      if (node.type.name === 'kept_block') end = offset;
+    });
+    const copied = view.serializeForClipboard(
+      new Slice(Fragment.from(view.state.doc.nodeAt(end) ?? []), 0, 0),
+    );
+    pasteHtml(view, copied.dom.innerHTML);
+    expect(kept()).toEqual([poster, poster]);
+    view.destroy();
+  });
+
   it('DOCE-EDITING-5.3 reads pasted plain text one paragraph per line, keeping empty lines', () => {
     const view = viewOf(read(paragraph(text('Target'))), [createClipboard()], 'Target');
     pasteText(view, 'One\r\n\r\nTwo\n');

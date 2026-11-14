@@ -151,6 +151,20 @@ describe('the scripts that run on opening', () => {
     expect(scriptRunner.run).toHaveBeenCalledTimes(1);
   });
 
+  it('DOCE-EDITOR-4.8 DOCE-OBJECTS-4.7 give the scripts the document with the template it pins', async () => {
+    const run = vi.fn<ScriptRunnerAdapter['run']>(() =>
+      Promise.resolve({ ok: true, value: { content: [] } }),
+    );
+    const inputsKey = vi.fn<NonNullable<ScriptRunnerAdapter['inputsKey']>>(() =>
+      Promise.resolve({ ok: true, value: 'k1' }),
+    );
+    const pin = { id: 'article', revision: 'r2' };
+    render(<Harness scriptRunner={{ run, inputsKey }} templatePin={pin} layout="web" />);
+    await waitFor(() => expect(inputsKey).toHaveBeenCalled());
+    expect(run.mock.calls[0]?.[0].document.template).toEqual(pin);
+    expect(inputsKey.mock.calls[0]?.[0].document.template).toEqual(pin);
+  });
+
   it('DOCE-EDITOR-4.8 DOCE-OBJECTS-4.2 run again for another document', async () => {
     const user = userEvent.setup();
     const scriptRunner = counting();

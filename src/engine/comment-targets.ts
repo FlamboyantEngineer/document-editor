@@ -6,7 +6,12 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { CommentTarget, CommentTargetRange } from '../host/index.js';
-import { commentAnchors, placeCommentAnchors, type PlacedAnchor } from './comment-anchors.js';
+import {
+  commentAnchors,
+  placeCommentAnchors,
+  type PlacedAnchor,
+  placedCommentRanges,
+} from './comment-anchors.js';
 import { commentDraft } from './comment-draft.js';
 import {
   anchorCommentRanges,
@@ -233,22 +238,40 @@ export function reconcileThreads(
   return report;
 }
 
+// Whether a thread is one placed by its target: about part of the text, with a target.
+const isPlaceable = (thread: AnchoredThread) => thread.scope !== 'document' && !!thread.target;
+
 /**
- * Places the anchors of the listed text threads that no mark anchors where their targets are
- * found, drawn and listed like marked anchors without changing the document, as when the reader
- * may write only a shared room's comments; replaces the threads placed before.
+ * Places the anchors of the listed text threads that no mark anchors, drawn and listed like marked
+ * anchors without changing the document, as when the reader may write only a shared room's
+ * comments: a thread placed before keeps its place, which edits have moved with the text since,
+ * and any other is placed where its target is found. Threads no longer listed are dropped.
  */
 export function anchorThreads(threads: readonly AnchoredThread[]): Command {
   return (state, dispatch) => {
     const marked = new Set(listCommentAnchors(state.doc).map((anchor) => anchor.thread));
-    const blocks = blocksById(state.doc);
+    const before = placedCommentRanges(state);
+    let blocks: Blocks | null = null;
     const placed = new Map<string, PlacedAnchor>();
     for (const thread of threads) {
-      if (thread.scope === 'document' || marked.has(thread.id) || !thread.target) continue;
-      const found = resolveIn(blocks, thread.target);
-      if (found) placed.set(thread.id, { state: thread.state, ranges: found.ranges });
+      if (!isPlaceable(thread) || marked.has(thread.id) || !thread.target) continue;
+      const kept = before.get(thread.id);
+      blocks ??= kept ? null : blocksById(state.doc);
+      const ranges = kept ?? (blocks && resolveIn(blocks, thread.target)?.ranges);
+      if (ranges) placed.set(thread.id, { state: thread.state, ranges });
     }
     dispatch?.(placeCommentAnchors(state.tr, placed));
     return true;
   };
+}
+
+/**
+ * The listed text threads with a target that the document anchors neither by a mark nor by a
+ * placed anchor, such as those a replaced document lost: `anchorThreads` places them again.
+ */
+export function unplacedThreads(state: EditorState, threads: readonly AnchoredThread[]): string[] {
+  const anchored = new Set(commentAnchors(state).map((anchor) => anchor.thread));
+  return threads
+    .filter((thread) => isPlaceable(thread) && !anchored.has(thread.id))
+    .map(({ id }) => id);
 }

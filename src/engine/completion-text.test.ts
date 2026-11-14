@@ -43,6 +43,25 @@ describe('completion text', () => {
     expect(completionRequest(state, 8)).toMatchObject({ before: 'ry takes', after: ' time' });
   });
 
+  it('DOCE-AUTOMATION-3.1 leaves out the text a suggestion deletes, which the reader reads as gone', () => {
+    const deleted = { type: 'deletion', attrs: { id: 's1', author: 'bea' } };
+    const struck: StoredNode = {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Recovery ' },
+        { type: 'text', text: 'never ', marks: [deleted] },
+        { type: 'text', text: 'takes' },
+        { type: 'text', text: ' old', marks: [deleted] },
+        { type: 'text', text: ' time' },
+      ],
+    };
+    const state = stateAt([paragraph('Scope.'), struck], 'takes', 5);
+    expect(completionRequest(state)).toMatchObject({
+      before: 'Scope.\nRecovery takes',
+      after: ' time',
+    });
+  });
+
   it('DOCE-AUTOMATION-3.1 asks nothing in code, in a footnote, or with nothing before the caret', () => {
     const code: StoredNode = { type: 'code_block', content: [{ type: 'text', text: 'let a' }] };
     expect(completionRequest(stateAt([code], 'let a', 5))).toBeNull();

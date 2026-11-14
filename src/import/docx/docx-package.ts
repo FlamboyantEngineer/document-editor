@@ -40,15 +40,15 @@ export interface PackageOptions {
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
 }
 
-const MEDIA_TYPES: Readonly<Record<string, string>> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  bmp: 'image/bmp',
-  webp: 'image/webp',
-  svg: 'image/svg+xml',
-};
+const MEDIA_TYPES: ReadonlyMap<string, string> = new Map([
+  ['png', 'image/png'],
+  ['jpg', 'image/jpeg'],
+  ['jpeg', 'image/jpeg'],
+  ['gif', 'image/gif'],
+  ['bmp', 'image/bmp'],
+  ['webp', 'image/webp'],
+  ['svg', 'image/svg+xml'],
+]);
 
 /** The relationship type a part's role is named by, such as `officeDocument` or `image`. */
 export const relationshipKind = (type: string) => type.slice(type.lastIndexOf('/') + 1);
@@ -100,7 +100,7 @@ export function openPackage(
   const byPath = new Map<string, ImportedImage | null>();
   const readImage = async (path: string): Promise<ImportedImage | null> => {
     if (byPath.has(path)) return byPath.get(path) ?? null;
-    const mediaType = MEDIA_TYPES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()];
+    const mediaType = MEDIA_TYPES.get(path.slice(path.lastIndexOf('.') + 1).toLowerCase());
     const bytes = mediaType ? await archive.read(path) : null;
     let image: ImportedImage | null = null;
     if (mediaType && bytes) {

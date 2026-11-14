@@ -105,20 +105,26 @@ const htmlBlock: BlockReader = (lines, context) => {
   return [];
 };
 
+const leadOf = (line: string | undefined) => /^ */.exec(line ?? '')?.[0].length ?? 0;
+
+// Whether the blank lines at `at` are inside a list item: the line after them is indented at least
+// as far as its text.
+function blanksContinue(lines: Lines, indent: number): boolean {
+  let next = lines.at;
+  while (next < lines.lines.length && isBlank(lines.lines[next])) next += 1;
+  return next < lines.lines.length && leadOf(lines.lines[next]) >= indent;
+}
+
 // A list item's lines with the item's indent taken off: its first line, then each line indented at
-// least as far as its text, blank lines between, and lazy lines that continue its paragraph.
+// least as far as its text, the blank lines between, and lazy lines that continue its paragraph.
 function itemLines(lines: Lines, indent: number, first: string): string[] {
   const own = [first];
   lines.at += 1;
   while (lines.at < lines.lines.length) {
     const line = lines.lines[lines.at] ?? '';
-    const lead = /^ */.exec(line)?.[0].length ?? 0;
+    const lead = leadOf(line);
     if (isBlank(line)) {
-      if (
-        isBlank(lines.lines[lines.at + 1]) ||
-        (/^ */.exec(lines.lines[lines.at + 1] ?? '')?.[0].length ?? 0) < indent
-      )
-        break;
+      if (!blanksContinue(lines, indent)) break;
       own.push('');
     } else if (lead >= indent) own.push(line.slice(indent));
     else if (!isBlank(own[own.length - 1]) && !startsBlock(line)) own.push(line.trim());

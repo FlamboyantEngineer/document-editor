@@ -28,8 +28,9 @@ const textOf = (element: XmlElement) =>
     )
     .join('\n');
 
-// Each comment's text, author and date, with the id of its last paragraph, which replies name.
-function commentsOf(root: XmlElement | null): Comment[] {
+// Each comment's text, author and date, with the id of its last paragraph, which replies name. Its
+// entry id is fresh, so the threads of two documents read never share one.
+function commentsOf(root: XmlElement | null, newId: () => string): Comment[] {
   return childElements(root, 'w:comment').map((element) => {
     const id = element.attrs['w:id'] ?? '';
     const last = childElements(element, 'w:p').at(-1);
@@ -37,7 +38,7 @@ function commentsOf(root: XmlElement | null): Comment[] {
       id,
       paraId: last?.attrs['w14:paraId'] ?? null,
       entry: {
-        id: `comment-${id}`,
+        id: `comment-${newId()}`,
         author: element.attrs['w:author'] ?? '',
         text: textOf(element),
         createdAt: element.attrs['w:date'] ?? '',
@@ -63,9 +64,16 @@ function quotes(file: DocumentFile): Map<string, string> {
   return found;
 }
 
-/** The comments of a document's comments part and its extended part (DOCE-IMPORT-2.7). */
-export function readComments(root: XmlElement | null, extended: XmlElement | null): DocxComments {
-  const comments = commentsOf(root);
+/**
+ * The comments of a document's comments part and its extended part (DOCE-IMPORT-2.7), each thread
+ * named after its opening comment's entry id, which `newId` makes.
+ */
+export function readComments(
+  root: XmlElement | null,
+  extended: XmlElement | null,
+  newId: () => string,
+): DocxComments {
+  const comments = commentsOf(root, newId);
   const byPara = new Map(
     comments.flatMap((comment) => (comment.paraId ? [[comment.paraId, comment] as const] : [])),
   );
@@ -94,7 +102,7 @@ export function readComments(root: XmlElement | null, extended: XmlElement | nul
       const comment = byId.get(id);
       if (!comment) return null;
       const opening = rootOf(comment);
-      const thread = `comment-${opening.id}`;
+      const thread = opening.entry.id;
       return {
         type: 'comment',
         attrs: isResolved(opening) ? { thread, state: 'resolved' } : { thread },
@@ -108,9 +116,9 @@ export function readComments(root: XmlElement | null, extended: XmlElement | nul
         threads.set(opening, [...(threads.get(opening) ?? []), comment.entry]);
       }
       return [...threads].map(([opening, entries]) => ({
-        id: `comment-${opening.id}`,
+        id: opening.entry.id,
         state: isResolved(opening) ? 'resolved' : 'open',
-        quote: quoted.get(`comment-${opening.id}`) ?? '',
+        quote: quoted.get(opening.entry.id) ?? '',
         suggestion: null,
         entries,
         author: opening.entry.author,

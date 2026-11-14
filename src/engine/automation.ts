@@ -3,7 +3,7 @@
 // whole before it is handed back: an element that is gone, a range whose text is no longer what the
 // caller read, or a locked position refuses it.
 
-import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import type { Mark, Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { type EditorState, PluginKey, type Transaction } from 'prosemirror-state';
 import { isEmbed, readStoredContent, type StoredNode } from '../model/index.js';
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
@@ -14,8 +14,9 @@ import {
   textRange,
   wholeElement,
 } from './automation-address.js';
+import { isReviewMark } from './clipboard-copies.js';
 import { anchorCommentRanges } from './comments.js';
-import { isLockedIn } from './edit-lock.js';
+import { editLockKey, touchesLock } from './edit-lock.js';
 import { createElementId } from './element-ids.js';
 import { isHostContentAt } from './host-content.js';
 import { suggestTransaction } from './suggestions.js';
@@ -110,10 +111,13 @@ const element = (tr: Transaction, id: string): FoundElement | Refusal =>
 
 const isRefusal = (value: object): value is Refusal => 'kind' in value && 'message' in value;
 
-function lockedAt({ state, tr }: Batch, from: number, to: number): Refusal | null {
-  const locked =
-    isLockedIn(state, tr.doc, from) || isLockedIn(state, tr.doc, Math.max(from, to - 1));
-  return locked ? refuse('locked', 'The position is locked') : null;
+// Refuses an edit whose steps, from `fromStep` on, the state's edit lock would refuse: the same
+// check the lock makes, so a batch the caller is told applied is never dropped once dispatched.
+function lockedSince({ state, tr }: Batch, fromStep: number): Refusal | null {
+  const lock = editLockKey.getState(state);
+  return lock && touchesLock(tr, lock.isLocked, fromStep)
+    ? refuse('locked', 'The position is locked')
+    : null;
 }
 
 // Refuses a change at a position inside an embed or a script's output: the plugins keeping that
@@ -131,7 +135,7 @@ function range(batch: Batch, at: EditAddress) {
   if (at.expect !== undefined && found.text !== at.expect) {
     return refuse('stale', `${at.elementId} no longer reads "${at.expect}" there`);
   }
-  return lockedAt(batch, found.from, found.to) ?? found;
+  return found;
 }
 
 // The marks the actor's text carries: who wrote it, when the actor is not a person.
@@ -141,7 +145,42 @@ function writtenBy(schema: Schema, actor: Actor) {
   return [contributor.create({ dataAuthor: actor.id, dataAiSession: actor.session ?? null })];
 }
 
-// Stored blocks as the actor's: each attributed to it.
+// Whether stored content holds what ties it to a suggestion or a comment thread: a review mark,
+// or a block suggested whole. Content an actor gives is its own, so it may say neither.
+function holdsReview(nodes: readonly ProseMirrorNode[]): boolean {
+  let found = false;
+  const visit = (node: ProseMirrorNode) => {
+    found ||= node.marks.some(isReviewMark) || Boolean(node.attrs.suggestionSplitKind);
+    return !found;
+  };
+  for (const node of nodes) {
+    if (visit(node)) node.descendants(visit);
+  }
+  return found;
+}
+
+// A node and every node inside it attributed to the actor: where its type records who wrote it,
+// and in its contributor mark, which says the actor wrote it whoever the content names.
+function authored(node: ProseMirrorNode, actor: Actor): ProseMirrorNode {
+  const { schema } = node.type;
+  const others: readonly Mark[] = node.marks.filter(
+    (mark) => mark.type !== schema.marks.contributor,
+  );
+  const marks = node.isInline
+    ? writtenBy(schema, actor).reduce((set, mark) => mark.addToSet(set), others)
+    : node.marks;
+  if (node.isText) return node.mark(marks);
+  const children: ProseMirrorNode[] = [];
+  node.content.forEach((child) => children.push(authored(child, actor)));
+  const attrs =
+    'dataAuthor' in node.attrs
+      ? { ...node.attrs, dataAuthor: actor.id, dataAiSession: actor.session ?? null }
+      : node.attrs;
+  return node.type.create(attrs, children, marks);
+}
+
+// Stored blocks as the actor's: each, and each node inside it, attributed to it; refused when
+// they carry a suggestion or a comment's anchor.
 function blocks(schema: Schema, content: readonly StoredNode[], actor: Actor) {
   let nodes: ProseMirrorNode[];
   try {
@@ -149,15 +188,10 @@ function blocks(schema: Schema, content: readonly StoredNode[], actor: Actor) {
   } catch (error) {
     return refuse('invalid', error instanceof Error ? error.message : 'Unreadable content');
   }
-  return nodes.map((node) =>
-    'dataAuthor' in node.attrs
-      ? node.type.create(
-          { ...node.attrs, dataAuthor: actor.id, dataAiSession: actor.session ?? null },
-          node.content,
-          node.marks,
-        )
-      : node,
-  );
+  if (holdsReview(nodes)) {
+    return refuse('invalid', 'Content may not carry suggestions or comment anchors');
+  }
+  return nodes.map((node) => authored(node, actor));
 }
 
 type TextEdit = Extract<AutomationEdit, { at: EditAddress }>;
@@ -206,10 +240,8 @@ function insertBlocks(batch: Batch, edit: Extract<AutomationEdit, { op: 'insertB
   const pos = edit.after ? found.pos + found.node.nodeSize : found.pos;
   const nodes = blocks(batch.state.schema, edit.content, batch.options.actor);
   if (isRefusal(nodes)) return nodes;
-  const locked =
-    lockedAt(batch, found.pos + 1, found.pos + found.node.nodeSize - 1) ??
-    hostOwnedAt(batch.tr, pos);
-  if (locked) return locked;
+  const owned = hostOwnedAt(batch.tr, pos);
+  if (owned) return owned;
   batch.tr.insert(pos, nodes);
   return null;
 }
@@ -237,8 +269,8 @@ function changeBlock(batch: Batch, edit: BlockEdit): Refusal | null {
   const end = found.pos + found.node.nodeSize;
   // A whole embed may be replaced or deleted, but its attributes are the host's, as its content is.
   const changed = edit.op === 'setAttrs' && isEmbed(found.node) ? found.pos + 1 : found.pos;
-  const locked = lockedAt(batch, found.pos + 1, end - 1) ?? hostOwnedAt(tr, changed);
-  if (locked) return locked;
+  const owned = hostOwnedAt(tr, changed);
+  if (owned) return owned;
   if (edit.op === 'setAttrs') {
     const refused = refusedAttrs(found.node, edit.attrs);
     if (refused) return refused;
@@ -254,9 +286,12 @@ function changeBlock(batch: Batch, edit: BlockEdit): Refusal | null {
 }
 
 function applyEdit(batch: Batch, edit: AutomationEdit): Refusal | null {
-  if ('at' in edit) return applyText(batch, edit);
-  if (edit.op === 'insertBlocks') return insertBlocks(batch, edit);
-  return changeBlock(batch, edit);
+  const fromStep = batch.tr.steps.length;
+  let refused: Refusal | null;
+  if ('at' in edit) refused = applyText(batch, edit);
+  else if (edit.op === 'insertBlocks') refused = insertBlocks(batch, edit);
+  else refused = changeBlock(batch, edit);
+  return refused ?? lockedSince(batch, fromStep);
 }
 
 /**

@@ -14,4 +14,4 @@ $$
 
 $$
 
-Empty inline $$.
+Empty inline .

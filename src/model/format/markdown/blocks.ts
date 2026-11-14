@@ -13,11 +13,15 @@ import { text, type Writing } from './writing.js';
 const inlineText = (content: readonly StoredNode[] | undefined) =>
   (content ?? []).map((node) => text(node.text)).join('');
 
-// Prefixes every line of a block, the first with `first` and the others with `rest`.
-const prefixed = (block: string, first: string, rest = ' '.repeat(first.length)) =>
+// Prefixes every line of a block, the first with `first`, the others with `rest` and blank ones
+// with `blank`: a quote's blank lines keep its marker, so that its blocks stay in it.
+const prefixed = (
+  block: string,
+  [first, rest = ' '.repeat(first.length), blank = '']: readonly [string, string?, string?],
+) =>
   block
     .split('\n')
-    .map((line, index) => (line ? `${index === 0 ? first : rest}${line}` : line))
+    .map((line, index) => (line ? `${index === 0 ? first : rest}${line}` : blank))
     .join('\n');
 
 // A caption below the block it captions, in italics.
@@ -31,7 +35,7 @@ function listOf(node: StoredNode, writing: Writing): string {
   return (node.content ?? [])
     .map((item) => blocks(item.content, writing).join('\n\n'))
     .filter((item) => item !== '')
-    .map((item, index) => prefixed(item, ordered ? `${String(start + index)}. ` : '- '))
+    .map((item, index) => prefixed(item, [ordered ? `${String(start + index)}. ` : '- ']))
     .join('\n');
 }
 
@@ -57,11 +61,15 @@ const ENTITIES: Readonly<Record<string, string>> = {
   '&nbsp;': ' ',
 };
 
-// A template block as its text: its HTML source with each variable's value, without its tags.
+// Stands for a variable the host gives no value, kept apart from the text escaped around it.
+const UNRESOLVED = /\0([\w.-]+)\0/g;
+
+// A template block as its text: its HTML source with each variable's value, without its tags; a
+// variable without one is written as its key in braces, which reads back as the variable.
 function templateBlockOf(node: StoredNode, writing: Writing): string | null {
-  const source = text(node.attrs?.source).replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (token, key) => {
+  const source = text(node.attrs?.source).replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => {
     const value = writing.values.variable?.(String(key));
-    return typeof value === 'string' ? value : token;
+    return typeof value === 'string' ? value.replaceAll('\0', '') : `\0${String(key)}\0`;
   });
   const lines = source
     .replace(BREAKING_TAGS, '\n')
@@ -70,11 +78,21 @@ function templateBlockOf(node: StoredNode, writing: Writing): string | null {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
-  return lines.length ? lines.map((line) => escapeLineStart(escapeText(line))).join('\n\n') : null;
+  return lines.length
+    ? lines
+        .map((line) => escapeLineStart(escapeText(line)).replace(UNRESOLVED, '{{$1}}'))
+        .join('\n\n')
+    : null;
 }
 
+// A paragraph's lines; the spaces it starts with are left out, since Markdown reads a paragraph
+// without them, and four of them as code.
 const paragraphOf = (node: StoredNode, writing: Writing) =>
-  inlines(node.content, writing).split('\n').map(escapeLineStart).join('\n');
+  inlines(node.content, writing)
+    .replace(/^[ \t]+/, '')
+    .split('\n')
+    .map(escapeLineStart)
+    .join('\n');
 
 // The writers of the blocks a document holds, by stored type; a block of another type writes its
 // content's blocks, and one without content is left out.
@@ -82,11 +100,13 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
   paragraph: paragraphOf,
   heading: (node, writing) => {
     const level = Math.min(6, Math.max(1, Number(node.attrs?.level) || 1));
-    return `${'#'.repeat(level)} ${escapeHeadingEnd(inlines(node.content, writing))}`;
+    const content = inlines(node.content, { ...writing, inHeading: true });
+    return `${'#'.repeat(level)} ${escapeHeadingEnd(content)}`;
   },
   bulletList: listOf,
   orderedList: listOf,
-  blockquote: (node, writing) => prefixed(blocks(node.content, writing).join('\n\n'), '> ', '> '),
+  blockquote: (node, writing) =>
+    prefixed(blocks(node.content, writing).join('\n\n'), ['> ', '> ', '>']),
   codeBlock: (node) =>
     captioned(fenced(inlineText(node.content), node.attrs?.language), node.attrs?.caption),
   linkedCode: (node) => fenced(text(node.attrs?.code), node.attrs?.language),

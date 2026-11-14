@@ -1,7 +1,7 @@
 // What inline completion asks a provider and what it takes from the answer: the text around the
 // caret, where the caret may be completed at all, and the answer made into text that fits there.
 
-import type { ResolvedPos } from 'prosemirror-model';
+import type { Node as ProseMirrorNode, ResolvedPos } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { CompletionContext } from '../host/index.js';
 import { isInPageRegion } from './block-place.js';
@@ -18,22 +18,44 @@ export function isCompletable($head: ResolvedPos): boolean {
   return !isInPageRegion($head);
 }
 
+// The text between two positions as the reader reads it: each text block on a line of its own,
+// each inline object a space, and the text a suggestion deletes left out.
+function readText(doc: ProseMirrorNode, from: number, to: number): string {
+  let text = '';
+  let started = false;
+  doc.nodesBetween(from, to, (node, pos) => {
+    if (node.isTextblock) {
+      if (started) text += '\n';
+      started = true;
+      return true;
+    }
+    if (!node.isInline) return true;
+    if (node.marks.some((mark) => mark.type.name === 'deletion')) return false;
+    text += node.isText
+      ? (node.text ?? '').slice(Math.max(from, pos) - pos, Math.min(to, pos + node.nodeSize) - pos)
+      : ' ';
+    return false;
+  });
+  return text;
+}
+
 /**
  * What to ask a provider for at the selection: the text before the caret, up to `context`
- * characters across the blocks before it, the rest of its block, and the block's id and type; null
- * without a caret that may be completed, or with nothing before it.
+ * characters across the blocks before it, the rest of its block, and the block's id and type, each
+ * without the text a suggestion deletes; null without a caret that may be completed, or with
+ * nothing before it.
  */
 export function completionRequest(state: EditorState, context = 2000): CompletionContext | null {
   const { empty, $head } = state.selection;
   if (!empty || !isCompletable($head)) return null;
   const start = Math.max(0, $head.pos - context);
-  const before = state.doc.textBetween(start, $head.pos, '\n', ' ');
+  const before = readText(state.doc, start, $head.pos);
   if (!before.trim()) return null;
   const block = $head.parent;
   const id: unknown = block.attrs.dataId;
   return {
     before,
-    after: state.doc.textBetween($head.pos, $head.end(), '\n', ' '),
+    after: readText(state.doc, $head.pos, $head.end()),
     elementId: typeof id === 'string' && id ? id : null,
     blockType: block.type.name,
   };

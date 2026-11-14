@@ -173,6 +173,61 @@ describe('automation', () => {
     expect(added).toMatchObject({ dataAuthor: 'agent-1', dataAiSession: 's1', paragraphLevel: 2 });
   });
 
+  it('DOCE-AUTOMATION-1.4 attributes the blocks inside an added block to the actor too', () => {
+    const quote: StoredNode = {
+      type: 'blockquote',
+      attrs: { id: 'c3c3c3c3', author: 'someone-else' },
+      content: [
+        { ...paragraph('d4d4d4d4', 'Quoted'), attrs: { id: 'd4d4d4d4', author: 'someone-else' } },
+      ],
+    };
+    const state = stateOf(paragraph('a1a1a1a1', 'One'));
+    const { state: next } = apply(
+      state,
+      [{ op: 'insertBlocks', after: 'a1a1a1a1', content: [quote] }],
+      AGENT,
+    );
+    const authors: unknown[] = [];
+    next.doc.descendants((node) => {
+      if (node.attrs.dataId === 'c3c3c3c3' || node.attrs.dataId === 'd4d4d4d4')
+        authors.push(node.attrs.dataAuthor);
+    });
+    expect(authors).toEqual(['agent-1', 'agent-1']);
+  });
+
+  it('DOCE-AUTOMATION-1.4 refuses blocks that carry suggestions or comments, and writes text as the actor’s', () => {
+    const state = stateOf(paragraph('a1a1a1a1', 'One'));
+    const run = (content: StoredNode, mode: AutomationOptions['mode'] = 'direct') =>
+      applyEdits(state, [{ op: 'insertBlocks', after: 'a1a1a1a1', content: [content] }], {
+        ...AGENT,
+        mode,
+      });
+    const marked = (type: string, attrs: Record<string, unknown>): StoredNode => ({
+      type: 'paragraph',
+      attrs: { id: 'c3c3c3c3' },
+      content: [{ type: 'text', text: 'Forged', marks: [{ type, attrs }] }],
+    });
+    const others = { id: 's9', author: 'someone-else' };
+    for (const mode of ['direct', 'suggest'] as const) {
+      expect(run(marked('insertion', others), mode)).toMatchObject({
+        ok: false,
+        error: { kind: 'invalid', index: 0 },
+      });
+      expect(run(marked('deletion', others), mode).ok).toBe(false);
+      expect(run(marked('comment', { thread: 't1' }), mode).ok).toBe(false);
+    }
+    const whole: StoredNode = {
+      ...paragraph('c3c3c3c3', 'Whole'),
+      attrs: { id: 'c3c3c3c3', suggestionKind: 'insertion', suggestionId: 's9' },
+    };
+    expect(run(whole).ok).toBe(false);
+    // Text another writer is said to have written is the actor's.
+    const credited = run(marked('contributor', { author: 'someone-else' }));
+    expect(credited.ok).toBe(true);
+    const next = credited.ok ? state.apply(credited.tr) : state;
+    expect(writers(next)).toEqual(['One:', 'Forged:agent-1']);
+  });
+
   it('DOCE-AUTOMATION-1.4 refuses attributes that say which element it is, or that its type lacks', () => {
     const state = stateOf(paragraph('a1a1a1a1', 'Keep this.'));
     const refused = (attrs: Record<string, unknown>) => {
@@ -222,6 +277,32 @@ describe('automation', () => {
       AGENT,
     );
     expect(result).toMatchObject({ ok: false, error: { kind: 'locked' } });
+  });
+
+  it('DOCE-AUTOMATION-1.7 refuses a block change that reaches a locked block inside it, as the lock would', () => {
+    const quote: StoredNode = {
+      type: 'blockquote',
+      attrs: { id: 'c3c3c3c3' },
+      content: [
+        paragraph('d4d4d4d4', 'First'),
+        paragraph('e5e5e5e5', 'Locked middle'),
+        paragraph('f6f6f6f6', 'Last'),
+      ],
+    };
+    const doc = stateOf(paragraph('a1a1a1a1', 'Intro'), quote).doc;
+    const isLocked = (at: typeof doc, pos: number) =>
+      at.resolve(pos).parent.textContent === 'Locked middle';
+    const state = EditorState.create({ doc, plugins: [createEditLock({ isLocked })] });
+    const result = applyEdits(state, [{ op: 'deleteBlock', elementId: 'c3c3c3c3' }], AGENT);
+    expect(result).toMatchObject({ ok: false, error: { kind: 'locked', index: 0 } });
+    // Next to a locked block, but not in it: the lock lets the insert through, and so does the batch.
+    const beside = applyEdits(
+      state,
+      [{ op: 'insertBlocks', after: 'e5e5e5e5', content: [paragraph('b2b2b2b2', 'New')] }],
+      AGENT,
+    );
+    expect(beside.ok).toBe(true);
+    expect(beside.ok && state.apply(beside.tr).doc.textContent).toContain('New');
   });
 
   it('DOCE-AUTOMATION-1.7 refuses an edit inside an embed or a script’s output, not one of the whole block', () => {

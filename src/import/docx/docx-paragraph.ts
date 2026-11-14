@@ -177,6 +177,13 @@ function emptyPieces(pPr: XmlElement | null): Piece[] | null {
   return null;
 }
 
+// The heading level an outline level gives: levels 0 to 5 are headings 1 to 6; 9 is body text, and
+// a deeper or unreadable level is no heading.
+function headingLevelOf(outline: string | null): number | null {
+  const level = Number(outline ?? Number.NaN);
+  return Number.isInteger(level) && level >= 0 && level < 6 ? level + 1 : null;
+}
+
 /** The pieces a paragraph (`w:p`) gives (DOCE-IMPORT-2.2). */
 export function readParagraph(p: XmlElement, reading: ParagraphReading): Piece[] {
   const pPr = childElement(p, 'w:pPr');
@@ -186,7 +193,7 @@ export function readParagraph(p: XmlElement, reading: ParagraphReading): Piece[]
   const shape: ParagraphShape = {
     role,
     numbering: reading.numbering.roleOf(numberingOf(pPr) ?? reading.styles.numberingOf(styleId)),
-    outline: outlineValue === null ? null : Number(outlineValue) + 1,
+    outline: headingLevelOf(outlineValue),
     display: !!childElement(p, 'm:oMathPara'),
     listParagraph: reading.styles.isListParagraph(styleId),
   };

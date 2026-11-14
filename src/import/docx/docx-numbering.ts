@@ -38,13 +38,19 @@ export interface DocxNumbering {
   readonly roleOf: (numPr: XmlElement | null) => NumberingRole | null;
 }
 
+// A list's start number: a whole number, or null for a missing or unreadable one.
+function startOf(value: string | null): number | null {
+  const start = Number(value ?? Number.NaN);
+  return Number.isSafeInteger(start) && start >= 0 ? start : null;
+}
+
 const levelsOf = (element: XmlElement) =>
   new Map(
     childElements(element, 'w:lvl').map((level): [number, Level] => [
       Number(level.attrs['w:ilvl'] ?? 0),
       {
         format: childValue(level, 'w:numFmt') ?? 'decimal',
-        start: Number(childValue(level, 'w:start') ?? 1),
+        start: startOf(childValue(level, 'w:start')) ?? 1,
       },
     ]),
   );
@@ -65,7 +71,8 @@ export function readNumbering(root: XmlElement | null): DocxNumbering {
         starts: new Map(
           childElements(element, 'w:lvlOverride').flatMap((override): [number, number][] => {
             const start = childValue(override, 'w:startOverride');
-            return start === null ? [] : [[Number(override.attrs['w:ilvl'] ?? 0), Number(start)]];
+            const value = startOf(start);
+            return value === null ? [] : [[Number(override.attrs['w:ilvl'] ?? 0), value]];
           }),
         ),
       },
