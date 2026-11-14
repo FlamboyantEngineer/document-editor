@@ -1,7 +1,7 @@
 // The paged layout's node types: sections of pages, each page's header, content and footer, and
 // manual page breaks.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import {
   DOMParser,
   Fragment,

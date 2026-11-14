@@ -2,7 +2,7 @@
 // in the document as its own blocks. The embed records the host's kind and id for the content and
 // the state it shows; only taking an update from the host changes what it holds.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import type { DomAttributes } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';

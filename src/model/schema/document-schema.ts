@@ -6,7 +6,7 @@ import {
   createRichTextKit,
   type RichTextExtension,
   type RichTextKit,
-} from '@flamboyantengineer/ui-components/rich-text-editor';
+} from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Schema } from 'prosemirror-model';
 import { blockLayoutNodesExtension } from './block-layout-nodes.js';
 import { codeNodesExtension } from './code-nodes.js';

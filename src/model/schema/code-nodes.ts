@@ -1,7 +1,7 @@
 // Code: a block of code typed in, with its caption and the line it starts at when pagination splits
 // it, and a block that shows code from an address.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { nodes as basicNodes } from 'prosemirror-schema-basic';
 import { deriveLinkedCodeBlockCaption, normalizeCaptionText } from './caption-text.js';

@@ -1,7 +1,7 @@
 // Blocks that arrange or list the document: a layout section that sets its columns from a preset,
 // its columns, and a table of contents built from the document's headings or captions.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import type { DomAttributes } from './dom-attributes.js';
 import { normalizeDocumentLayoutPresetId } from './layout-presets.js';
