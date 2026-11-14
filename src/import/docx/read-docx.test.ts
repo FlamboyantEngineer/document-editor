@@ -1,7 +1,12 @@
 // @vitest-environment node
 import { type Command, EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { buildDocx, paragraph, run } from '../../../test/fixtures/docx/build-docx-fixture.js';
+import {
+  buildDocx,
+  paragraph,
+  run,
+  style,
+} from '../../../test/fixtures/docx/build-docx-fixture.js';
 import {
   COMMENTS,
   IMAGES,
@@ -264,6 +269,84 @@ describe('reading word processing documents', () => {
     expect(second?.content?.[1]?.content?.[0]?.type).toBe('table');
   });
 
+  it('DOCE-IMPORT-2.2 reads only outline levels 0 to 5 as heading levels, and symbols with a character', async () => {
+    const custom = (outline: string) =>
+      paragraph(
+        run(`Level ${outline}`),
+        `${style('Custom_lead')}<w:outlineLvl w:val="${outline}"/>`,
+      );
+    const result = await read({
+      body: [
+        custom('1'),
+        custom('9'),
+        custom('x'),
+        paragraph(`${run('a')}<w:r><w:sym w:font="Symbol" w:char="FFFFFFFF"/></w:r>`),
+        paragraph(`<w:r><w:sym w:font="Symbol" w:char="F0B7"/></w:r>`),
+      ].join(''),
+    });
+    expect(blocks(result)).toEqual([
+      { type: 'heading', attrs: { level: 2, style: 'lead' }, content: [text('Level 1')] },
+      { type: 'paragraph', attrs: { style: 'lead' }, content: [text('Level 9')] },
+      { type: 'paragraph', attrs: { style: 'lead' }, content: [text('Level x')] },
+      para(text('a')),
+      para(text('\uf0b7')),
+    ]);
+  });
+
+  it('DOCE-IMPORT-2.2 finds no entity, style, media type or run child by an object property name', async () => {
+    const result = await read({
+      styles: '<w:style w:type="paragraph" w:styleId="Odd"><w:name w:val="constructor"/></w:style>',
+      body: [
+        paragraph(run('a &constructor; b')),
+        paragraph(`${run('c')}<w:r><w:constructor/><w:toString/></w:r>`, style('Odd')),
+        paragraph(`<w:fldSimple w:instr=" constructor ">${run('field')}</w:fldSimple>`),
+      ].join(''),
+      media: { 'picture.constructor': new Uint8Array([1, 2, 3]) },
+    });
+    expect(blocks(result)).toEqual([
+      para(text('a &constructor; b')),
+      para(text('c')),
+      para(text('field')),
+    ]);
+    expect(result.warnings).toEqual([
+      { code: 'image-left-out', detail: 'word/media/picture.constructor', count: 1 },
+      { code: 'style-left-out', detail: 'constructor', count: 1 },
+      { code: 'field-as-text', detail: 'CONSTRUCTOR', count: 1 },
+    ]);
+  });
+
+  it('DOCE-IMPORT-2.3 starts a list whose start number is unreadable at 1', async () => {
+    const result = await read({
+      numbering: [
+        '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="x"/><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum>',
+        '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>',
+        '<w:num w:numId="2"><w:abstractNumId w:val="0"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="y"/></w:lvlOverride></w:num>',
+      ].join(''),
+      body: ['1', '2']
+        .map((id) =>
+          paragraph(
+            run(`Item ${id}`),
+            `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${id}"/></w:numPr>`,
+          ),
+        )
+        .join(''),
+    });
+    expect(blocks(result).map((list) => list.attrs)).toEqual([undefined, undefined]);
+  });
+
+  it('DOCE-IMPORT-2.4 leaves out a row with no cell of its own and the span it took', async () => {
+    const schema = createDocumentSchema();
+    const tc = (merge: string, value: string) =>
+      `<w:tc><w:tcPr>${merge}</w:tcPr>${paragraph(run(value))}</w:tc>`;
+    const result = await read({
+      body: `<w:tbl><w:tblGrid><w:gridCol w:w="1500"/></w:tblGrid><w:tr>${tc('<w:vMerge w:val="restart"/>', 'top')}</w:tr><w:tr>${tc('<w:vMerge/>', '')}</w:tr><w:tr>${tc('<w:vMerge/>', '')}</w:tr></w:tbl>`,
+    });
+    const [table] = blocks(result);
+    expect(table?.content).toHaveLength(1);
+    expect(table?.content?.[0]?.content?.[0]?.attrs).toEqual({ colwidth: [100] });
+    expect(() => readDocumentFile(result.file, schema)).not.toThrow();
+  });
+
   it('DOCE-IMPORT-2.3 starts a new list where the numbering changes', async () => {
     const result = await read({
       numbering: [
@@ -420,12 +503,12 @@ describe('reading word processing documents', () => {
     expect(first?.content?.[1]).toEqual({
       type: 'text',
       text: 'checked',
-      marks: [{ type: 'comment', attrs: { thread: 'comment-0', state: 'resolved' } }],
+      marks: [{ type: 'comment', attrs: { thread: 'comment-00000001', state: 'resolved' } }],
     });
     expect(second?.content?.[0]).toEqual({
       type: 'text',
       text: 'open',
-      marks: [{ type: 'comment', attrs: { thread: 'comment-2' } }],
+      marks: [{ type: 'comment', attrs: { thread: 'comment-00000003' } }],
     });
     const change = (value: string, type: string, id: string): StoredNode => ({
       type: 'text',
@@ -434,13 +517,13 @@ describe('reading word processing documents', () => {
     });
     expect(changes?.content).toEqual([
       text('Keep '),
-      change('new', 'insertion', '00000001'),
-      change('old', 'deletion', '00000002'),
+      change('new', 'insertion', '00000004'),
+      change('old', 'deletion', '00000005'),
       text('.'),
     ]);
     expect(result.comments).toEqual([
       {
-        id: 'comment-0',
+        id: 'comment-00000001',
         state: 'resolved',
         quote: 'checked',
         suggestion: null,
@@ -448,16 +531,29 @@ describe('reading word processing documents', () => {
         createdAt: '2026-01-02T10:00:00Z',
         entries: [
           {
-            id: 'comment-0',
+            id: 'comment-00000001',
             author: 'Ada',
             text: 'Check this.',
             createdAt: '2026-01-02T10:00:00Z',
           },
-          { id: 'comment-1', author: 'Ben', text: 'Done.', createdAt: '2026-01-02T11:00:00Z' },
+          {
+            id: 'comment-00000002',
+            author: 'Ben',
+            text: 'Done.',
+            createdAt: '2026-01-02T11:00:00Z',
+          },
         ],
       },
-      expect.objectContaining({ id: 'comment-2', state: 'open', quote: 'open' }),
+      expect.objectContaining({ id: 'comment-00000003', state: 'open', quote: 'open' }),
     ]);
+  });
+
+  it('DOCE-IMPORT-2.7 gives the threads of two documents read different ids', async () => {
+    const [first, second] = await Promise.all([read(COMMENTS), read(COMMENTS)]);
+    const ids = (result: Read) => result.comments.map((thread) => thread.id);
+    expect(ids(first)).toHaveLength(2);
+    expect(ids(first).every((id) => /^comment-[a-f0-9]{8}$/.test(id))).toBe(true);
+    expect(ids(first).filter((id) => ids(second).includes(id))).toEqual([]);
   });
 
   it('DOCE-IMPORT-2.7 gives tracked changes as suggestions with their authors, to accept or reject', async () => {

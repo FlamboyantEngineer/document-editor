@@ -39,15 +39,15 @@ export interface DocxStyles {
 const PLAIN: ParagraphRole = { kind: 'paragraph', level: 1 };
 
 // Built-in styles by their lower-case names, which Word keeps whatever the style id.
-const NAMED: Readonly<Record<string, ParagraphRole>> = {
-  normal: PLAIN,
-  title: { kind: 'title' },
-  quote: { kind: 'quote' },
-  'intense quote': { kind: 'quote' },
-  code: { kind: 'code' },
-  'html preformatted': { kind: 'code' },
-  caption: { kind: 'caption' },
-};
+const NAMED: ReadonlyMap<string, ParagraphRole> = new Map<string, ParagraphRole>([
+  ['normal', PLAIN],
+  ['title', { kind: 'title' }],
+  ['quote', { kind: 'quote' }],
+  ['intense quote', { kind: 'quote' }],
+  ['code', { kind: 'code' }],
+  ['html preformatted', { kind: 'code' }],
+  ['caption', { kind: 'caption' }],
+]);
 
 // Styles that are plain paragraphs in the stored format: Word's text styles and the writer's own.
 const PLAIN_NAMES = new Set([
@@ -79,7 +79,7 @@ function byName(name: string): ParagraphRole | null {
   const heading = /^heading ([1-6])$/.exec(lower);
   if (heading) return { kind: 'heading', level: Number(heading[1]) };
   if (PLAIN_NAMES.has(lower) || /^list( bullet| number)?( \d)?$/.test(lower)) return PLAIN;
-  return NAMED[lower] ?? null;
+  return NAMED.get(lower) ?? null;
 }
 
 // The heading an outline level a style sets makes, or null.
