@@ -127,25 +127,35 @@ export function openPackage(
     }
     return relationships;
   };
+  const readPart = async (path: string): Promise<DocxPart | null> => {
+    const text = await readText(archive, path);
+    if (text === null) return null;
+    const root = readXml(text);
+    const relationships = await relationshipsOf(path);
+    const partImages = new Map<string, ImportedImage | null>();
+    for (const [id, relationship] of relationships) {
+      if (relationshipKind(relationship.type) !== 'image') continue;
+      const image = relationship.external ? null : await readImage(relationship.target);
+      if (!image)
+        warnings.add(
+          'image-left-out',
+          relationship.external ? 'linked image' : relationship.target,
+        );
+      partImages.set(id, image);
+    }
+    return { path, root, relationships, images: partImages };
+  };
+  // Each part is read once, however many sections or readers ask for it.
+  const parts = new Map<string, Promise<DocxPart | null>>();
   return {
     images,
-    part: async (path) => {
-      const text = await readText(archive, path);
-      if (text === null) return null;
-      const root = readXml(text);
-      const relationships = await relationshipsOf(path);
-      const partImages = new Map<string, ImportedImage | null>();
-      for (const [id, relationship] of relationships) {
-        if (relationshipKind(relationship.type) !== 'image') continue;
-        const image = relationship.external ? null : await readImage(relationship.target);
-        if (!image)
-          warnings.add(
-            'image-left-out',
-            relationship.external ? 'linked image' : relationship.target,
-          );
-        partImages.set(id, image);
+    part: (path) => {
+      let part = parts.get(path);
+      if (!part) {
+        part = readPart(path);
+        parts.set(path, part);
       }
-      return { path, root, relationships, images: partImages };
+      return part;
     },
   };
 }

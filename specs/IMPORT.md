@@ -24,7 +24,7 @@ The reader takes styles and numbering by the mapping the library's Word writer u
 
 ### DOCE-IMPORT-2.1 - Reading the file
 
-`readDocx(bytes, { template, imageSource, limits })` shall read a word processing document (`.docx`) with no DOM and no third-party converter: it shall inflate its zip archive with the platform's `DecompressionStream`, parse its XML parts with the library's own reader, and give `{ ok: true, file, warnings, comments, images, pages }`. Bytes that are not a zip archive, an archive without a main document part, a damaged archive or XML part, and an archive listing more files, or holding a file larger, than `limits` allow (`DEFAULT_ZIP_LIMITS`: 5000 files, 64 MB a file) shall give `{ ok: false, failure, message }`, with `failure` `unreadable`, `damaged` or `too-large`, and never throw.
+`readDocx(bytes, { template, imageSource, limits })` shall read a word processing document (`.docx`) with no DOM and no third-party converter: it shall inflate its zip archive with the platform's `DecompressionStream`, parse its XML parts with the library's own reader, and give `{ ok: true, file, warnings, comments, images, pages }`. Bytes that are not a zip archive, an archive without a main document part, a damaged archive or XML part, and an archive listing more files than `limits` allow, holding a file larger than they allow, or whose files read inflate to more bytes together than they allow, each part counted once since it is read once (`DEFAULT_ZIP_LIMITS`: 5000 files, 64 MB a file, 256 MB in all) shall give `{ ok: false, failure, message }`, with `failure` `unreadable`, `damaged` or `too-large`, and never throw.
 
 Implementation: `src/import/docx/read-docx.ts`, `src/import/zip-read.ts`, `src/import/xml-read.ts`, `src/import/import-error.ts`, `src/import/docx/docx-package.ts`
 Verification: `src/import/docx/read-docx.test.ts`
@@ -66,7 +66,7 @@ Verification: `src/import/docx/read-docx.test.ts`
 
 ### DOCE-IMPORT-2.7 - Comments and tracked changes
 
-The text in a comment's range, across paragraphs, shall take a comment mark naming its thread, `comment-<id>` after the thread's opening comment, with `state: 'resolved'` when that comment is done. `comments` shall give the threads (`CommentThread`): each opening comment with its replies, linked through the extended comments part, oldest first, each entry with its id, author name, text and date, and the text its marks cover as the thread's `quote`. A tracked insertion or deletion shall be an insertion or deletion mark.
+The text in a comment's range, across paragraphs, shall take a comment mark naming its thread, `comment-<id>` after the thread's opening comment, with `state: 'resolved'` when that comment is done. `comments` shall give the threads (`CommentThread`): each opening comment with its replies, linked through the extended comments part, oldest first, each entry with its id, author name, text and date, and the text its marks cover as the thread's `quote`. A tracked insertion or deletion, and text moved there or moved away, shall be an insertion or deletion mark: a suggestion of its own, its `id` fresh (`newId`, random by default) and shared by the parts of one change, its `author` the change's author, so that the editor lists it and accepts or rejects it as its own suggestions.
 
 Implementation: `src/import/docx/docx-comments.ts`, `src/import/docx/docx-inline.ts`
 Verification: `src/import/docx/read-docx.test.ts`
