@@ -38,14 +38,15 @@ interface ExportSources {
   readonly progress: LayoutProgress;
 }
 
-// The request an export is given: the document as the editor shows it now, and its snapshot.
+// The request an export is given: the document as the editor shows it now, with the template it
+// pins, and its snapshot.
 function exportRequest(
   { props, view, progress }: ExportSources,
   signal: AbortSignal,
 ): ExportRequest {
   const references = props.referenceSource;
   return {
-    content: writeDocumentFile(props.state.doc),
+    content: writeDocumentFile(props.state.doc, { template: props.templatePin ?? null }),
     snapshot: async (options = {}) => {
       if (!view) throw new Error('The editor is not mounted');
       return documentSnapshotWhenReady(view, {
