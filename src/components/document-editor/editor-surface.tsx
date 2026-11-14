@@ -13,6 +13,7 @@ import {
   type BottomChromeProps,
   type ChromeProps,
   EditorContextMenu,
+  EditorTypedMenus,
   FollowingBottomChrome,
   FollowingTopChrome,
   type TopChromeProps,
@@ -148,6 +149,7 @@ export function EditorSurface({
       </Workspace>
       <FollowingBottomChrome {...following.bottom} />
       <EditorContextMenu {...chrome} openDialog={openDialog} />
+      <EditorTypedMenus {...chrome} />
     </Announcer>
   );
 }

@@ -290,6 +290,13 @@ Verification: `src/components/document-editor/editor-store.test.tsx`
 Implementation: `src/components/document-editor/selection-toolbar.tsx`, `src/components/document-editor/editor-chrome.tsx`
 Verification: `src/components/document-editor/selection-toolbar.test.tsx`, `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-4.22 - The slash menu
+
+`slashMenu` shall open the base library's `CompletionList` (`de-document-editor__slash-menu`, named by the `slashMenu` label) below a `/` the writer types at the start of a text block or after whitespace, while they can edit there (DOCE-EDITING-9.1); it is off by default. It offers the text styles, the lists, a table, and the insert group's items and menu entries that can act at the caret, then the host's options (`SlashMenuItem`: a label, keywords, `run` and `isEnabled`), rearranged by `arrange`; the query typed after the `/` narrows them, labels and keywords that start with it first, and the `noMatches` label shows while none match. Focus stays in the document, which names the list and its active option (`aria-controls`, `aria-expanded`, `aria-activedescendant`): the arrows move through the options, Enter or Tab chooses the active one, taking the typed text out before it runs, and Escape closes the menu until another `/` is typed; a pointer chooses one too. With `emptyLineButton`, a button named by the `insertBlock` label floats before the empty paragraph holding the caret while focus is in the document (`de-document-editor__insert-block`), and types the `/` that opens the menu.
+
+Implementation: `src/components/document-editor/slash-menu.tsx`, `src/components/document-editor/trigger-menu.tsx`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-editor/slash-menu.test.tsx`, `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -626,6 +633,8 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-document-editor__placeholder`       | slot      |                                                                        | The placeholder until the pages are first laid out (DOCE-EDITOR-4.18).                  |
 | `de-document-editor__overview`          | slot      |                                                                        | The scroll overview over the frame (DOCE-EDITOR-4.19).                                  |
 | `de-document-editor__selection-toolbar` | slot      |                                                                        | The toolbar over selected text, with `selectionToolbar` (DOCE-EDITOR-4.21).             |
+| `de-document-editor__slash-menu`        | slot      |                                                                        | The menu a typed `/` opens, with `slashMenu` (DOCE-EDITOR-4.22).                        |
+| `de-document-editor__insert-block`      | slot      |                                                                        | The button before an empty line that opens the slash menu (DOCE-EDITOR-4.22).           |
 | `de-document-editor__banners`           | slot      |                                                                        | The banner region above the document (DOCE-EDITOR-7.1).                                 |
 | `data-banner`                           | attribute | `EDITOR_BANNERS`, the host's ids                                       | On a banner: which it is.                                                               |
 | `de-document-editor__status-bar`        | slot      |                                                                        | The editor's status bar, with `statusBar`.                                              |

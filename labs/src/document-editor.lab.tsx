@@ -133,6 +133,7 @@ function Lab() {
   const [debug, setDebug] = useState<DocumentEditorDebug>({});
   const [statusBar, setStatusBar] = useState(true);
   const [selectionToolbar, setSelectionToolbar] = useState(false);
+  const [slashMenu, setSlashMenu] = useState(false);
   const [hostItems, setHostItems] = useState(true);
   const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
@@ -197,6 +198,15 @@ function Lab() {
               onChange={(event) => setSelectionToolbar(event.currentTarget.checked)}
             />{' '}
             Selection toolbar
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              name="slash-menu"
+              checked={slashMenu}
+              onChange={(event) => setSlashMenu(event.currentTarget.checked)}
+            />{' '}
+            Slash menu
           </label>
           {DEBUG_PARTS.map(({ part, label }) => (
             <label key={part}>
@@ -275,6 +285,7 @@ function Lab() {
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
         scrollable={scrollable}
         selectionToolbar={selectionToolbar}
+        slashMenu={slashMenu && { emptyLineButton: true }}
         debug={debug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
         lead={hostItems ? <p className="lab-lead">Sample document · draft</p> : undefined}

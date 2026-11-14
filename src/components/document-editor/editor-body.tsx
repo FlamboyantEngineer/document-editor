@@ -22,6 +22,7 @@ import { PagesView } from './pages-view.js';
 import { useOpeningScripts } from './script-entries.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { TableHandles } from './table-handles.js';
+import { type MenuKeys, menuTakesKey } from './trigger-menu.js';
 import {
   READ_SELECTION_FIRST,
   SelectionFirst,
@@ -52,6 +53,8 @@ export interface EditorBodyProps {
   labels: DocumentEditorLabels;
   /** Receive the comments' ways to start a thread and to take the reader to one. */
   commentRefs: CommentRefs;
+  /** The open typed menus' keys, which the document's keys ask first. */
+  menuKeys: MenuKeys;
 }
 
 // The editor's own keys beside the document's, by their ids in the shortcut table, while each can
@@ -81,6 +84,7 @@ function useBodyViewProps({
   labels,
   startCommentRef,
   onDialog,
+  menuKeys,
 }: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs'> & {
   startCommentRef: CommentRefs['startCommentRef'];
 }) {
@@ -95,6 +99,7 @@ function useBodyViewProps({
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
+        if (menuTakesKey(menuKeys, event)) return true;
         if (host.handleKeyDown?.(view, event)) return true;
         const table = shortcutsOf(view.state);
         const action = editorKeys({
@@ -116,7 +121,7 @@ function useBodyViewProps({
         ...(host.blur ? { blur: host.blur } : {}),
       },
     };
-  }, [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef]);
+  }, [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef, menuKeys]);
 }
 
 // The projection takes each of its states itself (`projectionDispatch`), so a commit the engine
@@ -188,10 +193,11 @@ export function EditorBody({
   labels,
   commentRefs,
   onDialog,
+  menuKeys,
 }: EditorBodyProps) {
   const { startCommentRef, openThreadRef } = commentRefs;
   const { state, onStateChange, editable = true, suggesting = false } = props;
-  const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog });
+  const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog, menuKeys });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   const attributes = useContentAttributes(props);
   useOpeningScripts(view, {

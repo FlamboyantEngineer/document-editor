@@ -31,6 +31,12 @@ export interface DocumentEditorLabels
   readonly contextMenu: string;
   /** Names the floating toolbar over selected text. */
   readonly selectionToolbar: string;
+  /** Names the menu `/` opens in the text. */
+  readonly slashMenu: string;
+  /** Shown in a typed menu while nothing matches what was typed. */
+  readonly noMatches: string;
+  /** The button on an empty line that opens the slash menu. */
+  readonly insertBlock: string;
   readonly cut: string;
   readonly copy: string;
   readonly paste: string;
@@ -134,6 +140,9 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   pageBreak: 'Page break',
   contextMenu: 'Document actions',
   selectionToolbar: 'Selection formatting',
+  slashMenu: 'Insert',
+  noMatches: 'No matches',
+  insertBlock: 'Insert block',
   cut: 'Cut',
   copy: 'Copy',
   paste: 'Paste',

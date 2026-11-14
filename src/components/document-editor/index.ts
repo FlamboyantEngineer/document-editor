@@ -43,6 +43,7 @@ export type { ObjectLabels } from './object-labels.js';
 export type { EditorSession } from './save-status-item.js';
 export type { SelectionToolbarOptions } from './selection-toolbar.js';
 export { SELECTION_TOOLBAR_GROUPS } from './selection-toolbar.js';
+export type { SlashMenuItem, SlashMenuOptions } from './slash-menu.js';
 export {
   DocumentModeStatus,
   DocumentPageStatus,

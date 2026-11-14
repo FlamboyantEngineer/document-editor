@@ -17,7 +17,6 @@ import {
   type Ref,
   type RefObject,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -58,6 +57,7 @@ import {
   DocumentEditorContext,
   type DocumentMarkup,
   type EditorContext,
+  useLatestContext,
   useShownContext,
 } from './editor-context.js';
 import { type DocumentEditorHandle, useCommentRefs } from './editor-handle.js';
@@ -69,8 +69,9 @@ import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
 import { usePinnedScripts } from './script-entries.js';
-import type { SelectionToolbarOptions } from './selection-toolbar.js';
+import type { TextChromeProps } from './text-chrome.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
+import type { MenuKeys } from './trigger-menu.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
 import { useLayoutTap } from './use-editor-telemetry.js';
@@ -102,7 +103,7 @@ import {
 
 /** What a document editor shows and how. */
 export interface DocumentEditorProps
-  extends BaseProps, AriaLabellingProps, DocumentEditorNotifications {
+  extends BaseProps, AriaLabellingProps, DocumentEditorNotifications, TextChromeProps {
   /** Receives the editor's handle, for a host that drives it from outside. */
   handleRef?: Ref<DocumentEditorHandle> | undefined;
   /** The state shown, with the plugins the document runs (`createDocumentEditing` and others). */
@@ -148,12 +149,6 @@ export interface DocumentEditorProps
    * host when given as options. Defaults to false.
    */
   menubar?: boolean | DocumentMenubarOptions | undefined;
-  /**
-   * Shows a toolbar floating over selected text, with the character formats, the link and a
-   * comment, and the host's items when given as options. Alt+F10 moves focus into it. Defaults to
-   * false.
-   */
-  selectionToolbar?: boolean | SelectionToolbarOptions | undefined;
   /**
    * Scrolls the document inside the editor, with overlay scrollbars, the toolbar staying above it;
    * the host gives the editor its height. Defaults to false.
@@ -405,7 +400,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   }, [view, layout, ready]);
   useElementIdRepair(editable ? view : null, state, props.repairIds);
   const refs = useCommentRefs();
-  const { startCommentRef } = refs;
+  const [menuKeys] = useState<MenuKeys>(() => new Set());
   useReviewNotifications(view, props);
   const labels = useMemo(() => ({ ...DEFAULT_EDITOR_LABELS, ...props.labels }), [props.labels]);
   const reach = { root, refs, progress, transactions: engine.transactions };
@@ -413,11 +408,10 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const templateStyle = useMemo(() => templateProperties(template), [template]);
   const { dialog, open: openDialog, close: closeDialog } = useObjectDialog(editable);
   const context = useShownContext(props, { view, labels, openDialog });
-  useLayoutEffect(() => {
-    editorContext.current = context;
-  }, [context]);
+  useLatestContext(editorContext, context);
   const pages = progress.paged?.state ?? null;
-  const shown = { props, context, view, templateStyle, startCommentRef, pages, exports };
+  const { startCommentRef } = refs;
+  const shown = { props, context, view, templateStyle, startCommentRef, menuKeys, pages, exports };
   const chrome = { ...shown, openFind: find.open };
   // The chrome follows each state after the pages show it (DOCE-EDITOR-1.7).
   const top = { ...chrome, findRequest: find.request, onFindClose: find.close };
@@ -431,6 +425,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
       labels={labels}
       commentRefs={refs}
       onDialog={editable ? openDialog : null}
+      menuKeys={menuKeys}
     />
   );
   return (

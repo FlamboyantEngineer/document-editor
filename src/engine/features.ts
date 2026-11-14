@@ -211,6 +211,8 @@ export {
 } from './template-sync.js';
 export type { TextSegment } from './text-diff.js';
 export { diffText } from './text-diff.js';
+export type { TextTrigger, TriggerMatch } from './text-triggers.js';
+export { replaceTrigger, triggerAt } from './text-triggers.js';
 export {
   DERIVED_META,
   includeAppended,

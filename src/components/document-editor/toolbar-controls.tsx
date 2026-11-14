@@ -73,7 +73,46 @@ function previewProperties(templateStyle: Readonly<Record<string, string>>): CSS
 
 const PREVIEW_PROPERTY = /^--doc-(paragraph|heading-[1-6])-/;
 
-// The text styles the field offers, each with the command that sets it.
+/** The text styles the schema has, and the template's custom ones, each with the command that sets it. */
+export function blockStyles(
+  schema: Schema,
+  labels: DocumentEditorLabels,
+  {
+    shortcuts,
+    customStyles,
+  }: { readonly shortcuts: ShortcutTable; readonly customStyles: readonly string[] },
+) {
+  const { paragraph, heading } = schema.nodes;
+  // A built-in style sets the block's attributes afresh, taking it out of any custom style.
+  return [
+    ...(paragraph
+      ? [
+          {
+            id: 'paragraph',
+            label: labels.paragraph,
+            shortcut: shortcutLabel(shortcuts, 'paragraph'),
+            command: setTextblockType(paragraph),
+          },
+        ]
+      : []),
+    ...(heading
+      ? HEADING_LEVELS.map((level) => ({
+          id: `heading-${String(level)}`,
+          label: labels.heading(level),
+          shortcut: shortcutLabel(shortcuts, `heading-${String(level)}` as ShortcutId),
+          command: setTextblockType(heading, { level }),
+        }))
+      : []),
+    ...customStyles.map((name) => ({
+      id: `custom:${name}`,
+      label: name,
+      shortcut: undefined,
+      command: setCustomStyle(name),
+    })),
+  ];
+}
+
+// The text styles the field offers, the same while the schema, the labels and the styles are.
 function useBlockStyles(
   state: EditorState,
   labels: DocumentEditorLabels,
@@ -81,36 +120,10 @@ function useBlockStyles(
 ) {
   const { schema } = state;
   const shortcuts = shortcutsOf(state);
-  return useMemo(() => {
-    const { paragraph, heading } = schema.nodes;
-    // A built-in style sets the block's attributes afresh, taking it out of any custom style.
-    return [
-      ...(paragraph
-        ? [
-            {
-              id: 'paragraph',
-              label: labels.paragraph,
-              shortcut: shortcutLabel(shortcuts, 'paragraph'),
-              command: setTextblockType(paragraph),
-            },
-          ]
-        : []),
-      ...(heading
-        ? HEADING_LEVELS.map((level) => ({
-            id: `heading-${String(level)}`,
-            label: labels.heading(level),
-            shortcut: shortcutLabel(shortcuts, `heading-${String(level)}` as ShortcutId),
-            command: setTextblockType(heading, { level }),
-          }))
-        : []),
-      ...customStyles.map((name) => ({
-        id: `custom:${name}`,
-        label: name,
-        shortcut: undefined,
-        command: setCustomStyle(name),
-      })),
-    ];
-  }, [schema, labels, shortcuts, customStyles]);
+  return useMemo(
+    () => blockStyles(schema, labels, { shortcuts, customStyles }),
+    [schema, labels, shortcuts, customStyles],
+  );
 }
 
 // The field as a state shows it: drawn again only when the style shown, whether it can be changed,

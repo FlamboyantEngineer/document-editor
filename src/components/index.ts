@@ -34,6 +34,8 @@ export type {
   HostDialogProps,
   ObjectDialog,
   SelectionToolbarOptions,
+  SlashMenuItem,
+  SlashMenuOptions,
   ToolbarButtonItem,
   ToolbarCustomItem,
   ToolbarGroup,
