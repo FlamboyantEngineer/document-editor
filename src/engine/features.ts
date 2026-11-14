@@ -214,6 +214,14 @@ export {
   REMOTE_META,
   SYSTEM_META,
 } from './transaction-kind.js';
+export {
+  createTypingRules,
+  typedAsWritten,
+  typingRulesKey,
+  type TypingRulesOptions,
+  TYPOGRAPHY_RULES,
+  undoTypingRule,
+} from './typing-rules.js';
 export type { VersionChangesOptions } from './version-changes.js';
 export {
   createVersionChanges,

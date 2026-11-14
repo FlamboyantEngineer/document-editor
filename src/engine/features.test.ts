@@ -33,11 +33,14 @@ const EDITING_KEYS = [
 const TABLE_KEYS = ['table-column-resize', 'selectingCells', 'table-pointer', 'plugin'];
 // The gap cursor, the document's keys with its shortcut table, and the base keymap.
 const LAST_KEYS = ['plugin', 'document-shortcuts', 'plugin'];
+// The typing shortcuts' input rules, the last shortcut they made, and Backspace taking it back.
+const TYPING_KEYS = ['plugin', 'typing-rules', 'plugin'];
 
 describe('plugin order', () => {
   it('DOCE-FORMAT-7.3 runs the editing plugins in the recorded key order', () => {
     expect(keysOf(createDocumentEditing(documentSchema))).toEqual([
       ...EDITING_KEYS,
+      ...TYPING_KEYS,
       'variable-tokens',
       ...TABLE_KEYS,
       ...LAST_KEYS,
@@ -52,6 +55,7 @@ describe('plugin order', () => {
       ...rest,
       'custom-styles',
       'paragraph-numbering',
+      ...TYPING_KEYS,
       'variable-tokens',
       'table-width',
       ...TABLE_KEYS,
@@ -70,6 +74,7 @@ describe('plugin order', () => {
     });
     expect(keysOf(shared.buildPlugins(undefined))).toEqual([
       ...EDITING_KEYS.slice(1),
+      ...TYPING_KEYS,
       'variable-tokens',
       ...TABLE_KEYS,
       ...LAST_KEYS,

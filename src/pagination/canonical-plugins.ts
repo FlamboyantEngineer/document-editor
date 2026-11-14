@@ -138,7 +138,9 @@ function pluginViews(view: EditorView, source: CanonicalPluginsSource): PluginVi
 
 // Text typed on the pages, offered to the canonical plugins, as input rules read it. It arrives as
 // the view reads the browser's change, with the selection: reading the browser again there would
-// show the pages without the text, and draw it back after (DOCE-PAGINATION-7.19).
+// show the pages without the text, and draw it back after (DOCE-PAGINATION-7.19). Text no plugin
+// takes, typed while the canonical state holds marks for the next text, such as bold turned on at
+// the caret or a shortcut's closed mark, is typed with those marks.
 function textInput(source: CanonicalPluginsSource): NonNullable<Props['handleTextInput']> {
   return (view, ...[from, to, text]) =>
     offered(view, source, {
@@ -152,7 +154,39 @@ function textInput(source: CanonicalPluginsSource): NonNullable<Props['handleTex
         const typed = () => source.canonical().tr.insertText(text, start, end);
         return plugin.props.handleTextInput?.call(plugin, canonical, start, end, text, typed);
       },
-    });
+    }) || typedWithStoredMarks(source, [from, to], text);
+}
+
+// Types text no plugin took with the marks the canonical state holds for it; false when it holds
+// none, so the pages type it as usual.
+function typedWithStoredMarks(
+  source: CanonicalPluginsSource,
+  [from, to]: readonly [number, number],
+  text: string,
+): boolean {
+  const held = source.canonical().storedMarks;
+  if (!held) return false;
+  source.prepare({ fromDom: false });
+  const state = source.canonical();
+  const map = source.map();
+  const start = map.toCanonical(from, -1);
+  const end = map.toCanonical(to, 1);
+  if (!state.storedMarks || start === null || end === null) return false;
+  // The browser may hand back text already there with the new text, such as a space at the end of
+  // a line: that keeps its own marks, and only what is new takes the held ones.
+  const kept = sharedStart(state.doc.textBetween(start, end), text);
+  const tr = state.tr.insertText(text.slice(kept), start + kept, end);
+  source.dispatch(tr.scrollIntoView());
+  return true;
+}
+
+// How many characters two texts start with alike, a no-break space matching a space.
+function sharedStart(was: string, typed: string): number {
+  const plain = (char: string | undefined) => (char === '\u00a0' ? ' ' : char);
+  let index = 0;
+  while (index < was.length && index < typed.length && plain(was[index]) === plain(typed[index]))
+    index += 1;
+  return index;
 }
 
 function domEvents(source: CanonicalPluginsSource): NonNullable<Props['handleDOMEvents']> {

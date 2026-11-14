@@ -71,6 +71,18 @@ test.describe('suggestions lab', () => {
     await expect(suggestions(page).getByRole('listitem')).toHaveCount(3);
   });
 
+  test('DOCE-EDITING-6.6 suggests a typed list mark as the text typed', async ({ lab, page }) => {
+    await lab.open('suggestions');
+    await caretAtEnd(page, 'within one second');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('- next -- step');
+    await expect(content(page).locator('ul')).toHaveCount(0);
+    await expect(block(page, 'next')).toHaveText('- next \u2014 step');
+    await expect(block(page, 'next').locator('ins[data-au="Writer"]').first()).toHaveText(
+      /^- next/,
+    );
+  });
+
   test('DOCE-SUGGESTIONS-3.2 suggests a split paragraph as its two halves', async ({
     lab,
     page,
