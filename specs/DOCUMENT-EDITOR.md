@@ -166,7 +166,7 @@ Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/too
 
 ### DOCE-EDITOR-4.4 - The editor context
 
-The editor shall hand its context, the engine's view, the state shown, whether the writer can edit, the editing mode (`mode`: `edit`, `suggest`, `comment` while the document is read and its comments may be written, or `read`), whether changes are suggested, the markup, the layout, the zoom and its labels, with `canRun(command)` and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items, to its context menu's providers (DOCE-EDITOR-3.6) and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
+The editor shall hand its context, the engine's view, the state shown, whether the writer can edit, the editing mode (`mode`: `edit`, `suggest`, `comment` while the document is read and its comments may be written, or `read`), whether changes are suggested, the markup, the layout, the zoom and its labels, with `canRun(command)`, `isActive(name, attrs?)`, which tells whether a mark or node holds at the selection shown (DOCE-EDITING-8.1), and `run(command)`, which runs a command on the view's latest state and returns focus to the document, to its toolbar items, to its context menu's providers (DOCE-EDITOR-3.6) and, through `useDocumentEditor()`, to any component inside it; outside an editor the hook returns null.
 
 Implementation: `src/components/document-editor/editor-context.ts`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/document-context-menu.tsx`
 Verification: `src/components/document-editor/mode-controls.test.tsx`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
@@ -276,6 +276,13 @@ While the editor scrolls the document (`scrollable`), `overview` shall show the 
 Implementation: `src/components/document-editor/editor-overview.tsx`, `src/components/document-editor/editor-surface.tsx`
 Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-4.20 - A part of the editor's state
+
+`useDocumentEditorState(selector, isEqual?)` shall give a component inside the editor the part of the editor context `selector` reads, and draw it again only when that part changes by `isEqual` (by default `Object.is`), not on every state the editor shows; it reads the context the editor shows last, and returns null outside an editor.
+
+Implementation: `src/components/document-editor/editor-store.ts`, `src/components/document-editor/editor-scope.tsx`
+Verification: `src/components/document-editor/editor-store.test.tsx`
+
 ## DOCE-EDITOR-5 - Status bar
 
 ### DOCE-EDITOR-5.1 - Showing the status
@@ -338,10 +345,10 @@ Verification: `src/engine/shortcuts.test.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.3 - The handle
 
-`handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, applying a batch of automation edits (DOCE-AUTOMATION), and waiting for the pages to settle (`whenSettled`, `layoutStats`, DOCE-EDITOR-6.12). Each returns false, or null, when it cannot act.
+`handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, telling whether a command applies without running it (`can`) and whether a mark or node holds at the selection (`isActive`, DOCE-EDITING-8.1), applying a batch of automation edits (DOCE-AUTOMATION), and waiting for the pages to settle (`whenSettled`, `layoutStats`, DOCE-EDITOR-6.12). Each returns false, or null, when it cannot act.
 
 Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-store.test.tsx`
 
 ### DOCE-EDITOR-6.4 - Zoom
 

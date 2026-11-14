@@ -3,10 +3,11 @@
 // hands it to toolbar items and context menu providers, and to any component inside it through
 // `useDocumentEditor`.
 
+import type { Attrs } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { createContext, useContext, useMemo } from 'react';
-import { isPositionLocked } from '../../engine/index.js';
+import { isActive, isPositionLocked } from '../../engine/index.js';
 import type { EditingMode } from '../../host/index.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
@@ -55,6 +56,11 @@ export interface EditorContext {
   readonly labels: DocumentEditorLabels;
   /** Whether a command can run on the state shown, while the writer can edit there. */
   canRun(command: Command): boolean;
+  /**
+   * Whether the mark or node of a schema name holds at the selection shown, with each of `attrs`
+   * when given (`isActive`).
+   */
+  isActive(name: string, attrs?: Attrs): boolean;
   /** Runs a command on the view's latest state, then returns focus to the document. */
   run(command: Command): void;
   /** Opens one of the editor's dialogs for the selection; nothing while the editor has none. */
@@ -107,6 +113,7 @@ export function createEditorContext(
     openDialog,
     canRun: (command) =>
       options.editable && !locked && view !== null && command(state, undefined, view),
+    isActive: (name, attrs) => isActive(state, name, attrs),
     run: (command) => {
       if (!view) return;
       command(view.state, view.dispatch, view);

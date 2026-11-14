@@ -18,7 +18,8 @@ describe('server-safe entry points', () => {
 
   it('DOCE-ENTRY-1.1 reads, compares and describes a stored document on a server', async () => {
     const { createDocumentSchema, readDocumentFile } = await import('../src/model/index.js');
-    const { compareVersions, describeBlocks, diffText } = await import('../src/document/index.js');
+    const { compareVersions, describeBlocks, diffText, writeStaticHtml } =
+      await import('../src/document/index.js');
     const schema = createDocumentSchema();
     const read = (text: string) =>
       readDocumentFile(
@@ -43,6 +44,7 @@ describe('server-safe entry points', () => {
       ['a0000001', 'Alpha beta'],
     ]);
     expect(diffText('Alpha', 'Alpha beta').map(({ kind }) => kind)).toContain('inserted');
+    expect(writeStaticHtml(newer)).toContain('<p data-id="a0000001">Alpha beta</p>');
   });
 
   it('DOCE-ENTRY-1.1 exports the stored-file readers and the merge a server runs', async () => {

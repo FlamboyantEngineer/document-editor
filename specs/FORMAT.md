@@ -252,6 +252,13 @@ Verification: `src/model/format/html.test.ts`, `src/engine/clipboard.test.ts`, `
 Implementation: `src/model/format/html.ts`
 Verification: `src/model/format/html.test.ts`
 
+### DOCE-FORMAT-6.4 - Static HTML
+
+`writeStaticHtml(doc)` from `./document` shall write a document's content as HTML text with no DOM, each node and mark as its type's `toDOM` output spec writes it and a mark kept open across the nodes that share it, as ProseMirror's serializer does, so it gives the markup `writeHtml` gives, text and attribute values escaped as a browser writes them. A type whose `toDOM` gives a DOM node rather than an output spec shall make it throw.
+
+Implementation: `src/document/static-html.ts`
+Verification: `src/document/static-html.test.ts`, `test/extension-guide.test.ts`, `test/node-entry.test.ts`
+
 ## DOCE-FORMAT-7 - Contract tests
 
 Committed snapshots lock what stored and pasted documents depend on. Until the owner's switch to the library, a change to any of them shall come with the matching change to this spec or to DOCUMENT-SCHEMA.md and the updated snapshot, and needs no upgrade step; from the switch on, it shall also step `formatVersion`. A snapshot is updated with `npx vitest run -u` on the test that holds it, never by editing the test's expectations away.

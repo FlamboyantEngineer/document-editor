@@ -275,3 +275,12 @@ Enter in a checklist item shall add a clear checklist item, ticked or not the on
 
 Implementation: `src/engine/checklists.ts`, `src/engine/document-editing.ts`, `src/engine/clipboard-text.ts`
 Verification: `src/engine/checklists.test.ts`
+
+## DOCE-EDITING-8 - Reading the editor
+
+### DOCE-EDITING-8.1 - Active marks and nodes
+
+`isActive(state, name, attrs?)` shall tell whether the mark or node type of a schema name holds at the selection, with each of `attrs` when given: a mark the caret types with, its stored marks first, or that every text a range covers carries; a node selected, or around both ends of the selection. A name the schema lacks shall be false. A host's types are read as the library's are, as `docs/recipes/extensions.md` shows.
+
+Implementation: `src/engine/active.ts`
+Verification: `src/engine/active.test.ts`, `test/extension-guide.test.ts`
