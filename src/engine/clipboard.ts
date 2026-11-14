@@ -1,6 +1,6 @@
 // The clipboard: one paste pipeline every paste and drop goes through, and the plain text a copy
 // writes. A paste, or a drop that copies, brings in a copy: what a copy leaves behind is left out
-// (`copyPastedSlice`). Content dragged within the document is moved, not copied, and keeps what it
+// (`copyPastedSlice`), and so is a kept node this editor did not copy. Content dragged within the document is moved, not copied, and keeps what it
 // is. Then the registered filters fit what is pasted to where it lands, such as the rules of a
 // footnote entry or the places a reference may go, for pastes and drops alike.
 
@@ -8,7 +8,7 @@ import type { Slice } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { cleanWordHtml, isWordHtml, type TemplateFile } from '../model/index.js';
-import { copyPastedSlice } from './clipboard-copies.js';
+import { copyPastedSlice, keptStoredText } from './clipboard-copies.js';
 import { copiedText, parsePastedText } from './clipboard-text.js';
 import { unwrapPastedEmbeds } from './embeds.js';
 import { flattenFootnotePaste } from './footnote-paste.js';
@@ -60,6 +60,9 @@ function stateAtDrop(view: EditorView, event: DragEvent): EditorState {
 export function createClipboard({ filters = [], template }: ClipboardOptions = {}): Plugin {
   // The drop being handled, so the pipeline tells a drop from a paste and knows where it lands.
   let drop: DragEvent | null = null;
+  // The stored nodes of the kept nodes this editor copied, cut or dragged out: a placeholder pasted
+  // from elsewhere could carry any stored node, which would be written back as it came.
+  const copiedKept = new Set<string>();
   return new Plugin({
     key: new PluginKey('clipboard'),
     props: {
@@ -76,6 +79,13 @@ export function createClipboard({ filters = [], template }: ClipboardOptions = {
       transformPastedHTML: (html, view) =>
         isWordHtml(html) ? cleanWordHtml(html, view.dom.ownerDocument) : html,
       clipboardTextParser: (text, $context) => parsePastedText(text, $context),
+      transformCopied: (slice) => {
+        slice.content.descendants((node) => {
+          const kept = keptStoredText(node);
+          if (kept !== null) copiedKept.add(kept);
+        });
+        return slice;
+      },
       clipboardTextSerializer: (slice, view) =>
         slice.eq(view.state.selection.content()) ? copiedText(view.state, { template }) : '',
       transformPasted: (slice, view) => {
@@ -83,7 +93,7 @@ export function createClipboard({ filters = [], template }: ClipboardOptions = {
         drop = null;
         const moved = Boolean(view.dragging && dropped && dropMoves(view, dropped));
         const state = dropped ? stateAtDrop(view, dropped) : view.state;
-        const pasted = moved ? slice : copyPastedSlice(slice);
+        const pasted = moved ? slice : copyPastedSlice(slice, copiedKept);
         return [...libraryFilters, ...filters].reduce(
           (current, filter) => filter(current, state),
           pasted,
