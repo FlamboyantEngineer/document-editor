@@ -11,6 +11,8 @@ import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
 import type { EditorView } from 'prosemirror-view';
 import { memo, useDeferredValue, useEffect, useMemo, useRef } from 'react';
 import {
+  contentLimitOf,
+  documentCounts,
   documentStatistics,
   isProofingPending,
   listPeers,
@@ -72,12 +74,23 @@ export function DocumentPageStatus() {
   return <PageJump view={view} labels={labels} page={page} pages={statistics.pages} />;
 }
 
-/** The document's words, or the selection's among them. */
+/**
+ * The document's words, or the selection's among them; while the editing keeps a limit, the words
+ * or characters against it, marked once past it (DOCE-EDITOR-5.6).
+ */
 export function DocumentWordStatus() {
   const shown = useDeferredEditor();
   const statistics = useStatistics(shown?.deferred);
   if (!shown || !statistics) return null;
-  return <span>{shown.editor.labels.wordStatus(statistics.words, statistics.selectedWords)}</span>;
+  const { labels } = shown.editor;
+  const limit = contentLimitOf(shown.deferred);
+  const unit = limit?.words !== undefined ? 'words' : 'characters';
+  const most = limit?.[unit];
+  if (most === undefined) {
+    return <span>{labels.wordStatus(statistics.words, statistics.selectedWords)}</span>;
+  }
+  const used = unit === 'words' ? statistics.words : documentCounts(shown.deferred.doc).characters;
+  return <span data-over={used > most}>{labels.limitStatus(used, most, unit)}</span>;
 }
 
 // Calls `announce` each time the settled issue count changes after the first, so a screen reader

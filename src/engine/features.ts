@@ -251,3 +251,11 @@ export type {
 export { collectVersionBlocks, compareVersions } from './version-compare.js';
 export type { ChangeLineMark, VersionChangeDisplay } from './version-decorations.js';
 export { changeLineMarks, versionChangeDecorations } from './version-decorations.js';
+export type { ContentLimit, DocumentCounts, WritingHelperOptions } from './writing-helpers.js';
+export {
+  contentLimitKey,
+  contentLimitOf,
+  createContentLimit,
+  createTrailingParagraph,
+  documentCounts,
+} from './writing-helpers.js';

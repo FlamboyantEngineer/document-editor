@@ -1,26 +1,23 @@
 // The slash menu: `/` typed at the start of a block or after a space opens a list of what the
 // writer can insert there, narrowed as they type on (`/head`), and the option chosen takes the
-// typed text's place. An optional button on an empty line types the `/` for a pointer.
+// typed text's place. The optional button on an empty line that types the `/` is a decoration
+// of the document (`writing-decorations.ts`).
 
-import { Button } from '@flamboyantengineer/ui-components/button';
 import type { CompletionListItem } from '@flamboyantengineer/ui-components/completion-list';
-import { type Key, PlusGlyph, TableGlyph } from '@flamboyantengineer/ui-components/core';
-import { FloatingToolbar } from '@flamboyantengineer/ui-components/floating-toolbar';
+import { type Key, TableGlyph } from '@flamboyantengineer/ui-components/core';
 import type { IconSource } from '@flamboyantengineer/ui-components/icon';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
-import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useMemo } from 'react';
 import { insertTable, replaceTrigger, shortcutsOf, type TriggerMatch } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { EditorContext } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
-import { useDocumentFocus } from './selection-toolbar.js';
 import { blockStyles, builtInToolbarGroups } from './toolbar-controls.js';
 import { isItemEnabled, type ToolbarGroup, type ToolbarItem } from './toolbar-items.js';
 import { type MenuKeys, TriggerMenu, useTriggerMatch } from './trigger-menu.js';
 
-const hooks = createHooks('document-editor', ['slash-menu', 'insert-block']);
+const hooks = createHooks('document-editor', ['slash-menu']);
 
 /** An option of the slash menu. */
 export interface SlashMenuItem {
@@ -192,76 +189,18 @@ export function DocumentSlashMenu(props: DocumentSlashMenuProps) {
     context.run(replaceTrigger(at));
     item.run(context);
   };
+  if (!view || !match) return null;
   return (
-    <>
-      {view && match ? (
-        <TriggerMenu
-          {...hooks.slot('slash-menu')}
-          view={view}
-          match={match}
-          dismiss={dismiss}
-          items={listItems}
-          menuKeys={menuKeys}
-          label={context.labels.slashMenu}
-          emptyState={context.labels.noMatches}
-          onChoose={choose}
-        />
-      ) : null}
-      {props.options.emptyLineButton && view && isEnabled && !match ? (
-        <EmptyLineButton context={context} view={view} />
-      ) : null}
-    </>
-  );
-}
-
-// Whether the caret is on an empty paragraph, where the button shows.
-const onEmptyLine = (state: EditorState) => {
-  const { selection } = state;
-  const { parent } = selection.$from;
-  return selection.empty && parent.type.name === 'paragraph' && parent.content.size === 0;
-};
-
-// Types the `/` that opens the menu.
-const typeSlash: Command = (state, dispatch) => {
-  dispatch?.(state.tr.insertText('/'));
-  return true;
-};
-
-// The line's box in the viewport, which the button sits before.
-function lineRect(view: EditorView, pos: number): DOMRect | null {
-  if (view.isDestroyed) return null;
-  try {
-    const { left, top, bottom } = view.coordsAtPos(pos);
-    return new DOMRect(left, top, 0, bottom - top);
-  } catch {
-    return null;
-  }
-}
-
-// The button before the empty line the caret is on, while focus is in the document.
-function EmptyLineButton({ context, view }: { context: EditorContext; view: EditorView }) {
-  const { focused, pressing } = useDocumentFocus(view);
-  const anchor = useMemo(() => ({ current: view.dom }), [view]);
-  const { head } = context.state.selection;
-  const isOpen = focused && !pressing && onEmptyLine(context.state);
-  return (
-    <FloatingToolbar
-      {...hooks.slot('insert-block')}
-      aria-label={context.labels.insertBlock}
-      isOpen={isOpen}
-      triggerRef={anchor}
-      getTargetRect={() => lineRect(view, head)}
-      targetKey={String(head)}
-      placement="start"
-    >
-      <Button
-        size="sm"
-        icon={PlusGlyph}
-        label={context.labels.insertBlock}
-        tooltip={context.labels.insertBlock}
-        preventFocusOnPress
-        onPress={() => context.run(typeSlash)}
-      />
-    </FloatingToolbar>
+    <TriggerMenu
+      {...hooks.slot('slash-menu')}
+      view={view}
+      match={match}
+      dismiss={dismiss}
+      items={listItems}
+      menuKeys={menuKeys}
+      label={context.labels.slashMenu}
+      emptyState={context.labels.noMatches}
+      onChoose={choose}
+    />
   );
 }

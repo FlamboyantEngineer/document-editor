@@ -13,6 +13,7 @@ const VIEW_STATE_ATTRIBUTES = new Set([
   'data-debug',
   'data-debug-blocks',
   'data-debug-measure',
+  'data-formatting-marks',
 ]);
 
 // The attributes and classes view-only decorations add: as the hooks in the markup name them,

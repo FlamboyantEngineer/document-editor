@@ -36,6 +36,7 @@ import {
   projectionDispatch,
   useProjectionEvents,
 } from './use-paged-projection.js';
+import { useWritingDecorations } from './writing-decorations.js';
 
 // The body's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['body', 'content']);
@@ -91,11 +92,13 @@ function useBodyViewProps({
   const { editable = true, assets, feedback } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
+  const decorations = useWritingDecorations(props, labels.insertBlock);
   return useMemo(() => {
     const images = figurePasteOptions({ assets, feedback }, labels);
     return {
       ...(images ? figurePasteHandlers(images) : {}),
       editable: () => editable,
+      ...(decorations ? { decorations } : {}),
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
@@ -121,7 +124,18 @@ function useBodyViewProps({
         ...(host.blur ? { blur: host.blur } : {}),
       },
     };
-  }, [editable, host, onDialog, scripts, assets, feedback, labels, startCommentRef, menuKeys]);
+  }, [
+    editable,
+    host,
+    onDialog,
+    scripts,
+    assets,
+    feedback,
+    labels,
+    startCommentRef,
+    menuKeys,
+    decorations,
+  ]);
 }
 
 // The projection takes each of its states itself (`projectionDispatch`), so a commit the engine
@@ -160,6 +174,8 @@ function useEngineProps(
     state: paged ? paged.state : props.state,
     onStateChange: paged ? keepProjection : props.onStateChange,
     props: shownProps,
+    // The engine takes the decorations apart from the other view props.
+    ...(viewProps.decorations ? { decorations: viewProps.decorations } : {}),
   };
 }
 

@@ -343,6 +343,32 @@ test.describe('document editor lab', () => {
     await expect(content(page)).toContainText('Normal operation for @Grace Hopper today');
   });
 
+  test('DOCE-EDITOR-4.24 DOCE-EDITOR-4.25 DOCE-EDITOR-4.26 shows the writing helpers on pages', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByLabel('Caret block').check();
+    await page.getByLabel('Slash menu').check();
+    // Where the text is, before the marks split it into runs.
+    const point = await pointAt(page, 'Normal operation');
+    await page.getByLabel('Formatting marks').check();
+    await expect(editor(page)).toHaveAttribute('data-formatting-marks', 'true');
+    await expect(content(page).locator('.de-formatting-space').first()).toBeVisible();
+    await page.mouse.click(point.right + 2, point.y);
+    await expect(content(page).locator('[data-caret-block]')).toHaveText('Normal operation');
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    const hint = content(page).locator('.de-placeholder[data-placeholder-kind="line"]');
+    await expect(hint).toHaveText('Type / to insert a block');
+    await page.keyboard.type('Now text');
+    await expect(hint).toHaveCount(0);
+    // Turned off, the marks go.
+    await page.getByLabel('Formatting marks').uncheck();
+    await expect(content(page).locator('.de-formatting-space')).toHaveCount(0);
+  });
+
   test('DOCE-EDITOR-4.2 DOCE-PAGINATION-7.1 scrolls the document in its frame below the toolbar, and lays it out again once remounted', async ({
     lab,
     page,

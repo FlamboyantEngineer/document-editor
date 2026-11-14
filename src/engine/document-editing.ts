@@ -60,6 +60,11 @@ import { anyLock, lockedTemplateSections } from './template-sync.js';
 import { includeAppended } from './transaction-kind.js';
 import { createTypingRules, type TypingRulesOptions } from './typing-rules.js';
 import { createVariableTokens } from './variable-tokens.js';
+import {
+  type ContentLimit,
+  createContentLimit,
+  createTrailingParagraph,
+} from './writing-helpers.js';
 
 /** What a document's editing depends on. */
 export interface DocumentEditingOptions {
@@ -82,6 +87,13 @@ export interface DocumentEditingOptions {
    * turned off; false turns them all off. Defaults to all on.
    */
   typingRules?: boolean | TypingRulesOptions | undefined;
+  /**
+   * Keeps an empty paragraph at the end of each section's content that would otherwise end with a
+   * table, a figure or another block that is no paragraph. Defaults to false.
+   */
+  trailingParagraph?: boolean | undefined;
+  /** Refuses local changes that take the body past this many words or characters. */
+  limit?: ContentLimit | undefined;
 }
 
 const NO_TEMPLATE = (): TemplateFile => ({ formatVersion: 1, id: 'none' });
@@ -289,6 +301,18 @@ export function createDocumentEditingExtension<C = unknown>(
       },
       { name: 'tables', priority: 850, build: () => createTableEditing({ isRemote }) },
       { name: 'gap-cursor', priority: 860, build: () => [gapCursor()] },
+      {
+        name: 'trailing-paragraph',
+        priority: 870,
+        when: () => options.trailingParagraph ?? false,
+        build: () => [createTrailingParagraph({ isRemote })],
+      },
+      {
+        name: 'content-limit',
+        priority: 465,
+        when: () => Boolean(options.limit),
+        build: () => (options.limit ? [createContentLimit(options.limit, { isRemote })] : []),
+      },
       {
         name: 'keymap',
         priority: 900,
