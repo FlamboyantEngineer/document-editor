@@ -5,6 +5,7 @@ import { toggleMark } from 'prosemirror-commands';
 import type { Schema } from 'prosemirror-model';
 import type { Command } from 'prosemirror-state';
 import { setTextblockType } from './block-type.js';
+import { checklistCommands } from './checklists.js';
 import {
   clearFormatting,
   insertPageBreak,
@@ -54,6 +55,7 @@ function shortcutCommands(schema: Schema): Partial<Record<ShortcutId, Command>> 
   return {
     ...markCommands(schema),
     ...blockCommands(schema),
+    ...checklistCommands(schema),
     undo: undoCommand,
     redo: redoCommand,
     'select-all': selectBody,

@@ -213,7 +213,7 @@ Verification: `src/components/document-editor/figure-paste.test.ts`
 
 ### DOCE-EDITING-6.1 - Blocks
 
-Typed at the start of a paragraph, `#` to `######` and a space shall make it a heading of that level, ` ``` ` and a space a code block, `>` and a space a quote, `-`, `+` or `*` and a space a bulleted list, and a number, a full stop and a space a numbered list starting at that number, joining a numbered list just before it whose count it carries on. `---` or `___` alone in a paragraph shall make a horizontal rule with an empty paragraph after it, the caret in that paragraph. A heading, a code block or any text block other than a paragraph shall keep what is typed, and so shall a place the new block may not stand, such as a page header.
+Typed at the start of a paragraph, `#` to `######` and a space shall make it a heading of that level, ` ``` ` and a space a code block, `>` and a space a quote, `-`, `+` or `*` and a space a bulleted list, `[ ]` or `[x]` and a space a checklist item, clear or ticked (the plain list item it starts, or else a new bulleted list), and a number, a full stop and a space a numbered list starting at that number, joining a numbered list just before it whose count it carries on. `---` or `___` alone in a paragraph shall make a horizontal rule with an empty paragraph after it, the caret in that paragraph. A heading, a code block or any text block other than a paragraph shall keep what is typed, and so shall a place the new block may not stand, such as a page header.
 
 Implementation: `src/engine/typing-rules.ts`
 Verification: `src/engine/typing-rules.test.ts`
@@ -252,3 +252,26 @@ While suggesting, a shortcut a suggestion cannot record, such as wrapping a para
 
 Implementation: `src/engine/typing-rules.ts`, `src/components/document-editor/use-editor-engine.ts`
 Verification: `src/engine/typing-rules.test.ts`, `e2e/editing.spec.ts`
+
+## DOCE-EDITING-7 - Checklists
+
+### DOCE-EDITING-7.1 - Making a checklist
+
+`toggleChecklist(bullets)`, bound to `checklist` (`Mod-Shift-9`) and the toolbar's checklist item, shall make the innermost list around the selection a bulleted checklist, its plain items clear and its ticked items kept, and a checklist a plain bulleted list again; outside a list it shall put the selected blocks in a new checklist, joined with a list of the same kind beside it. The bulleted list item shall not show as pressed in a checklist.
+
+Implementation: `src/engine/checklists.ts`, `src/engine/shortcut-commands.ts`, `src/components/document-editor/format-items.ts`
+Verification: `src/engine/checklists.test.ts`, `e2e/editing.spec.ts`
+
+### DOCE-EDITING-7.2 - Ticking an item
+
+A click on a checklist item's box shall tick or clear it in an editable document, and do nothing in a read-only one; `toggleItemChecked`, bound to `check-item` (`Mod-Enter`), shall tick or clear the checklist item holding the selection, and leave the key to others outside a checklist.
+
+Implementation: `src/engine/checklists.ts`
+Verification: `src/engine/checklists.test.ts`, `e2e/editing.spec.ts`
+
+### DOCE-EDITING-7.3 - New items
+
+Enter in a checklist item shall add a clear checklist item, ticked or not the one it splits; Enter in an empty one lifts it as in any list (DOCE-EDITING-2.2). Copied as plain text, a checklist item shall lead with `☐` or `☒` in place of its bullet (DOCE-EDITING-5.4).
+
+Implementation: `src/engine/checklists.ts`, `src/engine/document-editing.ts`, `src/engine/clipboard-text.ts`
+Verification: `src/engine/checklists.test.ts`

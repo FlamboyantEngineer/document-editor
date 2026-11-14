@@ -25,6 +25,7 @@ export interface DocumentEditorLabels
   readonly code: string;
   readonly bulletList: string;
   readonly numberedList: string;
+  readonly checklist: string;
   readonly insertTable: string;
   readonly pageBreak: string;
   readonly contextMenu: string;
@@ -126,6 +127,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   code: 'Code',
   bulletList: 'Bulleted list',
   numberedList: 'Numbered list',
+  checklist: 'Checklist',
   insertTable: 'Insert table',
   pageBreak: 'Page break',
   contextMenu: 'Document actions',

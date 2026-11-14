@@ -448,8 +448,58 @@ div.de-host-view {
   content: var(--doc-ol-counter-content, counter(ordered-list) '. ');
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li > p {
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li > p,
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .de-task-content > p {
   margin: 0;
+}
+
+/* A checklist item (DOCE-SCHEMA-3.12) shows its box in place of the bullet, ticked or clear; the
+   later parts of an item the pages split show none. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content li[data-checked] {
+  display: flex;
+  gap: 0.4em;
+  list-style: none;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .de-task-content {
+  flex: 1;
+  min-width: 0;
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content .de-task-box {
+  flex: none;
+  box-sizing: border-box;
+  width: 0.9em;
+  height: 0.9em;
+  margin-top: 0.2em;
+  margin-left: -1.3em;
+  border: 1px solid currentcolor;
+  border-radius: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  li[data-checked='true']
+  > .de-task-box {
+  background: currentcolor;
+  box-shadow: inset 0 0 0 2px var(--doc-page-background, white);
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  li[data-checked='true']
+  > .de-task-content {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  li[data-checked][data-split-part-index]:not([data-split-part-index='0'])
+  > .de-task-box {
+  visibility: hidden;
 }
 
 /* A list item's continuation that opens with another block holds an empty placeholder paragraph,
@@ -457,6 +507,11 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
   li[data-orphaned-list-continuation]
+  > p:first-child:not([data-id]),
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  li[data-orphaned-list-continuation]
+  > .de-task-content
   > p:first-child:not([data-id]) {
   display: none;
 }

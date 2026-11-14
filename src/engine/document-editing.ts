@@ -19,7 +19,7 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
-import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
+import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
 import {
   findTemplateSection,
@@ -27,6 +27,7 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../model/index.js';
+import { createChecklists, splitChecklistItem } from './checklists.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentAnchors } from './comment-anchors.js';
 import { createCommentDraft } from './comment-draft.js';
@@ -165,7 +166,7 @@ export function documentKeys(
       chainCommands(
         inFootnoteEntry,
         newlineInCode,
-        listKey(splitListItem),
+        listKey(splitChecklistItem),
         createParagraphNear,
         deleteSelectedNode,
         liftEmptyBlock,
@@ -208,6 +209,7 @@ const OBJECT_PLUGINS: readonly RichTextPluginContribution[] = [
   { name: 'object-views', priority: 505, build: () => [createObjectViews()] },
   { name: 'scripts', priority: 512, build: () => [createScripts()] },
   { name: 'embeds', priority: 513, build: () => [createEmbeds()] },
+  { name: 'checklists', priority: 514, build: () => [createChecklists()] },
 ];
 
 // Numbered paragraphs, when given the template, after the custom styles.

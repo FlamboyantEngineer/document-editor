@@ -18,6 +18,7 @@
             {
               "type": "listItem",
               "attrs": {
+                "checked": true,
                 "id": "listItem-2",
                 "author": "author-1",
                 "aiSession": "session-1"

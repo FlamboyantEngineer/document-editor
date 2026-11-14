@@ -260,6 +260,7 @@ describe('the editing extension', () => {
       'clipboard',
       'scripts',
       'embeds',
+      'checklists',
       'custom-styles',
       'paragraph-numbering',
       'typing-rules',
@@ -269,11 +270,11 @@ describe('the editing extension', () => {
       'gap-cursor',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(21);
+    expect(kit.buildPlugins(undefined)).toHaveLength(22);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(20);
+    expect(shared.buildPlugins(undefined)).toHaveLength(21);
   });
 
   it('DOCE-EDITING-4.2 locks the sections the template does not let be edited, beside the host lock', () => {

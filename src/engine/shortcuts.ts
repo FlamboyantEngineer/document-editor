@@ -28,6 +28,8 @@ export const DEFAULT_SHORTCUTS = {
   'heading-6': ['Mod-Shift-6'],
   'bullet-list': ['Mod-Shift-8'],
   'numbered-list': ['Mod-Shift-7'],
+  checklist: ['Mod-Shift-9'],
+  'check-item': ['Mod-Enter'],
   'page-break': ['Mod-Alt-Enter'],
   'code-block': ['Mod-Alt-c'],
   footnote: ['Mod-Alt-f'],

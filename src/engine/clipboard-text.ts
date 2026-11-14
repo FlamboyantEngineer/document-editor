@@ -43,10 +43,12 @@ function listMarker($block: ResolvedPos): string {
   for (let level = depth - 2; level > 0; level -= 1) {
     if ($block.node(level).type.name === 'list_item') nesting += 1;
   }
+  const { checked } = $block.parent.attrs;
+  const box = typeof checked === 'boolean' ? (checked ? '\u2612' : '\u2610') : null;
   const marker =
     list.type.name === 'ordered_list'
       ? `${String((Number(list.attrs.order) || 1) + index)}.`
-      : bullet;
+      : (box ?? bullet);
   return `${'\t'.repeat(nesting)}${marker} `;
 }
 

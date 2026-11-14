@@ -24,7 +24,7 @@ import { canJoin, findWrapping, type Step } from 'prosemirror-transform';
 
 /** Which typing shortcuts run. Each group is on unless turned off. */
 export interface TypingRulesOptions {
-  /** `# ` headings, `- ` and `1. ` lists, `> ` quotes, ```` ``` ```` code and `---` rules. */
+  /** `# ` headings, `- ` and `1. ` lists, `[ ] ` checklist items, `> ` quotes, ```` ``` ```` code and `---` rules. */
   blocks?: boolean | undefined;
   /** `**strong**`, `*em*`, `_em_`, `~~strike~~` and `` `code` ``. */
   marks?: boolean | undefined;
@@ -115,6 +115,32 @@ function paragraphInto(
   });
 }
 
+// Typing `[ ] ` or `[x] ` at the start of a paragraph makes it a checklist item, clear or ticked:
+// the list item it starts, when that is a plain item, or else a new item of a bulleted list.
+function checklistItem(bulletList: NodeType): InputRule {
+  return new InputRule(/^\s*\[([ xX])\]\s$/, (state, match, ...[start, end]: RuleRange) => {
+    const checked = match[1] !== ' ';
+    const $start = state.doc.resolve(start);
+    if ($start.parent.type.name !== 'paragraph') return null;
+    const item = $start.depth > 1 ? $start.node(-1) : null;
+    if (item?.type.name === 'list_item' && $start.index(-1) === 0) {
+      if (item.attrs.checked !== null) return null;
+      return state.tr.delete(start, end).setNodeAttribute($start.before(-1), 'checked', checked);
+    }
+    const tr = state.tr.delete(start, end);
+    const range = tr.doc.resolve(start).blockRange();
+    const wrapping = range && findWrapping(range, bulletList);
+    if (!range || !wrapping) return null;
+    tr.wrap(range, wrapping);
+    const $item = tr.doc.resolve(tr.mapping.map(start));
+    for (let depth = $item.depth; depth > 0; depth -= 1) {
+      if ($item.node(depth).type.name !== 'list_item') continue;
+      return tr.setNodeAttribute($item.before(depth), 'checked', checked);
+    }
+    return null;
+  });
+}
+
 function blockRules(schema: Schema): InputRule[] {
   const { heading, blockquote } = schema.nodes;
   const codeBlock = schema.nodes.code_block;
@@ -126,6 +152,7 @@ function blockRules(schema: Schema): InputRule[] {
     heading && paragraphTo(/^(#{1,6})\s$/, heading, (match) => ({ level: match[1]?.length ?? 1 })),
     codeBlock && paragraphTo(/^```\s$/, codeBlock),
     blockquote && paragraphInto(/^\s*>\s$/, blockquote),
+    bulletList && schema.nodes.list_item?.spec.attrs?.checked && checklistItem(bulletList),
     bulletList && paragraphInto(/^\s*[-+*]\s$/, bulletList),
     orderedList &&
       // Nine digits keep the start a safe integer, as a stored list's order must be.

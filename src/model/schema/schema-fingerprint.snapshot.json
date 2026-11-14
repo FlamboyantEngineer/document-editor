@@ -586,16 +586,17 @@
       "marks": null,
       "flags": { "defining": true },
       "attrs": {
+        "checked": { "default": null, "validate": "boolean|null" },
         "dataId": { "default": null },
         "dataAuthor": { "default": null },
         "dataAiSession": { "default": null },
         "splitPartIndex": { "default": null },
         "orphanedListContinuation": { "default": false }
       },
-      "parseDOM": [{ "tag": "li", "getAttrs": "function" }],
+      "parseDOM": [{ "tag": "li", "getAttrs": "function", "contentElement": "function" }],
       "toDOM": {
         "defaults": "<li></li>",
-        "filled": "<li data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-orphaned-list-continuation=\"true\"></li>"
+        "filled": "<li data-checked=\"true\" data-id=\"sample-dataId\" data-au=\"sample-dataAuthor\" data-ai=\"sample-dataAiSession\" data-orphaned-list-continuation=\"true\"><span class=\"de-task-box\" contenteditable=\"false\" aria-hidden=\"true\"></span><div class=\"de-task-content\"></div></li>"
       }
     },
     {

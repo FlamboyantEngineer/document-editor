@@ -140,8 +140,15 @@ function listItem(lines: Lines, context: InlineContext, ordered: boolean): Store
   if (!item || /\d/.test(item[2] ?? '') !== ordered) return null;
   const [, lead = '', marker = '', space = ' ', first = ''] = item;
   const indent = lead.length + marker.length + Math.min(4, Math.max(1, space.length));
-  const content = readBlocks(itemLines(lines, indent, first), context);
-  return { type: 'listItem', content: content.length ? content : [{ type: 'paragraph' }] };
+  // A task list item's box, `[ ] ` or `[x] `, makes it a checklist item.
+  const box = ordered ? null : /^\[([ xX])\](?:\s+|$)/.exec(first);
+  const text = box ? first.slice(box[0].length) : first;
+  const content = readBlocks(itemLines(lines, indent, text), context);
+  return {
+    type: 'listItem',
+    ...(box ? { attrs: { checked: box[1] !== ' ' } } : {}),
+    content: content.length ? content : [{ type: 'paragraph' }],
+  };
 }
 
 const list: BlockReader = (lines, context) => {
