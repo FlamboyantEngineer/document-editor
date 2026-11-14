@@ -84,9 +84,10 @@ test.describe('template content lab', () => {
     // say whether they are, and setting them again redraws them under the caret.
     const headers = content(page).locator('.pm-page-header');
     await expect(headers.first()).toHaveAttribute('contenteditable', 'true');
-    await headers.first().locator('p').first().click();
-    await page.keyboard.press('End');
-    await page.keyboard.press('Shift+Home');
+    // One gesture selects the line, so the editor's state holds the selection the browser shows:
+    // a selection made with keys after a click is the browser's until the editor reads it, and the
+    // state the click made can still be drawn back over it.
+    await headers.first().locator('p').first().click({ clickCount: 3 });
     await expect
       .poll(() => page.evaluate(() => document.getSelection()?.toString()))
       .toBe('Lab template');
@@ -107,8 +108,7 @@ test.describe('template content lab', () => {
     await expect
       .poll(async () => JSON.stringify((await sectionOf(page, 'approvals'))?.content))
       .toContain('"bulletList"');
-    await page.keyboard.press('End');
-    await page.keyboard.press('Shift+Home');
+    await approvals.locator('li p').first().click({ clickCount: 3 });
     await page.getByRole('button', { name: 'Underline', exact: true }).click();
     await expect
       .poll(async () => JSON.stringify((await sectionOf(page, 'approvals'))?.content))
