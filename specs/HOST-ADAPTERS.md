@@ -179,6 +179,13 @@ A host that offers actions on the selected text shall pass a provider (`Selectio
 Implementation: `src/host/selection-action-adapters.ts`, `src/engine/selection-actions.ts`
 Verification: `src/engine/selection-actions.test.ts`
 
+### DOCE-HOST-1.26 - A PDF export
+
+`pdfExport({ print, save, id, label, fileName, snapshot })` shall make File > Export's PDF entry (`pdf`, labelled `PDF`, by default): it takes the document's print snapshot once the pages are ready, with the snapshot options given, has the host's `print` turn it into a PDF, such as a server printing it with `printSnapshot` (DOCE-EDITOR-6.26), and gives the PDF to the host's `save` as an `application/pdf` file named by `fileName` (`document.pdf` by default). A failed print is the entry's failure, and nothing is printed or saved once the editor unmounts.
+
+Implementation: `src/host/pdf-export.ts`
+Verification: `src/host/pdf-export.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles
