@@ -27,7 +27,7 @@ Verification: `src/engine/automation.test.ts`
 
 ### DOCE-AUTOMATION-1.4 - Editing blocks
 
-`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes, refused as `invalid` for an attribute that says which element it is (its id, its author and the schema's other identity attributes) or that its type does not define; blocks the actor adds, and every node inside them that records who wrote it, are attributed to it (`dataAuthor`, `dataAiSession`).
+`insertBlocks` shall insert stored blocks before or after an element, `replaceBlock` put stored blocks in an element's place, `deleteBlock` remove an element, and `setAttrs` change an element's attributes, refused as `invalid` for an attribute that says which element it is (its id, its author and the schema's other identity attributes) or that its type does not define; blocks the actor adds, and every node inside them that records who wrote it, are attributed to it (`dataAuthor`, `dataAiSession`), and their text to the actor's contributor mark, in place of any the content names (none for a person). Blocks that carry a suggestion (an insertion, deletion or format change mark, or a block suggested whole) or a comment's anchor are refused as `invalid`, in either mode: content an actor gives is its own, never another writer's suggestion or thread. A suggestion is made by asking for `suggest` mode (DOCE-AUTOMATION-1.5).
 
 Implementation: `src/engine/automation.ts`
 Verification: `src/engine/automation.test.ts`
