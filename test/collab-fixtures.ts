@@ -43,7 +43,12 @@ export function headlessEditor(start: Node, options: HeadlessOptions = {}): Head
   const doc = options.doc ?? new Y.Doc();
   const scheduled: (() => void)[] = [];
   const schedule = options.manual ? (run: () => void) => scheduled.push(run) : options.schedule;
-  const sync = createCollabSync({ doc, isRemoteOrigin: options.isRemoteOrigin, schedule });
+  const sync = createCollabSync({
+    doc,
+    isRemoteOrigin: options.isRemoteOrigin,
+    schedule,
+    onUnreadable: options.onUnreadable,
+  });
   let state = EditorState.create({ doc: start, plugins: [...(options.plugins ?? []), sync] });
   const dispatched: Transaction[] = [];
   let views: PluginView[] = [];

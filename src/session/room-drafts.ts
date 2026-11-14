@@ -7,6 +7,7 @@
 import type * as Y from '@y/y';
 import type { Schema } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
+import type { RoomDrafts } from '../collab/offline.js';
 import { createElementId } from '../engine/element-ids.js';
 import { replaceDocumentContent } from '../engine/replace-document-content.js';
 import type { EditorHost } from '../host/adapters.js';
@@ -30,32 +31,60 @@ const loadOffline = () => import('../collab/offline.js');
 const SWAPPED: Record<MergeChoice, MergeChoice> = { mine: 'theirs', theirs: 'mine', both: 'both' };
 type SendRoomDocument = Awaited<ReturnType<typeof loadOffline>>['sendRoomDocument'];
 
-/** A room session's drafts, for one room connection after another. */
-export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraftsContext) {
-  const { document, conflicts } = stores;
-  let stopKeeping = () => undefined as void;
-  let closed = false;
+// What keeps the draft of the current connection: `keeper` once the offline module has loaded.
+interface Keeping {
+  stop: () => void;
+  keeper: RoomDrafts | null;
+  closed: boolean;
+}
 
-  // Keeps the room's draft once no leftover waits for the reader, so a reload keeps them too.
-  const keep = (room: OpenedRoom) => {
-    const drafts = host.drafts;
-    if (!drafts || closed || conflicts.get().length > 0) return;
-    let stopped = false;
-    stopKeeping = () => {
-      stopped = true;
-    };
-    void loadOffline().then(({ keepRoomDrafts }) => {
-      if (stopped || closed) return;
-      const kept = keepRoomDrafts({
-        documentId,
-        drafts,
-        connection: room.connection as RoomConnection<Y.Doc>,
-        lifecycle: host.lifecycle,
-        restored: room.draft,
-      });
-      stopKeeping = () => kept.stop();
-    });
+// Keeps the room's draft once no leftover waits for the reader, so a reload keeps them too.
+function keepDraft(context: RoomDraftsContext, keeping: Keeping, room: OpenedRoom) {
+  const { host, documentId, stores } = context;
+  const drafts = host.drafts;
+  if (!drafts || keeping.closed || stores.conflicts.get().length > 0) return;
+  let stopped = false;
+  keeping.stop = () => {
+    stopped = true;
   };
+  void loadOffline().then(({ keepRoomDrafts }) => {
+    if (stopped || keeping.closed) return;
+    const kept = keepRoomDrafts({
+      documentId,
+      drafts,
+      connection: room.connection as RoomConnection<Y.Doc>,
+      lifecycle: host.lifecycle,
+      restored: room.draft,
+    });
+    keeping.keeper = kept;
+    keeping.stop = () => {
+      kept.stop();
+      if (keeping.keeper === kept) keeping.keeper = null;
+    };
+  });
+}
+
+// The draft of a refused room's document as it is now, kept at once so a reload merges it too.
+// The refusal locks the document, so nothing changes while the offline module loads.
+async function refusedDraft(
+  { host, documentId }: RoomDraftsContext,
+  keeping: Keeping,
+  { room, opened }: { room: OpenedRoom; opened: RoomDraft },
+) {
+  const { captureRoomDraft } = await loadOffline();
+  const connection = room.connection as RoomConnection<Y.Doc>;
+  const draft =
+    keeping.keeper?.capture() ?? captureRoomDraft(connection, { confirmed: opened.confirmed });
+  void host.drafts?.put(documentId, draft);
+  return draft;
+}
+
+/** A room session's drafts, for one room connection after another. */
+export function createRoomDrafts(context: RoomDraftsContext) {
+  const { schema, stores } = context;
+  const { document, conflicts } = stores;
+  const keeping: Keeping = { stop: () => undefined, keeper: null, closed: false };
+  const keep = (room: OpenedRoom) => keepDraft(context, keeping, room);
 
   // Shows a state the session changed and sends its document to the room, so the change reaches
   // every writer and the editor's binding keeps it.
@@ -75,14 +104,18 @@ export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraft
       if (merged) {
         const { mergeRoomDraft, sendRoomDocument } = await loadOffline();
         const shown = document.get();
-        if (!shown || closed) return;
+        if (!shown || keeping.closed) return;
         const merge = mergeRoomDraft(shown.state, merged, { schema });
         if (merge.transaction) show(room, shown.state.apply(merge.transaction), sendRoomDocument);
         conflicts.set(merge.leftovers);
       }
       keep(room);
     },
-    /** Calls `onRefused` when the room refuses the draft the session opened on for its generation. */
+    /**
+     * Calls `onRefused` when the room refuses the draft the session opened on for its generation,
+     * once the connection's state change is through, with the draft of the document as it is by
+     * then: the reader may have gone on editing it since it opened.
+     */
     follow: (room: OpenedRoom, onRefused: (draft: RoomDraft) => void) => {
       const { draft } = room;
       if (!draft) return () => undefined;
@@ -90,7 +123,7 @@ export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraft
       const check = (state: RoomState) => {
         if (refused || roomRefusal(state)?.kind !== 'conflict') return;
         refused = true;
-        onRefused(draft);
+        void refusedDraft(context, keeping, { room, opened: draft }).then(onRefused);
       };
       // The room may have refused it before the session follows.
       const stop = room.connection.subscribe(check);
@@ -117,10 +150,10 @@ export function createRoomDrafts({ host, documentId, schema, stores }: RoomDraft
       keep(room);
     },
     /** Stops keeping the draft of the current connection. */
-    stop: () => stopKeeping(),
+    stop: () => keeping.stop(),
     close: () => {
-      closed = true;
-      stopKeeping();
+      keeping.closed = true;
+      keeping.stop();
     },
   };
 }

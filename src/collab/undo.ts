@@ -26,25 +26,40 @@ const collabUndoKey = new PluginKey('collab-undo');
  */
 export function createCollabUndo({ captureTimeout = 500 }: CollabUndoOptions = {}): Plugin {
   let manager: Y.UndoManager | null = null;
+  // The shared type the manager tracks, and whether a view keeps it.
+  let tracked: Y.Type | null = null;
+  let kept = false;
   const plugin = new Plugin({
     key: collabUndoKey,
     // Kept out of the paged layout's measuring view, which runs no sync plugin (DOCE-COLLAB-4.1).
     measured: false,
     view(view) {
       // One view at a time keeps the undo manager, as the sync plugin binds one view at a time.
-      if (manager) return {};
+      if (kept) return {};
       const sync = getCollabSync(view.state);
       if (!sync)
         throw new Error('createCollabUndo runs only with a sync plugin (createCollabSync).');
-      const own = new Y.UndoManager(sync.type, {
-        trackedOrigins: new Set([sync.origin]),
-        captureTimeout,
-      });
+      // A state that takes other plugins, as when the paged layout starts or stops, starts every
+      // plugin view again: this view takes over the manager the last one left, so what the reader
+      // may undo outlives the change of layout.
+      const left = tracked === sync.type ? manager : null;
+      if (!left) manager?.destroy();
+      const own =
+        left ??
+        new Y.UndoManager(sync.type, { trackedOrigins: new Set([sync.origin]), captureTimeout });
       manager = own;
+      tracked = sync.type;
+      kept = true;
       return {
         destroy() {
-          own.destroy();
-          if (manager === own) manager = null;
+          kept = false;
+          // The manager goes once no view has taken it over by the end of this change.
+          queueMicrotask(() => {
+            if (kept || manager !== own) return;
+            own.destroy();
+            manager = null;
+            tracked = null;
+          });
         },
       };
     },

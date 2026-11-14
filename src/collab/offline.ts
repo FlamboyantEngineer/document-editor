@@ -73,8 +73,10 @@ export interface RoomDraftsOptions {
   now?: (() => Date) | undefined;
 }
 
-/** Keeps a room document's draft until stopped. */
+/** Keeps a room document's draft until stopped, when it keeps the one still waiting. */
 export interface RoomDrafts {
+  /** The draft of the document as it is now (`captureRoomDraft`). */
+  capture(): RoomDraft;
   /** Keeps the draft now, and resolves once the adapter has it. */
   flush(): Promise<void>;
   stop(): void;
@@ -83,9 +85,33 @@ export interface RoomDrafts {
 const DEFAULT_DELAY = 1000;
 
 /**
+ * The draft of a room's document as it is now: its state, the changes the room has not confirmed
+ * and the last state the room confirmed all of, which is the state now when nothing is unconfirmed
+ * and `confirmed`, an earlier one, otherwise.
+ */
+export function captureRoomDraft(
+  connection: RoomConnection<Y.Doc>,
+  { confirmed, now = () => new Date() }: { confirmed: Uint8Array | null; now?: () => Date },
+): RoomDraft {
+  const { doc } = connection;
+  const state = Y.encodeStateAsUpdate(doc);
+  const unconfirmed = connection.unconfirmedUpdate();
+  const settled = !unconfirmed && !connection.state().hasUnconfirmedChanges;
+  return {
+    mode: 'room',
+    generation: readRoomGeneration(doc),
+    state,
+    unconfirmed,
+    confirmed: settled ? state : confirmed,
+    savedAt: now().toISOString(),
+  };
+}
+
+/**
  * Keeps a room document's draft through the drafts adapter after each change, local or remote, and
  * whenever the room confirms the local changes: the state, the unconfirmed changes and the last
- * state the room confirmed all of, for the room's generation (DOCE-SESSION-6.7).
+ * state the room confirmed all of, for the room's generation (DOCE-SESSION-6.7). That last state is
+ * taken when a draft is kept with nothing unconfirmed, and when the connection is lost so.
  */
 export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   const { documentId, drafts, connection } = options;
@@ -94,6 +120,7 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   const delay = options.delay ?? DEFAULT_DELAY;
   let confirmed: Uint8Array | null = options.restored?.confirmed ?? null;
   let unconfirmedBefore = connection.state().hasUnconfirmedChanges;
+  let connectedBefore = connection.state().status === 'connected';
   let timer: ReturnType<typeof setTimeout> | null = null;
   let stopped = false;
 
@@ -101,21 +128,15 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
     if (timer !== null) clearTimeout(timer);
     timer = null;
   };
+  const capture = (): RoomDraft => {
+    const draft = captureRoomDraft(connection, { confirmed, now });
+    confirmed = draft.confirmed;
+    return draft;
+  };
   const keep = () => {
     cancel();
     if (stopped) return Promise.resolve();
-    const state = Y.encodeStateAsUpdate(doc);
-    const unconfirmed = connection.unconfirmedUpdate();
-    if (!unconfirmed && !connection.state().hasUnconfirmedChanges) confirmed = state;
-    const draft: RoomDraft = {
-      mode: 'room',
-      generation: readRoomGeneration(doc),
-      state,
-      unconfirmed,
-      confirmed,
-      savedAt: now().toISOString(),
-    };
-    return drafts.put(documentId, draft).then(() => undefined);
+    return drafts.put(documentId, capture()).then(() => undefined);
   };
   const schedule = () => {
     if (stopped) return;
@@ -128,12 +149,16 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   // What the document holds already, such as changes made before keeping started.
   schedule();
   const stopState = connection.subscribe((state) => {
-    // The room confirmed every local change: what the document holds now is the base to keep,
-    // taken at once, since the reader may go offline and edit before the draft is kept.
-    if (unconfirmedBefore && !state.hasUnconfirmedChanges) {
+    // The room confirmed every local change: the next draft kept takes that state as its base.
+    if (unconfirmedBefore && !state.hasUnconfirmedChanges) schedule();
+    // The connection is lost with every change confirmed: what the document holds now is the
+    // base, taken at once, since the reader may edit offline before the draft is kept. Taking it
+    // at each confirmation would read the whole document for every keystroke the room echoes.
+    const connected = state.status === 'connected';
+    if (connectedBefore && !connected && !state.hasUnconfirmedChanges) {
       confirmed = Y.encodeStateAsUpdate(doc);
-      schedule();
     }
+    connectedBefore = connected;
     unconfirmedBefore = state.hasUnconfirmedChanges;
   });
   const stopLifecycle = options.lifecycle?.subscribe((event) => {
@@ -141,8 +166,11 @@ export function keepRoomDrafts(options: RoomDraftsOptions): RoomDrafts {
   });
 
   return {
+    capture,
     flush: keep,
     stop: () => {
+      // A draft still waiting to be kept holds changes no draft has, and nothing keeps it later.
+      if (timer !== null) void keep();
       stopped = true;
       cancel();
       doc.off('update', onUpdate);

@@ -4,6 +4,9 @@
 // the same way; a block both sides changed differently is a conflict for the reader to settle.
 
 import type { DocumentFile, StoredNode, StoredSection } from '../model/format/document-format.js';
+import { identifyBlocks } from './merge-identity.js';
+import { elementIdOf } from './stored-elements.js';
+import { sameStored as same } from './stored-equality.js';
 
 /** A block both sides changed differently, or one side changed and the other deleted. */
 export interface MergeConflict {
@@ -29,6 +32,8 @@ export interface MergeInput {
   readonly mine: DocumentFile;
   /** The version stored now. */
   readonly theirs: DocumentFile;
+  /** Makes the id of a block that has none in any version; a random one by default. */
+  readonly newId?: (() => string) | undefined;
 }
 
 // An element and its children as a merge reads them; a section is one too.
@@ -42,23 +47,6 @@ interface Element {
 }
 
 type Merged = StoredNode | StoredSection;
-
-// JSON text with object keys sorted, so two values compare equal whatever order they were built in.
-function stableKey(value: unknown): string {
-  return JSON.stringify(value, (_key, each: unknown) =>
-    each && typeof each === 'object' && !Array.isArray(each)
-      ? Object.fromEntries(Object.entries(each).sort(([a], [b]) => (a < b ? -1 : 1)))
-      : each,
-  );
-}
-
-const same = (one: unknown, other: unknown) => stableKey(one) === stableKey(other);
-
-// A footnote stores its footnote id as `id`, so its element id is `elementId`.
-function elementIdOf(node: StoredNode): string | null {
-  const id = node.attrs?.[node.type === 'footnote' ? 'elementId' : 'id'];
-  return typeof id === 'string' ? id : null;
-}
 
 // Children merge one by one when each is an element with an id; otherwise the node is one block.
 function mergeableChildren(node: StoredNode): readonly StoredNode[] | null {
@@ -74,10 +62,12 @@ function nodeElement(node: StoredNode): Element {
   return { key, own: children ? own : node, children, value: node, section: false };
 }
 
+// A section is found in each version by its id, or by its place when it has none.
+const sectionKey = (section: StoredSection, index: number) => section.id ?? `#${String(index)}`;
+
 function sectionElement(section: StoredSection, index: number): Element {
   const { content, ...own } = section;
-  const key = section.id ?? `#${String(index)}`;
-  return { key, own, children: content, value: section, section: true };
+  return { key: sectionKey(section, index), own, children: content, value: section, section: true };
 }
 
 // The keys `one` holds in an order `base` does not: a block moved.
@@ -112,16 +102,39 @@ function mergeOrder(
   return order;
 }
 
+// Where a version holds an element: the element, and the key of the container it is in.
+interface Place {
+  readonly node: StoredNode;
+  readonly parent: string;
+}
+
+type Places = ReadonlyMap<string, Place>;
+
 interface MergeContext {
   conflicts: MergeConflict[];
+  /** Each version's elements by id, to find a block a side moved to another container. */
+  places: { base: Places; mine: Places; theirs: Places };
+}
+
+// Every element a merge reads by id in a version, with its container: a section, or a node whose
+// children merge one by one.
+function placesOf(file: DocumentFile): Places {
+  const places = new Map<string, Place>();
+  const walk = (nodes: readonly StoredNode[], parent: string) => {
+    for (const node of nodes) {
+      const id = elementIdOf(node);
+      if (id === null) continue;
+      places.set(id, { node, parent });
+      walk(mergeableChildren(node) ?? [], id);
+    }
+  };
+  file.sections.forEach((section, index) => walk(section.content, sectionKey(section, index)));
+  return places;
 }
 
 // An element one side no longer holds: gone when the side that holds it left it as it was, kept
 // when it is new, and a conflict when one side deleted it and the other changed it.
-function mergeOneSided(
-  { base, mine, theirs }: { base: Element | null; mine: Element | null; theirs: Element | null },
-  context: MergeContext,
-): Merged | null {
+function mergeOneSided({ base, mine, theirs }: Versions, context: MergeContext): Merged | null {
   const kept = mine ?? theirs;
   if (!kept || (base && same(base.value, kept.value))) return null;
   if (!base) return kept.value;
@@ -155,14 +168,45 @@ function mergeBothChanged(
   return mine.value;
 }
 
+// The three versions of one element, null where a version does not hold it.
+interface Versions {
+  base: Element | null;
+  mine: Element | null;
+  theirs: Element | null;
+}
+
+// The versions to merge for an element of one container. A block a side moved to another
+// container is merged once, where that side put it, the reader's place when both moved it, from
+// its versions wherever each holds them; in any other container it is left out. Read container by
+// container it would be deleted in one and new in the other, and kept in both once the other side
+// changed it. A block the other side holds no more stays where it was moved, as a new block does.
+function versionsAt(here: Versions, key: string, { places }: MergeContext): Versions | null {
+  const base = places.base.get(key);
+  const isSection = [here.base, here.mine, here.theirs].some((each) => each?.section);
+  if (!base || isSection) return here;
+  const movedBy = (side: 'mine' | 'theirs') => {
+    const place = places[side].get(key);
+    return place !== undefined && place.parent !== base.parent;
+  };
+  const mover = (['mine', 'theirs'] as const).find(movedBy);
+  if (!mover) return here;
+  if (!here[mover]) return null;
+  if (!places[mover === 'mine' ? 'theirs' : 'mine'].has(key)) return here;
+  const held = (side: keyof Versions) => {
+    const place = places[side].get(key);
+    return place ? nodeElement(place.node) : null;
+  };
+  return { base: held('base'), mine: held('mine'), theirs: held('theirs') };
+}
+
 // One element's three versions: the one side that changed it wins, and both changed alike agree.
-function mergeElement(
-  versions: { base: Element | null; mine: Element | null; theirs: Element | null },
-  context: MergeContext,
-): Merged | null {
+function mergeElement(versions: Versions, context: MergeContext): Merged | null {
   const { base, mine, theirs } = versions;
   if (!mine || !theirs) return mergeOneSided(versions, context);
   if (same(mine.value, theirs.value)) return mine.value;
+  // A container merges child by child even when one side left it as it was: a block the other
+  // side moved into it brings along what the first changed in it, in its old container.
+  if (mine.children && theirs.children) return mergeBothChanged({ base, mine, theirs }, context);
   if (base && same(base.value, theirs.value)) return mine.value;
   if (base && same(base.value, mine.value)) return theirs.value;
   return mergeBothChanged({ base, mine, theirs }, context);
@@ -203,14 +247,13 @@ function mergeElements(
   };
   const results = new Map<string, Merged>();
   for (const key of new Set([...keys.base, ...keys.mine, ...keys.theirs])) {
-    const result = mergeElement(
-      {
-        base: maps.base.get(key) ?? null,
-        mine: maps.mine.get(key) ?? null,
-        theirs: maps.theirs.get(key) ?? null,
-      },
-      context,
-    );
+    const here = {
+      base: maps.base.get(key) ?? null,
+      mine: maps.mine.get(key) ?? null,
+      theirs: maps.theirs.get(key) ?? null,
+    };
+    const versions = versionsAt(here, key, context);
+    const result = versions && mergeElement(versions, context);
     if (result) results.set(key, result);
   }
   return mergeOrder(keys, new Set(results.keys())).flatMap((key) => results.get(key) ?? []);
@@ -220,10 +263,15 @@ function mergeElements(
  * Merges the reader's changes and the stored ones, both made from `base`, by element id (DOCE-
  * SESSION-4.1). A block both changed differently, or one changed and the other deleted, is a
  * conflict: the merged content shows the reader's version, or the changed one over a deletion.
- * The template pin merges the same way, the reader's winning when both changed it.
+ * The template pin merges the same way, the reader's winning when both changed it. Blocks without
+ * an id are given one first, shared by the versions that hold the same block (`identifyBlocks`).
  */
-export function mergeDocuments({ base, mine, theirs }: MergeInput): DocumentMerge {
-  const context: MergeContext = { conflicts: [] };
+export function mergeDocuments(input: MergeInput): DocumentMerge {
+  const { base, mine, theirs } = identifyBlocks(input);
+  const context: MergeContext = {
+    conflicts: [],
+    places: { base: placesOf(base), mine: placesOf(mine), theirs: placesOf(theirs) },
+  };
   const read = (file: DocumentFile) => file.sections.map(sectionElement);
   const sections = mergeElements(
     { base: read(base), mine: read(mine), theirs: read(theirs) },

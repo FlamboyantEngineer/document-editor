@@ -100,6 +100,32 @@ describe('createDocumentSession in store mode', () => {
     expect(session.document.get()).toBeNull();
   });
 
+  it('DOCE-SESSION-1.3 opens nothing on a signal aborted already, and leaves no listener on it', async () => {
+    const host = hostWith();
+    const read = vi.spyOn(host.documents, 'load');
+    const aborted = new AbortController();
+    aborted.abort();
+    const closed = createDocumentSession({
+      host,
+      documentId: 'doc',
+      mode: 'store',
+      signal: aborted.signal,
+    });
+    expect(await closed.ready).toBe(false);
+    expect(read).not.toHaveBeenCalled();
+    const live = new AbortController();
+    const remove = vi.spyOn(live.signal, 'removeEventListener');
+    const session = createDocumentSession({
+      host,
+      documentId: 'doc',
+      mode: 'store',
+      signal: live.signal,
+    });
+    await session.ready;
+    session.close();
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
   it('DOCE-SESSION-1.4 follows the capabilities the host changes', async () => {
     const host = hostWith();
     const listeners: ((capabilities: typeof FULL_CAPABILITIES) => void)[] = [];
@@ -142,7 +168,59 @@ describe('createDocumentSession in store mode', () => {
   });
 });
 
+describe('template changes in quick succession', () => {
+  it('DOCE-SESSION-1.5 shows the template asked for last, whichever load ends last', async () => {
+    const host = createMemoryHost({
+      documents: [
+        { id: 'doc', content: { ...DOCUMENT, template: { id: 'memo', revision: 'rev-1' } } },
+      ],
+      templates: [
+        { formatVersion: 1, id: 'memo' },
+        { formatVersion: 1, id: 'memo', page: { size: 'US Letter' } },
+      ],
+    });
+    const templates = host.templates;
+    if (!templates) throw new Error('The host has no templates.');
+    const load = templates.load.bind(templates);
+    const held: (() => void)[] = [];
+    templates.load = async (...args) => {
+      const loaded = await load(...args);
+      // The first revision asked for answers only once the test lets it.
+      if (args[1]?.revision === 'rev-1') await new Promise<void>((resolve) => held.push(resolve));
+      return loaded;
+    };
+    const session = open(host);
+    const ready = session.ready;
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    held.shift()?.();
+    await ready;
+    const older = session.setTemplate({ id: 'memo', revision: 'rev-1' });
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    const newer = await session.setTemplate({ id: 'memo', revision: 'rev-2' });
+    held.shift()?.();
+    expect(newer).toBe(true);
+    expect(await older).toBe(false);
+    expect(shown(session).pin).toEqual({ id: 'memo', revision: 'rev-2' });
+    expect(shown(session).template.page?.size).toBe('US Letter');
+  });
+});
+
 describe('store-mode saving', () => {
+  it('DOCE-SESSION-2.1 saves nothing for a document changed back to what is stored', async () => {
+    const host = hostWith();
+    const save = vi.spyOn(host.documents, 'save');
+    const session = open(host);
+    await session.ready;
+    const before = shown(session).state;
+    typeText(session, 'Oh ');
+    expect(session.hasUnsavedChanges()).toBe(true);
+    session.update(() => before);
+    await session.save();
+    expect(save).not.toHaveBeenCalled();
+    expect(session.hasUnsavedChanges()).toBe(false);
+    expect(session.status.get()).toMatchObject({ save: 'saved', dirty: false, error: null });
+  });
+
   it('DOCE-SESSION-2.1 leaves a document clean after a change of ids or authorship alone', async () => {
     const session = open(hostWith());
     await session.ready;

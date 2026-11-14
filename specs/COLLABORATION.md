@@ -34,10 +34,10 @@ Verification: `src/engine/presence.test.ts`
 
 ### DOCE-COLLAB-1.5 - Presence through a shared room
 
-`createAwarenessPresence({ awareness, user })` from `./collab` shall share presence through the shared document's awareness, such as a collaboration-tools room provider's, beside the sync plugin and `createPresence`. It shall publish the reader (`user`: id, name, picture and colour), their selection as Yjs relative positions in the `content` type (`cursor`, published again only when it changes) and their status (`status`), and set the other people from the awareness on the presence plugin, once for a burst of awareness changes and again after each change from the shared document, so each caret stays on the same characters in every editor whatever its width or layout. A person who leaves is listed no more; the reader's cursor is cleared when the plugin's view goes.
+`createAwarenessPresence({ awareness, user })` from `./collab` shall share presence through the shared document's awareness, such as a collaboration-tools room provider's, beside the sync plugin and `createPresence`. It shall publish the reader (`user`: id, name, picture and colour), their selection as Yjs relative positions in the `content` type (`cursor`, published again only when it changes, and once more after the views are made when it named no place yet, as when the reader is the first in an empty room; a position inside an inline node with content, such as a template variable, counts the text before that node by its characters, as the shared type does) and their status (`status`), and set the other people from the awareness on the presence plugin, once for a burst of awareness changes and again after each change from the shared document, so each caret stays on the same characters in every editor whatever its width or layout. A person who leaves is listed no more; the reader's cursor is cleared when the plugin's view goes. Like the sync plugin, it stays out of the paged layout's hidden measuring view (its spec says `measured: false`), so one view shares the reader's cursor and status.
 
 Implementation: `src/collab/awareness.ts`, `src/collab/relative-positions.ts`
-Verification: `src/collab/awareness.test.ts`, `e2e/presence.spec.ts`
+Verification: `src/collab/awareness.test.ts`, `e2e/presence.spec.ts`, `src/collab/relative-positions.test.ts`
 
 ### DOCE-COLLAB-1.6 - Status and activity
 
@@ -145,6 +145,13 @@ The binding relies on the shared document integrating each update it receives. Y
 Implementation: `src/collab/sync-binding.ts`
 Verification: `src/collab/yjs-pending.test.ts`
 
+### DOCE-COLLAB-4.7 - A shared document the schema cannot read
+
+When the shared document holds what the editor's schema cannot read, such as a block of a type a newer schema added, as the plugin binds or in a change it takes, the plugin shall stop: it takes no further change from the shared document and sends none to it, since the editor no longer shows what the shared document holds and its changes would land in the wrong places, and no view binds again. It shall tell the host once (`onUnreadable(error)`), and throw the error when the host gave no such callback.
+
+Implementation: `src/collab/sync.ts`, `src/collab/sync-binding.ts`
+Verification: `src/collab/sync.test.ts`, `src/session/room-session.test.ts`
+
 ## DOCE-COLLAB-5 - Connection
 
 ### DOCE-COLLAB-5.1 - Connection phases
@@ -186,7 +193,7 @@ Verification: `src/collab/convert.test.ts`
 
 ### DOCE-COLLAB-6.3 - Each writer's own undo
 
-`createCollabUndo()`, run beside the sync plugin with the editing history off, shall undo and redo only the changes the editor sent as its own: never another writer's, a write a plugin derived from one, or a host's system change. An undo shall reach the editor at once as an undo, not as a remote change. The editor's undo and redo (`undoCommand`, `redoCommand`), which its keys, toolbar and menubar run, shall run the commands a plugin of the state provides (`provideUndoCommands`), and the editing history's otherwise. Like the sync plugin, it shall keep one view at a time and stay out of the paged layout's measuring view. A room-mode session shall run it beside its sync plugin.
+`createCollabUndo()`, run beside the sync plugin with the editing history off, shall undo and redo only the changes the editor sent as its own: never another writer's, a write a plugin derived from one, or a host's system change. An undo shall reach the editor at once as an undo, not as a remote change. The editor's undo and redo (`undoCommand`, `redoCommand`), which its keys, toolbar and menubar run, shall run the commands a plugin of the state provides (`provideUndoCommands`), and the editing history's otherwise. Like the sync plugin, it shall keep one view at a time and stay out of the paged layout's measuring view. What there is to undo and redo shall outlive the state taking other plugins, as when the paged layout starts or stops, which starts every plugin view again. A room-mode session shall run it beside its sync plugin.
 
 Implementation: `src/collab/undo.ts`, `src/engine/undo-commands.ts`, `src/engine/shortcut-commands.ts`, `src/components/document-editor/toolbar-controls.tsx`, `src/session/room-binding.ts`
 Verification: `src/collab/undo.test.ts`, `src/engine/undo-commands.test.ts`, `src/session/room-session.test.ts`

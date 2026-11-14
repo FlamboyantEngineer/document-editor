@@ -5,14 +5,9 @@
 
 import { markSystemChange } from '../engine/transaction-kind.js';
 import type { EditorHost, HostError } from '../host/adapters.js';
-import type { TemplatePin } from '../model/format/template-format.js';
 import type { DocumentSession } from './document-session.js';
-import { failure } from './open-document.js';
+import { failure, samePin } from './open-document.js';
 import type { OpenedVersion } from './versions.js';
-
-const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
-  (one?.id ?? null) === (other?.id ?? null) &&
-  (one?.revision ?? null) === (other?.revision ?? null);
 
 const notLoaded = () => failure('unavailable', 'The document is not loaded.');
 
