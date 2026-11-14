@@ -1,4 +1,5 @@
 import * as Y from '@y/y';
+import * as delta from 'lib0/delta';
 import type { Node } from 'prosemirror-model';
 import { Plugin, TextSelection } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
@@ -326,5 +327,69 @@ describe('collab sync derived writes', () => {
     await settle();
     expect(sent).toEqual([]);
     expect(b.state.doc.toJSON()).toEqual(a.state.doc.toJSON());
+  });
+});
+
+// Another reader's copy of an editor's shared document, with a block after the first paragraph of
+// a type the editor's schema lacks, as an editor on a newer schema writes.
+function newerCopy(editor: HeadlessEditor): Y.Doc {
+  const newer = new Y.Doc();
+  Y.applyUpdate(newer, Y.encodeStateAsUpdate(editor.doc));
+  const below = (type: Y.Type, index: number) => type.get(index) as Y.Type;
+  const blocks = below(below(below(newer.get('content'), 0), 0), 1);
+  const added = delta.create('hologram').insert('Seen from every side.').done();
+  blocks.applyDelta(delta.create().retain(1).insert([added]).done() as never);
+  return newer;
+}
+
+const bringFrom = (editor: HeadlessEditor, from: Y.Doc) => {
+  Y.applyUpdate(
+    editor.doc,
+    Y.encodeStateAsUpdate(from, Y.encodeStateVector(editor.doc)),
+    'network',
+  );
+};
+
+describe('collab sync on a shared document its schema cannot read', () => {
+  it('DOCE-COLLAB-4.7 stops and tells of a block of a type its schema lacks', () => {
+    const told: unknown[] = [];
+    const editor = headlessEditor(start(), { onUnreadable: (error) => told.push(error) });
+    const newer = newerCopy(editor);
+    bringFrom(editor, newer);
+    expect(told).toHaveLength(1);
+    expect(String(told[0])).toContain('hologram');
+    // Nothing the reader types reaches the shared document, which the editor no longer shows.
+    const held = Y.encodeStateAsUpdate(editor.doc);
+    typeAtEnd(editor, 0, '!');
+    editor.destroy();
+    expect(Y.encodeStateAsUpdate(editor.doc)).toEqual(held);
+    // And nothing more comes from it, so the editor is told once.
+    newer.get('content').setAttr('width', 1);
+    bringFrom(editor, newer);
+    expect(told).toHaveLength(1);
+    expect(textOf(block(editor.state.doc, 0).node)).toBe('Title!');
+  });
+
+  it('DOCE-COLLAB-4.7 stops as it binds to a shared document its schema cannot read', () => {
+    const first = headlessEditor(start());
+    const newer = newerCopy(first);
+    const told: unknown[] = [];
+    const editor = headlessEditor(start(), {
+      doc: newer,
+      onUnreadable: (error) => told.push(error),
+    });
+    expect(told).toHaveLength(1);
+    const held = Y.encodeStateAsUpdate(newer);
+    typeAtEnd(editor, 0, '!');
+    expect(Y.encodeStateAsUpdate(newer)).toEqual(held);
+  });
+
+  it('DOCE-COLLAB-4.7 throws what it cannot read when nobody is told, and stops', () => {
+    const editor = headlessEditor(start());
+    const newer = newerCopy(editor);
+    expect(() => bringFrom(editor, newer)).toThrow(/hologram/);
+    const held = Y.encodeStateAsUpdate(editor.doc);
+    typeAtEnd(editor, 0, '!');
+    expect(Y.encodeStateAsUpdate(editor.doc)).toEqual(held);
   });
 });

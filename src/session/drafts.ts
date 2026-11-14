@@ -10,7 +10,7 @@ import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { storedContentKey } from './dirty.js';
 import type { SessionDocument } from './document-session.js';
-import { readStored } from './open-document.js';
+import { readStored, samePin } from './open-document.js';
 import type { SessionStatus } from './status.js';
 import type { createStoreSaving } from './store-saving.js';
 import { createValueStore, type ValueStore, type WritableStore } from './value-store.js';
@@ -154,9 +154,20 @@ async function draftBase(context: SessionDraftsContext, draft: StoreDraft) {
   return read.ok ? { content: loaded.value, doc: read.value.doc } : null;
 }
 
-const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
-  (one?.id ?? null) === (other?.id ?? null) &&
-  (one?.revision ?? null) === (other?.revision ?? null);
+// The base of a draft whose revision the host cannot give: an empty document. Merged from it,
+// every block the draft and the newer save hold differently waits for the reader, where saving the
+// draft as a plain change would write it over that save.
+function unknownBase(schema: Schema) {
+  const doc = schema.topNodeType.createAndFill();
+  return doc ? { content: writeDocumentFile(doc), doc } : null;
+}
+
+// The base of a draft from an older revision than the one stored: that revision when the host
+// gives it, and the unknown base otherwise.
+async function outdatedBase(context: SessionDraftsContext, draft: StoreDraft, pinned: boolean) {
+  const loaded = pinned ? await draftBase(context, draft) : null;
+  return loaded ?? unknownBase(context.schema);
+}
 
 // Saving from the revision a draft was edited from: a draft from an older one then conflicts with
 // the newer save and merges into it from that base, rather than overwriting it.
@@ -187,10 +198,10 @@ async function showDraft(
   const pin = draft.content.template ?? null;
   const pinned = samePin(document.get()?.pin ?? null, pin) || (await context.setTemplate(pin));
   const outdated = saving()?.baseline().revision !== draft.baseRevision;
-  const base = pinned && outdated ? await draftBase(context, draft) : null;
+  const base = outdated ? await outdatedBase(context, draft, pinned) : null;
   const shown = document.get();
   const saver = saving();
-  if (!pinned || !shown || !saver || !current()) return false;
+  if (!pinned || !shown || !saver || !current() || (outdated && !base)) return false;
   const state = context.createState(read.value.doc);
   document.set({ ...shown, state });
   if (base) rebaseOnDraft(saver, { ...draft, documentId: context.documentId }, base);

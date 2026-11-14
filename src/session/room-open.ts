@@ -9,6 +9,7 @@ import type { DocumentDraft, RoomConnection, RoomState } from '../host/session-a
 import { failure, loadCapabilities } from './open-document.js';
 import type { RoomBinding } from './room-binding.js';
 import { roomRefusal } from './room-status.js';
+import { createValueStore, type ValueStore } from './value-store.js';
 
 /** A room-mode draft as the drafts adapter keeps it. */
 export type RoomDraft = Extract<DocumentDraft, { mode: 'room' }>;
@@ -26,7 +27,13 @@ export interface OpenedRoom {
   capabilities: EditorCapabilities;
   /** The draft the session opened on, without waiting for the room's first sync, or null. */
   draft: RoomDraft | null;
+  /** Why the editor stopped following the room: content its schema cannot read; null until then. */
+  unreadable: ValueStore<HostError | null>;
 }
+
+/** An error as a failure of the room's: its content cannot be read, or it cannot be reached. */
+export const roomFailure = (error: unknown): HostError =>
+  failure('unavailable', error instanceof Error ? error.message : undefined);
 
 const ABORTED = failure('unavailable', 'The session was closed.');
 
@@ -86,13 +93,16 @@ export async function openRoom(
     connection.close();
     return { ok: false, error };
   }
+  const unreadable = createValueStore<HostError | null>(null);
   const binding = bindRoom(connection.doc, {
     schema,
     isRemoteOrigin: (origin) => connection.isRemoteOrigin(origin),
     awareness: connection.awareness,
     presence: { user: presenceUser(host), lifecycle: host.lifecycle },
+    onUnreadable: (error) => unreadable.set(roomFailure(error)),
   });
-  return { ok: true, value: { connection, binding, capabilities, draft: draft ?? null } };
+  const opened = { connection, binding, capabilities, draft: draft ?? null, unreadable };
+  return { ok: true, value: opened };
 }
 
 /**

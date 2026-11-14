@@ -1,6 +1,7 @@
 import * as Y from '@y/y';
 import type { Node } from 'prosemirror-model';
-import { TextSelection } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type HeadlessEditor, headlessEditor, readFixture } from '../../test/collab-fixtures.js';
 import { createPresence, listPeers } from '../engine/presence.js';
@@ -134,6 +135,13 @@ describe('awareness presence', () => {
     expect(listPeers(a.state)).toMatchObject([{ id: 'grace', name: 'Grace', color: '#c00' }]);
   });
 
+  it('DOCE-COLLAB-1.5 publishes the first writer’s caret once their document fills the room', async () => {
+    const awareness = awarenessRoom().join(1);
+    joinEditor(new Y.Doc(), awareness, { id: 'ada', name: 'Ada' });
+    await settle();
+    expect(awareness.getStates().get(1)?.cursor).toMatchObject({ head: expect.anything() });
+  });
+
   it('DOCE-COLLAB-1.5 keeps a person’s caret on the same text while another edits before it', async () => {
     const { a, b, sync } = await pair();
     select(a, wordAt(a.state.doc, 'word'));
@@ -153,6 +161,40 @@ describe('awareness presence', () => {
     (awarenessA as PresenceAwareness & { leave(): void }).leave();
     await settle();
     expect(listPeers(b.state)).toEqual([]);
+  });
+
+  it('DOCE-COLLAB-1.5 shares no presence from the paged layout’s measuring view', () => {
+    let lifecycle: ((event: 'hidden' | 'visible' | 'leaving') => void) | null = null;
+    const awareness = awarenessRoom().join(1);
+    const editor = joinEditor(
+      new Y.Doc(),
+      awareness,
+      { id: 'ada', name: 'Ada' },
+      {
+        lifecycle: {
+          subscribe(onEvent) {
+            lifecycle ??= onEvent;
+            return () => undefined;
+          },
+        },
+      },
+    );
+    select(editor, 4);
+    const shared = () => awareness.getStates().get(1) ?? {};
+    expect(shared().cursor).toBeTruthy();
+    // The measuring view is a second view of the document, with every plugin of the state whose
+    // spec does not say `measured: false`.
+    const plugins = editor.state.plugins.filter((plugin) => plugin.spec.measured !== false);
+    const measuring = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc: editor.state.doc, plugins }),
+    });
+    expect(shared().cursor).toBeTruthy();
+    (lifecycle as ((event: 'hidden') => void) | null)?.('hidden');
+    // It follows a collaborator's change with a change of its own, which is no input of the reader.
+    measuring.dispatch(measuring.state.tr.insertText('Remote ', 2));
+    expect(shared().status).toBe('away');
+    measuring.destroy();
+    expect(shared().cursor).toBeTruthy();
   });
 
   it('DOCE-COLLAB-1.6 marks a person idle without input and away while their page is hidden', async () => {

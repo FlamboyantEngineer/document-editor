@@ -1,3 +1,5 @@
+import type * as Y from '@y/y';
+import * as delta from 'lib0/delta';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -76,6 +78,17 @@ function mount(session: DocumentSession) {
   return view;
 }
 
+// Writes a block of a type no schema here has into the room through a person's connection, as a
+// reader on a newer schema would.
+function writeUnknownBlock(room: SessionRooms, person: string) {
+  const doc = room.providerOf(person)?.doc;
+  if (!doc) throw new Error(`${person} has no connection.`);
+  const below = (type: Y.Type, index: number) => type.get(index) as Y.Type;
+  const blocks = below(below(below(doc.get('content'), 0), 0), 1);
+  const added = delta.create('hologram').insert('Seen from every side.').done();
+  blocks.applyDelta(delta.create().retain(1).insert([added]).done() as never);
+}
+
 describe('createDocumentSession in room mode', () => {
   it('DOCE-SESSION-3.2 opens a document in its room once the connection synced', async () => {
     roomsFor();
@@ -89,6 +102,23 @@ describe('createDocumentSession in room mode', () => {
     expect(document.capabilities).toEqual(FULL_CAPABILITIES);
     expect(document.editingMode).toBe('edit');
     expect(session.status.get().load).toBe('ready');
+  });
+
+  it('DOCE-SESSION-1.3 connects to no room on a signal aborted already', async () => {
+    const room = roomsFor();
+    const adapter = room.adapter('ada');
+    const connect = vi.spyOn(adapter, 'connect');
+    const aborted = new AbortController();
+    aborted.abort();
+    const session = createDocumentSession({
+      host: { ...createMemoryHost(), collaboration: adapter },
+      documentId: 'doc',
+      mode: 'room',
+      signal: aborted.signal,
+    });
+    sessions.push(session);
+    expect(await session.ready).toBe(false);
+    expect(connect).not.toHaveBeenCalled();
   });
 
   it('DOCE-SESSION-3.2 reports a host with no rooms and a refused connection', async () => {
@@ -107,6 +137,19 @@ describe('createDocumentSession in room mode', () => {
     expect(refused.document.get()).toBeNull();
   });
 
+  it('DOCE-SESSION-3.2 fails to open a room whose document its schema cannot read', async () => {
+    const room = roomsFor();
+    const grace = openAs('grace');
+    await grace.ready;
+    writeUnknownBlock(room, 'grace');
+    await grace.flush();
+    const ada = openAs('ada');
+    expect(await ada.ready).toBe(false);
+    expect(ada.status.get()).toMatchObject({ load: 'failed', error: { kind: 'unavailable' } });
+    expect(ada.status.get().error?.message).toContain('hologram');
+    expect(ada.document.get()).toBeNull();
+  });
+
   it('DOCE-SESSION-3.2 keeps two readers of a room on the same document', async () => {
     roomsFor();
     const ada = openAs('ada');
@@ -116,6 +159,40 @@ describe('createDocumentSession in room mode', () => {
     mount(grace);
     view.dispatch(view.state.tr.insertText('Well, ', 1));
     await vi.waitFor(() => expect(textOf(shown(grace).state)).toBe('Well, Hello'));
+  });
+
+  it('DOCE-SESSION-3.2 writes a change made with no editor bound to the room', async () => {
+    roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const graceView = mount(grace);
+    ada.update((state) => state.apply(state.tr.insertText('Well, ', 1)));
+    expect(ada.hasUnsavedChanges()).toBe(true);
+    await vi.waitFor(() => expect(textOf(graceView.state)).toBe('Well, Hello'));
+    // The editor that binds later takes the room's content, which holds the change.
+    const adaView = mount(ada);
+    await ada.flush();
+    expect(textOf(adaView.state)).toBe('Well, Hello');
+  });
+
+  it('DOCE-SESSION-3.2 makes a change with no editor bound on what the room holds by then', async () => {
+    const room = roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const graceView = mount(grace);
+    const arrived = new Promise((resolve) => room.providerOf('ada')?.doc.once('update', resolve));
+    graceView.dispatch(graceView.state.tr.insertText('!', graceView.state.doc.content.size - 3));
+    await arrived;
+    // A whole state made from what the session shows, which the room has moved on from, is not
+    // written, or it would take back what the others changed since.
+    const stale = shown(ada).state;
+    ada.update(stale.apply(stale.tr.insertText('Oh, ', 1)));
+    expect(ada.hasUnsavedChanges()).toBe(false);
+    ada.update((state) => state.apply(state.tr.insertText('Well, ', 1)));
+    expect(textOf(shown(ada).state)).toBe('Well, Hello!');
+    await vi.waitFor(() => expect(textOf(graceView.state)).toBe('Well, Hello!'));
   });
 
   it('DOCE-COLLAB-6.3 undoes only the reader’s own change in a room', async () => {
@@ -160,6 +237,27 @@ describe('createDocumentSession in room mode', () => {
       comment: true,
     });
     expect(shown(session).editingMode).toBe('comment');
+  });
+
+  it('DOCE-SESSION-3.4 DOCE-COLLAB-4.7 locks the document once the room holds what its schema cannot read', async () => {
+    const room = roomsFor();
+    const ada = openAs('ada');
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const view = mount(ada);
+    writeUnknownBlock(room, 'grace');
+    await vi.waitFor(() => expect(ada.status.get().error?.kind).toBe('unavailable'));
+    expect(ada.status.get()).toMatchObject({ load: 'ready', save: 'error' });
+    expect(ada.status.get().error?.message).toContain('hologram');
+    expect(ada.connection.get()?.gate).toEqual({ editable: false, locked: true });
+    expect(shown(ada).capabilities).toMatchObject({ edit: false, suggest: false, comment: false });
+    expect(shown(ada).editingMode).toBe('read');
+    // The error stands while the connection's state goes on changing.
+    room.providerOf('ada')?.disconnect();
+    await vi.waitFor(() => expect(ada.connection.get()?.phase).toBe('offline'));
+    expect(ada.status.get().error?.kind).toBe('unavailable');
+    expect(ada.connection.get()?.gate).toEqual({ editable: false, locked: true });
+    expect(textOf(view.state)).toBe('Hello');
   });
 
   it('DOCE-SESSION-3.8 tells the connection’s phase and gate', async () => {

@@ -1,6 +1,7 @@
 import * as Y from '@y/y';
 import type { Node } from 'prosemirror-model';
-import { Plugin } from 'prosemirror-state';
+import { EditorState, Plugin } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import {
   type HeadlessEditor,
@@ -13,7 +14,7 @@ import { createDocumentEditing } from '../engine/document-editing.js';
 import { isRemoteTransaction } from '../engine/transaction-kind.js';
 import { redoCommand, undoCommand } from '../engine/undo-commands.js';
 import type { DocumentFile } from '../model/index.js';
-import { readCollabChange } from './sync.js';
+import { createCollabSync, readCollabChange } from './sync.js';
 import { createCollabUndo } from './undo.js';
 
 const FILE: DocumentFile = {
@@ -157,6 +158,24 @@ describe('shared document undo', () => {
     );
     expect(handled).toBe(true);
     expect(text(a)).not.toMatch(/Keyed\./);
+  });
+
+  it('DOCE-COLLAB-6.3 keeps what there is to undo when the state takes other plugins', () => {
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({
+        doc: readFixture(FILE),
+        plugins: [createCollabSync({ doc: new Y.Doc() }), createCollabUndo({ captureTimeout: 0 })],
+      }),
+    });
+    view.dispatch(view.state.tr.insertText(' Once.', paragraphEnd(view.state.doc, 1)));
+    // The paged layout starts and stops by reconfiguring the state, which starts every plugin
+    // view again.
+    view.updateState(view.state.reconfigure({ plugins: [...view.state.plugins, new Plugin({})] }));
+    expect(undoCommand(view.state, (tr) => view.dispatch(tr))).toBe(true);
+    expect(view.dom).not.toHaveTextContent(/Once\./);
+    expect(redoCommand(view.state, (tr) => view.dispatch(tr))).toBe(true);
+    expect(view.dom).toHaveTextContent(/Once\./);
+    view.destroy();
   });
 
   it('DOCE-COLLAB-6.3 keeps one view at a time and stays out of the measuring view', async () => {

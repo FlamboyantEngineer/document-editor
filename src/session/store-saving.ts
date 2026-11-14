@@ -7,6 +7,7 @@ import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { contentKey, storedContentKey } from './dirty.js';
+import { samePin } from './open-document.js';
 import type { SessionStatus } from './status.js';
 import type { WritableStore } from './value-store.js';
 
@@ -63,9 +64,8 @@ export function isEmptyDocument(doc: ProseMirrorNode): boolean {
   return empty;
 }
 
-const samePin = (one: TemplatePin | null, other: TemplatePin | null) =>
-  (one?.id ?? null) === (other?.id ?? null) &&
-  (one?.revision ?? null) === (other?.revision ?? null);
+// How many saves a flush makes while other writers' saves keep refusing its own.
+const flushAttempts = 3;
 
 // Runs `run` once `delay` milliseconds pass with no new `schedule`.
 function createPause(delay: number, run: () => void) {
@@ -111,6 +111,12 @@ const changedSince = (
 async function saveOnce({ context, state, schedule }: Saver) {
   const current = context.current();
   if (!current || !state.dirty || state.closed || state.held) return;
+  // A document changed back to what the store holds has nothing to save.
+  if (!changedSince(state.baseline, current)) {
+    state.dirty = false;
+    patchStatus(context, { save: 'saved', error: null, dirty: false });
+    return;
+  }
   const { doc, pin } = current;
   patchStatus(context, { save: 'saving', error: null });
   const content = writeDocumentFile(doc, { template: pin });
@@ -216,7 +222,13 @@ export function createStoreSaving(context: StoreSavingContext, initial: StoreBas
     save,
     flush: async () => {
       cancelTimer();
-      if (state.dirty) await saveAutomatically();
+      // A save the store refuses for another writer's is merged into theirs and left to save. The
+      // flush saves that merge too, once for each save it meets, rather than report it unsaved.
+      for (let attempt = 0; attempt < flushAttempts && state.dirty && !state.held; attempt += 1) {
+        const { revision } = state.baseline;
+        await saveAutomatically();
+        if (state.baseline.revision === revision) break;
+      }
       if (saving) await saving;
       return !state.dirty;
     },

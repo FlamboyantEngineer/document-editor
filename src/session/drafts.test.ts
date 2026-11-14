@@ -194,6 +194,49 @@ describe('store-mode drafts', () => {
     expect(await storedJson(host)).not.toContain('HOh ello');
   });
 
+  // The newer save changed nothing the draft did: only a base tells the two apart.
+  async function restoreOverNewerSave(host: EditorHost, opened: EditorHost = host) {
+    await crashAfterTyping(host, 'Oh ');
+    const added = JSON.parse(JSON.stringify(DOCUMENT)) as DocumentFile;
+    added.sections[0]?.content.push({
+      type: 'paragraph',
+      attrs: { id: 'a0000002' },
+      content: [{ type: 'text', text: 'Bye' }],
+    });
+    await host.documents.save('doc', { content: added, baseRevision: 'rev-1' });
+    const session = open(opened);
+    await session.ready;
+    expect(await session.restoreDraft()).toBe(true);
+    await session.save();
+    return session;
+  }
+
+  it('DOCE-SESSION-6.4 asks before a draft overwrites a newer save when the host keeps no versions', async () => {
+    vi.useFakeTimers();
+    const host = hostWith();
+    const { versions: _versions, ...withoutVersions } = host;
+    const session = await restoreOverNewerSave(host, withoutVersions);
+    expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]);
+    expect(await session.flush()).toBe(false);
+    expect(await storedJson(host)).toContain('Bye');
+    await session.resolveConflict('a0000001', 'mine');
+    expect(await session.flush()).toBe(true);
+    const stored = await storedJson(host);
+    expect(stored).toContain('HOh ello');
+    expect(stored).toContain('Bye');
+  });
+
+  it('DOCE-SESSION-6.4 asks before a draft overwrites a newer save when its revision does not load', async () => {
+    vi.useFakeTimers();
+    const host = hostWith();
+    host.memory.failNext('versions.load', { kind: 'unavailable' });
+    const session = await restoreOverNewerSave(host);
+    expect(session.conflicts.get()).toMatchObject([{ id: 'a0000001' }]);
+    const stored = await storedJson(host);
+    expect(stored).toContain('Bye');
+    expect(stored).not.toContain('HOh ello');
+  });
+
   it('DOCE-SESSION-6.5 discards the offered draft', async () => {
     vi.useFakeTimers();
     const host = hostWith();

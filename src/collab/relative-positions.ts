@@ -8,11 +8,36 @@ import type { Node } from 'prosemirror-model';
 
 // A document position as a shared type and an index in it, or null when the shared document does
 // not hold the document's structure there, such as before the binding has filled it.
+// The index in a shared type of a node's child: in inline content, text counts a character each.
+function typeIndexOf(parent: Node, childIndex: number): number {
+  if (!parent.inlineContent) return childIndex;
+  let index = 0;
+  for (let child = 0; child < childIndex; child += 1) {
+    const node = parent.child(child);
+    index += node.isText ? node.nodeSize : 1;
+  }
+  return index;
+}
+
+// The child of a node at an index in its shared type, with the offset it starts at in the node;
+// null when the index names text, or nothing.
+function childAtTypeIndex(parent: Node, index: number): { child: number; offset: number } | null {
+  let at = 0;
+  let offset = 0;
+  for (let child = 0; child < parent.childCount && at <= index; child += 1) {
+    const node = parent.child(child);
+    if (at === index) return node.isText ? null : { child, offset };
+    at += parent.inlineContent && node.isText ? node.nodeSize : 1;
+    offset += node.nodeSize;
+  }
+  return null;
+}
+
 function toTypeIndex(root: Y.Type, doc: Node, pos: number): { type: Y.Type; index: number } | null {
   const $pos = doc.resolve(pos);
   let type = root;
   for (let depth = 0; depth < $pos.depth; depth += 1) {
-    const child: unknown = type.get($pos.index(depth));
+    const child: unknown = type.get(typeIndexOf($pos.node(depth), $pos.index(depth)));
     if (!(child instanceof Y.Type)) return null;
     type = child;
   }
@@ -41,9 +66,10 @@ function toPosition(
   let node = doc;
   let pos = 0;
   for (const step of path) {
-    if (typeof step !== 'number' || step >= node.childCount) return null;
-    for (let child = 0; child < step; child += 1) pos += node.child(child).nodeSize;
-    node = node.child(step);
+    const found = typeof step === 'number' ? childAtTypeIndex(node, step) : null;
+    if (!found) return null;
+    pos += found.offset;
+    node = node.child(found.child);
     pos += 1;
   }
   let at = pos;
