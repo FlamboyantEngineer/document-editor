@@ -222,6 +222,16 @@ export function commentAnchors(state: EditorState): CommentAnchor[] {
   return value ? listOf(value) : listCommentAnchors(state.doc);
 }
 
+/** The ranges of the anchors placed by threads' targets (`placeCommentAnchors`), by thread. */
+export function placedCommentRanges(
+  state: EditorState,
+): ReadonlyMap<string, readonly CommentRange[]> {
+  const placed = anchorsKey.getState(state)?.placed ?? new Map<string, IndexedRange[]>();
+  return new Map(
+    [...placed].map(([thread, ranges]) => [thread, ranges.map(({ from, to }) => ({ from, to }))]),
+  );
+}
+
 // The placed anchors drawn as stored anchors are, marked as placed.
 function placedDecorations(placed: AnchorIndex): Decoration[] {
   return [...placed].flatMap(([thread, ranges]) =>
