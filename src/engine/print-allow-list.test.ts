@@ -57,6 +57,8 @@ describe('snapshot allow-list', () => {
   it('DOCE-EDITOR-6.23 refuses a script address hidden by spaces or case and a scripted style', () => {
     expect(isAllowedAttribute('href', ' JaVa\tScRiPt:run()')).toBe(false);
     expect(isAllowedAttribute('href', 'mailto:team@example.test')).toBe(true);
+    // Every address a link may hold (`safeHref`) stays a link: a telephone number too.
+    expect(isAllowedAttribute('href', 'tel:+15550100')).toBe(true);
     expect(isAllowedAttribute('href', 'notes/page.html')).toBe(true);
     expect(isAllowedAttribute('src', 'data:text/html,<p>')).toBe(false);
     expect(isAllowedAttribute('style', 'background: url(javascript:run())')).toBe(false);

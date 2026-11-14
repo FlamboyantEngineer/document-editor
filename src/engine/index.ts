@@ -73,6 +73,7 @@ export {
   reanchorThread,
   reconcileThreads,
   resolveCommentTarget,
+  unplacedThreads,
 } from './comment-targets.js';
 export type { AnchorOptions, CommentAnchor, CommentRange, CommentState } from './comments.js';
 export {

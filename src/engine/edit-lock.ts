@@ -112,13 +112,13 @@ function rangesOf(step: Step, doc: ProseMirrorNode): Range[] | null {
 }
 
 /**
- * Whether a step of a transaction changes a locked position of the document it applies to: any
- * position of a range it replaces, marks or sets attributes on, of the content a structure change
- * moves into or out of a block, or the point it inserts at.
+ * Whether a step of a transaction, from its step `fromStep` on, changes a locked position of the
+ * document it applies to: any position of a range it replaces, marks or sets attributes on, of the
+ * content a structure change moves into or out of a block, or the point it inserts at.
  */
-export function touchesLock(tr: Transaction, isLocked: Locked): boolean {
-  return tr.steps.some((step, index) => {
-    const doc = tr.docs[index];
+export function touchesLock(tr: Transaction, isLocked: Locked, fromStep = 0): boolean {
+  return tr.steps.slice(fromStep).some((step, offset) => {
+    const doc = tr.docs[fromStep + offset];
     if (!doc) return false;
     const ranges = rangesOf(step, doc);
     if (ranges) return ranges.some((range) => isRangeLocked(doc, range, isLocked));
