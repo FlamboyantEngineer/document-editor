@@ -9,7 +9,8 @@ import {
   type ImportWarnings,
 } from '../../import/import-warnings.js';
 import { DOCUMENT_FORMAT_VERSION, type DocumentFile } from './document-format.js';
-import { FENCE, readBlocks } from './markdown-read-blocks.js';
+import { readBlocks } from './markdown-read-blocks.js';
+import { type Fence, fenceAfter } from './markdown-read-fence.js';
 
 /** A stored document read from Markdown, and what the reading left out. */
 export interface MarkdownRead {
@@ -25,11 +26,12 @@ function takeDefinitions(source: readonly string[]) {
   const links = new Map<string, string>();
   const notes = new Map<string, string>();
   const rest: string[] = [];
-  let inFence = false;
+  let fence: Fence | null = null;
   for (let at = 0; at < source.length; at += 1) {
     const line = source[at] ?? '';
-    if (FENCE.test(line)) inFence = !inFence;
-    const definition = inFence ? null : DEFINITION.exec(line);
+    const inFence = fence !== null;
+    fence = fenceAfter(line, fence);
+    const definition = inFence || fence ? null : DEFINITION.exec(line);
     if (!definition) {
       rest.push(line);
       continue;
