@@ -222,6 +222,33 @@ describe('projection view', () => {
     flush.mockRestore();
   });
 
+  it('DOCE-PAGINATION-7.12 lands a host jump while the browser selection is outside the pages or already read', () => {
+    const { projection } = mount();
+    const { view } = projection;
+    const jumpTo = (text: string) =>
+      projection.state.apply(
+        projection.state.tr
+          .setSelection(
+            TextSelection.create(projection.state.doc, positionOf(projection.state.doc, text)),
+          )
+          .scrollIntoView(),
+      );
+    const caret = (text: string) =>
+      projection.map.toProjection(positionOf(projection.state.doc, text));
+    // Focus in a find field outside the pages, as when picking a result or an outline entry.
+    const field = document.body.appendChild(document.createElement('input'));
+    field.focus();
+    projection.update(jumpTo('Delta'));
+    expect(view.state.selection.from).toBe(caret('Delta'));
+    expect(projection.state.selection.from).toBe(positionOf(projection.state.doc, 'Delta'));
+    // Focus back in the pages, with the browser's caret read already: the next jump lands too.
+    view.focus();
+    projection.update(jumpTo('Beta'));
+    expect(view.state.selection.from).toBe(caret('Beta'));
+    expect(projection.state.selection.from).toBe(positionOf(projection.state.doc, 'Beta'));
+    field.remove();
+  });
+
   it('DOCE-PAGINATION-7.12 takes back the state the host made from its own transaction without mirroring it again', () => {
     const sent: Transaction[] = [];
     const { projection } = mount({ dispatch: (tr) => sent.push(tr) });
