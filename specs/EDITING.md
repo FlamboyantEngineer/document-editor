@@ -284,3 +284,12 @@ Verification: `src/engine/checklists.test.ts`
 
 Implementation: `src/engine/active.ts`
 Verification: `src/engine/active.test.ts`, `test/extension-guide.test.ts`
+
+## DOCE-EDITING-9 - Typed triggers
+
+### DOCE-EDITING-9.1 - A trigger and its query
+
+`triggerAt(state, trigger)` shall read a trigger character typed before the caret, at the start of a text block or after whitespace, with the query typed after it up to the caret (`TriggerMatch`: its range from the character to the caret, and the query): the query holds no whitespace, or single spaces between words while the trigger allows them (`allowSpaces`), and is at most 40 characters. It reads nothing over a range, in code, or for a character inside a word. `replaceTrigger(match, node?)` shall take the trigger's text out of the document, putting a node in its place when given one, and do nothing once that text has changed.
+
+Implementation: `src/engine/text-triggers.ts`
+Verification: `src/engine/text-triggers.test.ts`

@@ -30,9 +30,11 @@ import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
 import { DocumentSelectionToolbar, type SelectionToolbarOptions } from './selection-toolbar.js';
+import { DocumentSlashMenu, type SlashMenuOptions } from './slash-menu.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
+import type { MenuKeys } from './trigger-menu.js';
 import type { DocumentExports } from './use-document-exports.js';
 
 // The chrome's slots, in the editor's hooks.
@@ -43,6 +45,7 @@ const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
 const NO_MENUBAR_OPTIONS: DocumentMenubarOptions = {};
 const NO_STATUS_BAR_OPTIONS: DocumentStatusBarOptions = {};
 const NO_SELECTION_OPTIONS: SelectionToolbarOptions = {};
+const NO_SLASH_OPTIONS: SlashMenuOptions = {};
 
 /** What the chrome reads. */
 export interface ChromeProps {
@@ -51,6 +54,8 @@ export interface ChromeProps {
   view: EditorView | null;
   templateStyle: Readonly<Record<string, string>>;
   startCommentRef: RefObject<(() => void) | null>;
+  /** The open typed menus' keys, which the document's keys ask first. */
+  menuKeys: MenuKeys;
   /** Opens the find bar at a box, while the editor has one. */
   openFind?: ((mode?: FindBarMode) => void) | null | undefined;
   /**
@@ -108,7 +113,7 @@ const ShownBottomChrome = memo(function ShownBottomChrome({
 });
 
 // What the insert items offer, kept while the host's features stay the same.
-function useInsertFeatures(props: TopChromeProps['props']): InsertFeatures {
+function useInsertFeatures(props: DocumentEditorProps): InsertFeatures {
   const linkedCode = Boolean(props.codeSource);
   const glossary = Boolean(props.glossary);
   const scripts = Boolean(props.scriptRunner);
@@ -265,6 +270,25 @@ export function EditorContextMenu({
       images={figurePasteOptions(props, context.labels)}
       options={typeof props.contextMenu === 'object' ? props.contextMenu : NO_MENU_OPTIONS}
       shown={contextOptionsOf(props, { labels: context.labels, openDialog })}
+    />
+  );
+}
+
+/**
+ * The menus the writer opens by typing, on the editor's latest props rather than after them as the
+ * rest of the chrome: the keys typed next act on them (DOCE-EDITOR-1.7).
+ */
+export function EditorTypedMenus({ props, context, view, menuKeys, templateStyle }: ChromeProps) {
+  const features = useInsertFeatures(props);
+  if (!props.slashMenu) return null;
+  return (
+    <DocumentSlashMenu
+      context={context}
+      view={view}
+      menuKeys={menuKeys}
+      options={props.slashMenu === true ? NO_SLASH_OPTIONS : props.slashMenu}
+      features={features}
+      templateStyle={templateStyle}
     />
   );
 }

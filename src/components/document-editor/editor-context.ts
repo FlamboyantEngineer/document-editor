@@ -6,7 +6,7 @@
 import type { Attrs } from 'prosemirror-model';
 import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, type RefObject, useContext, useLayoutEffect, useMemo } from 'react';
 import { isActive, isPositionLocked } from '../../engine/index.js';
 import type { EditingMode } from '../../host/index.js';
 import type { DocumentEditorProps } from './document-editor.js';
@@ -182,4 +182,11 @@ export const DocumentEditorContext = createContext<EditorContext | null>(null);
  */
 export function useDocumentEditor(): EditorContext | null {
   return useContext(DocumentEditorContext);
+}
+
+/** Keeps the context the editor shows last in `ref`, for what reads it outside a render. */
+export function useLatestContext(ref: RefObject<EditorContext | null>, context: EditorContext) {
+  useLayoutEffect(() => {
+    ref.current = context;
+  }, [ref, context]);
 }

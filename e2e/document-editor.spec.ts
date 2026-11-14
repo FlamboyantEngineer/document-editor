@@ -292,6 +292,36 @@ test.describe('document editor lab', () => {
     await expect(floating).toBeHidden();
   });
 
+  test('DOCE-EDITOR-4.22 inserts from the menu a typed slash opens, on pages', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByLabel('Slash menu').check();
+    const point = await pointAt(page, 'Normal operation');
+    await page.mouse.click(point.right + 2, point.y);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    // The empty line shows the button that opens the menu.
+    await expect(page.getByRole('button', { name: 'Insert block' })).toBeVisible();
+    await page.keyboard.type('/');
+    const list = page.getByRole('listbox', { name: 'Insert' });
+    await expect(list).toBeVisible();
+    await page.keyboard.type('head');
+    await expect(list.getByRole('option').first()).toHaveText('Heading 1');
+    // Below the slash, focus still in the document.
+    const box = await list.boundingBox();
+    expect(box?.y).toBeGreaterThan(point.y);
+    await expect(content(page)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(list).toBeHidden();
+    await page.keyboard.type('Added heading');
+    await expect(content(page).locator('h2', { hasText: 'Added heading' })).toHaveCount(1);
+    await expect(content(page)).not.toContainText('/head');
+  });
+
   test('DOCE-EDITOR-4.2 DOCE-PAGINATION-7.1 scrolls the document in its frame below the toolbar, and lays it out again once remounted', async ({
     lab,
     page,
