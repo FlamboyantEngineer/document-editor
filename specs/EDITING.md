@@ -122,9 +122,9 @@ Verification: `src/engine/block-place.test.ts`
 
 ### DOCE-EDITING-3.1 - The editing extension
 
-`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), embeds (513, DOCE-EMBEDS-2.1), custom styles when given the template (515, DOCE-TEMPLATES-7.1), numbered paragraphs when given the template (516, DOCE-NUMBERING-6.1), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
+`createDocumentEditingExtension(options)` shall contribute the history (priority 100), the edit lock when given the template or a lock (470, DOCE-EDITING-4.2), the element ids (480), footnotes (490, DOCE-FOOTNOTES-1.3), the comment being started (495, DOCE-COMMENTS-1.6), typeset math (500, DOCE-OBJECTS-1.7), code line numbers and signatures (505, DOCE-OBJECTS-3), the clipboard (510, DOCE-EDITING-5.1), script blocks (512, DOCE-OBJECTS-4.3), embeds (513, DOCE-EMBEDS-2.1), custom styles when given the template (515, DOCE-TEMPLATES-7.1), numbered paragraphs when given the template (516, DOCE-NUMBERING-6.1), the typing shortcuts unless `typingRules` is false (835, DOCE-EDITING-6), typed variable tokens (840, DOCE-TEMPLATES-8.3), keeping tables within the page when given the template (845, DOCE-TABLES-3.7), table editing (850), the gap cursor (860) and the keymaps (900) to a kit, leaving the history out with `history: false` for an editor that keeps its own, such as a collaborative one. `createDocumentEditing(schema, options)` gives the same plugins, in the same order, without a kit.
 
-Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/tables.ts`, `src/engine/variable-tokens.ts`, `src/engine/typing-rules.ts`
 Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-3.2 - Transaction kinds
@@ -208,3 +208,47 @@ With the host's `assets`, pasted HTML with images whose bytes come with the past
 
 Implementation: `src/components/document-editor/figure-paste.ts`, `src/components/document-editor/pasted-images.ts`
 Verification: `src/components/document-editor/figure-paste.test.ts`
+
+## DOCE-EDITING-6 - Typing shortcuts
+
+### DOCE-EDITING-6.1 - Blocks
+
+Typed at the start of a paragraph, `#` to `######` and a space shall make it a heading of that level, ` ``` ` and a space a code block, `>` and a space a quote, `-`, `+` or `*` and a space a bulleted list, and a number, a full stop and a space a numbered list starting at that number, joining a numbered list just before it whose count it carries on. `---` or `___` alone in a paragraph shall make a horizontal rule with an empty paragraph after it, the caret in that paragraph. A heading, a code block or any text block other than a paragraph shall keep what is typed, and so shall a place the new block may not stand, such as a page header.
+
+Implementation: `src/engine/typing-rules.ts`
+Verification: `src/engine/typing-rules.test.ts`
+
+### DOCE-EDITING-6.2 - Marks
+
+Text typed between `**` or `__` shall become strong, between `*` or `_` emphasised, between `~~` struck through and between backticks code, once the closing delimiter is typed, the delimiters removed. Delimiters with a space just inside them, and `_` inside a word, as in `snake_case`, shall stay as typed.
+
+Implementation: `src/engine/typing-rules.ts`
+Verification: `src/engine/typing-rules.test.ts`
+
+### DOCE-EDITING-6.3 - Typography
+
+Straight quotes and apostrophes shall become curly ones, `--` an em dash, `...` an ellipsis, `->`, `<-`, `<->` and `=>` arrows, `(c)`, `(r)` and `(tm)` their symbols, and `+-`, `!=`, `<=` and `>=` the plus-minus, not-equal, less-or-equal and greater-or-equal signs (`TYPOGRAPHY_RULES`). No shortcut shall run in code: a code block or text marked as code.
+
+Implementation: `src/engine/typing-rules.ts`
+Verification: `src/engine/typing-rules.test.ts`
+
+### DOCE-EDITING-6.4 - Taking a shortcut back
+
+Backspace right after a shortcut, before any other change or move, shall take it back to the text as typed, with the changes other plugins made with it, such as a new block's element id (`undoTypingRule`, the state in `typingRulesKey`).
+
+Implementation: `src/engine/typing-rules.ts`
+Verification: `src/engine/typing-rules.test.ts`
+
+### DOCE-EDITING-6.5 - Choosing the shortcuts
+
+`createTypingRules(schema, { blocks, marks, typography })` shall give the shortcuts' plugins, each group on unless false. The editing extension's `typingRules` option shall take the same groups, or false for none.
+
+Implementation: `src/engine/typing-rules.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/typing-rules.test.ts`
+
+### DOCE-EDITING-6.6 - Shortcuts while suggesting
+
+While suggesting, a shortcut a suggestion cannot record, such as wrapping a paragraph in a list, shall suggest the text as it was typed instead, so no keystroke is lost (`typedAsWritten`).
+
+Implementation: `src/engine/typing-rules.ts`, `src/components/document-editor/use-editor-engine.ts`
+Verification: `src/engine/typing-rules.test.ts`, `e2e/editing.spec.ts`

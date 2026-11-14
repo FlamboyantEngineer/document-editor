@@ -100,6 +100,52 @@ test.describe('editing lab', () => {
     await expect(page.locator('.lab-pages p', { hasText: /^After$/ })).toHaveCount(1);
   });
 
+  test('DOCE-EDITING-6.1 turns typed Markdown marks into a heading, a list and strong text', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('editing');
+    await caretIn(scopeConditions(page));
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('## Typed heading');
+    await expect(page.locator('.lab-pages h2', { hasText: /^Typed heading$/ })).toHaveCount(1);
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('- One **bold** -- "item"');
+    const item = page.locator('.lab-pages ul li', { hasText: 'One' });
+    await expect(item).toHaveText('One bold \u2014 \u201citem\u201d');
+    await expect(item.locator('strong')).toHaveText('bold');
+  });
+
+  test('DOCE-PAGINATION-7.15 types with a mark turned on at the caret, and without it once off', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('editing');
+    await caretIn(scopeConditions(page));
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('plain ');
+    await page.keyboard.press('ControlOrMeta+b');
+    await page.keyboard.type('bold');
+    await page.keyboard.press('ControlOrMeta+b');
+    await page.keyboard.type(' after');
+    const added = page.locator('.lab-pages p', { hasText: 'plain' });
+    await expect(added).toHaveText('plain bold after');
+    await expect(added.locator('strong')).toHaveText('bold');
+  });
+
+  test('DOCE-EDITING-6.4 takes a typed shortcut back with Backspace', async ({ lab, page }) => {
+    await lab.open('editing');
+    await caretIn(scopeConditions(page));
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('# ');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('kept');
+    await expect(page.locator('.lab-pages p', { hasText: /^# kept$/ })).toHaveCount(1);
+  });
+
   test('DOCE-EDITING-2.4 joins text across a page break with Backspace, and selects a page break', async ({
     lab,
     page,

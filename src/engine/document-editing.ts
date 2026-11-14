@@ -57,6 +57,7 @@ import { createTableWidth } from './table-width.js';
 import { createTableEditing } from './tables.js';
 import { anyLock, lockedTemplateSections } from './template-sync.js';
 import { includeAppended } from './transaction-kind.js';
+import { createTypingRules, type TypingRulesOptions } from './typing-rules.js';
 import { createVariableTokens } from './variable-tokens.js';
 
 /** What a document's editing depends on. */
@@ -75,6 +76,11 @@ export interface DocumentEditingOptions {
   isLocked?: EditLockOptions['isLocked'] | undefined;
   /** The host's remapping of the shortcut table (`DEFAULT_SHORTCUTS`). */
   shortcuts?: ShortcutOverrides | undefined;
+  /**
+   * The typing shortcuts: Markdown-style blocks and marks and typography, each group on unless
+   * turned off; false turns them all off. Defaults to all on.
+   */
+  typingRules?: boolean | TypingRulesOptions | undefined;
 }
 
 const NO_TEMPLATE = (): TemplateFile => ({ formatVersion: 1, id: 'none' });
@@ -212,6 +218,16 @@ const paragraphNumberingPlugin = (template: (() => TemplateFile) | undefined) =>
   build: () => (template ? [createParagraphNumbering({ template })] : []),
 });
 
+// The typing shortcuts, before the variable tokens and the keymaps, so Backspace takes one back
+// before it deletes.
+const typingRulesPlugin = (rules: DocumentEditingOptions['typingRules']) => ({
+  name: 'typing-rules',
+  priority: 835,
+  when: () => rules !== false,
+  build: (_context: unknown, schema: Schema) =>
+    createTypingRules(schema, typeof rules === 'object' ? rules : {}),
+});
+
 // Typed `{{key}}` tokens becoming variables, before the table and key handling.
 const VARIABLE_TOKENS_PLUGIN = {
   name: 'variable-tokens',
@@ -261,6 +277,7 @@ export function createDocumentEditingExtension<C = unknown>(
         build: () => (template ? [createCustomStyles({ template })] : []),
       },
       paragraphNumberingPlugin(template),
+      typingRulesPlugin(options.typingRules),
       VARIABLE_TOKENS_PLUGIN,
       {
         name: 'table-width',

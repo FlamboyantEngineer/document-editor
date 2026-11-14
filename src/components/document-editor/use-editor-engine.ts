@@ -13,6 +13,7 @@ import {
   type ReviewChange,
   reviewChangeOf,
   suggestTransaction,
+  typedAsWritten,
 } from '../../engine/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
 import {
@@ -51,9 +52,15 @@ export function useDispatchBody(
       }
       // An automation change is direct or a suggestion as its caller chose, and a review-only
       // change, such as anchoring a comment, is never a suggestion.
+      const suggest = (change: Transaction) => suggestTransaction(change, view.state, { author });
+      // A typing shortcut a suggestion cannot record suggests the text as it was typed instead.
+      const asTyped = () => {
+        const typed = typedAsWritten(tr, view.state);
+        return typed && suggest(typed);
+      };
       const next =
         suggesting && !automationActor(tr) && !isReviewOnlyChange(tr)
-          ? suggestTransaction(tr, view.state, { author })
+          ? (suggest(tr) ?? asTyped())
           : tr;
       if (!next) return;
       if (body) body(next, view, commit);
