@@ -251,15 +251,15 @@ describe('template properties', () => {
     expect(list('"</style>')).toBe('"\\"\\3C /style\\3E  "');
   });
 
-  it('DOCE-TEMPLATES-10.5 writes leaders, their spacing and list number affixes', () => {
+  it('DOCE-TEMPLATES-10.5 writes leaders, their spacing, their gaps and list number affixes', () => {
     const properties = templateProperties({
       formatVersion: 1,
       id: 'lists',
       styles: {
         list: { format: 'a)', prefix: '(', suffix: ':' },
         contents: {
-          leader: { character: '_', spacing: '2pt' },
-          levels: [null, { indentation: '12pt', leader: { spacing: '4pt' } }],
+          leader: { character: '_', spacing: '2pt', gapBefore: '3pt', gapAfter: '5pt' },
+          levels: [null, { indentation: '12pt', leader: { spacing: '4pt', gapBefore: '1pt' } }],
         },
       },
     });
@@ -269,9 +269,13 @@ describe('template properties', () => {
       '--doc-contents-leader': '"_"',
       '--doc-contents-leader-spacing': '2pt',
       '--doc-contents-level-2-indentation': '12pt',
+      '--doc-contents-leader-gap-before': '3pt',
+      '--doc-contents-leader-gap-after': '5pt',
       '--doc-contents-level-2-leader-spacing': '4pt',
+      '--doc-contents-level-2-leader-gap-before': '1pt',
     });
     expect(properties).not.toHaveProperty('--doc-contents-level-1-leader-spacing');
+    expect(properties).not.toHaveProperty('--doc-contents-level-2-leader-gap-after');
     const prefixOnly = templateProperties({
       formatVersion: 1,
       id: 'prefix',

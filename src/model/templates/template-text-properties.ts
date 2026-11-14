@@ -2,6 +2,7 @@
 // and spacing, and the list, table and code block settings that are not numbering.
 
 import type {
+  ContentsLeader,
   ContentsSettings,
   ListSettings,
   TableSettings,
@@ -111,6 +112,17 @@ function tableProperties(properties: CustomProperties, table: TableSettings | nu
   set(properties, '--doc-table-row-even-background', cssColor(table.rows?.even));
 }
 
+// A leader's spacing between its characters and its gaps to the text and the page number.
+function leaderProperties(
+  properties: CustomProperties,
+  prefix: string,
+  leader: ContentsLeader | null | undefined,
+) {
+  set(properties, `${prefix}-spacing`, cssLength(leader?.spacing));
+  set(properties, `${prefix}-gap-before`, cssLength(leader?.gapBefore));
+  set(properties, `${prefix}-gap-after`, cssLength(leader?.gapAfter));
+}
+
 function contentsProperties(
   properties: CustomProperties,
   contents: ContentsSettings | null | undefined,
@@ -121,13 +133,13 @@ function contentsProperties(
   Object.assign(properties, textProperties('--doc-contents-entry', contents.entry, fontStacks));
   if (contents.leader?.character)
     properties['--doc-contents-leader'] = quoted(contents.leader.character);
-  set(properties, '--doc-contents-leader-spacing', cssLength(contents.leader?.spacing));
+  leaderProperties(properties, '--doc-contents-leader', contents.leader);
   contents.levels?.forEach((level, index) => {
     const prefix = `--doc-contents-level-${String(index + 1)}`;
     set(properties, `${prefix}-indentation`, cssLength(level?.indentation));
     set(properties, `${prefix}-margin-top`, cssLength(level?.spaceBefore));
     set(properties, `${prefix}-margin-bottom`, cssLength(level?.spaceAfter));
-    set(properties, `${prefix}-leader-spacing`, cssLength(level?.leader?.spacing));
+    leaderProperties(properties, `${prefix}-leader`, level?.leader);
   });
 }
 

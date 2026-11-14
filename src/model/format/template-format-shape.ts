@@ -50,7 +50,9 @@ const NUMBERING_FIELDS = {
 } as const;
 const NUMBERING = { object: NUMBERING_FIELDS } as const;
 
-const LEADER = { object: { character: 'text', spacing: 'length' } } as const;
+const LEADER = {
+  object: { character: 'text', spacing: 'length', gapBefore: 'length', gapAfter: 'length' },
+} as const;
 const LEADER_CHARACTER = { object: { character: 'text' } } as const;
 
 const CONTENTS = {

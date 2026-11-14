@@ -78,10 +78,13 @@ const CONTENTS_KINDS: [string, string][] = [
   ['abbreviations', 'List of abbreviations'],
 ];
 
-// A contents leader: the character that fills the line to the page number, and its spacing.
+// A contents leader: the character that fills the line to the page number, its spacing, and its
+// gaps to the entry's text and to the page number.
 const leader = (path: string): TemplateSetting[] => [
   setting(`${path}.character`, 'Leader', text),
   setting(`${path}.spacing`, 'Leader spacing', length),
+  setting(`${path}.gapBefore`, 'Space before leader', length),
+  setting(`${path}.gapAfter`, 'Space after leader', length),
 ];
 
 // The contents' cards: title and entries, each level, then each kind with its own leaders.

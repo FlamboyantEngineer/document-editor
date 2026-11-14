@@ -262,14 +262,14 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-TEMPLATES-10.4 - Lists of contents per kind
 
-A template's contents settings shall hold, beside the lists' fonts, padding and spacing, a `leader` (`{ character, spacing }`), `levels` with their own indentation, spacing and leader, and `kinds`: each kind of list's own `title`, leader character and levels' leader characters, by the kind's key (`toc`, `figures` and the host's kinds). `resolveContentsList(contents, kind)` shall give a kind its title, or null, and its six levels, each with its leader character resolved from the least to the most specific of the lists' leader, their level's, the kind's and the kind's level's; an empty character shall draw no leader and none set shall draw `.`. A list of contents (DOCE-CONTENTS-2.1) shall show the template's title for its kind over the editor's label and draw each entry's leader with its level's character.
+A template's contents settings shall hold, beside the lists' fonts, padding and spacing, a `leader` (`{ character, spacing, gapBefore, gapAfter }`: the character, the space between its characters, and the space from the entry's text to the leader and from the leader to the page number), `levels` with their own indentation, spacing and leader, and `kinds`: each kind of list's own `title`, leader character and levels' leader characters, by the kind's key (`toc`, `figures` and the host's kinds). `resolveContentsList(contents, kind)` shall give a kind its title, or null, and its six levels, each with its leader character resolved from the least to the most specific of the lists' leader, their level's, the kind's and the kind's level's; an empty character shall draw no leader and none set shall draw `.`. A list of contents (DOCE-CONTENTS-2.1) shall show the template's title for its kind over the editor's label and draw each entry's leader with its level's character.
 
 Implementation: `src/model/templates/template-settings.ts`, `src/model/format/template-format.ts`, `src/engine/contents.ts`
 Verification: `src/model/templates/template-settings.test.ts`, `src/engine/contents.test.ts`
 
 ### DOCE-TEMPLATES-10.5 - Leaders and list numbers
 
-`templateProperties` shall write the lists' leader character (`--doc-contents-leader`, an escaped string) and spacing (`--doc-contents-leader-spacing`), and each level's leader spacing it sets (`--doc-contents-level-<n>-leader-spacing`). A numbered list's counter content (`--doc-ol-counter-content`) shall print its `prefix`, its number in its format's first level, the level's separator and its `suffix`, each escaped.
+`templateProperties` shall write the lists' leader character (`--doc-contents-leader`, an escaped string), spacing (`--doc-contents-leader-spacing`) and gaps (`--doc-contents-leader-gap-before`, `--doc-contents-leader-gap-after`), and each level's leader spacing and gaps it sets (`--doc-contents-level-<n>-leader-spacing`, `-leader-gap-before`, `-leader-gap-after`). A numbered list's counter content (`--doc-ol-counter-content`) shall print its `prefix`, its number in its format's first level, the level's separator and its `suffix`, each escaped.
 
 Implementation: `src/model/templates/template-text-properties.ts`
 Verification: `src/model/templates/template-properties.test.ts`
