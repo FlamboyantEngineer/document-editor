@@ -349,7 +349,9 @@
       },
       "leader": {
         "character": ".",
-        "spacing": "2pt"
+        "spacing": "2pt",
+        "gapBefore": "3pt",
+        "gapAfter": "3pt"
       },
       "levels": [
         {
@@ -372,7 +374,9 @@
           "spaceAfter": "0pt",
           "leader": {
             "character": "·",
-            "spacing": "1pt"
+            "spacing": "1pt",
+            "gapBefore": "2pt",
+            "gapAfter": "4pt"
           }
         }
       ],

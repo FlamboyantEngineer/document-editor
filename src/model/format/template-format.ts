@@ -171,6 +171,10 @@ export interface ContentsLeader {
   character?: string | null;
   /** The space between the characters. */
   spacing?: Length | null;
+  /** The space between the entry's text and the leader. */
+  gapBefore?: Length | null;
+  /** The space between the leader and the page number. */
+  gapAfter?: Length | null;
 }
 
 /** A list level's indentation, spacing and leader. */

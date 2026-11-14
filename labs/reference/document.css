@@ -756,6 +756,7 @@ div.de-host-view {
 
 .de-contents__leader {
   overflow: hidden;
+  margin-inline: var(--doc-contents-leader-gap-before, 0) var(--doc-contents-leader-gap-after, 0);
   min-width: 16px;
   flex: 1 1 0;
   color: #94a3b8;
