@@ -6,6 +6,7 @@
 import type { ImportWarnings } from '../../import/import-warnings.js';
 import { joinText, textNode, withMark } from '../../import/stored-inline.js';
 import type { StoredMark, StoredNode } from './document-format.js';
+import { linkTarget, PUNCTUATION } from './markdown-read-link.js';
 
 /** What inline reading needs from the whole document. */
 export interface InlineContext {
@@ -24,16 +25,35 @@ interface Match {
   readonly end: number;
 }
 
-/** The text being read, the marks around it and the document's context. */
+/**
+ * The text being read, the marks around it and the document's context, with what the scan has
+ * found has no closing: the first place from which each delimiter or tag has none, so that no
+ * later opening looks for one again.
+ */
 interface Scan {
   readonly source: string;
   readonly marks: StoredMark[];
   readonly context: InlineContext;
+  readonly unclosed: Map<string, number>;
+  /** The source in lower case, made the first time a tag needs it. */
+  lower?: string;
+}
+
+// The closing a scan finds for a delimiter or tag from `from`, or -1, looked for at most once
+// past the first place it found none.
+function closingOnce(
+  scan: Scan,
+  { key, from }: { readonly key: string; readonly from: number },
+  find: () => number,
+): number {
+  const none = scan.unclosed.get(key);
+  if (none !== undefined && from >= none) return -1;
+  const found = find();
+  if (found === -1) scan.unclosed.set(key, Math.min(from, none ?? from));
+  return found;
 }
 
 type Reader = (scan: Scan, at: number) => Match | null;
-
-const PUNCTUATION = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
 
 // The index of the closing delimiter of a span opened before `from`, skipping escapes and code.
 function closing(source: string, from: number, delimiter: string): number {
@@ -62,13 +82,16 @@ const DELIMITERS: readonly (readonly [string, StoredMark])[] = [
   ['_', { type: 'italic' }],
 ];
 
-const emphasis: Reader = ({ source, marks, context }, at) => {
+const emphasis: Reader = (scan, at) => {
+  const { source, marks, context } = scan;
   for (const [delimiter, mark] of DELIMITERS) {
     if (!source.startsWith(delimiter, at)) continue;
     const start = at + delimiter.length;
     if (/\s/.test(source[start] ?? ' ')) continue;
     if (delimiter[0] === '_' && /\w/.test(source[at - 1] ?? '')) continue;
-    const end = closing(source, start, delimiter);
+    const end = closingOnce(scan, { key: delimiter, from: start }, () =>
+      closing(source, start, delimiter),
+    );
     if (end <= start) continue;
     const inner = readInline(source.slice(start, end), context, withMark(marks, mark));
     return { nodes: inner, end: end + delimiter.length };
@@ -85,46 +108,29 @@ const code: Reader = ({ source, marks }, at) => {
   return { nodes: [textNode(value, withMark(marks, { type: 'code' }))], end: end + run.length };
 };
 
-const math: Reader = ({ source }, at) => {
+// The first dollar sign after `from` that no backslash escapes, or -1.
+function closingDollar(source: string, from: number): number {
+  for (let at = from; at < source.length; at += 1) {
+    if (source[at] === '\\') at += 1;
+    else if (source[at] === '$') return at;
+  }
+  return -1;
+}
+
+// Math between dollar signs, as Pandoc reads it: no space inside either sign, and no digit right
+// after the closing one, so that `$5-$10` stays text. An escaped dollar sign stays in the source.
+const math: Reader = (scan, at) => {
+  const { source } = scan;
   if (source[at + 1] === '$' || /\s/.test(source[at + 1] ?? ' ')) return null;
-  const end = source.indexOf('$', at + 1);
-  if (end === -1 || /\s/.test(source[end - 1] ?? ' ')) return null;
+  const end = closingOnce(scan, { key: '$', from: at + 1 }, () => closingDollar(source, at + 1));
+  if (end === -1 || /\s/.test(source[end - 1] ?? ' ') || /\d/.test(source[end + 1] ?? '')) {
+    return null;
+  }
   return {
     nodes: [{ type: 'math', attrs: { source: source.slice(at + 1, end) } }],
     end: end + 1,
   };
 };
-
-// The index of the bracket that closes the one at `at`, skipping escapes and nested brackets.
-function closingBracket(source: string, at: number): number {
-  let depth = 0;
-  for (let index = at; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === '\\') index += 1;
-    else if (char === '[') depth += 1;
-    else if (char === ']' && --depth === 0) return index;
-  }
-  return -1;
-}
-
-// A bracketed label and what follows it: an inline `(href "title")` or a `[reference]`.
-function linkTarget(source: string, at: number, context: InlineContext) {
-  const close = closingBracket(source, at);
-  if (close === -1) return null;
-  const label = source.slice(at + 1, close);
-  const inline = /^\(\s*<?([^\s)>]*)>?(?:\s+"((?:[^"\\]|\\.)*)")?\s*\)/.exec(
-    source.slice(close + 1),
-  );
-  if (inline) {
-    const title = inline[2]?.replace(/\\(.)/g, '$1');
-    return { label, href: inline[1] ?? '', title, end: close + 1 + inline[0].length };
-  }
-  const reference = /^\[([^\]]*)\]/.exec(source.slice(close + 1));
-  const key = (reference?.[1] || label).toLowerCase();
-  const href = context.links.get(key);
-  if (href === undefined) return null;
-  return { label, href, end: close + 1 + (reference?.[0].length ?? 0) };
-}
 
 const link: Reader = ({ source, marks, context }, at) => {
   const target = linkTarget(source, at, context);
@@ -161,21 +167,30 @@ const footnote: Reader = ({ source, context }, at) => {
   };
 };
 
-const HTML_MARKS: Readonly<Record<string, StoredMark>> = {
-  u: { type: 'underline' },
-  ins: { type: 'underline' },
-  sup: { type: 'superscript' },
-  sub: { type: 'subscript' },
-  s: { type: 'strike' },
-  del: { type: 'strike' },
-  em: { type: 'italic' },
-  i: { type: 'italic' },
-  strong: { type: 'bold' },
-  b: { type: 'bold' },
-  code: { type: 'code' },
-};
+const HTML_MARKS: ReadonlyMap<string, StoredMark> = new Map([
+  ['u', { type: 'underline' }],
+  ['ins', { type: 'underline' }],
+  ['sup', { type: 'superscript' }],
+  ['sub', { type: 'subscript' }],
+  ['s', { type: 'strike' }],
+  ['del', { type: 'strike' }],
+  ['em', { type: 'italic' }],
+  ['i', { type: 'italic' }],
+  ['strong', { type: 'bold' }],
+  ['b', { type: 'bold' }],
+  ['code', { type: 'code' }],
+]);
 
-const html: Reader = ({ source, marks, context }, at) => {
+// The index of a tag's closing tag after `from`, in any case, or -1.
+function closingTag(scan: Scan, name: string, from: number): number {
+  return closingOnce(scan, { key: `</${name}>`, from }, () => {
+    scan.lower ??= scan.source.toLowerCase();
+    return scan.lower.indexOf(`</${name}>`, from);
+  });
+}
+
+const html: Reader = (scan, at) => {
+  const { source, marks, context } = scan;
   const autolink = /^<((?:https?|mailto):[^\s>]+)>/.exec(source.slice(at));
   if (autolink) {
     const href = autolink[1] ?? '';
@@ -188,8 +203,8 @@ const html: Reader = ({ source, marks, context }, at) => {
   if (!tag) return null;
   const name = (tag[2] ?? '').toLowerCase();
   if (name === 'br') return { nodes: [{ type: 'lineBreak' }], end: at + tag[0].length };
-  const mark = HTML_MARKS[name];
-  const end = mark && !tag[1] ? source.toLowerCase().indexOf(`</${name}>`, at + tag[0].length) : -1;
+  const mark = HTML_MARKS.get(name);
+  const end = mark && !tag[1] ? closingTag(scan, name, at + tag[0].length) : -1;
   if (mark && end !== -1) {
     const inner = readInline(source.slice(at + tag[0].length, end), context, withMark(marks, mark));
     return { nodes: inner, end: end + name.length + 3 };
@@ -239,12 +254,13 @@ export function readInline(
   marks: StoredMark[] = [],
 ): StoredNode[] {
   const nodes: StoredNode[] = [];
+  const scan: Scan = { source, marks, context, unclosed: new Map() };
   let plain = '';
   let at = 0;
   while (at < source.length) {
     const char = source[at] ?? '';
     const match = (READERS[char] ?? []).reduce<Match | null>(
-      (found, read) => found ?? read({ source, marks, context }, at),
+      (found, read) => found ?? read(scan, at),
       null,
     );
     if (!match) {

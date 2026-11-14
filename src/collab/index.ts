@@ -22,7 +22,9 @@ export {
   META_TYPE,
   readRoomDocument,
   type RoomReadOptions,
+  type RoomUpdateOptions,
   type RoomWriteOptions,
+  updateRoomDocument,
   writeRoomDocument,
   yjsToDocument,
 } from './convert.js';
@@ -36,6 +38,13 @@ export {
   type RoomDrafts,
   type RoomDraftsOptions,
 } from './offline.js';
+export {
+  type RoomChangeActor,
+  type RoomChangeOptions,
+  type RoomChangeTier,
+  type RoomChangeWatch,
+  watchRoomChanges,
+} from './room-changes.js';
 export { roomConnection, type RoomProviderLike } from './room-connection.js';
 export {
   type CollabChange,

@@ -1,8 +1,8 @@
 // Reading the files of a zip archive, as the formats built on zip store them, such as a word
 // processing document. Stored and deflated files are read; deflated ones through the platform's
 // `DecompressionStream`, which browsers and Node both have, so no DOM and no dependency is needed.
-// Sizes are checked against limits before and while a file is inflated, so a small archive cannot
-// expand into more memory than the caller allows.
+// Sizes are checked against limits before and while a file is inflated, each file's and all the
+// files' read together, so a small archive cannot expand into more memory than the caller allows.
 
 import { importError } from './import-error.js';
 
@@ -12,12 +12,15 @@ export interface ZipLimits {
   readonly files: number;
   /** The most bytes any one file may inflate to. */
   readonly fileBytes: number;
+  /** The most bytes all the files read from the archive may inflate to together. */
+  readonly totalBytes: number;
 }
 
-/** The default limits: 5000 files and 64 MB in any one file. */
+/** The default limits: 5000 files, 64 MB in any one file and 256 MB in all. */
 export const DEFAULT_ZIP_LIMITS: ZipLimits = Object.freeze({
   files: 5000,
   fileBytes: 64 * 1024 * 1024,
+  totalBytes: 256 * 1024 * 1024,
 });
 
 /** An archive's files by path, each read when asked for. */
@@ -73,8 +76,31 @@ function entriesOf(bytes: Uint8Array, limits: ZipLimits): Map<string, Entry> {
   return entries;
 }
 
-// Inflates raw deflate data, stopping once it passes `max` bytes.
-async function inflate(data: Uint8Array, max: number): Promise<Uint8Array> {
+// The bytes read from an archive so far, against its limits.
+interface Budget {
+  readonly limits: ZipLimits;
+  used: number;
+}
+
+// Throws when a file of `size` bytes, `more` of them not yet counted, is over the budget's limits.
+function checkBudget(budget: Budget, size: number, more: number): void {
+  const { fileBytes, totalBytes } = budget.limits;
+  if (size > fileBytes) {
+    throw importError(
+      'too-large',
+      `A file in the archive is larger than ${String(fileBytes)} bytes.`,
+    );
+  }
+  if (budget.used + more > totalBytes) {
+    throw importError(
+      'too-large',
+      `The files in the archive are larger than ${String(totalBytes)} bytes together.`,
+    );
+  }
+}
+
+// Inflates raw deflate data, stopping once it passes the budget.
+async function inflate(data: Uint8Array, budget: Budget): Promise<Uint8Array> {
   const stream = new Blob([data as Uint8Array<ArrayBuffer>])
     .stream()
     .pipeThrough(new DecompressionStream('deflate-raw'));
@@ -83,10 +109,13 @@ async function inflate(data: Uint8Array, max: number): Promise<Uint8Array> {
   let total = 0;
   for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
     total += chunk.value.length;
-    if (total > max) {
+    try {
+      checkBudget(budget, total, chunk.value.length);
+    } catch (error) {
       await reader.cancel();
-      throw importError('too-large', `A file in the archive is larger than ${String(max)} bytes.`);
+      throw error;
     }
+    budget.used += chunk.value.length;
     chunks.push(chunk.value);
   }
   const out = new Uint8Array(total);
@@ -98,14 +127,10 @@ async function inflate(data: Uint8Array, max: number): Promise<Uint8Array> {
   return out;
 }
 
-async function readEntry(bytes: Uint8Array, entry: Entry, limits: ZipLimits): Promise<Uint8Array> {
+async function readEntry(bytes: Uint8Array, entry: Entry, budget: Budget): Promise<Uint8Array> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (entry.size > limits.fileBytes) {
-    throw importError(
-      'too-large',
-      `A file in the archive is larger than ${String(limits.fileBytes)} bytes.`,
-    );
-  }
+  // The size the directory states, checked before inflating; inflating counts what it gives.
+  checkBudget(budget, entry.size, entry.size);
   if (entry.offset + 30 > bytes.length || view.getUint32(entry.offset, true) !== LOCAL_HEADER) {
     throw importError('damaged', 'A file header in the archive is damaged.');
   }
@@ -115,8 +140,12 @@ async function readEntry(bytes: Uint8Array, entry: Entry, limits: ZipLimits): Pr
     view.getUint16(entry.offset + 26, true) +
     view.getUint16(entry.offset + 28, true);
   const data = bytes.subarray(start, start + entry.compressed);
-  if (entry.method === 0) return data;
-  if (entry.method === 8) return inflate(data, limits.fileBytes);
+  if (entry.method === 0) {
+    checkBudget(budget, data.length, data.length);
+    budget.used += data.length;
+    return data;
+  }
+  if (entry.method === 8) return inflate(data, budget);
   throw importError(
     'damaged',
     `A file in the archive uses compression method ${String(entry.method)}.`,
@@ -126,15 +155,17 @@ async function readEntry(bytes: Uint8Array, entry: Entry, limits: ZipLimits): Pr
 /**
  * The files of a zip archive (DOCE-IMPORT-2.1): stored or deflated, read when asked for. Throws an
  * `ImportError` for bytes that are not an archive, a damaged directory or header, an unknown
- * compression method, or more files or bytes than `limits` allow.
+ * compression method, or more files or bytes than `limits` allow; every read counts towards
+ * `totalBytes`, a file read twice twice.
  */
 export function readZip(bytes: Uint8Array, limits: ZipLimits = DEFAULT_ZIP_LIMITS): ZipArchive {
   const entries = entriesOf(bytes, limits);
+  const budget: Budget = { limits, used: 0 };
   return {
     paths: [...entries.keys()],
     read: async (path) => {
       const entry = entries.get(path);
-      return entry ? readEntry(bytes, entry, limits) : null;
+      return entry ? readEntry(bytes, entry, budget) : null;
     },
   };
 }

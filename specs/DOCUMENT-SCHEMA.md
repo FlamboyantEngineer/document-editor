@@ -129,6 +129,13 @@ A heading shall keep whether it is numbered (`numbered`, true by default; `data-
 Implementation: `src/model/schema/core-nodes.ts`, `src/model/format/document-format.ts`, `src/model/contents/document-catalog.ts`, `labs/reference/document.css`
 Verification: `test/unnumbered-headings.test.ts`
 
+### DOCE-SCHEMA-3.11 - Sections read from markup
+
+A section's markup shall be read region by region, each by its class: a page's `pm-page-header`, `pm-page-content`, `pm-page-footnotes` and `pm-page-footer` children shall become its regions, with the attributes each region's own rule reads, and a region the markup leaves out shall be empty, so a page without a header never reads its content into the header. A section that holds its blocks directly, with no `pm-page` children, shall read as one page whose content they are, a `pm-page-footnotes` child among them as its footnote area, so the blocks stay inside the section.
+
+Implementation: `src/model/schema/page-nodes.ts`
+Verification: `src/model/schema/page-nodes.test.ts`
+
 ## DOCE-SCHEMA-4 - References
 
 ### DOCE-SCHEMA-4.1 - Format keys

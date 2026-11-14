@@ -24,7 +24,7 @@ The reader takes styles and numbering by the mapping the library's Word writer u
 
 ### DOCE-IMPORT-2.1 - Reading the file
 
-`readDocx(bytes, { template, imageSource, limits })` shall read a word processing document (`.docx`) with no DOM and no third-party converter: it shall inflate its zip archive with the platform's `DecompressionStream`, parse its XML parts with the library's own reader, and give `{ ok: true, file, warnings, comments, images, pages }`. Bytes that are not a zip archive, an archive without a main document part, a damaged archive or XML part, and an archive listing more files, or holding a file larger, than `limits` allow (`DEFAULT_ZIP_LIMITS`: 5000 files, 64 MB a file) shall give `{ ok: false, failure, message }`, with `failure` `unreadable`, `damaged` or `too-large`, and never throw.
+`readDocx(bytes, { template, imageSource, limits })` shall read a word processing document (`.docx`) with no DOM and no third-party converter: it shall inflate its zip archive with the platform's `DecompressionStream`, parse its XML parts with the library's own reader, and give `{ ok: true, file, warnings, comments, images, pages }`. Bytes that are not a zip archive, an archive without a main document part, a damaged archive or XML part, and an archive listing more files than `limits` allow, holding a file larger than they allow, or whose files read inflate to more bytes together than they allow, each part counted once since it is read once (`DEFAULT_ZIP_LIMITS`: 5000 files, 64 MB a file, 256 MB in all) shall give `{ ok: false, failure, message }`, with `failure` `unreadable`, `damaged` or `too-large`, and never throw.
 
 Implementation: `src/import/docx/read-docx.ts`, `src/import/zip-read.ts`, `src/import/xml-read.ts`, `src/import/import-error.ts`, `src/import/docx/docx-package.ts`
 Verification: `src/import/docx/read-docx.test.ts`
@@ -66,7 +66,7 @@ Verification: `src/import/docx/read-docx.test.ts`
 
 ### DOCE-IMPORT-2.7 - Comments and tracked changes
 
-The text in a comment's range, across paragraphs, shall take a comment mark naming its thread, `comment-<id>` after the thread's opening comment, with `state: 'resolved'` when that comment is done. `comments` shall give the threads (`CommentThread`): each opening comment with its replies, linked through the extended comments part, oldest first, each entry with its id, author name, text and date, and the text its marks cover as the thread's `quote`. A tracked insertion or deletion shall be an insertion or deletion mark.
+The text in a comment's range, across paragraphs, shall take a comment mark naming its thread, `comment-<id>` after the thread's opening comment, with `state: 'resolved'` when that comment is done. `comments` shall give the threads (`CommentThread`): each opening comment with its replies, linked through the extended comments part, oldest first, each entry with its id, author name, text and date, and the text its marks cover as the thread's `quote`. A tracked insertion or deletion, and text moved there or moved away, shall be an insertion or deletion mark: a suggestion of its own, its `id` fresh (`newId`, random by default) and shared by the parts of one change, its `author` the change's author, so that the editor lists it and accepts or rejects it as its own suggestions.
 
 Implementation: `src/import/docx/docx-comments.ts`, `src/import/docx/docx-inline.ts`
 Verification: `src/import/docx/read-docx.test.ts`
@@ -121,7 +121,7 @@ Verification: `src/import/select-content.test.ts`
 
 `readMarkdown(markdown)` shall give `{ file, warnings }`: a stored document of one section read from CommonMark with GitHub's tables, strikethrough and footnotes. It shall read ATX and setext headings, paragraphs, quotes, bulleted and numbered lists, nested and with their start number, items of several blocks, fenced code with its language, indented code, `$$` display math, rules, and tables with their header row and column alignment; inline, it shall read strong, emphasis, strikethrough and code, the HTML tags for underline, superscript, subscript, strikethrough, emphasis, strong, code and line breaks, inline links with their title, reference links, autolinks, images, `$` inline math, `{{key}}` variables, escapes and hard line breaks, with marks in the schema's order and adjacent text with the same marks joined. A footnote reference shall become a footnote with its definition's text where it is cited. A paragraph holding only an image shall be a figure; an all-italic paragraph right before a table or right after a figure shall be its caption, as the writer places them. Front matter shall be left out.
 
-Implementation: `src/model/format/markdown-read.ts`, `src/model/format/markdown-read-blocks.ts`, `src/model/format/markdown-read-inline.ts`
+Implementation: `src/model/format/markdown-read.ts`, `src/model/format/markdown-read-blocks.ts`, `src/model/format/markdown-read-inline.ts`, `src/model/format/markdown-read-fence.ts`
 Verification: `src/model/format/markdown-read.test.ts`
 
 ### DOCE-IMPORT-4.2 - Markdown left out
@@ -137,3 +137,10 @@ Markdown that `writeMarkdown` (DOCE-FORMAT-4.1) wrote for a document of the regr
 
 Implementation: `src/model/format/markdown-read.ts`
 Verification: `src/model/format/markdown-read.test.ts`
+
+### DOCE-IMPORT-4.4 - Markdown edge cases
+
+A code fence shall be closed only by a run of its own character at least as long, with nothing after it, and a line in fenced code shall never be read as a link or footnote definition; a run of backticks followed by text holding another backtick, such as a line starting with a code span, shall open no fence. Inline math shall be read as Pandoc reads it: no space just inside either dollar sign and no digit right after the closing one, so a price such as `$5-$10` stays text; a dollar sign a backslash escapes shall not close it and shall stay in its source. A link's address shall run to the parenthesis that closes the link, holding balanced parentheses and escaped ones, or be given in angle brackets, its escapes read. A tag named after an object property, such as `<constructor>`, shall be a tag the reader does not know (DOCE-IMPORT-4.2). Reading shall take work in proportion to the text: an unclosed delimiter or tag is looked for once, and the text is put in lower case at most once.
+
+Implementation: `src/model/format/markdown-read.ts`, `src/model/format/markdown-read-fence.ts`, `src/model/format/markdown-read-inline.ts`
+Verification: `src/model/format/markdown-read-edges.test.ts`
