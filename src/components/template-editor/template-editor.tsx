@@ -6,8 +6,7 @@
 // clearing a field inherits again. Every change hands the host a new template, so a document beside
 // it restyles at once.
 
-import { PropertyFilter } from '@flamboyantengineer/ui-components/property-filter';
-import { PropertySection } from '@flamboyantengineer/ui-components/property-panel';
+import { PropertyPanel, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -241,13 +240,14 @@ export function TemplateEditor(props: TemplateEditorProps) {
   // A host's own settings are the document's: a template section has no `extensions`.
   const slots = scope === null ? extensions : undefined;
   return (
-    <PropertyFilter
+    <PropertyPanel
+      searchable
       {...hooks.root({
         className: props.className,
         data: { scope: scope === null ? 'document' : 'section' },
       })}
       aria-label={labels.panel}
-      placeholder={labels.filter}
+      searchPlaceholder={labels.filter}
       isDisabled={isDisabled}
     >
       <TemplateIdentity
@@ -272,7 +272,7 @@ export function TemplateEditor(props: TemplateEditorProps) {
         extra={(id) => (slots?.rows?.[id] ? extensionRows(context, slots.rows[id] ?? []) : null)}
       />
       {slots ? <ExtensionSections context={context} slots={slots} /> : null}
-    </PropertyFilter>
+    </PropertyPanel>
   );
 }
 

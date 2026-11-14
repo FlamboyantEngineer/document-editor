@@ -1,14 +1,13 @@
 // A suggestion's card: who made it and what it does, Accept and Reject for a reader who may decide,
 // and its discussion.
 
-import { Button } from '@flamboyantengineer/ui-components/button';
-import { ButtonGroup } from '@flamboyantengineer/ui-components/button-group';
+import { Button, ButtonGroup } from '@flamboyantengineer/ui-components/button';
 import { Card } from '@flamboyantengineer/ui-components/card';
 import { CommentThread } from '@flamboyantengineer/ui-components/comment-thread';
 import {
   InlineTextDiff,
   type InlineTextDiffSegment,
-} from '@flamboyantengineer/ui-components/inline-text-diff';
+} from '@flamboyantengineer/ui-components/text-diff';
 import type { Suggestion } from '../../engine/index.js';
 import type { CommentThread as StoredThread } from '../../host/index.js';
 import { activityRows } from './comment-activity-rows.js';

@@ -8,10 +8,6 @@ import { Button } from '@flamboyantengineer/ui-components/button';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import {
-  VersionHistory,
-  type VersionHistoryVersion,
-} from '@flamboyantengineer/ui-components/version-history';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import { useEffect, useRef, useState } from 'react';
@@ -35,6 +31,8 @@ import {
 import { usePeople } from '../../utils/use-people.js';
 import { useSessionValue } from '../document-session/document-session.js';
 import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-labels.js';
+import type { RevisionItem } from './revision-item.js';
+import { RevisionList } from './revision-list.js';
 
 export interface DocumentHistoryProps<R> {
   /** The document's versions (`createDocumentVersions`). */
@@ -112,7 +110,7 @@ type People = ReadonlyMap<string, EditorPerson>;
 const toRow = (
   version: DocumentVersion,
   { labels, people }: { labels: DocumentHistoryLabels; people: People },
-): VersionHistoryVersion => {
+): RevisionItem => {
   const name = version.author === null ? undefined : people.get(version.author)?.name;
   return {
     id: version.revision,
@@ -223,7 +221,8 @@ export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
     <div className={props.className}>
       {capabilities.saveVersion ? <SaveVersion versions={versions} labels={labels} /> : null}
       {error ? <Banner tone="danger" description={error} onDismiss={() => setError(null)} /> : null}
-      <VersionHistory
+      <RevisionList
+        labels={labels}
         aria-label={labels.history}
         versions={toRows(list.groups, { labels, people })}
         currentKey={current}

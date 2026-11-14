@@ -1,10 +1,10 @@
 // The text of the history pane and of the banner over a historical view.
-
 import type { DocumentVersion } from '../../host/adapters.js';
 import type { TemplatePin } from '../../model/format/template-format.js';
+import { DEFAULT_REVISION_LABELS, type RevisionLabels } from './revision-labels.js';
 
 /** The text the history pane and the historical view's banner show. */
-export interface DocumentHistoryLabels {
+export interface DocumentHistoryLabels extends RevisionLabels {
   /** Names the history. */
   readonly history: string;
   readonly saveVersion: string;
@@ -39,6 +39,7 @@ const plural = (count: number, one: string) => `${String(count)} ${one}${count =
 
 /** The history's labels unless the host gives its own. */
 export const DEFAULT_HISTORY_LABELS: DocumentHistoryLabels = {
+  ...DEFAULT_REVISION_LABELS,
   history: 'Versions',
   saveVersion: 'Save version…',
   saveVersionTitle: 'Save version',

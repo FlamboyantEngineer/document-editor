@@ -157,7 +157,6 @@ function NumberControl({ setting, value, onChange, common, placeholder }: Contro
       {...common}
       value={typeof value === 'number' ? value : null}
       placeholder={placeholder}
-      hideStepper
       minValue={range.min}
       maxValue={range.max}
       step={range.step}
@@ -178,7 +177,6 @@ function PointsControl(props: ControlProps) {
       {...common}
       value={own}
       placeholder={from === null ? undefined : String(from)}
-      hideStepper
       minValue={0}
       maxValue={400}
       step={0.5}

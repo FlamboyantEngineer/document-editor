@@ -3,10 +3,8 @@
 
 import {
   AssetPicker,
-  type AssetPickerAlign,
   type AssetPickerItem,
   type AssetPickerSearch,
-  type AssetPlacement,
 } from '@flamboyantengineer/ui-components/asset-picker';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { FileUpload } from '@flamboyantengineer/ui-components/file-upload';
@@ -28,17 +26,10 @@ export interface PickedAsset {
   readonly asset: FigureAsset;
   readonly alt: string;
   readonly size: FigureSize;
-  readonly align: 'left' | 'center' | 'right';
   readonly locked: boolean;
 }
 
 type Upload = { readonly file: File; readonly error?: string | undefined; readonly done: boolean };
-
-const ALIGNS: Readonly<Record<AssetPickerAlign, PickedAsset['align']>> = {
-  start: 'left',
-  center: 'center',
-  end: 'right',
-};
 
 /** Uploads a chosen image through the host's assets, handing the stored asset on. */
 export function useFigureUpload(
@@ -89,12 +80,11 @@ function useAssetSearch(search: NonNullable<AssetAdapter['search']>) {
   return { load, found: (id: string) => found.current.get(id) };
 }
 
-const picked = (asset: FoundAsset, placement: AssetPlacement): PickedAsset => ({
+const picked = (asset: FoundAsset): PickedAsset => ({
   asset: { fileAssetId: asset.id, snapshotId: asset.snapshotId ?? asset.id },
-  alt: placement.alt,
-  size: { width: placement.width, height: placement.height },
-  align: ALIGNS[placement.align],
-  locked: placement.constrain,
+  alt: asset.alt ?? '',
+  size: { width: asset.width ?? null, height: asset.height ?? null },
+  locked: true,
 });
 
 // Browses and searches the host's images in a popover, handing the one chosen on.
@@ -117,10 +107,10 @@ function AssetBrowser({
           aria-label={labels.chooseImage}
           search={load}
           onCancel={() => setOpen(false)}
-          onSelect={(item, placement) => {
+          onSelect={(item) => {
             const asset = found(String(item.id));
             setOpen(false);
-            if (asset) onPick(picked(asset, placement));
+            if (asset) onPick(picked(asset));
           }}
         />
       </Popover>

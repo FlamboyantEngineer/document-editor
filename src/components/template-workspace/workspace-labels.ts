@@ -1,9 +1,12 @@
 // The template workspace's own text, in English by default.
-
 import type { TemplateVersion } from '../../host/adapters.js';
+import {
+  DEFAULT_REVISION_LABELS,
+  type RevisionLabels,
+} from '../document-panels/document-panels.js';
 
 /** The template workspace's own text. */
-export interface TemplateWorkspaceLabels {
+export interface TemplateWorkspaceLabels extends RevisionLabels {
   readonly toolbar: string;
   /** Names the template picker. */
   readonly template: string;
@@ -47,6 +50,7 @@ export interface TemplateWorkspaceLabels {
 
 /** The template workspace's English text. */
 export const DEFAULT_TEMPLATE_WORKSPACE_LABELS: TemplateWorkspaceLabels = {
+  ...DEFAULT_REVISION_LABELS,
   toolbar: 'Template actions',
   template: 'Template',
   noTemplate: 'Pick a template',

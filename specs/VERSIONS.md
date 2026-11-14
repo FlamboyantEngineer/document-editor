@@ -189,22 +189,30 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 `rename(revision, label)` shall name a version, or take its name away with null, and list the versions again.
 
-Implementation: `src/session/versions.ts`
-Verification: `src/session/versions.test.ts`
+The pane shall edit the name in a modal. Saving trims it; an empty name removes it. A pending save holds the draft, and a failure keeps that draft with its error for retry.
+
+Implementation: `src/components/document-panels/revision-actions.ts`, `src/components/document-panels/revision-dialog.tsx`, `src/session/versions.ts`
+Verification: `src/components/document-panels/revision-list.test.tsx`, `src/session/versions.test.ts`
 
 ### DOCE-VERSIONS-4.5 - Restoring
 
 `restore(revision)` shall make a version's content and the template it pins the document's. In store mode, with a host that restores versions (`versions.restore`) and tells of saves (`documents.subscribe`), it shall first keep the reader's changes, then have the host save the version as a new state, which the session takes in like another writer's save (DOCE-SESSION-7). Otherwise, and in a shared room, it shall edit the document to the version as one change the reader may undo that is neither a suggestion nor refused by locked content (`markSystemChange`), and save it.
 
-Implementation: `src/session/versions.ts`, `src/session/version-restore.ts`
-Verification: `src/session/versions.test.ts`, `e2e/history.spec.ts`
+The pane shall confirm a restore in a modal before invoking it. A returned promise keeps the action pending; a failure remains visible and can be retried. The current revision offers no restore action.
+
+An open revision action shall resolve its target from the latest collection. Removing the target or its callback closes the dialog; making the target current also closes restoration. A closed stale action shall not reopen if its target returns, and submission shall recheck current target and callback availability before invoking the host.
+
+Implementation: `src/components/document-panels/revision-actions.ts`, `src/components/document-panels/revision-dialog.tsx`, `src/session/versions.ts`, `src/session/version-restore.ts`
+Verification: `src/components/document-panels/revision-list.test.tsx`, `src/session/versions.test.ts`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-4.6 - The history pane
 
-`DocumentHistory` shall show the versions on the base library's VersionHistory, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
+`DocumentHistory` shall show the versions through the editor-owned `RevisionList`, built from `ListView`, `Attribution`, filters and modal revision actions, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
 
-Implementation: `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
-Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+Named-only and author filters shall retain their choices while groups expand or fold. All revision action, grouping and filter text belongs to the document or template labels.
+
+Implementation: `src/components/document-panels/revision-list.tsx`, `src/components/document-panels/revision-row.tsx`, `src/components/document-panels/revision-toolbar.tsx`, `src/components/document-panels/revision-labels.ts`, `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
+Verification: `src/components/document-panels/revision-list.test.tsx`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-4.7 - What the reader may do
 
@@ -227,7 +235,7 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 With `compareWith`, the view shall also hold the older version, and the editor shall show the viewed version's changes from it (DOCE-VERSIONS-2.3).
 
 Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
-Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`
+Verification: `src/components/document-panels/revision-list.test.tsx`, `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`
 
 ### DOCE-VERSIONS-5.3 - Returning
 

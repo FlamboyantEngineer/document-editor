@@ -6,14 +6,12 @@
 // heading shows only the changes in its section, with their counts, the rest dimmed.
 
 import type { Key } from '@flamboyantengineer/ui-components/core';
-import {
-  VersionHistory,
-  type VersionHistoryVersion,
-} from '@flamboyantengineer/ui-components/version-history';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import type { RevisionItem } from '../../src/components/document-panels/revision-item.js';
+import { RevisionList } from '../../src/components/document-panels/revision-list.js';
 import { type ChangeBar, DocumentEditor } from '../../src/components/index.js';
 import {
   createDocumentEditing,
@@ -145,7 +143,7 @@ interface VersionPair {
   readonly older: ProseMirrorNode;
 }
 
-const toHistory = (version: DocumentVersion): VersionHistoryVersion => ({
+const toHistory = (version: DocumentVersion): RevisionItem => ({
   id: version.revision,
   label: version.label ?? `Version ${String(version.sequence)}`,
   time: version.savedAt,
@@ -259,7 +257,7 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
         />
       </div>
       <aside>
-        <VersionHistory
+        <RevisionList
           aria-label="Versions"
           versions={versions.map(toHistory)}
           currentKey={versions[0]?.revision ?? null}
