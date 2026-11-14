@@ -97,6 +97,13 @@ export type {
   ProofingText,
 } from './proofing-adapters.js';
 export type {
+  SelectionActionAnswer,
+  SelectionActionChange,
+  SelectionActionRequest,
+  SelectionActionsAdapter,
+  SelectionPassage,
+} from './selection-action-adapters.js';
+export type {
   CollaborationAdapter,
   DocumentDraft,
   DraftsAdapter,

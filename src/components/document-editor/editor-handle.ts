@@ -1,5 +1,6 @@
 // The editor's handle, for a host that drives it from outside: focusing it, taking the reader to an
-// element, selecting by element id, running a command or a batch of automation edits.
+// element, selecting by element id, running a command, a batch of automation edits or an action of
+// the host's provider on the selected text.
 
 import type { Attrs } from 'prosemirror-model';
 import { type Command, TextSelection } from 'prosemirror-state';
@@ -19,11 +20,14 @@ import {
   type ReadySnapshotOptions,
   revealElement,
   type RevealOptions,
+  runSelectionAction,
+  type SelectionActionOptions,
+  type SelectionActionResult,
   type SnapshotOptions,
   snapshotOutline,
   type SnapshotOutlineEntry,
 } from '../../engine/index.js';
-import type { ReferenceSourceAdapter } from '../../host/index.js';
+import type { ReferenceSourceAdapter, SelectionActionsAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { CitationHref } from '../../model/schema/reference-mark.js';
 import type { LayoutState, PaginationStats } from '../../pagination/index.js';
@@ -104,6 +108,14 @@ export interface DocumentEditorHandle {
   isActive(name: string, attrs?: Attrs): boolean;
   /** Applies a batch of automation edits (DOCE-AUTOMATION) and dispatches it when it is accepted. */
   applyEdits(edits: readonly AutomationEdit[], options: AutomationOptions): AutomationResult | null;
+  /**
+   * Asks the host's provider to act on the selected text and records its answer as the agent's
+   * suggestions and comment threads (`runSelectionAction`); null before the editor is mounted.
+   */
+  runSelectionAction(
+    adapter: SelectionActionsAdapter,
+    options: SelectionActionOptions,
+  ): Promise<SelectionActionResult | null>;
   /**
    * Resolves once the pages are laid out with no layout due and the views that follow them have
    * drawn: with `settled`, or `failed` when they could not be laid out. At once in the web layout.
@@ -252,6 +264,8 @@ export function useEditorHandle(
         if (result.ok) view.dispatch(result.tr);
         return result;
       },
+      runSelectionAction: async (adapter, options) =>
+        view ? runSelectionAction(view, adapter, options) : null,
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       visibleElements: () => (view ? measureVisibleElements(view) : []),

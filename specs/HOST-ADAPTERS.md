@@ -172,6 +172,13 @@ A host whose templates are edited shall pass a template store (`TemplateStoreAda
 Implementation: `src/host/adapters.ts`, `src/host/memory-templates.ts`
 Verification: `src/host/memory-templates.test.ts`
 
+### DOCE-HOST-1.25 - Actions on the selected text
+
+A host that offers actions on the selected text shall pass a provider (`SelectionActionsAdapter`) to `runSelectionAction`: it is asked for an action by the host's name for it, with the writer's own words when given and the selected passages (`SelectionPassage`), and answers replacements and comments on ranges of those passages by element id and offsets, with the automated session that answered. It names the agent they are attributed to.
+
+Implementation: `src/host/selection-action-adapters.ts`, `src/engine/selection-actions.ts`
+Verification: `src/engine/selection-actions.test.ts`
+
 ## DOCE-HOST-2 - Capabilities
 
 ### DOCE-HOST-2.1 - Capabilities, not roles

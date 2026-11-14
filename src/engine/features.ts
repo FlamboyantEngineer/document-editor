@@ -162,6 +162,16 @@ export {
 } from './search.js';
 export type { SearchResult, SearchResultsOptions } from './search-results.js';
 export { searchResults } from './search-results.js';
+export type {
+  SelectionActionFailure,
+  SelectionActionOptions,
+  SelectionActionResult,
+} from './selection-actions.js';
+export {
+  runSelectionAction,
+  selectionActionEdits,
+  selectionPassages,
+} from './selection-actions.js';
 export type { SnapshotOptions } from './snapshot.js';
 export { documentSnapshot } from './snapshot.js';
 export type {

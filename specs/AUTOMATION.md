@@ -173,6 +173,31 @@ Verification: `src/document/automation.test.ts`
 Implementation: `src/document/automation-schemas.ts`
 Verification: `src/document/automation-schemas.test.ts`
 
+## DOCE-AUTOMATION-5 - Actions on the selected text
+
+An action is the host's: its provider (DOCE-HOST-1.25), such as a language model, shortens, translates, fixes or reviews the text the writer selected. The editor draws no control for it; a host asks for one through `runSelectionAction` or the handle's `runSelectionAction`.
+
+### DOCE-AUTOMATION-5.1 - The selected passages
+
+`selectionPassages(state)` shall give the selected part of each text block with an element id, in document order, as a passage: the element id, the offsets of the part in the element's text (each inline object counting one), its text and the block type; the whole of the caret's block when nothing is selected. Blocks without an element id and empty parts are left out.
+
+Implementation: `src/engine/selection-actions.ts`
+Verification: `src/engine/selection-actions.test.ts`
+
+### DOCE-AUTOMATION-5.2 - The provider's answer, as the agent's
+
+`runSelectionAction(view, adapter, { action, instruction, mode, signal, newId })` shall ask the provider for the action on the selected passages and dispatch its answer as one batch (DOCE-AUTOMATION-1) by its agent, with the session that answered: each replacement as the agent's suggestion, or written directly with `mode: 'direct'`, and each comment as a thread, which the result gives for the host to store. The handle's `runSelectionAction(adapter, options)` runs it on the editor's view.
+
+Implementation: `src/engine/selection-actions.ts`, `src/components/document-editor/editor-handle.ts`
+Verification: `src/engine/selection-actions.test.ts`, `e2e/automation.spec.ts`
+
+### DOCE-AUTOMATION-5.3 - Answers that do not go in
+
+An action shall write nothing, and say why, when nothing is selected (`empty`), the provider fails (`host`), the signal aborts or the editor is gone before the answer (`aborted`), a change lies outside the passages it was asked about (`outside`, `selectionActionEdits`), or the batch is refused (`refused`): each replacement and comment expects the text its passage held when the provider was asked, so text the writer changed meanwhile is never written over (`stale`).
+
+Implementation: `src/engine/selection-actions.ts`
+Verification: `src/engine/selection-actions.test.ts`
+
 ## Hooks
 
 | Hook                   | Kind | Values | Description                                    |
