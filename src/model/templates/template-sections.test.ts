@@ -143,6 +143,40 @@ describe('new and composed documents', () => {
     ).toThrow('no editable section named notice');
   });
 
+  it('DOCE-IMPORT-3.2 fills the first editable section the document has, else adds the first one', () => {
+    const optionalFirst: TemplateFile = {
+      formatVersion: 1,
+      id: 'optional-first',
+      sections: [
+        { name: 'notice', required: true, editable: false, content: [paragraph('Fixed.')] },
+        { name: 'extra' },
+        { name: 'body', required: true },
+      ],
+    };
+    expect(
+      textOf(
+        composeDocumentFile([paragraph('One')], { template: optionalFirst, newId: counter() }),
+      ),
+    ).toEqual([
+      ['notice', ['Fixed.']],
+      ['body', ['One']],
+    ]);
+    const lockedOnly: TemplateFile = {
+      ...optionalFirst,
+      sections: [
+        { name: 'notice', required: true, editable: false, content: [paragraph('Fixed.')] },
+        { name: 'extra' },
+        { name: 'later' },
+      ],
+    };
+    expect(
+      textOf(composeDocumentFile([paragraph('One')], { template: lockedOnly, newId: counter() })),
+    ).toEqual([
+      ['notice', ['Fixed.']],
+      ['extra', ['One']],
+    ]);
+  });
+
   it('DOCE-IMPORT-3.3 fits a wide table to its section page content width', () => {
     const table: StoredNode = {
       type: 'table',

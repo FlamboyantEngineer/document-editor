@@ -117,10 +117,10 @@ Verification: `src/model/format/markdown.test.ts`
 
 ### DOCE-FORMAT-4.2 - Suggestions and escapes
 
-The suggestions shall be written as if accepted, or rejected when asked (`suggestions`), and the characters Markdown reads as formatting escaped in text. What Markdown would read at the start of a line as a block, a heading's number sign, a list item's marker or number, or a rule, shall be escaped there, also after a line break; the spaces at the edges of formatted or linked text shall be written outside its markers; and a pipe in code or math inside a table shall be escaped, so it does not end the cell.
+The suggestions shall be written as if accepted, or rejected when asked (`suggestions`), and the characters Markdown reads as formatting escaped in text, a dollar sign and a double brace among them, so that text never reads back as math or a variable. What Markdown would read at the start of a line as a block, a heading's number sign, a list item's marker or number, or a rule, shall be escaped there, also after a line break; the spaces at the edges of formatted or linked text shall be written outside its markers; and a pipe in code or math inside a table shall be escaped, so it does not end the cell.
 
 Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
-Verification: `src/model/format/markdown.test.ts`
+Verification: `src/model/format/markdown.test.ts`, `src/model/format/markdown-round-trip.test.ts`
 
 ### DOCE-FORMAT-4.3 - Suggested blocks
 
@@ -131,14 +131,14 @@ Verification: `src/model/format/markdown.test.ts`
 
 ### DOCE-FORMAT-4.4 - Fidelity
 
-Code shall be fenced by a run of backticks longer than any it holds, three at least for a block, and a code span that starts or ends with a backtick padded with a space. A link's address shall be written so that nothing in it ends the link: a space, a control character or a backslash percent-encoded and a parenthesis escaped, with the link's title quoted after it; a code span keeps its link. An entity reference in text and a heading's closing run of number signs shall be escaped. A table's merged cell shall be written in its first place, and the places it covers left empty, so each row is as wide as the table; a cell's paragraphs and line breaks shall be joined by `<br>` on its one line. A figure or image stored by asset shall be written at the address `values.asset({ id, revision })` gives (`assetAddress`, DOCE-FORMAT-5.3), else at its own `src`, and a figure with no address as its caption alone.
+Code shall be fenced by a run of backticks longer than any it holds, three at least for a block, and a code span that starts or ends with a backtick padded with a space. A quote's blank lines shall keep its marker, so that its paragraphs and the blank lines of its code stay in one quote; a line break in a heading shall be written `<br>`, as a heading is one line; the spaces a paragraph starts with shall be left out, as Markdown reads a paragraph without them and four of them as code. In inline math, a dollar sign no backslash escapes shall be escaped, and empty inline math left out. A link's address shall be written so that nothing in it ends the link: a space, a control character or a backslash percent-encoded and a parenthesis escaped, with the link's title quoted after it; a code span keeps its link. An entity reference in text and a heading's closing run of number signs shall be escaped. A table's merged cell shall be written in its first place, and the places it covers left empty, so each row is as wide as the table; a cell's paragraphs and line breaks shall be joined by `<br>` on its one line. A figure or image stored by asset shall be written at the address `values.asset({ id, revision })` gives (`assetAddress`, DOCE-FORMAT-5.3), else at its own `src`, and a figure with no address as its caption alone.
 
 Implementation: `src/model/format/markdown/escape.ts`, `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/tables.ts`, `src/model/format/writer-values.ts`
-Verification: `src/model/format/markdown-fidelity.test.ts`
+Verification: `src/model/format/markdown-fidelity.test.ts`, `src/model/format/markdown-round-trip.test.ts`
 
 ### DOCE-FORMAT-4.5 - Values and format changes
 
-A variable shall be written as the text `values.variable(key)` gives, or as its key in braces when it gives none (`variableText`, DOCE-FORMAT-5.3). A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept; a template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
+A variable shall be written as the text `values.variable(key)` gives, escaped, or as its key in braces when it gives none (`variableText`, DOCE-FORMAT-5.3), which reads back as the variable. A template block shall be written as the text of its source, each variable token replaced in the same way, its tags left out and its paragraphs kept; a template block without a source is left out. When the suggestions are written as rejected, text whose format a suggestion changed shall be written in the formats it had before.
 
 Implementation: `src/model/format/markdown/inlines.ts`, `src/model/format/markdown/blocks.ts`
 Verification: `src/model/format/markdown-fidelity.test.ts`

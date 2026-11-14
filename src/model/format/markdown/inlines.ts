@@ -5,7 +5,7 @@ import { safeHref } from '../../schema/dom-attributes.js';
 import { type StoredMark, storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { assetAddress, variableText } from '../writer-values.js';
-import { codeSpan, escapeText, linkAddress, linkTitle } from './escape.js';
+import { codeSpan, escapeText, linkAddress, linkTitle, mathText } from './escape.js';
 import { text, type Writing } from './writing.js';
 
 const MARKS: Readonly<Record<string, readonly [string, string]>> = {
@@ -70,6 +70,21 @@ function imageOf(node: StoredNode, writing: Writing): string {
   return address ? `![${alt}](${linkAddress(address)})` : alt;
 }
 
+// Inline math between dollar signs; empty math is left out, as two dollar signs alone would read
+// back as text.
+function mathOf(node: StoredNode, writing: Writing): string {
+  const source = storedMathSource(node);
+  return source ? `$${inCell(mathText(source), writing)}$` : '';
+}
+
+// A variable as the text the host gives, escaped, or as its key in braces when it gives none,
+// which reads back as the variable.
+function variableOf(node: StoredNode, writing: Writing): string {
+  const value = variableText(node, writing.values);
+  const token = `{{${text(node.attrs?.key)}}}`;
+  return value === token && /^\{\{[\w.-]+\}\}$/.test(token) ? token : escapeText(value);
+}
+
 // An inline node's Markdown.
 function inlineOf(node: StoredNode, writing: Writing): string {
   if (isLeftOut(node, writing.suggestions)) return '';
@@ -77,10 +92,10 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'text':
       return markedText(node, writing);
     case 'lineBreak':
-      // A table's row is one line, so a break in a cell is written as HTML.
-      return writing.inTable ? '<br>' : '\\\n';
+      // A table's row and a heading are one line, so a break there is written as HTML.
+      return writing.inTable || writing.inHeading ? '<br>' : '\\\n';
     case 'math':
-      return `$${inCell(storedMathSource(node), writing)}$`;
+      return mathOf(node, writing);
     case 'image':
       return imageOf(node, writing);
     case 'footnote': {
@@ -96,7 +111,7 @@ function inlineOf(node: StoredNode, writing: Writing): string {
     case 'mention':
       return `@${escapeText(text(node.attrs?.label))}`;
     case 'variable':
-      return escapeText(variableText(node, writing.values));
+      return variableOf(node, writing);
     default:
       return inlines(node.content, writing);
   }
