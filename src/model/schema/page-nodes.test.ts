@@ -90,4 +90,29 @@ describe('page nodes', () => {
     expect(roundTrip(variable)).toBe(variable);
     expect(documentSchema.nodes.template_variable?.spec.marks).toBe('');
   });
+
+  it('DOCE-SCHEMA-3.11 reads a page without a header region into its content, not its header', () => {
+    const doc = parseMarkup(
+      '<div class="pm-section" data-pm-section="true"><div class="pm-page"><div class="pm-page-content"><h1>Heading</h1><p>Body</p></div></div></div>',
+    );
+    expect(findNode(doc, 'page_header')?.childCount).toBe(0);
+    expect(findNode(doc, 'page_content')?.textContent).toBe('HeadingBody');
+    expect(findNode(doc, 'page')?.content.content.map((child) => child.type.name)).toEqual([
+      'page_header',
+      'page_content',
+      'page_footnotes',
+      'page_footer',
+    ]);
+  });
+
+  it('DOCE-SCHEMA-3.11 reads the blocks a section holds directly as its one page', () => {
+    const doc = parseMarkup(
+      '<div class="pm-section" data-pm-section="true" data-section-name="body"><h1>Heading</h1><p>Body<sup data-footnote-id="n1"></sup></p><div class="pm-page-footnotes" data-pm-page-footnotes="true"><p class="pm-footnote-entry" data-footnote-id="n1">Note</p></div></div>',
+    );
+    expect(doc.childCount).toBe(1);
+    const section = findNode(doc, 'page_section');
+    expect(section?.attrs.sectionName).toBe('body');
+    expect(findNode(doc, 'page_content')?.textContent).toBe('HeadingBody');
+    expect(findNode(doc, 'page_footnotes')?.textContent).toBe('Note');
+  });
 });

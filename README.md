@@ -22,6 +22,8 @@ The library is in early `0.x` development and has no release yet.
 
 `./model`, `./document`, `./host` and `./collab` read no DOM when they load ([specs/ENTRY-POINTS.md](specs/ENTRY-POINTS.md)); `test/node-entry.test.ts` imports them in Node to keep it so.
 
+The package is ESM only. A CommonJS server on Node 22 can `require()` the server entries; with TypeScript it compiles them under `module: node20` (TypeScript 5.9 or later), since `module: node16` refuses to `require` an ES module. Such a server loads its own CommonJS copy of ProseMirror beside the library's ES module one, so it hands the library stored documents, not ProseMirror objects: every server job has a stored-file function in `./document` (FORMAT.md §9).
+
 ## Develop
 
 Node 22 is required.

@@ -75,7 +75,31 @@ const server = createRoomServer({
 
 Decide by the lists alone. Collaboration-tools reads only the update and the room items it touches to apply them, which costs about 12 µs an update in a room of a megabyte. Do not add a `check` that calls `change.simulate`: it copies the whole room for every update (about 47 ms at that size). A refused update closes the writer's socket with `unauthorized-write`, which the client shows as `state.refusal`.
 
-The room server cannot tell a suggestion from a direct edit by the types an update changes: both write `content`. Suggesting is enforced by the editor, which turns a suggester's changes into suggestions (`specs/SUGGESTIONS.md`). A host that must also enforce it on the server pays for a `check` that reads the change.
+The room server cannot tell a suggestion from a direct edit by the types an update changes: both write `content`. Suggesting is enforced by the editor, which turns a suggester's changes into suggestions (`specs/SUGGESTIONS.md`).
+
+### Sorting updates by permission
+
+A host that must also enforce suggesting and commenting on the server sorts each update with `watchRoomChanges(doc, { schema })` (DOCE-COLLAB-6.6). Create the watch when the room loads, before connections write; `classify(transaction, { author })` in the room document's `afterTransaction` gives the permission the update needs:
+
+| Tier      | The update changes                                                                                                                                                                                                                             |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `comment` | `comments`, or comment highlights in `content` and their state                                                                                                                                                                                 |
+| `review`  | suggestion marks in `content` (and what deciding one changes beside them), a block's suggestion attributes, suggested text or blocks it deletes (deciding or withdrawing), or text and blocks it inserts as `author`'s own suggested insertion |
+| `content` | anything else in `content`, `meta`, or a type outside the layout                                                                                                                                                                               |
+
+`author` names the writer as their suggestions do (`dataAuthor`, the editor's `suggesting.author`); another writer's suggested insertion, or one with no `author`, is `content`. A change of a block's type is `content`, even inside a suggestion, and so is a decision that takes text with it that is not suggested, such as text accepted earlier inside a suggested block. The guard that keeps or reverts an update is the host's: compare the tier with the writer's capabilities and revert under the host's own origin, which the watch follows like any other update.
+
+```ts
+const watch = watchRoomChanges(doc, { schema });
+doc.on('afterTransaction', (transaction) => {
+  const writer = writerOf(transaction.origin); // the host's connection, or null for its own writes
+  if (!writer) return;
+  const tier = watch.classify(transaction, { author: writer.id });
+  if (tier && !writer.may(tier)) revert(transaction); // the host's own revert and close
+});
+```
+
+The watch keeps the room's content as it stood before each update, since what an update deletes is known only from there, and replays each change on it as the editor's binding does. It then compares the content before and after the update and reads the change the way that needs the least, because a Yjs change can say one edit in several ways: a character typed before its twin can arrive as the twin marked and a plain character after it. In Node, on the 150-chapter stress document (about 327 pages), the watch starts in about 58 ms (a read of the whole room), and a suggested character costs about 0.8 ms (p50) and 2.7 ms (p95), applying the update included.
 
 ## Seeds and server reads
 
@@ -84,6 +108,7 @@ The room server cannot tell a suggestion from a direct edit by the types an upda
 - `documentToYjs(file, { schema })` gives the Yjs update that builds a room holding the document, for the server's seeds adapter. An element without its own valid id gets one in the seed, as the editor gives it when it opens the document. A room seeded without them would have every writer send them with their first change, each with ids of their own, and a document stored without any ids would send about a megabyte.
 - `yjsToDocument(update, { schema })` gives the stored document a room's state holds, for readers outside the room, such as a store that keeps the document beside the room, or `null` for a room without one.
 - `writeRoomDocument(doc, file, { schema })` and `readRoomDocument(doc, { schema })` do the same on a Yjs document the host already has.
+- `updateRoomDocument(doc, file, { schema, origin })` writes a stored document into a room that is already open, such as a server job's change to the stored file (a decision on suggestions, a script's output), as one Yjs transaction under the host's `origin`: only what differs from what the room holds, so the writers in the room keep their place and their own changes, and the editors take it as one remote change (DOCE-COLLAB-6.5). It writes nothing when the room already holds the document. Read the room with `readRoomDocument`, change the stored document, and write it back with `updateRoomDocument`; a write made from an older read undoes what writers changed since, so read and write in one go.
 
 Use the schema the editors in the room use. With collaboration-tools, the seeds adapter is:
 

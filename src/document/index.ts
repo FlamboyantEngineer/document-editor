@@ -84,6 +84,8 @@ export {
   storedEmbeds,
   threadAnchors,
 } from './stored-elements.js';
+export type { StoredOutlineEntry, StoredOutlineOptions } from './stored-outline.js';
+export { storedOutline } from './stored-outline.js';
 export type { StoredDecision, StoredDecisionOptions } from './stored-suggestions.js';
 export { decideStoredSuggestions } from './stored-suggestions.js';
 export type {

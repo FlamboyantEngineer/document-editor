@@ -19,6 +19,7 @@ import {
 } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 import { CONTENT_TYPE, readContent, writeContent } from './delta.js';
+import { diffNodes } from './diff.js';
 
 /** The room's type for the comment and suggestion threads, one attribute per thread id. */
 export const COMMENTS_TYPE = 'comments';
@@ -38,6 +39,12 @@ export interface RoomWriteOptions {
   newId?: (() => string) | undefined;
 }
 
+/** How a stored document's changes go into a room that holds one. */
+export interface RoomUpdateOptions extends RoomWriteOptions {
+  /** The Yjs transaction's origin, such as the host's own server origin; `null` by default. */
+  origin?: unknown;
+}
+
 /** How a room's document is read back as a stored one. */
 export interface RoomReadOptions {
   schema: Schema;
@@ -50,6 +57,15 @@ export interface RoomReadOptions {
 function withElementIds(node: ProseMirrorNode, newId: RoomWriteOptions['newId']): ProseMirrorNode {
   const tr = EditorState.create({ doc: node }).tr;
   return assignElementIds(tr, { newId }) ? tr.doc : node;
+}
+
+// Refuses a room of another format version than the library reads and writes.
+function checkFormatVersion(version: unknown): void {
+  if (version !== undefined && version !== DOCUMENT_FORMAT_VERSION) {
+    throw new Error(
+      `The room holds format version ${String(version)}, not ${String(DOCUMENT_FORMAT_VERSION)}.`,
+    );
+  }
 }
 
 /**
@@ -70,17 +86,41 @@ export function writeRoomDocument(doc: Y.Doc, file: DocumentFile, options: RoomW
   });
 }
 
+/**
+ * Writes a stored document into a Yjs document that may hold one already, as one transaction under
+ * `origin`: only what differs from the content it holds, so writers in the room keep their place
+ * and their own changes, and its format version and template pin into `meta` where they differ. A
+ * room that holds no document takes the whole of it, as `writeRoomDocument` writes it. Throws, and
+ * changes nothing, when the room holds what the schema cannot read.
+ */
+export function updateRoomDocument(
+  doc: Y.Doc,
+  file: DocumentFile,
+  options: RoomUpdateOptions,
+): void {
+  const content = doc.get(CONTENT_TYPE);
+  const held = readContent(options.schema, content);
+  const read = readDocumentFile(file, options.schema, { unknown: options.unknown });
+  const node = withElementIds(read.doc, options.newId);
+  const meta = doc.get(META_TYPE);
+  checkFormatVersion(meta.getAttr(FORMAT_VERSION_KEY));
+  const template = file.template ?? null;
+  doc.transact(() => {
+    if (!held) writeContent(content, node);
+    else if (!held.eq(node)) content.applyDelta(diffNodes(held, node) as never);
+    if (meta.getAttr(FORMAT_VERSION_KEY) !== DOCUMENT_FORMAT_VERSION)
+      meta.setAttr(FORMAT_VERSION_KEY, DOCUMENT_FORMAT_VERSION);
+    if (JSON.stringify(meta.getAttr(TEMPLATE_KEY) ?? null) !== JSON.stringify(template))
+      meta.setAttr(TEMPLATE_KEY, template);
+  }, options.origin ?? null);
+}
+
 /** The stored document a Yjs document holds, or `null` when its `content` is empty. */
 export function readRoomDocument(doc: Y.Doc, options: RoomReadOptions): DocumentFile | null {
   const node = readContent(options.schema, doc.get(CONTENT_TYPE));
   if (!node) return null;
   const meta = doc.get(META_TYPE);
-  const version: unknown = meta.getAttr(FORMAT_VERSION_KEY);
-  if (version !== undefined && version !== DOCUMENT_FORMAT_VERSION) {
-    throw new Error(
-      `The room holds format version ${String(version)}, not ${String(DOCUMENT_FORMAT_VERSION)}.`,
-    );
-  }
+  checkFormatVersion(meta.getAttr(FORMAT_VERSION_KEY));
   node.check();
   const template = (meta.getAttr(TEMPLATE_KEY) ?? null) as TemplatePin | null;
   return writeDocumentFile(node, { template, fragmentRules: options.fragmentRules });
