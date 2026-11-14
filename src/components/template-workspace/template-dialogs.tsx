@@ -6,7 +6,7 @@ import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';
 import { templateIdOf } from '../template-editor/template-editor.js';
-import type { TemplateWorkspaceState } from './use-template-workspace.js';
+import type { TemplateWorkspaceState, WorkspaceProblem } from './use-template-workspace.js';
 import type { TemplateWorkspaceLabels } from './workspace-labels.js';
 
 interface DialogProps {
@@ -14,6 +14,10 @@ interface DialogProps {
   readonly labels: TemplateWorkspaceLabels;
   readonly isDisabled: boolean;
 }
+
+// Whether the store refused this id, the one the id field holds now.
+const isTaken = (problem: WorkspaceProblem | null, id: string) =>
+  problem?.kind === 'id-taken' && problem.id === id;
 
 /** Saves the open template's settings as a new template, under an id and name the reader gives. */
 export function SaveAsDialog({ workspace, labels, isDisabled }: DialogProps) {
@@ -50,7 +54,7 @@ export function SaveAsDialog({ workspace, labels, isDisabled }: DialogProps) {
           label={labels.copyId}
           value={identity?.id ?? ''}
           onChange={(value) => setIdentity((current) => current && { ...current, id: value })}
-          errorMessage={workspace.problem?.kind === 'id-taken' ? labels.idTaken(id) : undefined}
+          errorMessage={isTaken(workspace.problem, id) ? labels.idTaken(id) : undefined}
         />
         <TextField
           label={labels.copyName}

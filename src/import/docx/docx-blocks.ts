@@ -13,6 +13,8 @@ interface OpenList {
   readonly node: StoredNode & { content: StoredNode[] };
   readonly depth: number;
   readonly ordered: boolean;
+  /** The numbering instance (`numId`) its items are numbered by. */
+  readonly list: string;
 }
 
 interface Assembly {
@@ -31,14 +33,14 @@ function withCaption(node: StoredNode, caption: string): StoredNode {
   return { ...node, attrs: { ...attrs, caption } };
 }
 
-// A list item placed in the open lists: in the list at its depth, a new one nested in the last
-// item above it, or a new list at the top.
+// A list item placed in the open lists: in the list at its depth when it is of the same kind and
+// numbering, a new one nested in the last item above it, or a new list at the top.
 function placeItem(assembly: Assembly, piece: Extract<Piece, { kind: 'item' }>): void {
-  const { depth, ordered, start } = piece.list;
+  const { depth, ordered, start, list: numbering } = piece.list;
   const item: StoredNode = { type: 'listItem', content: [piece.node] };
   let lists = assembly.lists.filter((list) => list.depth <= depth);
   const top = lists[lists.length - 1];
-  if (top?.depth === depth && top.ordered === ordered) {
+  if (top?.depth === depth && top.ordered === ordered && top.list === numbering) {
     top.node.content.push(item);
     assembly.lists = lists;
     return;
@@ -52,7 +54,7 @@ function placeItem(assembly: Assembly, piece: Extract<Piece, { kind: 'item' }>):
   const parent = lists[lists.length - 1]?.node.content.at(-1);
   if (parent) parent.content = [...(parent.content ?? []), node];
   else assembly.out.push(node);
-  assembly.lists = [...lists, { node, depth, ordered }];
+  assembly.lists = [...lists, { node, depth, ordered, list: numbering }];
 }
 
 function placeBlock(assembly: Assembly, node: StoredNode): void {

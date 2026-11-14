@@ -194,8 +194,9 @@ export const SNAPSHOT_ATTRIBUTES: ReadonlySet<string> = new Set(ATTRIBUTES);
 /** The elements a snapshot leaves out whole, with their content, by lower-case tag name. */
 export const SNAPSHOT_DROPPED: ReadonlySet<string> = new Set(DROPPED);
 
-// The addresses a link may go to: an anchor in the snapshot, a web page or a mail address.
-const LINK_ADDRESS = /^(#|https?:|mailto:)/i;
+// The addresses a link may go to: an anchor in the snapshot, a web page, a mail address or a
+// telephone number, as a link may hold (`safeHref`).
+const LINK_ADDRESS = /^(#|https?:|mailto:|tel:)/i;
 // The addresses an image may load: a web address, a raster or vector image's data, or a blob.
 const IMAGE_ADDRESS = /^(https?:|data:image\/|blob:)/i;
 // A scheme at the start of an address; an address without one is relative to the snapshot.

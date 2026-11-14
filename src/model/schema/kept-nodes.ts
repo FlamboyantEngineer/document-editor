@@ -2,7 +2,7 @@
 // `unknown: 'keep'` (DOCE-FORMAT-1.5). Each holds its stored node whole, shows as an empty
 // placeholder the writer cannot edit, and is written back unchanged.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 

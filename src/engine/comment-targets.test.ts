@@ -163,4 +163,36 @@ describe('portable comment targets', () => {
     expect(marked && commentAnchors(marked)).toHaveLength(1);
     expect(marked && listCommentAnchors(marked.doc)).toHaveLength(1);
   });
+  it('DOCE-COMMENTS-1.12 keeps a placed anchor where edits moved it when the threads are placed again', () => {
+    const doc = read(paragraph('aaaa0001', 'One blue and two blue'));
+    const target: CommentTarget = {
+      ranges: [{ element: 'aaaa0001', start: 17, end: 21, text: 'blue' }],
+      quote: 'blue',
+    };
+    const threads = [{ id: 't1', state: 'open' as const, target }];
+    const state = EditorState.create({ doc, plugins: [createCommentAnchors()] });
+    const placed = run(state, anchorThreads(threads));
+    // Text typed before the anchor moves it; the stored target still names the old offsets.
+    const typed = placed?.apply(placed.tr.insertText('Then, at last: ', positionOf(doc, 'One')));
+    const again = typed && run(typed, anchorThreads(threads));
+    const at = (each: EditorState | null | undefined) => {
+      const range = each && commentAnchors(each)[0]?.ranges[0];
+      return range ? each.doc.textBetween(range.from - 4, range.to) : null;
+    };
+    expect(at(typed)).toBe('two blue');
+    expect(at(again)).toBe('two blue');
+  });
+
+  it('DOCE-COMMENTS-1.12 drops the placed threads no longer listed, and places a lost one again', () => {
+    const state = EditorState.create({ doc: DOC, plugins: [createCommentAnchors()] });
+    const placed = run(state, anchorThreads([{ id: 't1', state: 'open', target: TARGET }]));
+    const none = placed && run(placed, anchorThreads([]));
+    expect(none && commentAnchors(none)).toEqual([]);
+    // The document replaced whole, as when a host hands in its content again.
+    const replaced = placed?.apply(placed.tr.replaceWith(0, placed.doc.content.size, DOC.content));
+    expect(replaced && commentAnchors(replaced)).toEqual([]);
+    const back =
+      replaced && run(replaced, anchorThreads([{ id: 't1', state: 'open', target: TARGET }]));
+    expect(back && commentAnchors(back)[0]?.text).toBe('blue sky Gamma');
+  });
 });

@@ -1,7 +1,7 @@
 // Math written as LaTeX, inline in the text or as its own block. The LaTeX is the node's text; the
 // editor renders it.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { NodeSpec } from 'prosemirror-model';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 

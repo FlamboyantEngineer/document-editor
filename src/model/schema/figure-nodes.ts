@@ -1,7 +1,7 @@
 // Figures (an image or a diagram with its caption) and inline images, including images a
 // template places from its own files.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { normalizeCaptionText } from './caption-text.js';
 import type { DomAttributes } from './dom-attributes.js';

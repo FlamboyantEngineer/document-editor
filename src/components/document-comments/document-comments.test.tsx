@@ -166,6 +166,27 @@ describe('DocumentComments', () => {
     expect(seen.state?.doc.eq(before ?? seen.state.doc)).toBe(true);
   });
 
+  it('DOCE-COMMENTS-1.12 places a reader’s thread again when the document is replaced', async () => {
+    const user = userEvent.setup();
+    const handle = createRef<DocumentEditorHandle>();
+    const { container } = render(
+      <Harness host={host()} select="gamma" editable={false} canComment handleRef={handle} />,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Comment' }));
+    await user.type(screen.getByRole('textbox', { name: 'Add a comment' }), 'Say more');
+    await user.click(screen.getByRole('button', { name: 'Comment' }));
+    const placed = () => container.querySelector('mark[data-comment-placed="true"]');
+    await waitFor(() => expect(placed()).toHaveTextContent('gamma'));
+    // The host hands in the same content again, which maps no anchor across.
+    act(() => {
+      handle.current?.run((state, dispatch) => {
+        dispatch?.(state.tr.replaceWith(0, state.doc.content.size, state.doc.content));
+        return true;
+      });
+    });
+    await waitFor(() => expect(placed()).toHaveTextContent('gamma'));
+  });
+
   it('DOCE-COMMENTS-2.3 replies to and resolves a thread', async () => {
     const user = userEvent.setup();
     const store = host();

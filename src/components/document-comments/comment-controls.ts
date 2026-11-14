@@ -11,6 +11,7 @@ import {
   createElementId,
   startCommentDraft,
   suggestionDecisionOf,
+  unplacedThreads,
 } from '../../engine/index.js';
 import type { CommentThread } from '../../host/index.js';
 import { type OpenComment, type StartComment, useCommentFocus } from './comment-focus.js';
@@ -71,20 +72,23 @@ function useRunCommand(
 }
 
 // The threads the store keeps with a target and no marks, as a reader who may only comment starts
-// them, placed in the document without changing it, for every reader (DOCE-COMMENTS-1.12), again
-// whenever the threads change.
+// them, placed in the document without changing it, for every reader (DOCE-COMMENTS-1.12): again
+// whenever the threads change, and whenever the document loses one placed before, as when it is
+// replaced. One its target no longer finds stays unplaced until either changes again.
 function usePlacedThreads(
   threads: ReadonlyMap<string, CommentThread>,
+  state: EditorState,
   run: (command: Command) => void,
 ) {
   const latest = useRef(run);
   useEffect(() => {
     latest.current = run;
   });
+  const lost = unplacedThreads(state, [...threads.values()]).join(' ');
   useEffect(() => {
     const listed = [...threads.values()];
     if (listed.some((thread) => thread.target)) latest.current(anchorThreads(listed));
-  }, [threads]);
+  }, [threads, lost]);
 }
 
 /** Gives the editor its ways in to the comments, and returns the way to start a thread. */
@@ -106,7 +110,7 @@ export function useCommentControls(options: CommentControlsOptions) {
     options.onOpen?.();
     return true;
   };
-  usePlacedThreads(comments.threads, run);
+  usePlacedThreads(comments.threads, state, run);
   useEffect(() => {
     if (startRef) startRef.current = canComment ? startThread : null;
     if (openRef) openRef.current = open;

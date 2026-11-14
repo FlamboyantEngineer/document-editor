@@ -97,6 +97,69 @@ describe('reading word processing documents', () => {
     });
   });
 
+  it('DOCE-IMPORT-2.1 gives damaged deflate data as a damaged file', async () => {
+    const bytes = buildDocx({
+      body: paragraph(run('A paragraph long enough to deflate.'.repeat(20))),
+    });
+    const name = new TextEncoder().encode('word/document.xml');
+    // The document part's local header, then its name, then its deflated data.
+    let at = 0;
+    while (!(
+      bytes[at] === 0x50 &&
+      bytes[at + 1] === 0x4b &&
+      bytes[at + 2] === 3 &&
+      bytes[at + 3] === 4 &&
+      name.every((byte, index) => bytes[at + 30 + index] === byte)
+    ))
+      at += 1;
+    const start = at + 30 + name.length;
+    const damaged = bytes.slice();
+    for (let index = start + 4; index < start + 24; index += 1) damaged[index] = 0xff;
+    await expect(readDocx(damaged)).resolves.toMatchObject({ ok: false, failure: 'damaged' });
+  });
+
+  it('DOCE-IMPORT-2.2 reads a link written as a field, warning only about an unsafe address', async () => {
+    const field = (instruction: string, shown: string) =>
+      `<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">${instruction}</w:instrText></w:r>` +
+      `<w:r><w:fldChar w:fldCharType="separate"/></w:r>${run(shown)}<w:r><w:fldChar w:fldCharType="end"/></w:r>`;
+    const link = (value: string, href: string): StoredNode => ({
+      type: 'text',
+      text: value,
+      marks: [{ type: 'link', attrs: { href } }],
+    });
+    const result = await read({
+      body: [
+        paragraph(`${run('See ')}${field(' HYPERLINK "https://example.com" ', 'the site')}`),
+        paragraph(field(' HYPERLINK \\l "intro" ', 'the start')),
+        paragraph(
+          `<w:fldSimple w:instr=" HYPERLINK https://example.org/a ">${run('simple')}</w:fldSimple>`,
+        ),
+        paragraph(field(' HYPERLINK "javascript:alert(1)" ', 'unsafe')),
+      ].join(''),
+    });
+    expect(blocks(result)).toEqual([
+      para(text('See '), link('the site', 'https://example.com')),
+      para(link('the start', '#intro')),
+      para(link('simple', 'https://example.org/a')),
+      para(text('unsafe')),
+    ]);
+    expect(result.warnings).toEqual([
+      { code: 'content-left-out', detail: 'unsafe link', count: 1 },
+      { code: 'field-as-text', detail: 'HYPERLINK', count: 1 },
+    ]);
+  });
+
+  it('DOCE-IMPORT-2.2 leaves out a link to an unsafe address', async () => {
+    const result = await read({
+      body: paragraph(`<w:hyperlink r:id="rIdBad">${run('bad')}</w:hyperlink>`),
+      links: { rIdBad: 'javascript:alert(1)' },
+    });
+    expect(blocks(result)).toEqual([para(text('bad'))]);
+    expect(result.warnings).toEqual([
+      { code: 'content-left-out', detail: 'unsafe link', count: 1 },
+    ]);
+  });
+
   it('DOCE-IMPORT-2.2 reads headings, the title, levels, custom styles, quotes and code', async () => {
     const result = await read(STYLES, { template: { styles: { custom: { lead: {} } } } });
     expect(blocks(result).slice(0, 11)).toEqual([
@@ -199,6 +262,49 @@ describe('reading word processing documents', () => {
     ]);
     expect(second?.content).toHaveLength(2);
     expect(second?.content?.[1]?.content?.[0]?.type).toBe('table');
+  });
+
+  it('DOCE-IMPORT-2.3 starts a new list where the numbering changes', async () => {
+    const result = await read({
+      numbering: [
+        '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum>',
+        '<w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>',
+        '<w:num w:numId="2"><w:abstractNumId w:val="0"/></w:num>',
+      ].join(''),
+      body: ['One', 'Two', 'Again one', 'Again two']
+        .map((value, index) =>
+          paragraph(
+            run(value),
+            `<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${index < 2 ? '1' : '2'}"/></w:numPr>`,
+          ),
+        )
+        .join(''),
+    });
+    expect(blocks(result).map((list) => [list.type, list.content?.length])).toEqual([
+      ['orderedList', 2],
+      ['orderedList', 2],
+    ]);
+  });
+
+  it('DOCE-IMPORT-2.4 keeps a column span within the grid and the editor’s limit', async () => {
+    const schema = createDocumentSchema();
+    const cell = (span: string) =>
+      `<w:tc><w:tcPr><w:gridSpan w:val="${span}"/></w:tcPr>${paragraph(run('x'))}</w:tc>`;
+    const table = (grid: string, span: string) =>
+      `<w:tbl><w:tblGrid>${grid}</w:tblGrid><w:tr>${cell(span)}</w:tr></w:tbl>`;
+    const result = await read({
+      body: [
+        table('<w:gridCol w:w="1500"/><w:gridCol w:w="1500"/><w:gridCol w:w="1500"/>', '5000'),
+        table('', '5000'),
+        table('', 'many'),
+      ].join(''),
+    });
+    expect(blocks(result).map((each) => each.content?.[0]?.content?.[0]?.attrs?.colspan)).toEqual([
+      3,
+      1000,
+      undefined,
+    ]);
+    expect(() => readDocumentFile(result.file, schema)).not.toThrow();
   });
 
   it('DOCE-IMPORT-2.2 reads a bottom-border paragraph as a rule and leaves out section-only paragraphs', async () => {
