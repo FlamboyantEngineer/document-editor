@@ -4,7 +4,7 @@
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   checkStaleScripts,
   runOpeningScripts,
@@ -12,6 +12,7 @@ import {
   scriptBlockAt,
 } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
+import type { TemplatePin } from '../../model/index.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 
@@ -23,6 +24,39 @@ export interface ScriptEntriesOptions {
   readonly scriptRunner?: ScriptRunnerAdapter | null | undefined;
   /** Whether the writer's changes are recorded as suggestions. Defaults to false. */
   readonly suggesting?: boolean | undefined;
+}
+
+// A runner that hands each script the document with the template it pins: the engine writes the
+// document as its state holds it, which does not know the pin.
+function pinnedRunner(runner: ScriptRunnerAdapter, template: TemplatePin): ScriptRunnerAdapter {
+  const { inputsKey } = runner;
+  return {
+    ...runner,
+    run: (request, signal) =>
+      runner.run({ ...request, document: { ...request.document, template } }, signal),
+    ...(inputsKey && {
+      inputsKey: (request, signal) =>
+        inputsKey.call(runner, { ...request, document: { ...request.document, template } }, signal),
+    }),
+  };
+}
+
+/**
+ * The editor's props with the host's script runner handing each script the document with the
+ * template it pins (`templatePin`, DOCE-EDITOR-4.8); as they are without a runner or a pin.
+ */
+export function usePinnedScripts<
+  Props extends {
+    readonly scriptRunner?: ScriptRunnerAdapter | undefined;
+    readonly templatePin?: TemplatePin | null | undefined;
+  },
+>(props: Props): Props {
+  const { scriptRunner, templatePin } = props;
+  const runner = useMemo(
+    () => (scriptRunner && templatePin ? pinnedRunner(scriptRunner, templatePin) : scriptRunner),
+    [scriptRunner, templatePin],
+  );
+  return runner === scriptRunner ? props : { ...props, scriptRunner: runner };
 }
 
 // A run nothing waits for must not end in a rejection nothing handles. Each block shows its own

@@ -7,7 +7,7 @@ import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import type { DocumentExport, ExportRequest, FeedbackTone, HostResult } from '../../host/index.js';
-import { BASE_TEMPLATE, readDocumentFile } from '../../model/index.js';
+import { BASE_TEMPLATE, readDocumentFile, type TemplatePin } from '../../model/index.js';
 import { DocumentEditor } from './document-editor.js';
 
 installEditorDom();
@@ -44,7 +44,13 @@ function pendingExport(id: string, label: string) {
   return { entry, requests, end: (result: HostResult<void>) => endings.shift()?.(result) };
 }
 
-function Harness({ entries }: { entries: readonly DocumentExport[] }) {
+function Harness({
+  entries,
+  templatePin,
+}: {
+  entries: readonly DocumentExport[];
+  templatePin?: TemplatePin;
+}) {
   const [state, setState] = useState(initial);
   const [told, setTold] = useState<string[]>([]);
   return (
@@ -56,6 +62,7 @@ function Harness({ entries }: { entries: readonly DocumentExport[] }) {
         layout="web"
         menubar
         exports={{ entries }}
+        templatePin={templatePin}
         feedback={{
           notify: ({ tone, text }: { tone: FeedbackTone; text: string }) =>
             setTold((current) => [...current, `${tone}: ${text}`]),
@@ -98,6 +105,16 @@ describe('File > Export', () => {
     await waitFor(() =>
       expect(told()).toEqual(['info: Exporting PDF…', 'success: PDF export is ready']),
     );
+  });
+
+  it('DOCE-EDITOR-6.28 hands an export the document with the template it pins', async () => {
+    const user = userEvent.setup();
+    const pdf = pendingExport('pdf', 'PDF');
+    const pin = { id: 'report', revision: 'r3' };
+    render(<Harness entries={[pdf.entry]} templatePin={pin} />);
+    await user.click(await openExport(user, 'PDF'));
+    await waitFor(() => expect(pdf.requests).toHaveLength(1));
+    expect(pdf.requests[0]?.content.template).toEqual(pin);
   });
 
   it('DOCE-EDITOR-6.28 runs an export once at a time and tells the reader when it fails', async () => {

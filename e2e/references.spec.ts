@@ -20,6 +20,21 @@ async function newParagraph(page: Page, heading: string, value: string) {
   );
 }
 
+// Selects a text in the document's content as one DOM selection, the editor focused.
+async function selectWords(page: Page, wanted: string) {
+  await content(page).evaluate((root, text) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = node.textContent?.indexOf(text) ?? -1;
+      if (at < 0) continue;
+      (node.parentElement?.closest('[contenteditable="true"]') as HTMLElement | null)?.focus();
+      document.getSelection()?.setBaseAndExtent(node, at, node, at + text.length);
+      return;
+    }
+    throw new Error(`No text ${text}`);
+  }, wanted);
+}
+
 const reference = (page: Page) => content(page).locator('[data-reference="true"]');
 
 test.describe('references', () => {
@@ -69,12 +84,13 @@ test.describe('references', () => {
     page,
   }) => {
     await newParagraph(page, 'Power', 'Check the Battery Charging Unit');
-    // A layout may land between the presses and drop one, or before the editor reads the
-    // selection, so the words are selected again until the dialog opens on all three.
+    // The words are selected as the reader's drag would leave them, in one step: key presses can
+    // be dropped by a layout landing between them, or after Escape before focus is back. A layout
+    // may still land before the editor reads the selection, so it is selected again until the
+    // dialog opens on all three.
     await expect(async () => {
       if (await dialog(page).isVisible()) await page.keyboard.press('Escape');
-      await page.keyboard.press('End');
-      for (const _ of [1, 2, 3]) await page.keyboard.press('Shift+ControlOrMeta+ArrowLeft');
+      await selectWords(page, 'Battery Charging Unit');
       await toolbar(page).getByRole('button', { name: 'Abbreviation…' }).click();
       await expect(dialog(page).getByRole('textbox', { name: 'Abbreviation' })).toHaveValue('BCU', {
         timeout: 2000,

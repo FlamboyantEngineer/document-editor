@@ -1,7 +1,7 @@
 // The inline atoms a document's text holds beside its characters: a mention of a person, a
 // reference to a glossary entry, and a person's signature.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { abbreviationDisplayText, abbreviationTargetId, abbreviationTooltip } from '../glossary.js';
 import { normalizeSignatureVector, type SignatureVector } from '../signature-vector.js';

@@ -3,6 +3,7 @@
 // captions the library's writer gives. HTML blocks are left out with a warning.
 
 import type { StoredNode } from './document-format.js';
+import { closesFence, openingFence } from './markdown-read-fence.js';
 import { type InlineContext, readInline } from './markdown-read-inline.js';
 
 interface Lines {
@@ -12,8 +13,6 @@ interface Lines {
 
 type BlockReader = (lines: Lines, context: InlineContext) => StoredNode[] | null;
 
-/** An opening code fence and its language. */
-export const FENCE = /^ {0,3}(`{3,}|~{3,})\s*([^\s`]*)/;
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
 const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const QUOTE = /^ {0,3}> ?/;
@@ -31,25 +30,21 @@ const paragraphOf = (text: string, context: InlineContext): StoredNode => {
 
 // Fenced code, with its language; a block with no lines is left empty.
 const fenced: BlockReader = (lines) => {
-  const open = FENCE.exec(lines.lines[lines.at] ?? '');
+  const open = openingFence(lines.lines[lines.at] ?? '');
   if (!open) return null;
-  const fence = open[1] ?? '```';
   const code: string[] = [];
   lines.at += 1;
   while (lines.at < lines.lines.length) {
     const line = lines.lines[lines.at] ?? '';
     lines.at += 1;
-    if (
-      new RegExp(`^ {0,3}${fence[0] === '`' ? '`' : '~'}{${String(fence.length)},}\\s*$`).test(line)
-    )
-      break;
+    if (closesFence(line, open)) break;
     code.push(line);
   }
   const text = code.join('\n');
   return [
     {
       type: 'codeBlock',
-      ...(open[2] ? { attrs: { language: open[2] } } : {}),
+      ...(open.language ? { attrs: { language: open.language } } : {}),
       ...(text ? { content: [{ type: 'text', text }] } : {}),
     },
   ];
@@ -232,7 +227,8 @@ const BLOCK_STARTS: readonly BlockReader[] = [
 // Whether a line starts a block other than a paragraph, ending the paragraph before it.
 function startsBlock(line: string): boolean {
   return (
-    [FENCE, HEADING, RULE, QUOTE, HTML_BLOCK].some((pattern) => pattern.test(line)) ||
+    openingFence(line) !== null ||
+    [HEADING, RULE, QUOTE, HTML_BLOCK].some((pattern) => pattern.test(line)) ||
     line.trim() === '$$' ||
     ITEM.test(line)
   );

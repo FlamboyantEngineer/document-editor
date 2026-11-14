@@ -4,7 +4,7 @@
 // ones that say which element a node is, the identity attributes, are declared on each type, with
 // the host's own, so a copy, a type change or a split knows which to keep.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type {
   Attrs,
   DOMOutputSpec,

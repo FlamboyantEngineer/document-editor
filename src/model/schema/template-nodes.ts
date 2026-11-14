@@ -1,7 +1,7 @@
 // The nodes a template fills in: a block rendered from template markup, and an inline variable
 // whose text the template's value replaces.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 

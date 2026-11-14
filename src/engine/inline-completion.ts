@@ -21,6 +21,7 @@ import type {
 import { type Actor, automationActor, automationKey } from './automation.js';
 import { completionGhost } from './completion-ghost.js';
 import { completionRequest, isCompletable, normalizeCompletion } from './completion-text.js';
+import { editLockKey, touchesLock } from './edit-lock.js';
 import { suggestTransaction } from './suggestions.js';
 import { isLocalEdit } from './transaction-kind.js';
 
@@ -127,7 +128,9 @@ export const acceptCompletion: Command = (state, dispatch) => {
   const options = optionsOf(state);
   if (!offered || !options || state.selection.head !== offered.pos) return false;
   const tr = takeTransaction(state, offered, options);
-  if (!tr) return false;
+  // A change the edit lock would refuse is not taken: Tab is left to the editor.
+  const lock = editLockKey.getState(state);
+  if (!tr || (lock && touchesLock(tr, lock.isLocked))) return false;
   dispatch?.(tr);
   return true;
 };
@@ -345,10 +348,9 @@ export function createInlineCompletion(options: InlineCompletionOptions): Plugin
       handleKeyDown(view, event) {
         keys.typed = typesText(event);
         if (!inlineCompletion(view.state)) return false;
-        if (event.key === 'Tab' && !event.shiftKey) {
-          event.preventDefault();
+        // Tab takes the offer only when it can, and is otherwise the editor's.
+        if (event.key === 'Tab' && !event.shiftKey)
           return acceptCompletion(view.state, view.dispatch);
-        }
         if (event.key === 'Escape') return dismissCompletion(view.state, view.dispatch);
         return false;
       },

@@ -4,7 +4,7 @@
 import type {
   RichTextExtension,
   RichTextExtensionNode,
-} from '@flamboyantengineer/ui-components/rich-text-editor';
+} from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { nodes as basicNodes } from 'prosemirror-schema-basic';
 import { bulletList, listItem, orderedList } from 'prosemirror-schema-list';

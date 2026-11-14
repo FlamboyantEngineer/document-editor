@@ -71,6 +71,11 @@ export interface TemplateWorkspaceProps {
 
 type ScopeState = [TemplateScope, (scope: TemplateScope) => void];
 
+interface RestoreProps {
+  /** Restores a version by revision, once unsaved changes are saved or discarded. */
+  readonly onRestore: (revision: string) => Promise<unknown>;
+}
+
 interface PartProps {
   readonly props: TemplateWorkspaceProps;
   readonly workspace: TemplateWorkspaceState;
@@ -129,7 +134,7 @@ function Toolbar(
 }
 
 // What the workspace tells the reader: a conflict to settle, a failure, or the version shown.
-function Messages({ workspace, labels }: PartProps) {
+function Messages({ workspace, labels, onRestore }: PartProps & RestoreProps) {
   const { problem, viewing } = workspace;
   return (
     <>
@@ -163,9 +168,7 @@ function Messages({ workspace, labels }: PartProps) {
             <>
               <Button
                 size="sm"
-                onPress={() =>
-                  void workspace.restore(viewing.version.revision).catch(() => undefined)
-                }
+                onPress={() => void onRestore(viewing.version.revision).catch(() => undefined)}
               >
                 {labels.restore}
               </Button>
@@ -237,6 +240,11 @@ function Preview({
 function Workspace(props: TemplateWorkspaceProps) {
   const labels = { ...DEFAULT_TEMPLATE_WORKSPACE_LABELS, ...props.labels };
   const workspace = useTemplateWorkspace(props);
+  const { confirmLeave } = useUnsavedChangesGuard();
+  // A restore saves over the template, which would drop its unsaved changes: ask first.
+  const onRestore = async (revision: string) => {
+    if (await confirmLeave()) await workspace.restore(revision);
+  };
   const [isHistoryShown, setHistoryShown] = useState(false);
   const scope = useState<TemplateScope>(null);
   const { open, viewing } = workspace;
@@ -257,10 +265,12 @@ function Workspace(props: TemplateWorkspaceProps) {
       })}
     >
       <Toolbar {...parts} isHistoryShown={isHistoryShown} onHistoryChange={setHistoryShown} />
-      <Messages {...parts} />
+      <Messages {...parts} onRestore={onRestore} />
       <Settings {...parts} scope={scope} layout={layout} />
       <Preview {...parts} scope={scope[0]} layout={layout} />
-      {isHistoryShown ? <TemplateHistory store={props.store} {...parts} /> : null}
+      {isHistoryShown ? (
+        <TemplateHistory store={props.store} {...parts} onRestore={onRestore} />
+      ) : null}
     </div>
   );
 }

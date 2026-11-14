@@ -2,7 +2,7 @@
 // shows and prints as its own. The script is the block's `script`; the output is its content, which
 // only running the script changes.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import type { DomAttributes } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';

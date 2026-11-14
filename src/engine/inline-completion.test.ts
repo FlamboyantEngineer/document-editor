@@ -5,6 +5,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import type { CompletionAdapter, CompletionAvailability, HostResult } from '../host/index.js';
 import { readDocumentFile } from '../model/index.js';
 import { automationActor } from './automation.js';
+import { createEditLock } from './edit-lock.js';
 import {
   acceptCompletion,
   completionStatus,
@@ -130,6 +131,24 @@ describe('inline completion', () => {
       ]),
     );
     expect(state.selection.head).toBe(pos + ' one second.'.length);
+  });
+
+  it('DOCE-AUTOMATION-3.2 leaves Tab to the editor when the offer cannot be taken there', () => {
+    const start = stateAt('Recovery takes', 'Recovery takes'.length);
+    const pos = start.selection.head;
+    const locked = start.reconfigure({
+      plugins: [...start.plugins, createEditLock({ isLocked: () => true })],
+    });
+    const view = new EditorView(document.createElement('div'), {
+      state: run(locked, offerCompletion({ pos, text: ' one second.' })),
+    });
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true });
+    const handled = view.someProp('handleKeyDown', (handle) => handle(view, tab));
+    expect(handled).toBeFalsy();
+    expect(tab.defaultPrevented).toBe(false);
+    expect(acceptCompletion(view.state)).toBe(false);
+    expect(view.state.doc.eq(locked.doc)).toBe(true);
+    view.destroy();
   });
 
   it('DOCE-AUTOMATION-3.7 turns off, dismissing its offer, and says where it stands', () => {
