@@ -73,14 +73,14 @@ Verification: `src/engine/automation-stream.test.ts`, `e2e/automation.spec.ts`
 
 ### DOCE-AUTOMATION-3.1 - What the provider is asked
 
-`completionRequest(state, context)` shall give the text before the caret, up to `context` characters (2000 by default) across the blocks before it, the rest of the caret's block, and the block's element id (or none) and type (`CompletionContext`); none without a caret that may be completed (in text outside code, footnotes and the page regions), or with nothing before it.
+`completionRequest(state, context)` shall give the text before the caret, up to `context` characters (2000 by default) across the blocks before it, the rest of the caret's block, and the block's element id (or none) and type (`CompletionContext`), the text a suggestion deletes left out of both; none without a caret that may be completed (in text outside code, footnotes and the page regions), or with nothing before it.
 
 Implementation: `src/engine/completion-text.ts`
 Verification: `src/engine/completion-text.test.ts`
 
 ### DOCE-AUTOMATION-3.2 - Taking or dismissing an offer
 
-An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it.
+An offer (`offerCompletion`) shall show its text after the caret (`de-inline-completion`); `acceptCompletion` puts the text in at the caret, after it, unless the edit lock would refuse that change (DOCE-EDITING-4.1), when it takes nothing and Tab is left to the editor, and `dismissCompletion` forgets it, and any change or caret move of the writer's dismisses it.
 
 Implementation: `src/engine/inline-completion.ts`, `src/engine/completion-ghost.ts`
 Verification: `src/engine/inline-completion.test.ts`
