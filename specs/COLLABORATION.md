@@ -205,6 +205,20 @@ The shared room lab shall show two writers editing one document in its room on a
 Implementation: `labs/src/collab-room.lab.tsx`, `test/session-rooms.ts`
 Verification: `e2e/shared-room.spec.ts`
 
+### DOCE-COLLAB-6.5 - Server writes into an open room
+
+`updateRoomDocument(doc, file, { schema, origin })` shall write a stored document into a Yjs document that already holds one as one Yjs transaction under `origin`, writing only what differs from the content it holds: the blocks it leaves unchanged stay the same shared types, so places in them hold, and a writer's concurrent change to another block is kept. It shall set the format version and template pin in `meta` only where they differ, write nothing for a document the room already holds, write the whole document into a room that holds none, as `writeRoomDocument` does, and refuse a room of another format version. An editor bound to the room shall take the write as one change. It shall run without a DOM.
+
+Implementation: `src/collab/convert.ts`
+Verification: `src/collab/convert.test.ts`
+
+### DOCE-COLLAB-6.6 - Sorting room updates by permission
+
+`watchRoomChanges(doc, { schema })` shall watch a room's Yjs document, and its `classify(transaction, { author })`, called from the room's `afterTransaction`, shall give the permission an update needs, the highest of what it changes: `comment` for a change to `comments`, or to `content` that only adds or removes comment highlights or changes their state; `review` for a change to `content` that only adds or removes suggestion marks (suggested insertions, deletions and formatting, with what deciding one changes beside them), sets or clears a block's suggestion attributes, deletes suggested text or suggested blocks (deciding on a suggestion or withdrawing one), or inserts text or blocks suggested as an insertion by `author`; `content` for any other change to `content`, any change to `meta` and any change to a type outside the room's layout; and `null` for an update that changes nothing. Inserted text suggested by another writer, or with no `author` given, shall be `content`, and so shall a decision that takes with it text not suggested, such as text accepted inside a suggested block. Each update shall be read against the content as it stood before it, which the watch keeps by replaying each change as the binding does, so it holds after a guard reverts an update; and it shall be read the way that needs the least, comparing the content before and after it, so an edit sorts alike however its Yjs change expresses it. It shall run without a DOM; the guard that keeps or reverts an update stays in the host or room server.
+
+Implementation: `src/collab/room-changes.ts`, `src/collab/room-change-walk.ts`
+Verification: `src/collab/room-changes.test.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                                           | Description                                                   |

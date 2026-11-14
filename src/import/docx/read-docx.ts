@@ -43,6 +43,14 @@ export interface DocxReadOptions {
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
   /** How much the archive may hold; `DEFAULT_ZIP_LIMITS` by default. */
   readonly limits?: Partial<ZipLimits> | undefined;
+  /** Makes the id of each tracked change's suggestion; eight random hexadecimal digits by default. */
+  readonly newId?: (() => string) | undefined;
+}
+
+// A fresh random suggestion id, of the editor's element id form.
+function randomId(): string {
+  const [value = 0] = crypto.getRandomValues(new Uint32Array(1));
+  return value.toString(16).padStart(8, '0');
 }
 
 /** A document read, or why it could not be. */
@@ -74,6 +82,7 @@ interface Shared {
   readonly numbering: ReturnType<typeof readNumbering>;
   readonly comments: DocxComments;
   readonly keepsStyle: (key: string) => boolean;
+  readonly changeMark: ParagraphReading['changeMark'];
   notes: (kind: 'footnote' | 'endnote', id: string) => StoredNode[] | null;
 }
 
@@ -85,6 +94,7 @@ function readingFor(part: DocxPart, shared: Shared): ParagraphReading {
     warnings: shared.warnings,
     note: (kind, id) => shared.notes(kind, id),
     commentMark: shared.comments.markOf,
+    changeMark: shared.changeMark,
     keepsStyle: shared.keepsStyle,
     open: { comments: [], fields: [] },
   };
@@ -199,6 +209,22 @@ async function readSections(
   return { sections, pages };
 }
 
+// The suggestion marks of tracked changes: a fresh id for each change, the parts of one change
+// (one Word id) sharing it, and the change's author as the suggestion's.
+function changeMarks(newId: () => string): Shared['changeMark'] {
+  const ids = new Map<string, string>();
+  return (kind, change) => {
+    const wordId = change.attrs['w:id'];
+    let id = wordId === undefined ? undefined : ids.get(wordId);
+    if (id === undefined) {
+      id = newId();
+      if (wordId !== undefined) ids.set(wordId, id);
+    }
+    const author = change.attrs['w:author'];
+    return { type: kind, attrs: { id, ...(author ? { author } : {}) } };
+  };
+}
+
 async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promise<DocxRead> {
   const warnings = createImportWarnings();
   const parts = await openParts(bytes, options, warnings);
@@ -211,6 +237,7 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
     numbering: readNumbering(await root('numbering')),
     comments: readComments(await root('comments'), await root('commentsExtended')),
     keepsStyle: (key) => !options.template || Object.hasOwn(custom ?? {}, key),
+    changeMark: changeMarks(options.newId ?? randomId),
     notes: () => null,
   };
   const footnotes = notesReader(await parts.related('footnotes'), shared);

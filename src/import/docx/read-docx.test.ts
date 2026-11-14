@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { type Command, EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { buildDocx, paragraph, run } from '../../../test/fixtures/docx/build-docx-fixture.js';
 import {
@@ -11,6 +12,12 @@ import {
   TABLES,
   WRITER_SHAPES,
 } from '../../../test/fixtures/docx/fixtures.js';
+import {
+  acceptAllSuggestions,
+  listSuggestions,
+  rejectAllSuggestions,
+  rejectSuggestion,
+} from '../../engine/suggestion-decisions.js';
 import type { DocumentFile, StoredNode } from '../../model/format/document-format.js';
 import { readDocumentFile } from '../../model/format/document-format-convert.js';
 import { writeZip } from '../../model/format/zip.js';
@@ -60,6 +67,31 @@ describe('reading word processing documents', () => {
       failure: 'too-large',
     });
     await expect(readDocx(big, { limits: { files: 2 } })).resolves.toMatchObject({
+      ok: false,
+      failure: 'too-large',
+    });
+  });
+
+  it('DOCE-IMPORT-2.1 limits the bytes all the files read inflate to together', async () => {
+    // Twenty images of 64 KB of zeros: each well under the limit for one file, too much together.
+    const media = Object.fromEntries(
+      Array.from({ length: 20 }, (_, index) => [
+        `zeros${String(index)}.png`,
+        new Uint8Array(65536),
+      ]),
+    );
+    const bytes = buildDocx({ body: paragraph(run('Images')), media });
+    expect(bytes.length).toBeLessThan(65536);
+    const limits = { fileBytes: 100_000, totalBytes: 1_000_000 };
+    await expect(readDocx(bytes, { limits })).resolves.toMatchObject({
+      ok: false,
+      failure: 'too-large',
+    });
+    await expect(
+      readDocx(bytes, { limits: { ...limits, totalBytes: 2_000_000 } }),
+    ).resolves.toMatchObject({ ok: true });
+    const stored = buildDocx({ body: paragraph(run('Images')), media, stored: true });
+    await expect(readDocx(stored, { limits })).resolves.toMatchObject({
       ok: false,
       failure: 'too-large',
     });
@@ -274,7 +306,10 @@ describe('reading word processing documents', () => {
   });
 
   it('DOCE-IMPORT-2.7 reads comment threads with replies and resolution, and tracked changes', async () => {
-    const result = await read(COMMENTS);
+    let next = 0;
+    const result = await read(COMMENTS, {
+      newId: () => (next += 1).toString(16).padStart(8, '0'),
+    });
     const [first, second, changes] = blocks(result);
     expect(first?.content?.[1]).toEqual({
       type: 'text',
@@ -286,10 +321,15 @@ describe('reading word processing documents', () => {
       text: 'open',
       marks: [{ type: 'comment', attrs: { thread: 'comment-2' } }],
     });
+    const change = (value: string, type: string, id: string): StoredNode => ({
+      type: 'text',
+      text: value,
+      marks: [{ type, attrs: { id, author: 'Ada' } }],
+    });
     expect(changes?.content).toEqual([
       text('Keep '),
-      text('new', 'insertion'),
-      text('old', 'deletion'),
+      change('new', 'insertion', '00000001'),
+      change('old', 'deletion', '00000002'),
       text('.'),
     ]);
     expect(result.comments).toEqual([
@@ -312,6 +352,37 @@ describe('reading word processing documents', () => {
       },
       expect.objectContaining({ id: 'comment-2', state: 'open', quote: 'open' }),
     ]);
+  });
+
+  it('DOCE-IMPORT-2.7 gives tracked changes as suggestions with their authors, to accept or reject', async () => {
+    const schema = createDocumentSchema();
+    const { file } = await read({
+      body: paragraph(
+        `${run('Keep ')}<w:ins w:id="1" w:author="Ann" w:date="2026-01-02T10:00:00Z">${run('new')}</w:ins>` +
+          `<w:del w:id="2" w:author="Ben"><w:r><w:delText>old</w:delText></w:r></w:del>` +
+          `<w:moveFrom w:id="3" w:author="Ann">${run(' here')}</w:moveFrom>` +
+          `<w:moveTo w:id="4" w:author="Ann">${run(' there')}</w:moveTo>`,
+      ),
+    });
+    const doc = readDocumentFile(file, schema).doc;
+    const suggestions = listSuggestions(doc);
+    expect(
+      suggestions.map(({ author, inserted, deleted }) => ({ author, inserted, deleted })),
+    ).toEqual([
+      { author: 'Ann', inserted: 'new', deleted: '' },
+      { author: 'Ben', inserted: '', deleted: 'old' },
+      { author: 'Ann', inserted: '', deleted: ' here' },
+      { author: 'Ann', inserted: ' there', deleted: '' },
+    ]);
+    expect(new Set(suggestions.map((each) => each.id)).size).toBe(4);
+    const decided = (command: Command) => {
+      let state = EditorState.create({ doc });
+      command(state, (tr) => (state = state.apply(tr)));
+      return state.doc.textContent;
+    };
+    expect(decided(acceptAllSuggestions)).toBe('Keep new there');
+    expect(decided(rejectAllSuggestions)).toBe('Keep old here');
+    expect(decided(rejectSuggestion(suggestions[0]?.id ?? ''))).toBe('Keep old here there');
   });
 
   it('DOCE-IMPORT-2.8 reads images and figures and warns about what it leaves out', async () => {

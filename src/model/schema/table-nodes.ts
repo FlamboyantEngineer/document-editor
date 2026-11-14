@@ -1,7 +1,7 @@
 // Tables: the table with its border, alignment and caption, its rows, and cells with their own
 // alignment, height and colours, on top of the table nodes of `prosemirror-tables`.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 import { normalizeCaptionText } from './caption-text.js';

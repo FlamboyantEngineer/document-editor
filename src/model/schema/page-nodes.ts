@@ -1,8 +1,15 @@
 // The paged layout's node types: sections of pages, each page's header, content and footer, and
 // manual page breaks.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
-import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
+import {
+  DOMParser,
+  Fragment,
+  type Node as ProseMirrorNode,
+  type NodeSpec,
+  type NodeType,
+  type Schema,
+} from 'prosemirror-model';
 import {
   appendPageRegionEditableAttrs,
   type DomAttributes,
@@ -46,6 +53,69 @@ function writeSectionAttrs(node: ProseMirrorNode): DomAttributes {
   return attrs;
 }
 
+// A page's regions in order, each with the class its markup carries.
+const PAGE_REGIONS = [
+  ['page_header', 'pm-page-header'],
+  ['page_content', 'pm-page-content'],
+  ['page_footnotes', 'pm-page-footnotes'],
+  ['page_footer', 'pm-page-footer'],
+] as const;
+
+const childWithClass = (dom: Element, name: string) =>
+  [...dom.children].find((child) => child.classList.contains(name)) ?? null;
+
+// A region read from its element, with the attributes its own parse rule reads, or an empty region.
+function readRegionNode(type: NodeType, dom: Element | null, schema: Schema): ProseMirrorNode {
+  if (!dom) return type.createAndFill() ?? type.create();
+  const rule = type.spec.parseDOM?.[0];
+  const attrs = rule?.getAttrs?.(dom as HTMLElement) || null;
+  return DOMParser.fromSchema(schema).parse(dom, { topNode: type.create(attrs) });
+}
+
+// A node type of the page nodes, which this extension adds to every schema it builds.
+function pageNodeType(schema: Schema, name: string): NodeType {
+  const type = schema.nodes[name];
+  if (!type) throw new Error(`The schema has no ${name} node type.`);
+  return type;
+}
+
+// A page's regions read by their classes, so content never falls into a region the markup leaves
+// out, such as a page without a header.
+function readPage(schema: Schema, regions: (name: string) => Element | null): ProseMirrorNode {
+  return pageNodeType(schema, 'page').create(
+    null,
+    PAGE_REGIONS.map(([type, name]) =>
+      readRegionNode(pageNodeType(schema, type), regions(name), schema),
+    ),
+  );
+}
+
+// A section's pages; a section that holds its blocks directly, with no pages, reads as one page
+// whose content they are, its footnote area kept apart.
+function readSectionContent(dom: Node, schema: Schema): Fragment {
+  const section = dom as HTMLElement;
+  const pages = [...section.children].filter((child) => child.classList.contains('pm-page'));
+  if (pages.length) {
+    return Fragment.from(
+      pages.map((page) =>
+        readPage(schema, (name) =>
+          name === 'pm-page-content'
+            ? (childWithClass(page, name) ?? page)
+            : childWithClass(page, name),
+        ),
+      ),
+    );
+  }
+  const content = section.cloneNode(true) as HTMLElement;
+  const footnotes = childWithClass(content, 'pm-page-footnotes');
+  footnotes?.remove();
+  return Fragment.from(
+    readPage(schema, (name) =>
+      name === 'pm-page-content' ? content : name === 'pm-page-footnotes' ? footnotes : null,
+    ),
+  );
+}
+
 const pageSection: NodeSpec = {
   content: 'page+',
   defining: true,
@@ -56,7 +126,7 @@ const pageSection: NodeSpec = {
     pageHeader: { default: null },
     pageFooter: { default: null },
   },
-  parseDOM: [{ tag: 'div.pm-section', getAttrs: readSectionAttrs }],
+  parseDOM: [{ tag: 'div.pm-section', getAttrs: readSectionAttrs, getContent: readSectionContent }],
   toDOM: (node) => ['div', writeSectionAttrs(node), 0],
 };
 

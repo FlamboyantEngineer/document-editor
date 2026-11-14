@@ -327,7 +327,7 @@ Verification: `src/document/stored-elements.test.ts`, `e2e/automation-lab.spec.t
 
 ### DOCE-FORMAT-9.2 - Document text
 
-`storedDocumentText(file, schema)` shall give a stored document's text, one line per text block in reading order, each section's footnotes' text after its content: text as it is, a line break as one, and an inline object as the text search reads it as (`shownText`), or nothing when it shows none. It shall read the text with every suggestion accepted, leaving out text a suggestion deletes, and leave out blocks without text and nodes the schema cannot read.
+`storedDocumentText(file, schema)` shall give a stored document's text, one line per text block in reading order, each section's footnotes' text after its content: text as it is, a line break as one, and an inline object as the text search reads it as (`shownText`), or nothing when it shows none. An object's caption, where it shows one, shall be a line before the object's own text, and a linked code block's code a line per line of code, since a reader sees both. It shall read the text with every suggestion accepted, leaving out text a suggestion deletes, and leave out blocks without text and nodes the schema cannot read.
 
 Implementation: `src/document/stored-text.ts`, `src/engine/search-text.ts`
 Verification: `src/document/stored-text.test.ts`, `e2e/automation-lab.spec.ts`
@@ -401,3 +401,10 @@ Verification: `src/document/stored-threads.test.ts`
 
 Implementation: `src/document/authored-content.ts`, `src/session/stored-equality.ts`
 Verification: `src/document/authored-content.test.ts`
+
+### DOCE-FORMAT-9.13 - Outline
+
+`storedOutline(file, { schema, template })` shall list a stored document's headings in reading order as the editor's outline lists them (`documentOutline`): each one's element id, level, text and number as the resolved template numbers it (empty without a template), with `span`, the ids of the top-level elements of the span it heads (`headingSectionSpan`), the heading first. A server reads it from the stored file alone, never handing the library editor objects of its own.
+
+Implementation: `src/document/stored-outline.ts`, `src/engine/outline.ts`
+Verification: `src/document/stored-outline.test.ts`

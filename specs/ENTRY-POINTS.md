@@ -6,7 +6,7 @@ The package has one entry for the browser editor, three entries a server imports
 
 ### DOCE-ENTRY-1.1 - Document operations
 
-`@flamboyantengineer/document-editor/document` shall export the operations that need no editor view: `compareVersions`, `mergeDocuments`, `diffText`, `listSuggestions`, `decideSuggestions`, `referenceTargets`, `updateReferences`, `documentOutline`, `headingSectionSpan`, `assignElementIds`, `repairElementIds`, `applyEdits`, `describeBlocks` and `syncTemplateSections`; the operations on stored documents `applyStoredEdits`, `describeDocument` and `AUTOMATION_SCHEMAS`, `runStoredScripts` and the script builders (`buildScriptHeading`, `buildScriptList`, `buildScriptParagraph`, `buildScriptTable`, `buildScriptText`); and the stored-file readers `findStoredElement`, `storedCitations`, `threadAnchors`, `decideStoredSuggestions`, `documentTargets`, `replaceTemplate`, `validateRequiredSections`, `storedDocumentText`, `storedEmbeds`, `storedContributors`, `updateStoredThreads` and `authoredContent`; all with their types. They shall work on a document read with `./model` in a process with no DOM.
+`@flamboyantengineer/document-editor/document` shall export the operations that need no editor view: `compareVersions`, `mergeDocuments`, `diffText`, `listSuggestions`, `decideSuggestions`, `referenceTargets`, `updateReferences`, `documentOutline`, `headingSectionSpan`, `assignElementIds`, `repairElementIds`, `applyEdits`, `describeBlocks` and `syncTemplateSections`; the operations on stored documents `applyStoredEdits`, `describeDocument` and `AUTOMATION_SCHEMAS`, `runStoredScripts` and the script builders (`buildScriptHeading`, `buildScriptList`, `buildScriptParagraph`, `buildScriptTable`, `buildScriptText`); and the stored-file readers `findStoredElement`, `storedCitations`, `threadAnchors`, `decideStoredSuggestions`, `documentTargets`, `replaceTemplate`, `validateRequiredSections`, `storedDocumentText`, `storedEmbeds`, `storedContributors`, `updateStoredThreads`, `authoredContent` and `storedOutline`; all with their types. They shall work on a document read with `./model` in a process with no DOM.
 
 Implementation: `src/document/index.ts`, `package.json`
 Verification: `test/node-entry.test.ts`
@@ -23,4 +23,11 @@ Verification: `test/node-entry.test.ts`
 `@flamboyantengineer/document-editor/collab` shall import in Node with no `document` or `window` global, and its `documentToYjs` and `yjsToDocument` (DOCE-COLLAB-6.2) shall seed a room from a document read with `./model` and read it back there.
 
 Implementation: `src/collab/index.ts`, `package.json`
+Verification: `test/node-entry.test.ts`
+
+### DOCE-ENTRY-1.4 - No editor view on a server
+
+`./model`, `./document` and `./collab` shall load no package that draws the editor: not React, React Aria, the React ProseMirror view or react-reconciler, and not `@flamboyantengineer/ui-components/rich-text-editor`. The schema builds its kit through `@flamboyantengineer/ui-components/rich-text-editor/kit`, which loads only the ProseMirror model, so a server installs and loads the engine packages alone.
+
+Implementation: `src/model/schema/document-schema.ts`
 Verification: `test/node-entry.test.ts`
