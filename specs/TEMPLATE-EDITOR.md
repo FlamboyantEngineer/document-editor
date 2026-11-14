@@ -153,24 +153,24 @@ Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.1 - Opening templates
 
-`TemplateWorkspace` (`de-template-workspace`) shall edit the templates of a host's template store (`store`, DOCE-HOST-1.24) one at a time: a toolbar (`toolbar`) picks a stored template (DOCE-TEMPLATE-EDITOR-3.8), opening it at its latest revision in the template editor (`settings`, DOCE-TEMPLATE-EDITOR-1) with the other stored templates as its parents, and tells the host which template is open (`onTemplateIdChange`). `defaultTemplateId` opens one at first. What the template inherits is loaded through the store, the base template from the library when the store has none, and the editor shows it as the inherited values. The root publishes `data-dirty` while the open template has changes it has not saved.
+`TemplateWorkspace` (`de-template-workspace`) shall edit the templates of a host's template store (`store`, DOCE-HOST-1.24) one at a time: a toolbar (`toolbar`) picks a stored template (DOCE-TEMPLATE-EDITOR-3.8), opening it at its latest revision in the template editor (`settings`, DOCE-TEMPLATE-EDITOR-1) with the other stored templates as its parents, and tells the host which template is open (`onTemplateIdChange`) once it has loaded; a template that fails to load leaves the one open as it was and shows the store's message. `defaultTemplateId` opens one at first. What the template inherits is loaded through the store, the base template from the library when the store has none, and the editor shows it as the inherited values. The root publishes `data-dirty` while the open template has changes it has not saved.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-workspace/template-requests.ts`, `labs/src/template-workspace.lab.tsx`, `labs/template-workspace.html`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.2 - Saving with a revision guard
 
-Save shall store the open template's changes on the revision it was opened or last saved at; a store that refuses the save as a conflict, because another save came between, leaves the changes and asks the reader to reload the template as stored now, dropping them, or to keep them, saving them over the stored revision. Another failure shows the store's message.
+Save shall store the open template's changes on the revision it was opened or last saved at; a store that refuses the save as a conflict, because another save came between, leaves the changes and asks the reader to reload the template as stored now, dropping them, or to keep them, saving them over the stored revision. Another failure, including one to read the template as stored now, shows the store's message. Changes made while a save is on its way stay in the draft once it returns, unsaved, and the next save stores them on the revision it made.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
-Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `src/components/template-workspace/template-workspace-requests.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.3 - New templates and copies
 
-New template shall open an unsaved template with a free id (`template`, then `template-2` and on) and a name, whose id is a row until its first save (DOCE-TEMPLATE-EDITOR-2.6), which creates it in the store. Save as shall create a copy of the open template's settings, changes included, under an id and name the reader gives in a dialog, and open the copy; an id the store already has is refused, saying so.
+New template shall open an unsaved template with a free id (`template`, then `template-2` and on) and a name, whose id is a row until its first save (DOCE-TEMPLATE-EDITOR-2.6), which creates it in the store. Save as shall create a copy of the open template's settings, changes included, under an id and name the reader gives in a dialog, and open the copy; an id the store already has is refused, saying so while the id field holds that id.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-workspace/template-dialogs.tsx`
-Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `src/components/template-workspace/template-workspace-requests.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.4 - Deleting a template
 
@@ -181,10 +181,10 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-3.5 - History and restoring
 
-With a store that lists versions, History shall show the open template's saved versions (`history`) on the base library's `VersionHistory`, newest first and the current one marked. Selecting another version shows its settings read-only in the editor and the preview, with a banner naming it, which returns to the template or restores the version; restoring, from the banner or the history after its confirmation, saves the version's settings as the template's newest revision.
+With a store that lists versions, History shall show the open template's saved versions (`history`) on the base library's `VersionHistory`, newest first and the current one marked. Selecting another version shows its settings read-only in the editor and the preview, with a banner naming it, which returns to the template or restores the version; restoring, from the banner or the history after its confirmation, saves the version's settings as the template's newest revision. While the template has unsaved changes, which the restore would drop, restoring first asks the reader to save, discard or stay (DOCE-TEMPLATE-EDITOR-3.7).
 
 Implementation: `src/components/template-workspace/template-history.tsx`, `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
-Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`, `src/components/template-workspace/template-workspace-requests.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.6 - The preview and web-layout templates
 
@@ -206,6 +206,13 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`, `
 
 Implementation: `src/components/template-workspace/template-picker.tsx`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`
+
+### DOCE-TEMPLATE-EDITOR-3.9 - Answers that come back late
+
+The workspace shall apply a store's answer only to the template it was asked for: each request is tagged with the template open when it was made, and an answer that comes back after another template, a new one or none was opened is dropped, apart from listing the templates again after a save. Of the requests to show a saved version, only the latest one's answer applies, so a version asked for before the reader went back to the template, or picked another, is not shown. Each request reads the open template as it is when it is made, so a restore or a keep after the guard saved the changes saves on the revision that save made.
+
+Implementation: `src/components/template-workspace/use-open-template.ts`, `src/components/template-workspace/use-template-workspace.ts`
+Verification: `src/components/template-workspace/template-workspace-requests.test.tsx`
 
 ## Hooks
 
