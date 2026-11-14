@@ -35,6 +35,8 @@ export interface DocxReading {
   readonly note: (kind: 'footnote' | 'endnote', id: string) => StoredNode[] | null;
   /** The comment mark of the thread a comment belongs to; null for an unknown comment. */
   readonly commentMark: (id: string) => StoredMark | null;
+  /** The suggestion mark of a tracked change (`w:ins`, `w:del`, `w:moveTo`, `w:moveFrom`). */
+  readonly changeMark: (kind: 'insertion' | 'deletion', change: XmlElement) => StoredMark;
   /** The comments whose ranges are open, and the fields being read, which may span paragraphs. */
   readonly open: { comments: string[]; fields: Field[] };
 }
@@ -232,7 +234,15 @@ function mathText(element: XmlElement, reading: DocxReading): StoredNode[] {
   return [{ type: 'math', ...(source ? { attrs: { source } } : {}) }];
 }
 
-const CONTAINERS = new Set(['w:smartTag', 'w:customXml', 'w:bdo', 'w:dir', 'w:moveTo']);
+const CONTAINERS = new Set(['w:smartTag', 'w:customXml', 'w:bdo', 'w:dir']);
+
+// Tracked changes: text inserted or moved here, and text deleted or moved away.
+const CHANGES = new Map<string, 'insertion' | 'deletion'>([
+  ['w:ins', 'insertion'],
+  ['w:moveTo', 'insertion'],
+  ['w:del', 'deletion'],
+  ['w:moveFrom', 'deletion'],
+]);
 
 // One child of a paragraph or of an inline container.
 function inlineChild(element: XmlElement, reading: DocxReading, marks: StoredMark[]): StoredNode[] {
@@ -242,10 +252,13 @@ function inlineChild(element: XmlElement, reading: DocxReading, marks: StoredMar
     const link = hyperlinkMark(element, reading);
     return readInlineContent(element, reading, link ? withMark(marks, link) : marks);
   }
-  if (name === 'w:ins')
-    return readInlineContent(element, reading, withMark(marks, { type: 'insertion' }));
-  if (name === 'w:del' || name === 'w:moveFrom') {
-    return readInlineContent(element, reading, withMark(marks, { type: 'deletion' }));
+  const change = CHANGES.get(name);
+  if (change) {
+    return readInlineContent(
+      element,
+      reading,
+      withMark(marks, reading.changeMark(change, element)),
+    );
   }
   if (name === 'w:commentRangeStart') reading.open.comments.push(element.attrs['w:id'] ?? '');
   if (name === 'w:commentRangeEnd') {
