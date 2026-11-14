@@ -1,6 +1,7 @@
 // The document editor lab's agent: buttons that act on the live document through the automation
 // API as an agent would, by element id, directly or as suggestions, and a stream that writes a
-// note piece by piece. It reads the document first (`describeBlocks`), as an agent does.
+// note piece by piece. It reads the document first (`describeBlocks`), as an agent does. Its
+// provider of actions on the selected text shortens each selected passage to its first words.
 
 import type { EditorView } from 'prosemirror-view';
 import { useRef, useState } from 'react';
@@ -9,10 +10,24 @@ import {
   applyEdits,
   type AutomationEdit,
   describeBlocks,
+  runSelectionAction,
   streamText,
 } from '../../src/engine/index.js';
+import type { SelectionActionsAdapter } from '../../src/host/index.js';
 
 const AGENT: Actor = { id: 'lab-agent', kind: 'agent', session: 'lab-session' };
+
+// The lab's provider: each selected passage of more than three words keeps its first three.
+const SHORTEN: SelectionActionsAdapter = {
+  agent: AGENT.id,
+  run: ({ passages }) => {
+    const replacements = passages
+      .map((passage) => ({ passage, words: passage.text.trim().split(/\s+/) }))
+      .filter(({ words }) => words.length > 3)
+      .map(({ passage, words }) => ({ ...passage, text: `${words.slice(0, 3).join(' ')}…` }));
+    return Promise.resolve({ ok: true, value: { replacements, session: AGENT.session } });
+  },
+};
 
 // The first paragraph after the heading named `title`.
 function paragraphAfter(view: EditorView, title: string) {
@@ -64,6 +79,11 @@ export function AgentPanel({ view }: { view: EditorView | null }) {
         },
       ];
     });
+  const shorten = async () => {
+    if (!view) return;
+    const result = await runSelectionAction(view, SHORTEN, { action: 'shorten', mode });
+    setReport(result.ok ? 'Shortened the selection' : `Not shortened: ${result.reason}`);
+  };
   const stream = () => {
     const block = view && paragraphAfter(view, 'Interfaces');
     if (!view || !block || streaming.current !== null) return;
@@ -99,6 +119,9 @@ export function AgentPanel({ view }: { view: EditorView | null }) {
       </button>
       <button type="button" onClick={comment}>
         Comment on a sentence
+      </button>
+      <button type="button" onClick={() => void shorten()}>
+        Shorten the selection
       </button>
       <button type="button" onClick={stream}>
         Stream a note

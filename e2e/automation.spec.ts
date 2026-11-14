@@ -35,6 +35,20 @@ test.describe('automation', () => {
     await expect(content(page).locator('mark[data-comment-id]')).toHaveCount(1);
   });
 
+  test('DOCE-AUTOMATION-5.2 a provider shortens the selected text as the agent’s suggestion', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const paragraph = content(page).locator('p', { hasText: 'condition' }).first();
+    await paragraph.click();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Shift+End');
+    await page.getByRole('button', { name: 'Shorten the selection' }).click();
+    await expect(report(page)).toHaveText('Shortened the selection');
+    await expect(content(page).locator('ins', { hasText: '…' })).toHaveCount(1);
+  });
+
   test('DOCE-AUTOMATION-2.2 an agent streams a note piece by piece as one suggestion', async ({
     lab,
     page,
