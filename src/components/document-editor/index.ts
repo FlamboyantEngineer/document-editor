@@ -37,6 +37,7 @@ export type { DocumentOverviewOptions } from './editor-overview.js';
 export { OVERVIEW_LAYERS } from './editor-overview.js';
 export { useDocumentEditorState } from './editor-store.js';
 export { CODE_LANGUAGES } from './element-entries.js';
+export type { MentionOptions } from './mention-menu.js';
 export type { DocumentMenu, DocumentMenubarOptions } from './menubar-menus.js';
 export { menubarMenus } from './menubar-menus.js';
 export type { ObjectLabels } from './object-labels.js';

@@ -32,6 +32,7 @@ export type {
   EditorSession,
   FindBarMode,
   HostDialogProps,
+  MentionOptions,
   ObjectDialog,
   SelectionToolbarOptions,
   SlashMenuItem,

@@ -1,6 +1,7 @@
 // The editor's opt-in chrome in the text itself: a toolbar over selected text, and the menus the
 // writer opens by typing.
 
+import type { MentionOptions } from './mention-menu.js';
 import type { SelectionToolbarOptions } from './selection-toolbar.js';
 import type { SlashMenuOptions } from './slash-menu.js';
 
@@ -18,4 +19,9 @@ export interface TextChromeProps {
    * given as options. Defaults to false.
    */
   slashMenu?: boolean | SlashMenuOptions | undefined;
+  /**
+   * Opens a menu of the people whose names match what the writer types after `@`, as the host's
+   * mentions adapter finds them, and inserts the person chosen as a mention.
+   */
+  mentions?: MentionOptions | undefined;
 }
