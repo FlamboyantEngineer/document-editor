@@ -107,10 +107,20 @@ function templateDocument(
   };
 }
 
+// The sections to add to the required ones: `also`, and the template's first editable section when
+// neither the required sections nor `also` hold an editable one, so the content has one to fill.
+function withFirstEditable(template: TemplateFile, also: ReadonlySet<string>): Set<string> {
+  const editable = (template.sections ?? []).filter((section) => !isLocked(section));
+  const chosen = editable.some((section) => section.required === true || also.has(section.name));
+  const first = editable[0];
+  return new Set(chosen || !first ? also : [...also, first.name]);
+}
+
 /**
  * A document of a template made from content brought in from elsewhere (DOCE-IMPORT-3.2). A
  * section of `content` named after one of the template's editable sections fills that section; the
- * rest, in order, fills `section`, or the first editable section. The template's other required
+ * rest, in order, fills `section`, or the first editable section the document has: its required
+ * ones and the ones named, else the template's first editable one, added. The template's other required
  * sections keep their content as `createDocumentFile` gives it; the content's own section settings
  * are left out, since the template's apply. Each table wider than its section's pages' content is
  * fitted to it, and every element of an editable section without a unique id gets one.
@@ -128,7 +138,7 @@ export function composeDocumentFile(
       (name): name is string => typeof name === 'string',
     ),
   );
-  const created = templateDocument(options, also);
+  const created = templateDocument(options, withFirstEditable(template, also));
   const sections = created.sections.map((section) => ({ ...section }));
   const editable = sections.filter((section) => !isLocked(section));
   const named = (name: string | null | undefined) =>

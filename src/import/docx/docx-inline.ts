@@ -5,6 +5,7 @@
 // out with a warning; so is the result of a field it has no node for, which stays as text.
 
 import type { StoredMark, StoredNode } from '../../model/format/document-format.js';
+import { safeHref } from '../../model/schema/dom-attributes.js';
 import type { ImportWarnings } from '../import-warnings.js';
 import { joinText, textNode, withMark } from '../stored-inline.js';
 import {
@@ -23,6 +24,8 @@ import type { DocxStyles } from './docx-styles.js';
 interface Field {
   instruction: string;
   result: boolean;
+  /** A `HYPERLINK` field's link, read once its result starts; null for none. */
+  link?: StoredMark | null;
 }
 
 /** What reading a part needs: the part, the document's styles and notes, and the state that runs on from one paragraph to the next. */
@@ -88,23 +91,52 @@ function runMarks(rPr: XmlElement | null, reading: DocxReading): StoredMark[] {
   return marks;
 }
 
+// A field's name, the first word of its instruction, such as `PAGE` or `HYPERLINK`.
+const fieldName = (field: Field | undefined) =>
+  /^\s*(\S+)/.exec(field?.instruction ?? '')?.[1]?.toUpperCase() ?? '';
+
+// A link to an address the editor may hold, or null with a warning for one it may not, such as a
+// `javascript:` address.
+function linkMark(address: string, reading: DocxReading): StoredMark | null {
+  const href = safeHref(address);
+  if (href === null) reading.warnings.add('content-left-out', 'unsafe link');
+  return href === null ? null : { type: 'link', attrs: { href } };
+}
+
+// The address a `HYPERLINK` field's instruction names: its target, or `#<bookmark>` for `\l`.
+function fieldAddress(instruction: string): string | null {
+  const argument = String.raw`(?:"([^"]*)"|(\S+))`;
+  const target = new RegExp(String.raw`^\s*HYPERLINK\s+(?!\\)${argument}`, 'i').exec(instruction);
+  const bookmark = new RegExp(String.raw`\\l\s+${argument}`, 'i').exec(instruction);
+  const address = target?.[1] ?? target?.[2] ?? '';
+  const anchor = bookmark?.[1] ?? bookmark?.[2];
+  const href = anchor ? `${address}#${anchor}` : address;
+  return href || null;
+}
+
+// The link mark of a `HYPERLINK` field, once its instruction is complete; null for another field.
+function fieldLink(field: Field, reading: DocxReading): StoredMark | null {
+  if (field.link === undefined) {
+    const address = fieldName(field) === 'HYPERLINK' ? fieldAddress(field.instruction) : null;
+    field.link = address === null ? null : linkMark(address, reading);
+  }
+  return field.link;
+}
+
 // The nodes a field gives at its end: a page variable for a page field, else none.
 function endField(reading: DocxReading): StoredNode[] {
   const field = reading.open.fields.pop();
-  const name = /^\s*(\S+)/.exec(field?.instruction ?? '')?.[1]?.toUpperCase() ?? '';
+  const name = fieldName(field);
   const key = PAGE_FIELDS[name];
   if (key) return [{ type: 'variable', attrs: { key } }];
-  if (name && name !== 'HYPERLINK') reading.warnings.add('field-as-text', name);
+  const linked = name === 'HYPERLINK' && field?.link;
+  if (name && !linked) reading.warnings.add('field-as-text', name);
   return [];
 }
 
 // Whether text being read now is a page field's instruction or result, which is not kept.
 function inHiddenField(reading: DocxReading): boolean {
-  return reading.open.fields.some((field) => {
-    if (!field.result) return true;
-    const name = /^\s*(\S+)/.exec(field.instruction)?.[1]?.toUpperCase() ?? '';
-    return name in PAGE_FIELDS;
-  });
+  return reading.open.fields.some((field) => !field.result || fieldName(field) in PAGE_FIELDS);
 }
 
 function fieldChar(element: XmlElement, reading: DocxReading): StoredNode[] {
@@ -205,12 +237,16 @@ function readRun(run: XmlElement, reading: DocxReading, around: StoredMark[]): S
     const mark = reading.commentMark(id);
     if (mark) marks = withMark(marks, mark);
   }
+  for (const field of reading.open.fields) {
+    const link = field.result ? fieldLink(field, reading) : null;
+    if (link) marks = withMark(marks, link);
+  }
   return readRunContent(run, reading, marks);
 }
 
 function hyperlinkMark(element: XmlElement, reading: DocxReading): StoredMark | null {
   const relationship = reading.part.relationships.get(element.attrs['r:id'] ?? '');
-  return relationship?.external ? { type: 'link', attrs: { href: relationship.target } } : null;
+  return relationship?.external ? linkMark(relationship.target, reading) : null;
 }
 
 // A content control: a variable the writer tagged, or the content it holds.

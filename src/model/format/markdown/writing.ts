@@ -11,6 +11,8 @@ export interface Writing {
   readonly footnotes: string[];
   /** Whether a table's cell is being written, where a pipe ends the cell even in code. */
   readonly inTable?: boolean;
+  /** Whether a heading is being written, which is one line. */
+  readonly inHeading?: boolean;
 }
 
 /** A stored value as text: a string as it is, anything else as none. */

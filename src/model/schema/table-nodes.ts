@@ -166,7 +166,7 @@ const verticalAlignOf = (value: unknown) =>
   VERTICAL_ALIGNMENTS.find((each) => each === value) ?? 'middle';
 
 /** The most rows or columns a cell spans: the most columns HTML lets a cell span. */
-const MAX_SPAN = 1000;
+export const MAX_SPAN = 1000;
 
 // A span from markup: a whole number within the limits, or 1 when it is not a number.
 function readSpan(dom: HTMLElement, name: 'colspan' | 'rowspan'): number {

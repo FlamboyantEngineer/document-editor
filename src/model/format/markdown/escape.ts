@@ -2,9 +2,19 @@
 // they are: the characters Markdown reads as formatting escaped, code fenced by a longer run of
 // backticks than it holds, and addresses written so a space or a parenthesis cannot end them.
 
-/** Escapes the characters Markdown would read as formatting, and an entity it would decode. */
+/**
+ * Escapes the characters Markdown would read as formatting or math, an entity it would decode, and
+ * a double brace that would open a variable.
+ */
 export const escapeText = (value: string): string =>
-  value.replace(/([\\`*_[\]<>|~])/g, '\\$1').replace(/&(?=#?\w+;)/g, '\\&');
+  value
+    .replace(/([\\`*_[\]<>|~$])/g, '\\$1')
+    .replace(/&(?=#?\w+;)/g, '\\&')
+    .replace(/\{(?=\{)/g, '\\{');
+
+/** Inline math's source between dollar signs: a dollar sign no backslash escapes, escaped. */
+export const mathText = (source: string): string =>
+  source.replace(/\\[\s\S]|\$/g, (found) => (found === '$' ? '\\$' : found));
 
 /**
  * Escapes what Markdown would read at the start of a line as a block: a heading (`# `), a list item
