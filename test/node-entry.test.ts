@@ -84,3 +84,37 @@ describe('server-safe entry points', () => {
     expect(typeof window).toBe('undefined');
   });
 });
+
+describe('server entry packages', () => {
+  // Packages that draw the editor; a server entry that loads one installs and runs the browser stack.
+  const VIEW_PACKAGES =
+    /^(react|react-dom|react-aria|react-aria-components|react-stately|react-reconciler|@handlewithcare\/react-prosemirror|@flamboyantengineer\/ui-components\/rich-text-editor)$/;
+
+  // The packages an entry loads at run time: its modules bundled, every package left external, and
+  // type-only imports dropped as the compiled entry drops them.
+  async function loadedPackages(entry: string): Promise<string[]> {
+    const { build } = await import('esbuild');
+    const result = await build({
+      entryPoints: [entry],
+      bundle: true,
+      write: false,
+      metafile: true,
+      platform: 'node',
+      format: 'esm',
+      packages: 'external',
+      logLevel: 'silent',
+    });
+    const imports = Object.values(result.metafile.outputs).flatMap((output) => output.imports);
+    return [...new Set(imports.filter((item) => item.external).map((item) => item.path))];
+  }
+
+  it('DOCE-ENTRY-1.4 loads no editor view package from ./model, ./document or ./collab', async () => {
+    for (const entry of ['src/model/index.ts', 'src/document/index.ts', 'src/collab/index.ts']) {
+      const packages = await loadedPackages(entry);
+      expect(
+        packages.filter((name) => VIEW_PACKAGES.test(name)),
+        entry,
+      ).toEqual([]);
+    }
+  }, 30_000);
+});

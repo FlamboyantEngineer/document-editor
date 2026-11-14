@@ -24,3 +24,10 @@ Verification: `test/node-entry.test.ts`
 
 Implementation: `src/collab/index.ts`, `package.json`
 Verification: `test/node-entry.test.ts`
+
+### DOCE-ENTRY-1.4 - No editor view on a server
+
+`./model`, `./document` and `./collab` shall load no package that draws the editor: not React, React Aria, the React ProseMirror view or react-reconciler, and not `@flamboyantengineer/ui-components/rich-text-editor`. The schema builds its kit through `@flamboyantengineer/ui-components/rich-text-editor/kit`, which loads only the ProseMirror model, so a server installs and loads the engine packages alone.
+
+Implementation: `src/model/schema/document-schema.ts`
+Verification: `test/node-entry.test.ts`

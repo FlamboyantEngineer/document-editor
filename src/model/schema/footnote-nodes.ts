@@ -1,6 +1,6 @@
 // Footnotes: the inline marker in the text, and the entries in each page's footnote area.
 
-import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor';
+import type { RichTextExtension } from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { type DomAttributes, integerAttributeOrNull } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';

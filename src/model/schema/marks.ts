@@ -4,7 +4,7 @@
 import type {
   RichTextExtension,
   RichTextExtensionMark,
-} from '@flamboyantengineer/ui-components/rich-text-editor';
+} from '@flamboyantengineer/ui-components/rich-text-editor/kit';
 import type { Mark, MarkSpec } from 'prosemirror-model';
 import { marks as basicMarks } from 'prosemirror-schema-basic';
 import {
