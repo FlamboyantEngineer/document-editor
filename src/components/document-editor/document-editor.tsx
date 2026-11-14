@@ -69,6 +69,7 @@ import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
 import { type EditorSession, useSaveShortcut } from './save-status-item.js';
 import { usePinnedScripts } from './script-entries.js';
+import type { SelectionToolbarOptions } from './selection-toolbar.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
@@ -147,6 +148,12 @@ export interface DocumentEditorProps
    * host when given as options. Defaults to false.
    */
   menubar?: boolean | DocumentMenubarOptions | undefined;
+  /**
+   * Shows a toolbar floating over selected text, with the character formats, the link and a
+   * comment, and the host's items when given as options. Alt+F10 moves focus into it. Defaults to
+   * false.
+   */
+  selectionToolbar?: boolean | SelectionToolbarOptions | undefined;
   /**
    * Scrolls the document inside the editor, with overlay scrollbars, the toolbar staying above it;
    * the host gives the editor its height. Defaults to false.

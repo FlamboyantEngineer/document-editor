@@ -815,3 +815,12 @@
   width: 6px;
   pointer-events: none;
 }
+
+/* The toolbar over selected text: the base library draws the popover; the editor keeps it compact. */
+.de-document-editor__selection-toolbar {
+  padding: 2px 4px;
+  border: 1px solid var(--ref-border, #d0d7de);
+  border-radius: 6px;
+  background: var(--ref-raised, #fff);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+}

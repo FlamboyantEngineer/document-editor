@@ -29,6 +29,7 @@ import { figurePasteOptions } from './figure-paste.js';
 import type { InsertFeatures } from './insert-controls.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
+import { DocumentSelectionToolbar, type SelectionToolbarOptions } from './selection-toolbar.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
@@ -41,6 +42,7 @@ const NO_TOOLBAR_OPTIONS: DocumentToolbarOptions = {};
 const NO_MENU_OPTIONS: DocumentContextMenuOptions = {};
 const NO_MENUBAR_OPTIONS: DocumentMenubarOptions = {};
 const NO_STATUS_BAR_OPTIONS: DocumentStatusBarOptions = {};
+const NO_SELECTION_OPTIONS: SelectionToolbarOptions = {};
 
 /** What the chrome reads. */
 export interface ChromeProps {
@@ -205,8 +207,8 @@ function TopChrome({
   );
 }
 
-/** The status bar below the document. */
-function BottomChrome({ props, context, pages }: BottomChromeProps) {
+/** The status bar below the document, and the toolbar over selected text. */
+function BottomChrome({ props, context, pages, view, startCommentRef }: BottomChromeProps) {
   const { layout = 'page' } = props;
   const zoom = useEditorZoom(props);
   return (
@@ -221,6 +223,14 @@ function BottomChrome({ props, context, pages }: BottomChromeProps) {
           zoom={zoom}
           onLayoutChange={props.onLayoutChange}
           pages={pages}
+        />
+      ) : null}
+      {props.selectionToolbar ? (
+        <DocumentSelectionToolbar
+          context={context}
+          view={view}
+          startCommentRef={startCommentRef}
+          options={props.selectionToolbar === true ? NO_SELECTION_OPTIONS : props.selectionToolbar}
         />
       ) : null}
     </>
