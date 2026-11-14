@@ -69,6 +69,7 @@ export {
 } from './script-output.js';
 export type { StoredScriptsOptions, StoredScriptsRun } from './scripts.js';
 export { findStaleStoredScripts, runStoredScripts } from './scripts.js';
+export { writeStaticHtml } from './static-html.js';
 export type { StoredContributorsOptions } from './stored-contributors.js';
 export { storedContributors } from './stored-contributors.js';
 export type {

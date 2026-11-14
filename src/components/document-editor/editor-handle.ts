@@ -1,6 +1,7 @@
 // The editor's handle, for a host that drives it from outside: focusing it, taking the reader to an
 // element, selecting by element id, running a command or a batch of automation edits.
 
+import type { Attrs } from 'prosemirror-model';
 import { type Command, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type Ref, type RefObject, useImperativeHandle, useMemo, useRef } from 'react';
@@ -14,6 +15,7 @@ import {
   documentSnapshot,
   documentSnapshotWhenReady,
   type EditAddress,
+  isActive,
   type ReadySnapshotOptions,
   revealElement,
   type RevealOptions,
@@ -93,6 +95,13 @@ export interface DocumentEditorHandle {
   snapshotOutline(): SnapshotOutlineEntry[];
   /** Runs a command on the latest state; false when it does not apply. */
   run(command: Command): boolean;
+  /** Whether a command applies to the latest state, without running it; false unmounted. */
+  can(command: Command): boolean;
+  /**
+   * Whether the mark or node of a schema name holds at the latest selection, with each of
+   * `attrs` when given (`isActive`); false unmounted.
+   */
+  isActive(name: string, attrs?: Attrs): boolean;
   /** Applies a batch of automation edits (DOCE-AUTOMATION) and dispatches it when it is accepted. */
   applyEdits(edits: readonly AutomationEdit[], options: AutomationOptions): AutomationResult | null;
   /**
@@ -235,6 +244,8 @@ export function useEditorHandle(
         view.focus();
         return ran;
       },
+      can: (command) => (view ? command(view.state, undefined, view) : false),
+      isActive: (name, attrs) => (view ? isActive(view.state, name, attrs) : false),
       applyEdits(edits, options) {
         if (!view) return null;
         const result = applyEdits(view.state, edits, options);
