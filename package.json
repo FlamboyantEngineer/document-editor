@@ -75,6 +75,7 @@
     "check:references": "node scripts/check-references.mjs",
     "check:specs": "node scripts/check-specs.mjs",
     "check:bundle-size": "node scripts/check-bundle-size.mjs",
+    "check:consumer": "node scripts/check-consumer.mjs",
     "build:labs": "node scripts/build-labs.mjs",
     "serve:labs": "node scripts/serve-labs.mjs",
     "labs": "node scripts/start-labs.mjs",
@@ -83,9 +84,9 @@
     "check": "node scripts/check.mjs"
   },
   "peerDependencies": {
-    "@flamboyantengineer/ui-components": ">=0.1.0",
+    "@flamboyantengineer/ui-components": "~0.1.0",
     "@handlewithcare/react-prosemirror": "^3.2.11",
-    "@y/y": "^14.0.0-rc.23",
+    "@y/y": "14.0.0-rc.23",
     "katex": "^0.19.1",
     "lib0": "1.0.0-rc.22",
     "prosemirror-commands": "^1.7.2",
@@ -96,7 +97,7 @@
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.8.5",
     "prosemirror-transform": "^1.12.5",
-    "prosemirror-view": "^1.42.3",
+    "prosemirror-view": "1.42.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-reconciler": "^0.33.0"
@@ -135,7 +136,7 @@
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.8.5",
     "prosemirror-transform": "^1.12.5",
-    "prosemirror-view": "^1.42.3",
+    "prosemirror-view": "1.42.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-reconciler": "^0.33.0",
