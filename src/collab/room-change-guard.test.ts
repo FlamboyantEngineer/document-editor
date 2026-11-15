@@ -4,6 +4,7 @@ import {
   createMemoryPersistence,
   createRoomServer,
   type RoomAdmission,
+  type RoomHandle,
   type RoomServer,
   type RoomWriteRules,
 } from '@flamboyantengineer/collaboration-tools/server';
@@ -20,13 +21,20 @@ import { CONTENT_TYPE, readContent } from './delta.js';
 import { diffNodes } from './diff.js';
 import { openRoomChangeGuard } from './room-change-guard.js';
 
-const CAPABILITIES = { comment: 'comment', review: 'review', content: 'edit' } as const;
-
 const ADMISSIONS: Record<string, string[]> = {
-  editor: ['edit'],
-  reviewer: ['review'],
+  editor: ['edit', 'comment'],
+  suggester: ['suggest'],
+  decider: ['decide'],
   commenter: ['comment'],
 };
+
+// The host's trusted resolver: each capability grants its own permission and nothing else.
+const permissions = (_actor: { id: string }, capabilities: ReadonlySet<string>) => ({
+  edit: capabilities.has('edit'),
+  suggest: capabilities.has('suggest'),
+  decide: capabilities.has('decide'),
+  comment: capabilities.has('comment'),
+});
 
 const servers: RoomServer[] = [];
 
@@ -61,7 +69,7 @@ const settle = async () => {
 // A room server whose rules open the change guard, with a room seeded by the host.
 async function serveRoom(paragraphs: number) {
   const rules: RoomWriteRules = {
-    openGuard: (shadow) => openRoomChangeGuard(shadow, { schema, capabilities: CAPABILITIES }),
+    openGuard: (shadow) => openRoomChangeGuard(shadow, { schema, permissions }),
   };
   const server = createRoomServer({
     host: {
@@ -81,7 +89,10 @@ async function serveRoom(paragraphs: number) {
   servers.push(server);
   const handle = await server.openRoom('notes');
   const newId = counter();
-  writeRoomDocument(handle.doc, file(paragraphs), { schema, newId });
+  const seeded = handle.transact({ actor: { id: 'host' }, capabilities: ['edit'] }, (doc) =>
+    writeRoomDocument(doc, file(paragraphs), { schema, newId }),
+  );
+  if (!seeded) throw new Error('The host could not seed the room.');
   return { server, handle, newId };
 }
 
@@ -89,16 +100,28 @@ async function serveRoom(paragraphs: number) {
 // sends each change as one frame; `closed` records whether the server closed it.
 function joinAs(room: Awaited<ReturnType<typeof serveRoom>>, token: string) {
   const doc = new Y.Doc();
-  Y.applyUpdate(doc, Y.encodeStateAsUpdate(room.handle.doc));
+  Y.applyUpdate(doc, room.handle.snapshot());
   let closed = false;
   const connection = room.server.connect(
     { send: () => undefined, close: () => (closed = true) },
     { url: `/live/notes?token=${token}`, headers: {} },
   );
   let state = EditorState.create({ doc: readContent(schema, doc.get(CONTENT_TYPE)) ?? undefined });
+  const send = (change: () => void) => {
+    const updates: Uint8Array[] = [];
+    const capture = (update: Uint8Array) => updates.push(update);
+    doc.on('update', capture);
+    doc.transact(change);
+    doc.off('update', capture);
+    for (const update of updates) connection.receive(encodeSyncUpdate(update));
+  };
   return {
     get closed() {
       return closed;
+    },
+    /** Writes to the writer's copy of the room directly, as a raw client could. */
+    write(change: (doc: Y.Doc) => void) {
+      send(() => change(doc));
     },
     edit(change: (state: EditorState) => Transaction, suggesting?: string) {
       const tr = change(state);
@@ -108,13 +131,9 @@ function joinAs(room: Awaited<ReturnType<typeof serveRoom>>, token: string) {
       if (!rewritten) throw new Error('The change did nothing.');
       assignElementIds(rewritten, { newId: room.newId });
       const next = state.apply(rewritten);
-      const updates: Uint8Array[] = [];
-      const capture = (update: Uint8Array) => updates.push(update);
-      doc.on('update', capture);
-      doc.transact(() => doc.get(CONTENT_TYPE).applyDelta(diffNodes(state.doc, next.doc) as never));
-      doc.off('update', capture);
+      const delta = diffNodes(state.doc, next.doc);
       state = next;
-      for (const update of updates) connection.receive(encodeSyncUpdate(update));
+      send(() => doc.get(CONTENT_TYPE).applyDelta(delta as never));
     },
   };
 }
@@ -137,43 +156,71 @@ const typeAt =
     return state.tr.setSelection(TextSelection.create(state.doc, at)).insertText(text);
   };
 
-const roomText = (doc: Y.Doc) => readContent(schema, doc.get(CONTENT_TYPE))?.textContent ?? '';
+// The room's text as the server holds it.
+function roomText(handle: RoomHandle): string {
+  const doc = new Y.Doc();
+  Y.applyUpdate(doc, handle.snapshot());
+  return readContent(schema, doc.get(CONTENT_TYPE))?.textContent ?? '';
+}
+
+function roomDoc(handle: RoomHandle): Y.Doc {
+  const doc = new Y.Doc();
+  Y.applyUpdate(doc, handle.snapshot());
+  return doc;
+}
 
 describe('room change guard', () => {
-  it('DOCE-COLLAB-6.7 keeps each writer to the permission their capabilities give, on a real room server', async () => {
+  it('DOCE-COLLAB-6.7 keeps each writer to the permissions the host resolves, on a real room server', async () => {
     const room = await serveRoom(3);
     const editor = joinAs(room, 'editor');
-    const reviewer = joinAs(room, 'reviewer');
+    const suggester = joinAs(room, 'suggester');
     const commenter = joinAs(room, 'commenter');
     await settle();
 
     editor.edit(typeAt('Paragraph 0', 'Edited. '));
-    reviewer.edit(typeAt('Paragraph 1', 'Suggested. '), 'reviewer');
+    suggester.edit(typeAt('Paragraph 1', 'Suggested. '), 'suggester');
     await settle();
     commenter.edit(typeAt('Paragraph 2', 'Not allowed. '));
     await settle();
 
-    expect([editor.closed, reviewer.closed, commenter.closed]).toEqual([false, false, true]);
-    expect(roomText(room.handle.doc)).toContain('Edited. Paragraph 0');
-    expect(roomText(room.handle.doc)).toContain('Suggested. Paragraph 1');
-    expect(roomText(room.handle.doc)).not.toContain('Not allowed.');
+    expect([editor.closed, suggester.closed, commenter.closed]).toEqual([false, false, true]);
+    expect(roomText(room.handle)).toContain('Edited. Paragraph 0');
+    expect(roomText(room.handle)).toContain('Suggested. Paragraph 1');
+    expect(roomText(room.handle)).not.toContain('Not allowed.');
     room.handle.release();
   });
 
-  it('DOCE-COLLAB-6.7 refuses a reviewer’s plain edit and keeps sorting the next writer’s updates', async () => {
+  it('DOCE-COLLAB-6.7 grants no permission through another: a suggester may not edit, a decider may not suggest', async () => {
     const room = await serveRoom(2);
-    const reviewer = joinAs(room, 'reviewer');
+    const suggester = joinAs(room, 'suggester');
+    const decider = joinAs(room, 'decider');
     const editor = joinAs(room, 'editor');
     await settle();
 
-    reviewer.edit(typeAt('Paragraph 0', 'Plain. '));
+    suggester.edit(typeAt('Paragraph 0', 'Plain. '));
+    await settle();
+    decider.edit(typeAt('Paragraph 1', 'Proposed. '), 'decider');
     await settle();
     editor.edit(typeAt('Paragraph 1', 'Kept. '));
     await settle();
 
-    expect([reviewer.closed, editor.closed]).toEqual([true, false]);
-    expect(roomText(room.handle.doc)).not.toContain('Plain.');
-    expect(roomText(room.handle.doc)).toContain('Kept. Paragraph 1');
+    expect([suggester.closed, decider.closed, editor.closed]).toEqual([true, true, false]);
+    expect(roomText(room.handle)).not.toContain('Plain.');
+    expect(roomText(room.handle)).not.toContain('Proposed.');
+    expect(roomText(room.handle)).toContain('Kept. Paragraph 1');
+    room.handle.release();
+  });
+
+  it('DOCE-COLLAB-6.7 refuses a change to a type outside the room’s layout, whoever writes it', async () => {
+    const room = await serveRoom(1);
+    const editor = joinAs(room, 'editor');
+    await settle();
+
+    editor.write((doc) => doc.get('elsewhere').setAttr('hidden', 'data'));
+    await settle();
+
+    expect(editor.closed).toBe(true);
+    expect(roomDoc(room.handle).get('elsewhere').getAttr('hidden')).toBeUndefined();
     room.handle.release();
   });
 
@@ -181,7 +228,7 @@ describe('room change guard', () => {
     const room = await serveRoom(1_000);
     const editor = joinAs(room, 'editor');
     await settle();
-    const size = Y.encodeStateAsUpdate(room.handle.doc).length;
+    const size = room.handle.snapshot().length;
 
     const started = performance.now();
     for (let keystroke = 0; keystroke < 50; keystroke += 1) {

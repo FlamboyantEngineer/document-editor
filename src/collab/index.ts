@@ -43,11 +43,13 @@ export {
   type RoomChangeGuard,
   type RoomChangeGuardOptions,
   type RoomGuardRequest,
+  type RoomPermissions,
 } from './room-change-guard.js';
 export {
+  type RoomChange,
   type RoomChangeActor,
   type RoomChangeOptions,
-  type RoomChangeTier,
+  type RoomChangePermission,
   type RoomChangeWatch,
   watchRoomChanges,
 } from './room-changes.js';

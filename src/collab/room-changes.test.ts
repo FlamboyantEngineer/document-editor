@@ -18,7 +18,7 @@ import type { DocumentFile } from '../model/format/document-format.js';
 import { COMMENTS_TYPE, META_TYPE, writeRoomDocument } from './convert.js';
 import { CONTENT_TYPE, readContent } from './delta.js';
 import { diffNodes } from './diff.js';
-import { type RoomChangeTier, watchRoomChanges } from './room-changes.js';
+import { type RoomChange, watchRoomChanges } from './room-changes.js';
 
 const file = (...texts: string[]): DocumentFile =>
   ({
@@ -60,7 +60,15 @@ interface Run {
 }
 
 // A room seeded with a document, a watch on it, and one writer's editor state that sends each of
-// its changes to the room as the binding does, recording the tier the watch gives each update.
+// its changes to the room as the binding does, recording what the watch says each update needs.
+// What an update needs, as one label: its permissions in order, `outside` when it changes a type
+// outside the layout, and null when it needs nothing.
+function labelOf({ needs, outside }: RoomChange): string | null {
+  const parts: string[] = [...needs].sort();
+  if (outside) parts.push('outside');
+  return parts.length > 0 ? parts.join('+') : null;
+}
+
 function createRoom(...texts: string[]) {
   const doc = new Y.Doc();
   const newId = counter();
@@ -68,10 +76,10 @@ function createRoom(...texts: string[]) {
   const watch = watchRoomChanges(doc, { schema });
   // The writer opens the room's document, with the ids its seed gave the elements.
   let state = EditorState.create({ doc: readContent(schema, doc.get(CONTENT_TYPE)) ?? undefined });
-  const tiers: { tier: RoomChangeTier | null; author: string | null }[] = [];
+  const tiers: { tier: string | null; author: string | null }[] = [];
   let author: string | null = null;
   doc.on('afterTransaction', (transaction: Y.Transaction) => {
-    tiers.push({ tier: watch.classify(transaction, { author }), author });
+    tiers.push({ tier: labelOf(watch.classify(transaction, { author })), author });
   });
   const send = (next: EditorState) => {
     const change = diffNodes(state.doc, next.doc);
@@ -89,7 +97,7 @@ function createRoom(...texts: string[]) {
     as(name: string | null) {
       author = name;
     },
-    // Runs a command on the writer's state and gives the tier of its update; one that does nothing
+    // Runs a command on the writer's state and gives what its update needs; one that does nothing
     // between positions gives undefined.
     run(command: Command, { select, at, suggesting }: Run = {}) {
       let start = state;
@@ -148,25 +156,25 @@ describe('room change classification', () => {
     expect(room.tiers.at(-1)?.tier).toBe('comment');
   });
 
-  it('DOCE-COLLAB-6.6 sorts the writer’s own suggestions as a review', () => {
+  it('DOCE-COLLAB-6.6 sorts the writer’s own suggestions as suggest', () => {
     const room = createRoom('hello world');
     room.as('w1');
-    expect(room.run(typing('new '), { select: ['world'], suggesting: 'w1' })).toBe('review');
-    expect(room.run(deleting, { select: ['hello', 5], suggesting: 'w1' })).toBe('review');
-    expect(room.run(splitBlock, { select: ['rld'], suggesting: 'w1' })).toBe('review');
+    expect(room.run(typing('new '), { select: ['world'], suggesting: 'w1' })).toBe('suggest');
+    expect(room.run(deleting, { select: ['hello', 5], suggesting: 'w1' })).toBe('suggest');
+    expect(room.run(splitBlock, { select: ['rld'], suggesting: 'w1' })).toBe('suggest');
     // Deleting part of their own suggested insertion removes it.
-    expect(room.run(deleting, { select: ['new', 2], suggesting: 'w1' })).toBe('review');
+    expect(room.run(deleting, { select: ['new', 2], suggesting: 'w1' })).toBe('suggest');
   });
 
-  it('DOCE-COLLAB-6.6 sorts another writer’s suggested text as content', () => {
+  it('DOCE-COLLAB-6.6 sorts suggested text in another writer’s name as an edit', () => {
     const room = createRoom('hello world');
     room.as('w2');
-    expect(room.run(typing('new '), { select: ['world'], suggesting: 'w1' })).toBe('content');
+    expect(room.run(typing('new '), { select: ['world'], suggesting: 'w1' })).toBe('edit');
     room.as(null);
-    expect(room.run(typing('more '), { select: ['world'], suggesting: 'w1' })).toBe('content');
+    expect(room.run(typing('more '), { select: ['world'], suggesting: 'w1' })).toBe('edit');
   });
 
-  it('DOCE-COLLAB-6.6 sorts accepting and rejecting suggestions as a review', () => {
+  it('DOCE-COLLAB-6.6 sorts accepting and rejecting suggestions as decide', () => {
     const room = createRoom('hello world', 'second line');
     room.as('w1');
     room.run(typing('new '), { select: ['world'], suggesting: 'w1' });
@@ -174,38 +182,55 @@ describe('room change classification', () => {
     room.run(splitBlock, { select: ['ond', 0], suggesting: 'w1' });
     room.as('reviewer');
     const [first, second, split] = suggestionIds(room.state.doc);
-    expect(room.run(acceptSuggestion(String(first)))).toBe('review');
-    expect(room.run(acceptSuggestion(String(second)))).toBe('review');
-    expect(room.run(rejectSuggestion(String(split)))).toBe('review');
+    expect(room.run(acceptSuggestion(String(first)))).toBe('decide');
+    expect(room.run(acceptSuggestion(String(second)))).toBe('decide');
+    expect(room.run(rejectSuggestion(String(split)))).toBe('decide');
     expect(suggestionIds(room.state.doc)).toEqual([]);
   });
 
-  it('DOCE-COLLAB-6.6 sorts typing, formatting and deleting as content', () => {
+  it('DOCE-COLLAB-6.6 keeps suggesting and deciding apart, also for the writer’s own suggestions', () => {
     const room = createRoom('hello world', 'second line');
     room.as('w1');
-    expect(room.run(typing('X'), { select: ['world'] })).toBe('content');
+    room.run(typing('new '), { select: ['world'], suggesting: 'w1' });
+    room.run(typing('more '), { select: ['second'], suggesting: 'w1' });
+    const [first, second] = suggestionIds(room.state.doc);
+    // Accepting is a decision whoever wrote the suggestion.
+    expect(room.run(acceptSuggestion(String(first)))).toBe('decide');
+    // Accepting and formatting in one update needs both.
+    const acceptAndBold: Command = (state, dispatch) =>
+      acceptSuggestion(String(second))(state, (tr) => {
+        const at = positionOf(tr.doc, 'line');
+        dispatch?.(tr.addMark(at, at + 4, schema.mark('strong')));
+      });
+    expect(room.run(acceptAndBold)).toBe('decide+edit');
+  });
+
+  it('DOCE-COLLAB-6.6 sorts typing, formatting and deleting as an edit', () => {
+    const room = createRoom('hello world', 'second line');
+    room.as('w1');
+    expect(room.run(typing('X'), { select: ['world'] })).toBe('edit');
     const bold: Command = (state, dispatch) => {
       const { from, to } = state.selection;
       dispatch?.(state.tr.addMark(from, to, schema.mark('strong')));
       return true;
     };
-    expect(room.run(bold, { select: ['hello', 5] })).toBe('content');
-    expect(room.run(deleting, { select: ['second', 3] })).toBe('content');
-    expect(room.run(splitBlock, { select: ['ond', 0] })).toBe('content');
+    expect(room.run(bold, { select: ['hello', 5] })).toBe('edit');
+    expect(room.run(deleting, { select: ['second', 3] })).toBe('edit');
+    expect(room.run(splitBlock, { select: ['ond', 0] })).toBe('edit');
   });
 
-  it('DOCE-COLLAB-6.6 sorts by the highest change an update makes', () => {
+  it('DOCE-COLLAB-6.6 gives every permission an update needs, and marks types outside the layout', () => {
     const room = createRoom('hello world');
     room.as('w1');
     room.doc.transact(() => {
       room.doc.get(COMMENTS_TYPE).setAttr('t1', { text: 'A note' });
       room.doc.get(META_TYPE).setAttr('template', null);
     });
-    expect(room.tiers.at(-1)?.tier).toBe('content');
+    expect(room.tiers.at(-1)?.tier).toBe('comment+edit');
     room.doc.transact(() => {
       room.doc.get('elsewhere').setAttr('key', 1);
     });
-    expect(room.tiers.at(-1)?.tier).toBe('content');
+    expect(room.tiers.at(-1)?.tier).toBe('outside');
     room.doc.transact(() => {});
     expect(room.tiers.at(-1)?.tier).toBeNull();
   });
@@ -217,8 +242,8 @@ describe('room change classification', () => {
     room.run(typing('zero '), { select: ['one'] });
     room.run(deleting, { select: ['two ', 4] });
     room.run(typing('four '), { select: ['three'], suggesting: 'w1' });
-    expect(room.run(deleting, { select: ['four', 4], suggesting: 'w1' })).toBe('review');
-    expect(room.run(deleting, { select: ['zero', 4] })).toBe('content');
+    expect(room.run(deleting, { select: ['four', 4], suggesting: 'w1' })).toBe('suggest');
+    expect(room.run(deleting, { select: ['zero', 4] })).toBe('edit');
   });
 
   it('DOCE-COLLAB-6.6 lets a guard revert what a writer may not change', () => {
@@ -229,12 +254,12 @@ describe('room change classification', () => {
     });
     room.doc.on('afterTransaction', (transaction: Y.Transaction) => {
       if (transaction.origin !== 'writer') return;
-      if (room.watch.classify(transaction, { author: 'w1' }) === 'content') undo.undo();
+      if (room.watch.classify(transaction, { author: 'w1' }).needs.has('edit')) undo.undo();
     });
     room.as('w1');
     room.run(typing('X'), { select: ['world'] });
     expect(readContent(schema, room.doc.get(CONTENT_TYPE))?.textContent).toBe('hello world');
-    expect(room.tiers.map((each) => each.tier)).toEqual(['content', 'content']);
+    expect(room.tiers.map((each) => each.tier)).toEqual(['edit', 'edit']);
     room.watch.destroy();
     undo.destroy();
   });
@@ -285,7 +310,7 @@ describe('room change classification', () => {
       room.as('w1');
       const tier = room.run(command, { at: [from, to], suggesting: suggesting ? 'w1' : undefined });
       if (tier === undefined || tier === null) continue;
-      expect(tier).toBe(suggesting ? 'review' : 'content');
+      expect(tier).toBe(suggesting ? 'suggest' : 'edit');
       const key = suggesting ? 'suggest' : 'edit';
       seen[key] = (seen[key] ?? 0) + 1;
     }

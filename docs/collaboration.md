@@ -79,27 +79,33 @@ The room server cannot tell a suggestion from a direct edit by the types an upda
 
 ### Sorting updates by permission
 
-A host that must also enforce suggesting and commenting on the server sorts each update with `watchRoomChanges(doc, { schema })` (DOCE-COLLAB-6.6). With a collaboration-tools room server, open it as the room's write guard: `openRoomChangeGuard(shadow, { schema, capabilities })` (DOCE-COLLAB-6.7) watches the shadow copy of the room that the server opens once when the room loads and keeps in step with every change, and refuses an update whose writer lacks the capability for the permission it needs:
+A host that must also enforce suggesting, deciding and commenting on the server sorts each update with `watchRoomChanges(doc, { schema })` (DOCE-COLLAB-6.6) into the permissions it needs. With a collaboration-tools room server, open it as the room's write guard: `openRoomChangeGuard(shadow, { schema, permissions })` (DOCE-COLLAB-6.7) watches the shadow copy of the room that the server opens once when the room loads and keeps in step with every accepted change, refuses an update that writes a type outside the layout, and refuses one whose writer lacks any permission it needs:
 
-| Tier      | The update changes                                                                                                                                                                                                                             |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `comment` | `comments`, or comment highlights in `content` and their state                                                                                                                                                                                 |
-| `review`  | suggestion marks in `content` (and what deciding one changes beside them), a block's suggestion attributes, suggested text or blocks it deletes (deciding or withdrawing), or text and blocks it inserts as `author`'s own suggested insertion |
-| `content` | anything else in `content`, `meta`, or a type outside the layout                                                                                                                                                                               |
+| Permission | The update                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `comment`  | changes `comments`, or comment highlights in `content` and their state                                                 |
+| `suggest`  | adds suggestions in the writer's name (insertions, deletions, formatting, block splits), or withdraws the writer's own |
+| `decide`   | accepts any suggestion, or withdraws another writer's (rejects it)                                                     |
+| `edit`     | changes anything else in `content`, changes `meta`, or adds a suggestion in another writer's name                      |
 
-`author` names the writer as their suggestions do (`dataAuthor`, the editor's `suggesting.author`); the guard takes the connection's actor id unless `authorOf` maps it. Another writer's suggested insertion, or one with no `author`, is `content`. A change of a block's type is `content`, even inside a suggestion, and so is a decision that takes text with it that is not suggested, such as text accepted earlier inside a suggested block. A higher capability covers the lower tiers: `content` covers `review` and `comment`.
+`permissions(actor, capabilities)` is the host's trusted answer: it returns `{ edit, suggest, decide, comment }`, and none implies another, so a host whose editors may also comment grants both. `author` names the writer as their suggestions do (`dataAuthor`, the editor's `suggesting.author`); the guard takes the connection's actor id unless `authorOf` maps it.
 
 ```ts
 const rules: RoomWriteRules = {
   openGuard: (shadow) =>
     openRoomChangeGuard(shadow, {
       schema,
-      capabilities: { comment: 'comment', review: 'review', content: 'edit' },
+      permissions: (actor, capabilities) => ({
+        edit: capabilities.has('edit'),
+        suggest: capabilities.has('suggest'),
+        decide: capabilities.has('decide'),
+        comment: capabilities.has('comment'),
+      }),
     }),
 };
 ```
 
-Each update then costs its own size: on a 1,000-paragraph room the server takes about 2 ms a keystroke in Node, the writer's own diff included, where copying the room for each check took about 15 ms. A refused update closes the writer's socket, and the server rebuilds its shadow and reopens the guard at the next update. A host with its own server can call `watchRoomChanges` on its room document from the seed and `classify(transaction, { author })` in its `afterTransaction`, then revert a refused update under its own origin, which the watch follows like any other update.
+Sorting by permission is the first check, not the whole of authorization: it does not check whose comment record an update writes, nor that a suggestion's id and text belong to its writer. Each update costs its own size: on a 1,000-paragraph room the server takes about 2 ms a keystroke in Node, the writer's own diff included, where copying the room for each check took about 15 ms. A refused update closes the writer's socket, and the server rebuilds its shadow and reopens the guard at the next update. A host with its own server can call `watchRoomChanges` on its room document from the seed and `classify(transaction, { author })` in its `afterTransaction`, then revert a refused update under its own origin, which the watch follows like any other update.
 
 The watch keeps the room's content as it stood before each update, since what an update deletes is known only from there, and replays each change on it as the editor's binding does. It then compares the content before and after the update and reads the change the way that needs the least, because a Yjs change can say one edit in several ways: a character typed before its twin can arrive as the twin marked and a plain character after it. In Node, on the 150-chapter stress document (about 327 pages), the watch starts in about 58 ms (a read of the whole room), and a suggested character costs about 0.8 ms (p50) and 2.7 ms (p95), applying the update included.
 
