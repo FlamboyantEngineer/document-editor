@@ -1,5 +1,4 @@
-import { isComposingKey } from '@flamboyantengineer/ui-components';
-import type { Key } from '@flamboyantengineer/ui-components/core';
+import { isComposingKey, type Key } from '@flamboyantengineer/ui-components/core';
 import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';

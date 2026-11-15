@@ -27,7 +27,7 @@ Verification: `e2e/collaboration.spec.ts`
 
 ### DOCE-COLLAB-1.4 - Colour slots and stacked carets
 
-Each peer shall take the colour slot their id gives, or the next one no other peer has, peers taken in order of their ids so every view gives the same slots (`placePeers`), while there are no more peers than slots. Carets at the same position shall carry their place among them (`data-presence-stack`, from 1 for the second) so their labels do not cover each other, and a peer without a selection is listed without a caret.
+Each peer shall take the colour slot their id gives, or the next one no other peer has, peers taken in order of their ids so every view gives the same slots (`placePeers`), while there are no more peers than slots. The slots are the base library's (`placeColorIndexes` over the ids, with `PRESENCE_COLOR_SLOTS` slots), so a person has the slot the base library's avatars and the other editors give the same id. Carets at the same position shall carry their place among them (`data-presence-stack`, from 1 for the second) so their labels do not cover each other, and a peer without a selection is listed without a caret.
 
 Implementation: `src/engine/presence.ts`, `labs/reference/editor-chrome.css`
 Verification: `src/engine/presence.test.ts`

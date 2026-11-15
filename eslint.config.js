@@ -17,6 +17,13 @@ const REACT_COMPILER_RULES = Object.fromEntries(
 );
 
 // Controls come from the base component library, never from React Aria directly (specs/HOST-ADAPTERS.md).
+// The base library's root entry re-exports every component; import a component entry or `./core`
+// (S7), so a consumer bundles only what the editor uses.
+const UI_ROOT_ENTRY = {
+  name: '@flamboyantengineer/ui-components',
+  message: 'Import from a component entry or @flamboyantengineer/ui-components/core (S7).',
+};
+
 const ARIA_PACKAGES = {
   group: [
     'react-aria',
@@ -133,7 +140,7 @@ export default tseslint.config(
       // The React Compiler's rules, all at error (C7). State an effect sets synchronously renders
       // twice: derive it, or say why the DOM must commit first.
       ...REACT_COMPILER_RULES,
-      'no-restricted-imports': ['error', { patterns: [ARIA_PACKAGES] }],
+      'no-restricted-imports': ['error', { paths: [UI_ROOT_ENTRY], patterns: [ARIA_PACKAGES] }],
     },
   },
   {
@@ -144,7 +151,10 @@ export default tseslint.config(
       'ui/no-css-import': 'error',
       'ui/no-static-inline-style': 'error',
       'ui/hook-class-names': 'error',
-      'no-restricted-imports': ['error', { patterns: [...STYLING_PACKAGES, ARIA_PACKAGES] }],
+      'no-restricted-imports': [
+        'error',
+        { paths: [UI_ROOT_ENTRY], patterns: [...STYLING_PACKAGES, ARIA_PACKAGES] },
+      ],
       'no-restricted-globals': ['error', ...STORAGE_GLOBALS],
       'no-restricted-properties': ['error', ...STORAGE_PROPERTIES],
     },
