@@ -219,6 +219,13 @@ Verification: `src/collab/convert.test.ts`
 Implementation: `src/collab/room-changes.ts`, `src/collab/room-change-walk.ts`
 Verification: `src/collab/room-changes.test.ts`
 
+### DOCE-COLLAB-6.7 - A room server's write guard
+
+`openRoomChangeGuard(shadow, { schema, capabilities, authorOf })` shall open a write guard for a collaboration-tools room server (`RoomWriteRules.openGuard`, COLLAB-SERVER-7.2) on the server's shadow of a room, watching it as `watchRoomChanges` does from the moment the room loads. Its `check({ actor, capabilities, transaction })` shall pass an update that changes nothing, or whose permission's capability, or a higher permission's, the writer holds, with `content` above `review` above `comment`; the writer's suggestion author shall be `authorOf(actor)`, or the actor's id. Each check shall cost about the update's own size, not the room's. `destroy()` shall stop watching.
+
+Implementation: `src/collab/room-change-guard.ts`
+Verification: `src/collab/room-change-guard.test.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                                           | Description                                                   |

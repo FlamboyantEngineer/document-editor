@@ -103,7 +103,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
-    "@flamboyantengineer/collaboration-tools": "git+https://github.com/FlamboyantEngineer/collaboration-tools.git#91721037bb5c8af30914bc9b0da8b5f51ed7162f",
+    "@flamboyantengineer/collaboration-tools": "git+https://github.com/FlamboyantEngineer/collaboration-tools.git#8626585340ff517aea76d638ae49627068dcd43d",
     "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#33ca1c9ec1e7762d47c90be0e0ec9b64948b3028",
     "@handlewithcare/react-prosemirror": "^3.2.11",
     "@playwright/test": "^1.64.1",

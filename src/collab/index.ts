@@ -39,6 +39,12 @@ export {
   type RoomDraftsOptions,
 } from './offline.js';
 export {
+  openRoomChangeGuard,
+  type RoomChangeGuard,
+  type RoomChangeGuardOptions,
+  type RoomGuardRequest,
+} from './room-change-guard.js';
+export {
   type RoomChangeActor,
   type RoomChangeOptions,
   type RoomChangeTier,
