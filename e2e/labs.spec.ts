@@ -3,6 +3,11 @@ import { expect, test, waitForLab } from './fixtures.js';
 
 const chrome = (page: Page) => page.getByRole('banner', { name: 'Lab settings' });
 const root = (page: Page) => page.locator('html');
+/** The shared lab bar's theme switch: a segmented choice of System, Light, Dark and Custom. */
+const theme = (page: Page, name: 'System' | 'Light' | 'Dark' | 'Custom') =>
+  chrome(page)
+    .getByRole('radiogroup', { name: 'Theme', exact: true })
+    .getByRole('radio', { name, exact: true });
 
 /** A computed colour of the first element matching `selector`. */
 function colorOf(page: Page, selector: string, property: 'color' | 'background-color') {
@@ -23,7 +28,7 @@ test.describe('lab chrome', () => {
     await expect(chrome(page).getByRole('combobox', { name: 'Stylesheet' })).toHaveValue(
       'reference',
     );
-    await expect(chrome(page).getByRole('combobox', { name: 'Theme' })).toHaveValue('system');
+    await expect(theme(page, 'System')).toBeChecked();
 
     await lab.open('pagination');
     await expect(chrome(page).getByText('Pagination', { exact: true })).toBeVisible();
@@ -44,7 +49,7 @@ test.describe('lab chrome', () => {
   }) => {
     await lab.open('index');
     await expect(root(page)).toHaveAttribute('data-theme', 'light');
-    await chrome(page).getByRole('combobox', { name: 'Theme' }).selectOption('dark');
+    await theme(page, 'Dark').click();
     await expect(root(page)).toHaveAttribute('data-theme', 'dark');
     await expect(page).toHaveURL(/index\.html\?theme=dark$/);
     const pagination = page
@@ -55,7 +60,7 @@ test.describe('lab chrome', () => {
     await pagination.click();
     await waitForLab(page);
     await expect(root(page)).toHaveAttribute('data-theme', 'dark');
-    await expect(chrome(page).getByRole('combobox', { name: 'Theme' })).toHaveValue('dark');
+    await expect(theme(page, 'Dark')).toBeChecked();
     await expect(chrome(page).getByRole('link', { name: 'All labs' })).toHaveAttribute(
       'href',
       'index.html?theme=dark',
@@ -75,7 +80,7 @@ test.describe('lab chrome', () => {
 
   test('DOCE-LABS-1.4 moves the theme to the chosen root attribute', async ({ lab, page }) => {
     await lab.open('editing');
-    await chrome(page).getByRole('combobox', { name: 'Theme' }).selectOption('dark');
+    await theme(page, 'Dark').click();
     const attribute = chrome(page).getByRole('textbox', { name: 'on' });
     await attribute.fill('data-mode');
     await attribute.press('Enter');
@@ -83,7 +88,7 @@ test.describe('lab chrome', () => {
     await expect(root(page)).not.toHaveAttribute('data-theme');
     await expect(page).toHaveURL(/\?theme=dark&themeAttribute=data-mode$/);
 
-    await chrome(page).getByRole('combobox', { name: 'Theme' }).selectOption('custom');
+    await theme(page, 'Custom').click();
     await chrome(page).getByRole('textbox', { name: 'Theme value' }).fill('night');
     await expect(root(page)).toHaveAttribute('data-mode', 'night');
   });
@@ -93,7 +98,7 @@ test.describe('lab chrome', () => {
     page,
   }) => {
     await lab.open('comments');
-    const link = page.locator('link#lab-stylesheet');
+    const link = page.locator('link#ui-lab-stylesheet');
     await expect(link).toHaveAttribute('href', 'build/reference.css');
     await expect(root(page)).toHaveAttribute('data-lab-stylesheet-state', 'loaded');
     const stylesheet = chrome(page).getByRole('combobox', { name: 'Stylesheet' });
@@ -117,7 +122,7 @@ test.describe('lab chrome', () => {
       .getByRole('textbox', { name: 'Stylesheet URL' })
       .fill('reference/document.css');
     await chrome(page).getByRole('button', { name: 'Apply' }).click();
-    await expect(page.locator('link#lab-stylesheet')).toHaveAttribute(
+    await expect(page.locator('link#ui-lab-stylesheet')).toHaveAttribute(
       'href',
       'reference/document.css',
     );
