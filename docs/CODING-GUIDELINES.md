@@ -34,7 +34,7 @@ Every file in `src/`, `labs/src/`, `test/` and `e2e/` follows these rules; tests
 
 **S6. Module order:** imports, exported types, module constants, private helpers, exported components and hooks.
 
-**S7. Controls come from the base component library.** Buttons, fields, menus, popovers, dialogs, panels, trees and every other generic control are imported from `@flamboyantengineer/ui-components`, never rebuilt here and never taken from React Aria directly. A generic control the editor needs and the base library lacks is requested there first. **(enforced: lint)**
+**S7. Controls come from the base component library.** Buttons, fields, menus, popovers, dialogs, panels, trees and every other generic control are imported from `@flamboyantengineer/ui-components`, through a component entry or `./core` and never its root entry, never rebuilt here and never taken from React Aria directly. A generic control the editor needs and the base library lacks is requested there first. **(enforced: lint)**
 
 **S8. No import cycles between components.** Runtime imports (type-only imports aside) never form a cycle that spans two component directories: a leaf such as `Avatar` must not reach back, through a component it opens or wraps, to a module that imports it. Break such a cycle by moving the shared part into its own component, as the base library's `PreviewTrigger` is split from the cards it opens. Cycles between the modules of one component are allowed but best avoided. **(enforced)**
 

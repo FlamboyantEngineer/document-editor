@@ -3,6 +3,7 @@
 // a caret with the person's name at its head and marks the text it covers, and moves them with the
 // writer's own changes until the next update.
 
+import { getColorIndex, placeColorIndexes } from '@flamboyantengineer/ui-components/core';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { DecorationSet, type EditorView } from 'prosemirror-view';
@@ -54,29 +55,20 @@ export const presenceKey = new PluginKey<PresenceState>('presence');
 /** How many colour slots a peer without a colour is given one of. */
 export const PRESENCE_COLOR_SLOTS = 8;
 
-// A colour slot from an id, the same on every load.
-function slotOf(id: string): number {
-  let hash = 0;
-  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return hash % PRESENCE_COLOR_SLOTS;
-}
-
 /**
  * Each person's colour slot: the one their id gives, or, when another person has it, the next
- * free one, people taken in order of their ids so every view gives the same slots.
+ * free one, people taken in order of their ids so every view gives the same slots. The base
+ * library places them (`placeColorIndexes`), so a person has the same slot wherever it colours them.
  */
 export function placePeers(peers: readonly Peer[]): PlacedPeer[] {
-  const taken = new Set<number>();
-  const slots = new Map<string, number>();
-  for (const peer of [...peers].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
-    let slot = slotOf(peer.id);
-    for (let tries = 0; taken.has(slot) && tries < PRESENCE_COLOR_SLOTS; tries += 1) {
-      slot = (slot + 1) % PRESENCE_COLOR_SLOTS;
-    }
-    taken.add(slot);
-    slots.set(peer.id, slot);
-  }
-  return peers.map((peer) => ({ ...peer, slot: slots.get(peer.id) ?? slotOf(peer.id) }));
+  const slots = placeColorIndexes(
+    peers.map((peer) => peer.id),
+    PRESENCE_COLOR_SLOTS,
+  );
+  return peers.map((peer) => ({
+    ...peer,
+    slot: slots.get(peer.id) ?? getColorIndex(peer.id, PRESENCE_COLOR_SLOTS),
+  }));
 }
 
 // The attributes a peer's caret and selection carry: who, and their colour. A peer's colour is

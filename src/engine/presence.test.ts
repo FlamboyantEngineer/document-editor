@@ -1,9 +1,17 @@
+import { getColorIndex, placeColorIndexes } from '@flamboyantengineer/ui-components/core';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
-import { createPresence, listPeers, placePeers, presenceKey, setPeers } from './presence.js';
+import {
+  createPresence,
+  listPeers,
+  placePeers,
+  PRESENCE_COLOR_SLOTS,
+  presenceKey,
+  setPeers,
+} from './presence.js';
 
 function stateOf(value: string) {
   const doc = readDocumentFile(
@@ -116,6 +124,16 @@ describe('presence', () => {
     const carets = presenceKey.getState(state)?.decorations.find() ?? [];
     expect(carets).toHaveLength(2);
     expect(listPeers(state).map((peer) => peer.name)).toEqual(['Ada', 'Grace', 'Hedy']);
+  });
+
+  it('DOCE-COLLAB-1.4 gives each peer the slot the base library places them in', () => {
+    const ids = ['ada', 'grace', 'hedy', 'a', 'b', 'p1', 'p9'];
+    const placed = placeColorIndexes(ids, PRESENCE_COLOR_SLOTS);
+    const peers = placePeers(ids.map((id) => ({ id, name: id })));
+    expect(peers.map((peer) => peer.slot)).toEqual(ids.map((id) => placed.get(id)));
+    expect(placePeers([{ id: 'grace', name: 'Grace' }])[0]?.slot).toBe(
+      getColorIndex('grace', PRESENCE_COLOR_SLOTS),
+    );
   });
 
   it('DOCE-COLLAB-1.6 marks the caret and selection of an idle or away peer with their status', () => {
