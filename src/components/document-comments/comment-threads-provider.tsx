@@ -27,7 +27,7 @@ interface CommentThreadsProviderProps {
 }
 
 /** Keeps a document's threads for every part of the editor inside it. */
-export function CommentThreadsProvider({
+function CommentThreadsProvider({
   children,
   failed = DEFAULT_COMMENTS_LABELS.failed,
   transactions,

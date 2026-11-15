@@ -11,7 +11,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { packTarball, runNpm } from './lib/npm.mjs';
+import { packTarball, runNpm } from '@flamboyantengineer/ui-components/tooling/lib/npm.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = async (path) => JSON.parse(await readFile(path, 'utf8'));

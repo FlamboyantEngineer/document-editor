@@ -286,7 +286,7 @@ export function layout(session: Session): void {
 }
 
 /** How a canonical change is shown on the pages. */
-export interface Showing {
+interface Showing {
   /** Lays the pages out on the next frame, not once the writer pauses (DOCE-PAGINATION-5.7). */
   readonly now: boolean;
   /** Scrolls the pages to the selection, as a transaction that made the change asked. */

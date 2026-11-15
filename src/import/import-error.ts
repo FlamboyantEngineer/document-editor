@@ -4,7 +4,7 @@
 export type ImportFailure = 'unreadable' | 'damaged' | 'too-large';
 
 /** The error a reader throws inside, which the reader's caller gets as a failed result. */
-export interface ImportError extends Error {
+interface ImportError extends Error {
   name: 'ImportError';
   failure: ImportFailure;
 }

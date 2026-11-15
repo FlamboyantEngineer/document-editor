@@ -1,9 +1,7 @@
-import js from '@eslint/js';
+import { createBaseConfig, ENUM_SYNTAX } from '@flamboyantengineer/ui-components/tooling/eslint';
 import jestDom from 'eslint-plugin-jest-dom';
 import reactHooks from 'eslint-plugin-react-hooks';
-import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import testingLibrary from 'eslint-plugin-testing-library';
-import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import local from './eslint-rules/index.js';
 
@@ -61,8 +59,6 @@ const OWNER_WINDOW_GLOBALS = [
     "Read it from the component's own element: getOwnerDocument or getOwnerWindow (src/utils/owner-window.ts).",
 }));
 
-// TypeScript rules TS2 to TS11 (docs/CODING-GUIDELINES.md). They load the TypeScript program, so
-// `npm run lint` gives ESLint a 6 GB heap.
 const TYPED_FILES = [
   'src/**/*.{ts,tsx}',
   'labs/src/**/*.{ts,tsx}',
@@ -72,10 +68,6 @@ const TYPED_FILES = [
 ];
 // Vitest and Playwright load their configuration through its default export.
 const DEFAULT_EXPORT_LOADERS = ['*.config.ts'];
-const ENUM_SYNTAX = {
-  selector: 'TSEnumDeclaration',
-  message: 'Use a string-literal union or an `as const` object instead of `enum` (TS6).',
-};
 
 const CONTEXT_PROVIDER_SYNTAX = {
   selector:
@@ -118,88 +110,21 @@ const ACTIVE_ELEMENT_SYNTAX = {
 };
 
 export default tseslint.config(
+  // The shared rules (ui-components' specs/TOOLING.md): imports, TypeScript rules TS2 to TS11,
+  // named exports, and the size and naming limits of library source.
+  ...createBaseConfig({
+    name: 'document-editor',
+    tsconfigRootDir: import.meta.dirname,
+    typedFiles: TYPED_FILES,
+    defaultExportLoaders: DEFAULT_EXPORT_LOADERS,
+    sourceFiles: ['src/**/*.{ts,tsx}'],
+    nodeFiles: ['scripts/**/*.mjs', 'eslint-rules/**/*.js', '*.config.{js,mjs,ts}'],
+    ignores: ['labs/build/', 'playwright-report/'],
+    components: true,
+  }),
   {
-    ignores: [
-      'node_modules/',
-      'dist/',
-      'labs/build/',
-      'coverage/',
-      'test-results/',
-      'playwright-report/',
-    ],
-  },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    languageOptions: {
-      globals: { ...globals.browser },
-    },
-    plugins: { 'simple-import-sort': simpleImportSort },
-    rules: {
-      // One import statement per module, sorted: packages first, then relative paths.
-      'no-duplicate-imports': 'error',
-      'simple-import-sort/imports': ['error', { groups: [['^\\u0000', '^node:', '^@?\\w', '^']] }],
-      'simple-import-sort/exports': 'error',
-      '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
-      '@typescript-eslint/no-import-type-side-effects': 'error',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true },
-      ],
-    },
-  },
-  {
-    name: 'document-editor/typescript',
     files: TYPED_FILES,
-    languageOptions: {
-      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
-    },
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-non-null-assertion': 'error',
-      '@typescript-eslint/ban-ts-comment': [
-        'error',
-        {
-          'ts-expect-error': 'allow-with-description',
-          'ts-ignore': true,
-          'ts-nocheck': true,
-          'ts-check': false,
-          minimumDescriptionLength: 10,
-        },
-      ],
-      '@typescript-eslint/switch-exhaustiveness-check': [
-        'error',
-        { considerDefaultExhaustiveForUnions: true },
-      ],
-      '@typescript-eslint/no-floating-promises': 'error',
-      '@typescript-eslint/no-misused-promises': 'error',
-      '@typescript-eslint/only-throw-error': 'error',
-      '@typescript-eslint/prefer-promise-reject-errors': [
-        'error',
-        { allowThrowingAny: true, allowThrowingUnknown: true },
-      ],
-      'preserve-caught-error': 'error',
-      'no-restricted-syntax': ['error', ENUM_SYNTAX, CONTEXT_PROVIDER_SYNTAX],
-    },
-  },
-  {
-    name: 'document-editor/typescript/default-exports',
-    files: TYPED_FILES,
-    ignores: DEFAULT_EXPORT_LOADERS,
-    rules: {
-      'no-restricted-exports': [
-        'error',
-        {
-          restrictDefaultExports: {
-            direct: true,
-            named: true,
-            defaultFrom: true,
-            namedFrom: true,
-            namespaceFrom: true,
-          },
-        },
-      ],
-    },
+    rules: { 'no-restricted-syntax': ['error', ENUM_SYNTAX, CONTEXT_PROVIDER_SYNTAX] },
   },
   {
     files: ['src/**/*.{ts,tsx}', 'labs/src/**/*.{ts,tsx}', 'test/**/*.{ts,tsx}'],
@@ -250,29 +175,14 @@ export default tseslint.config(
     },
   },
   {
-    // Coding guidelines C1, I1, S3 and N3/N6 (docs/CODING-GUIDELINES.md).
+    // Coding guidelines I1 and S4 (docs/CODING-GUIDELINES.md); the shared configuration holds the
+    // size and naming limits.
     files: ['src/**/*.{ts,tsx}'],
     ignores: ['src/**/*.test.{ts,tsx}'],
     plugins: { ui: local },
     rules: {
-      complexity: ['error', 15],
-      'max-depth': ['error', 3],
-      'max-params': ['error', 3],
-      'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
-      'max-lines-per-function': ['error', { max: 80, skipBlankLines: true, skipComments: true }],
       'ui/component-imports': 'error',
       'no-restricted-syntax': ['error', ...SOURCE_SYNTAX, ACTIVE_ELEMENT_SYNTAX],
-      '@typescript-eslint/naming-convention': [
-        'error',
-        { selector: 'typeLike', format: ['PascalCase'] },
-        {
-          selector: 'variable',
-          format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
-          leadingUnderscore: 'allow',
-        },
-        { selector: 'function', format: ['camelCase', 'PascalCase'] },
-        { selector: 'parameter', format: ['camelCase', 'PascalCase'], leadingUnderscore: 'allow' },
-      ],
     },
   },
   {
@@ -338,9 +248,5 @@ export default tseslint.config(
       // aria-valuenow is checked as the attribute string; toHaveValue reads range roles as numbers.
       'jest-dom/prefer-to-have-value': 'off',
     },
-  },
-  {
-    files: ['scripts/**/*.mjs', 'eslint-rules/**/*.js', '*.config.{js,ts}'],
-    languageOptions: { globals: { ...globals.node } },
   },
 );

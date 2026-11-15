@@ -8,9 +8,9 @@
 
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { flag } from '@flamboyantengineer/ui-components/tooling/lib/script.mjs';
 import * as esbuild from 'esbuild';
 import { labsDir, labSourceDir, listLabSources } from './lib/labs.mjs';
-import { flag } from './lib/script.mjs';
 
 const outdir = join(labsDir, 'build');
 const dev = flag('dev');
