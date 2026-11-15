@@ -2,6 +2,8 @@
 
 Embeds show content a host keeps elsewhere, such as a data set or a part of another document, as the document's own blocks. An embed records the host's kind and id for its content and the state of the content it shows. What it holds is the host's: the writer adds, moves, deletes and comments on a whole embed, and takes updates from the host, but does not change what it holds. The library knows no kind of content; a host names its own kinds and serves them through its `embeds` adapter (DOCE-HOST-1.13).
 
+A live spreadsheet range is an embed of the host's kind, such as `spreadsheet`: the host keeps the workbook a spreadsheet editor's live insertion hands over, names it and the range in `source`, its revision in `snapshot`, and gives the range's calculated rows as content through `tableFromRows` (DOCE-TABLES-4.1); its `embeds` adapter answers with the range's rows again when the workbook changes. A range inserted once, as a plain table, is `tableFromRows` inserted as blocks.
+
 ## DOCE-EMBEDS-1 - Embed nodes
 
 ### DOCE-EMBEDS-1.1 - The embed node
@@ -48,6 +50,13 @@ Verification: `src/engine/embeds.test.ts`
 `updateEmbed(view, source, { pos })` shall load the content of the embed at `pos`, or at the selection, from the host and put it in (`applyEmbedUpdate(pos, loaded)`), recording the content's state and label, as one change the writer can undo that is never a suggestion. The content's elements take ids made from the embed's id and their place, so an element keeps its id across updates and references to it hold. An update that holds the same content and state changes nothing, and content the document cannot read is refused. The update goes where the embed is once the host has loaded, found by its element id, so a change made around it meanwhile, such as a collaborator's typing, does not drop it; an embed the host fails to load, or one that changed or went while loading, is left alone.
 
 Implementation: `src/engine/embed-status.ts`, `src/engine/scripts.ts`
+Verification: `src/engine/embeds.test.ts`
+
+### DOCE-EMBEDS-3.3 - Only an editable view takes an update
+
+`updateEmbed` shall take an update only in an editable view, checked before the host loads and again once it has: a read-only view, such as a historical version (DOCE-VERSIONS-5.1), keeps each embed as it was captured and never asks the host to load it, and a view that became read-only while the host loaded changes nothing.
+
+Implementation: `src/engine/embed-status.ts`
 Verification: `src/engine/embeds.test.ts`
 
 ## DOCE-EMBEDS-4 - Layout

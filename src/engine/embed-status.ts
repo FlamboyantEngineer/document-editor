@@ -148,7 +148,9 @@ function placeNow(doc: ProseMirrorNode, asked: EmbedAt): number | null {
 /**
  * Loads the content of the embed at `pos`, or holding the selection, from the host and puts it in
  * where the embed is then (`applyEmbedUpdate`); resolves with whether it did. An embed that
- * changed or went meanwhile is left alone.
+ * changed or went meanwhile is left alone, and only an editable view takes an update: a read-only
+ * one, such as a historical version, never loads, and one that became read-only while the host
+ * loaded keeps what it shows.
  */
 export async function updateEmbed(
   view: EditorView,
@@ -157,9 +159,9 @@ export async function updateEmbed(
 ): Promise<boolean> {
   const node = pos === undefined ? null : view.state.doc.nodeAt(pos);
   const found: EmbedAt | null = pos === undefined ? embedAt(view.state) : node && { pos, node };
-  if (!found || !isEmbed(found.node)) return false;
+  if (!found || !isEmbed(found.node) || !view.editable) return false;
   const result = await source.load(sourceOf(found.node)).catch(() => null);
-  if (!result?.ok || view.isDestroyed) return false;
+  if (!result?.ok || view.isDestroyed || !view.editable) return false;
   const now = placeNow(view.state.doc, found);
   return now !== null && applyEmbedUpdate(now, result.value)(view.state, view.dispatch);
 }
