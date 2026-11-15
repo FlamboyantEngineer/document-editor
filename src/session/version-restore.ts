@@ -1,7 +1,7 @@
 // Restoring a version as the document's content. In store mode, a host that restores versions
 // itself saves the version as a new state, and the session takes it in like any other save
-// (DOCE-SESSION-7). Otherwise, and in a shared room, the session's document is edited to the
-// version's content and template and saved like any other change.
+// (DOCE-SESSION-7). A shared room uses the host restore service when available, which publishes
+// the restored content through the room. Without a suitable host route, restoration is an edit.
 
 import { markSystemChange } from '../engine/transaction-kind.js';
 import type { EditorHost, HostError } from '../host/adapters.js';
@@ -32,8 +32,8 @@ export async function restoreVersion(
   opened: OpenedVersion,
 ): Promise<HostError | null> {
   const restore = host.versions?.restore;
-  const takesInSaves = session.mode === 'store' && host.documents.subscribe !== undefined;
-  if (!restore || !takesInSaves) return restoreByEditing(session, opened);
+  const takesInRestore = session.mode === 'room' || host.documents.subscribe !== undefined;
+  if (!restore || !takesInRestore) return restoreByEditing(session, opened);
   // The reader's changes are kept first, so the restored state supersedes them rather than
   // merging with them.
   if (!(await session.flush())) return session.status.get().error ?? failure('unavailable');

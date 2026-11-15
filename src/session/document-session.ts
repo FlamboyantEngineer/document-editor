@@ -41,6 +41,8 @@ export interface DocumentSessionOptions {
   host: EditorHost;
   documentId: string;
   mode: SessionMode;
+  /** Independent field within the shared room; room mode only. */
+  fieldKey?: string | undefined;
   /** The schema documents are read with. Defaults to `createDocumentSchema()`. */
   schema?: Schema | undefined;
   /**

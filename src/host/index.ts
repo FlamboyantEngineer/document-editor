@@ -3,6 +3,7 @@ export type {
   DocumentSave,
   DocumentStoreAdapter,
   DocumentVersion,
+  DocumentVersionSnapshot,
   EditorHost,
   EditorPerson,
   EmbedContent,
@@ -83,6 +84,12 @@ export type {
   ExportsAdapter,
   ExportSnapshotOptions,
 } from './export-adapters.js';
+export type { LinkedSpreadsheetCapture, LinkedSpreadsheetSource } from './linked-spreadsheet.js';
+export {
+  createLinkedSpreadsheetAdapter,
+  createLinkedSpreadsheetEmbed,
+  readLinkedSpreadsheetSource,
+} from './linked-spreadsheet.js';
 export type { MemoryCommentsOptions } from './memory-comments.js';
 export { createMemoryComments } from './memory-comments.js';
 export type { MemoryHost, MemoryHostOptions } from './memory-host.js';

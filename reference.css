@@ -1,0 +1,3 @@
+/* Optional reference presentation. Import explicitly after the base controls' stylesheet. */
+@import './labs/reference/document.css' layer(document-reference);
+@import './labs/reference/editor-chrome.css' layer(document-reference);

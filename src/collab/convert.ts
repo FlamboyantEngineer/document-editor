@@ -18,8 +18,9 @@ import {
   writeDocumentFile,
 } from '../model/format/document-format-write.js';
 import type { TemplatePin } from '../model/format/template-format.js';
-import { CONTENT_TYPE, readContent, writeContent } from './delta.js';
+import { readContent, writeContent } from './delta.js';
 import { diffNodes } from './diff.js';
+import { resolveRoomScope, type RoomScope } from './room-scope.js';
 
 /** The room's type for the comment and suggestion threads, one attribute per thread id. */
 export const COMMENTS_TYPE = 'comments';
@@ -32,6 +33,8 @@ const TEMPLATE_KEY = 'template';
 
 /** How a stored document goes into a room. */
 export interface RoomWriteOptions {
+  /** Shared handles for an embedded document field. */
+  scope?: RoomScope | undefined;
   schema: Schema;
   /** What the read does with stored content the schema cannot hold; `throw` by default. */
   unknown?: DocumentReadOptions['unknown'];
@@ -47,6 +50,8 @@ export interface RoomUpdateOptions extends RoomWriteOptions {
 
 /** How a room's document is read back as a stored one. */
 export interface RoomReadOptions {
+  /** Shared handles for an embedded document field. */
+  scope?: RoomScope | undefined;
   schema: Schema;
   /** How split blocks are joined; a host adds rules for its own splittable types. */
   fragmentRules?: DocumentWriteOptions['fragmentRules'];
@@ -74,13 +79,13 @@ function checkFormatVersion(version: unknown): void {
  * its own valid id gets one here, as the editor would give it.
  */
 export function writeRoomDocument(doc: Y.Doc, file: DocumentFile, options: RoomWriteOptions): void {
-  const content = doc.get(CONTENT_TYPE);
+  const content = resolveRoomScope(doc, options.scope).content;
   if (content.length > 0) throw new Error('The room already holds a document.');
   const read = readDocumentFile(file, options.schema, { unknown: options.unknown });
   const node = withElementIds(read.doc, options.newId);
   doc.transact(() => {
     writeContent(content, node);
-    const meta = doc.get(META_TYPE);
+    const meta = resolveRoomScope(doc, options.scope).meta;
     meta.setAttr(FORMAT_VERSION_KEY, DOCUMENT_FORMAT_VERSION);
     meta.setAttr(TEMPLATE_KEY, file.template ?? null);
   });
@@ -98,11 +103,11 @@ export function updateRoomDocument(
   file: DocumentFile,
   options: RoomUpdateOptions,
 ): void {
-  const content = doc.get(CONTENT_TYPE);
+  const content = resolveRoomScope(doc, options.scope).content;
   const held = readContent(options.schema, content);
   const read = readDocumentFile(file, options.schema, { unknown: options.unknown });
   const node = withElementIds(read.doc, options.newId);
-  const meta = doc.get(META_TYPE);
+  const meta = resolveRoomScope(doc, options.scope).meta;
   checkFormatVersion(meta.getAttr(FORMAT_VERSION_KEY));
   const template = file.template ?? null;
   doc.transact(() => {
@@ -117,9 +122,9 @@ export function updateRoomDocument(
 
 /** The stored document a Yjs document holds, or `null` when its `content` is empty. */
 export function readRoomDocument(doc: Y.Doc, options: RoomReadOptions): DocumentFile | null {
-  const node = readContent(options.schema, doc.get(CONTENT_TYPE));
+  const node = readContent(options.schema, resolveRoomScope(doc, options.scope).content);
   if (!node) return null;
-  const meta = doc.get(META_TYPE);
+  const meta = resolveRoomScope(doc, options.scope).meta;
   checkFormatVersion(meta.getAttr(FORMAT_VERSION_KEY));
   node.check();
   const template = (meta.getAttr(TEMPLATE_KEY) ?? null) as TemplatePin | null;

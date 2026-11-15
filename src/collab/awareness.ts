@@ -55,6 +55,8 @@ export interface PresenceLifecycle {
 
 export interface AwarenessPresenceOptions {
   awareness: PresenceAwareness;
+  /** Independent presence channel when several fields share awareness. */
+  field?: string | undefined;
   user: PresenceUser;
   /** How long without input before the reader is idle, in milliseconds. Defaults to 120000. */
   idleAfter?: number | undefined;
@@ -99,15 +101,33 @@ function userOf(value: unknown): PresenceUser | null {
   };
 }
 
+function authenticatedUser(
+  state: Record<string, unknown>,
+  published: unknown,
+): PresenceUser | null {
+  const presentation = userOf(published);
+  if (!Object.hasOwn(state, 'actor')) return presentation;
+  const actor = state.actor;
+  if (typeof actor !== 'object' || actor === null) return null;
+  const { id, name } = actor as Record<string, unknown>;
+  if (typeof id !== 'string' || !id) return null;
+  return { ...presentation, id, name: typeof name === 'string' ? name : id };
+}
+
 /** The other people in the awareness, with their selections as positions in `state`'s document. */
-export function readAwarenessPeers(awareness: PresenceAwareness, state: EditorState): Peer[] {
+export function readAwarenessPeers(
+  awareness: PresenceAwareness,
+  state: EditorState,
+  field?: string,
+): Peer[] {
   const sync = getCollabSync(state);
   const at = (json: unknown) => (sync ? fromRelativeJSON(sync.type, state.doc, json) : null);
   const peers: Peer[] = [];
   for (const [client, value] of awareness.getStates()) {
     if (client === awareness.clientID) continue;
-    const published = value as PublishedState;
-    const user = userOf(published.user);
+    const published = (field ? value[field] : value) as PublishedState | undefined;
+    if (!published) continue;
+    const user = authenticatedUser(value, published.user);
     if (!user) continue;
     const cursor = published.cursor;
     const head = cursor ? at(cursor.head) : null;
@@ -145,9 +165,25 @@ function cursorOf(state: EditorState): PublishedState['cursor'] {
   return head === null ? null : { anchor: relative(state.selection.anchor) ?? head, head };
 }
 
+function createPublisher(options: AwarenessPresenceOptions) {
+  const { awareness, user } = options;
+  const local: PublishedState = { user, status: 'active' };
+  if (options.field) awareness.setLocalStateField(options.field, { ...local });
+  else {
+    awareness.setLocalStateField('user', user);
+    awareness.setLocalStateField('status', 'active');
+  }
+  return (key: keyof PublishedState, value: unknown) => {
+    Object.assign(local, { [key]: value });
+    if (options.field) awareness.setLocalStateField(options.field, { ...local });
+    else awareness.setLocalStateField(key, value);
+  };
+}
+
 /** The plugin view that publishes the reader and draws the others. */
 function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
-  const { awareness, user, idleAfter = 120_000 } = options;
+  const { awareness, idleAfter = 120_000 } = options;
+  const publishField = createPublisher(options);
   const schedule = options.schedule ?? ((run: () => void) => queueMicrotask(run));
   const timers = view.dom.ownerDocument.defaultView;
   let published = '';
@@ -159,7 +195,7 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
   const setStatus = (next: PresenceStatus) => {
     if (next === status) return;
     status = next;
-    awareness.setLocalStateField('status', status);
+    publishField('status', status);
   };
   const restartIdle = () => {
     if (!timers) return;
@@ -175,7 +211,7 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
     const json = JSON.stringify(cursor);
     if (json === published) return;
     published = json;
-    awareness.setLocalStateField('cursor', cursor);
+    publishField('cursor', cursor);
   };
   const refresh = () => {
     if (refreshing || destroyed) return;
@@ -183,7 +219,7 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
     schedule(() => {
       refreshing = false;
       if (destroyed || view.isDestroyed) return;
-      const peers = readAwarenessPeers(awareness, view.state);
+      const peers = readAwarenessPeers(awareness, view.state, options.field);
       if (samePeers(peers, listPeers(view.state))) return;
       view.dispatch(setPeers(view.state, peers));
     });
@@ -193,8 +229,6 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
     if (others) refresh();
   };
 
-  awareness.setLocalStateField('user', user);
-  awareness.setLocalStateField('status', status);
   publish();
   // The sync plugin's view, made after this one, fills an empty shared type without a transaction:
   // a cursor that named no place yet is published again once the views are made.
@@ -227,7 +261,8 @@ function presenceView(view: EditorView, options: AwarenessPresenceOptions) {
       awareness.off('change', onChange);
       stopLifecycle?.();
       if (timers && idleTimer !== null) timers.clearTimeout(idleTimer);
-      awareness.setLocalStateField('cursor', null);
+      if (options.field) awareness.setLocalStateField(options.field, null);
+      else publishField('cursor', null);
     },
   };
 }

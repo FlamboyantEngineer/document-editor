@@ -253,6 +253,7 @@ describe('createMemoryHost', () => {
           author: 'p1',
           label: null,
           template: null,
+          threads: 0,
         },
         {
           revision: 'rev-1',
@@ -261,6 +262,7 @@ describe('createMemoryHost', () => {
           author: 'p1',
           label: null,
           template: null,
+          threads: 0,
         },
       ],
     });

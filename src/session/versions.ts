@@ -2,17 +2,18 @@
 // and followed, saving the session's document as a named version, renaming one, opening one to
 // read with the template it pins, and restoring one as the document's content (D26, D14).
 
-import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
-import { createDocumentEditing } from '../engine/document-editing.js';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { EditorState } from 'prosemirror-state';
 import type {
   DocumentVersion,
   EditorHost,
   HostError,
   HostResult,
+  IdentityAdapter,
   VersionStoreAdapter,
 } from '../host/adapters.js';
 import type { EditorCapabilities } from '../host/capabilities.js';
+import type { CommentStoreAdapter, CommentThread } from '../host/comment-adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
@@ -22,7 +23,8 @@ import type {
   SessionStateContext,
   SessionStateUpdate,
 } from './document-session.js';
-import { failure, loadPinnedTemplate, readStored } from './open-document.js';
+import { failure } from './open-document.js';
+import { openVersion } from './open-version.js';
 import { createValueStore, type ValueStore } from './value-store.js';
 import { groupVersions, type VersionGroup } from './version-groups.js';
 import { restoreVersion } from './version-restore.js';
@@ -46,6 +48,10 @@ export interface VersionList {
 /** A version opened to read: its content, read-only, with the template it pins. */
 export interface OpenedVersion {
   version: DocumentVersion;
+  /** Captured discussion, or null when the host keeps content-only history. */
+  threads: readonly CommentThread[] | null;
+  /** A provider-compatible store of captured threads; every write is denied. */
+  comments: CommentStoreAdapter;
   /** An editor state of the version's content, made as the session makes its own. */
   state: EditorState;
   /** The template the version pins, at the revision it pins, resolved. */
@@ -77,6 +83,8 @@ export interface DocumentVersionsOptions {
 export interface DocumentVersions<R> {
   /** The session whose document's versions these are. */
   readonly session: DocumentSession;
+  /** Names the people in captured discussions. */
+  readonly identity: IdentityAdapter;
   readonly list: ValueStore<VersionList>;
   /** The historical view shown, or null while the document is. */
   readonly view: ValueStore<HistoricalView<R> | null>;
@@ -103,12 +111,15 @@ export interface DocumentVersions<R> {
   returnFromView(): R | null;
   /**
    * Makes a version's content and template the document's: through the host's own restore in
-   * store mode, which the session takes in as a new save, else as an edit the reader may undo.
+   * store mode as a new save or through its authoritative room service; without that route, as
+   * an edit the reader may undo.
    */
   restore(revision: string): Promise<HostResult<DocumentVersion>>;
   /** Stops following the host's versions. */
   close(): void;
 }
+
+type PreparedVersion = NewVersion & { baseContent: DocumentFile };
 
 const unsupported = (what: string) => failure('unavailable', `The host cannot ${what} versions.`);
 
@@ -120,40 +131,20 @@ const denied = (what: string): { ok: false; error: HostError } => ({
 const findVersion = (list: VersionList, revision: string) =>
   list.versions.find((version) => version.revision === revision);
 
-// Opens a version: its content read for the editor and the template it pins.
-async function openVersion(
-  options: DocumentVersionsOptions & { schema: Schema; store: VersionStoreAdapter },
-  version: DocumentVersion,
-): Promise<HostResult<OpenedVersion>> {
-  const { host, session, schema, store } = options;
-  const loaded = await store.load(session.documentId, version.revision);
-  if (!loaded.ok) return loaded;
-  const pin = loaded.value.template ?? null;
-  const template = await loadPinnedTemplate(host, pin);
-  if (!template.ok) return template;
-  const read = readStored(loaded.value, schema);
-  if (!read.ok) return read;
-  const context: SessionStateContext = {
-    template: () => template.value.template,
-    author: () => null,
-  };
-  const state = options.createState
-    ? options.createState(read.value.doc, context)
-    : EditorState.create({ doc: read.value.doc, plugins: createDocumentEditing(schema, context) });
-  return { ok: true, value: { version, state, template: template.value.template, pin } };
-}
-
 // The session's document as a new version, after the hook, or null when the hook saves none.
 async function newVersion(
   { session, beforeVersion }: DocumentVersionsOptions,
   label: string | null,
-): Promise<HostResult<NewVersion | null>> {
+): Promise<HostResult<PreparedVersion | null>> {
   if (!(await session.flush()))
     return { ok: false, error: session.status.get().error ?? failure('unavailable') };
   const shown = session.document.get();
   if (!shown) return { ok: false, error: failure('unavailable', 'The document is not loaded.') };
-  const version = { content: writeDocumentFile(shown.state.doc, { template: shown.pin }), label };
-  return { ok: true, value: beforeVersion ? await beforeVersion(version) : version };
+  const content = writeDocumentFile(shown.state.doc, { template: shown.pin });
+  const baseContent = structuredClone(content);
+  const version = { content, label };
+  const prepared = beforeVersion ? await beforeVersion(version) : version;
+  return { ok: true, value: prepared ? { ...prepared, baseContent } : null };
 }
 
 // The host's list of a document's versions, followed until `stop`.
@@ -231,6 +222,7 @@ function createHistoricalView<R>(
       const shown = view.get();
       if (!shown) return;
       const state = typeof update === 'function' ? update(shown.version.state) : update;
+      if (!state.doc.eq(shown.version.state.doc)) return;
       view.set({ ...shown, version: { ...shown.version, state } });
     },
     returnFromView: () => {
@@ -266,6 +258,7 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
   };
   return {
     session,
+    identity: host.identity,
     list,
     ...createHistoricalView<R>(open),
     refresh,

@@ -1,0 +1,160 @@
+{
+  "version": {
+    "revision": "document-revision-7",
+    "sequence": 7,
+    "savedAt": "2026-01-02T03:06:00.000Z",
+    "author": "reader",
+    "label": "Reviewed snapshot",
+    "template": {
+      "id": "report",
+      "revision": "rev-1"
+    },
+    "threads": 1
+  },
+  "template": {
+    "formatVersion": 1,
+    "id": "report",
+    "name": "Report"
+  },
+  "snapshot": {
+    "content": {
+      "formatVersion": 1,
+      "template": {
+        "id": "report",
+        "revision": "rev-1"
+      },
+      "sections": [
+        {
+          "name": null,
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "id": "a0000001"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Captured total",
+                  "marks": [
+                    {
+                      "type": "comment",
+                      "attrs": {
+                        "thread": "thread-1"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "embed",
+              "attrs": {
+                "id": "a0000002",
+                "kind": "spreadsheet",
+                "source": "[\"book-1\",\"sheet-1\",\"A1:B2\"]",
+                "snapshot": "revision-1",
+                "label": "Summary"
+              },
+              "content": [
+                {
+                  "type": "table",
+                  "content": [
+                    {
+                      "type": "tableRow",
+                      "content": [
+                        {
+                          "type": "tableCell",
+                          "attrs": {
+                            "rowspan": 2
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "42"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "tableCell",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Note"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "tableRow",
+                      "content": [
+                        {
+                          "type": "tableCell",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Captured"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "threads": [
+      {
+        "id": "thread-1",
+        "state": "resolved",
+        "quote": "Captured total",
+        "suggestion": null,
+        "entries": [
+          {
+            "id": "entry-1",
+            "author": "reader",
+            "text": "Checked the captured result.",
+            "createdAt": "2026-01-02T03:04:05.000Z",
+            "reactions": {
+              "\u2713": ["reviewer"]
+            }
+          }
+        ],
+        "scope": "text",
+        "target": {
+          "ranges": [
+            {
+              "element": "a0000001",
+              "start": 0,
+              "end": 14,
+              "text": "Captured total"
+            }
+          ],
+          "quote": "Captured total"
+        },
+        "resolvedBy": "reviewer",
+        "resolvedAt": "2026-01-02T03:05:00.000Z"
+      }
+    ]
+  }
+}

@@ -32,6 +32,13 @@ Verification: `test/node-entry.test.ts`
 Implementation: `src/model/schema/document-schema.ts`
 Verification: `test/node-entry.test.ts`
 
+### DOCE-ENTRY-1.5 - Optional reference presentation
+
+The package shall expose `./reference.css` as an explicit opt-in stylesheet, using `document-reference` cascade layers for the neutral document and editor chrome partials from the labs. Its package files shall include those partials without the lab page layout. CSS shall be declared a package side effect so an explicit import survives bundling. Library source and JavaScript entry points shall remain hooks-only and import no styles. Consumers load the base controls reference stylesheet separately when desired.
+
+Implementation: `package.json`, `reference.css`, `labs/reference/document.css`, `labs/reference/editor-chrome.css`
+Verification: `test/reference-stylesheet.test.ts`
+
 ## DOCE-ENTRY-2 - Browser entry size
 
 ### DOCE-ENTRY-2.1 - Consumer bundle budgets

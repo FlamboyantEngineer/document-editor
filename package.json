@@ -19,7 +19,9 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -51,7 +53,8 @@
       "import": "./dist/import/index.js",
       "default": "./dist/import/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./reference.css": "./reference.css"
   },
   "files": [
     "dist",
@@ -59,7 +62,11 @@
     "src",
     "!src/**/*.test.*",
     "specs",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "./reference.css",
+    "labs/reference/document.css",
+    "labs/reference/editor-chrome.css",
+    "!labs/reference.css"
   ],
   "scripts": {
     "build": "node scripts/clean.mjs dist && tsc -p tsconfig.build.json",
@@ -84,8 +91,8 @@
   },
   "peerDependencies": {
     "@flamboyantengineer/ui-components": ">=0.1.0",
-    "@handlewithcare/react-prosemirror": "^3.2.11",
-    "@y/y": "^14.0.0-rc.23",
+    "@handlewithcare/react-prosemirror": "^3.3.0",
+    "@y/y": "14.0.0-rc.23",
     "katex": "^0.19.1",
     "lib0": "1.0.0-rc.22",
     "prosemirror-commands": "^1.7.2",
@@ -96,7 +103,7 @@
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.8.5",
     "prosemirror-transform": "^1.12.5",
-    "prosemirror-view": "^1.42.3",
+    "prosemirror-view": "1.42.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-reconciler": "^0.33.0"
@@ -104,9 +111,9 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
-    "@flamboyantengineer/collaboration-tools": "git+https://github.com/FlamboyantEngineer/collaboration-tools.git#a7509ecaab96d17d65a2b591ca1ca228ed11c21b",
-    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#33ca1c9ec1e7762d47c90be0e0ec9b64948b3028",
-    "@handlewithcare/react-prosemirror": "^3.2.11",
+    "@flamboyantengineer/collaboration-tools": "git+https://github.com/FlamboyantEngineer/collaboration-tools.git#652e6a42cc357a64b01556c2ac7a44f806c13224",
+    "@flamboyantengineer/ui-components": "git+https://github.com/FlamboyantEngineer/ui-components.git#1d879505dc5d8e9d91374e75ec6a4dd2547316c7",
+    "@handlewithcare/react-prosemirror": "3.3.0",
     "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
@@ -135,9 +142,9 @@
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.8.5",
     "prosemirror-transform": "^1.12.5",
-    "prosemirror-view": "^1.42.3",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
+    "prosemirror-view": "1.42.3",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "react-reconciler": "^0.33.0",
     "terser-webpack-plugin": "^5.6.1",
     "typescript": "^6.0.2",

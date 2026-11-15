@@ -106,7 +106,7 @@ function entryChanges(
 export function createMemoryComments(
   identity: IdentityAdapter,
   { threads = {}, now = () => new Date() }: MemoryCommentsOptions = {},
-): CommentStoreAdapter {
+): CommentStoreAdapter & { snapshot(documentId: string): CommentThread[] } {
   const stored = new Map<string, Map<string, CommentThread>>(
     Object.entries(threads).map(([id, list]) => [
       id,
@@ -139,6 +139,7 @@ export function createMemoryComments(
     return Promise.resolve({ ok: true, value: structuredClone(thread) });
   };
   return {
+    snapshot: (documentId) => structuredClone([...threadsOf(documentId).values()]),
     list: (documentId) =>
       Promise.resolve({ ok: true, value: structuredClone([...threadsOf(documentId).values()]) }),
     create: (documentId, { text, suggestion = null, ...fields }) => {

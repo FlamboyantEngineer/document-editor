@@ -205,6 +205,7 @@ export function mergeRoomDraft(
   draft: RoomDraft,
   options: RoomReadOptions,
 ): RoomDraftMerge {
+  options = { ...options, scope: options.scope ?? getCollabSync(state)?.scope };
   const cached = restoredDoc(draft);
   const mine = readRoomDocument(cached, options);
   cached.destroy();
@@ -229,7 +230,7 @@ export function mergeRoomDraft(
  */
 export function sendRoomDocument(doc: Y.Doc, { from, to }: { from: EditorState; to: EditorState }) {
   if (getCollabSync(to)?.bound) return;
-  const type = doc.get(CONTENT_TYPE);
+  const type = getCollabSync(to)?.type ?? doc.get(CONTENT_TYPE);
   const held = readContent(to.schema, type);
   const base = held && !held.eq(from.doc) ? held : from.doc;
   if (base.eq(to.doc)) return;

@@ -20,19 +20,20 @@ import {
   type RecordKey,
   type ThreadFieldKind,
 } from './comment-records.js';
+import { resolveRoomScope, type RoomScope } from './room-scope.js';
 
 /** The room's shared document and how the store tells time and makes ids. */
 export interface RoomCommentStoreOptions {
   /** The shared document, such as a room provider's; the threads are its `comments` type. */
   doc: Y.Doc;
+  /** Shared handles for an embedded document field. */
+  scope?: RoomScope | undefined;
   identity: IdentityAdapter;
   /** The time a change is made at. Defaults to now. */
   now?: (() => Date) | undefined;
   /** A new comment's id. Defaults to a random one. */
   createId?: (() => string) | undefined;
 }
-
-const COMMENTS = 'comments';
 
 function missing<T>(id: string): HostResult<T> {
   return { ok: false, error: { kind: 'not-found', message: `No thread with id ${id}.` } };
@@ -95,11 +96,12 @@ function fieldChanges(room: Room): Pick<CommentStoreAdapter, 'setState' | 'decid
  */
 export function createRoomCommentStore({
   doc,
+  scope,
   identity,
   now = () => new Date(),
   createId = createRandomId,
 }: RoomCommentStoreOptions): CommentStoreAdapter {
-  const type = doc.get(COMMENTS);
+  const type = resolveRoomScope(doc, scope).comments;
   const origin = { roomComments: true };
   const me = () => identity.currentPerson().id;
   const stamp = () => now().toISOString();

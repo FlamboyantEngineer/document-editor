@@ -9,6 +9,7 @@ import type {
   SavedState,
   VersionStoreAdapter,
 } from './adapters.js';
+import type { CommentThread } from './comment-adapters.js';
 
 /** A failure for an id the in-memory host does not know. */
 export function notFound<T>(id: string): HostResult<T> {
@@ -20,13 +21,14 @@ export function savedState(sequence: number): SavedState {
   return { revision: `rev-${String(sequence)}`, sequence };
 }
 
-type StoredVersion = DocumentVersion & { content: DocumentFile };
+type StoredVersion = DocumentVersion & { content: DocumentFile; discussion: CommentThread[] };
 
 /** Every saved state of each document, oldest first, with the people following each document. */
 interface MemoryHistory {
   /** Records a new saved state of a document and tells its subscribers. */
   record(documentId: string, content: DocumentFile, label?: string | null): StoredVersion;
   versions(documentId: string): StoredVersion[] | undefined;
+  discussion(documentId: string): CommentThread[];
   /** Tells a document's version subscribers that its versions changed. */
   touch(documentId: string): void;
   subscribe(documentId: string, listener: (version: StoredVersion) => void): () => void;
@@ -51,7 +53,11 @@ function listeners<T>() {
 }
 
 /** A document history whose saves are attributed to `author` at the time `now` gives. */
-export function createMemoryHistory(author: () => string, now: () => Date): MemoryHistory {
+export function createMemoryHistory(
+  author: () => string,
+  now: () => Date,
+  discussion: (documentId: string) => CommentThread[] = () => [],
+): MemoryHistory {
   const history = new Map<string, StoredVersion[]>();
   const saves = listeners<StoredVersion>();
   const changes = listeners<undefined>();
@@ -64,6 +70,7 @@ export function createMemoryHistory(author: () => string, now: () => Date): Memo
         author: author(),
         label,
         content: structuredClone(content),
+        discussion: structuredClone(discussion(documentId)),
       };
       versions.push(version);
       history.set(documentId, versions);
@@ -72,6 +79,7 @@ export function createMemoryHistory(author: () => string, now: () => Date): Memo
       return version;
     },
     versions: (documentId) => history.get(documentId),
+    discussion,
     touch: (documentId) => changes.call(documentId, undefined),
     subscribe: saves.add,
     subscribeVersions: changes.add,
@@ -108,11 +116,26 @@ export function createMemoryDocuments(history: MemoryHistory): DocumentStoreAdap
   };
 }
 
-const listed = ({ content, ...version }: StoredVersion): DocumentVersion =>
-  structuredClone({ ...version, template: content.template ?? null });
+const listed = ({ content, discussion, ...version }: StoredVersion): DocumentVersion =>
+  structuredClone({ ...version, template: content.template ?? null, threads: discussion.length });
 
 const sameContent = (one: DocumentFile, other: DocumentFile) =>
   JSON.stringify(one) === JSON.stringify(other);
+
+function baselineKey(content: DocumentFile): string {
+  return JSON.stringify(
+    { ...content, template: content.template ?? null },
+    (_key, value: unknown) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+      const record = value as Record<string, unknown>;
+      return Object.fromEntries(
+        Object.keys(record)
+          .sort()
+          .map((key) => [key, record[key]]),
+      );
+    },
+  );
+}
 
 /** The versions of a history: every saved state is a version, named or not. */
 export function createMemoryVersions(history: MemoryHistory): VersionStoreAdapter {
@@ -130,12 +153,28 @@ export function createMemoryVersions(history: MemoryHistory): VersionStoreAdapte
         version ? { ok: true, value: structuredClone(version.content) } : notFound(revision),
       );
     },
+    loadSnapshot: (documentId, revision) => {
+      const version = find(documentId, revision);
+      return Promise.resolve(
+        version
+          ? {
+              ok: true,
+              value: structuredClone({ content: version.content, threads: version.discussion }),
+            }
+          : notFound(revision),
+      );
+    },
     // Naming the content the document holds names its latest saved state, so the revision an open
     // session saves against stays the latest.
-    create: (documentId, { content, label }) => {
+    create: (documentId, { content, label, baseContent }) => {
       const latest = history.versions(documentId)?.at(-1);
       if (!latest) return Promise.resolve(notFound(documentId));
-      if (sameContent(latest.content, content)) {
+      if (baseContent && baselineKey(latest.content) !== baselineKey(baseContent))
+        return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
+      if (
+        sameContent(latest.content, content) &&
+        JSON.stringify(latest.discussion) === JSON.stringify(history.discussion(documentId))
+      ) {
         latest.label = label;
         history.touch(documentId);
         return Promise.resolve({ ok: true, value: listed(latest) });

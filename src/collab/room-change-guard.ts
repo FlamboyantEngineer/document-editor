@@ -1,60 +1,118 @@
-// A room server's write guard built on the room change watch (DOCE-COLLAB-6.7): the server opens it
-// once on its shadow of the room, so the watch lives from the room's seed and each update is sorted
-// at the cost of the update, never of a copy of the room. Sorting by permission is the first check,
-// not the whole of authorization: it does not check whose comment record an update writes.
-
 import type * as Y from '@y/y';
-import type { Schema } from 'prosemirror-model';
-import { type RoomChangePermission, watchRoomChanges } from './room-changes.js';
+import type { Node, Schema } from 'prosemirror-model';
+import { hasGuardAnchors } from './guard-anchors.js';
+import { checkCommentChanges, type GuardPermissions } from './guard-comments.js';
+import { checkDocumentChange } from './guard-content.js';
+import { hasGuardedShape } from './guard-shape.js';
+import { type GuardSnapshot, readGuardRecords, watchGuardSnapshots } from './guard-snapshots.js';
+import { resolveRoomScope, type RoomScope } from './room-scope.js';
 
-/** What a writer may do in a room, each granted on its own: none implies another. */
-export type RoomPermissions = Readonly<Record<RoomChangePermission, boolean>>;
-
-/** An update as the room server asks a guard about it, after applying it to the shadow. */
+/** Authoritative server admission attached to a candidate already applied to the server's shadow. */
 export interface RoomGuardRequest {
   actor: { id: string };
   capabilities: ReadonlySet<string>;
   transaction: Y.Transaction;
 }
 
-/** How a guard learns what each writer may do. */
+/** Independent document permissions, with an explicit optional moderation exception. */
+export type RoomPermissions = Readonly<GuardPermissions>;
+
 export interface RoomChangeGuardOptions {
   schema: Schema;
-  /**
-   * The host's trusted answer for a connection's actor and capabilities. A host that wants one
-   * permission to cover another, such as edit covering comment, says so here.
-   */
+  scope?: RoomScope | undefined;
+  /** Every editable field in a shared room; unknown roots are refused. */
+  scopes?: readonly RoomScope[] | undefined;
+  /** Maps trusted server admission to document permissions, including business exceptions. */
   permissions(actor: { id: string }, capabilities: ReadonlySet<string>): RoomPermissions;
-  /** The writer's suggestion author (`dataAuthor`) for a connection's actor; by default its id. */
+  /** Trusted suggestion-author mapping; null denies authoring without disabling decisions. */
   authorOf?: ((actor: { id: string }) => string | null) | undefined;
 }
 
-/** A write guard a room server opens on its shadow of a room. */
+/** A room-server openGuard result, disposed when its shadow is replaced or unloaded. */
 export interface RoomChangeGuard {
-  /** Whether the writer holds every permission the update needs. */
-  check(request: RoomGuardRequest): boolean;
-  /** Stops watching the shadow. */
+  check(change: RoomGuardRequest): boolean;
   destroy(): void;
 }
 
-/**
- * Opens a write guard on a room server's shadow of a room. An update passes when it changes no
- * type outside the room's layout and the writer holds every permission it needs.
- */
+function checkSnapshot(
+  before: GuardSnapshot,
+  options: {
+    snapshots: ReturnType<typeof watchGuardSnapshots>;
+    empty: Node;
+    actor: string;
+    author: string | null;
+    permissions: GuardPermissions;
+  },
+): boolean {
+  const { scope } = before;
+  const { permissions, actor, author } = options;
+  const after = options.snapshots.content(scope);
+  if (after === undefined) return false;
+  after?.check();
+  if (!hasGuardAnchors(before.anchors, after, { scope, actor: author, permissions })) return false;
+  const version: unknown = scope.meta.getAttr('formatVersion');
+  if (version !== undefined && version !== 1) return false;
+  if (!permissions.edit && before.meta !== JSON.stringify([...readGuardRecords(scope.meta)]))
+    return false;
+  const contentAllowed = checkDocumentChange({
+    before: before.content ?? options.empty,
+    after: after ?? options.empty,
+    actor: author,
+    permissions,
+  });
+  return (
+    contentAllowed &&
+    checkCommentChanges({
+      before: before.comments,
+      after: readGuardRecords(scope.comments),
+      actor,
+      permissions,
+    })
+  );
+}
+
+/** Validates candidates on a persistent server-owned shadow before broadcast or persistence. */
 export function openRoomChangeGuard(
   shadow: Y.Doc,
-  { schema, permissions, authorOf }: RoomChangeGuardOptions,
+  options: RoomChangeGuardOptions,
 ): RoomChangeGuard {
-  const watch = watchRoomChanges(shadow, { schema });
+  const scopes = (options.scopes ?? [options.scope]).map((scope) =>
+    resolveRoomScope(shadow, scope),
+  );
+  const allowed = new Set(scopes.flatMap((scope) => [scope.content, scope.meta, scope.comments]));
+  const empty = options.schema.topNodeType.createAndFill();
+  if (!empty) throw new Error('The schema cannot create a neutral document.');
+  const snapshots = watchGuardSnapshots(shadow, { scopes, schema: options.schema });
+  let destroyed = false;
   return {
-    check({ actor, capabilities, transaction }) {
-      const author = authorOf ? authorOf(actor) : actor.id;
-      const { needs, outside } = watch.classify(transaction, { author });
-      if (outside) return false;
-      if (needs.size === 0) return true;
-      const held = permissions(actor, capabilities);
-      return [...needs].every((each) => held[each]);
+    check(change) {
+      if (destroyed) return false;
+      try {
+        for (let root of change.transaction.changed.keys()) {
+          while (root.parent) root = root.parent;
+          if (!allowed.has(root)) return false;
+        }
+        if (!hasGuardedShape(change.transaction, { scopes, schema: options.schema })) return false;
+        const before = snapshots.before(change.transaction);
+        if (!before) return false;
+        const permissions = options.permissions(change.actor, change.capabilities);
+        const author = options.authorOf ? options.authorOf(change.actor) : change.actor.id;
+        return before.every((snapshot) =>
+          checkSnapshot(snapshot, {
+            snapshots,
+            empty,
+            actor: change.actor.id,
+            author,
+            permissions,
+          }),
+        );
+      } catch {
+        return false;
+      }
     },
-    destroy: () => watch.destroy(),
+    destroy() {
+      destroyed = true;
+      snapshots.destroy();
+    },
   };
 }

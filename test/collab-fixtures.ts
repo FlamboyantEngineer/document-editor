@@ -45,6 +45,7 @@ export function headlessEditor(start: Node, options: HeadlessOptions = {}): Head
   const schedule = options.manual ? (run: () => void) => scheduled.push(run) : options.schedule;
   const sync = createCollabSync({
     doc,
+    scope: options.scope,
     isRemoteOrigin: options.isRemoteOrigin,
     schedule,
     onUnreadable: options.onUnreadable,
