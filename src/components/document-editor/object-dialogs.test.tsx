@@ -44,9 +44,14 @@ const DIALOGS = { details: Details };
 function OpenDetails() {
   const editor = useDocumentEditor();
   return (
-    <button type="button" onClick={() => editor?.openDialog({ kind: 'host', name: 'details' })}>
-      Open details
-    </button>
+    <>
+      <button type="button" onClick={() => editor?.openDialog({ kind: 'host', name: 'details' })}>
+        Open details
+      </button>
+      <button type="button" onClick={() => editor?.openDialog({ kind: 'figure' })}>
+        Open figure
+      </button>
+    </>
   );
 }
 
@@ -97,5 +102,16 @@ describe('the dialog the editor shows', () => {
     expect(details()).not.toBeInTheDocument();
     rerender(<Harness editable />);
     expect(details()).not.toBeInTheDocument();
+  });
+
+  it('DOCE-ENTRY-2.2 loads the figure dialog on first use, then focuses it and hands focus back', async () => {
+    const user = userEvent.setup();
+    render(<Harness editable />);
+    await user.click(screen.getByRole('button', { name: 'Open figure' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Figure' });
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Figure' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Report' })).toHaveFocus();
   });
 });

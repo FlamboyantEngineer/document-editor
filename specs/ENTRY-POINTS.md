@@ -31,3 +31,19 @@ Verification: `test/node-entry.test.ts`
 
 Implementation: `src/model/schema/document-schema.ts`
 Verification: `test/node-entry.test.ts`
+
+## DOCE-ENTRY-2 - Browser entry size
+
+### DOCE-ENTRY-2.1 - Consumer bundle budgets
+
+`npm run check:bundle-size` shall bundle a small matrix of consumers of the built `.` entry under production webpack, with React and its runtime external as a host provides them: `DocumentEditor` alone, `DocumentEditor` with `DocumentSidePanel` and `DocumentCommentsPanel`, and `TemplateWorkspace`. It shall measure each consumer's initial code, every file that loads with the entry, raw and gzipped, compare it with the reviewed baseline in `scripts/bundle-budgets.json`, and fail a consumer that grew by more than the file's allowance (the larger of 5% and 2 KB), or that no longer holds the module it is named for, so a broken measurement fails. `--update` rewrites the baselines. `npm run check` runs it after the build, so hosted CI checks every pull request.
+
+Implementation: `scripts/check-bundle-size.mjs`, `scripts/bundle-budgets.json`, `scripts/lib/bundle-budgets.mjs`, `scripts/check.mjs`
+Verification: `test/bundle-budgets.test.ts`
+
+### DOCE-ENTRY-2.2 - Surfaces loaded on first use
+
+The editor shall load the surfaces few sessions open the first time one opens, not with the entry: the figure, reference, abbreviation, script and linked code dialogs, with the asset picker and file upload only the figure dialog uses, the symbol picker's character grid, KaTeX and the shared-room code. Nothing shows while a surface loads, and it takes focus as it would have had it been loaded. `npm run check:bundle-size` fails an editor consumer whose initial code holds any of them.
+
+Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `scripts/check-bundle-size.mjs`
+Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/object-dialogs.test.tsx`

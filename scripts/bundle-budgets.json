@@ -1,0 +1,20 @@
+{
+  "allowance": {
+    "relative": 0.05,
+    "absolute": 2048
+  },
+  "consumers": {
+    "editor": {
+      "raw": 1894315,
+      "gzip": 603709
+    },
+    "editor-with-panels": {
+      "raw": 1998916,
+      "gzip": 638604
+    },
+    "template-workspace": {
+      "raw": 1075221,
+      "gzip": 318400
+    }
+  }
+}

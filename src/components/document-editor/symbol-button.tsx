@@ -2,15 +2,18 @@
 // category, shown in the font of the text at the caret, inserting the one picked.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
-import {
-  CharacterGrid,
-  type CharacterGridCategory,
-} from '@flamboyantengineer/ui-components/character-grid';
+import type { CharacterGridCategory } from '@flamboyantengineer/ui-components/character-grid';
 import { SpecialCharacterGlyph } from '@flamboyantengineer/ui-components/core';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { insertCharacter } from '../../engine/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
+
+// The grid loads the first time the picker opens, so the editor's own code does not carry it
+// (DOCE-ENTRY-2.2).
+const CharacterGrid = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('@flamboyantengineer/ui-components/character-grid')).CharacterGrid,
+}));
 
 // The font of the text at the caret, which the symbols show in.
 function fontAtCaret({ view }: EditorContext): string | undefined {
@@ -46,16 +49,18 @@ export function SymbolButton({
         focusableWhenDisabled={reason !== undefined}
       />
       <Popover placement="bottom start" aria-label={labels.symbol}>
-        <CharacterGrid
-          aria-label={labels.symbol}
-          categories={symbols}
-          fontFamily={isOpen ? fontAtCaret(context) : undefined}
-          autoFocus
-          onSelect={({ char }) => {
-            setOpen(false);
-            context.run(insertCharacter(char));
-          }}
-        />
+        <Suspense fallback={null}>
+          <CharacterGrid
+            aria-label={labels.symbol}
+            categories={symbols}
+            fontFamily={isOpen ? fontAtCaret(context) : undefined}
+            autoFocus
+            onSelect={({ char }) => {
+              setOpen(false);
+              context.run(insertCharacter(char));
+            }}
+          />
+        </Suspense>
       </Popover>
     </PopoverTrigger>
   );
