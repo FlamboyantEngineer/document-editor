@@ -8,7 +8,7 @@ Before every commit, run the checks that cover your change. All of them must pas
 
 ```sh
 npm run lint && npm run format:check && npm run typecheck
-npm run check:references && npm run check:specs
+npm run check:references && npm run check:specs && npm run check:exports
 npm run test:changed   # related unit tests, then the mandatory isolated guard budget suite
 ```
 

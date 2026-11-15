@@ -17,7 +17,7 @@ interface PanelPane {
 const filters: readonly CommentsFilter[] = ['open', 'all', 'mine'];
 
 /** What the panel lists under one filter: the document's items, then the threads it no longer anchors. */
-export interface Listed {
+interface Listed {
   readonly items: readonly CommentItem[];
   readonly unanchored: readonly CommentThread[];
 }

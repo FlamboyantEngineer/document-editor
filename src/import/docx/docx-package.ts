@@ -18,7 +18,7 @@ export interface ImportedImage {
 }
 
 /** A relationship from a part to another part or an outside target. */
-export interface Relationship {
+interface Relationship {
   readonly type: string;
   /** The package path of the part it targets, or the outside URL. */
   readonly target: string;

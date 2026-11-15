@@ -13,31 +13,31 @@ Verification: `test/start-labs.test.ts`
 
 ### DOCE-LABS-1.2 - Lab toolbar
 
-Every lab page and the lab index shall start with a toolbar that stays at the top of the page as it scrolls, named Lab settings: on a lab page an All labs link back to the index and the lab's title (the page title without ` · Labs`), on the index the title Labs, then a Stylesheet picker and a Theme picker. Each page loads the toolbar from `labs/build/chrome.js` beside its own bundle and holds it in a shadow root, so neither the chosen stylesheet nor the lab restyles it. Each lab still marks itself ready (`data-lab-ready` on the root) once it has rendered; the toolbar marks only the index ready.
+Every lab page and the lab index shall start with the lab bar of `@flamboyantengineer/ui-components/labs` (UIC-LABS-4), which stays at the top of the page as it scrolls, named Lab settings: on a lab page an All labs link back to the index and the lab's title (the page title without ` · Labs`), on the index the title Labs, then the bar's Stylesheet picker and Theme switch. Each page loads the bar from `labs/build/chrome.js` beside its own bundle, mounted with `mountLabBar` in a shadow root, so neither the chosen stylesheet nor the lab restyles it. Each lab still marks itself ready (`data-lab-ready` on the root) once it has rendered; the chrome marks only the index ready.
 
-Implementation: `labs/src/chrome/lab-chrome.tsx`, `labs/src/chrome/mount.tsx`, `scripts/build-labs.mjs`, `labs/index.html`
+Implementation: `labs/src/chrome/mount.tsx`, `scripts/build-labs.mjs`, `labs/index.html`
 Verification: `e2e/labs.spec.ts`
 
 ### DOCE-LABS-1.3 - Stylesheet
 
-The Stylesheet picker shall offer Reference, the default, which loads `labs/build/reference.css`, bundled from `labs/reference.css`: the base library's reference stylesheet, the document reference stylesheet `labs/reference/document.css` and the lab pages' layout; Unstyled, which loads no stylesheet; and Custom URL, which loads the stylesheet at the URL typed in. A classic script in each page's head (`labs/build/boot.js`) applies the choice before the body is parsed, and the stylesheet holds the first paint until it loads. The root's `data-lab-stylesheet-state` reports `none`, `loading`, `loaded` or `error`, a stylesheet replaced before it loads does not report, and the lab's content stays hidden while the stylesheet loads.
+The Stylesheet picker (UIC-LABS-2.1) shall load, for Reference, the default, `labs/build/reference.css`, bundled from `labs/reference.css`: the base library's reference stylesheet, the document reference stylesheet `labs/reference/document.css` and the lab pages' layout. A classic script in each page's head (`labs/build/boot.js`) applies the choice with `bootLabSettings` before the body is parsed (UIC-LABS-2.5).
 
-Implementation: `labs/src/chrome/settings.ts`, `labs/src/chrome/boot.ts`, `labs/reference.css`, `scripts/build-labs.mjs`
-Verification: `labs/src/chrome/settings.test.ts`, `e2e/labs.spec.ts`
+Implementation: `labs/src/chrome/boot.ts`, `labs/reference.css`, `scripts/build-labs.mjs`
+Verification: `e2e/labs.spec.ts`
 
 ### DOCE-LABS-1.4 - Theme
 
-The Theme picker shall offer System, the default, which writes `light` or `dark` from the reader's colour scheme and follows its changes; Light; Dark; and Custom, which writes the value typed in, or nothing when it is empty. The theme is written to a root data attribute the reader names, `data-theme` by default; a name that is not a `data-` attribute, or is a `data-lab-` attribute, falls back to `data-theme`, and the attribute written before is removed. With the Reference stylesheet, everything around the pages (the page background, text, side panels, lists and comment cards) follows the theme's reference tokens, while the pages stay paper: dark text on white.
+The Theme switch (UIC-LABS-2.2) shall write the theme to the root attribute the reader names. With the Reference stylesheet, everything around the pages (the page background, text, side panels, lists and comment cards) follows the theme's reference tokens, while the pages stay paper: dark text on white.
 
-Implementation: `labs/src/chrome/settings.ts`, `labs/src/chrome/lab-chrome.tsx`, `labs/reference.css`, `labs/reference/document.css`
-Verification: `labs/src/chrome/settings.test.ts`, `e2e/labs.spec.ts`
+Implementation: `labs/reference.css`, `labs/reference/document.css`
+Verification: `e2e/labs.spec.ts`
 
 ### DOCE-LABS-1.5 - Remembered settings
 
-The stylesheet, theme and theme attribute shall be read from the page's query string (`stylesheet`, `theme`, `themeAttribute`), then from the choices remembered in the browser's local storage, then from the defaults, and a page whose storage is refused uses the defaults. A choice made in the toolbar is remembered and written into the page's query string, which leaves settings at their default out and keeps other parameters. The index carries the settings into its links to each lab, and a lab's All labs link carries them back.
+The settings shall be read and remembered as UIC-LABS-2.3 says, in the browser's local storage (`labs/src/chrome/storage.ts`), a page whose storage is refused using the defaults. The index carries the settings into its links to each lab, and a lab's All labs link carries them back.
 
-Implementation: `labs/src/chrome/settings.ts`, `labs/src/chrome/mount.tsx`
-Verification: `labs/src/chrome/settings.test.ts`, `e2e/labs.spec.ts`
+Implementation: `labs/src/chrome/storage.ts`, `labs/src/chrome/mount.tsx`
+Verification: `e2e/labs.spec.ts`
 
 ## DOCE-LABS-2 - Stress labs
 

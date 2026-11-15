@@ -28,13 +28,7 @@ function checkout(files: Record<string, number>) {
   fixtures.push(fixture);
   mkdirSync(join(fixture, 'scripts', 'lib'), { recursive: true });
   // The scripts date from before every file, so the lab library among them is no newer than a build.
-  const scripts = [
-    'start-labs.mjs',
-    'serve-labs.mjs',
-    'lib/npm.mjs',
-    'lib/script.mjs',
-    'lib/labs.mjs',
-  ];
+  const scripts = ['start-labs.mjs', 'serve-labs.mjs', 'lib/labs.mjs'];
   for (const script of scripts) {
     copyFileSync(join(process.cwd(), 'scripts', script), join(fixture, 'scripts', script));
     utimesSync(join(fixture, 'scripts', script), 1, 1);
