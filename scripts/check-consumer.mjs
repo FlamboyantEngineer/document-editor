@@ -86,7 +86,7 @@ try {
     const document = await import('${manifest.name}/document');
     const model = await import('${manifest.name}/model');
     const collab = await import('${manifest.name}/collab');
-    assert.equal(typeof document.applyStoredEdits, 'function');
+    assert.equal(typeof document.tableFromRows, 'function');
     assert.equal(typeof model.createDocumentSchema, 'function');
     assert.equal(typeof collab.openRoomChangeGuard, 'function');
     `,
