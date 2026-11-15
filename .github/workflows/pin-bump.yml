@@ -3,8 +3,11 @@ name: Pin bump
 # Proposes moving the git pins (the base component library and the collaboration tools) to the
 # head of their `dev` branches, as one tested set (README, Tested set): the set is installed with
 # strict peers and must pass the packed-consumer check before the pull request opens, and the pull
-# request merges by itself only once `check` passes. It needs the repository to let GitHub Actions
-# create pull requests and to allow auto-merge.
+# request merges by itself only once `check` passes. It needs auto-merge allowed and a
+# `PIN_BUMP_TOKEN` secret: a fine-grained token with contents and pull-request write access to this
+# repository. A push or pull request made with the workflow's own token starts no workflow, and a
+# `check` from a run started any other way does not satisfy the branch rules, so CI must see the
+# bump as an ordinary pull request.
 on:
   schedule:
     - cron: '17 5 * * 1-5'
@@ -15,9 +18,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+  contents: read
 
 env:
   BRANCH: pin-bump/dev
@@ -27,9 +28,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Require the pin-bump token
+        env:
+          TOKEN: ${{ secrets.PIN_BUMP_TOKEN }}
+        run: test -n "$TOKEN" || { echo '::error::Add the PIN_BUMP_TOKEN secret (see the header of pin-bump.yml).'; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: dev
+          token: ${{ secrets.PIN_BUMP_TOKEN }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
@@ -54,12 +60,11 @@ jobs:
             npm run build
             npm run check:consumer
           fi
-      # A pull request opened with the workflow's token starts no workflow, so the workflow starts
-      # CI on the branch itself; its `check` lands on the branch's head commit, where the rules read it.
+      # Pushed and opened with the pin-bump token, so CI runs on the pull request as on any other.
       - name: Propose the set
         if: steps.bump.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PIN_BUMP_TOKEN }}
           BODY: ${{ steps.bump.outputs.body }}
         run: |
           git config user.name 'github-actions[bot]'
@@ -72,5 +77,4 @@ jobs:
           else
             gh pr create --base dev --head "$BRANCH" --title 'Move the git pins to the head of dev' --body "$BODY"
           fi
-          gh workflow run ci.yml --ref "$BRANCH"
           gh pr merge "$BRANCH" --auto --merge

@@ -4,8 +4,6 @@ on:
   push:
     branches: [dev, main]
   pull_request:
-  # The pin-bump workflow starts CI on its branch itself (pin-bump.yml).
-  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
