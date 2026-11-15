@@ -1,0 +1,24 @@
+{
+  "about": "The set of packages a host installs beside this library, as `npm run check:consumer` installs it into a packed consumer (README, Tested set). The git pins of the base component library and the collaboration tools come from package.json. A change to this set is a change to the README's table.",
+  "packages": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-reconciler": "0.33.0",
+    "@handlewithcare/react-prosemirror": "3.3.0",
+    "prosemirror-view": "1.42.3",
+    "@y/y": "14.0.0-rc.23",
+    "lib0": "1.0.0-rc.22"
+  },
+  "pinned": ["@flamboyantengineer/ui-components", "@flamboyantengineer/collaboration-tools"],
+  "shared": [
+    "react",
+    "react-dom",
+    "prosemirror-model",
+    "prosemirror-state",
+    "prosemirror-transform",
+    "prosemirror-view",
+    "@y/y",
+    "lib0",
+    "@flamboyantengineer/ui-components"
+  ]
+}
