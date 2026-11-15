@@ -1,14 +1,16 @@
+import { isComposingKey } from '@flamboyantengineer/ui-components';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';
 import { revisionHooks as hooks } from './revision-hooks.js';
-import { type RevisionItem, revisionTitle } from './revision-item.js';
+import { type RevisionItem, type RevisionTimeFormat, revisionTitle } from './revision-item.js';
 import type { RevisionLabels } from './revision-labels.js';
 
 interface RevisionDialogProps {
   version: RevisionItem;
   labels: RevisionLabels;
+  timeFormat: RevisionTimeFormat;
   action: 'rename' | 'restore';
   onClose: () => void;
   onRename?: ((key: Key, label: string) => unknown) | undefined;
@@ -19,6 +21,7 @@ interface RevisionDialogProps {
 export function RevisionDialog({
   version,
   labels,
+  timeFormat,
   action,
   onClose,
   onRename,
@@ -36,7 +39,7 @@ export function RevisionDialog({
       role={restoring ? 'alertdialog' : 'dialog'}
       title={
         restoring
-          ? labels.restoreRevisionTitle(revisionTitle(version))
+          ? labels.restoreRevisionTitle(revisionTitle(version, timeFormat))
           : version.label
             ? labels.renameRevision
             : labels.nameRevision
@@ -61,11 +64,7 @@ export function RevisionDialog({
               onChange={setName}
               autoFocus
               onKeyDown={(event) => {
-                if (
-                  event.key === 'Enter' &&
-                  !event.nativeEvent.isComposing &&
-                  event.nativeEvent.keyCode !== 229
-                ) {
+                if (event.key === 'Enter' && !isComposingKey(event.nativeEvent)) {
                   event.preventDefault();
                   runPrimaryAction();
                 }

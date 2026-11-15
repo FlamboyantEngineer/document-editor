@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { UiProvider } from '@flamboyantengineer/ui-components/core';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -86,6 +87,31 @@ describe('DocumentHistory', () => {
       .click(screen.getByRole('button', { name: /1 earlier version under Draft/ }));
     expect(screen.getAllByRole('row')).toHaveLength(3);
     expect(await screen.findAllByText(/Ada Lovelace/)).not.toHaveLength(0);
+  });
+
+  it('DOCE-VERSIONS-5.4 names an automatic version by its time in the provider zone', async () => {
+    const { host, versions } = await openHistory();
+    const listed = await host.versions?.list('doc', new AbortController().signal);
+    const first = listed?.ok ? listed.value.find((each) => each.revision === 'rev-1') : undefined;
+    if (!first) throw new Error('rev-1 is not listed');
+    const time = new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Asia/Tokyo',
+    }).format(new Date(first.savedAt));
+    render(
+      <UiProvider locale="fr-FR" timeZone="Asia/Tokyo">
+        <Host versions={versions} />
+      </UiProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /1 earlier version under Draft/ }));
+    const older = screen
+      .getAllByRole('row', { name: new RegExp(time) })
+      .find((each) => !within(each).queryByText('Current'));
+    if (!older) throw new Error('no earlier automatic version');
+    await user.click(older);
+    expect(await screen.findByText(`Viewing ${time}`)).toBeVisible();
   });
 
   it('DOCE-VERSIONS-4.3 saves a named version', async () => {

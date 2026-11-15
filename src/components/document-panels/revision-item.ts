@@ -12,18 +12,28 @@ export interface RevisionItem {
   children?: readonly RevisionItem[] | undefined;
 }
 
-/** A named revision, or its local calendar time for an automatic revision. */
-export function revisionTitle(version: RevisionItem): string {
-  if (version.label?.trim()) return version.label.trim();
-  const time = new Date(version.time);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(version.time))
-    return Number.isNaN(time.valueOf())
-      ? version.time
-      : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(time);
-  return Number.isNaN(time.valueOf())
-    ? version.time
-    : new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(time);
+/** How revision times read: the provider's locale and time zone, and text for an unreadable time. */
+export interface RevisionTimeFormat {
+  readonly locale: string;
+  readonly timeZone: string;
+  readonly unknownTime: string;
+}
+
+/**
+ * When a revision was saved: a calendar day (`YYYY-MM-DD`) as that day, any other time in the
+ * format's zone, and an unreadable one as `unknownTime`.
+ */
+export function revisionTime(time: string, format: RevisionTimeFormat): string {
+  const date = new Date(time);
+  if (Number.isNaN(date.valueOf())) return format.unknownTime;
+  const isDay = /^\d{4}-\d{2}-\d{2}$/.test(time);
+  return new Intl.DateTimeFormat(format.locale, {
+    dateStyle: 'medium',
+    ...(isDay ? { timeZone: 'UTC' } : { timeStyle: 'short', timeZone: format.timeZone }),
+  }).format(date);
+}
+
+/** A named revision's name, or when it was saved. */
+export function revisionTitle(version: RevisionItem, format: RevisionTimeFormat): string {
+  return version.label?.trim() || revisionTime(version.time, format);
 }

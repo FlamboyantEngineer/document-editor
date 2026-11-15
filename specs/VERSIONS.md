@@ -209,9 +209,9 @@ Verification: `src/components/document-panels/revision-list.test.tsx`, `src/sess
 
 `DocumentHistory` shall show the versions through the editor-owned `RevisionList`, built from `ListView`, `Attribution`, filters and modal revision actions, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
 
-Named-only and author filters shall retain their choices while groups expand or fold. When the filters hide every version, the list shall say that no version matches rather than that there are none; when the versions could not be listed, it shall show only the error and its retry. All revision action, grouping and filter text belongs to the document or template labels. The list shall emit the `de-revision-list` hooks (Hooks).
+Named-only and author filters shall retain their choices while groups expand or fold. When the filters hide every version, the list shall say that no version matches rather than that there are none; when the versions could not be listed, it shall show only the error and its retry. An unnamed version shall be titled by when it was saved, in the base library provider's locale and time zone (a calendar day as that day), so a server render and its hydration agree, and an unreadable time by the provider's `unknownTime` text. All revision action, grouping and filter text belongs to the document or template labels. The list shall emit the `de-revision-list` hooks (Hooks).
 
-Implementation: `src/components/document-panels/revision-list.tsx`, `src/components/document-panels/revision-row.tsx`, `src/components/document-panels/revision-toolbar.tsx`, `src/components/document-panels/revision-hooks.ts`, `src/components/document-panels/revision-labels.ts`, `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
+Implementation: `src/components/document-panels/revision-list.tsx`, `src/components/document-panels/revision-row.tsx`, `src/components/document-panels/revision-toolbar.tsx`, `src/components/document-panels/revision-hooks.ts`, `src/components/document-panels/revision-item.ts`, `src/components/document-panels/revision-labels.ts`, `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
 Verification: `src/components/document-panels/revision-list.test.tsx`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-4.7 - What the reader may do
@@ -246,7 +246,7 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 ### DOCE-VERSIONS-5.4 - The banner
 
-`DocumentHistoryBanner` shall show, while a view is open, which version shows (or which two are compared), the template it pins, and an action that returns.
+`DocumentHistoryBanner` shall show, while a view is open, which version shows (or which two are compared), an unnamed one by its saved time as the history titles it (`versionTitle(version, savedTime)`), the template it pins, and an action that returns.
 
 Implementation: `src/components/document-panels/document-history.tsx`
 Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`

@@ -6,7 +6,7 @@ import { ExpandToggle } from '@flamboyantengineer/ui-components/expand-toggle';
 import { Cluster, Stack } from '@flamboyantengineer/ui-components/layout';
 import { ListViewItem } from '@flamboyantengineer/ui-components/list-row';
 import { revisionHooks as hooks } from './revision-hooks.js';
-import { type RevisionItem, revisionTitle } from './revision-item.js';
+import { type RevisionItem, type RevisionTimeFormat, revisionTitle } from './revision-item.js';
 import type { RevisionLabels } from './revision-labels.js';
 
 interface RevisionRowProps {
@@ -19,6 +19,7 @@ interface RevisionRowProps {
   canRename: boolean;
   canRestore: boolean;
   labels: RevisionLabels;
+  timeFormat: RevisionTimeFormat;
   onAction: (action: 'rename' | 'restore') => void;
 }
 
@@ -32,8 +33,10 @@ export function RevisionRow({
   canRename,
   canRestore,
   labels,
+  timeFormat,
   onAction,
 }: RevisionRowProps) {
+  const title = revisionTitle(version, timeFormat);
   const isCurrent = version.id === currentKey;
   const isExpanded = Boolean(version.children?.length) && expanded;
   return (
@@ -45,18 +48,18 @@ export function RevisionRow({
         expanded: isExpanded,
       })}
       id={version.id}
-      textValue={revisionTitle(version)}
+      textValue={title}
       title={
         <Cluster as="span" space="xs">
           {version.children?.length ? (
             <ExpandToggle
               {...hooks.slot('fold')}
-              label={labels.olderRevisions(version.children.length, revisionTitle(version))}
+              label={labels.olderRevisions(version.children.length, title)}
               isExpanded={expanded}
               onExpandedChange={onToggle}
             />
           ) : null}
-          <span {...hooks.slot('title')}>{revisionTitle(version)}</span>
+          <span {...hooks.slot('title')}>{title}</span>
           {isCurrent ? <Badge {...hooks.slot('current')}>{labels.currentRevision}</Badge> : null}
         </Cluster>
       }
