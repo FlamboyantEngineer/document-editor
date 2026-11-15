@@ -85,7 +85,8 @@ function startServer(
           const person = token ?? 'guest';
           if (refused.includes(person)) return Promise.resolve({ ok: false, reason: 'forbidden' });
           const access = readers.includes(person) ? 'read-only' : 'read-write';
-          return Promise.resolve({ ok: true, actor: { id: person }, access });
+          // The server shows each person as admitted, so the rooms admit them by name.
+          return Promise.resolve({ ok: true, actor: { id: person, name: person }, access });
         },
       },
       persistence,

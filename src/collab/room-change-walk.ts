@@ -13,15 +13,19 @@ import {
   unitsOf,
 } from './room-change-units.js';
 
-type Tier = 'comment' | 'review' | 'content';
+/** A permission a change of a room may need. */
+export type RoomChangePermission = 'edit' | 'suggest' | 'decide' | 'comment';
 
 /**
- * What a change of the content did: the highest tier it needs before knowing its writer, and who
- * wrote each suggested insertion it adds, which is a review only for that writer.
+ * What a change of the content did, before knowing its writer: the permissions it needs from
+ * anyone, the writers of the suggestions it adds, which only they may add (`suggest`, `edit` for
+ * anyone else), and the writers of the suggestions it withdraws, which they withdraw with `suggest`
+ * and anyone else rejects with `decide`.
  */
 export interface ContentChange {
-  readonly tier: Tier | null;
-  readonly authors: ReadonlySet<string | null>;
+  readonly needs: ReadonlySet<RoomChangePermission>;
+  readonly proposed: ReadonlySet<string | null>;
+  readonly withdrawn: ReadonlySet<string | null>;
 }
 
 const COMMENT_MARKS: ReadonlySet<string> = new Set(['comment_highlight']);
@@ -34,104 +38,164 @@ const SUGGESTION_ATTRS: ReadonlySet<string> = new Set([
   'splitPartIndex',
   'suggestionFormat',
 ]);
-const RANKS: Readonly<Record<Tier, number>> = { comment: 1, review: 2, content: 3 };
 
-function highest(a: Tier | null, b: Tier | null): Tier | null {
-  if (a === null) return b;
-  if (b === null) return a;
-  return RANKS[a] >= RANKS[b] ? a : b;
-}
-
-// What a change records as it is read: the tier so far and the writers of suggested insertions.
+// What a change records as it is read.
 function createTally() {
-  let tier: Tier | null = null;
-  const authors = new Set<string | null>();
+  const needs = new Set<RoomChangePermission>();
+  const proposed = new Set<string | null>();
+  const withdrawn = new Set<string | null>();
   return {
-    add(next: Tier | null) {
-      tier = highest(tier, next);
+    need(permission: RoomChangePermission | null) {
+      if (permission) needs.add(permission);
     },
-    inserted(author: string | null) {
-      tier = highest(tier, 'review');
-      authors.add(author);
+    proposed(author: string | null) {
+      proposed.add(author);
     },
-    result: (): ContentChange => ({ tier, authors }),
+    withdrawn(author: string | null) {
+      withdrawn.add(author);
+    },
+    result: (): ContentChange => ({ needs, proposed, withdrawn }),
   };
 }
 
 type Tally = ReturnType<typeof createTally>;
 
-const sameValue = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
-
-// A node's attribute change: one that sets or clears a suggestion's attributes is a review.
-function attrsTier(a: Node, b: Node): Tier | null {
-  const names = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
-  const changed = [...names].filter((name) => !sameValue(a.attrs[name], b.attrs[name]));
-  if (changed.length === 0) return null;
-  return changed.some((name) => SUGGESTION_ATTRS.has(name)) ? 'review' : 'content';
-}
-
-// A change of marks: a suggestion's marks (and what deciding one changes beside them) are a
-// review, comment highlights alone a comment, any other formatting content.
-function marksTier(a: readonly Mark[], b: readonly Mark[]): Tier | null {
-  const changed = [
-    ...a.filter((mark) => !mark.isInSet(b)),
-    ...b.filter((mark) => !mark.isInSet(a)),
-  ].map((mark) => mark.type.name);
-  if (changed.length === 0) return null;
-  if (changed.some((name) => SUGGESTION_MARKS.has(name))) return 'review';
-  return changed.every((name) => COMMENT_MARKS.has(name)) ? 'comment' : 'content';
-}
-
 const hasMark = (marks: readonly Mark[], names: ReadonlySet<string>): boolean =>
   marks.some((mark) => names.has(mark.type.name));
 
-// The writer of the suggested insertion among marks, or undefined when there is none.
-function insertionAuthor(marks: readonly Mark[]): string | null | undefined {
-  const mark = marks.find((each) => each.type.name === 'insertion');
-  if (!mark) return undefined;
-  const author: unknown = mark.attrs.dataAuthor;
-  return typeof author === 'string' ? author : null;
+const sameValue = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+const authorOf = (attrs: Readonly<Record<string, unknown>>): string | null =>
+  typeof attrs.dataAuthor === 'string' ? attrs.dataAuthor : null;
+
+// The writer of a block's suggestion: the block's own author for a suggested insertion; for a
+// block suggested for deletion, which keeps its original author, the writer of its deletion marks.
+function suggestionAuthor(node: Node): string | null {
+  if (node.attrs.suggestionSplitKind !== 'deletion') return authorOf(node.attrs);
+  let author: string | null = null;
+  node.descendants((child) => {
+    const mark = child.marks.find((each) => each.type.name === 'deletion');
+    if (mark && author === null) author = authorOf(mark.attrs);
+    return author === null;
+  });
+  return author;
 }
 
-// What a unit that goes needs: suggested text or a suggested block is a review.
-function goneTier(unit: Unit): Tier {
-  const suggested =
-    unit.isBlock && unit.node ? isSuggestedBlock(unit.node) : hasMark(unit.marks, SUGGESTED_MARKS);
-  return suggested ? 'review' : 'content';
+// A node's attribute change: setting a suggestion's attributes proposes it; clearing them accepts
+// a suggested insertion (a decision) or withdraws a suggested deletion; any other attribute is an
+// edit.
+function readAttrs(tally: Tally, a: Node, b: Node): void {
+  const names = new Set([...Object.keys(a.attrs), ...Object.keys(b.attrs)]);
+  const changed = [...names].filter((name) => !sameValue(a.attrs[name], b.attrs[name]));
+  if (changed.length === 0) return;
+  if (!changed.some((name) => SUGGESTION_ATTRS.has(name))) return tally.need('edit');
+  if (b.attrs.suggestionSplitKind || b.attrs.suggestionFormat) tally.proposed(suggestionAuthor(b));
+  else if (a.attrs.suggestionSplitKind === 'deletion') tally.withdrawn(suggestionAuthor(a));
+  else tally.need('decide');
+}
+
+// A change of marks. A suggestion mark added proposes it; an insertion mark taken off accepts it
+// and a format suggestion taken off decides it, both decisions; a deletion mark taken off
+// withdraws or rejects it. Formatting beside a format suggestion is the suggestion's own, as is the
+// contributor mark an accepted insertion leaves; any other mark is an edit, and comment highlights
+// alone are a comment.
+function readMarks(tally: Tally, a: readonly Mark[], b: readonly Mark[]): void {
+  const added = b.filter((mark) => !mark.isInSet(a));
+  const removed = a.filter((mark) => !mark.isInSet(b));
+  const changed = [...added, ...removed];
+  if (changed.length === 0) return;
+  const isSuggestion = (mark: Mark) => SUGGESTION_MARKS.has(mark.type.name);
+  for (const mark of added.filter(isSuggestion)) tally.proposed(authorOf(mark.attrs));
+  // Text still suggested as an insertion after the change moved from one suggestion to another:
+  // it withdraws the first, as rewriting it does.
+  const stillInserted = b.some((mark) => mark.type.name === 'insertion');
+  for (const mark of removed.filter(isSuggestion)) {
+    const name = mark.type.name;
+    if (name === 'deletion' || (name === 'insertion' && stillInserted))
+      tally.withdrawn(authorOf(mark.attrs));
+    else tally.need('decide');
+  }
+  // Accepting an insertion leaves its writer's contributor mark in its place.
+  const accepted = removed.some((mark) => mark.type.name === 'insertion') && !stillInserted;
+  const others = changed.filter(
+    (mark) => !isSuggestion(mark) && !(accepted && mark.type.name === 'contributor'),
+  );
+  if (changed.some((mark) => mark.type.name === 'format_change')) return;
+  if (others.some((mark) => !COMMENT_MARKS.has(mark.type.name))) tally.need('edit');
+  else if (others.length > 0) tally.need('comment');
+}
+
+// What a unit that goes needs: text or a block suggested as an insertion (or a suggested split)
+// is withdrawn by its writer or rejected; text or a block suggested as a deletion goes when the
+// deletion is accepted, a decision; any other text or block start is an edit.
+function readGone(tally: Tally, unit: Unit): void {
+  if (unit.isBlock && unit.node) return readGoneBlock(tally, unit.node);
+  const insertion = unit.marks.find((mark) => mark.type.name === 'insertion');
+  if (insertion) tally.withdrawn(authorOf(insertion.attrs));
+  else if (unit.marks.some((mark) => mark.type.name === 'deletion')) tally.need('decide');
+  else tally.need('edit');
+}
+
+// A block that goes: by its suggestion kind, or, with none, as its text when all of it is
+// suggested, so withdrawing or deciding the text takes the block with it.
+function readGoneBlock(tally: Tally, node: Node): void {
+  const kind: unknown = node.attrs.suggestionSplitKind;
+  if (kind === 'deletion') return tally.need('decide');
+  if (kind) return tally.withdrawn(suggestionAuthor(node));
+  if (!isSuggestedBlock(node)) return tally.need('edit');
+  node.descendants((child) => {
+    if (child.isInline)
+      readGone(tally, { text: null, node: child, isBlock: false, marks: child.marks });
+    return !child.isInline;
+  });
 }
 
 // The writer of a unit that comes as a suggested insertion, or undefined when it is not one.
 function comeAuthor(unit: Unit): string | null | undefined {
-  if (!unit.isBlock || !unit.node) return insertionAuthor(unit.marks);
+  if (!unit.isBlock || !unit.node) {
+    const mark = unit.marks.find((each) => each.type.name === 'insertion');
+    return mark ? authorOf(mark.attrs) : undefined;
+  }
   if (unit.node.attrs.suggestionSplitKind !== 'insertion') return undefined;
-  const author: unknown = unit.node.attrs.dataAuthor;
-  return typeof author === 'string' ? author : null;
+  return authorOf(unit.node.attrs);
 }
 
-// What keeping a unit with other marks, or a block with other attributes, needs.
-function keptTier(a: Unit, b: Unit): Tier | null {
-  const attrs = a.isBlock && a.node && b.node ? attrsTier(a.node, b.node) : null;
-  return highest(attrs, marksTier(a.marks, b.marks));
+// What a unit needs as an alignment reads it, to cost it; the writer is not known yet.
+function costOfReading(read: (tally: Tally) => void): number {
+  const tally = createTally();
+  read(tally);
+  const { needs, proposed, withdrawn } = tally.result();
+  if (needs.has('edit')) return COSTS.edit;
+  if (needs.has('decide')) return COSTS.decide;
+  if (needs.has('suggest') || proposed.size + withdrawn.size > 0) return COSTS.suggest;
+  return needs.has('comment') ? COSTS.comment : 0;
 }
 
-// An alignment costs most for content, so units are read the way that needs the least.
-const COSTS: Readonly<Record<Tier, number>> = { comment: 1, review: 100, content: 10_000 };
-const costOf = (tier: Tier | null): number => (tier ? COSTS[tier] : 0);
+// An alignment costs most for an edit, and a decision more than a suggestion, so units are read
+// the way that needs the least: a suggestion copied into the halves of a suggested split reads as
+// kept, not as deleted text accepted and suggested again.
+const COSTS = { comment: 1, suggest: 100, decide: 150, edit: 10_000 } as const;
 const UNIT_COSTS: UnitCosts = {
-  gone: (unit) => costOf(goneTier(unit)),
-  come: (unit) => costOf(comeAuthor(unit) === undefined ? 'content' : 'review'),
-  kept: (a, b) => costOf(keptTier(a, b)),
+  gone: (unit) => costOfReading((tally) => readGone(tally, unit)),
+  come: (unit) => (comeAuthor(unit) === undefined ? COSTS.edit : COSTS.suggest),
+  kept: (a, b) => costOfReading((tally) => readKept(tally, a, b)),
 };
+
+// Keeping a unit with other marks, or a block with other attributes.
+function readKept(tally: Tally, a: Unit, b: Unit): void {
+  if (a.isBlock && a.node && b.node) readAttrs(tally, a.node, b.node);
+  readMarks(tally, a.marks, b.marks);
+}
 
 // The units a change aligns: kept ones change marks (and a block's attributes), what goes must be
 // suggested, what comes the writer's own suggested insertion.
 function readUnits(tally: Tally, { pairs, gone, come }: Alignment): void {
-  for (const [was, is] of pairs) tally.add(keptTier(was, is));
-  for (const unit of gone) tally.add(goneTier(unit));
+  for (const [was, is] of pairs) readKept(tally, was, is);
+  for (const unit of gone) readGone(tally, unit);
   for (const unit of come) {
     const author = comeAuthor(unit);
-    if (author === undefined) tally.add('content');
-    else tally.inserted(author);
+    if (author === undefined) tally.need('edit');
+    else tally.proposed(author);
   }
 }
 
@@ -180,7 +244,7 @@ function readRun(tally: Tally, gone: readonly Node[], come: readonly Node[]): vo
   if (gone.length === come.length && gone.every((node, index) => node.type === come[index]?.type))
     gone.forEach((node, index) => readNode(tally, node, come[index] as Node));
   else if (!readTextRun(tally, gone, come)) {
-    for (const node of gone) tally.add(isSuggestedBlock(node) ? 'review' : 'content');
+    for (const node of gone) readGoneBlock(tally, node);
     for (const node of come) readInserted(tally, node);
   }
 }
@@ -209,11 +273,11 @@ function readChildren(tally: Tally, a: readonly Node[], b: readonly Node[]): voi
 
 function readNode(tally: Tally, a: Node, b: Node): void {
   if (a.eq(b)) return;
-  tally.add(attrsTier(a, b));
-  tally.add(marksTier(a.marks, b.marks));
+  readAttrs(tally, a, b);
+  readMarks(tally, a.marks, b.marks);
   if (a.content.eq(b.content)) return;
   if (a.inlineContent && b.inlineContent) {
-    if (!readAligned(tally, unitsOf(a), unitsOf(b))) tally.add('content');
+    if (!readAligned(tally, unitsOf(a), unitsOf(b))) tally.need('edit');
     return;
   }
   const children = (node: Node) => {

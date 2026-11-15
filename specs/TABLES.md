@@ -155,6 +155,15 @@ Verification: `src/engine/table-split.test.ts`
 Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
 Verification: `src/engine/table-format.test.ts`
 
+## DOCE-TABLES-4 - Tables from other data
+
+### DOCE-TABLES-4.1 - Rows of text cells
+
+`tableFromRows(rows)`, in the `./document` entry, shall turn rows of cells `{ text, colspan, rowspan }`, each row listing the cells that start in it, into stored table content (`table`, `tableRow`, `tableCell`, `paragraph`, `text`), the shape another editor hands over, such as a spreadsheet's range with its calculated text and merged cells. A span of 1, the default, is left out; each line of a cell's text is a paragraph and an empty cell holds one empty paragraph. A row that holds no cell of its own, because the cells above span it, is dropped and those cells span one row less. The table carries no element ids, which the editor or `applyStoredEdits` gives as it inserts it. No rows, no cell at all, or a span that is not a whole number of at least 1 shall throw a `RangeError`. The spreadsheet ranges in `test/fixtures/tables/spreadsheet-ranges.json` (spans, empty cells, text values and merges clipped to the range) are the shared cases both editors test against.
+
+Implementation: `src/document/stored-table.ts`
+Verification: `src/document/stored-table.test.ts`
+
 ## Hooks
 
 | Hook                               | Kind      | Values          | Description                                                |

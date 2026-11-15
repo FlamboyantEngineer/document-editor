@@ -17,7 +17,7 @@ const STAGES = [
     'build',
     'build:labs',
   ],
-  ['test', 'test:labs', 'check:bundle-size'],
+  ['test', 'test:labs', 'check:bundle-size', 'check:consumer'],
 ];
 
 const skipped = parseArgs({ options: { skip: { type: 'string', multiple: true, default: [] } } })

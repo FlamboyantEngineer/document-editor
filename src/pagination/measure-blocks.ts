@@ -320,17 +320,6 @@ function measureContent(measuring: Measuring, placed: Placed): unknown {
   return name === 'table' ? { children } : { children, overhead: overheadOf(measuring, relative) };
 }
 
-/** One block the view laid out at a position, measured; null when it has no element. */
-export function measureBlock(
-  view: EditorView,
-  pos: number,
-  options: MeasureOptions = {},
-): LayoutBlock | null {
-  const node = view.state.doc.nodeAt(pos);
-  const element = node ? elementOf(view, pos) : null;
-  return node && element ? measureDrawn(view, { node, pos, element }, options) : null;
-}
-
 // A block drawn as an element, measured or taken from the cache.
 function measureDrawn(
   view: EditorView,

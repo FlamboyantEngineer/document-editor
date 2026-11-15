@@ -139,24 +139,6 @@ export const numberingSetting = (path: string, label: string): TemplateSetting =
 /** The page sizes a template may name. */
 export const PAGE_SIZES = Object.keys(PAGE_SIZE_DIMENSIONS);
 
-/** The settings of a text style: its font, colour, line height, alignment and spacing. */
-export const TEXT_STYLE_SETTINGS: readonly TemplateSetting[] = [
-  setting('font', 'Font', { type: 'font' }),
-  setting('size', 'Size', { type: 'points' }),
-  setting('weight', 'Weight', { type: 'number', min: 100, max: 900, step: 100 }),
-  setting('italic', 'Italic', { type: 'boolean' }),
-  setting('underline', 'Underline', { type: 'boolean' }),
-  setting('color', 'Colour', { type: 'color' }),
-  setting('lineHeight', 'Line height', { type: 'number', min: 0.8, max: 3, step: 0.05 }),
-  setting(
-    'alignment',
-    'Alignment',
-    select(['left', 'Left'], ['center', 'Centre'], ['right', 'Right'], ['justify', 'Justify']),
-  ),
-  setting('spaceBefore', 'Space before', { type: 'points' }),
-  setting('spaceAfter', 'Space after', { type: 'points' }),
-];
-
 /** The text styles, each a card, by their key in a template's styles, in reading order. */
 export const TEXT_STYLES = [
   { id: 'title', label: 'Title' },

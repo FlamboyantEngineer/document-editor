@@ -172,7 +172,6 @@ export {
   TEMPLATE_SECTIONS,
   TemplateEditor,
   TemplateJsonEditor,
-  TEXT_STYLE_SETTINGS,
   TEXT_STYLES,
   withRegionChange,
   withSetting,
