@@ -9,6 +9,7 @@ import { startNpm } from './lib/npm.mjs';
 const STAGES = [
   ['lint', 'format:check', 'typecheck', 'check:references', 'check:specs', 'build', 'build:labs'],
   ['test', 'test:labs', 'check:bundle-size', 'check:consumer'],
+  ['test:guard-budgets'],
 ];
 
 const skipped = parseArgs({ options: { skip: { type: 'string', multiple: true, default: [] } } })

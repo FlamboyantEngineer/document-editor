@@ -40,7 +40,7 @@ jobs:
       # scripts/check.mjs is the one list of gates, shared with `npm run check` locally. The browser
       # tests run in the labs jobs beside it.
       - name: Checks
-        run: npm run check -- --skip test:labs --skip check:consumer
+        run: npm run check -- --skip test:labs --skip check:consumer --skip test:guard-budgets
       # The packed-consumer check installs the pinned repositories again, with the read token.
       - name: Packed consumer with the tested set
         env:
@@ -93,6 +93,10 @@ jobs:
       # The print tests read each printed sheet's text with pdftotext.
       - run: sudo apt-get install -y poppler-utils
       - run: npm run build:labs
+      # Guard timing shares only the dedicated performance runner, sequentially with browser budgets.
+      - name: Guard functional cases and budgets
+        if: matrix.name == 'performance'
+        run: npm run test:guard-budgets
       - name: Lab browser tests (${{ matrix.name }})
         run: |
           npx playwright test ${{ matrix.args }}

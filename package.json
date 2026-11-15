@@ -77,7 +77,7 @@
     "format:check": "prettier --check --cache --cache-strategy content .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.scripts.json",
     "test": "vitest run",
-    "test:changed": "vitest run --changed origin/dev --passWithNoTests",
+    "test:changed": "node scripts/test-changed.mjs",
     "test:watch": "vitest",
     "check:references": "node scripts/check-references.mjs",
     "check:specs": "node scripts/check-specs.mjs",
@@ -88,7 +88,8 @@
     "labs": "node scripts/start-labs.mjs",
     "test:labs": "playwright test --project=chromium --project=performance",
     "test:perf": "playwright test --project=budgets --workers=1",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "test:guard-budgets": "vitest run --config vitest.guard.config.ts"
   },
   "peerDependencies": {
     "@flamboyantengineer/ui-components": "~0.1.0",
