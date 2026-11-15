@@ -15,7 +15,7 @@ import {
 import { type TransactionSource, useDecisionRecords } from './use-decision-records.js';
 
 /** The store and document whose threads a provider keeps. */
-export interface CommentThreadsProviderProps {
+interface CommentThreadsProviderProps {
   readonly store: CommentStoreAdapter;
   readonly documentId: string;
   readonly identity: IdentityAdapter;

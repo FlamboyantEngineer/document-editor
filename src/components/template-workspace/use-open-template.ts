@@ -6,7 +6,7 @@ import { useState } from 'react';
 import type { OpenTemplate } from './template-requests.js';
 
 /** Requests of which only the latest one's answer applies. */
-export type RequestKind = 'view';
+type RequestKind = 'view';
 
 /** How the workspace changes the open template and tags its requests. */
 export interface OpenTemplateActions {

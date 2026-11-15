@@ -27,7 +27,7 @@ export type { PageOverflow } from './layout-validation.js';
 export { findPageOverflow } from './layout-validation.js';
 export { createListStarts, listStartsKey } from './list-starts.js';
 export type { MeasureCache, MeasureOptions } from './measure-blocks.js';
-export { createMeasureCache, measureBlock, measureChildBlocks } from './measure-blocks.js';
+export { createMeasureCache, measureChildBlocks } from './measure-blocks.js';
 export type { FootnoteArea } from './measure-footnotes.js';
 export { footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 export type { PageDebugParts } from './page-debug.js';

@@ -80,7 +80,7 @@ function useListAttributes(view: EditorView, listId: string, activeId: string | 
 }
 
 /** What a typed menu shows and does. */
-export interface TriggerMenuProps {
+interface TriggerMenuProps {
   view: EditorView;
   match: TriggerMatch;
   /** Closes the menu until another trigger is typed. */

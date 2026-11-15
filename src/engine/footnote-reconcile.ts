@@ -15,7 +15,7 @@ import {
 } from './footnote-model.js';
 
 /** What a reconcile reads besides the document. */
-export interface FootnoteReconcileContext {
+interface FootnoteReconcileContext {
   /** The document before the changes, and the changes, to tell an original marker from a copy. */
   readonly before: ProseMirrorNode;
   readonly transactions: readonly Transaction[];

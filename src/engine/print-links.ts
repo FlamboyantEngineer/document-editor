@@ -77,7 +77,7 @@ export function elementNumbers(
 }
 
 /** What a snapshot's links are made from. */
-export interface PrintLinkOptions {
+interface PrintLinkOptions {
   /** The number of each numbered element, by its element id (`elementNumbers`). */
   readonly numbers: ReadonlyMap<string, string>;
   /** Where a citation of another document links; unlinked without it. */

@@ -81,7 +81,7 @@ function contentWidth(view: EditorView): number {
 }
 
 /** The bounds a figure takes on the document's pages: no wider than their content. */
-export function figureBounds(view: EditorView): FigureBounds {
+function figureBounds(view: EditorView): FigureBounds {
   const content = contentWidth(view);
   return content > 0
     ? { ...FIGURE_BOUNDS, maxWidth: Math.min(FIGURE_BOUNDS.maxWidth, content) }

@@ -9,7 +9,7 @@ import type { SessionDocument } from './document-session.js';
 import type { WritableStore } from './value-store.js';
 
 /** What a session follows, and what it does when each changes. */
-export interface SessionFollowers {
+interface SessionFollowers {
   host: EditorHost;
   documentId: string;
   document: WritableStore<SessionDocument | null>;
@@ -35,10 +35,7 @@ export function withCapabilities(
 }
 
 /** Whether `latest` is a newer saved state of the template than the one the document pins. */
-export function newerTemplate(
-  pinned: SavedState | null,
-  latest: SavedState | null,
-): SavedState | null {
+function newerTemplate(pinned: SavedState | null, latest: SavedState | null): SavedState | null {
   if (!latest) return null;
   if (!pinned) return latest;
   return latest.sequence > pinned.sequence ? latest : null;

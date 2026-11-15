@@ -11,12 +11,12 @@ export const LOCKED_TEMPLATE_KEYS: readonly (keyof TemplateFile)[] = ['formatVer
 export const templateText = (template: TemplateFile) => JSON.stringify(template, null, 2);
 
 /** What a text reads as: a template, or the errors that keep it from being one. */
-export type TemplateTextReading =
+type TemplateTextReading =
   | { readonly template: TemplateFile; readonly errors?: never }
   | { readonly errors: readonly string[]; readonly template?: never };
 
 /** How a text is read as a template. */
-export interface TemplateTextOptions {
+interface TemplateTextOptions {
   /** The template the host holds, whose locked keys the text cannot change. */
   readonly held: TemplateFile;
   readonly locked: readonly (keyof TemplateFile)[];

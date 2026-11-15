@@ -61,7 +61,7 @@ function positionOf(doc: ProseMirrorNode, node: ProseMirrorNode, near: number): 
  * document, carries the place with it, whatever changed before and after it; when the blocks
  * around the place changed themselves, the place follows the one range that differs.
  */
-export function placeIn(place: PastePlace, state: EditorState): Selection {
+function placeIn(place: PastePlace, state: EditorState): Selection {
   if (place.doc === state.doc) return place.selection;
   const change = changeBetween(place.doc, state.doc);
   for (const anchor of anchorsOf(place.selection)) {

@@ -60,7 +60,7 @@ const DOM_EVENTS = [
 ] as const;
 
 type Props = EditorProps;
-export type Handler = (plugin: Plugin, view: EditorView) => boolean | void | undefined;
+type Handler = (plugin: Plugin, view: EditorView) => boolean | void | undefined;
 
 // Each projection view as its canonical view.
 const canonicalViews = new WeakMap<EditorView, EditorView>();
@@ -80,7 +80,7 @@ export function canonicalViewOf(view: EditorView, source: CanonicalPluginsSource
 type Input = 'read' | 'held' | false;
 
 /** An event for the canonical plugins: which of them take it, and how each is handed it. */
-export interface Offer {
+interface Offer {
   readonly has: (plugin: Plugin) => boolean;
   readonly handle: Handler;
 }

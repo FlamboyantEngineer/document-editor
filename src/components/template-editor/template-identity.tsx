@@ -45,7 +45,7 @@ export interface TemplateParentOption {
 }
 
 /** What the identity rows read and change. */
-export interface TemplateIdentityProps {
+interface TemplateIdentityProps {
   readonly template: TemplateFile;
   readonly onChange: (template: TemplateFile) => void;
   /** The parents to pick among; without them the parent has no row. */

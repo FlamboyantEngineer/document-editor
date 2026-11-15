@@ -23,7 +23,7 @@ import {
 } from './use-host-events.js';
 
 /** What the plumbing reads of the editor's props. */
-export interface EnginePlumbingProps {
+interface EnginePlumbingProps {
   readonly onStateChange: (update: (state: EditorState) => EditorState) => void;
   readonly events?: Omit<RichTextEngineEvents, 'props'> | undefined;
   readonly onContentChange?: DocumentEditorNotifications['onContentChange'];
@@ -117,7 +117,7 @@ function createTransactionFeed() {
 // its transactions.
 
 /** The host's notifications of changes, as the engine's view calls them. */
-export type ChangeNotifications = Pick<EnginePlumbingProps, 'onContentChange' | 'onReviewChange'>;
+type ChangeNotifications = Pick<EnginePlumbingProps, 'onContentChange' | 'onReviewChange'>;
 
 export function useEngineView(
   events: EnginePlumbingProps['events'],

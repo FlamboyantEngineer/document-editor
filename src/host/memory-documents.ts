@@ -23,7 +23,7 @@ export function savedState(sequence: number): SavedState {
 type StoredVersion = DocumentVersion & { content: DocumentFile };
 
 /** Every saved state of each document, oldest first, with the people following each document. */
-export interface MemoryHistory {
+interface MemoryHistory {
   /** Records a new saved state of a document and tells its subscribers. */
   record(documentId: string, content: DocumentFile, label?: string | null): StoredVersion;
   versions(documentId: string): StoredVersion[] | undefined;

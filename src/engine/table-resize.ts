@@ -21,7 +21,7 @@ interface ResizeState {
 const resizeKey = new PluginKey<ResizeState>('table-column-resize');
 
 /** A drag of a column's right border. */
-export interface ColumnResize {
+interface ColumnResize {
   /** The column whose right border moves. */
   readonly column: number;
   /** How far the border moves, in pixels. */

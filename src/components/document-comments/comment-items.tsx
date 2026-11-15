@@ -47,7 +47,7 @@ export type CommentItem = Placed &
   );
 
 /** What decides which items the margin and the panel show. */
-export interface CommentItemsOptions {
+interface CommentItemsOptions {
   readonly threads: ReadonlyMap<string, CommentThread>;
   /** Whether the reader may comment, which offers Comment on a selection. */
   readonly canComment: boolean;

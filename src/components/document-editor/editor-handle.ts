@@ -42,7 +42,7 @@ import type { LayoutProgress } from './use-document-layout.js';
 import { measureVisibleElements, type VisibleElement } from './visible-elements.js';
 
 /** Where `openThread` takes the reader within a thread. */
-export interface OpenThreadOptions {
+interface OpenThreadOptions {
   /** The comment to point the reader at, such as the one a link names. */
   readonly entryId?: string | undefined;
   /** A reply to start writing in the thread's composer. */

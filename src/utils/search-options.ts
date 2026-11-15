@@ -11,7 +11,7 @@ export function searchOptionsOf(keys: ReadonlySet<Key>): SearchOptions {
 }
 
 /** The option keys selected for the plugin's options. */
-export function searchOptionKeys(options: SearchOptions | undefined): Set<Key> {
+function searchOptionKeys(options: SearchOptions | undefined): Set<Key> {
   const keys = new Set<Key>();
   if (options?.caseSensitive) keys.add('case');
   if (options?.wholeWord) keys.add('word');

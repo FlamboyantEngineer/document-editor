@@ -19,7 +19,7 @@ export interface TemplateScopeProps {
 }
 
 /** The scope a name gives among sections: the section's, or the document's when none has it. */
-export function scopeIn(
+function scopeIn(
   sections: readonly TemplateSection[] | null | undefined,
   scope: TemplateScope | undefined,
 ): TemplateScope {

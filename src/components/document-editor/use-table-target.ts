@@ -23,7 +23,7 @@ export interface TableTarget {
 }
 
 /** What the target follows. */
-export interface TableTargetOptions {
+interface TableTargetOptions {
   readonly view: EditorView | null;
   /** The handles' layer; the pointer is followed over its parent, the editor. */
   readonly layer: HTMLElement | null;

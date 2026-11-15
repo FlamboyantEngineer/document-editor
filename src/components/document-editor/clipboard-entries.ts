@@ -10,7 +10,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { type FigurePasteOptions, type PastedContent, pasteImages } from './figure-paste.js';
 
 /** What the clipboard entries need. */
-export interface ClipboardEntriesOptions {
+interface ClipboardEntriesOptions {
   readonly labels: DocumentEditorLabels;
   readonly editable: boolean;
   /** Uploads pasted images, while the host stores assets. */

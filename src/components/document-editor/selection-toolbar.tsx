@@ -134,7 +134,7 @@ function useFocusKey(view: EditorView | null, row: RefObject<HTMLDivElement | nu
 }
 
 /** What the selection toolbar reads. */
-export interface DocumentSelectionToolbarProps {
+interface DocumentSelectionToolbarProps {
   context: EditorContext;
   view: EditorView | null;
   startCommentRef: RefObject<(() => void) | null>;

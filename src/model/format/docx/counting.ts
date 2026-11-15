@@ -39,15 +39,6 @@ const zeroObjects = (): Record<NumberedObjectKind, number> => ({
   equation: 0,
 });
 
-/** The stored block types the template numbers, by the kind of object each is. */
-export const NUMBERED_BLOCKS: Readonly<Record<string, NumberedObjectKind>> = {
-  figure: 'figure',
-  table: 'table',
-  codeBlock: 'codeBlock',
-  linkedCode: 'codeBlock',
-  mathBlock: 'equation',
-};
-
 /**
  * The counting a section starts with: its own scope's numbering, with its counters and Word
  * numbers from 0 when it restarts numbering or is the first, else carried on from the section

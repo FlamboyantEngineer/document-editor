@@ -7,10 +7,7 @@ import { escapeText } from './escape.js';
 import { text, type Writing } from './writing.js';
 
 /** Writes a run of blocks as Markdown, one string for each block written. */
-export type BlocksWriter = (
-  content: readonly StoredNode[] | undefined,
-  writing: Writing,
-) => string[];
+type BlocksWriter = (content: readonly StoredNode[] | undefined, writing: Writing) => string[];
 
 const span = (value: unknown) => (typeof value === 'number' && value > 1 ? Math.floor(value) : 1);
 

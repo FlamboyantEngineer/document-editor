@@ -34,9 +34,9 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-1.5 - Citations as they are now
 
-`createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, a new request aborting the one in flight, and mark a reference whose document or target is gone `unavailable` and one whose document's revision, number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`); `updateReference` takes the update of the reference at the selection, recording the citation as it is now and reading as its label. The context menu offers it.
+`createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, a new request aborting the one in flight, and mark a reference whose document or target is gone `unavailable` and one whose document's revision, number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`); `updateReference` takes the update of the reference at the selection, recording the citation as it is now and reading as its label. The context menu offers it. Typing walks no reference: a change that only types or deletes text moves the marks, unless it inserts text carrying an external reference, as a paste may, which marks it as the host resolved it.
 
-Implementation: `src/engine/reference-status.ts`, `src/components/document-editor/element-entries.ts`
+Implementation: `src/engine/reference-status.ts`, `src/engine/host-status.ts`, `src/components/document-editor/element-entries.ts`
 Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-1.6 - Where references go
@@ -89,6 +89,13 @@ Verification: `src/engine/references.test.ts`
 
 Implementation: `src/engine/abbreviation-health.ts`
 Verification: `src/engine/abbreviation-health.test.ts`
+
+### DOCE-REFERENCES-2.4 - Glossary input on a server
+
+`isGlossaryEntryId(value)` shall tell whether text is a glossary entry id: 1 to 64 letters, digits or hyphens. `normalizeGlossaryInput({ abbreviation, expansion })` shall trim a new or changed entry and throw an `Error` for an abbreviation outside 1 to 32 characters or an expansion outside 1 to 256, so a host's glossary service checks what it stores by the editor's rules. `ABBREVIATION_CACHE_REFRESH_META` is the stable transaction meta name a host marks a change with that only refreshes the abbreviation text it caches.
+
+Implementation: `src/model/glossary.ts`
+Verification: `src/model/glossary.test.ts`
 
 ## DOCE-REFERENCES-3 - In the editor
 

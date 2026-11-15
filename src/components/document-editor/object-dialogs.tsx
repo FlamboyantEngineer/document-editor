@@ -35,7 +35,7 @@ import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 
 /** What the editor's dialogs need beside the view. */
-export interface ObjectDialogsProps {
+interface ObjectDialogsProps {
   /** The dialog open, or null. */
   readonly dialog: ObjectDialog | null;
   readonly view: EditorView | null;

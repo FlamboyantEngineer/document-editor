@@ -189,7 +189,7 @@ export const SNAPSHOT_ELEMENTS: ReadonlySet<string> = new Set([
 ]);
 
 /** The attributes a snapshot's elements may carry, beside `data-*` and `aria-*`. */
-export const SNAPSHOT_ATTRIBUTES: ReadonlySet<string> = new Set(ATTRIBUTES);
+const SNAPSHOT_ATTRIBUTES: ReadonlySet<string> = new Set(ATTRIBUTES);
 
 /** The elements a snapshot leaves out whole, with their content, by lower-case tag name. */
 export const SNAPSHOT_DROPPED: ReadonlySet<string> = new Set(DROPPED);

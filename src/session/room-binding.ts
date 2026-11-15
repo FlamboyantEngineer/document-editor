@@ -53,7 +53,7 @@ const asPin = (value: unknown): TemplatePin | null =>
     : null;
 
 /** How a session binds to its room. */
-export interface RoomBindingOptions {
+interface RoomBindingOptions {
   schema: Schema;
   isRemoteOrigin: (origin: unknown) => boolean;
   /** The room's awareness, a `@y/protocols` awareness, when the connection has one. */

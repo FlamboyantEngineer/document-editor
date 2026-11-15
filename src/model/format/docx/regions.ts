@@ -9,7 +9,7 @@ import { WORD_NAMESPACES, XML_DECLARATION } from './word-xml.js';
 import type { Writing } from './writing.js';
 
 /** A written header or footer part: its content and the links it holds. */
-export interface RegionPart {
+interface RegionPart {
   readonly data: string;
   readonly links: readonly string[];
 }
@@ -33,7 +33,7 @@ function expandText(node: StoredNode): StoredNode[] {
 }
 
 /** Template content with each `{{key}}` token in its text a variable. */
-export function expandTokens(content: readonly StoredNode[]): StoredNode[] {
+function expandTokens(content: readonly StoredNode[]): StoredNode[] {
   return content.flatMap((node) => {
     if (node.type === 'text') return expandText(node);
     return node.content ? [{ ...node, content: expandTokens(node.content) }] : [node];

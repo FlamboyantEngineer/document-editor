@@ -98,11 +98,6 @@ export function parseTemplateAssetImageAlignment(value: unknown): 'left' | 'cent
   return normalized === 'center' || normalized === 'right' ? normalized : 'left';
 }
 
-/** The element's string attribute, or null when it is absent or empty. */
-export function attributeOrNull(dom: Element, name: string): string | null {
-  return dom.getAttribute(name) || null;
-}
-
 /** An element's integer attribute, NaN when it is not a number, or null when it is absent. */
 export function integerAttributeOrNull(dom: Element, name: string): number | null {
   if (!dom.hasAttribute(name)) return null;

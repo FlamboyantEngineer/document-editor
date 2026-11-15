@@ -5,7 +5,7 @@
 // host does not embed as the content they hold.
 
 import { Fragment, Mark, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
-import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
+import { type Command, type EditorState, type Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type {
   EmbedContent,
@@ -16,9 +16,14 @@ import type {
 import { isEmbed, readStoredContent } from '../model/index.js';
 import type { PasteFilter } from './clipboard.js';
 import { type EmbedAt, embedAt, embedsKey, listEmbeds, unwrapPastedEmbeds } from './embeds.js';
+import {
+  createHostStatus,
+  type HostStatusState,
+  recordHostStatus,
+  refreshHostStatus,
+} from './host-status.js';
 import { identifyOutput } from './script-output.js';
 import { suggestionsKey } from './suggestions.js';
-import { isInlineTextOnly } from './transaction-kind.js';
 
 /** Where an embed stands against its content as the host has it now. */
 export type EmbedStatus = 'current' | 'update' | 'unavailable' | 'no-access';
@@ -34,13 +39,8 @@ const sourceOf = (node: ProseMirrorNode): EmbedSource => ({
   source: String(node.attrs.source),
 });
 
-interface StatusState {
-  /** Each embedded content as the host resolved it, by `embedSourceKey`. */
-  readonly resolved: ReadonlyMap<string, Resolved>;
-  readonly decorations: DecorationSet;
-  /** How many refreshes the host asked for: the view asks again at each. */
-  readonly refreshes: number;
-}
+/** Each embedded content as the host resolved it, by `embedSourceKey`, and the marks it gives. */
+type StatusState = HostStatusState<Resolved>;
 
 const statusKey = new PluginKey<StatusState>('embed-status');
 
@@ -181,79 +181,20 @@ export function createEmbedStatus({
   delay = 500,
 }: EmbedStatusOptions): Plugin<StatusState> {
   const kinds = new Set(source.kinds);
-  return new Plugin<StatusState>({
+  return createHostStatus<EmbedSource, Resolved>({
     key: statusKey,
-    state: {
-      init: (_config, state) => ({
-        resolved: new Map(),
-        decorations: decorate(state.doc, new Map()),
-        refreshes: 0,
-      }),
-      apply(tr, value) {
-        const meta = tr.getMeta(statusKey) as ReadonlyMap<string, Resolved> | 'refresh' | undefined;
-        if (!meta && !tr.docChanged) return value;
-        // Typing changes no embed: what they hold is locked, so their marks only move.
-        if (!meta && isInlineTextOnly(tr))
-          return { ...value, decorations: value.decorations.map(tr.mapping, tr.doc) };
-        const resolved =
-          meta === 'refresh'
-            ? new Map<string, Resolved>()
-            : meta
-              ? new Map([...value.resolved, ...meta])
-              : value.resolved;
-        const refreshes = value.refreshes + (meta === 'refresh' ? 1 : 0);
-        return { resolved, decorations: decorate(tr.doc, resolved), refreshes };
-      },
+    delay,
+    wanted(doc, resolved) {
+      const wanted = new Map<string, EmbedSource>();
+      for (const { node } of listEmbeds(doc)) {
+        const embed = sourceOf(node);
+        const key = embedSourceKey(embed);
+        if (kinds.has(embed.kind) && !resolved.has(key)) wanted.set(key, embed);
+      }
+      return wanted;
     },
-    view(view) {
-      const owner = view.dom.ownerDocument.defaultView;
-      let timer = 0;
-      let controller: AbortController | null = null;
-      const check = () => {
-        const resolved = statusKey.getState(view.state)?.resolved ?? new Map();
-        const wanted = new Map<string, EmbedSource>();
-        for (const { node } of listEmbeds(view.state.doc)) {
-          const embed = sourceOf(node);
-          const key = embedSourceKey(embed);
-          if (kinds.has(embed.kind) && !resolved.has(key)) wanted.set(key, embed);
-        }
-        if (!wanted.size || !owner) return;
-        controller?.abort();
-        controller = new owner.AbortController();
-        const { signal } = controller;
-        const keys = [...wanted.keys()];
-        source.resolve([...wanted.values()], signal).then(
-          (result) => {
-            if (signal.aborted || view.isDestroyed || !result.ok) return;
-            const answered = new Map(keys.map((key, index) => [key, result.value[index] ?? null]));
-            view.dispatch(
-              view.state.tr.setMeta(statusKey, answered).setMeta('addToHistory', false),
-            );
-          },
-          () => undefined,
-        );
-      };
-      const schedule = () => {
-        owner?.clearTimeout(timer);
-        timer = owner?.setTimeout(check, delay) ?? 0;
-      };
-      schedule();
-      return {
-        update(current, previous) {
-          const refreshed =
-            statusKey.getState(current.state)?.refreshes !==
-            statusKey.getState(previous)?.refreshes;
-          if (current.state.doc !== previous.doc || refreshed) schedule();
-        },
-        destroy() {
-          owner?.clearTimeout(timer);
-          controller?.abort();
-        },
-      };
-    },
-    props: {
-      decorations: (state) => statusKey.getState(state)?.decorations ?? null,
-    },
+    resolve: (embeds, signal) => source.resolve(embeds, signal),
+    decorate,
   });
 }
 
@@ -267,17 +208,9 @@ export function pasteEmbedsOfKinds(kinds: readonly string[]): PasteFilter {
 }
 
 /** Asks the host for every embed's content again, and marks the embeds by its new answer. */
-export const refreshEmbedStatus: Command = (state, dispatch) => {
-  if (!statusKey.getState(state)) return false;
-  dispatch?.(state.tr.setMeta(statusKey, 'refresh').setMeta('addToHistory', false));
-  return true;
-};
+export const refreshEmbedStatus: Command = refreshHostStatus(statusKey);
 
 /** Records how the host resolved embedded content, as the plugin does with the host's answer. */
 export function resolveEmbeds(answered: ReadonlyMap<string, Resolved>): Command {
-  return (state, dispatch) => {
-    if (!statusKey.getState(state)) return false;
-    dispatch?.(state.tr.setMeta(statusKey, answered).setMeta('addToHistory', false));
-    return true;
-  };
+  return recordHostStatus(statusKey, answered);
 }

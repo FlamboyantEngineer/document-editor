@@ -106,7 +106,7 @@ export function withListedSections(
 const DOCUMENT_KEY = '#document';
 
 /** What the scope picker and a section's rows change. */
-export interface ScopeProps {
+interface ScopeProps {
   readonly template: TemplateFile;
   readonly scope: TemplateScope;
   readonly onScopeChange: (scope: TemplateScope) => void;

@@ -21,7 +21,7 @@ export interface PlaceholderOptions {
 }
 
 /** Which helpers draw. */
-export interface WritingDecorationOptions {
+interface WritingDecorationOptions {
   readonly placeholder?: PlaceholderOptions | undefined;
   /** The button before the empty line holding the caret that types the slash menu's `/`. */
   readonly insertButton?: { readonly label: string } | undefined;
@@ -30,11 +30,11 @@ export interface WritingDecorationOptions {
 }
 
 /** The hook class of a placeholder's hint; `data-placeholder-kind` is `document` or `line`. */
-export const PLACEHOLDER_CLASS = 'de-placeholder';
+const PLACEHOLDER_CLASS = 'de-placeholder';
 /** The hook class of a space, while formatting marks show. */
-export const SPACE_MARK_CLASS = 'de-formatting-space';
+const SPACE_MARK_CLASS = 'de-formatting-space';
 /** The hook class of a no-break space, while formatting marks show. */
-export const NBSP_MARK_CLASS = 'de-formatting-nbsp';
+const NBSP_MARK_CLASS = 'de-formatting-nbsp';
 
 // A placeholder's hint at the start of an empty text block, read as a hint and not as text.
 const placeholderAt = (pos: number, { text, kind }: { text: string; kind: string }) =>
@@ -78,7 +78,7 @@ function placeholderDecorations(state: EditorState, options: PlaceholderOptions)
 }
 
 /** The hook class of the button before an empty line that opens the slash menu. */
-export const INSERT_BUTTON_CLASS = 'de-document-editor__insert-block';
+const INSERT_BUTTON_CLASS = 'de-document-editor__insert-block';
 
 // Types the `/` that opens the slash menu at the start of the empty line the button is on.
 function typeSlashAt(view: EditorView, pos: number | undefined) {

@@ -17,7 +17,7 @@ type EngineEvents = Omit<RichTextEngineEvents, 'props' | 'dispatchTransaction'>;
 type ViewProps = NonNullable<RichTextEngineEvents['props']>;
 
 /** What the pages view draws and tells. */
-export interface PagesViewProps {
+interface PagesViewProps {
   /** The projection and the state of it to show. */
   readonly paged: PagedEditor;
   /** The engine's events, for the projection (`useProjectionEvents`). */

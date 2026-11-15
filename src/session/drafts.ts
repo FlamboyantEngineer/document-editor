@@ -24,10 +24,10 @@ export interface DraftOffer {
 }
 
 /** A store-mode draft as the adapter keeps it. */
-export type StoreDraft = Extract<DocumentDraft, { mode: 'store' }>;
+type StoreDraft = Extract<DocumentDraft, { mode: 'store' }>;
 
 /** What a document's drafts read: the content to keep now and the revision it was edited from. */
-export interface StoreDraftsContext {
+interface StoreDraftsContext {
   host: EditorHost;
   documentId: string;
   /** The document's content now, in the stored format, or null before it loads. */
@@ -45,7 +45,7 @@ const sameContent = (one: DocumentFile, other: DocumentFile) =>
   storedContentKey(one.sections) === storedContentKey(other.sections);
 
 /** The drafts of a store-mode document (DOCE-SESSION-6). */
-export function createStoreDrafts(context: StoreDraftsContext) {
+function createStoreDrafts(context: StoreDraftsContext) {
   const { host, documentId } = context;
   const adapter = host.drafts;
   const now = context.now ?? (() => new Date());
@@ -127,7 +127,7 @@ export function createStoreDrafts(context: StoreDraftsContext) {
 }
 
 /** What a session's drafts work with. */
-export interface SessionDraftsContext {
+interface SessionDraftsContext {
   host: EditorHost;
   documentId: string;
   schema: Schema;
