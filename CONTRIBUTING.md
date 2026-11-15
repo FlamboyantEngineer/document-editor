@@ -20,7 +20,7 @@ Code follows [docs/CODING-GUIDELINES.md](docs/CODING-GUIDELINES.md). In addition
 
 - **No styles in source.** No stylesheet imports and no styling dependency. Literal class names are `de-` hook classes, except the class names a serialized document carries, which its spec lists.
 - **No direct browser storage.** Persisted interface state goes through the base library's provider storage.
-- **Neutral wording.** Code, comments, docs, specs, fixtures, tests and package metadata never name a host application or its domain vocabulary. `npm run check:references` scans every authored file and path against the encoded denylist in `scripts/reference-denylist.json`. To add a term, append the output of `node scripts/check-references.mjs --encode '<regex>'`.
+- **Neutral wording.** Code, comments, docs, specs, fixtures, tests and package metadata never name a host application or its domain vocabulary. `npm run check:references` scans every authored file and path against the encoded denylist that ui-components shares with every library built on it (`tooling/reference-denylist.json` there). To add a term, add the output of `npx ui-components-tooling check-references --encode '<regex>'` to that list in ui-components. `check:specs` is shared the same way; this repository's settings are in `tooling.config.mjs`.
 
 ## Specs and tests
 

@@ -4,7 +4,7 @@
 // `--skip <check>` leaves a check out, for hosted CI, which runs the browser tests in parallel jobs.
 
 import { parseArgs } from 'node:util';
-import { startNpm } from './lib/npm.mjs';
+import { startNpm } from '@flamboyantengineer/ui-components/tooling/lib/npm.mjs';
 
 const STAGES = [
   ['lint', 'format:check', 'typecheck', 'check:references', 'check:specs', 'build', 'build:labs'],

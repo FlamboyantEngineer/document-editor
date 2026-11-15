@@ -5,8 +5,7 @@
 import { createReadStream, realpathSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
-import { LABS_HOST, LABS_PORT } from './lib/labs.mjs';
-import { option, root } from './lib/script.mjs';
+import { LABS_HOST, LABS_PORT, option, root } from './lib/labs.mjs';
 
 const port = Number(option('port', String(LABS_PORT)));
 const host = option('host', LABS_HOST);

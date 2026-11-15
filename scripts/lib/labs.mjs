@@ -1,10 +1,14 @@
 // Shared lab discovery and server address for the lab scripts and the browser tests.
+// `npm run labs` starts before dependencies are installed (it runs `npm ci` itself), so the lab
+// scripts take their argument and npm helpers from here, not from the shared tooling package.
 
+import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { root } from './script.mjs';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-export { root };
+/** This repository's root, the directory that holds `scripts/`, whatever the working directory. */
+export const root = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 export const labsDir = join(root, 'labs');
 export const labSourceDir = join(labsDir, 'src');
 
@@ -30,4 +34,38 @@ export function listLabPages() {
     .filter((name) => name.endsWith('.html') && name !== 'index.html')
     .map((name) => name.slice(0, -'.html'.length))
     .sort();
+}
+
+/**
+ * The value of `--name value` or `--name=value`, or `fallback`.
+ * @param {string} name
+ * @param {string} fallback
+ */
+export function option(name, fallback) {
+  const args = process.argv.slice(2);
+  const inline = args.find((arg) => arg.startsWith(`--${name}=`));
+  if (inline) return inline.slice(name.length + 3);
+  const value = args[args.indexOf(`--${name}`) + 1];
+  return args.includes(`--${name}`) && value !== undefined ? value : fallback;
+}
+
+/**
+ * Whether `--name` was given.
+ * @param {string} name
+ */
+export function flag(name) {
+  return process.argv.slice(2).includes(`--${name}`);
+}
+
+/**
+ * Runs npm with these arguments; on Windows through the shell, where npm is a script.
+ * @param {string[]} args
+ * @param {import('node:child_process').ExecFileSyncOptions} [options]
+ */
+export function runNpm(args, options = {}) {
+  return execFileSync('npm', args, {
+    encoding: 'utf8',
+    ...options,
+    shell: process.platform === 'win32',
+  });
 }
