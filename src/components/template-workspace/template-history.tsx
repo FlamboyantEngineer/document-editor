@@ -1,4 +1,4 @@
-// The open template's saved versions on the base library's VersionHistory, newest first, the
+// The open template's saved versions on the editor's RevisionList, newest first, the
 // current one marked: selecting another shows it read-only, and restoring one saves its settings as
 // the newest version after a confirmation.
 

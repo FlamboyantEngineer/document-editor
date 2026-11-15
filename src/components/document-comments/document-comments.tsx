@@ -84,7 +84,7 @@ export interface DocumentCommentsOptions {
   /** How comments read: as plain text (the default) or as inline Markdown (`markdown-inline`). */
   format?: CommentTextFormat | undefined;
   /**
-   * The card a mention's chip opens; by default a `UserCard` with the name and the picture the
+   * The card a mention's chip opens; by default a `UserIdentity` with the name and the picture the
    * identity gives, and none with null.
    */
   mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;

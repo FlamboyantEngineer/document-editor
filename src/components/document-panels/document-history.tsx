@@ -1,4 +1,4 @@
-// The history pane: a document's versions on the base library's VersionHistory, grouped with the
+// The history pane: a document's versions on the editor's RevisionList, grouped with the
 // automatic versions folded under named ones. The reader saves a named version, renames and
 // restores one, views one in place of the document and compares two; the banner over a version
 // shown names it and its template and returns to the document.

@@ -55,7 +55,7 @@ export interface CardContext {
   /** How comments read: as plain text (the default) or as inline Markdown. */
   readonly format?: CommentTextFormat | undefined;
   /**
-   * The card a mention's chip opens; by default a `UserCard` with the name and the picture the
+   * The card a mention's chip opens; by default a `UserIdentity` with the name and the picture the
    * identity gives, and none with null.
    */
   readonly mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;

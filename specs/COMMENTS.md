@@ -327,7 +327,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-4.4 - Mention cards
 
-A mention's chip shall open a card about what it names: by default the base library's `UserCard` with its name and the picture the identity gives, the host's own with `mentionCard(target)`, and none, a plain chip, with `mentionCard: null`.
+A mention's chip shall open a card about what it names: by default the base library's `UserIdentity` with its name and the picture the identity gives, the host's own with `mentionCard(target)`, and none, a plain chip, with `mentionCard: null`.
 
 Implementation: `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
