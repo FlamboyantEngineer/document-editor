@@ -101,7 +101,8 @@ function createServer(): RoomServer {
           return Promise.resolve(
             given === 'refused'
               ? { ok: false, reason: 'forbidden' }
-              : { ok: true, actor: { id }, access: given },
+              : // The server publishes the admitted actor as each person's presence user.
+                { ok: true, actor: PEOPLE[id as keyof typeof PEOPLE] ?? { id }, access: given },
           );
         },
       },
