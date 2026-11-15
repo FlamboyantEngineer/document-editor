@@ -109,8 +109,10 @@ export interface DocumentVersion extends SavedState {
   threads?: number | undefined;
 }
 
-/** Content, its pinned template and discussion captured together at one revision. */
+/** Content, resolved template and discussion captured together at one revision. */
 export interface DocumentVersionSnapshot {
+  /** Fully resolved at record time, including inherited settings; historical reads never reload it. */
+  template: TemplateFile;
   content: DocumentFile;
   threads: readonly CommentThread[];
 }
@@ -133,7 +135,8 @@ export interface VersionStoreAdapter {
   ): Promise<HostResult<DocumentVersionSnapshot>>;
   /**
    * Saves content and its pinned template, capturing discussion atomically when loadSnapshot is
-   * supported: one host transaction commits the supplied content and captures its discussion,
+   * supported: one host transaction commits content, captures discussion and resolves the entire
+   * template inheritance chain into the snapshot,
    * with the returned revision identifying the entire bundle. Refuse conflict if that consistent
    * commit is impossible. Never append current threads to an earlier content revision. A changed
    * discussion requires a new revision even when content is unchanged. Supplied baseContent must

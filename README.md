@@ -24,6 +24,25 @@ The library is in early `0.x` development and has no release yet.
 
 The package is ESM only. A CommonJS server on Node 22 can `require()` the server entries; with TypeScript it compiles them under `module: node20` (TypeScript 5.9 or later), since `module: node16` refuses to `require` an ES module. Such a server loads its own CommonJS copy of ProseMirror beside the library's ES module one, so it hands the library stored documents, not ProseMirror objects: every server job has a stored-file function in `./document` (FORMAT.md §9).
 
+## Tested set
+
+The library has no release yet, so a host installs it, the base component library and the collaboration tools from git, by commit. It is tested as one set: `npm run check:consumer` packs the built package and installs it into an empty consumer beside the packages below, with strict peers (`--strict-peer-deps`, no `--force`, `--legacy-peer-deps`, overrides or nested copies), then again with `npm ci`, and requires one copy each of React, ProseMirror, Yjs, `lib0` and the base component library. CI runs it on every pull request.
+
+| Package                                   | Tested                              |
+| ----------------------------------------- | ----------------------------------- |
+| `@flamboyantengineer/ui-components`       | the commit pinned in `package.json` |
+| `@flamboyantengineer/collaboration-tools` | the commit pinned in `package.json` |
+| `react`, `react-dom`                      | 19.2.7                              |
+| `react-reconciler`                        | 0.33.0                              |
+| `@handlewithcare/react-prosemirror`       | 3.3.0                               |
+| `prosemirror-view`                        | 1.42.3                              |
+| `@y/y`                                    | 14.0.0-rc.23                        |
+| `lib0`                                    | 1.0.0-rc.22                         |
+
+`scripts/tested-set.json` holds the same set for the check. Peers follow one rule: a release candidate and `prosemirror-view` are exact, since the React binding and the base component library accept only `prosemirror-view` 1.42.3; the base component library is a peer within its `0.x` minor (`~0.1.0`), since before `1.0.0` every minor may break; other peers are caret ranges. `prosemirror-view` stays at 1.42.3 until the binding publishes a release that accepts a newer one.
+
+Each weekday the pin-bump workflow (`.github/workflows/pin-bump.yml`) moves the git pins to the head of their `dev` branches, installs the set strictly, runs the packed-consumer check, and only then opens a pull request, which merges by itself once `check` passes. A set that fails is not proposed: the run fails and says why.
+
 ## Develop
 
 Node 22 is required.
@@ -50,18 +69,29 @@ npm run test:perf    # performance harness: the budgets in specs/LABS.md, measur
 
 ### Historical discussion
 
-Hosts can add `versions.loadSnapshot` beside `load` to return `{ content, threads }`
-from one immutable revision. When supported, `versions.create` must capture supplied
-content, its template pin and discussion in one host transaction; the returned
+Hosts can add `versions.loadSnapshot` beside `load` to return the required
+`{ content, threads, template }` bundle from one immutable revision. `template` is
+fully resolved, including inherited parent and base settings, and captured when
+the revision is recorded. Historical views use it directly without live template
+lookups. Changed discussion or resolved template settings requires a new revision.
+
+When supported, `versions.create` must capture supplied content, its original
+pin, discussion and the resolved template in one host transaction; the returned
 revision identifies the entire bundle. If that consistent commit is impossible,
-return `conflict` without publishing a version. Session version saves always supply `baseContent`, a detached copy of the body and
-template before the async hook. Compare it atomically before any history or label
-change and return `conflict` if a concurrent save changed the baseline. Direct
-adapter calls may omit it for explicitly unconditional creation, which provides
-no concurrent-save protection. Changed discussion needs a new revision. Room hosts capture from the same room state, never from an unrelated live
-comment request. `historicalEditorProps` supplies a read-only captured comment store
-for existing panels and providers. Content-only hosts show no historical discussion.
-Restore applies content and template while preserving current discussion.
+return `conflict` without publishing a version. Session version saves always
+supply `baseContent`, a detached copy of the body and template pin before the
+async hook. Compare it atomically before any history or label change and return
+`conflict` if a concurrent save changed the baseline. Direct adapter calls may
+omit it for explicitly unconditional creation, without concurrent-save protection.
+Room hosts capture from the same room state, never from an unrelated live request.
+
+`historicalEditorProps` supplies a read-only captured comment store for existing
+panels and providers. Content-only legacy adapters show no historical discussion
+and retain live resolution of their stored template pin; they do not guarantee
+immutable presentation. Restore applies content and the original stored template
+pin while preserving current discussion. It does not reinstate captured inherited
+presentation: a floating pin keeps ordinary live resolution unless the host
+explicitly materializes the captured settings.
 
 ### Optional reference presentation
 

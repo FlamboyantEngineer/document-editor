@@ -15,7 +15,6 @@ import type {
 import type { EditorCapabilities } from '../host/capabilities.js';
 import type { CommentStoreAdapter, CommentThread } from '../host/comment-adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
-import { writeDocumentFile } from '../model/format/document-format-write.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
 import { createDocumentSchema } from '../model/schema/document-schema.js';
 import type {
@@ -25,6 +24,7 @@ import type {
 } from './document-session.js';
 import { failure } from './open-document.js';
 import { openVersion } from './open-version.js';
+import { prepareVersion } from './prepare-version.js';
 import { createValueStore, type ValueStore } from './value-store.js';
 import { groupVersions, type VersionGroup } from './version-groups.js';
 import { restoreVersion } from './version-restore.js';
@@ -119,8 +119,6 @@ export interface DocumentVersions<R> {
   close(): void;
 }
 
-type PreparedVersion = NewVersion & { baseContent: DocumentFile };
-
 const unsupported = (what: string) => failure('unavailable', `The host cannot ${what} versions.`);
 
 const denied = (what: string): { ok: false; error: HostError } => ({
@@ -130,22 +128,6 @@ const denied = (what: string): { ok: false; error: HostError } => ({
 
 const findVersion = (list: VersionList, revision: string) =>
   list.versions.find((version) => version.revision === revision);
-
-// The session's document as a new version, after the hook, or null when the hook saves none.
-async function newVersion(
-  { session, beforeVersion }: DocumentVersionsOptions,
-  label: string | null,
-): Promise<HostResult<PreparedVersion | null>> {
-  if (!(await session.flush()))
-    return { ok: false, error: session.status.get().error ?? failure('unavailable') };
-  const shown = session.document.get();
-  if (!shown) return { ok: false, error: failure('unavailable', 'The document is not loaded.') };
-  const content = writeDocumentFile(shown.state.doc, { template: shown.pin });
-  const baseContent = structuredClone(content);
-  const version = { content, label };
-  const prepared = beforeVersion ? await beforeVersion(version) : version;
-  return { ok: true, value: prepared ? { ...prepared, baseContent } : null };
-}
 
 // The host's list of a document's versions, followed until `stop`.
 function followVersionList(
@@ -265,7 +247,7 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
     saveVersion: async (label) => {
       if (!may('saveVersion')) return denied('save');
       if (!store?.create) return { ok: false, error: unsupported('save') };
-      const made = await newVersion(options, label);
+      const made = await prepareVersion(options, label);
       if (!made.ok) return made;
       if (!made.value) return { ok: false, error: failure('denied', 'No version was saved.') };
       const saved = await store.create(documentId, made.value);

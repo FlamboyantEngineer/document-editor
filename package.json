@@ -82,6 +82,7 @@
     "check:references": "node scripts/check-references.mjs",
     "check:specs": "node scripts/check-specs.mjs",
     "check:bundle-size": "node scripts/check-bundle-size.mjs",
+    "check:consumer": "node scripts/check-consumer.mjs",
     "build:labs": "node scripts/build-labs.mjs",
     "serve:labs": "node scripts/serve-labs.mjs",
     "labs": "node scripts/start-labs.mjs",
@@ -90,7 +91,7 @@
     "check": "node scripts/check.mjs"
   },
   "peerDependencies": {
-    "@flamboyantengineer/ui-components": ">=0.1.0",
+    "@flamboyantengineer/ui-components": "~0.1.0",
     "@handlewithcare/react-prosemirror": "^3.3.0",
     "@y/y": "14.0.0-rc.23",
     "katex": "^0.19.1",

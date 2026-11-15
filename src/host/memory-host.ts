@@ -270,17 +270,21 @@ export function createMemoryHost(options: MemoryHostOptions = {}): MemoryHost {
   const identity = createMemoryIdentity(options.person ?? DEFAULT_PERSON, options.people ?? []);
   const now = options.now ?? (() => new Date());
   const comments = createMemoryComments(identity, options.comments);
-  const history = createMemoryHistory(() => identity.currentPerson().id, now, comments.snapshot);
+  const templates = createMemoryTemplates(options.templates ?? [], {
+    author: () => identity.currentPerson().id,
+    now,
+  });
+  const history = createMemoryHistory(() => identity.currentPerson().id, now, {
+    discussion: comments.snapshot,
+    template: (content) => templates.snapshot(content.template ?? null),
+  });
   for (const document of options.documents ?? []) history.record(document.id, document.content);
   const session = createMemorySessionParts(options.capabilities ?? FULL_CAPABILITIES);
   const stores = withFaults(
     {
       documents: createMemoryDocuments(history),
       versions: createMemoryVersions(history),
-      templates: createMemoryTemplates(options.templates ?? [], {
-        author: () => identity.currentPerson().id,
-        now,
-      }),
+      templates,
       drafts: createMemoryDrafts(),
     },
     session.faulty,

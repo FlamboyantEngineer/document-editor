@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import * as Y from '@y/y';
+import { EditorState } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readRoomThreads } from '../collab/comment-records.js';
@@ -12,7 +13,7 @@ import type { DocumentFile } from '../model/format/document-format.js';
 import type { TemplateFile } from '../model/format/template-format.js';
 import { readDocumentFile, writeDocumentFile } from '../model/index.js';
 import { createDocumentSession } from './document-session.js';
-import { createDocumentVersions } from './versions.js';
+import { createDocumentVersions, type NewVersion } from './versions.js';
 
 const content: DocumentFile = {
   formatVersion: 1,
@@ -73,7 +74,7 @@ describe('revision discussion snapshots', () => {
     const history = createMemoryHistory(
       () => 'reader',
       () => new Date(),
-      () => readRoomThreads(doc.get('comments')),
+      { discussion: () => readRoomThreads(doc.get('comments')) },
     );
     history.record('doc', content);
     const versions = createDocumentVersions({
@@ -312,6 +313,104 @@ describe('revision discussion snapshots', () => {
       if (!latest.ok) throw new Error('No transformed document.');
       const doc = readDocumentFile(latest.value.content, documentSchema).doc;
       expect(doc.textBetween(0, doc.content.size)).toBe('Transformed');
+    } finally {
+      versions.close();
+      session.close();
+    }
+  });
+  it('DOCE-VERSIONS-4.3 DOCE-VERSIONS-5.5 saves a loaded document with explicit schema-default attributes', async () => {
+    const original: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'heading',
+              attrs: { id: 'a0000001', level: 1 },
+              content: [{ type: 'text', text: 'Scope' }],
+            },
+          ],
+        },
+      ],
+    };
+    const host = createMemoryHost({ documents: [{ id: 'doc', content: original }] });
+    const session = createDocumentSession({ host, documentId: 'doc', mode: 'store' });
+    await session.ready;
+    const versions = createDocumentVersions({ host, session });
+    try {
+      await expect(versions.saveVersion('Approved')).resolves.toMatchObject({
+        ok: true,
+        value: { label: 'Approved' },
+      });
+      const saved = await host.documents.load('doc');
+      if (!saved.ok) throw new Error('No saved document.');
+      expect(saved.value.content.sections[0]?.content[0]?.attrs?.id).toBe('a0000001');
+      const savedDoc = readDocumentFile(saved.value.content, documentSchema).doc;
+      expect(savedDoc.textBetween(0, savedDoc.content.size)).toBe('Scope');
+    } finally {
+      versions.close();
+      session.close();
+    }
+  });
+  it('DOCE-VERSIONS-4.3 DOCE-VERSIONS-5.5 saves when shown page layout differs from canonical stored content', async () => {
+    const host = createMemoryHost({ documents: [{ id: 'doc', content }] });
+    const session = createDocumentSession({
+      host,
+      documentId: 'doc',
+      mode: 'store',
+      createState: (doc) => {
+        const state = EditorState.create({ doc });
+        const tr = state.tr;
+        doc.descendants((node, pos) => {
+          if (node.type.name === 'page_header')
+            tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              html: 'Page 42',
+              pageNumber: 42,
+              totalPages: 42,
+            });
+        });
+        return state.apply(tr);
+      },
+    });
+    await session.ready;
+    const versions = createDocumentVersions({ host, session });
+    try {
+      expect(
+        session.document.get()?.state.doc.eq(readDocumentFile(content, documentSchema).doc),
+      ).toBe(false);
+      await expect(versions.saveVersion('Laid out')).resolves.toMatchObject({
+        ok: true,
+        value: { label: 'Laid out' },
+      });
+    } finally {
+      versions.close();
+      session.close();
+    }
+  });
+
+  it('DOCE-VERSIONS-5.5 refuses a changed stored element id before the hook can run', async () => {
+    const { host, session } = await open();
+    const load = host.documents.load;
+    const changed = structuredClone(content);
+    const first = changed.sections[0]?.content[0];
+    if (!first) throw new Error('No stored block.');
+    first.attrs = { id: 'b0000001' };
+    vi.spyOn(host.documents, 'load').mockImplementationOnce(async (documentId) => {
+      await host.documents.save(documentId, { content: changed, baseRevision: 'rev-1' });
+      return load(documentId);
+    });
+    const beforeVersion = vi.fn((request: NewVersion) => request);
+    const versions = createDocumentVersions({ host, session, beforeVersion });
+    try {
+      await expect(versions.saveVersion('Stale id')).resolves.toMatchObject({
+        error: { kind: 'conflict' },
+      });
+      expect(beforeVersion).not.toHaveBeenCalled();
+      await expect(host.documents.load('doc')).resolves.toMatchObject({
+        value: { revision: 'rev-2', content: changed },
+      });
     } finally {
       versions.close();
       session.close();

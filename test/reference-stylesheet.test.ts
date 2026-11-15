@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -17,18 +17,32 @@ describe('optional reference presentation', () => {
     expect(css).toContain('layer(document-reference)');
     expect(css).not.toContain('ui-components/reference.css');
     const cache = mkdtempSync(join(tmpdir(), 'document-reference-pack-'));
-    let packed: string;
+    let files: string[];
     try {
-      packed = execFileSync(
+      execFileSync(
         'npm',
-        ['pack', '--dry-run', '--json', '--ignore-scripts', '--cache', cache],
-        { encoding: 'utf8', timeout: 10_000 },
+        [
+          'pack',
+          '--ignore-scripts',
+          '--foreground-scripts=false',
+          '--pack-destination',
+          cache,
+          '--cache',
+          join(cache, 'npm-cache'),
+        ],
+        { encoding: 'utf8', timeout: 10_000, stdio: 'pipe' },
       );
+      const archives = readdirSync(cache).filter((name) => name.endsWith('.tgz'));
+      expect(archives).toHaveLength(1);
+      files = execFileSync('tar', ['-tzf', join(cache, archives[0] ?? '')], {
+        encoding: 'utf8',
+      })
+        .trim()
+        .split('\n')
+        .map((path) => path.replace(/^package\//, ''));
     } finally {
       rmSync(cache, { recursive: true, force: true });
     }
-    const packs = JSON.parse(packed) as { files: { path: string }[] }[];
-    const files = packs[0]?.files.map(({ path }) => path) ?? [];
     for (const path of [
       'reference.css',
       'labs/reference/document.css',
