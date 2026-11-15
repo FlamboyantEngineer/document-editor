@@ -14,8 +14,8 @@ export interface DocumentHistoryLabels extends RevisionLabels {
   readonly save: string;
   /** Shown instead of the history to a reader who may not open it. */
   readonly noHistory: string;
-  /** A version's title: its name, or when it was saved. */
-  readonly versionTitle: (version: DocumentVersion) => string;
+  /** A version's title: its name, or `savedTime`, when it was saved in the provider's locale and zone. */
+  readonly versionTitle: (version: DocumentVersion, savedTime: string) => string;
   /** A line about what a version keeps beside its content, or null. */
   readonly versionSummary: (version: DocumentVersion) => string | null;
   /** The banner over a version shown in place of the document. */
@@ -25,14 +25,6 @@ export interface DocumentHistoryLabels extends RevisionLabels {
   /** Tells which template the version shown pins. */
   readonly pinnedTemplate: (pin: TemplatePin) => string;
   readonly returnToCurrent: string;
-}
-
-let timeFormat: Intl.DateTimeFormat | null = null;
-
-// When a version was saved, in the reader's locale, with one formatter for every title.
-function savedTime(version: DocumentVersion) {
-  timeFormat ??= new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  return timeFormat.format(new Date(version.savedAt));
 }
 
 const plural = (count: number, one: string) => `${String(count)} ${one}${count === 1 ? '' : 's'}`;
@@ -46,7 +38,7 @@ export const DEFAULT_HISTORY_LABELS: DocumentHistoryLabels = {
   versionName: 'Name',
   save: 'Save',
   noHistory: 'You cannot open this document’s versions.',
-  versionTitle: (version) => version.label ?? savedTime(version),
+  versionTitle: (version, savedTime) => version.label ?? savedTime,
   versionSummary: (version) => {
     const parts = [
       version.template ? `Template ${version.template.id}` : null,

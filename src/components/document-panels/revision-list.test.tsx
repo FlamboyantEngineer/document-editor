@@ -1,4 +1,4 @@
-import type { Key } from '@flamboyantengineer/ui-components/core';
+import { type Key, UiProvider } from '@flamboyantengineer/ui-components/core';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
@@ -277,5 +277,40 @@ describe('Revision list hooks and empty states', () => {
     change.mockClear();
     await user.keyboard('{Control>}a{/Control}');
     expect(change).not.toHaveBeenCalled();
+  });
+});
+
+describe('Revision times', () => {
+  it('DOCE-VERSIONS-4.6 titles automatic versions in the provider locale and time zone', () => {
+    const time = '2026-06-01T20:00:00Z';
+    render(
+      <UiProvider locale="fr-FR" timeZone="Asia/Tokyo">
+        <RevisionList
+          aria-label="Versions"
+          versions={[
+            { id: 'auto', time },
+            { id: 'day', time: '2026-06-01' },
+            { id: 'odd', time: 'soon' },
+          ]}
+          onSelectionChange={vi.fn()}
+          showFilters={false}
+        />
+      </UiProvider>,
+    );
+    const zoned = new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Asia/Tokyo',
+    }).format(new Date(time));
+    const day = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeZone: 'UTC' }).format(
+      new Date('2026-06-01'),
+    );
+    const titles = document.querySelectorAll('.de-revision-list__title');
+    expect([...titles].map((title) => title.textContent)).toEqual([
+      zoned,
+      day,
+      expect.stringMatching(/heure inconnue|unknown time/),
+    ]);
+    expect(screen.queryByText('soon')).not.toBeInTheDocument();
   });
 });

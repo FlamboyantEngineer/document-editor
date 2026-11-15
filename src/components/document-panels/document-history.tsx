@@ -1,4 +1,4 @@
-// The history pane: a document's versions on the base library's VersionHistory, grouped with the
+// The history pane: a document's versions on the editor's RevisionList, grouped with the
 // automatic versions folded under named ones. The reader saves a named version, renames and
 // restores one, views one in place of the document and compares two; the banner over a version
 // shown names it and its template and returns to the document.
@@ -31,8 +31,8 @@ import {
 import { usePeople } from '../../utils/use-people.js';
 import { useSessionValue } from '../document-session/document-session.js';
 import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-labels.js';
-import type { RevisionItem } from './revision-item.js';
-import { RevisionList } from './revision-list.js';
+import { type RevisionItem, revisionTime } from './revision-item.js';
+import { RevisionList, useRevisionTimeFormat } from './revision-list.js';
 
 export interface DocumentHistoryProps<R> {
   /** The document's versions (`createDocumentVersions`). */
@@ -281,16 +281,19 @@ export function DocumentHistoryBanner<R>(props: DocumentHistoryBannerProps<R>) {
   const { versions, onReturn } = props;
   const labels = { ...DEFAULT_HISTORY_LABELS, ...props.labels };
   const view = useSessionValue(versions.view);
+  const timeFormat = useRevisionTimeFormat();
   if (!view) return null;
   const shown = view.version;
-  const title = labels.versionTitle(shown.version);
+  const titleOf = (version: DocumentVersion) =>
+    labels.versionTitle(version, revisionTime(version.savedAt, timeFormat));
+  const title = titleOf(shown.version);
   return (
     <Banner
       className={props.className}
       tone="info"
       title={
         view.previous
-          ? labels.comparing(labels.versionTitle(view.previous.version), title)
+          ? labels.comparing(titleOf(view.previous.version), title)
           : labels.viewing(title)
       }
       description={shown.pin ? labels.pinnedTemplate(shown.pin) : undefined}

@@ -1,5 +1,11 @@
 // The editor owns revision policy; the shared collection owns selection and keyboard navigation.
-import type { Key, Selection } from '@flamboyantengineer/ui-components/core';
+import {
+  type Key,
+  type Selection,
+  useTimeZone,
+  useUiLocale,
+  useUiStrings,
+} from '@flamboyantengineer/ui-components/core';
 import { InlineError } from '@flamboyantengineer/ui-components/inline-error';
 import { Stack } from '@flamboyantengineer/ui-components/layout';
 import { ListView } from '@flamboyantengineer/ui-components/list-row';
@@ -7,7 +13,7 @@ import { useState } from 'react';
 import { useRevisionActions } from './revision-actions.js';
 import { RevisionDialog } from './revision-dialog.js';
 import { revisionHooks as hooks } from './revision-hooks.js';
-import type { RevisionItem } from './revision-item.js';
+import type { RevisionItem, RevisionTimeFormat } from './revision-item.js';
 import { DEFAULT_REVISION_LABELS, type RevisionLabels } from './revision-labels.js';
 import { RevisionRow } from './revision-row.js';
 import { RevisionToolbar } from './revision-toolbar.js';
@@ -29,6 +35,15 @@ interface RevisionListProps {
   className?: string | undefined;
 }
 
+/** Revision times in the provider's locale and zone, so a server render and hydration agree. */
+export function useRevisionTimeFormat(): RevisionTimeFormat {
+  return {
+    locale: useUiLocale(),
+    timeZone: useTimeZone(),
+    unknownTime: useUiStrings().unknownTime,
+  };
+}
+
 /** History selection, folding, filters and revision actions belong to the editor. */
 function useRevisionList(props: RevisionListProps) {
   const { versions, onSelectionChange } = props;
@@ -37,6 +52,7 @@ function useRevisionList(props: RevisionListProps) {
   const [person, setPerson] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<ReadonlySet<Key>>(new Set());
   const actions = useRevisionActions(props);
+  const timeFormat = useRevisionTimeFormat();
   const all = versions.flatMap((version) => [version, ...(version.children ?? [])]);
   const people = [
     ...new Set(
@@ -80,6 +96,7 @@ function useRevisionList(props: RevisionListProps) {
     });
   return {
     labels,
+    timeFormat,
     namedOnly,
     setNamedOnly,
     person,
@@ -149,6 +166,7 @@ export function RevisionList(props: RevisionListProps) {
             expanded={model.expanded.has(version.id)}
             onToggle={() => model.toggle(version.id)}
             labels={model.labels}
+            timeFormat={model.timeFormat}
             canRename={Boolean(onRename)}
             canRestore={Boolean(onRestore && version.id !== props.currentKey)}
             onAction={(action) => model.openDialog(version.id, action)}
@@ -160,6 +178,7 @@ export function RevisionList(props: RevisionListProps) {
           key={`${String(model.dialog.version.id)}:${model.dialog.action}`}
           {...model.dialog}
           labels={model.labels}
+          timeFormat={model.timeFormat}
           onClose={model.closeDialog}
           onRename={model.rename}
           onRestore={model.restore}
