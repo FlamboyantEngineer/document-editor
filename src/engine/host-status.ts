@@ -18,7 +18,7 @@ export interface HostStatusState<Answer> {
 }
 
 /** How one status finds what to ask about, asks, and marks the document by the answers. */
-export interface HostStatusSpec<Item, Answer> {
+interface HostStatusSpec<Item, Answer> {
   readonly key: PluginKey<HostStatusState<Answer>>;
   /** How long after a change the host is asked, in milliseconds. */
   readonly delay: number;

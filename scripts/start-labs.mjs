@@ -6,8 +6,7 @@
 
 import { lstatSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { runNpm } from './lib/npm.mjs';
-import { flag, root } from './lib/script.mjs';
+import { flag, root, runNpm } from './lib/labs.mjs';
 
 const dryRun = flag('dry-run');
 

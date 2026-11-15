@@ -9,6 +9,7 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { flag, reportProblems } from '@flamboyantengineer/ui-components/tooling/lib/script.mjs';
 import TerserPlugin from 'terser-webpack-plugin';
 import webpackModule from 'webpack';
 import {
@@ -18,7 +19,7 @@ import {
   measureFiles,
   updatedBudgets,
 } from './lib/bundle-budgets.mjs';
-import { flag, reportProblems, root } from './lib/script.mjs';
+import { root } from './lib/labs.mjs';
 
 const BUDGETS = join(root, 'scripts/bundle-budgets.json');
 const ENTRY = JSON.stringify(join(root, 'dist/index.js'));
