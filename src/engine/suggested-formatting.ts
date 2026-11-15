@@ -23,7 +23,7 @@ interface RecordedMark {
 }
 
 /** What a block's `suggestionFormat` holds: the suggestion, and the type and attributes before. */
-interface BlockFormatRecord {
+export interface BlockFormatRecord {
   readonly id: string;
   readonly author: string | null;
   readonly type: string;
@@ -78,7 +78,7 @@ const canRecord = (node: ProseMirrorNode) =>
   Object.hasOwn(node.type.spec.attrs ?? {}, 'suggestionFormat');
 
 /** A block's format record, when it has one. */
-function blockFormatOf(node: ProseMirrorNode): BlockFormatRecord | null {
+export function blockFormatOf(node: ProseMirrorNode): BlockFormatRecord | null {
   const record: unknown = node.attrs.suggestionFormat;
   if (!record || typeof record !== 'object') return null;
   const { id, type } = record as Partial<BlockFormatRecord>;

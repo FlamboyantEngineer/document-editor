@@ -20,6 +20,15 @@ Verification: `src/engine/embeds.test.ts`, `src/model/schema/schema-fingerprint.
 Implementation: `src/engine/embeds.ts`
 Verification: `src/engine/embeds.test.ts`
 
+### DOCE-EMBEDS-1.3 - Linked spreadsheet bridge
+
+`createLinkedSpreadsheetEmbed(capture, label?)` shall adapt a version 1 linked spreadsheet capture into the registered `embed` node's input, with kind `spreadsheet`, an opaque JSON tuple source key of source id, sheet id and range, the source revision as snapshot and a stored table constructed from its transport `table.rows` (`text`, `colspan`, `rowspan`). The bridge shall validate its transport geometry before delegating construction to `tableFromRows`, including normalization of fully span-covered rows. Capture transport is bounded to 16,384 columns and 50,000 logical cells before construction. It shall validate positive spans within the document schema's `MAX_SPAN` limit and a rectangular non-overlapping grid, and ignore supplied HTML and editor-specific node JSON. It shall reject non-ready publications, inconsistent selections and non-table captures. It shall never calculate cells or substitute current results; the external source owns authoritative calculation. `insertEmbed` provides insertion and selection, the existing embed plugin locks the captured cells, and stored documents, static HTML, print and historical views retain the captured table without resolving its source.
+
+`readLinkedSpreadsheetSource` shall decode valid source selections or return null. `createLinkedSpreadsheetAdapter(load)` shall adapt an authoritative host capture loader to ordinary embed resolution and explicit refresh, passing cancellation through, refusing changed source selections, and mapping unavailable or non-ready captures to host failures. It shall report denied sources as `no-access` and missing sources as null. Refresh through `updateEmbed` shall refuse read-only views both before loading and before applying results. The bridge shall have no spreadsheet package dependency and require no custom node registration.
+
+Implementation: `src/host/linked-spreadsheet.ts`, `src/host/linked-spreadsheet-table.ts`, `src/document/stored-table.ts`, `src/engine/embeds.ts`, `src/engine/embed-status.ts`
+Verification: `src/host/linked-spreadsheet.test.ts`
+
 ## DOCE-EMBEDS-2 - What an embed holds
 
 ### DOCE-EMBEDS-2.1 - Locked content

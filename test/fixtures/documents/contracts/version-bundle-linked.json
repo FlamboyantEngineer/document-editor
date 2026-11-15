@@ -1,0 +1,511 @@
+{
+  "version": {
+    "revision": "document-revision-7",
+    "sequence": 7,
+    "savedAt": "2026-01-02T03:06:00.000Z",
+    "author": "reader",
+    "label": "Reviewed snapshot",
+    "template": {
+      "id": "report",
+      "revision": "rev-1"
+    },
+    "threads": 1
+  },
+  "template": {
+    "formatVersion": 1,
+    "id": "report",
+    "name": "Report"
+  },
+  "snapshot": {
+    "content": {
+      "formatVersion": 1,
+      "template": {
+        "id": "report",
+        "revision": "rev-1"
+      },
+      "sections": [
+        {
+          "name": null,
+          "content": [
+            {
+              "type": "paragraph",
+              "attrs": {
+                "id": "a0000001"
+              },
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Captured total",
+                  "marks": [
+                    {
+                      "type": "comment",
+                      "attrs": {
+                        "thread": "thread-1"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "embed",
+              "attrs": {
+                "id": "a0000002",
+                "kind": "spreadsheet",
+                "source": "[\"book-1\",\"sheet-1\",\"A1:B2\"]",
+                "snapshot": "revision-1",
+                "label": "Summary"
+              },
+              "content": [
+                {
+                  "type": "table",
+                  "content": [
+                    {
+                      "type": "tableRow",
+                      "content": [
+                        {
+                          "type": "tableCell",
+                          "attrs": {
+                            "rowspan": 2
+                          },
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "42"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "tableCell",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Note"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "tableRow",
+                      "content": [
+                        {
+                          "type": "tableCell",
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [
+                                {
+                                  "type": "text",
+                                  "text": "Captured"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "threads": [
+      {
+        "id": "thread-1",
+        "state": "resolved",
+        "quote": "Captured total",
+        "suggestion": null,
+        "entries": [
+          {
+            "id": "entry-1",
+            "author": "reader",
+            "text": "Checked the captured result.",
+            "createdAt": "2026-01-02T03:04:05.000Z",
+            "reactions": {
+              "✓": ["reviewer"]
+            }
+          }
+        ],
+        "scope": "text",
+        "target": {
+          "ranges": [
+            {
+              "element": "a0000001",
+              "start": 0,
+              "end": 14,
+              "text": "Captured total"
+            }
+          ],
+          "quote": "Captured total"
+        },
+        "resolvedBy": "reviewer",
+        "resolvedAt": "2026-01-02T03:05:00.000Z"
+      }
+    ],
+    "template": {
+      "formatVersion": 1,
+      "id": "report",
+      "name": "Report",
+      "page": {
+        "size": "A4",
+        "orientation": "portrait",
+        "margins": {
+          "top": "25.4mm",
+          "right": "25.4mm",
+          "bottom": "25.4mm",
+          "left": "25.4mm"
+        }
+      },
+      "styles": {
+        "paragraph": {
+          "font": "Arial",
+          "size": "12px",
+          "color": "#111827",
+          "lineHeight": 1.5,
+          "alignment": "left",
+          "spaceBefore": "0pt",
+          "spaceAfter": "6pt",
+          "weight": 400,
+          "italic": false,
+          "underline": false,
+          "numbering": {
+            "enabled": false,
+            "format": "1.",
+            "prefix": "",
+            "suffix": "",
+            "levels": [
+              {
+                "format": "1.",
+                "numberIndent": "0px",
+                "textIndent": "25px"
+              },
+              {
+                "format": "1.1.",
+                "numberIndent": "10px",
+                "textIndent": "45px"
+              },
+              {
+                "format": "1.1.1.",
+                "numberIndent": "20px",
+                "textIndent": "65px"
+              },
+              {
+                "format": "1.1.1.1.",
+                "numberIndent": "25px",
+                "textIndent": "80px"
+              },
+              {
+                "format": "1.1.1.1.1.",
+                "numberIndent": "30px",
+                "textIndent": "95px"
+              },
+              {
+                "format": "1.1.1.1.1.1.",
+                "numberIndent": "35px",
+                "textIndent": "110px"
+              }
+            ]
+          }
+        },
+        "title": {
+          "font": "Arial",
+          "size": "24px",
+          "color": "#111827",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "alignment": "left",
+          "spaceBefore": "0pt",
+          "spaceAfter": "12pt"
+        },
+        "heading1": {
+          "font": "Arial",
+          "size": "22px",
+          "color": "#111827",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "alignment": "left",
+          "spaceBefore": "16pt",
+          "spaceAfter": "8pt",
+          "numbering": {
+            "format": "1.",
+            "prefix": "",
+            "suffix": ""
+          }
+        },
+        "heading2": {
+          "font": "Arial",
+          "size": "20px",
+          "color": "#1f2937",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "alignment": "left",
+          "spaceBefore": "14pt",
+          "spaceAfter": "7pt",
+          "numbering": {
+            "format": "1.1.",
+            "prefix": "",
+            "suffix": ""
+          }
+        },
+        "heading3": {
+          "font": "Arial",
+          "size": "18px",
+          "color": "#374151",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "alignment": "left",
+          "spaceBefore": "12pt",
+          "spaceAfter": "6pt",
+          "numbering": {
+            "format": "1.1.1.",
+            "prefix": "",
+            "suffix": ""
+          }
+        },
+        "heading4": {
+          "font": "Arial",
+          "size": "16px",
+          "color": "#374151",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "alignment": "left",
+          "spaceBefore": "10pt",
+          "spaceAfter": "5pt",
+          "numbering": {
+            "format": "",
+            "prefix": "",
+            "suffix": ""
+          }
+        },
+        "heading5": {
+          "font": "Arial",
+          "size": "14px",
+          "color": "#475569",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "alignment": "left",
+          "spaceBefore": "8pt",
+          "spaceAfter": "4pt",
+          "numbering": {
+            "format": "",
+            "prefix": "",
+            "suffix": ""
+          }
+        },
+        "heading6": {
+          "font": "Arial",
+          "size": "12px",
+          "color": "#475569",
+          "weight": 700,
+          "italic": false,
+          "underline": false,
+          "alignment": "left",
+          "spaceBefore": "6pt",
+          "spaceAfter": "3pt",
+          "numbering": {
+            "format": "",
+            "prefix": "",
+            "suffix": ""
+          }
+        },
+        "list": {
+          "bullet": "disc",
+          "format": "1.",
+          "indentation": "24pt",
+          "spaceBefore": "0pt",
+          "spaceAfter": "6pt"
+        },
+        "table": {
+          "numbering": {
+            "format": "1.1.",
+            "prefix": "Table ",
+            "suffix": ""
+          },
+          "caption": {
+            "placement": "above",
+            "alignment": "left",
+            "continuedSuffix": ""
+          },
+          "border": {
+            "width": "1px",
+            "color": "#334155"
+          },
+          "cellPadding": "8px",
+          "header": {
+            "background": "#e2e8f0",
+            "color": "#0f172a",
+            "weight": 700
+          },
+          "rows": {
+            "odd": "#ffffff",
+            "even": "#f8fafc"
+          },
+          "repeatHeader": true
+        },
+        "figure": {
+          "numbering": {
+            "format": "1.1.",
+            "prefix": "Figure ",
+            "suffix": ""
+          },
+          "caption": {
+            "placement": "below",
+            "continuedSuffix": ""
+          },
+          "defaultWidth": "240px"
+        },
+        "codeBlock": {
+          "font": "Courier New",
+          "size": "10px",
+          "color": "#0f172a",
+          "background": "#f8fafc",
+          "spaceBefore": "8pt",
+          "spaceAfter": "8pt",
+          "numbering": {
+            "format": "1.1.",
+            "prefix": "",
+            "suffix": ""
+          },
+          "caption": {
+            "placement": "above",
+            "continuedSuffix": "(continued)"
+          }
+        },
+        "equation": {
+          "numbering": {
+            "format": "1.1.",
+            "prefix": "(Eq. ",
+            "suffix": ")"
+          }
+        },
+        "contents": {
+          "title": {
+            "weight": 700,
+            "color": "#0f172a"
+          },
+          "entry": {
+            "weight": 400
+          },
+          "padding": {
+            "left": "0pt",
+            "right": "0pt"
+          },
+          "spacing": {
+            "top": "0pt",
+            "bottom": "0pt"
+          },
+          "leader": {
+            "character": "."
+          },
+          "levels": [
+            {
+              "indentation": "0pt",
+              "spaceBefore": "0pt",
+              "spaceAfter": "0pt"
+            },
+            {
+              "indentation": "0pt",
+              "spaceBefore": "0pt",
+              "spaceAfter": "0pt"
+            },
+            {
+              "indentation": "0pt",
+              "spaceBefore": "0pt",
+              "spaceAfter": "0pt"
+            },
+            {
+              "indentation": "0pt",
+              "spaceBefore": "0pt",
+              "spaceAfter": "0pt"
+            },
+            {
+              "indentation": "0pt",
+              "spaceBefore": "0pt",
+              "spaceAfter": "0pt"
+            },
+            {
+              "indentation": "0pt",
+              "spaceBefore": "0pt",
+              "spaceAfter": "0pt"
+            }
+          ]
+        }
+      },
+      "header": {
+        "content": []
+      },
+      "footer": {
+        "content": []
+      },
+      "footnotes": {
+        "numbering": "document",
+        "suffix": ".",
+        "separator": {
+          "enabled": true,
+          "thickness": "1px",
+          "color": "#111827"
+        },
+        "spacingToContent": "12pt",
+        "entrySpacing": "6pt",
+        "marker": {
+          "font": "Arial",
+          "size": "10px",
+          "weight": 600,
+          "italic": false,
+          "color": "#111827"
+        },
+        "text": {
+          "font": "Arial",
+          "size": "10px",
+          "weight": 400,
+          "italic": false,
+          "color": "#111827",
+          "lineHeight": 1.4,
+          "alignment": "left"
+        }
+      },
+      "changeBars": {
+        "insertions": {
+          "enabled": true,
+          "color": "#00dd00"
+        },
+        "deletions": {
+          "enabled": true,
+          "color": "#dd0000"
+        },
+        "modifications": {
+          "enabled": true,
+          "color": "#0000dd"
+        },
+        "formatting": {
+          "enabled": true,
+          "color": "#dd00dd"
+        },
+        "side": "left",
+        "offset": "10px",
+        "width": "5px"
+      },
+      "parent": null
+    }
+  }
+}

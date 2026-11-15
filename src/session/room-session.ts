@@ -107,7 +107,11 @@ async function loadRoom(run: RoomRun, merged: RoomDraft | null = null): Promise<
   const { status, document } = stores;
   const syncing = () => status.set({ ...status.get(), load: 'syncing' });
   const skipDraft = merged !== null;
-  const opened = await openRoom(host, { documentId, schema, signal, skipDraft }, syncing);
+  const opened = await openRoom(
+    host,
+    { documentId, schema, signal, skipDraft, fieldKey: options.fieldKey },
+    syncing,
+  );
   const read = opened.ok ? await readRoom(opened.value, { ...options, stores, signal }) : opened;
   if (signal.aborted || !opened.ok || !read.ok) {
     if (opened.ok) opened.value.connection.close();

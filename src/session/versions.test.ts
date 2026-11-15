@@ -257,9 +257,10 @@ describe('createDocumentVersions', () => {
     await versions.refresh();
     const store = host.versions;
     if (!store) throw new Error('no versions');
-    const load = store.load.bind(store);
+    const load = store.loadSnapshot?.bind(store);
+    if (!load) throw new Error('No snapshots.');
     const held: (() => void)[] = [];
-    vi.spyOn(store, 'load').mockImplementation(
+    vi.spyOn(store, 'loadSnapshot').mockImplementation(
       (...args) =>
         new Promise((resolve) => {
           held.push(() => void load(...args).then(resolve));

@@ -10,15 +10,15 @@ import {
   createAwarenessPresence,
   type PresenceAwareness,
 } from '../collab/awareness.js';
-import { CONTENT_TYPE, readContent } from '../collab/delta.js';
+import { readContent } from '../collab/delta.js';
 import { diffNodes } from '../collab/diff.js';
+import { createRoomScope, resolveRoomScope, type RoomScope } from '../collab/room-scope.js';
 import { createCollabSync, getCollabSync } from '../collab/sync.js';
 import { createCollabUndo } from '../collab/undo.js';
 import { createPresence } from '../engine/presence.js';
 import { markRemote } from '../engine/transaction-kind.js';
 import type { TemplatePin } from '../model/format/template-format.js';
 
-const META_TYPE = 'meta';
 const TEMPLATE_ATTR = 'template';
 
 /** A room's shared document, as a session uses it. */
@@ -54,6 +54,8 @@ const asPin = (value: unknown): TemplatePin | null =>
 
 /** How a session binds to its room. */
 interface RoomBindingOptions {
+  scope?: RoomScope | undefined;
+  fieldKey?: string | undefined;
   schema: Schema;
   isRemoteOrigin: (origin: unknown) => boolean;
   /** The room's awareness, a `@y/protocols` awareness, when the connection has one. */
@@ -86,9 +88,10 @@ function withContent(state: EditorState, content: ProseMirrorNode): EditorState 
 export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBinding {
   const { schema, isRemoteOrigin } = options;
   const doc = shared as Y.Doc;
-  const meta = doc.get(META_TYPE);
+  const scope = resolveRoomScope(doc, options.scope ?? createRoomScope(doc, options.fieldKey));
+  const meta = scope.meta;
   const origin = { session: 'template' };
-  const content = () => readContent(schema, doc.get(CONTENT_TYPE));
+  const content = () => readContent(schema, scope.content);
   // Once the editor stopped on content the schema cannot read, the session neither reads the
   // room's content nor writes over it.
   let unreadable = false;
@@ -117,12 +120,15 @@ export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBind
       if (!held || held.eq(state.doc)) return;
       const change = diffNodes(held, state.doc);
       doc.transact(() => {
-        doc.get(CONTENT_TYPE).applyDelta(change as never);
+        scope.content.applyDelta(change as never);
       });
     },
     plugins: [
-      ...presencePlugins(options),
-      createCollabSync({ doc, isRemoteOrigin, onUnreadable }),
+      ...presencePlugins({
+        ...options,
+        presence: { ...options.presence, field: scope.presence || undefined },
+      }),
+      createCollabSync({ doc, scope, isRemoteOrigin, onUnreadable }),
       createCollabUndo(),
     ],
     pin: () => asPin(meta.getAttr(TEMPLATE_ATTR)),

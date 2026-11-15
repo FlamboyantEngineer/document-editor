@@ -251,6 +251,9 @@ function withFaults(
       ...versions,
       list: faulty('versions.list', versions.list),
       load: faulty('versions.load', versions.load),
+      ...(versions.loadSnapshot
+        ? { loadSnapshot: faulty('versions.load', versions.loadSnapshot) }
+        : {}),
       ...(versions.create ? { create: faulty('versions.create', versions.create) } : {}),
     },
     templates: { ...templates, load: faulty('templates.load', templates.load) },
@@ -266,17 +269,22 @@ function withFaults(
 export function createMemoryHost(options: MemoryHostOptions = {}): MemoryHost {
   const identity = createMemoryIdentity(options.person ?? DEFAULT_PERSON, options.people ?? []);
   const now = options.now ?? (() => new Date());
-  const history = createMemoryHistory(() => identity.currentPerson().id, now);
+  const comments = createMemoryComments(identity, options.comments);
+  const templates = createMemoryTemplates(options.templates ?? [], {
+    author: () => identity.currentPerson().id,
+    now,
+  });
+  const history = createMemoryHistory(() => identity.currentPerson().id, now, {
+    discussion: comments.snapshot,
+    template: (content) => templates.snapshot(content.template ?? null),
+  });
   for (const document of options.documents ?? []) history.record(document.id, document.content);
   const session = createMemorySessionParts(options.capabilities ?? FULL_CAPABILITIES);
   const stores = withFaults(
     {
       documents: createMemoryDocuments(history),
       versions: createMemoryVersions(history),
-      templates: createMemoryTemplates(options.templates ?? [], {
-        author: () => identity.currentPerson().id,
-        now,
-      }),
+      templates,
       drafts: createMemoryDrafts(),
     },
     session.faulty,
@@ -291,7 +299,7 @@ export function createMemoryHost(options: MemoryHostOptions = {}): MemoryHost {
     codeSource: createMemoryCodeSource(options.code ?? {}),
     glossary: createMemoryGlossary(options.glossary ?? [], now),
     references: createMemoryReferences(options.citations ?? []),
-    comments: createMemoryComments(identity, options.comments),
+    comments,
     ...(options.scripts ? { scripts: createMemoryScripts(options.scripts, options) } : {}),
     ...(options.complete ? { completion: createMemoryCompletion(options.complete) } : {}),
   };

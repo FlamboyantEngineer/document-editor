@@ -2,6 +2,8 @@
 // with subscribers told of each save and each change to the versions.
 
 import type { DocumentFile } from '../model/format/document-format.js';
+import type { TemplateFile } from '../model/format/template-format.js';
+import { BASE_TEMPLATE } from '../model/templates/base-template.js';
 import type {
   DocumentStoreAdapter,
   DocumentVersion,
@@ -9,6 +11,7 @@ import type {
   SavedState,
   VersionStoreAdapter,
 } from './adapters.js';
+import type { CommentThread } from './comment-adapters.js';
 
 /** A failure for an id the in-memory host does not know. */
 export function notFound<T>(id: string): HostResult<T> {
@@ -20,13 +23,31 @@ export function savedState(sequence: number): SavedState {
   return { revision: `rev-${String(sequence)}`, sequence };
 }
 
-type StoredVersion = DocumentVersion & { content: DocumentFile };
+type StoredVersion = DocumentVersion & {
+  content: DocumentFile;
+  discussion: CommentThread[];
+  templateSnapshot: HostResult<TemplateFile>;
+};
+
+interface HistoryCapture {
+  discussion?: ((documentId: string) => CommentThread[]) | undefined;
+  template?: ((content: DocumentFile) => HostResult<TemplateFile>) | undefined;
+}
 
 /** Every saved state of each document, oldest first, with the people following each document. */
 interface MemoryHistory {
   /** Records a new saved state of a document and tells its subscribers. */
-  record(documentId: string, content: DocumentFile, label?: string | null): StoredVersion;
+  record(
+    documentId: string,
+    content: DocumentFile,
+    options?: {
+      label?: string | null;
+      template?: HostResult<TemplateFile>;
+    },
+  ): StoredVersion;
   versions(documentId: string): StoredVersion[] | undefined;
+  discussion(documentId: string): CommentThread[];
+  template(content: DocumentFile): HostResult<TemplateFile>;
   /** Tells a document's version subscribers that its versions changed. */
   touch(documentId: string): void;
   subscribe(documentId: string, listener: (version: StoredVersion) => void): () => void;
@@ -51,19 +72,29 @@ function listeners<T>() {
 }
 
 /** A document history whose saves are attributed to `author` at the time `now` gives. */
-export function createMemoryHistory(author: () => string, now: () => Date): MemoryHistory {
+export function createMemoryHistory(
+  author: () => string,
+  now: () => Date,
+  {
+    discussion = () => [],
+    template = (content) =>
+      content.template ? notFound(content.template.id) : { ok: true, value: BASE_TEMPLATE },
+  }: HistoryCapture = {},
+): MemoryHistory {
   const history = new Map<string, StoredVersion[]>();
   const saves = listeners<StoredVersion>();
   const changes = listeners<undefined>();
   return {
-    record: (documentId, content, label = null) => {
+    record: (documentId, content, options = {}) => {
       const versions = history.get(documentId) ?? [];
       const version: StoredVersion = {
         ...savedState((versions.at(-1)?.sequence ?? 0) + 1),
         savedAt: now().toISOString(),
         author: author(),
-        label,
+        label: options.label ?? null,
+        templateSnapshot: structuredClone(options.template ?? template(content)),
         content: structuredClone(content),
+        discussion: structuredClone(discussion(documentId)),
       };
       versions.push(version);
       history.set(documentId, versions);
@@ -72,6 +103,8 @@ export function createMemoryHistory(author: () => string, now: () => Date): Memo
       return version;
     },
     versions: (documentId) => history.get(documentId),
+    discussion,
+    template,
     touch: (documentId) => changes.call(documentId, undefined),
     subscribe: saves.add,
     subscribeVersions: changes.add,
@@ -108,11 +141,31 @@ export function createMemoryDocuments(history: MemoryHistory): DocumentStoreAdap
   };
 }
 
-const listed = ({ content, ...version }: StoredVersion): DocumentVersion =>
-  structuredClone({ ...version, template: content.template ?? null });
+const listed = ({
+  content,
+  discussion,
+  templateSnapshot: _,
+  ...version
+}: StoredVersion): DocumentVersion =>
+  structuredClone({ ...version, template: content.template ?? null, threads: discussion.length });
 
 const sameContent = (one: DocumentFile, other: DocumentFile) =>
   JSON.stringify(one) === JSON.stringify(other);
+
+function baselineKey(content: DocumentFile): string {
+  return JSON.stringify(
+    { ...content, template: content.template ?? null },
+    (_key, value: unknown) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+      const record = value as Record<string, unknown>;
+      return Object.fromEntries(
+        Object.keys(record)
+          .sort()
+          .map((key) => [key, record[key]]),
+      );
+    },
+  );
+}
 
 /** The versions of a history: every saved state is a version, named or not. */
 export function createMemoryVersions(history: MemoryHistory): VersionStoreAdapter {
@@ -130,19 +183,44 @@ export function createMemoryVersions(history: MemoryHistory): VersionStoreAdapte
         version ? { ok: true, value: structuredClone(version.content) } : notFound(revision),
       );
     },
+    loadSnapshot: (documentId, revision) => {
+      const version = find(documentId, revision);
+      if (version && !version.templateSnapshot.ok)
+        return Promise.resolve(structuredClone(version.templateSnapshot));
+      return Promise.resolve(
+        version && version.templateSnapshot.ok
+          ? {
+              ok: true,
+              value: structuredClone({
+                content: version.content,
+                threads: version.discussion,
+                template: version.templateSnapshot.value,
+              }),
+            }
+          : notFound(revision),
+      );
+    },
     // Naming the content the document holds names its latest saved state, so the revision an open
     // session saves against stays the latest.
-    create: (documentId, { content, label }) => {
+    create: (documentId, { content, label, baseContent }) => {
       const latest = history.versions(documentId)?.at(-1);
       if (!latest) return Promise.resolve(notFound(documentId));
-      if (sameContent(latest.content, content)) {
+      if (baseContent && baselineKey(latest.content) !== baselineKey(baseContent))
+        return Promise.resolve({ ok: false, error: { kind: 'conflict' } });
+      const template = history.template(content);
+      if (!template.ok) return Promise.resolve(template);
+      if (
+        sameContent(latest.content, content) &&
+        JSON.stringify(latest.templateSnapshot) === JSON.stringify(template) &&
+        JSON.stringify(latest.discussion) === JSON.stringify(history.discussion(documentId))
+      ) {
         latest.label = label;
         history.touch(documentId);
         return Promise.resolve({ ok: true, value: listed(latest) });
       }
       return Promise.resolve({
         ok: true,
-        value: listed(history.record(documentId, content, label)),
+        value: listed(history.record(documentId, content, { label, template })),
       });
     },
     rename: (documentId, revision, label) => {

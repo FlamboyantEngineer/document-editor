@@ -38,7 +38,11 @@ With a collaboration-tools room server, the rules are `required` and `otherwise`
 
 ```ts
 import type { EditorCapabilities } from '@flamboyantengineer/document-editor';
-import type { RoomWriteRules } from '@flamboyantengineer/collaboration-tools/server';
+import { openRoomChangeGuard } from '@flamboyantengineer/document-editor/collab';
+import type {
+  RoomPermissions,
+  RoomWriteRules,
+} from '@flamboyantengineer/collaboration-tools/server';
 
 const writeRules: RoomWriteRules = {
   required: { content: 'write-content', meta: 'write-meta', comments: 'write-comments' },
@@ -50,12 +54,31 @@ function roomCapabilities({ edit, suggest, decide, comment }: EditorCapabilities
   if (edit || suggest || decide) capabilities.push('write-content');
   if (edit) capabilities.push('write-meta');
   if (edit || suggest || decide || comment) capabilities.push('write-comments');
+  for (const [name, granted] of Object.entries({ edit, suggest, decide, comment })) {
+    if (granted) capabilities.push(name);
+  }
   return capabilities;
 }
 
+const permissions: RoomPermissions = {
+  rulesFor: () => ({
+    ...writeRules,
+    openGuard: (shadow) =>
+      openRoomChangeGuard(shadow, {
+        schema,
+        permissions: (_actor, capabilities) => ({
+          edit: capabilities.has('edit'),
+          suggest: capabilities.has('suggest'),
+          comment: capabilities.has('comment'),
+          decide: capabilities.has('decide'),
+        }),
+      }),
+  }),
+};
+
 const server = createRoomServer({
   host: {
-    permissions: { rulesFor: () => writeRules },
+    permissions,
     auth: {
       async admit(request) {
         const reader = await readerOf(request); // the host's own sign-in and roles
@@ -73,41 +96,17 @@ const server = createRoomServer({
 });
 ```
 
-Decide by the lists alone. Collaboration-tools reads only the update and the room items it touches to apply them, which costs about 12 µs an update in a room of a megabyte. A finer decision that needs the content goes through a write guard (below), which reads a shadow of the room the server keeps, never a copy per update. A refused update closes the writer's socket with `unauthorized-write`, which the client shows as `state.refusal`.
+The lists restrict top-level writes but cannot distinguish direct edits from suggestions. Install `openRoomChangeGuard` as the server's pre-application `openGuard` lifecycle hook whenever admissions distinguish edit, suggest, comment or decide. Capabilities come from the authenticated server admission, never from awareness or the update's origin.
 
-The room server cannot tell a suggestion from a direct edit by the types an update changes: both write `content`. Suggesting is enforced by the editor, which turns a suggester's changes into suggestions (`specs/SUGGESTIONS.md`).
+The permissions are independent: `edit` permits direct body and template edits, `suggest` permits new proposals, `decide` permits decisions on existing proposals, and `comment` permits discussion writes. None grants another implicitly. The optional `manageComments` permission is a host-granted moderation exception; immutable author and creation fields remain protected.
 
-### Sorting updates by permission
+Include these document capability names alongside the root write capabilities in each authenticated admission. The guard observes the persistent server-owned shadow before the live document changes, so refused updates reach neither readers nor persistence. It also enforces discussion attribution and ownership. The server disposes it when the room unloads. Content parsing follows incremental Yjs deltas; authorization still compares the changed document structure and proposal metadata. Account for that validation work in capacity planning. A refused update closes the writer's socket with `unauthorized-write`, which the provider exposes as its refusal.
 
-A host that must also enforce suggesting, deciding and commenting on the server sorts each update with `watchRoomChanges(doc, { schema })` (DOCE-COLLAB-6.6) into the permissions it needs. With a collaboration-tools room server, open it as the room's write guard: `openRoomChangeGuard(shadow, { schema, permissions })` (DOCE-COLLAB-6.7) watches the shadow copy of the room that the server opens once when the room loads and keeps in step with every accepted change, refuses an update that writes a type outside the layout, and refuses one whose writer lacks any permission it needs:
+### Classifying applied updates
 
-| Permission | The update                                                                                                             |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `comment`  | changes `comments`, or comment highlights in `content` and their state                                                 |
-| `suggest`  | adds suggestions in the writer's name (insertions, deletions, formatting, block splits), or withdraws the writer's own |
-| `decide`   | accepts any suggestion, or withdraws another writer's (rejects it)                                                     |
-| `edit`     | changes anything else in `content`, changes `meta`, or adds a suggestion in another writer's name                      |
+For audit and diagnostics, `watchRoomChanges(doc, { schema })` classifies each applied update (DOCE-COLLAB-6.6). `classify(transaction, { author })` returns a `needs` set of independent `edit`, `suggest`, `comment` and `decide` permissions, plus `outside` for a root outside the document layout. Own proposals and withdrawals need suggest; decisions on existing proposals need decide; ordinary body and metadata changes need edit; discussion records and comment anchors need comment. Classification alone does not enforce ownership or account for data a permissive parser ignores. The semantic guard in the recipe above performs authorization before application to the live room.
 
-`permissions(actor, capabilities)` is the host's trusted answer: it returns `{ edit, suggest, decide, comment }`, and none implies another, so a host whose editors may also comment grants both. `author` names the writer as their suggestions do (`dataAuthor`, the editor's `suggesting.author`); the guard takes the connection's actor id unless `authorOf` maps it.
-
-```ts
-const rules: RoomWriteRules = {
-  openGuard: (shadow) =>
-    openRoomChangeGuard(shadow, {
-      schema,
-      permissions: (actor, capabilities) => ({
-        edit: capabilities.has('edit'),
-        suggest: capabilities.has('suggest'),
-        decide: capabilities.has('decide'),
-        comment: capabilities.has('comment'),
-      }),
-    }),
-};
-```
-
-Sorting by permission is the first check, not the whole of authorization: it does not check whose comment record an update writes, nor that a suggestion's id and text belong to its writer. Each update costs its own size: on a 1,000-paragraph room the server takes about 2 ms a keystroke in Node, the writer's own diff included, where copying the room for each check took about 15 ms. A refused update closes the writer's socket, and the server rebuilds its shadow and reopens the guard at the next update. A host with its own server can call `watchRoomChanges` on its room document from the seed and `classify(transaction, { author })` in its `afterTransaction`, then revert a refused update under its own origin, which the watch follows like any other update.
-
-The watch keeps the room's content as it stood before each update, since what an update deletes is known only from there, and replays each change on it as the editor's binding does. It then compares the content before and after the update and reads the change the way that needs the least, because a Yjs change can say one edit in several ways: a character typed before its twin can arrive as the twin marked and a plain character after it. In Node, on the 150-chapter stress document (about 327 pages), the watch starts in about 58 ms (a read of the whole room), and a suggested character costs about 0.8 ms (p50) and 2.7 ms (p95), applying the update included.
+The trusted `authorOf(actor)` option maps authenticated actors to suggestion authors; it defaults to `actor.id`. A null mapping denies proposal authoring rather than falling back to the actor id, while explicit decisions remain possible. Discussion ownership always uses authenticated `actor.id`, independently of this suggestion-author mapping. The optional `manageProposals` permission lets an explicitly privileged host service preserve foreign proposal attribution during restore or import. It grants none of edit, suggest or decide, which the service must also hold for the changes it makes.
 
 ## Seeds and server reads
 
@@ -169,3 +168,21 @@ Measured in Node on the long stress document, two bindings exchanging updates di
 | Room state after all of it                |                       212 KB |                       1,429 KB |
 
 In Chromium, through an in-process room at 150 chapters, typing cost 0.5 ms (p50) and 0.7 ms (p95) locally and 1.5 ms and 2.4 ms on the other side, well inside the 32 ms typing budget.
+
+## Compact fields sharing one provider
+
+Decision D33 replaces the former exclusion of embedded fields. Mount `DocumentEditor` with `layout="web"` and optional toolbar, menubar and status bar; it uses the same schema, commands and controls as full documents. Resolve a scope once per field:
+
+```ts
+const scope = createRoomScope(provider.doc, 'description');
+const plugins = [
+  createCollabSync({ doc: provider.doc, scope }),
+  createCollabUndo(),
+  createAwarenessPresence({ awareness: provider.awareness, user, field: scope.presence }),
+];
+const comments = createRoomCommentStore({ doc: provider.doc, scope, identity });
+```
+
+Run `createPresence()` with the awareness plugin. Pass the same scope to room conversions and comment stores. A session accepts `fieldKey` and resolves these handles itself. Give each field session its own document id for drafts and permissions; the collaboration adapter may route them to one room through reference-counted connection leases. Closing one lease must leave the shared provider running while other fields use it. Whole-room cached updates stay with that transport; generation merges read only the selected field. A scope's stable key also selects its types in cloned or restored room states. Omitting the key preserves the full-document room format. Custom shared handles must all belong to the same document; custom handles must select distinct top-level types, which also resolve by name in snapshots.
+
+For named field rooms, include every scope in `openRoomChangeGuard` options. A coarse rule such as `otherwise: 'write-document'` with `serverOnly: ['__room']` avoids rebuilding the field namespace layout in the host; the guard then validates each configured field and refuses every unknown root.

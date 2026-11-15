@@ -71,3 +71,10 @@ Generic stored documents (`DocumentFile`, [FORMAT.md](../../../specs/FORMAT.md))
 | `table-wide`                        | `regression-base`           | Twelve columns by twenty rows.                                                                                             |
 | `template-blocks-and-variables`     | `regression-base`           | Template blocks, one empty, and variables in text.                                                                         |
 | `unnamed-sections`                  | `regression-base`           | Content before and after the template's sections, outside any section.                                                     |
+
+## Integration envelopes
+
+The [contracts](contracts/README.md) subdirectory holds transport and revision bundles,
+which are tested separately from standalone `DocumentFile` regression documents.
+It freezes authoritative linked spreadsheet rows, a pinned document revision,
+anchored discussion and the captured table kept by history, export and print.

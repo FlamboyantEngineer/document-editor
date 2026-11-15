@@ -29,6 +29,7 @@ import {
   type HistoricalView,
 } from '../../session/versions.js';
 import { usePeople } from '../../utils/use-people.js';
+import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { useSessionValue } from '../document-session/document-session.js';
 import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-labels.js';
 import { type RevisionItem, revisionTime } from './revision-item.js';
@@ -61,6 +62,8 @@ export interface DocumentHistoryBannerProps<R> {
 
 /** The props a historical view gives the document editor in place of the document's own. */
 export interface HistoricalEditorProps {
+  /** Captured discussion replaces any live comment provider. */
+  comments: DocumentCommentsOptions;
   state: EditorState;
   onStateChange: (update: SessionStateUpdate) => void;
   /** The template the version pins. */
@@ -268,6 +271,12 @@ export function historicalEditorProps<R>(
   { view, display }: { view: HistoricalView<R>; display?: VersionChangeDisplay | undefined },
 ): HistoricalEditorProps {
   return {
+    comments: {
+      store: view.version.comments,
+      documentId: versions.session.documentId,
+      identity: versions.identity,
+      canComment: false,
+    },
     state: view.version.state,
     onStateChange: versions.updateView,
     template: view.version.template,

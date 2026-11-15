@@ -39,12 +39,21 @@ const SUGGESTION_ATTRS: ReadonlySet<string> = new Set([
   'suggestionFormat',
 ]);
 
+interface ContentInspection {
+  marks?: (before: readonly Mark[], after: readonly Mark[]) => void;
+  nodes?: (before: Node, after: Node) => void;
+  inserted?: (node: Node) => void;
+}
+
 // What a change records as it is read.
-function createTally() {
+function createTally(inspection: ContentInspection = {}) {
   const needs = new Set<RoomChangePermission>();
   const proposed = new Set<string | null>();
   const withdrawn = new Set<string | null>();
   return {
+    inspectMarks: inspection.marks ?? (() => undefined),
+    inspectNode: inspection.nodes ?? (() => undefined),
+    inspectInserted: inspection.inserted ?? (() => undefined),
     need(permission: RoomChangePermission | null) {
       if (permission) needs.add(permission);
     },
@@ -183,6 +192,8 @@ const UNIT_COSTS: UnitCosts = {
 
 // Keeping a unit with other marks, or a block with other attributes.
 function readKept(tally: Tally, a: Unit, b: Unit): void {
+  tally.inspectMarks(a.marks, b.marks);
+  if (a.isBlock && a.node && b.node) tally.inspectNode(a.node, b.node);
   if (a.isBlock && a.node && b.node) readAttrs(tally, a.node, b.node);
   readMarks(tally, a.marks, b.marks);
 }
@@ -193,6 +204,8 @@ function readUnits(tally: Tally, { pairs, gone, come }: Alignment): void {
   for (const [was, is] of pairs) readKept(tally, was, is);
   for (const unit of gone) readGone(tally, unit);
   for (const unit of come) {
+    tally.inspectMarks([], unit.marks);
+    if (unit.isBlock && unit.node) tally.inspectInserted(unit.node);
     const author = comeAuthor(unit);
     if (author === undefined) tally.need('edit');
     else tally.proposed(author);
@@ -273,6 +286,8 @@ function readChildren(tally: Tally, a: readonly Node[], b: readonly Node[]): voi
 
 function readNode(tally: Tally, a: Node, b: Node): void {
   if (a.eq(b)) return;
+  tally.inspectNode(a, b);
+  tally.inspectMarks(a.marks, b.marks);
   readAttrs(tally, a, b);
   readMarks(tally, a.marks, b.marks);
   if (a.content.eq(b.content)) return;
@@ -289,8 +304,12 @@ function readNode(tally: Tally, a: Node, b: Node): void {
 }
 
 /** What a change of the content did, from the content before and after it. */
-export function readContentChange(before: Node, after: Node): ContentChange {
-  const tally = createTally();
+export function readContentChange(
+  before: Node,
+  after: Node,
+  inspection: ContentInspection = {},
+): ContentChange {
+  const tally = createTally(inspection);
   readNode(tally, before, after);
   return tally.result();
 }

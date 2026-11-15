@@ -1,7 +1,9 @@
 // The in-memory template store: every saved revision of each template, which loads, saves, lists
 // and versions read, with subscribers told of each save.
 
-import type { TemplateFile } from '../model/format/template-format.js';
+import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
+import { resolveTemplateFile } from '../model/format/template-format-resolve.js';
+import { BASE_TEMPLATE, BASE_TEMPLATE_ID } from '../model/templates/base-template.js';
 import type {
   HostResult,
   SavedState,
@@ -44,6 +46,23 @@ const failure = <T>(kind: 'conflict' | 'denied', message: string): HostResult<T>
   error: { kind, message },
 });
 
+function snapshotTemplate(
+  byId: ReadonlyMap<string, readonly StoredRevision[]>,
+  pin: TemplatePin | null,
+): HostResult<TemplateFile> {
+  const revisions = pin ? byId.get(pin.id) : undefined;
+  const found = pin?.revision
+    ? revisions?.find((each) => each.revision === pin.revision)
+    : revisions?.at(-1);
+  if (pin && !found) return notFound(pin.revision ?? pin.id);
+  const template = resolveTemplateFile(found?.template ?? BASE_TEMPLATE, {
+    baseTemplateId: BASE_TEMPLATE_ID,
+    loadTemplate: (id) =>
+      byId.get(id)?.at(-1)?.template ?? (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
+  });
+  return { ok: true, value: structuredClone(template) };
+}
+
 /**
  * A template store over the templates given, each listed again being its next revision. A save
  * checks the base revision, a new template's id must be free, and a template another inherits
@@ -52,7 +71,7 @@ const failure = <T>(kind: 'conflict' | 'denied', message: string): HostResult<T>
 export function createMemoryTemplates(
   initial: readonly TemplateFile[],
   { author, now }: MemoryTemplatesOptions,
-): TemplateStoreAdapter {
+): TemplateStoreAdapter & { snapshot(pin: TemplatePin | null): HostResult<TemplateFile> } {
   const byId = new Map<string, StoredRevision[]>();
   const listeners = new Map<string, Set<(state: SavedState) => void>>();
   const record = (template: TemplateFile): SavedState => {
@@ -71,6 +90,7 @@ export function createMemoryTemplates(
   for (const template of initial) record(template);
   const latest = (templateId: string) => byId.get(templateId)?.at(-1);
   return {
+    snapshot: (pin) => snapshotTemplate(byId, pin),
     load: (templateId, { revision } = {}) => {
       const revisions = byId.get(templateId) ?? [];
       const found = revision

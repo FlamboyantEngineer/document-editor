@@ -1,0 +1,87 @@
+{
+  "kind": "linked-spreadsheet",
+  "schemaVersion": 1,
+  "source": {
+    "id": "book-1",
+    "revision": "revision-1"
+  },
+  "sheetId": "sheet-1",
+  "range": "A1:B2",
+  "workbook": {
+    "schemaVersion": 1,
+    "worksheets": [
+      {
+        "id": "sheet-1",
+        "name": "Sheet1",
+        "data": [
+          ["=21*2", "Note"],
+          ["", "Captured"]
+        ],
+        "mergeCells": {
+          "A1": [1, 2]
+        }
+      }
+    ]
+  },
+  "publication": {
+    "inputKey": "[{\"data\":[[\"=21*2\",\"Note\"],[\"\",\"Captured\"]],\"extent\":{\"columns\":2,\"rows\":2},\"id\":\"sheet-1\",\"name\":\"Sheet1\"}]",
+    "revision": 1,
+    "status": "ready",
+    "result": {
+      "schemaVersion": 1,
+      "worksheets": [
+        {
+          "id": "sheet-1",
+          "values": [
+            [
+              {
+                "kind": "number",
+                "numerator": "42",
+                "denominator": "1",
+                "approximate": false
+              },
+              "Note"
+            ],
+            [null, "Captured"]
+          ]
+        }
+      ],
+      "dependencies": {
+        "cells": {
+          "[\"sheet-1\",0,0]": [],
+          "[\"sheet-1\",1,0]": [],
+          "[\"sheet-1\",0,1]": [],
+          "[\"sheet-1\",1,1]": []
+        }
+      }
+    }
+  },
+  "table": {
+    "kind": "table",
+    "schemaVersion": 1,
+    "sheetId": "sheet-1",
+    "range": "A1:B2",
+    "rows": [
+      [
+        {
+          "text": "42",
+          "colspan": 1,
+          "rowspan": 2
+        },
+        {
+          "text": "Note",
+          "colspan": 1,
+          "rowspan": 1
+        }
+      ],
+      [
+        {
+          "text": "Captured",
+          "colspan": 1,
+          "rowspan": 1
+        }
+      ]
+    ],
+    "html": "<table><tbody><tr><td colspan=\"1\" rowspan=\"2\">42</td><td colspan=\"1\" rowspan=\"1\">Note</td></tr><tr><td colspan=\"1\" rowspan=\"1\">Captured</td></tr></tbody></table>"
+  }
+}

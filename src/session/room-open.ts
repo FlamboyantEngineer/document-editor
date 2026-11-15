@@ -72,7 +72,14 @@ export async function openRoom(
     schema,
     signal,
     skipDraft = false,
-  }: { documentId: string; schema: Schema; signal: AbortSignal; skipDraft?: boolean },
+    fieldKey,
+  }: {
+    documentId: string;
+    schema: Schema;
+    signal: AbortSignal;
+    skipDraft?: boolean;
+    fieldKey?: string;
+  },
   onConnected: () => void,
 ): Promise<HostResult<OpenedRoom>> {
   const collaboration = host.collaboration;
@@ -96,6 +103,7 @@ export async function openRoom(
   const unreadable = createValueStore<HostError | null>(null);
   const binding = bindRoom(connection.doc, {
     schema,
+    fieldKey,
     isRemoteOrigin: (origin) => connection.isRemoteOrigin(origin),
     awareness: connection.awareness,
     presence: { user: presenceUser(host), lifecycle: host.lifecycle },

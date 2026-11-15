@@ -9,14 +9,14 @@ The library stores documents and templates in formats of its own, as JSON a host
 A stored document (`DocumentFile`) shall hold `formatVersion` 1, the `template` it uses, pinned at a revision (DOCE-TEMPLATES-11.1), and its `sections` in order. A section shall hold the template section it is, by `name` (none for content outside the template's sections), its own settings (DOCE-FORMAT-1.6) and its `content`. Each node shall be `{ type, attrs?, content?, text?, marks? }` with the stored names `STORED_NODE_TYPES` and `STORED_MARK_TYPES` give, and a host's own types under their schema names; an attribute at its default shall be left out. A node of any type shall store the marks it carries as `marks`, a text's and those of any other node alike, such as a mention or a footnote marker a suggestion deletes, so they are read back. Every element shall store its identity and authorship as `id`, `author` and `aiSession`. A footnote shall be stored where it is cited, with its text; math shall store its `source`; a list item shall store `checked` (`true` or `false`) only for a checklist item, and a list item without it shall read as a plain item (DOCE-SCHEMA-3.12); a reference's recorded citation data shall be an object. `writeDocumentFile` and `readDocumentFile` shall write and read the format, and a document read and written again shall be unchanged: an empty section, read with one empty paragraph, shall be written empty again.
 
 Implementation: `src/model/format/document-format.ts`, `src/model/format/document-format-write.ts`, `src/model/format/document-format-convert.ts`, `src/model/format/document-format-nodes.ts`
-Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
+Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`, `src/session/version-snapshot.test.ts`
 
 ### DOCE-FORMAT-1.2 - Read for the editor
 
 `readDocumentFile(file, schema, options)` shall give `{ doc, problems }`: the editor's document, each section on one page, with an empty header and footer, its blocks in the page content (an empty paragraph when it has none) and its footnotes' text in the page's footnote area, for the editor to lay out. The editor keeps a footnote's marker and text together by its id, so a footnote stored without an `id`, as an import composes one, or with one an earlier footnote holds, shall be read with an id no other stored footnote holds: the first free one of the element id form (DOCE-EDITING-1.1), counting up from `00000001`, so a file reads the same each time; it is written back with that id. Overlapping marks of one type shall be read in canonical order (`orderDocumentMarks`, DOCE-SCHEMA-5.1), whatever order they are stored in, so a document read from storage equals the same document built by editing. `readStoredContent(content, schema)` shall read stored content outside a section, such as a template region's, the same way.
 
 Implementation: `src/model/format/document-format-convert.ts`
-Verification: `src/model/format/document-format.test.ts`, `src/model/format/document-format-convert.test.ts`
+Verification: `src/model/format/document-format.test.ts`, `src/model/format/document-format-convert.test.ts`, `src/session/version-snapshot.test.ts`
 
 ### DOCE-FORMAT-1.3 - Content only
 
@@ -386,7 +386,7 @@ Verification: `src/document/stored-suggestions.test.ts`, `e2e/automation-lab.spe
 `storedEmbeds(file)` shall list a stored document's embeds in reading order: each one's element id, its `kind`, `source`, `snapshot` (null when it records none) and `label`, its path and the id of the element holding it (null at a section's top).
 
 Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
-Verification: `src/document/stored-elements.test.ts`
+Verification: `src/document/stored-elements.test.ts`, `src/session/version-snapshot.test.ts`
 
 ### DOCE-FORMAT-9.10 - Contributors
 

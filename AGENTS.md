@@ -9,10 +9,12 @@ Before every commit, run the checks that cover your change. All of them must pas
 ```sh
 npm run lint && npm run format:check && npm run typecheck
 npm run check:references && npm run check:specs && npm run check:exports
-npm run test:changed   # unit tests related to your changes since origin/dev
+npm run test:changed   # related unit tests, then the mandatory isolated guard budget suite
 ```
 
 For a change to pagination, measuring or a lab (`labs/`, `e2e/`, `src/pagination/`), also run the browser tests: `npm run build:labs && npm run test:labs`. Set `CHROMIUM_PATH` when Playwright's own browser is not installed.
+
+`npm run test:guard-budgets` runs both guard test files sequentially with one worker. Ordinary `test` excludes them; `test:changed` always runs this dedicated gate after its related ordinary tests. Keep timing checks free of other test, bundle or consumer work.
 
 `npm run check` runs every gate, as CI does. Never weaken a lint rule, the denylist or a check to get green.
 

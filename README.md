@@ -66,3 +66,58 @@ npm run test:perf    # performance harness: the budgets in specs/LABS.md, measur
 `npm run labs` runs `npm ci` when `package-lock.json` changed since the last install and `npm run build:labs` when a lab source changed since the last build. `npm run labs -- --dry-run` lists those steps without running them; `npm run serve:labs` serves `labs/` as it is. Both, and the browser tests, use port 4183; set the `LABS_PORT` environment variable to use another.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the branch, versioning and source rules.
+
+### Historical discussion
+
+Hosts can add `versions.loadSnapshot` beside `load` to return the required
+`{ content, threads, template }` bundle from one immutable revision. `template` is
+fully resolved, including inherited parent and base settings, and captured when
+the revision is recorded. Historical views use it directly without live template
+lookups. Changed discussion or resolved template settings requires a new revision.
+
+When supported, `versions.create` must capture supplied content, its original
+pin, discussion and the resolved template in one host transaction; the returned
+revision identifies the entire bundle. If that consistent commit is impossible,
+return `conflict` without publishing a version. Session version saves always
+supply `baseContent`, a detached copy of the body and template pin before the
+async hook. Compare it atomically before any history or label change and return
+`conflict` if a concurrent save changed the baseline. Direct adapter calls may
+omit it for explicitly unconditional creation, without concurrent-save protection.
+Room hosts capture from the same room state, never from an unrelated live request.
+
+`historicalEditorProps` supplies a read-only captured comment store for existing
+panels and providers. Content-only legacy adapters show no historical discussion
+and retain live resolution of their stored template pin; they do not guarantee
+immutable presentation. Restore applies content and the original stored template
+pin while preserving current discussion. It does not reinstate captured inherited
+presentation: a floating pin keeps ordinary live resolution unless the host
+explicitly materializes the captured settings.
+
+### Optional reference presentation
+
+The editor loads no CSS. To use the neutral lab presentation explicitly, import
+`@flamboyantengineer/ui-components/reference.css`, then
+`@flamboyantengineer/document-editor/reference.css`. Document presentation uses the
+`document-reference` cascade layer; lab page layout is excluded. Hosts can instead
+style the documented hooks themselves.
+
+### Linked spreadsheet captures
+
+The optional `/host` helpers accept the structural output of a spreadsheet library's
+`createLinkedSpreadsheetInsertion`, without a dependency on that library:
+
+```ts
+const embed = createLinkedSpreadsheetEmbed(capture, 'Summary');
+insertEmbed(embed)(state, dispatch);
+```
+
+The standard persisted `embed` node owns selection, copying, deletion and locked
+content. It stores source id, sheet and range in an opaque selection key, the captured
+revision, and a stored table built from captured transport rows (`text`, `colspan`,
+`rowspan`) used by history, export and print. Editor-specific node JSON and supplied
+HTML are ignored. Formulas are never
+calculated by this bridge. `createLinkedSpreadsheetAdapter(loadCapture)` connects a
+host's authoritative capture loader to existing embed status and explicit `updateEmbed`;
+refresh refuses read-only views and never runs automatically on historical content.
+
+The supported ProseMirror integration uses `@handlewithcare/react-prosemirror` 3.3 with `prosemirror-view` exactly 1.42.3, as that binding requires. The development lock verifies React 19.2.7. A newer view release requires upstream binding support before this package can claim compatibility.

@@ -54,6 +54,7 @@ export {
   watchRoomChanges,
 } from './room-changes.js';
 export { roomConnection, type RoomProviderLike } from './room-connection.js';
+export { createRoomScope, type RoomScope } from './room-scope.js';
 export {
   type CollabChange,
   type CollabChangeKind,

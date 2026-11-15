@@ -3,8 +3,9 @@ import { TableMap } from 'prosemirror-tables';
 import { describe, expect, it } from 'vitest';
 import ranges from '../../test/fixtures/tables/spreadsheet-ranges.json' with { type: 'json' };
 import { createDocumentSchema, type DocumentFile, readStoredContent } from '../model/index.js';
+import { MAX_SPAN } from '../model/schema/table-nodes.js';
 import { applyStoredEdits } from './automation.js';
-import { tableFromRows } from './stored-table.js';
+import { tableFromRows, type TableRowCell } from './stored-table.js';
 
 const schema = createDocumentSchema();
 
@@ -142,5 +143,33 @@ describe('tables from rows', () => {
       ['South', ''],
     ]);
     expect(inserted?.content?.[1]?.content?.[2]?.attrs).toMatchObject({ rowspan: 2 });
+  });
+  it.each<{ name: string; rows: TableRowCell[][] }>([
+    { name: 'a colspan above the schema limit', rows: [[{ text: 'x', colspan: MAX_SPAN + 1 }]] },
+    {
+      name: 'a rowspan above the schema limit',
+      rows: [[{ text: 'x', rowspan: MAX_SPAN + 1 }], ...Array.from({ length: MAX_SPAN }, () => [])],
+    },
+    { name: 'a short row', rows: [[{ text: 'a' }, { text: 'b' }], [{ text: 'c' }]] },
+    { name: 'a wider row', rows: [[{ text: 'a' }], [{ text: 'b' }, { text: 'c' }]] },
+    {
+      name: 'overlapping spans',
+      rows: [[{ text: 'a' }, { text: 'b', rowspan: 2 }], [{ text: 'c', colspan: 2 }]],
+    },
+    { name: 'a rowspan beyond the final row', rows: [[{ text: 'x', rowspan: 2 }]] },
+    { name: 'an uncovered trailing empty row', rows: [[{ text: 'x' }], []] },
+    { name: 'an uncovered leading empty row', rows: [[], [{ text: 'x' }]] },
+  ])('DOCE-TABLES-4.1 refuses $name before emitting invalid stored content', ({ rows }) => {
+    expect(() => tableFromRows(rows)).toThrow(RangeError);
+  });
+
+  it('DOCE-TABLES-4.1 accepts the schema span boundary and keeps every remaining grid valid', () => {
+    const rows: TableRowCell[][] = Array.from({ length: MAX_SPAN }, (_, y) =>
+      y === 0 ? [{ text: 'Down', rowspan: MAX_SPAN }, { text: 'Beside' }] : [{ text: 'Beside' }],
+    );
+    for (const cells of [rows, [[{ text: 'Wide', colspan: MAX_SPAN }]]]) {
+      const [node] = readStoredContent([tableFromRows(cells)], schema);
+      expect(node ? (TableMap.get(node).problems ?? null) : 'unread').toBeNull();
+    }
   });
 });

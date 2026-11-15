@@ -306,14 +306,14 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-TEMPLATES-11.1 - Pinned revisions
 
-A stored document's `template` shall be a `TemplatePin`: the template's `id` and, optionally, the host's `revision` of it, so the document, and each of its saved versions, renders with the template it pinned until an explicit update moves it to a newer revision. `writeDocumentFile(doc, { template })` shall write the pin as given, and `readDocumentFile` shall refuse a pin that is not an id with an optional text revision with a `DocumentFormatError` at `template`.
+A stored document's `template` shall be a `TemplatePin`: the template's `id` and, optionally, the host's `revision` of it. A concrete revision pins the leaf template; an omitted revision requests the latest when loaded. Snapshot-backed history renders with its fully resolved capture (DOCE-VERSIONS-5.5), while content-only legacy history resolves the stored pin with ordinary live semantics. `writeDocumentFile(doc, { template })` shall write the pin as given, and `readDocumentFile` shall refuse a pin that is not an id with an optional text revision with a `DocumentFormatError` at `template`.
 
 Implementation: `src/model/format/template-format.ts`, `src/model/format/document-format.ts`, `src/model/format/document-format-convert.ts`
 Verification: `src/model/format/document-format.test.ts`, `test/fixtures/documents/regression-set.test.ts`
 
 ### DOCE-TEMPLATES-11.2 - Loading a pinned revision
 
-`templates.load(id, { revision, signal })` shall give that revision of the stored template, or the latest without one, and a `not-found` error for a revision the store does not hold. The in-memory host shall keep each template it is given again under the same id as its next revision.
+`templates.load(id, { revision, signal })` shall give that revision of the stored template, or the latest without one, and a `not-found` error for a revision the store does not hold. The in-memory host shall keep each template it is given again under the same id as its next revision. Ordinary document loading keeps this latest-resolution behavior for unversioned pins and inherited parents. Snapshot-capable document history instead captures the fully resolved template result at revision recording (DOCE-VERSIONS-5.5), so later leaf, parent or base changes cannot alter historical presentation.
 
 Implementation: `src/host/adapters.ts`, `src/host/memory-host.ts`
 Verification: `src/host/memory-host.test.ts`

@@ -62,6 +62,9 @@ function toPosition(
   doc: Node,
   { type, index }: { type: Y.Type; index: number },
 ): number | null {
+  let ancestor: Y.Type | null = type;
+  while (ancestor && ancestor !== root) ancestor = ancestor.parent as Y.Type | null;
+  if (!ancestor) return null;
   const path = type === root ? [] : (Y.getPathTo(root, type) as unknown[]);
   let node = doc;
   let pos = 0;

@@ -4,7 +4,7 @@
 
 - `dev` is the integration branch. Work happens on short-lived branches cut from `dev` and merged back into `dev` by pull request.
 - `main` is always releasable. It is updated only from `dev`, through a reviewed release pull request once the full checks pass on `dev`.
-- `npm run check` must pass before a pull request merges. Hosted CI runs it with `--skip test:labs` and runs the browser tests in parallel jobs: three Chromium shards and one job for the timing tests. Its required `check` job passes only when every one of them passed.
+- `npm run check` must pass before a pull request merges. Hosted CI runs ordinary gates separately from browser tests: three Chromium shards and one dedicated timing job. Both room guard test files, including their functional cases, run through `test:guard-budgets` sequentially with one worker on that timing runner before its browser budgets. Locally `check` runs this gate in its own final stage, and `test:changed` always runs it after related ordinary tests. Its required `check` job passes only when every one of them passed.
 
 ## Versioning
 

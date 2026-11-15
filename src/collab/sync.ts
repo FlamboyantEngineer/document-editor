@@ -6,7 +6,7 @@
 import type * as Y from '@y/y';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { CONTENT_TYPE } from './delta.js';
+import { resolveRoomScope, type RoomScope } from './room-scope.js';
 import {
   type Binding,
   type BindingSource,
@@ -19,6 +19,8 @@ import {
 export interface CollabSyncOptions {
   /** The shared document, such as a room provider's; the document is its `content` type. */
   doc: Y.Doc;
+  /** Shared handles for an embedded document field. */
+  scope?: RoomScope | undefined;
   /**
    * Whether a Yjs transaction origin is another person's, such as the provider's own origin.
    * Changes with other origins, but for the editor's own and its undo manager's, are the host's
@@ -40,6 +42,7 @@ export interface CollabSyncOptions {
 /** A sync plugin's shared document and the origins of the changes it makes there. */
 export interface CollabSync {
   readonly doc: Y.Doc;
+  readonly scope: RoomScope;
   /** The shared type that holds the document. */
   readonly type: Y.Type;
   /** The origin of the editor's own changes: the one its undo manager tracks. */
@@ -77,6 +80,7 @@ function join(view: EditorView, source: BindingSource): Binding | null {
  */
 export function createCollabSync({
   doc,
+  scope,
   isRemoteOrigin = () => true,
   // Called as a function of its own: the platform's `queueMicrotask` throws when called on another
   // object, as the binding calls its source's scheduler.
@@ -85,7 +89,8 @@ export function createCollabSync({
     throw error;
   },
 }: CollabSyncOptions): Plugin<LocalSteps> {
-  const type = doc.get(CONTENT_TYPE);
+  const resolved = resolveRoomScope(doc, scope);
+  const type = resolved.content;
   const origin = { collabSync: 'local' };
   const derivedOrigin = { collabSync: 'derived' };
   let binding: Binding | null = null;
@@ -139,6 +144,7 @@ export function createCollabSync({
   });
   syncs.set(plugin, {
     doc,
+    scope: resolved,
     type,
     origin,
     derivedOrigin,

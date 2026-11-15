@@ -42,7 +42,7 @@ test.describe('history lab', () => {
     await expect(editor(page)).toContainText('within one second of detecting it');
     await expect(editor(page)).toHaveAttribute('contenteditable', 'false');
     await page.getByLabel('Markup').selectOption('all');
-    await page.getByLabel('Comments').uncheck();
+    await page.getByRole('checkbox', { name: 'Comments', exact: true }).uncheck();
     await page.getByRole('button', { name: 'Return to the current version' }).click();
     await expect(page.getByLabel('Showing')).toHaveText('The document');
     await expect(page.getByLabel('Reader settings')).toHaveText('final markup, comments shown');

@@ -54,10 +54,22 @@ describe('Comment focus', () => {
     const composer = await within(panel()).findByRole('textbox', { name: /comment/i });
     await user.type(composer, 'From the pane');
     await user.click(within(panel()).getByRole('button', { name: 'Comment' }));
-    expect(await within(panel()).findByText('From the pane')).toBeInTheDocument();
-    const anchor =
-      seen.state && listCommentAnchors(seen.state.doc).find((each) => each.text === 'gamma');
-    expect(anchor?.state).toBe('open');
+    // Store notification renders the thread before committing its draft anchor replaces the card.
+    // Query the current panel and committed state together instead of retaining the replaced node.
+    await waitFor(() => {
+      expect(within(panel()).getByText('From the pane')).toBeInTheDocument();
+      const anchor =
+        seen.state && listCommentAnchors(seen.state.doc).find((each) => each.text === 'gamma');
+      expect(anchor?.state).toBe('open');
+    });
+    expect(await store.comments?.list('doc')).toMatchObject({
+      ok: true,
+      value: expect.arrayContaining([
+        expect.objectContaining({
+          entries: expect.arrayContaining([expect.objectContaining({ text: 'From the pane' })]),
+        }),
+      ]),
+    });
   });
 
   it('DOCE-COMMENTS-4.8 opens a thread at one of its comments, shown whatever the filter', async () => {

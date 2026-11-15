@@ -1,0 +1,40 @@
+{
+  "contractVersion": 1,
+  "fieldKey": "summary",
+  "roots": ["field:\"summary\":comments", "field:\"summary\":content", "field:\"summary\":meta"],
+  "presenceField": "field:\"summary\":presence",
+  "commentKeys": ["[\"entry\",\"discussion\",\"entry\"]", "[\"thread\",\"discussion\"]"],
+  "document": {
+    "formatVersion": 1,
+    "template": null,
+    "sections": [
+      {
+        "name": null,
+        "content": [
+          {
+            "type": "paragraph",
+            "attrs": { "id": "a0000001" },
+            "content": [{ "type": "text", "text": "Field" }]
+          }
+        ]
+      }
+    ]
+  },
+  "thread": {
+    "id": "discussion",
+    "state": "open",
+    "quote": "Field",
+    "suggestion": null,
+    "author": "writer",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "entries": [
+      {
+        "id": "entry",
+        "author": "writer",
+        "text": "Discussion",
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}

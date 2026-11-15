@@ -5,7 +5,7 @@ import type { ReferenceBaseline } from '../model/reference-format.js';
 import type { ScriptProvenance, ScriptSignature } from '../model/schema/script-nodes.js';
 import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
-import type { CommentStoreAdapter } from './comment-adapters.js';
+import type { CommentStoreAdapter, CommentThread } from './comment-adapters.js';
 import type { CompletionAdapter } from './completion-adapters.js';
 import type { ExportsAdapter } from './export-adapters.js';
 import type { ProoferAdapter } from './proofing-adapters.js';
@@ -109,6 +109,14 @@ export interface DocumentVersion extends SavedState {
   threads?: number | undefined;
 }
 
+/** Content, resolved template and discussion captured together at one revision. */
+export interface DocumentVersionSnapshot {
+  /** Fully resolved at record time, including inherited settings; historical reads never reload it. */
+  template: TemplateFile;
+  content: DocumentFile;
+  threads: readonly CommentThread[];
+}
+
 /** A document's saved versions, to show its history and compare one with another. */
 export interface VersionStoreAdapter {
   /** The document's versions, newest first. */
@@ -119,10 +127,30 @@ export interface VersionStoreAdapter {
     revision: string,
     signal?: AbortSignal,
   ): Promise<HostResult<DocumentFile>>;
-  /** Saves `content` as a new version, named by `label` or null, and returns it. */
+  /** Reads an immutable revision bundle; never substitutes the current discussion. */
+  loadSnapshot?(
+    documentId: string,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<HostResult<DocumentVersionSnapshot>>;
+  /**
+   * Saves content and its pinned template, capturing discussion atomically when loadSnapshot is
+   * supported: one host transaction commits content, captures discussion and resolves the entire
+   * template inheritance chain into the snapshot,
+   * with the returned revision identifying the entire bundle. Refuse conflict if that consistent
+   * commit is impossible. Never append current threads to an earlier content revision. A changed
+   * discussion requires a new revision even when content is unchanged. Supplied baseContent must
+   * match the current authoritative body and template before any label or history change. Omitting
+   * baseContent explicitly makes creation unconditional; it offers no concurrent-save protection.
+   */
   create?(
     documentId: string,
-    version: { content: DocumentFile; label: string | null },
+    version: {
+      content: DocumentFile;
+      label: string | null;
+      /** Compare body and template atomically before any side effect; mismatch returns conflict. */
+      baseContent?: DocumentFile | undefined;
+    },
   ): Promise<HostResult<DocumentVersion>>;
   /** Names a version, or takes its name away with null, and returns it. */
   rename?(
@@ -132,7 +160,10 @@ export interface VersionStoreAdapter {
   ): Promise<HostResult<DocumentVersion>>;
   /**
    * Makes a version's content the document's current content, as a new saved state, which it
-   * returns. Without it, the editor restores a version by editing the document to its content.
+   * returns. Discussion stays current: historical threads are never written back. Without it,
+   * the editor restores a version by editing the document to its content. In room mode this
+   * service authorizes the restore and publishes it through the room; a service failure never
+   * falls back to a client replacement.
    */
   restore?(documentId: string, revision: string): Promise<HostResult<SavedState>>;
   /** Calls `onChange` whenever the document's versions change, until the returned function is called. */

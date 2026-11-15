@@ -246,3 +246,59 @@ describe('awareness presence', () => {
     }
   });
 });
+
+it('DOCE-COLLAB-7.1 keeps field cursors and disposal independent in one awareness', async () => {
+  const { createRoomScope } = await import('./room-scope.js');
+  const room = awarenessRoom();
+  const shared = new Y.Doc();
+  const awareness = room.join(1);
+  const first = createRoomScope(shared, 'first');
+  const second = createRoomScope(shared, 'second');
+  const user = { id: 'writer', name: 'Writer' };
+  const a = headlessEditor(readFixture(FILE), {
+    doc: shared,
+    scope: first,
+    plugins: [
+      createPresence(),
+      createAwarenessPresence({ awareness, user, field: first.presence }),
+    ],
+  });
+  const b = headlessEditor(readFixture(FILE), {
+    doc: shared,
+    scope: second,
+    plugins: [
+      createPresence(),
+      createAwarenessPresence({ awareness, user, field: second.presence }),
+    ],
+  });
+  editors.push(a, b);
+  await settle();
+  const before = awareness.getStates().get(1)?.[second.presence];
+  a.dispatch(
+    a.state.tr.setSelection(TextSelection.create(a.state.doc, wordAt(a.state.doc, 'same'))),
+  );
+  expect(awareness.getStates().get(1)?.[second.presence]).toEqual(before);
+  expect(awareness.getStates().get(1)?.[first.presence]).not.toEqual(before);
+  a.destroy();
+  expect(awareness.getStates().get(1)?.[first.presence]).toBeNull();
+  expect(awareness.getStates().get(1)?.[second.presence]).toEqual(before);
+  shared.destroy();
+});
+
+it('DOCE-COLLAB-7.1 uses authoritative room actor identity for scoped awareness', async () => {
+  const { a, awarenessB } = await pair({ field: 'field-presence' });
+  awarenessB.setLocalStateField('actor', { id: 'authenticated', name: 'Authenticated' });
+  awarenessB.setLocalStateField('field-presence', {
+    user: { id: 'forged', name: 'Forged' },
+    cursor: null,
+  });
+  await settle();
+  expect(listPeers(a.state)).toEqual([
+    expect.objectContaining({ id: 'authenticated', name: 'Authenticated' }),
+  ]);
+  awarenessB.setLocalStateField('actor', { id: 'authenticated' });
+  await settle();
+  expect(listPeers(a.state)).toEqual([
+    expect.objectContaining({ id: 'authenticated', name: 'authenticated' }),
+  ]);
+});
