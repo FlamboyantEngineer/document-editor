@@ -8,7 +8,7 @@ import { STORED_NODE_TYPES } from './document-format.js';
 type Attrs = Record<string, unknown>;
 
 /** A node type and attributes in either form, stored or the schema's. */
-export interface NodeShape {
+interface NodeShape {
   readonly type: string;
   readonly attrs?: Attrs | undefined;
 }
@@ -30,7 +30,7 @@ export function writeRecordedMarks(
 }
 
 /** The stored marks a format change replaced, read back by `readMark`; unknown ones are left out. */
-export function readRecordedMarks(
+function readRecordedMarks(
   value: unknown,
   readMark: (stored: unknown) => Mark | null,
 ): NodeShape[] {
@@ -56,7 +56,7 @@ const SCHEMA_NODE_NAMES = new Map(
 );
 
 /** How `readFormatRecords` reads what a record holds. */
-export interface RecordReaders {
+interface RecordReaders {
   readonly readMark: (stored: unknown) => Mark | null;
   readonly readAttrs: (type: NodeType, stored: unknown) => Attrs;
 }

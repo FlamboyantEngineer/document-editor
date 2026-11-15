@@ -15,7 +15,7 @@ export interface FigureBounds {
 }
 
 /** How a size changes: whether the sides keep their proportions, and the width over the height. */
-export interface FigureSizing {
+interface FigureSizing {
   readonly locked: boolean;
   /** The drawing's width over its height; null while it is unknown. */
   readonly ratio: number | null;

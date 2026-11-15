@@ -83,7 +83,7 @@ export function canonicalSelection(
 }
 
 /** What the cell selection decorations read: the canonical selection and the current map. */
-export interface CellSelectionSource {
+interface CellSelectionSource {
   selection(): Selection;
   map(): ProjectionMap;
 }

@@ -63,7 +63,7 @@ function anchorElement(layer: HTMLElement, marking: Marking, target: AnchorTarge
 }
 
 /** The space between a page's edge and the cards beside it, in pixels. */
-export const CARD_GAP = 16;
+const CARD_GAP = 16;
 
 /**
  * How far each card moves across from the margin's start to sit beside the page its anchor is on,
@@ -145,7 +145,7 @@ function measureAnchors(
 }
 
 /** What one pass measures in a layer: each anchor's rectangles and each card's offset. */
-export interface LayerMeasurement {
+interface LayerMeasurement {
   readonly rects: ReadonlyMap<string, readonly AnnotationRect[]>;
   readonly offsets: ReadonlyMap<string, number>;
 }

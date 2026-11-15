@@ -8,7 +8,7 @@ import { CellSelection } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 
 /** What a drag reads and where it sends the selection. */
-export interface CellDrag {
+interface CellDrag {
   /** The canonical cell under a pointer, or null. */
   cellAt(event: MouseEvent): number | null;
   canonical(): EditorState;

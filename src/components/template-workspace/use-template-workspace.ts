@@ -22,7 +22,7 @@ import {
 import { type OpenTemplateActions, useOpenTemplate } from './use-open-template.js';
 
 /** A saved version shown read-only in place of the template being edited. */
-export interface ViewedVersion {
+interface ViewedVersion {
   readonly version: TemplateVersion;
   readonly template: TemplateFile;
 }
@@ -32,7 +32,7 @@ export type WorkspaceProblem =
   { kind: 'failed'; message: string } | { kind: 'id-taken'; id: string };
 
 /** What the workspace's hook needs. */
-export interface TemplateWorkspaceOptions {
+interface TemplateWorkspaceOptions {
   readonly store: TemplateStoreAdapter;
   readonly defaultTemplateId?: string | null | undefined;
   readonly onTemplateIdChange?: ((templateId: string | null) => void) | undefined;

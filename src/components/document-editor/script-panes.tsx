@@ -69,7 +69,7 @@ function outputDocument(output: StoredContent, schema: Schema): ProseMirrorNode 
 }
 
 /** What a preview runs: the script, where its block is, and the template that numbers it. */
-export interface ScriptPreviewRequest {
+interface ScriptPreviewRequest {
   readonly source: string;
   /** The position of the script's block, or where a new one would go. */
   readonly at: number;

@@ -14,7 +14,7 @@ import type { DocumentLayout } from './use-document-layout.js';
 const hooks = createHooks('document-editor', ['layout-toggle']);
 
 /** Scrolls a page of the view into view, by its number from 1; false when there is none. */
-export function scrollToPage(view: EditorView, page: number): boolean {
+function scrollToPage(view: EditorView, page: number): boolean {
   const pages = view.dom.querySelectorAll('.pm-page');
   const target = pages[Math.round(page) - 1];
   if (!target) return false;

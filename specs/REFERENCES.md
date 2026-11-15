@@ -90,6 +90,13 @@ Verification: `src/engine/references.test.ts`
 Implementation: `src/engine/abbreviation-health.ts`
 Verification: `src/engine/abbreviation-health.test.ts`
 
+### DOCE-REFERENCES-2.4 - Glossary input on a server
+
+`isGlossaryEntryId(value)` shall tell whether text is a glossary entry id: 1 to 64 letters, digits or hyphens. `normalizeGlossaryInput({ abbreviation, expansion })` shall trim a new or changed entry and throw an `Error` for an abbreviation outside 1 to 32 characters or an expansion outside 1 to 256, so a host's glossary service checks what it stores by the editor's rules. `ABBREVIATION_CACHE_REFRESH_META` is the stable transaction meta name a host marks a change with that only refreshes the abbreviation text it caches.
+
+Implementation: `src/model/glossary.ts`
+Verification: `src/model/glossary.test.ts`
+
 ## DOCE-REFERENCES-3 - In the editor
 
 ### DOCE-REFERENCES-3.1 - The reference dialog

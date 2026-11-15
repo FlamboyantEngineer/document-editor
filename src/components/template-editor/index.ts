@@ -44,7 +44,6 @@ export {
   NUMBERING_HINT,
   PAGE_SIZES,
   settingAt,
-  TEXT_STYLE_SETTINGS,
   TEXT_STYLES,
   withSetting,
 } from './template-settings.js';

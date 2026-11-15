@@ -85,6 +85,13 @@ A double click on a caption line, or `editCaption`, shall edit the caption of th
 Implementation: `src/engine/caption-views.ts`, `src/engine/object-views.ts`, `src/components/document-editor/object-editors.tsx`
 Verification: `src/engine/caption-views.test.ts`, `src/components/document-editor/object-editors.test.tsx`, `e2e/captions.spec.ts`
 
+### DOCE-OBJECTS-2.4 - Caption lines outside the editor
+
+`formatCaptionLineText({ elementName, numbering, captionText, continuedSuffix })` shall write a caption line as text, as the editor shows it: the label and number, then the caption text, `Table 1.1 - Limits`, each part with its spaces collapsed and a continued suffix after the text. `tableCaptionLineStyle(table)` shall give the width and margins a caption line takes to span exactly its table: the table's object layout when it has one, its column total once every column of its first row has a width, and nothing otherwise, so the template's caption alignment is relative to the table.
+
+Implementation: `src/model/schema/caption-text.ts`, `src/model/schema/object-layout.ts`
+Verification: `src/model/schema/caption-text.test.ts`
+
 ## DOCE-OBJECTS-3 - Object views
 
 ### DOCE-OBJECTS-3.1 - Line numbers

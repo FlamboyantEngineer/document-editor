@@ -8,7 +8,7 @@ import type { CommentStoreAdapter, CommentThread } from '../../host/index.js';
 type Threads = ReadonlyMap<string, CommentThread>;
 
 /** The threads, why they could not be listed, and how the reader's changes are kept. */
-export interface ThreadList {
+interface ThreadList {
   readonly threads: Threads;
   readonly error: string | null;
   /** Notes that the reader is changing a thread, before the store is asked. */
@@ -24,7 +24,7 @@ export interface ThreadList {
  * The threads of `listed`, except those `kept` names, which stay as they are in `current`: the
  * threads the reader changed after the listing was asked for, which it may not show yet.
  */
-export function mergeListed(
+function mergeListed(
   current: Threads,
   listed: readonly CommentThread[],
   kept: ReadonlySet<string>,

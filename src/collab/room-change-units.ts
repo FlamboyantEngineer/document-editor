@@ -38,7 +38,7 @@ export function unitsOf(block: Node, withStart = false): Unit[] {
 }
 
 /** Whether two units are the same but for their marks; block starts by their type alone. */
-export function isSameUnit(a: Unit, b: Unit): boolean {
+function isSameUnit(a: Unit, b: Unit): boolean {
   if (a.isBlock || b.isBlock) return a.isBlock && b.isBlock && a.node?.type === b.node?.type;
   if (a.node && b.node) return a.node.mark(Mark.none).eq(b.node.mark(Mark.none));
   return a.text !== null && a.text === b.text;

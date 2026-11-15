@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import type { AssetAdapter } from '../../host/index.js';
 import { readDocumentFile } from '../../model/index.js';
-import { contextGroups } from './context-entries.js';
+import { CONTEXT_MENU_GROUPS, contextGroups } from './context-entries.js';
 import { resolveContextTarget } from './context-target.js';
 import { DEFAULT_EDITOR_LABELS as labels } from './editor-labels.js';
 
@@ -142,5 +142,17 @@ describe('the context menu clipboard entries', () => {
     press('paste-text');
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(shown.state.doc).toBe(before);
+  });
+
+  it("DOCE-EDITOR-3.6 gives the editor's groups the ids CONTEXT_MENU_GROUPS names, in order", () => {
+    const { shown } = setUp();
+    const target = resolveContextTarget(shown.state, shown.state.selection.head, true);
+    const groups = contextGroups(shown, target, {
+      labels,
+      editable: true,
+      suggestionPolicy: { me: null, canDecide: true, canWithdraw: true },
+      startComment: null,
+    });
+    expect(groups.map((group) => group.id)).toEqual([...CONTEXT_MENU_GROUPS]);
   });
 });

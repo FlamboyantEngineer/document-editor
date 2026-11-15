@@ -65,7 +65,7 @@ export interface CommentThreads {
 }
 
 /** Where a document's threads are kept, and who the reader is. */
-export interface CommentThreadsOptions {
+interface CommentThreadsOptions {
   store: CommentStoreAdapter;
   documentId: string;
   identity: IdentityAdapter;
@@ -74,7 +74,7 @@ export interface CommentThreadsOptions {
 }
 
 /** The thread state a provider shares with the margin and the panel inside it. */
-export interface SharedCommentThreads {
+interface SharedCommentThreads {
   readonly store: CommentStoreAdapter;
   readonly documentId: string;
   readonly threads: CommentThreads;

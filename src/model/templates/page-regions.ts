@@ -86,7 +86,7 @@ const isEmptyParagraph = (content: Fragment) =>
   content.firstChild.content.size === 0;
 
 /** How `setPageRegions` sets the regions. */
-export interface PageRegionOptions {
+interface PageRegionOptions {
   /** Whether the regions can be edited in place. Defaults to false: read-only. */
   readonly editable?: boolean | undefined;
   /** Content standing over the template's, by section name and region (`regionKey`). */

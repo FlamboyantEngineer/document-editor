@@ -20,7 +20,7 @@ import type { WritableStore } from './value-store.js';
 type StoreSaving = ReturnType<typeof createStoreSaving>;
 
 /** What taking in another writer's saves reads and writes. */
-export interface StoreRefreshContext {
+interface StoreRefreshContext {
   host: EditorHost;
   documentId: string;
   schema: Schema;

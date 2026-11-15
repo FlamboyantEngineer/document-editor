@@ -12,7 +12,7 @@ import type { SessionStatus } from './status.js';
 import type { WritableStore } from './value-store.js';
 
 /** What the store holds: its content as the editor read it, at a revision, with its pin. */
-export interface StoreBaseline {
+interface StoreBaseline {
   /** The content as stored, without identity (`contentKey`). */
   key: string;
   /** Whether the stored document has no content. */
@@ -39,7 +39,7 @@ export function storeBaseline(doc: ProseMirrorNode, stored: StoredDocument): Sto
 }
 
 /** What store-mode saving reads and writes. */
-export interface StoreSavingContext {
+interface StoreSavingContext {
   host: EditorHost;
   documentId: string;
   status: WritableStore<SessionStatus>;
@@ -54,7 +54,7 @@ export interface StoreSavingContext {
 }
 
 /** Whether a document holds no content: no text and no object, only empty blocks. */
-export function isEmptyDocument(doc: ProseMirrorNode): boolean {
+function isEmptyDocument(doc: ProseMirrorNode): boolean {
   let empty = true;
   doc.descendants((node) => {
     if (!empty) return false;

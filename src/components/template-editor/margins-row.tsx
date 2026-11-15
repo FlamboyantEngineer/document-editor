@@ -20,7 +20,7 @@ const MILLIMETRES: Readonly<Record<string, number>> = {
 };
 
 /** A length in the unit given, rounded to hundredths; null when it is not a length. */
-export function lengthIn(value: unknown, unit: 'mm' | 'in' | 'pt'): number | null {
+function lengthIn(value: unknown, unit: 'mm' | 'in' | 'pt'): number | null {
   const match = /^(\d+(?:\.\d+)?)(mm|cm|in|pt|px)$/.exec(String(value ?? '').trim());
   const factor = match ? MILLIMETRES[match[2] ?? ''] : undefined;
   if (!match || !factor) return null;
@@ -29,7 +29,7 @@ export function lengthIn(value: unknown, unit: 'mm' | 'in' | 'pt'): number | nul
 }
 
 /** The unit a page size's margins are written in: millimetres for A and B sizes, else inches. */
-export const marginUnit = (size: unknown): 'mm' | 'in' =>
+const marginUnit = (size: unknown): 'mm' | 'in' =>
   typeof size === 'string' && /^[AB]\d+$/.test(size) ? 'mm' : 'in';
 
 const SIDES: readonly BoxSide[] = ['top', 'right', 'bottom', 'left'];

@@ -32,7 +32,7 @@ interface CacheEntry {
 }
 
 /** What a cache has served since it was made: blocks found, blocks absent, and blocks measured. */
-export interface MeasureCounts {
+interface MeasureCounts {
   /** Blocks taken from the cache. */
   hits: number;
   /** Blocks the cache did not hold. */
@@ -318,17 +318,6 @@ function measureContent(measuring: Measuring, placed: Placed): unknown {
   const children = childLayouts(measuring, node, relative);
   if (!children) return undefined;
   return name === 'table' ? { children } : { children, overhead: overheadOf(measuring, relative) };
-}
-
-/** One block the view laid out at a position, measured; null when it has no element. */
-export function measureBlock(
-  view: EditorView,
-  pos: number,
-  options: MeasureOptions = {},
-): LayoutBlock | null {
-  const node = view.state.doc.nodeAt(pos);
-  const element = node ? elementOf(view, pos) : null;
-  return node && element ? measureDrawn(view, { node, pos, element }, options) : null;
 }
 
 // A block drawn as an element, measured or taken from the cache.

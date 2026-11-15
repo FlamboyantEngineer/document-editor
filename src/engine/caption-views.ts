@@ -16,7 +16,7 @@ import { CAPTIONED_TYPES, captionedAt, type CaptionedObject, setCaption } from '
 import { appendTransaction, captureTransaction } from './table-parts.js';
 
 /** What the object views keep of a caption edited in place: its object's position, or null. */
-export interface CaptionEditingState {
+interface CaptionEditingState {
   readonly caption: number | null;
 }
 

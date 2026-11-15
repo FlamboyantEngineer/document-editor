@@ -3,7 +3,7 @@
 // enough of its words are kept.
 
 /** A block as pairing reads it: its key, whether it has an id, its kind and its text. */
-export interface PairedBlock {
+interface PairedBlock {
   key: string;
   readonly id: string | null;
   readonly type: string;

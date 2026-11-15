@@ -35,7 +35,7 @@ export interface DocxPart {
 }
 
 /** How a package is read. */
-export interface PackageOptions {
+interface PackageOptions {
   /** The `src` an embedded image is given; a `data:` URL by default. */
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
 }

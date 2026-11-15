@@ -14,7 +14,7 @@ export interface XmlElement {
 }
 
 /** An element or a run of text. */
-export type XmlNode = XmlElement | string;
+type XmlNode = XmlElement | string;
 
 // The predefined entities, in a map so a name such as `constructor` finds nothing.
 const ENTITIES: ReadonlyMap<string, string> = new Map([

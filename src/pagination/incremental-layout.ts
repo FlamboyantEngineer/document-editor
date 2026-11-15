@@ -25,7 +25,7 @@ export interface SectionLayout {
 }
 
 /** How a section is laid out page by page, and what it was before. */
-export interface IncrementalSection {
+interface IncrementalSection {
   readonly blocks: readonly LayoutBlock[];
   /** What else its pages depend on; a different key lays every page out again. */
   readonly key: string;
