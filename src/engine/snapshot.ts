@@ -110,6 +110,14 @@ function pagesMarkup(
   const { sections, markup } = options;
   const copy = view.dom.cloneNode(true) as HTMLElement;
   copyCodeHighlights(view, copy);
+  // Canvas bitmaps are not cloned; snapshots keep the page HTML and its original page structure.
+  for (const wrapper of copy.querySelectorAll('.de-document-editor__canvas-page')) {
+    const page = wrapper.querySelector('.pm-page');
+    if (page) {
+      page.removeAttribute('drawable');
+      wrapper.replaceWith(page);
+    }
+  }
   for (const element of copy.querySelectorAll(EDITING_ELEMENTS)) element.remove();
   removeViewOnlyDecorations(copy, view);
   applySuggestionMarkup(copy, markup);

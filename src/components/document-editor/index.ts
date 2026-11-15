@@ -22,6 +22,7 @@ export type {
   DocumentEditorIdRepair,
   DocumentEditorProps,
   DocumentMarkup,
+  DocumentRendering,
 } from './document-editor.js';
 export { DocumentEditor } from './document-editor.js';
 export type { FindBarMode } from './document-find-bar.js';

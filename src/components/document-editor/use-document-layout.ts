@@ -57,6 +57,7 @@ import {
   pageVariablesKey,
   type PaginationStats,
 } from '../../pagination/index.js';
+import type { DocumentRendering } from './canvas-page-view.js';
 import {
   fragmentRulesOf,
   type LayoutRunner,
@@ -147,6 +148,7 @@ const repeatHeaderKey = (template: TemplateFile) =>
 
 /** What the layout hook reads. */
 export interface DocumentLayoutOptions {
+  readonly rendering?: DocumentRendering | undefined;
   readonly layout: DocumentLayout;
   readonly template: TemplateFile;
   readonly state: EditorState;
@@ -303,7 +305,7 @@ export function useDocumentLayout(
   measureIn: RefObject<HTMLDivElement | null>,
   options: DocumentLayoutOptions,
 ): LayoutProgress & { readonly paged: PagedEditor | null } {
-  const { layout, template } = options;
+  const { layout, template, rendering } = options;
   // The template's settings that change how the pages are laid out: the pagination starts over
   // when they do.
   const repeatHeaders = repeatHeaderKey(template);
@@ -348,7 +350,7 @@ export function useDocumentLayout(
       refs: { refresh, redraw, active, ownPlugins },
       setPaged,
     });
-  }, [layout, measureIn, repeatHeaders, footnoteNumbering, schema]);
+  }, [layout, measureIn, repeatHeaders, footnoteNumbering, schema, rendering]);
 
   useLayoutPlugins(options, ownPlugins);
 

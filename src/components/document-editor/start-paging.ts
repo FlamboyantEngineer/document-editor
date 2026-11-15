@@ -141,6 +141,8 @@ export function startPaging(
   },
 ): () => void {
   const setup = {
+    textMeasurement:
+      latest.current.rendering === 'html-canvas' ? ('canvas' as const) : ('dom' as const),
     measureIn: element,
     pageHeight: (section: ProseMirrorNode) => bodyHeight(latest.current.template, section),
     rules: sectionRules(latest),

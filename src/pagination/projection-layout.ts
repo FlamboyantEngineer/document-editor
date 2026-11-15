@@ -34,6 +34,7 @@ interface LayoutSource {
 
 /** How the pages are laid out. */
 interface ProjectionLayoutOptions {
+  readonly textMeasurement?: 'dom' | 'canvas' | undefined;
   readonly pageHeight: SectionPageHeight;
   readonly rules?: SectionLayoutRules | undefined;
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
@@ -56,6 +57,7 @@ export function layOutProjection(
   followDocument(ghost.view, canonical.doc, ghost.show);
   const metrics: PageMetric[] = [];
   const sections = layoutDocument(ghost.view, {
+    textMeasurement: options.textMeasurement,
     pageHeight: options.pageHeight,
     rules: options.rules,
     footnoteNumbering: options.footnoteNumbering,

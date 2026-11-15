@@ -78,6 +78,8 @@ export interface CanonicalChange {
 
 /** How a paged projection is set up. */
 export interface PagedProjectionOptions {
+  /** Canvas text metrics for simple paragraphs, or DOM ranges by default. */
+  readonly textMeasurement?: 'dom' | 'canvas' | undefined;
   /** Where the ghost view that measures mounts, laid out as a page's content. */
   readonly measureIn: HTMLElement;
   /** The canonical state: the whole document, each section on one page with whole blocks. */

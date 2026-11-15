@@ -188,6 +188,17 @@ div.de-host-view {
   contain: layout paint;
 }
 
+/* Canvas grid dimensions are device pixels; the layout stays in CSS pixels at every zoom. */
+.de-document-editor__canvas-page {
+  flex: none;
+}
+
+.de-document-editor__canvas {
+  display: block;
+  width: var(--de-canvas-width, var(--doc-page-width));
+  height: var(--de-canvas-height, var(--doc-page-height));
+}
+
 .de-document-editor__measure {
   position: absolute;
   top: 0;

@@ -78,6 +78,52 @@ fieldset > legend {
   margin: 0;
 }
 
+.lab-canvas-controls,
+.lab-canvas-diagnostics {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.lab-canvas-choice {
+  width: 210px;
+}
+
+.lab-canvas-editor {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.lab-canvas-diagnostics,
+.lab-canvas-comparison {
+  flex: none;
+  font-size: 0.8125rem;
+  margin-bottom: 8px;
+}
+
+.lab-canvas-comparison > p {
+  max-width: 110ch;
+  color: var(--ref-muted);
+}
+
+/* The comparison measures initial HTML layout before starting its split timers. */
+.lab-canvas-measure {
+  position: absolute;
+  top: 0;
+  left: -10000px;
+  width: 500px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  font: 16px/24px serif;
+  white-space: pre-wrap;
+  visibility: hidden;
+}
+
 /* A lab's document beside a side panel, which stays in view below the lab toolbar. */
 .lab-layout {
   display: grid;

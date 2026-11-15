@@ -18,6 +18,7 @@ import {
   type DocumentEditorHandle,
   type DocumentLayout,
   type DocumentMarkup,
+  type DocumentRendering,
   type DocumentStatusBarOptions,
 } from '../../src/components/index.js';
 import {
@@ -141,6 +142,8 @@ const LAB_MENTIONS = {
 function Lab() {
   const [state, setState] = useState(initialState);
   const [layout, setLayout] = useState<DocumentLayout>('page');
+  const [canvas, setCanvas] = useState(false);
+  const rendering: DocumentRendering = canvas ? 'html-canvas' : 'dom';
   const [editable, setEditable] = useState(true);
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
@@ -168,6 +171,14 @@ function Lab() {
       <div className="lab-controls">
         <fieldset>
           <legend>View</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={canvas}
+              onChange={(event) => setCanvas(event.currentTarget.checked)}
+            />{' '}
+            HTML-in-Canvas
+          </label>
           {(['page', 'web'] as const).map((value) => (
             <label key={value}>
               <input
@@ -320,6 +331,7 @@ function Lab() {
         <HostPanel report={host.report} handle={handle} />
       </div>
       <DocumentEditor
+        rendering={rendering}
         state={state}
         onStateChange={setState}
         template={TEMPLATE}

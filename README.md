@@ -9,6 +9,19 @@ A paginated, template-driven document editor for React, built on [`@flamboyanten
 
 The library is in early `0.x` development and has no release yet.
 
+For page layout, `<DocumentEditor rendering="html-canvas" ... />` opts into native
+[HTML-in-Canvas](https://developer.chrome.com/blog/html-in-canvas), shipped in Chrome 157.
+DOM rendering is the default and the fallback on unsupported browsers. Each page keeps real,
+editable HTML, while its canvas backing size follows DPR and editor zoom. Hosts must style the
+canvas hooks described in [DOCUMENT-EDITOR.md](specs/DOCUMENT-EDITOR.md); the reference stylesheet
+and document-editor lab demonstrate them. Plain paragraph split queries can use cached canvas
+text metrics; complex HTML still needs browser layout in the measuring view. This mode does not
+promise to eliminate the ghost view or make all pagination faster.
+
+Run `npm run labs` and open `http://127.0.0.1:4183/canvas.html` for the dedicated
+Canvas lab: renderer and sample selection, fractional zoom, live DPR/bitmap diagnostics, and a
+text-splitting comparison. See [Testing HTML-in-Canvas](docs/CANVAS-LAB.md) for the test steps.
+
 ## Entry points
 
 | Entry point                                    | Contents                                                                                    |

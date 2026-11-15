@@ -7,14 +7,28 @@
 import type { RichTextEngineEvents } from '@flamboyantengineer/ui-components/rich-text-editor';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { type DirectEditorProps, EditorView } from 'prosemirror-view';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { readDomSelection } from '../../utils/dom-selection.js';
+import { canvasPageView, type DocumentRendering } from './canvas-page-view.js';
 import { type HostNodeViews, useHostNodeViews } from './host-node-views.js';
 import { insertTypedText } from './typed-text.js';
 import type { PagedEditor } from './use-paged-projection.js';
 
 type EngineEvents = Omit<RichTextEngineEvents, 'props' | 'dispatchTransaction'>;
 type ViewProps = NonNullable<RichTextEngineEvents['props']>;
+
+function usePageNodeViews(
+  props: PagesViewProps,
+  nodeViews: ReturnType<typeof useHostNodeViews>['nodeViews'],
+) {
+  return useMemo(
+    () => ({
+      ...(props.rendering === 'html-canvas' ? { page: canvasPageView } : {}),
+      ...nodeViews,
+    }),
+    [props.rendering, nodeViews],
+  );
+}
 
 /** What the pages view draws and tells. */
 interface PagesViewProps {
@@ -28,6 +42,7 @@ interface PagesViewProps {
   readonly attributes: Readonly<Record<string, string>>;
   /** The host's React node views. */
   readonly nodeViews?: HostNodeViews | undefined;
+  readonly rendering?: DocumentRendering | undefined;
 }
 
 // How the view's own props reach the pages: the dispatch that sends every transaction to the
@@ -71,6 +86,7 @@ export function PagesView(props: PagesViewProps) {
   const viewRef = useRef<EditorView | null>(null);
   const latest = useRef(props);
   const host = useHostNodeViews(props.nodeViews);
+  const renderedViews = usePageNodeViews(props, host.nodeViews);
   useLayoutEffect(() => {
     latest.current = props;
   });
@@ -100,9 +116,9 @@ export function PagesView(props: PagesViewProps) {
       if (view.state.doc !== current.doc) show(view, current, false);
     },
   }).current;
-  const nodeViews = useRef(host.nodeViews);
+  const nodeViews = useRef(renderedViews);
   useLayoutEffect(() => {
-    nodeViews.current = host.nodeViews;
+    nodeViews.current = renderedViews;
   });
   useLayoutEffect(() => {
     const element = mount.current;
@@ -129,8 +145,8 @@ export function PagesView(props: PagesViewProps) {
   }, [projection]);
   const { viewProps, attributes } = props;
   useLayoutEffect(() => {
-    viewRef.current?.setProps(directProps({ viewProps, attributes }, host.nodeViews, ties));
-  }, [viewProps, attributes, host.nodeViews, ties]);
+    viewRef.current?.setProps(directProps({ viewProps, attributes }, renderedViews, ties));
+  }, [viewProps, attributes, renderedViews, ties]);
   useLayoutEffect(() => {
     const view = viewRef.current;
     if (view) show(view, paged.state, false);

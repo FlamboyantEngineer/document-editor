@@ -30,6 +30,8 @@ export type SectionLayoutRules =
 
 /** How a whole document is laid out. */
 export interface DocumentLayoutOptions {
+  /** Canvas text metrics for simple paragraphs, or DOM ranges by default. */
+  textMeasurement?: 'dom' | 'canvas' | undefined;
   pageHeight: SectionPageHeight;
   rules?: SectionLayoutRules | undefined;
   /** Whether footnotes are numbered, and their entries shown, through the document or per page. */
@@ -196,7 +198,12 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
     const before = measuredSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
-    const blocks = measureChildBlocks(view, content, { scale, cache, rules });
+    const blocks = measureChildBlocks(view, content, {
+      scale,
+      cache,
+      rules,
+      textMeasurement: options.textMeasurement,
+    });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnotes === null ? null : measureFootnotes(view, footnotes, { scale });
     const fill = { blocks, area, baseHeight: pageHeight - regionsHeight, shown };

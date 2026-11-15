@@ -60,6 +60,15 @@ In page layout, the editor shall draw the projection's pages in a plain ProseMir
 Implementation: `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/typed-text.ts`, `src/components/document-editor/host-node-views.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/start-paging.ts`
 Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/performance.spec.ts`
 
+### DOCE-EDITOR-1.9 - Optional HTML-in-Canvas rendering
+
+`DocumentEditor` shall accept `rendering="html-canvas"` to paint each page's real HTML into its own canvas using the stable HTML-in-Canvas API (`content="drawable"`, `drawable`, `paint`, `drawElementImage`). DOM rendering remains the default and the web layout always uses it. The HTML retains its editing, selection, clipboard and accessibility semantics, and the canonical document, ids and history remain unchanged. A host's page node view takes precedence. Unsupported APIs, a lost context or a failed draw shall leave the page usable as DOM. Canvas backing dimensions shall follow the page's displayed size multiplied by device pixel ratio, including editor zoom; pagination measurements remain CSS pixels. Observers and listeners shall be removed when a page is destroyed. The lab shall offer both modes.
+
+Only pages near the viewport shall retain canvas bitmaps. Pages with external media the native API cannot paint, responsive images or video with unverified sources, or dimensions beyond the bitmap budget, shall use DOM. Printing and exported snapshots shall retain ordinary page HTML.
+
+Implementation: `src/components/document-editor/canvas-page-view.ts`, `src/components/document-editor/pages-view.tsx`, `src/components/document-editor/document-editor.tsx`, `src/engine/snapshot.ts`, `labs/src/document-editor.lab.tsx`, `labs/reference/document.css`
+Verification: `src/components/document-editor/canvas-page-view.test.ts`, `e2e/canvas-rendering.spec.ts`
+
 ## DOCE-EDITOR-2 - Layouts in the browser
 
 ### DOCE-EDITOR-2.1 - Editing on pages
@@ -636,6 +645,8 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 
 ## Hooks
 
+Canvas pages additionally expose `de-document-editor__canvas-page` (the page wrapper) and `de-document-editor__canvas` (its canvas). Hosts size the canvas with `--de-canvas-width` and `--de-canvas-height`, measured border-box sizes in CSS pixels, falling back to the template's page dimensions before the first observation. These properties never include DPR.
+
 | Hook                                    | Kind      | Values                                                                 | Description                                                                             |
 | --------------------------------------- | --------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `de-document-editor__menubar`           | slot      |                                                                        | The menubar above the toolbar.                                                          |
@@ -690,6 +701,10 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `data-issues`                           | state     | `true`                                                                 | On the proofing status: issues are marked.                                              |
 | `data-status`                           | attribute | `STATUS_BAR_ITEMS`, the host's ids; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
 | `de-document-editor__content`           | slot      |                                                                        | The document.                                                                           |
+| `de-document-editor__canvas-page`       | slot      |                                                                        | A page's canvas wrapper.                                                                |
+| `de-document-editor__canvas`            | slot      |                                                                        | The canvas painting a page.                                                             |
+| `--de-canvas-width`                     | property  |                                                                        | Measured page border-box width in CSS pixels.                                           |
+| `--de-canvas-height`                    | property  |                                                                        | Measured page border-box height in CSS pixels.                                          |
 | `de-host-view`                          | root      |                                                                        | On the pages, the element a host's node view is drawn in (DOCE-EDITOR-1.8).             |
 | `de-host-view__content`                 | slot      |                                                                        | Inside a host's node view on the pages: the node's content.                             |
 | `de-document-editor__zoom`              | slot      |                                                                        | The status bar's zoom control, with `onZoomChange`.                                     |

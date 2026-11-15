@@ -48,6 +48,7 @@ import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { type DocumentBanner, useReportedFonts } from './banners.js';
+import type { DocumentRendering } from './canvas-page-view.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import type { HostDialogProps } from './dialog-parts.js';
 import type { DocumentStatusBarOptions } from './document-status-bar.js';
@@ -177,6 +178,8 @@ export interface DocumentEditorProps
   onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
   /** The document's zoom, in percent. Defaults to 100. */
   zoom?: number | undefined;
+  /** Paints pages with HTML-in-Canvas when supported; DOM by default, and always in web layout. */
+  rendering?: DocumentRendering | undefined;
   /** Lets the reader zoom: a zoom control in the status bar, and Ctrl+wheel over the document. */
   onZoomChange?: ((zoom: number) => void) | undefined;
   /** The zoom levels the reader steps through, in percent, ascending. Defaults to `ZOOM_LEVELS`. */
@@ -440,5 +443,6 @@ export function DocumentEditor(given: DocumentEditorProps) {
 }
 
 // What another component reaches the editor by.
+export type { DocumentRendering } from './canvas-page-view.js';
 export { type DocumentMarkup, type EditorContext, useDocumentEditor } from './editor-context.js';
 export type { DocumentLayout } from './use-document-layout.js';

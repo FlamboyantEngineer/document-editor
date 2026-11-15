@@ -140,6 +140,17 @@ The template content lab shall show a template's preview in parts beside the tem
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
 
+### DOCE-LABS-3.8 - HTML-in-Canvas lab
+
+The `canvas` lab shall open an editable document in HTML-in-Canvas mode, with controls for DOM rendering, mixed content, long plain paragraphs, formatted and international text, many pages, fractional editor zoom, the measuring view and resetting the sample. Changing renderer or zoom retains edits. Its `rendering`, `scenario` and `zoom` query parameters shall reproduce those choices. The lab index shall link to it.
+
+Diagnostics shall report native API availability, actual device pixel ratio, canvas and DOM page counts, allocated bitmap count, a bitmap's displayed CSS and backing dimensions, and the pagination counters. They refresh once a second rather than on each keystroke. Unsupported browsers shall show an explicit fallback message while keeping the document editable.
+
+A separate text comparison shall run the production paragraph splitting and canvas measurement code on a plain paragraph, report median DOM and Canvas-request times over five alternating trials after warmup, whether Canvas metrics qualified, and whether every split offset agrees. Its description shall distinguish measurement setup and split planning from initial layout and painting, which are excluded. It shall never assert a universal speedup. A short and a long sample shall be offered.
+
+Implementation: `labs/canvas.html`, `labs/src/canvas.lab.tsx`, `labs/src/canvas/canvas-documents.ts`, `labs/src/canvas/canvas-diagnostics.tsx`, `labs/src/canvas/canvas-benchmark.tsx`, `labs/src/canvas/canvas-comparison.ts`, `labs/reference.css`, `labs/index.html`
+Verification: `e2e/canvas-lab.spec.ts`
+
 ## DOCE-LABS-4 - Regression labs
 
 The pagination regression scenarios lay out the regression set's documents (`test/fixtures/documents/`) and check the pages a reader sees and the document the writer would store. A scenario the editor does not pass yet is an expected failure that names its gap in the port plan; it passes once that work lands, and its mark comes off then. The scenarios run with `npm run test:labs`, and on every pull request.

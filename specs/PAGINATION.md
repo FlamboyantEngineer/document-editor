@@ -285,6 +285,15 @@ The hidden view that measures a whole document shall follow each new one by the 
 Implementation: `src/pagination/ghost-view.ts`
 Verification: `src/pagination/ghost-view.test.ts`
 
+### DOCE-PAGINATION-5.14 - Canvas text measurements
+
+`textMeasurement: 'canvas'` on measuring and projection options shall use canvas text metrics lazily for simple plain paragraphs, caching their line boundaries for subsequent split queries. `DocumentEditor` shall select it with HTML-in-Canvas rendering. A single unmarked Latin text run with ordinary horizontal typography and word wrapping is eligible; generated content, inline objects, decorated or custom HTML, unsupported typography, overlong words and widths near rounding boundaries shall use DOM ranges. Font and width changes invalidate measurements as in DOCE-PAGINATION-5.4 and 5.6. Layout remains in CSS pixels regardless of DPR. This accelerates eligible text split queries; arbitrary HTML still needs the measuring view's browser layout, and HTML-in-Canvas alone does not replace it.
+
+A single DOM range read shall validate every predicted line's width and the line count, and calibrate fractional line spacing and font height before using a canvas measurement; a mismatch or nonuniform line geometry falls back to DOM. Subsequent split queries shall perform no further DOM range reads.
+
+Implementation: `src/pagination/canvas-text-measure.ts`, `src/pagination/text-measurement.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`, `src/pagination/projection-layout.ts`, `src/components/document-editor/start-paging.ts`
+Verification: `src/pagination/canvas-text-measure.test.ts`, `e2e/canvas-rendering.spec.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document
