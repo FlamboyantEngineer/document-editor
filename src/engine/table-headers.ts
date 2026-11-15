@@ -8,7 +8,7 @@ import { findTable, isInTable, selectedRect, TableMap } from 'prosemirror-tables
 import type { TableAxis } from './tables.js';
 
 /** How many leading rows and leading columns of a table hold only header cells. */
-export interface TableHeaders {
+interface TableHeaders {
   readonly rows: number;
   readonly columns: number;
 }
@@ -41,7 +41,7 @@ export function tableHeaders(table: ProseMirrorNode): TableHeaders {
 }
 
 /** The rows or columns `from` to `to` (exclusive) of a table. */
-export interface TableLines {
+interface TableLines {
   readonly axis: TableAxis;
   readonly from: number;
   readonly to: number;

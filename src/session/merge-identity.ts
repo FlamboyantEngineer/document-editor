@@ -11,7 +11,7 @@ import { storedNodeKey } from './dirty.js';
 import { childElements, elementIdKey, elementIdOf } from './stored-elements.js';
 
 /** The three versions a merge reads, and how it makes an id. */
-export interface MergeVersions {
+interface MergeVersions {
   readonly base: DocumentFile;
   readonly mine: DocumentFile;
   readonly theirs: DocumentFile;

@@ -61,7 +61,7 @@ export interface ContentsOptions {
 }
 
 /** A list of contents' rows, as its block's decoration hands them to its view. */
-export interface ContentsRows {
+interface ContentsRows {
   readonly entries: readonly CatalogEntry[];
   readonly empty: boolean;
   /** Whether the entries show their page numbers. */

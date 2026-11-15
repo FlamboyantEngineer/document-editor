@@ -26,7 +26,7 @@ const hooks = createHooks('document-editor', ['workspace', 'viewport', 'lead', '
 const NO_OVERVIEW_OPTIONS: DocumentOverviewOptions = {};
 
 /** What the surface shows around the document. */
-export interface EditorSurfaceProps {
+interface EditorSurfaceProps {
   readonly chrome: ChromeProps;
   /** What the chrome above and below the document follows, deferred there (DOCE-EDITOR-1.7). */
   readonly following: { readonly top: TopChromeProps; readonly bottom: BottomChromeProps };

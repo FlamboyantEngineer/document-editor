@@ -31,7 +31,7 @@ export type StartComment = (options?: StartCommentOptions) => void;
 export type OpenComment = (target: ThreadTarget) => boolean;
 
 /** The comment the reader was taken to, and how to take them to another. */
-export interface CommentFocus {
+interface CommentFocus {
   readonly opened: OpenedComment | null;
   open(target: ThreadTarget): void;
   /** The text the thread being started begins with. */

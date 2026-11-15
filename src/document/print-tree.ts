@@ -69,7 +69,7 @@ function markTree(mark: Mark, content: PrintTree[]): PrintTree[] {
 }
 
 /** How a static render draws a node of its own, such as a signature from its vector. */
-export type DrawNode = (node: ProseMirrorNode, drawn: PrintTree[]) => PrintTree[];
+type DrawNode = (node: ProseMirrorNode, drawn: PrintTree[]) => PrintTree[];
 
 /** A node as its schema renders it, with its content, each node first passed to `draw`. */
 export function nodeTree(node: ProseMirrorNode, draw: DrawNode): PrintTree[] {

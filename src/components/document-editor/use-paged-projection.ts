@@ -34,7 +34,7 @@ export function projectionDispatch(projection: PagedProjection): DispatchBody {
 }
 
 /** What a canonical transaction from the pages passes through before the host commits it. */
-export interface CanonicalCommit {
+interface CanonicalCommit {
   /** The editor's dispatch body (suggestions, proofing), as the engine would run it. */
   readonly body: DispatchBody;
   readonly onStateChange: (update: (state: EditorState) => EditorState) => void;
@@ -135,7 +135,7 @@ export function useProjectionEvents(
 }
 
 /** What DocumentEditor gives its projection. */
-export interface PagedEditorOptions extends CanonicalCommit {
+interface PagedEditorOptions extends CanonicalCommit {
   readonly state: EditorState;
 }
 

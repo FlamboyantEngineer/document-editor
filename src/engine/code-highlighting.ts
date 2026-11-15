@@ -39,7 +39,7 @@ const LANGUAGES: Readonly<Record<string, CodeLanguage>> = {
 };
 
 /** A token of code at its offsets in the code's text, with its kind. */
-export interface CodeTokenAt {
+interface CodeTokenAt {
   readonly from: number;
   readonly to: number;
   readonly kind: string;

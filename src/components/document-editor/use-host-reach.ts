@@ -12,7 +12,7 @@ import type { LayoutProgress } from './use-document-layout.js';
 import type { TransactionFeed } from './use-editor-engine.js';
 
 /** What the editor's find bar, handle and scope are built from. */
-export interface HostReachOptions {
+interface HostReachOptions {
   readonly root: RefObject<HTMLDivElement | null>;
   /** The comment actions the handle runs. */
   readonly refs: CommentRefs;

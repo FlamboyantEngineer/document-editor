@@ -101,7 +101,7 @@ export const proofingKey = new PluginKey<ProofingState>('proofing');
 export const PROOFING_ISSUE_ATTR = 'data-proofing-issue';
 
 /** The hook the issue just revealed carries, for a stylesheet to flash it. */
-export const PROOFING_FLASH_ATTR = 'data-proofing-flash';
+const PROOFING_FLASH_ATTR = 'data-proofing-flash';
 
 type KeyedIssue = Pick<ProofingIssue, 'from' | 'to' | 'rule' | 'kind'>;
 

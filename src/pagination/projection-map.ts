@@ -43,7 +43,7 @@ export interface ProjectionMap {
 }
 
 /** The same edit made on both documents, and both documents after it. */
-export interface MirroredEdit {
+interface MirroredEdit {
   readonly projectionStep: Step;
   readonly projection: ProseMirrorNode;
   readonly canonicalStep: Step;

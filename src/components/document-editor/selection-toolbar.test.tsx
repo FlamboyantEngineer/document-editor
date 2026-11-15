@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { createRef, useState } from 'react';
@@ -9,6 +9,7 @@ import { createDocumentEditing } from '../../engine/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
 import type { DocumentEditorHandle } from './editor-handle.js';
+import { SELECTION_TOOLBAR_GROUPS } from './selection-toolbar.js';
 
 installEditorDom();
 
@@ -126,5 +127,17 @@ describe('the selection toolbar', () => {
     });
     select('plain');
     expect(await screen.findByRole('button', { name: 'Shout' })).toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-4.21 holds the format items in the order SELECTION_TOOLBAR_GROUPS names', async () => {
+    const { select } = await setup();
+    select('plain');
+    await waitFor(() => expect(toolbar()).toBeInTheDocument());
+    const shown = toolbar();
+    if (!shown) throw new Error('no toolbar');
+    const ids = within(shown)
+      .getAllByRole('button')
+      .map((button) => button.closest('[data-item]')?.getAttribute('data-item'));
+    expect(ids).toEqual([...SELECTION_TOOLBAR_GROUPS.marks]);
   });
 });

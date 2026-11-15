@@ -67,7 +67,7 @@ function mentionPerson(match: TriggerMatch, person: MentionTarget): Command {
 }
 
 /** What the mention menu reads. */
-export interface DocumentMentionMenuProps {
+interface DocumentMentionMenuProps {
   context: EditorContext;
   view: EditorView | null;
   menuKeys: MenuKeys;

@@ -8,7 +8,7 @@ import type { Transaction } from 'prosemirror-state';
 import { Mapping, type Step } from 'prosemirror-transform';
 
 /** Local steps from a document both sides held, and the shared document's steps since it. */
-export interface Rebase {
+interface Rebase {
   /** The document both sides held. */
   readonly base: Node;
   /** The local steps from `base` that the shared document has not taken. */

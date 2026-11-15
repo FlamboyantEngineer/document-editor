@@ -41,7 +41,7 @@ function wordFormat(token: string | undefined): string {
  * A level that prints `depth` level numbers, from level `first`, as the template's format writes
  * them, with its prefix and suffix; nothing when the format numbers fewer levels.
  */
-export function numberedLevel(
+function numberedLevel(
   config: NumberingStyleConfig,
   depth: number,
   {

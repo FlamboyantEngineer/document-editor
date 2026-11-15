@@ -19,7 +19,7 @@ import { type CommentThreads, SharedCommentThreadsContext } from './use-comment-
 import { recordDecision } from './use-decision-records.js';
 
 /** The ways in that the comments give the editor, and what they act on. */
-export interface CommentControlsOptions {
+interface CommentControlsOptions {
   readonly state: EditorState;
   readonly onStateChange: (update: RichTextStateUpdate) => void;
   /**

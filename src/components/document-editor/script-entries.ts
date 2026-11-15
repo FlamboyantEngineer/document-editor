@@ -17,7 +17,7 @@ import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 
 /** What the script entries need. */
-export interface ScriptEntriesOptions {
+interface ScriptEntriesOptions {
   readonly labels: DocumentEditorLabels;
   readonly openDialog: ((dialog: ObjectDialog) => void) | null;
   /** Runs the scripts; without it there are no entries. */
@@ -119,7 +119,7 @@ export function scriptEntries(view: EditorView, options: ScriptEntriesOptions): 
 }
 
 /** What decides whether, and for which document, the opening scripts run. */
-export interface OpeningScriptsOptions {
+interface OpeningScriptsOptions {
   /** The plugins of the state the host gave. */
   readonly plugins: readonly Plugin[];
   readonly runner: ScriptRunnerAdapter | null | undefined;

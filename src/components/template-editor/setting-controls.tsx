@@ -53,7 +53,7 @@ export function toPoints(value: unknown): number | null {
 const NOT_NUMBERING = /[^1aAiI.\-):/]/g;
 
 /** A numbering format with what it may not hold left out. */
-export const cleanNumbering = (text: string) => text.replace(NOT_NUMBERING, '');
+const cleanNumbering = (text: string) => text.replace(NOT_NUMBERING, '');
 
 /** Whether a value is unset, so the field inherits. */
 export const isUnset = (value: unknown) => value === undefined || value === null;

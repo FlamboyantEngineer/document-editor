@@ -20,7 +20,7 @@ import { roomRefusal } from './room-status.js';
 import type { SessionStores } from './store-session.js';
 
 /** What a room session's drafts work with. */
-export interface RoomDraftsContext {
+interface RoomDraftsContext {
   host: EditorHost;
   documentId: string;
   schema: Schema;

@@ -15,7 +15,7 @@ import type { DocumentCommentsOptions } from './document-comments.js';
 import type { CommentThreads } from './use-comment-threads.js';
 
 /** What the editor does to keep the threads of the reader's suggestions. */
-export interface SuggestionThreadPlan {
+interface SuggestionThreadPlan {
   /** Suggestions of the reader's with no thread yet, with the thread to start for each. */
   readonly start: readonly { suggestion: Suggestion; quote: string; change: CommentChange }[];
   /** Threads the editor started whose suggestion now does something else. */
@@ -26,7 +26,7 @@ export interface SuggestionThreadPlan {
 const DEFAULT_DELAY = 800;
 
 /** What a suggestion does, as its thread records it: a change of formatting alone is `format`. */
-export function suggestionChange({ inserted, deleted, formatted }: Suggestion): CommentChange {
+function suggestionChange({ inserted, deleted, formatted }: Suggestion): CommentChange {
   if (inserted && deleted) return { kind: 'replace', inserted, deleted };
   if (inserted) return { kind: 'insert', inserted };
   return !deleted && formatted ? { kind: 'format' } : { kind: 'delete', deleted };

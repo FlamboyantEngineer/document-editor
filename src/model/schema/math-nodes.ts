@@ -6,7 +6,7 @@ import type { NodeSpec } from 'prosemirror-model';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 
 /** A math node, inline or shown as its own block. */
-export function createMathNode(display: boolean): NodeSpec {
+function createMathNode(display: boolean): NodeSpec {
   const tag = display ? 'div' : 'span';
   const kind = display ? 'display' : 'inline';
   const typeAttr = display ? 'data-block-type' : 'data-inline-type';

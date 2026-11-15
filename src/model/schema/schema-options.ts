@@ -4,7 +4,7 @@
 import type { IdentityAttribute } from './element-attributes.js';
 
 /** The address a stored file asset's snapshot is previewed at, as of a time or as it is now. */
-export type AssetPreviewUrl = (
+type AssetPreviewUrl = (
   fileAssetId: string,
   snapshotId: string,
   at?: { readonly asOf: string | null },

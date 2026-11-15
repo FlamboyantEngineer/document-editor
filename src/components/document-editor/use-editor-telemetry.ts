@@ -38,7 +38,7 @@ function countLayout(
 }
 
 /** A tap on the editor's transactions that reports layout times and work to the host's telemetry. */
-export function useEditorTelemetry(telemetry: TelemetryAdapter | undefined) {
+function useEditorTelemetry(telemetry: TelemetryAdapter | undefined) {
   const latest = useRef(telemetry);
   const marks = useRef<{
     started: number;

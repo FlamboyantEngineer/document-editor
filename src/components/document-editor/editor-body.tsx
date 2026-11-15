@@ -42,7 +42,7 @@ import { useWritingDecorations } from './writing-decorations.js';
 const hooks = createHooks('document-editor', ['body', 'content']);
 
 /** What the editor body reads. */
-export interface EditorBodyProps {
+interface EditorBodyProps {
   props: DocumentEditorProps;
   /** Opens one of the editor's dialogs, while the writer can edit. */
   onDialog: ((dialog: ObjectDialog) => void) | null;

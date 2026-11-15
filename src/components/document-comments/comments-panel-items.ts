@@ -9,7 +9,7 @@ import { type CommentItem, findCommentItems, keepCommentItems } from './comment-
 import type { ListedThreads } from './use-card-context.js';
 
 /** Whether the panel holds the threads alone (pane placement), and the reader may comment. */
-export interface PanelPane {
+interface PanelPane {
   readonly placed: boolean;
   readonly canComment: boolean;
 }

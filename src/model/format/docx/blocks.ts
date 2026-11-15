@@ -17,7 +17,7 @@ const text = (value: unknown) => (typeof value === 'string' ? value : '');
 const isList = (node: StoredNode) => node.type === 'bulletList' || node.type === 'orderedList';
 
 /** The boxes a checklist item leads with in Word, ticked and clear, which the reader reads back. */
-export const CHECKLIST_BOXES = { ticked: '\u2612', clear: '\u2610' } as const;
+const CHECKLIST_BOXES = { ticked: '\u2612', clear: '\u2610' } as const;
 
 // A checklist item's box, as a character before its text; nothing for a plain item.
 function checklistBox(item: StoredNode): string {

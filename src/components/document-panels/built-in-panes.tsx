@@ -23,7 +23,7 @@ import type { BuiltInPane, DocumentPane, DocumentSidePanelProps } from './docume
 import type { DocumentPanelsLabels } from './panel-labels.js';
 
 /** What the built-in panes draw on. */
-export interface BuiltInSources {
+interface BuiltInSources {
   readonly props: DocumentSidePanelProps;
   readonly labels: DocumentPanelsLabels;
   /** The editor's comments, without which there is no comments pane. */

@@ -18,9 +18,12 @@ import { createDocumentEditing } from './document-editing.js';
 import {
   applyEmbedUpdate,
   createEmbedStatus,
+  embedSourceKey,
+  embedStatus,
   embedStatusAt,
   pasteEmbedsOfKinds,
   refreshEmbedStatus,
+  resolveEmbeds,
   updateEmbed,
 } from './embed-status.js';
 import { insertEmbed, listEmbeds, touchesEmbed, unwrapPastedEmbeds } from './embeds.js';
@@ -315,6 +318,26 @@ describe('embed status and updates', () => {
     await settle();
     expect(asked).toBe(2);
     view.destroy();
+  });
+
+  it('DOCE-EMBEDS-3.1 records answers the host gives without being asked (resolveEmbeds)', () => {
+    const plugins = [
+      ...createDocumentEditing(documentSchema),
+      createEmbedStatus({ source: source({}), delay: 60_000 }),
+    ];
+    let state = stateWith([embedded('r1', rows('One'))], plugins);
+    const { node, pos } = embedOf(state);
+    expect(embedStatus(state, node)).toBeNull();
+    const key = embedSourceKey({
+      kind: String(node.attrs.kind),
+      source: String(node.attrs.source),
+    });
+    const answered = new Map([[key, { snapshot: 'r2', label: 'Set 7', content: [] }]]);
+    expect(resolveEmbeds(answered)(state, (tr) => (state = state.apply(tr)))).toBe(true);
+    expect(embedStatus(state, defined(state.doc.nodeAt(pos)))).toBe('update');
+    expect(resolveEmbeds(answered)(stateWith([], createDocumentEditing(documentSchema)))).toBe(
+      false,
+    );
   });
 
   it('DOCE-EMBEDS-3.2 takes an update: the content as it is now, with stable ids, undoable', async () => {
