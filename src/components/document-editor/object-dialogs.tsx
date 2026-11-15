@@ -5,7 +5,7 @@
 import { MathPreview } from '@flamboyantengineer/ui-components/math-preview';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { EditorView } from 'prosemirror-view';
-import { type ComponentType, useCallback, useState } from 'react';
+import { type ComponentType, lazy, Suspense, useCallback, useState } from 'react';
 import {
   captionedAt,
   insertMath,
@@ -23,7 +23,6 @@ import type {
   ScriptRunnerAdapter,
 } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
-import { AbbreviationDialog } from './abbreviation-dialog.js';
 import {
   applying,
   type DialogProps,
@@ -34,10 +33,6 @@ import {
 } from './dialog-parts.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
-import { FigureDialog } from './figure-dialog.js';
-import { LinkedCodeDialog } from './linked-code-dialog.js';
-import { ReferenceDialog } from './reference-dialog.js';
-import { ScriptDialog } from './script-dialog.js';
 
 /** What the editor's dialogs need beside the view. */
 export interface ObjectDialogsProps {
@@ -65,6 +60,25 @@ export interface ObjectDialogsProps {
 }
 
 const ignore = () => undefined;
+
+// The dialogs few sessions open, with the controls only they use (the code editor, the asset
+// picker, the reference finder), load the first time one opens, so the editor's own code does not
+// carry them (DOCE-ENTRY-2.2).
+const FigureDialog = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('./figure-dialog.js')).FigureDialog,
+}));
+const ReferenceDialog = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('./reference-dialog.js')).ReferenceDialog,
+}));
+const AbbreviationDialog = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('./abbreviation-dialog.js')).AbbreviationDialog,
+}));
+const ScriptDialog = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('./script-dialog.js')).ScriptDialog,
+}));
+const LinkedCodeDialog = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('./linked-code-dialog.js')).LinkedCodeDialog,
+}));
 
 /**
  * The dialog the editor shows, and the ways to open and close it. The dialogs change the document,
@@ -222,16 +236,14 @@ function HostedDialog({
   }
 }
 
-/** The editor's dialog that is open, for the view's selection. */
-export function ObjectDialogs({
+function OpenDialog({
   dialog,
   view,
   labels,
   assets,
   onClose,
   ...hosted
-}: ObjectDialogsProps) {
-  if (!dialog || !view) return null;
+}: ObjectDialogsProps & { dialog: ObjectDialog; view: EditorView }) {
   const shared = { view, labels, onClose };
   switch (dialog.kind) {
     case 'math':
@@ -264,4 +276,16 @@ export function ObjectDialogs({
     case 'host':
       return <HostedDialog dialog={dialog} shared={shared} hosted={hosted} />;
   }
+}
+
+/** The editor's dialog that is open, for the view's selection. */
+export function ObjectDialogs({ dialog, view, ...props }: ObjectDialogsProps) {
+  if (!dialog || !view) return null;
+  // Nothing shows while a dialog loads: the menu that opened it has closed, and the dialog takes
+  // focus once it renders.
+  return (
+    <Suspense fallback={null}>
+      <OpenDialog {...props} dialog={dialog} view={view} />
+    </Suspense>
+  );
 }

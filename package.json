@@ -74,6 +74,7 @@
     "test:watch": "vitest",
     "check:references": "node scripts/check-references.mjs",
     "check:specs": "node scripts/check-specs.mjs",
+    "check:bundle-size": "node scripts/check-bundle-size.mjs",
     "build:labs": "node scripts/build-labs.mjs",
     "serve:labs": "node scripts/serve-labs.mjs",
     "labs": "node scripts/start-labs.mjs",
@@ -138,9 +139,11 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-reconciler": "^0.33.0",
+    "terser-webpack-plugin": "^5.6.1",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.72.1",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "webpack": "^5.112.2"
   },
   "dependencies": {
     "prosemirror-gapcursor": "^1.4.1",
