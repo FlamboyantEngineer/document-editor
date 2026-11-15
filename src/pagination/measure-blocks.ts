@@ -32,7 +32,7 @@ interface CacheEntry {
 }
 
 /** What a cache has served since it was made: blocks found, blocks absent, and blocks measured. */
-export interface MeasureCounts {
+interface MeasureCounts {
   /** Blocks taken from the cache. */
   hits: number;
   /** Blocks the cache did not hold. */

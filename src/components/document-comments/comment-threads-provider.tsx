@@ -15,7 +15,7 @@ import {
 import { type TransactionSource, useDecisionRecords } from './use-decision-records.js';
 
 /** The store and document whose threads a provider keeps. */
-export interface CommentThreadsProviderProps {
+interface CommentThreadsProviderProps {
   readonly store: CommentStoreAdapter;
   readonly documentId: string;
   readonly identity: IdentityAdapter;
@@ -27,7 +27,7 @@ export interface CommentThreadsProviderProps {
 }
 
 /** Keeps a document's threads for every part of the editor inside it. */
-export function CommentThreadsProvider({
+function CommentThreadsProvider({
   children,
   failed = DEFAULT_COMMENTS_LABELS.failed,
   transactions,

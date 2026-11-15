@@ -99,7 +99,7 @@ const HEADING = { object: { ...TEXT, numbering: NUMBERING } } as const;
 const SWITCH = { object: { enabled: 'boolean', color: 'color' } } as const;
 
 /** The page settings. */
-export const PAGE_SHAPE: SettingShape = {
+const PAGE_SHAPE: SettingShape = {
   object: {
     size: { oneOf: Object.keys(PAGE_SIZE_DIMENSIONS) },
     orientation: { oneOf: ['portrait', 'landscape'] },
@@ -108,7 +108,7 @@ export const PAGE_SHAPE: SettingShape = {
 };
 
 /** The styles of a scope. */
-export const STYLES_SHAPE: SettingShape = {
+const STYLES_SHAPE: SettingShape = {
   object: {
     paragraph: {
       object: {
@@ -195,7 +195,7 @@ const CHANGE_BARS: SettingShape = {
 };
 
 /** The settings of a template section, beside its name. */
-export const SECTION_SHAPE: SettingShape = {
+const SECTION_SHAPE: SettingShape = {
   object: {
     name: 'text',
     label: 'text',

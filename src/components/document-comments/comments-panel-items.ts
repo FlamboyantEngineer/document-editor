@@ -9,7 +9,7 @@ import { type CommentItem, findCommentItems, keepCommentItems } from './comment-
 import type { ListedThreads } from './use-card-context.js';
 
 /** Whether the panel holds the threads alone (pane placement), and the reader may comment. */
-export interface PanelPane {
+interface PanelPane {
   readonly placed: boolean;
   readonly canComment: boolean;
 }
@@ -17,7 +17,7 @@ export interface PanelPane {
 const filters: readonly CommentsFilter[] = ['open', 'all', 'mine'];
 
 /** What the panel lists under one filter: the document's items, then the threads it no longer anchors. */
-export interface Listed {
+interface Listed {
   readonly items: readonly CommentItem[];
   readonly unanchored: readonly CommentThread[];
 }

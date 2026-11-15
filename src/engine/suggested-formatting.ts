@@ -17,13 +17,13 @@ import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import { inlineRuns, type Suggesting } from './suggestions.js';
 
 /** A mark as a format change records it. */
-export interface RecordedMark {
+interface RecordedMark {
   readonly type: string;
   readonly attrs: Attrs;
 }
 
 /** What a block's `suggestionFormat` holds: the suggestion, and the type and attributes before. */
-export interface BlockFormatRecord {
+interface BlockFormatRecord {
   readonly id: string;
   readonly author: string | null;
   readonly type: string;
@@ -78,7 +78,7 @@ const canRecord = (node: ProseMirrorNode) =>
   Object.hasOwn(node.type.spec.attrs ?? {}, 'suggestionFormat');
 
 /** A block's format record, when it has one. */
-export function blockFormatOf(node: ProseMirrorNode): BlockFormatRecord | null {
+function blockFormatOf(node: ProseMirrorNode): BlockFormatRecord | null {
   const record: unknown = node.attrs.suggestionFormat;
   if (!record || typeof record !== 'object') return null;
   const { id, type } = record as Partial<BlockFormatRecord>;

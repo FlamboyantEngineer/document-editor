@@ -88,10 +88,7 @@ function elementPages(pages: readonly LaidOutPage[]): Map<string, LaidOutPage> {
 }
 
 /** The positions between a paged projection and its canonical document, as a projection keeps them. */
-export type PagePositionMap = Pick<
-  PageMap,
-  'projection' | 'canonical' | 'toCanonical' | 'toProjection'
->;
+type PagePositionMap = Pick<PageMap, 'projection' | 'canonical' | 'toCanonical' | 'toProjection'>;
 
 // The positions of a paged document through the page transform that joins its pages, joined once
 // a position is mapped.

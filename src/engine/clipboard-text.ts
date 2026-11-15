@@ -53,7 +53,7 @@ function listMarker($block: ResolvedPos): string {
 }
 
 /** What copying text needs from the editor. */
-export interface CopiedTextOptions {
+interface CopiedTextOptions {
   /** The resolved template, which numbers headings. */
   readonly template?: (() => TemplateFile) | undefined;
 }

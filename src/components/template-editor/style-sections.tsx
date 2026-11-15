@@ -122,7 +122,7 @@ function rename(context: Rows, from: string, to: string) {
  * A name, kept as typed and committed on Enter or on leaving the field; Escape puts the name back.
  * Give it a `key` of the name, so a committed name starts a new draft.
  */
-export function NameField({
+function NameField({
   name,
   label,
   isDisabled,

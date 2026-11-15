@@ -102,7 +102,7 @@ const SETTINGS = {
 } as const;
 
 /** Which kinds of change show a bar: by default every kind. */
-export type ShownChange = (kind: ChangeLineKind) => boolean;
+type ShownChange = (kind: ChangeLineKind) => boolean;
 
 const SHOW_ALL: ShownChange = () => true;
 
@@ -163,7 +163,7 @@ export function measureBlockLines(
 }
 
 /** Measures the changed lines of every block whose text changed, by the block's position. */
-export function measureChangeLines(
+function measureChangeLines(
   view: EditorView,
   { scale, template }: { readonly scale: number; readonly template?: TemplateFile | undefined },
 ): ChangeLines {

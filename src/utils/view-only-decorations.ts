@@ -11,13 +11,13 @@ import { Decoration, type DecorationAttrs, type EditorView } from 'prosemirror-v
 export const VIEW_ONLY_ATTRIBUTE = 'data-de-view-only';
 
 /** The attributes and classes a view-only decoration adds. */
-export interface ViewOnlyHooks {
+interface ViewOnlyHooks {
   readonly attributes: readonly string[];
   readonly classes: readonly string[];
 }
 
 /** The range a decoration covers. */
-export interface DecorationRange {
+interface DecorationRange {
   readonly from: number;
   readonly to: number;
 }

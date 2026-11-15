@@ -56,7 +56,7 @@ function isMentioned(thread: CommentThread, { me, parse, includes }: ThreadFilte
 }
 
 /** Whether a thread is the reader's: they wrote one of its comments, or one mentions them. */
-export function isOwnThread(thread: CommentThread, filter: ThreadFilter): boolean {
+function isOwnThread(thread: CommentThread, filter: ThreadFilter): boolean {
   return thread.entries.some((entry) => entry.author === filter.me) || isMentioned(thread, filter);
 }
 

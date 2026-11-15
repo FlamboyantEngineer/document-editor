@@ -18,7 +18,7 @@ import type { MapDirection } from './page-positions.js';
 import type { Mirrored, ProjectionMap } from './projection-map.js';
 
 /** How `mapStepRange` places a step's ends. */
-export interface StepPlacement {
+interface StepPlacement {
   readonly direction: MapDirection;
   readonly map: (pos: number, assoc: -1 | 1) => number | null;
   /** The side an empty range at `pos` keeps to in the projection. */

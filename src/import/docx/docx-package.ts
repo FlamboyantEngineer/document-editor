@@ -18,7 +18,7 @@ export interface ImportedImage {
 }
 
 /** A relationship from a part to another part or an outside target. */
-export interface Relationship {
+interface Relationship {
   readonly type: string;
   /** The package path of the part it targets, or the outside URL. */
   readonly target: string;
@@ -35,7 +35,7 @@ export interface DocxPart {
 }
 
 /** How a package is read. */
-export interface PackageOptions {
+interface PackageOptions {
   /** The `src` an embedded image is given; a `data:` URL by default. */
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
 }

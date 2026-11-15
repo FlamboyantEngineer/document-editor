@@ -20,7 +20,7 @@ import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { projectionSelection } from './selection-mirror.js';
 
 /** The views and state a layout reads. */
-export interface LayoutSource {
+interface LayoutSource {
   /** The projection's state, stepped onto the new pages. */
   readonly projection: EditorState;
   readonly ghost: MeasuringView;
@@ -33,7 +33,7 @@ export interface LayoutSource {
 }
 
 /** How the pages are laid out. */
-export interface ProjectionLayoutOptions {
+interface ProjectionLayoutOptions {
   readonly pageHeight: SectionPageHeight;
   readonly rules?: SectionLayoutRules | undefined;
   readonly footnoteNumbering?: 'document' | 'page' | undefined;
@@ -41,7 +41,7 @@ export interface ProjectionLayoutOptions {
 }
 
 /** A layout: the projection transaction onto the new pages, the map after it, and the pages. */
-export interface ProjectionLayout {
+interface ProjectionLayout {
   readonly tr: Transaction;
   readonly map: ProjectionMap;
   /** How each page was laid out, in order. */

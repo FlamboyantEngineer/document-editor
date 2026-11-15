@@ -16,14 +16,14 @@ import { gapAt, gapTarget, type TableGeometry } from './table-geometry.js';
 import type { TableTarget } from './use-table-target.js';
 
 /** A row or column being dragged, and the gap it would drop into, if any. */
-export interface TableDrag {
+interface TableDrag {
   readonly axis: TableAxis;
   readonly from: number;
   readonly gap: number | null;
 }
 
 /** What a drag reads when the pointer moves. */
-export interface TableDragOptions {
+interface TableDragOptions {
   readonly view: EditorView | null;
   readonly layer: HTMLElement | null;
   readonly geometry: TableGeometry | null;

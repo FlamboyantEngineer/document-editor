@@ -166,7 +166,7 @@ function inCitingPlaces($pos: ResolvedPos, from: number, places: ReadonlySet<str
 }
 
 /** Whether a footnote may be cited at a position: in a paragraph of the page's body, in its places. */
-export function canCiteAt($pos: ResolvedPos, places: ReadonlySet<string>): boolean {
+function canCiteAt($pos: ResolvedPos, places: ReadonlySet<string>): boolean {
   return $pos.parent.type.name === 'paragraph' && inCitingPlaces($pos, $pos.depth - 1, places);
 }
 

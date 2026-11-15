@@ -14,7 +14,7 @@ import { isInPageRegion } from './block-place.js';
 import { isLocalEdit, isRemoteTransaction } from './transaction-kind.js';
 
 /** Who writes the local changes: a person, or an automated session acting for one. */
-export interface Contributor {
+interface Contributor {
   /** The writer's id. */
   readonly author: string;
   /** The automated session that writes, or null for the person themselves. */
@@ -22,7 +22,7 @@ export interface Contributor {
 }
 
 /** How `markContributors` marks who wrote the text. */
-export interface ContributorMarksOptions {
+interface ContributorMarksOptions {
   /** Who writes the local changes, or null when the editor knows no writer. */
   contributor?: (() => Contributor | null) | undefined;
   /** Whether a transaction came from elsewhere, such as a collaborator or the server. */

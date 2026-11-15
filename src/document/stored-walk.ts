@@ -4,7 +4,7 @@
 import type { DocumentFile, StoredMark, StoredNode, StoredSection } from '../model/index.js';
 
 /** A node of a stored document, where it is and the element holding it. */
-export interface StoredPlace {
+interface StoredPlace {
   readonly node: StoredNode;
   /** Where it is, such as `sections[0].content[2]`, as `checkStoredIds` names places. */
   readonly path: string;
@@ -44,7 +44,7 @@ export function walkStoredFile(
 }
 
 /** A run of a block's inline content that one stored mark covers. */
-export interface StoredMarkRun {
+interface StoredMarkRun {
   readonly mark: StoredMark;
   /** The run's text: its text nodes' text, nothing for an inline object. */
   readonly text: string;

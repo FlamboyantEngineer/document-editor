@@ -19,7 +19,7 @@ import type { TemplateFile } from '../../model/index.js';
 import { applying, type DialogProps, EditorModal, titleOf } from './dialog-parts.js';
 
 /** The kinds of reference the reference menu offers. */
-export type ReferenceDialogKind = 'internal' | 'external';
+type ReferenceDialogKind = 'internal' | 'external';
 
 /** The kinds of target in this document, in the order the target type field lists them. */
 export const REFERENCE_TARGET_KINDS = [
@@ -31,7 +31,7 @@ export const REFERENCE_TARGET_KINDS = [
 ] as const;
 
 /** A reference to a target of this document: its kind, then the target among those of the kind. */
-export function InternalReferenceDialog({
+function InternalReferenceDialog({
   view,
   labels,
   onClose,
@@ -89,7 +89,7 @@ export function InternalReferenceDialog({
 }
 
 /** A reference to another document, found through the host's reference source. */
-export function ExternalReferenceDialog({
+function ExternalReferenceDialog({
   view,
   labels,
   onClose,

@@ -7,7 +7,16 @@ import { parseArgs } from 'node:util';
 import { startNpm } from '@flamboyantengineer/ui-components/tooling/lib/npm.mjs';
 
 const STAGES = [
-  ['lint', 'format:check', 'typecheck', 'check:references', 'check:specs', 'build', 'build:labs'],
+  [
+    'lint',
+    'format:check',
+    'typecheck',
+    'check:references',
+    'check:specs',
+    'check:exports',
+    'build',
+    'build:labs',
+  ],
   ['test', 'test:labs', 'check:bundle-size'],
 ];
 

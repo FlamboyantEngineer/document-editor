@@ -13,7 +13,7 @@ import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { canonicalSelection, projectionSelection } from './selection-mirror.js';
 
 /** The projection a change is mirrored onto. */
-export interface MirrorTarget {
+interface MirrorTarget {
   readonly projection: EditorState;
   readonly map: ProjectionMap;
   readonly rules: FragmentRules;

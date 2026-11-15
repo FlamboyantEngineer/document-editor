@@ -12,7 +12,7 @@ export interface RevealPaneOptions {
 }
 
 /** A side panel as the editor knows it: whether it holds a pane, and revealing one. */
-export interface PaneHolder {
+interface PaneHolder {
   has(paneId: string): boolean;
   reveal(paneId: string, options: RevealPaneOptions): void;
 }

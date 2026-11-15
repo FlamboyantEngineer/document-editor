@@ -17,7 +17,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import type { LayoutProgress } from './use-document-layout.js';
 
 /** An export File > Export offers. */
-export interface ExportEntry {
+interface ExportEntry {
   readonly id: string;
   readonly label: string;
   /** Whether it is running, so it cannot run again until it ends. */

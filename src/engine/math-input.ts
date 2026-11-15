@@ -139,7 +139,7 @@ export function editMath(key: PluginKey<MathInputState>): Command {
  * Writes math at the selection: the selected text of one paragraph as inline math, or empty inline
  * math at the caret, edited in place.
  */
-export function writeMath(key: PluginKey<MathInputState>): Command {
+function writeMath(key: PluginKey<MathInputState>): Command {
   return (state, dispatch) => {
     const type = state.schema.nodes.math_inline;
     const { $from, $to, empty, from, to } = state.selection;

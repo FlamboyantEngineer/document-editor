@@ -15,7 +15,7 @@ import {
 import { escapeXml, WORD_NAMESPACES, XML_DECLARATION } from './word-xml.js';
 
 /** The names the reader knows each kind of definition by. */
-export type NumberingKind = 'Headings' | 'Paragraphs' | 'Bullets' | 'Numbers';
+type NumberingKind = 'Headings' | 'Paragraphs' | 'Bullets' | 'Numbers';
 
 /** The numbering definitions and numbers a document has recorded so far. */
 export interface WordNumbering {
@@ -53,7 +53,7 @@ function addDefinition(numbering: WordNumbering, kind: NumberingKind, levels: Wo
 }
 
 /** How a number starts its definition's levels: how many from 1 again, and one from `start`. */
-export interface NumberStart {
+interface NumberStart {
   readonly levels?: number | undefined;
   readonly start?: number | undefined;
   /** The level that starts from `start`, from 0. */
@@ -61,7 +61,7 @@ export interface NumberStart {
 }
 
 /** Records a number for a definition, starting its levels again, and returns its id. */
-export function addNumber(
+function addNumber(
   numbering: WordNumbering,
   definition: number,
   { levels = 0, start = 1, startLevel = 0 }: NumberStart = {},

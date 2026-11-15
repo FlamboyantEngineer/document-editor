@@ -34,7 +34,7 @@ import { mirrorChange } from './projection-mirror.js';
 import { canonicalSelection, selectionAcrossBreak } from './selection-mirror.js';
 
 /** Marks the transactions the projection takes: a layout's, or a canonical change mirrored. */
-export const PROJECTION_META = 'projection-view';
+const PROJECTION_META = 'projection-view';
 
 // How many layouts in a row may move the pages with no change in between before the layout counts
 // as not converging (DOCE-PAGINATION-7.6).
@@ -54,7 +54,7 @@ export function takeCaretBefore(doc: ProseMirrorNode): number | null {
 }
 
 /** How the layouts are going: what they did, whether the pages settled, and what is due. */
-export interface LayoutPace {
+interface LayoutPace {
   readonly counter: ReturnType<typeof createPaginationCounter>;
   readonly readiness: ReturnType<typeof createLayoutReadiness>;
   /** Whether a change came, or the host asked for a layout, since the latest layout. */
@@ -175,7 +175,7 @@ function refuse(session: Session): void {
 }
 
 /** Has the attached view report the selection and changes the browser shows but has not yet. */
-export function readDom(session: Session): void {
+function readDom(session: Session): void {
   if (session.view) readDomSelection(session.view);
 }
 
@@ -191,7 +191,7 @@ export function showsNewerSelection(session: Session): boolean {
 }
 
 /** Mirrors the projection's selection onto the canonical state, unless a cell selection stands. */
-export function syncSelection(session: Session): void {
+function syncSelection(session: Session): void {
   const { map, projection, canonical, cells } = session;
   if (cells.held()) return;
   const mapped = canonicalSelection(map, projection.selection, canonical.doc);
@@ -220,7 +220,7 @@ export function refreshLayout(session: Session, remeasure: boolean): void {
 }
 
 /** A change, or the host asking for a layout: the count of layouts in a row starts over. */
-export function markChanged(session: Session): void {
+function markChanged(session: Session): void {
   session.pace.changed = true;
   session.pace.draws.changed();
   session.pace.readiness.pending();
@@ -286,7 +286,7 @@ export function layout(session: Session): void {
 }
 
 /** How a canonical change is shown on the pages. */
-export interface Showing {
+interface Showing {
   /** Lays the pages out on the next frame, not once the writer pauses (DOCE-PAGINATION-5.7). */
   readonly now: boolean;
   /** Scrolls the pages to the selection, as a transaction that made the change asked. */

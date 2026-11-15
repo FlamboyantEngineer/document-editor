@@ -12,7 +12,7 @@ import type { SessionStores } from './store-session.js';
 import type { ValueStore } from './value-store.js';
 
 /** How a session follows its room's connection. */
-export interface ConnectionFollowing {
+interface ConnectionFollowing {
   /** Whether the session opened on a draft of the room. */
   cached: boolean;
   /** The capabilities the host grants the reader. */

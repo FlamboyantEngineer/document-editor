@@ -13,7 +13,7 @@ import type {
 import { notFound, savedState } from './memory-documents.js';
 
 /** What the in-memory template store records each save with. */
-export interface MemoryTemplatesOptions {
+interface MemoryTemplatesOptions {
   /** The id of the person saving. */
   author: () => string;
   /** The time a save is made at. */

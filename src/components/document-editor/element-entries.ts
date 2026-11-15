@@ -62,7 +62,7 @@ export const CODE_LANGUAGES: readonly string[] = [
 ];
 
 /** What the element entries may offer. */
-export interface ElementEntriesOptions {
+interface ElementEntriesOptions {
   readonly labels: DocumentEditorLabels;
   /** Opens one of the editor's dialogs; null while the editor has none. */
   readonly openDialog: ((dialog: ObjectDialog) => void) | null;

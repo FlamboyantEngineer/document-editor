@@ -35,7 +35,7 @@ const suggestionsKey = (suggestions: readonly Suggestion[]) =>
     .join('\u0002');
 
 /** Calls the host with the document's suggestions whenever they change. */
-export function useSuggestionsNotification(
+function useSuggestionsNotification(
   state: EditorState,
   onSuggestionsChange: ((suggestions: readonly Suggestion[]) => void) | undefined,
 ) {
@@ -89,7 +89,7 @@ const barsKey = (bars: readonly ChangeBar[]) =>
     .join('|');
 
 /** Calls the host with the change bars drawn whenever they change, once the view has drawn them. */
-export function useChangeBarsNotification(
+function useChangeBarsNotification(
   view: EditorView | null,
   state: EditorState,
   {

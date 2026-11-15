@@ -7,7 +7,7 @@
 export type LayoutState = 'pending' | 'settled' | 'failed';
 
 /** What readiness reads and tells. */
-export interface LayoutReadinessOptions {
+interface LayoutReadinessOptions {
   /** Runs a callback once the next frame is drawn and returns how to cancel it. */
   readonly schedule: (run: () => void) => () => void;
   /** Tells of each change of state. */

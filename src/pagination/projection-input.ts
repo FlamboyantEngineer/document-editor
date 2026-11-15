@@ -23,14 +23,14 @@ import type { ProjectionMap } from './projection-map.js';
 import { canonicalSelection } from './selection-mirror.js';
 
 /** The two documents an input reads: the canonical state, the projection's state and their map. */
-export interface InputSource {
+interface InputSource {
   readonly canonical: EditorState;
   readonly projection: EditorState;
   readonly map: ProjectionMap;
 }
 
 /** A projection edit routed: the canonical transaction, its mirror on the projection, the map. */
-export interface RoutedEdit {
+interface RoutedEdit {
   readonly canonical: Transaction;
   readonly projection: Transaction;
   readonly map: ProjectionMap;
@@ -237,7 +237,7 @@ export function canonicalCellAt(
 }
 
 /** What the projection's keys run: canonical commands, and moves across a page break. */
-export interface KeyRouting {
+interface KeyRouting {
   /** Further commands on the canonical state by key. */
   readonly keys?: Readonly<Record<string, Command>> | undefined;
   /** Runs a command on the canonical state, with the projection's selection mirrored there. */

@@ -11,7 +11,7 @@ import { toTwips, toWordColor } from './word-xml.js';
 import type { Writing } from './writing.js';
 
 /** How a table writes the blocks of its cells. */
-export type CellBlocks = (content: readonly StoredNode[] | undefined, writing: Writing) => string;
+type CellBlocks = (content: readonly StoredNode[] | undefined, writing: Writing) => string;
 
 const text = (value: unknown) => (typeof value === 'string' ? value : '');
 

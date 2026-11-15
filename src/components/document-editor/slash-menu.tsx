@@ -78,7 +78,7 @@ function toolbarItemOptions(item: ToolbarItem, context: EditorContext): SlashMen
  * The editor's options at the caret: the text styles, the lists, a table and the insert toolbar
  * group's items and menu entries, each with what it does.
  */
-export function builtInSlashItems(
+function builtInSlashItems(
   context: EditorContext,
   groups: readonly ToolbarGroup[],
   customStyles: readonly string[],
@@ -136,7 +136,7 @@ function matching(items: readonly SlashMenuItem[], query: string, context: Edito
 const SLASH = { char: '/' } as const;
 
 /** What the slash menu reads. */
-export interface DocumentSlashMenuProps {
+interface DocumentSlashMenuProps {
   context: EditorContext;
   view: EditorView | null;
   menuKeys: MenuKeys;

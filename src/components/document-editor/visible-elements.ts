@@ -15,7 +15,7 @@ export interface VisibleElement {
 }
 
 /** What the reader sees of the document. */
-export interface DocumentViewport {
+interface DocumentViewport {
   /** The page taking up most of the visible document, from 1; null before it is laid out. */
   readonly page: number | null;
   /** The pages on screen, from 1, in order. */

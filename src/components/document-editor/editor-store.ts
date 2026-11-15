@@ -12,7 +12,7 @@ import {
 import type { EditorContext } from './editor-context.js';
 
 /** The editor context the editor shows last, with a way to hear when it changes. */
-export interface EditorStore {
+interface EditorStore {
   get(): EditorContext | null;
   subscribe(listener: () => void): () => void;
 }

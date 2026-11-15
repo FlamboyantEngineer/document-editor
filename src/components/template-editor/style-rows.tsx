@@ -22,7 +22,7 @@ import { NUMBERING_HINT, type StylePart } from './template-settings.js';
 /**
  * Numbering: whether it numbers, then the text before its number, its format and the text after.
  */
-export function NumberingRow({ scope }: { scope: StyleScope }) {
+function NumberingRow({ scope }: { scope: StyleScope }) {
   const { labels } = scope.context;
   const enabled = styleValue(scope, ['numbering', 'enabled']);
   return (

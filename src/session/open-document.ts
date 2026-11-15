@@ -29,7 +29,7 @@ export const samePin = (one: TemplatePin | null, other: TemplatePin | null): boo
   (one?.revision ?? null) === (other?.revision ?? null);
 
 /** A document's template, resolved, and the saved state of the template it pins, if any. */
-export interface PinnedTemplate {
+interface PinnedTemplate {
   template: TemplateFile;
   saved: SavedState | null;
 }
