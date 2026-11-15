@@ -4,10 +4,23 @@
 // having an update, which the writer takes. The host may ask for every citation again.
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
+import {
+  type Command,
+  type EditorState,
+  type Plugin,
+  PluginKey,
+  type Transaction,
+} from 'prosemirror-state';
+import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { ReferenceSourceAdapter } from '../host/index.js';
 import { readReferenceBaseline, type ReferenceBaseline } from '../model/index.js';
+import {
+  createHostStatus,
+  type HostStatusState,
+  recordHostStatus,
+  refreshHostStatus,
+} from './host-status.js';
 import { internalTargetId, listReferences, type ReferenceAt, referenceAt } from './references.js';
 
 /** Where an external reference stands against its document as it is now. */
@@ -43,13 +56,21 @@ const changed = (cited: ReferenceBaseline, now: ReferenceBaseline) =>
   (cited.target?.title ?? null) !== (now.target?.title ?? null) ||
   (cited.target?.numbering ?? null) !== (now.target?.numbering ?? null);
 
-interface StatusState {
-  /** Each citation as the host resolved it. */
-  readonly resolved: ReadonlyMap<string, Resolved>;
-  readonly decorations: DecorationSet;
-  /** How many refreshes the host asked for: the view asks again at each. */
-  readonly refreshes: number;
-}
+/** Each citation as the host resolved it, and the marks it gives. */
+type StatusState = HostStatusState<Resolved>;
+
+// Whether a change inserts text carrying an external reference, as pasted text may: typing never does, since
+// the reference mark does not extend over text typed at its edge.
+const insertsReference = (tr: Transaction) =>
+  tr.steps.some((step) => {
+    let found = false;
+    if (step instanceof ReplaceStep) {
+      step.slice.content.descendants((node) => {
+        found ||= node.marks.some((mark) => citationOf(mark) !== null);
+      });
+    }
+    return found;
+  });
 
 const statusKey = new PluginKey<StatusState>('reference-status');
 
@@ -138,73 +159,20 @@ export function createReferenceStatus({
   source,
   delay = 500,
 }: ReferenceStatusOptions): Plugin<StatusState> {
-  return new Plugin<StatusState>({
+  return createHostStatus<CitationKey, Resolved>({
     key: statusKey,
-    state: {
-      init: (_config, state) => ({
-        resolved: new Map(),
-        decorations: decorate(state.doc, new Map()),
-        refreshes: 0,
-      }),
-      apply(tr, value) {
-        const meta = tr.getMeta(statusKey) as ReadonlyMap<string, Resolved> | 'refresh' | undefined;
-        if (!meta && !tr.docChanged) return value;
-        const resolved =
-          meta === 'refresh'
-            ? new Map<string, Resolved>()
-            : meta
-              ? new Map([...value.resolved, ...meta])
-              : value.resolved;
-        const refreshes = value.refreshes + (meta === 'refresh' ? 1 : 0);
-        return { resolved, decorations: decorate(tr.doc, resolved), refreshes };
-      },
+    delay,
+    wanted(doc, resolved) {
+      const wanted = new Map<string, CitationKey>();
+      for (const reference of listReferences(doc)) {
+        const cited = citationOf(reference.mark);
+        if (cited && !resolved.has(cited.key)) wanted.set(cited.key, cited.citation);
+      }
+      return wanted;
     },
-    view(view) {
-      const owner = view.dom.ownerDocument.defaultView;
-      let timer = 0;
-      let controller: AbortController | null = null;
-      const check = () => {
-        const resolved = statusKey.getState(view.state)?.resolved ?? new Map();
-        const wanted = new Map<string, CitationKey>();
-        for (const reference of listReferences(view.state.doc)) {
-          const cited = citationOf(reference.mark);
-          if (cited && !resolved.has(cited.key)) wanted.set(cited.key, cited.citation);
-        }
-        if (!wanted.size || !source.resolve || !owner) return;
-        controller?.abort();
-        controller = new owner.AbortController();
-        const { signal } = controller;
-        const keys = [...wanted.keys()];
-        source.resolve([...wanted.values()], signal).then(
-          (result) => {
-            if (signal.aborted || view.isDestroyed || !result.ok) return;
-            const answered = new Map(keys.map((key, index) => [key, result.value[index] ?? null]));
-            view.dispatch(
-              view.state.tr.setMeta(statusKey, answered).setMeta('addToHistory', false),
-            );
-          },
-          () => undefined,
-        );
-      };
-      const schedule = () => {
-        owner?.clearTimeout(timer);
-        timer = owner?.setTimeout(check, delay) ?? 0;
-      };
-      schedule();
-      return {
-        update(current, previous) {
-          const refreshed =
-            statusKey.getState(current.state)?.refreshes !==
-            statusKey.getState(previous)?.refreshes;
-          if (current.state.doc !== previous.doc || refreshed) schedule();
-        },
-        destroy() {
-          owner?.clearTimeout(timer);
-          controller?.abort();
-        },
-      };
-    },
-    props: { decorations: (state) => statusKey.getState(state)?.decorations ?? null },
+    resolve: (citations, signal) => source.resolve?.(citations, signal) ?? null,
+    decorate,
+    addsMarked: insertsReference,
   });
 }
 
@@ -212,19 +180,11 @@ export function createReferenceStatus({
  * Asks the host for every citation again, as when the host knows its documents changed, and marks
  * the references by its new answer.
  */
-export const refreshReferenceStatus: Command = (state, dispatch) => {
-  if (!statusKey.getState(state)) return false;
-  dispatch?.(state.tr.setMeta(statusKey, 'refresh').setMeta('addToHistory', false));
-  return true;
-};
+export const refreshReferenceStatus: Command = refreshHostStatus(statusKey);
 
 /** Records how the host resolved citations, as the plugin does with the host's answer. */
 export function resolveCitations(answered: ReadonlyMap<string, Resolved>): Command {
-  return (state, dispatch) => {
-    if (!statusKey.getState(state)) return false;
-    dispatch?.(state.tr.setMeta(statusKey, answered).setMeta('addToHistory', false));
-    return true;
-  };
+  return recordHostStatus(statusKey, answered);
 }
 
 export { keyOf as citationKey };
