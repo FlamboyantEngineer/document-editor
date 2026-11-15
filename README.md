@@ -41,7 +41,7 @@ The library has no release yet, so a host installs it, the base component librar
 
 `scripts/tested-set.json` holds the same set for the check. Peers follow one rule: a release candidate and `prosemirror-view` are exact, since the React binding and the base component library accept only `prosemirror-view` 1.42.3; the base component library is a peer within its `0.x` minor (`~0.1.0`), since before `1.0.0` every minor may break; other peers are caret ranges. `prosemirror-view` stays at 1.42.3 until the binding publishes a release that accepts a newer one.
 
-Each weekday the pin-bump workflow (`.github/workflows/pin-bump.yml`) moves the git pins to the head of their `dev` branches, installs the set strictly, runs the packed-consumer check, and only then opens a pull request, which merges by itself once `check` passes. A set that fails is not proposed: the run fails and says why.
+Each weekday the pin-bump workflow (`.github/workflows/pin-bump.yml`) moves the git pins to the head of their `dev` branches, installs the set strictly, runs the packed-consumer check, and only then opens a pull request, with the `PIN_BUMP_TOKEN` secret so CI runs on it as on any other, which merges by itself once `check` passes. A set that fails is not proposed: the run fails and says why.
 
 ## Develop
 
