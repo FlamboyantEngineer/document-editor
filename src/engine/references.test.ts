@@ -246,4 +246,40 @@ describe('external references', () => {
     state = run(state, updateReference);
     expect(referenceAt(at(state, 'PWR-100', 2))?.mark.attrs.targetId).toBe('t2');
   });
+
+  it('DOCE-REFERENCES-1.5 moves the marks while typing, and marks a citation pasted as text', () => {
+    const doc = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [paragraph('See . And .')] }] },
+      documentSchema,
+    ).doc;
+    const source = { search: () => Promise.resolve({ ok: true as const, value: [] }) };
+    const plugin = createReferenceStatus({ source });
+    let state = EditorState.create({ doc, plugins: [plugin] });
+    state = run(
+      at(state, '.'),
+      insertReference({
+        kind: 'external',
+        refType: 'external-document',
+        baseline: baseline('A'),
+        text: 'PWR-100 A',
+      }),
+    );
+    const key = citationKey({ documentId: 'pwr-100', targetId: null });
+    state = run(state, resolveCitations(new Map([[key, baseline('B')]])));
+    const marked = (current: EditorState) =>
+      (plugin.getState(current)?.decorations.find() ?? []).map(({ from, to }) =>
+        current.doc.textBetween(from, to),
+      );
+    expect(marked(state)).toEqual(['PWR-100 A']);
+    // Typing before the reference moves its mark.
+    const see = at(state, 'See').selection.from;
+    state = state.apply(state.tr.insertText('Please s', see, see + 1));
+    expect(marked(state)).toEqual(['PWR-100 A']);
+    // Text carrying the citation, pasted after And, is marked too.
+    const reference = referenceAt(at(state, 'PWR-100', 3));
+    if (!reference) throw new Error('No reference');
+    const cited = state.doc.slice(reference.from, reference.to).content;
+    state = state.apply(state.tr.insert(at(state, 'And').selection.from + 'And '.length, cited));
+    expect(marked(state)).toEqual(['PWR-100 A', 'PWR-100 A']);
+  });
 });
