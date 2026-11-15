@@ -89,6 +89,8 @@ export type { StoredOutlineEntry, StoredOutlineOptions } from './stored-outline.
 export { storedOutline } from './stored-outline.js';
 export type { StoredDecision, StoredDecisionOptions } from './stored-suggestions.js';
 export { decideStoredSuggestions } from './stored-suggestions.js';
+export type { TableRowCell } from './stored-table.js';
+export { tableFromRows } from './stored-table.js';
 export type {
   ReplaceTemplateOptions,
   RequiredSectionProblem,

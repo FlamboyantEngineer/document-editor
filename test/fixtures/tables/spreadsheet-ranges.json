@@ -1,0 +1,104 @@
+{
+  "about": "Spreadsheet ranges as a spreadsheet editor's document insertion hands them over (rows of cells that start in each row, calculated values as text, merges clipped to the range), and the stored table each becomes (DOCE-TABLES-4.1). Both editors test against these cases.",
+  "cases": [
+    {
+      "name": "spans",
+      "range": "A1:C3",
+      "rows": [
+        [
+          { "text": "Region", "colspan": 2, "rowspan": 1 },
+          { "text": "Total", "colspan": 1, "rowspan": 1 }
+        ],
+        [
+          { "text": "North", "colspan": 1, "rowspan": 1 },
+          { "text": "12", "colspan": 1, "rowspan": 1 },
+          { "text": "30", "colspan": 1, "rowspan": 2 }
+        ],
+        [
+          { "text": "South", "colspan": 1, "rowspan": 1 },
+          { "text": "18", "colspan": 1, "rowspan": 1 }
+        ]
+      ],
+      "table": [
+        [{ "text": "Region", "colspan": 2 }, { "text": "Total" }],
+        [{ "text": "North" }, { "text": "12" }, { "text": "30", "rowspan": 2 }],
+        [{ "text": "South" }, { "text": "18" }]
+      ],
+      "size": [3, 3]
+    },
+    {
+      "name": "empty cells",
+      "range": "A1:B2",
+      "rows": [
+        [
+          { "text": "", "colspan": 1, "rowspan": 1 },
+          { "text": "Filled", "colspan": 1, "rowspan": 1 }
+        ],
+        [
+          { "text": "", "colspan": 1, "rowspan": 1 },
+          { "text": "", "colspan": 1, "rowspan": 1 }
+        ]
+      ],
+      "table": [
+        [{ "text": "" }, { "text": "Filled" }],
+        [{ "text": "" }, { "text": "" }]
+      ],
+      "size": [2, 2]
+    },
+    {
+      "name": "text values",
+      "range": "A1:A7",
+      "rows": [
+        [{ "text": "1,234.50", "colspan": 1, "rowspan": 1 }],
+        [{ "text": "-0.5", "colspan": 1, "rowspan": 1 }],
+        [{ "text": "TRUE", "colspan": 1, "rowspan": 1 }],
+        [{ "text": "#DIV/0!", "colspan": 1, "rowspan": 1 }],
+        [{ "text": "<b>not markup</b>", "colspan": 1, "rowspan": 1 }],
+        [{ "text": "First line\nSecond line", "colspan": 1, "rowspan": 1 }],
+        [{ "text": "1/3", "colspan": 1, "rowspan": 1 }]
+      ],
+      "table": [
+        [{ "text": "1,234.50" }],
+        [{ "text": "-0.5" }],
+        [{ "text": "TRUE" }],
+        [{ "text": "#DIV/0!" }],
+        [{ "text": "<b>not markup</b>" }],
+        [{ "text": "First line\nSecond line" }],
+        [{ "text": "1/3" }]
+      ],
+      "size": [1, 7]
+    },
+    {
+      "name": "range limits: a merge clipped to the range",
+      "range": "B2:C3",
+      "rows": [[{ "text": "Clipped", "colspan": 2, "rowspan": 2 }], []],
+      "table": [[{ "text": "Clipped", "colspan": 2 }]],
+      "size": [2, 1]
+    },
+    {
+      "name": "range limits: a merge down one column of the range",
+      "range": "A1:B3",
+      "rows": [
+        [
+          { "text": "Down", "colspan": 1, "rowspan": 3 },
+          { "text": "Top", "colspan": 1, "rowspan": 1 }
+        ],
+        [{ "text": "Middle", "colspan": 1, "rowspan": 1 }],
+        [{ "text": "Bottom", "colspan": 1, "rowspan": 1 }]
+      ],
+      "table": [
+        [{ "text": "Down", "rowspan": 3 }, { "text": "Top" }],
+        [{ "text": "Middle" }],
+        [{ "text": "Bottom" }]
+      ],
+      "size": [2, 3]
+    },
+    {
+      "name": "range limits: one cell",
+      "range": "D4",
+      "rows": [[{ "text": "Only", "colspan": 1, "rowspan": 1 }]],
+      "table": [[{ "text": "Only" }]],
+      "size": [1, 1]
+    }
+  ]
+}

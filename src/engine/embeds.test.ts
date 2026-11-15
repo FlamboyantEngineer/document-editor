@@ -4,6 +4,7 @@ import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema, writeMarkup } from '../../test/document-markup.js';
+import { tableFromRows } from '../document/stored-table.js';
 import type { EmbedContent, EmbedSourceAdapter } from '../host/index.js';
 import {
   LAYOUT_RULES,
@@ -426,6 +427,75 @@ describe('embed status and updates', () => {
     const { pos } = embedOf(view.state);
     expect(applyEmbedUpdate(pos, unreadable)(view.state, view.dispatch)).toBe(false);
     expect(await updateEmbed(view, source({ load: unreadable }), { pos })).toBe(false);
+    expect(embedOf(view.state).node.attrs.snapshot).toBe('r1');
+    view.destroy();
+  });
+});
+
+describe('live spreadsheet embeds', () => {
+  // A host that holds a workbook's range: it answers with the range's rows as they are now, as
+  // the live-spreadsheet recipe gives them (DOCE-TABLES-4.1), and counts the loads asked of it.
+  function workbook(values: string[]) {
+    const host = {
+      loads: 0,
+      values,
+      finish: null as (() => void) | null,
+      deferred: false,
+      kinds: [KIND],
+      resolve: () => Promise.resolve({ ok: true as const, value: [] }),
+      load: () => {
+        host.loads += 1;
+        const value: EmbedContent = {
+          snapshot: `r${String(host.loads + 1)}`,
+          label: 'Set 7',
+          content: [tableFromRows(host.values.map((each) => [{ text: each }]))],
+        };
+        if (!host.deferred) return Promise.resolve({ ok: true as const, value });
+        return new Promise<{ ok: true; value: EmbedContent }>((done) => {
+          host.finish = () => done({ ok: true, value });
+        });
+      },
+    };
+    return host;
+  }
+
+  it('DOCE-EMBEDS-3.3 keeps a historical embed as it was captured, and never loads it', async () => {
+    const host = workbook(['Pump', 'Valve']);
+    const plugins = [
+      ...createDocumentEditing(documentSchema),
+      createEmbedStatus({ source: host, delay: 0 }),
+    ];
+    // A version shown in place of the document is read-only (DOCE-VERSIONS-5.1).
+    const view = new EditorView(document.createElement('div'), {
+      state: stateWith(STORED, plugins),
+      editable: () => false,
+    });
+    host.values = ['Pump', 'Valve', 'Tank'];
+    await settle();
+
+    expect(await updateEmbed(view, host, { pos: embedOf(view.state).pos })).toBe(false);
+    expect(host.loads).toBe(0);
+    expect(textOf(embedOf(view.state).node)).toBe('PumpValve');
+    expect(embedOf(view.state).node.attrs.snapshot).toBe('r1');
+    view.destroy();
+  });
+
+  it('DOCE-EMBEDS-3.3 changes nothing when a refresh completes after the editor became read-only', async () => {
+    const host = workbook(['Pump', 'Tank']);
+    host.deferred = true;
+    let editable = true;
+    const view = new EditorView(document.createElement('div'), {
+      state: stateWith(STORED),
+      editable: () => editable,
+    });
+    const pending = updateEmbed(view, host, { pos: embedOf(view.state).pos });
+    editable = false;
+    view.setProps({});
+    host.finish?.();
+
+    expect(await pending).toBe(false);
+    expect(host.loads).toBe(1);
+    expect(textOf(embedOf(view.state).node)).toBe('PumpValve');
     expect(embedOf(view.state).node.attrs.snapshot).toBe('r1');
     view.destroy();
   });
