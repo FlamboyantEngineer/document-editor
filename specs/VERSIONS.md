@@ -209,9 +209,9 @@ Verification: `src/components/document-panels/revision-list.test.tsx`, `src/sess
 
 `DocumentHistory` shall show the versions through the editor-owned `RevisionList`, built from `ListView`, `Attribution`, filters and modal revision actions, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
 
-Named-only and author filters shall retain their choices while groups expand or fold. All revision action, grouping and filter text belongs to the document or template labels.
+Named-only and author filters shall retain their choices while groups expand or fold. When the filters hide every version, the list shall say that no version matches rather than that there are none; when the versions could not be listed, it shall show only the error and its retry. All revision action, grouping and filter text belongs to the document or template labels. The list shall emit the `de-revision-list` hooks (Hooks).
 
-Implementation: `src/components/document-panels/revision-list.tsx`, `src/components/document-panels/revision-row.tsx`, `src/components/document-panels/revision-toolbar.tsx`, `src/components/document-panels/revision-labels.ts`, `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
+Implementation: `src/components/document-panels/revision-list.tsx`, `src/components/document-panels/revision-row.tsx`, `src/components/document-panels/revision-toolbar.tsx`, `src/components/document-panels/revision-hooks.ts`, `src/components/document-panels/revision-labels.ts`, `src/components/document-panels/document-history.tsx`, `src/components/document-panels/history-labels.ts`, `labs/src/history.lab.tsx`
 Verification: `src/components/document-panels/revision-list.test.tsx`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-4.7 - What the reader may do
@@ -232,7 +232,7 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 ### DOCE-VERSIONS-5.2 - Comparing two versions
 
-With `compareWith`, the view shall also hold the older version, and the editor shall show the viewed version's changes from it (DOCE-VERSIONS-2.3).
+With `compareWith`, the view shall also hold the older version, and the editor shall show the viewed version's changes from it (DOCE-VERSIONS-2.3). The revision list shall keep at most two versions selected, the newest picks, and select-all shall leave the selection unchanged.
 
 Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
 Verification: `src/components/document-panels/revision-list.test.tsx`, `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`
@@ -253,16 +253,33 @@ Verification: `src/components/document-panels/document-history.test.tsx`, `e2e/h
 
 ## Hooks
 
-| Hook                      | Kind      | Values                                                        | Description                                                     |
-| ------------------------- | --------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
-| `data-comparing`          | state     | `markup`, `bars`                                              | On the editor while it shows changes from an older version.     |
-| `data-diff-change`        | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move` | On a changed block, an inserted word or a deleted text.         |
-| `data-diff-deletion`      | attribute | `before`, `after`                                             | On the block before which, or after which, blocks were deleted. |
-| `data-diff-block`         | attribute | `true`                                                        | On a deleted block's text.                                      |
-| `data-diff-scope`         | attribute | `outside`                                                     | On a block outside a scoped comparison.                         |
-| `data-diff-lines`         | attribute | `kept`, `formatting`                                          | On a block whose text changed: what its other lines show.       |
-| `data-diff-line`          | attribute | `insertion`, `deletion`, `modification`, `formatting`         | On a changed word, where text was deleted, or a line's bar.     |
-| `de-change-lines`         | root      |                                                               | The bars beside a block's changed lines.                        |
-| `de-change-lines__line`   | slot      |                                                               | One changed line's bar.                                         |
-| `--de-change-line-top`    | property  |                                                               | The line's top from the block's top, in pixels.                 |
-| `--de-change-line-height` | property  |                                                               | The line's height, in pixels.                                   |
+| Hook                        | Kind      | Values                                                        | Description                                                     |
+| --------------------------- | --------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
+| `data-comparing`            | state     | `markup`, `bars`                                              | On the editor while it shows changes from an older version.     |
+| `data-diff-change`          | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move` | On a changed block, an inserted word or a deleted text.         |
+| `data-diff-deletion`        | attribute | `before`, `after`                                             | On the block before which, or after which, blocks were deleted. |
+| `data-diff-block`           | attribute | `true`                                                        | On a deleted block's text.                                      |
+| `data-diff-scope`           | attribute | `outside`                                                     | On a block outside a scoped comparison.                         |
+| `data-diff-lines`           | attribute | `kept`, `formatting`                                          | On a block whose text changed: what its other lines show.       |
+| `data-diff-line`            | attribute | `insertion`, `deletion`, `modification`, `formatting`         | On a changed word, where text was deleted, or a line's bar.     |
+| `de-change-lines`           | root      |                                                               | The bars beside a block's changed lines.                        |
+| `de-change-lines__line`     | slot      |                                                               | One changed line's bar.                                         |
+| `--de-change-line-top`      | property  |                                                               | The line's top from the block's top, in pixels.                 |
+| `--de-change-line-height`   | property  |                                                               | The line's height, in pixels.                                   |
+| `de-revision-list`          | root      |                                                               | The revision list, with `data-loading` while versions load.     |
+| `de-revision-list__toolbar` | slot      |                                                               | The filters and the compare action.                             |
+| `de-revision-list__error`   | slot      |                                                               | Why the versions could not be listed, with its retry.           |
+| `de-revision-list__list`    | slot      |                                                               | The selectable versions.                                        |
+| `de-revision-list__empty`   | slot      |                                                               | No versions, or none matching the filters.                      |
+| `de-revision-list__row`     | slot      |                                                               | A version; see its state attributes below.                      |
+| `data-current`              | state     | `true`                                                        | On the row of the current version.                              |
+| `data-named`                | state     | `true`                                                        | On the row of a named version.                                  |
+| `data-nested`               | state     | `true`                                                        | On an automatic version shown under its named version.          |
+| `data-expanded`             | state     | `true`                                                        | On a row whose folded versions show.                            |
+| `de-revision-list__fold`    | slot      |                                                               | The toggle that shows or folds a row's earlier versions.        |
+| `de-revision-list__title`   | slot      |                                                               | A version's name or saved time.                                 |
+| `de-revision-list__current` | slot      |                                                               | The current version's badge.                                    |
+| `de-revision-list__meta`    | slot      |                                                               | Who saved a version and when, and its summary.                  |
+| `de-revision-list__summary` | slot      |                                                               | What a version keeps beside its content.                        |
+| `de-revision-list__actions` | slot      |                                                               | A version's rename and restore menu.                            |
+| `de-revision-list__dialog`  | slot      |                                                               | A rename or restore dialog, with `data-action`.                 |

@@ -2,6 +2,7 @@ import { Button } from '@flamboyantengineer/ui-components/button';
 import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
 import { Cluster } from '@flamboyantengineer/ui-components/layout';
 import { Switch } from '@flamboyantengineer/ui-components/switch';
+import { revisionHooks as hooks } from './revision-hooks.js';
 import type { RevisionLabels } from './revision-labels.js';
 
 interface RevisionToolbarProps {
@@ -20,7 +21,7 @@ interface RevisionToolbarProps {
 export function RevisionToolbar(props: RevisionToolbarProps) {
   const { labels } = props;
   return (
-    <Cluster space="sm">
+    <Cluster space="sm" {...hooks.slot('toolbar')}>
       {props.showFilters ? (
         <>
           <Switch size="sm" isSelected={props.namedOnly} onChange={props.onNamedOnlyChange}>

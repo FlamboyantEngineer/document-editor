@@ -616,6 +616,62 @@
   border-radius: 6px;
 }
 
+/* The revision list: nested automatic versions indented under their named version, the current one
+   tinted, a summary and the empty or filtered state in muted text. */
+.de-revision-list {
+  min-width: 0;
+}
+
+.de-revision-list__toolbar {
+  align-items: center;
+}
+
+.de-revision-list__error {
+  color: var(--ref-danger, #cf222e);
+}
+
+.de-revision-list__list {
+  min-height: 0;
+  overflow: auto;
+}
+
+.de-revision-list__fold {
+  flex: none;
+}
+
+.de-revision-list__current {
+  flex: none;
+}
+
+.de-revision-list__meta {
+  font-size: 12px;
+}
+
+.de-revision-list__actions {
+  flex: none;
+}
+
+.de-revision-list__dialog[data-action='rename'] {
+  min-width: 320px;
+}
+
+.de-revision-list__row[data-nested='true'] {
+  padding-inline-start: 24px;
+}
+
+.de-revision-list__row[data-current='true'] {
+  background: color-mix(in srgb, var(--ref-accent, #0969da) 8%, transparent);
+}
+
+.de-revision-list__row[data-named='true'] .de-revision-list__title {
+  font-weight: 600;
+}
+
+.de-revision-list__summary,
+.de-revision-list__empty {
+  color: var(--ref-text-muted, #59636e);
+}
+
 /* Who wrote what, while the editor shows authorship: each writer's text tinted in their slot. */
 .de-document-editor[data-authorship='true'] [data-author-slot='0'] {
   background: color-mix(in srgb, #0969da 14%, transparent);
