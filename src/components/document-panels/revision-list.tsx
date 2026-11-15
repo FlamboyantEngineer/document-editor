@@ -6,6 +6,7 @@ import { ListView } from '@flamboyantengineer/ui-components/list-row';
 import { useState } from 'react';
 import { useRevisionActions } from './revision-actions.js';
 import { RevisionDialog } from './revision-dialog.js';
+import { revisionHooks as hooks } from './revision-hooks.js';
 import type { RevisionItem } from './revision-item.js';
 import { DEFAULT_REVISION_LABELS, type RevisionLabels } from './revision-labels.js';
 import { RevisionRow } from './revision-row.js';
@@ -25,6 +26,7 @@ interface RevisionListProps {
   isLoading?: boolean | undefined;
   error?: string | undefined;
   onRetry?: (() => void) | undefined;
+  className?: string | undefined;
 }
 
 /** History selection, folding, filters and revision actions belong to the editor. */
@@ -49,14 +51,17 @@ function useRevisionList(props: RevisionListProps) {
       (!person || item.person?.name.trim() === person);
     const children = (version.children ?? []).filter(matches);
     return [
-      ...(matches(version) ? [version] : []),
-      ...(expanded.has(version.id) || !matches(version) ? children : []),
+      ...(matches(version) ? [{ version, nested: false }] : []),
+      ...(expanded.has(version.id) || !matches(version)
+        ? children.map((child) => ({ version: child, nested: true }))
+        : []),
     ];
   });
+  // Select-all cannot pick the two versions a comparison takes, so it changes nothing.
   const choose = (keys: Selection) => {
-    const picked = keys === 'all' ? new Set(all.map((version) => version.id)) : keys;
-    const added = [...picked].filter((key) => !selected.has(key));
-    const kept = [...selected].filter((key) => picked.has(key));
+    if (keys === 'all') return;
+    const added = [...keys].filter((key) => !selected.has(key));
+    const kept = [...selected].filter((key) => keys.has(key));
     onSelectionChange(new Set([...kept, ...added].slice(-2)));
   };
   const compare = () => {
@@ -82,6 +87,7 @@ function useRevisionList(props: RevisionListProps) {
     expanded,
     ...actions,
     people,
+    hasVersions: all.length > 0,
     selected,
     visible,
     choose,
@@ -95,7 +101,10 @@ export function RevisionList(props: RevisionListProps) {
   const { onRename, onRestore } = props;
   const model = useRevisionList(props);
   return (
-    <Stack space="sm">
+    <Stack
+      space="sm"
+      {...hooks.root({ className: props.className, data: { loading: props.isLoading } })}
+    >
       {props.showFilters !== false || props.onCompare ? (
         <RevisionToolbar
           showFilters={props.showFilters !== false}
@@ -109,20 +118,33 @@ export function RevisionList(props: RevisionListProps) {
           canCompare={model.selected.size === 2}
         />
       ) : null}
-      {props.error ? <InlineError onRetry={props.onRetry}>{props.error}</InlineError> : null}
+      {props.error ? (
+        <InlineError onRetry={props.onRetry} {...hooks.slot('error')}>
+          {props.error}
+        </InlineError>
+      ) : null}
       <ListView
+        {...hooks.slot('list')}
         aria-label={props['aria-label']}
         selectionMode="multiple"
         selectionBehavior="toggle"
         selectedKeys={model.selected}
         onSelectionChange={model.choose}
         isLoading={props.isLoading}
-        renderEmptyState={() => model.labels.noRevisions}
+        renderEmptyState={() =>
+          // An error says why there is nothing to list; an empty state would contradict it.
+          props.error ? null : (
+            <span {...hooks.slot('empty')}>
+              {model.hasVersions ? model.labels.noMatchingRevisions : model.labels.noRevisions}
+            </span>
+          )
+        }
       >
-        {model.visible.map((version) => (
+        {model.visible.map(({ version, nested }) => (
           <RevisionRow
             key={version.id}
             version={version}
+            nested={nested}
             currentKey={props.currentKey}
             expanded={model.expanded.has(version.id)}
             onToggle={() => model.toggle(version.id)}

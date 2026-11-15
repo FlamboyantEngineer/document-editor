@@ -182,3 +182,100 @@ it('DOCE-VERSIONS-4.5 submits an available target through the latest callback', 
   expect(before).not.toHaveBeenCalled();
   expect(after).toHaveBeenCalledWith('old');
 });
+
+describe('Revision list hooks and empty states', () => {
+  it('DOCE-VERSIONS-4.6 emits de-revision-list hooks with row state attributes', async () => {
+    const user = userEvent.setup();
+    render(<History onCompare={vi.fn()} onRestore={vi.fn()} />);
+    const grid = screen.getByRole('grid', { name: 'Versions' });
+    expect(grid).toHaveClass('de-revision-list__list');
+    expect(grid.closest('.de-revision-list')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Compare versions' }).parentElement).toHaveClass(
+      'de-revision-list__toolbar',
+    );
+    const latest = screen.getByRole('row', { name: /Latest/ });
+    expect(latest).toHaveClass('de-revision-list__row');
+    expect(latest).toHaveAttribute('data-current', 'true');
+    expect(latest).toHaveAttribute('data-named', 'true');
+    expect(within(latest).getByText('Latest')).toHaveClass('de-revision-list__title');
+    expect(
+      within(latest).getByText('Current').closest('.de-revision-list__current'),
+    ).not.toBeNull();
+    const draft = screen.getByRole('row', { name: /Draft/ });
+    expect(draft).not.toHaveAttribute('data-current');
+    expect(draft).not.toHaveAttribute('data-expanded');
+    expect(within(draft).getByRole('button', { name: 'Version actions' })).toHaveClass(
+      'de-revision-list__actions',
+    );
+    await user.click(screen.getByRole('button', { name: '1 earlier version under Draft' }));
+    expect(screen.getByRole('row', { name: /Draft/ })).toHaveAttribute('data-expanded', 'true');
+    const nested = screen.getAllByRole('row')[2];
+    expect(nested).toHaveAttribute('data-nested', 'true');
+    expect(nested).not.toHaveAttribute('data-named');
+    expect(nested?.querySelector('.de-revision-list__meta')).not.toBeNull();
+    await user.click(within(draft).getByRole('button', { name: 'Version actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Restore version' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog.closest('.de-revision-list__dialog')).toHaveAttribute('data-action', 'restore');
+  });
+
+  it('DOCE-VERSIONS-4.6 marks a summary and the loading list', () => {
+    render(
+      <RevisionList
+        aria-label="Versions"
+        versions={[{ id: 'one', label: 'One', time: '2026-06-01T12:00:00Z', summary: 'Kept' }]}
+        onSelectionChange={vi.fn()}
+        isLoading
+      />,
+    );
+    expect(screen.getByText('Kept')).toHaveClass('de-revision-list__summary');
+    expect(
+      screen.getByRole('grid', { name: 'Versions' }).closest('.de-revision-list'),
+    ).toHaveAttribute('data-loading', 'true');
+  });
+
+  it('DOCE-VERSIONS-4.6 says no version matches when the filters hide every version', async () => {
+    const user = userEvent.setup();
+    render(
+      <RevisionList
+        aria-label="Versions"
+        versions={[{ id: 'auto', time: '2026-06-01T12:00:00Z' }]}
+        onSelectionChange={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole('switch', { name: 'Named versions only' }));
+    expect(screen.getByText('No matching versions')).toHaveClass('de-revision-list__empty');
+    expect(screen.queryByText('No versions')).not.toBeInTheDocument();
+  });
+
+  it('DOCE-VERSIONS-4.6 shows only the error when the versions could not be listed', () => {
+    render(
+      <RevisionList
+        aria-label="Versions"
+        versions={[]}
+        onSelectionChange={vi.fn()}
+        error="Offline"
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Offline').closest('.de-revision-list__error')).not.toBeNull();
+    expect(screen.queryByText('No versions')).not.toBeInTheDocument();
+  });
+
+  it('DOCE-VERSIONS-5.2 ignores select-all, which cannot pick two versions to compare', async () => {
+    const user = userEvent.setup();
+    const change = vi.fn();
+    render(
+      <RevisionList
+        aria-label="Versions"
+        versions={versions}
+        selectedKeys={['new']}
+        onSelectionChange={change}
+      />,
+    );
+    await user.click(screen.getByRole('row', { name: /Latest/ }));
+    change.mockClear();
+    await user.keyboard('{Control>}a{/Control}');
+    expect(change).not.toHaveBeenCalled();
+  });
+});

@@ -2,6 +2,7 @@ import type { Key } from '@flamboyantengineer/ui-components/core';
 import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';
+import { revisionHooks as hooks } from './revision-hooks.js';
 import { type RevisionItem, revisionTitle } from './revision-item.js';
 import type { RevisionLabels } from './revision-labels.js';
 
@@ -27,6 +28,7 @@ export function RevisionDialog({
   const restoring = action === 'restore';
   return (
     <Modal
+      {...hooks.slot('dialog', { action })}
       isOpen
       onOpenChange={(open) => {
         if (!open) onClose();

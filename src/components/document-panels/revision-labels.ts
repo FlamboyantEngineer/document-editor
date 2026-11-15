@@ -5,6 +5,8 @@ export interface RevisionLabels {
   readonly anyRevisionAuthor: string;
   readonly compareRevisions: string;
   readonly noRevisions: string;
+  /** Shown when the filters hide every version. */
+  readonly noMatchingRevisions: string;
   readonly currentRevision: string;
   readonly revisionActions: string;
   readonly nameRevision: string;
@@ -25,6 +27,7 @@ export const DEFAULT_REVISION_LABELS: RevisionLabels = {
   anyRevisionAuthor: 'Anyone',
   compareRevisions: 'Compare versions',
   noRevisions: 'No versions',
+  noMatchingRevisions: 'No matching versions',
   currentRevision: 'Current',
   revisionActions: 'Version actions',
   nameRevision: 'Name version',
