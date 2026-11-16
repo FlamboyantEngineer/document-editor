@@ -15,6 +15,11 @@ export interface StressProbe {
   readonly firstSettledAt: number | null;
   /** Types text into the middle text block, a character a transaction, as a remote writer. */
   typeRemotely(text: string): void;
+  /**
+   * Types into the middle text block as a remote writer up to the end of its line: until one more
+   * character would change the block's height.
+   */
+  typeRemotelyToLineEnd(): void;
 }
 
 // Where the middle text block of a document ends.
@@ -36,6 +41,28 @@ export function typeRemotely(view: EditorView, text: string): void {
   }
 }
 
+// The height the middle text block is drawn at, or null when it is not drawn.
+function middleHeight(view: EditorView): number | null {
+  const at = middleEnd(view);
+  if (at === null) return null;
+  const element = view.nodeDOM(view.state.doc.resolve(at).before());
+  return element instanceof HTMLElement ? element.getBoundingClientRect().height : null;
+}
+
+/** Types as a remote writer until one more character would change the middle block's height. */
+export function typeRemotelyToLineEnd(view: EditorView): void {
+  const height = middleHeight(view);
+  for (let count = 0; height !== null && count < 1000; count += 1) {
+    typeRemotely(view, 'x');
+    if (middleHeight(view) === height) continue;
+    const at = middleEnd(view);
+    if (at !== null) {
+      view.dispatch(view.state.tr.delete(at - 1, at).setMeta('addToHistory', false));
+    }
+    return;
+  }
+}
+
 /** Puts the probe on `window.stressLab` while the lab shows. */
 export function useStressProbe(
   handle: RefObject<DocumentEditorHandle | null>,
@@ -49,6 +76,10 @@ export function useStressProbe(
       typeRemotely: (text) => {
         const view = handle.current?.view();
         if (view) typeRemotely(view, text);
+      },
+      typeRemotelyToLineEnd: () => {
+        const view = handle.current?.view();
+        if (view) typeRemotelyToLineEnd(view);
       },
     };
     Object.assign(window, { stressLab: probe });
