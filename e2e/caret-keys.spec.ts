@@ -1,10 +1,16 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures.js';
+import { expect, type LabFixture, test } from './fixtures.js';
 
 const content = (page: Page) => page.locator('.de-document-editor__content');
 const pages = (page: Page) => content(page).locator('.pm-page');
 const blocks = (page: Page, index: number) =>
   pages(page).nth(index).locator('.pm-page-content > *');
+
+// Opens the editor lab once its pages are laid out for good, so clicks land where they aim.
+async function openEditor(lab: LabFixture, page: Page) {
+  await lab.open('document-editor');
+  await expect(page.locator('.de-document-editor')).toHaveAttribute('data-layout-state', 'settled');
+}
 
 // The page index and text of the block the browser's selection ends in, with what it selects.
 function selection(page: Page) {
@@ -48,7 +54,7 @@ test.describe('caret keys across pages', () => {
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     await expect(blocks(page, 0).first()).toHaveClass(/de-contents/);
     await clickInto(page, 2, 'last');
     await page.keyboard.press('ControlOrMeta+Home');
@@ -72,7 +78,7 @@ test.describe('caret keys across pages', () => {
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     const count = await pages(page).count();
     const into = count - 1;
     await clickInto(page, into, 'first', 2);
@@ -102,7 +108,7 @@ test.describe('caret keys across pages', () => {
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     const paragraph = blocks(page, 1).filter({ hasText: 'Each requirement' }).first();
     await paragraph.scrollIntoViewIfNeeded();
     const box = await paragraph.boundingBox();
@@ -130,11 +136,11 @@ test.describe('caret keys across pages', () => {
     await expect(blocks(page, 0).nth(1)).toContainText('beta');
   });
 
-  test('DOCE-PAGINATION-7.21 selects a word and a paragraph with double and triple clicks on a later page', async ({
+  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.22 selects a word and a paragraph with double and triple clicks on a later page', async ({
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     const last = (await pages(page).count()) - 1;
     const paragraph = blocks(page, last).filter({ hasText: 'Each requirement' }).first();
     await paragraph.scrollIntoViewIfNeeded();
@@ -162,11 +168,11 @@ test.describe('caret keys across pages', () => {
       .toEqual(['Replaced']);
   });
 
-  test('DOCE-PAGINATION-7.21 keeps the pages and the document in step through Shift+ArrowRight, Delete, Backspace and Enter', async ({
+  test('DOCE-PAGINATION-7.21 DOCE-PAGINATION-7.22 keeps the pages and the document in step through Shift+ArrowRight, Delete, Backspace and Enter', async ({
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     const paragraph = blocks(page, 1).filter({ hasText: 'Each requirement' }).first();
     await paragraph.scrollIntoViewIfNeeded();
     const box = await paragraph.boundingBox();
@@ -196,7 +202,7 @@ test.describe('caret keys across pages', () => {
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     await page.getByRole('button', { name: 'Blank document' }).click();
     await expect(pages(page)).toHaveCount(1);
     await expect(blocks(page, 0)).toHaveCount(1);
@@ -215,7 +221,7 @@ test.describe('caret keys across pages', () => {
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     const count = await pages(page).count();
     let found = -1;
     for (let index = 0; index < count - 1 && found < 0; index += 1) {
@@ -241,7 +247,7 @@ test.describe('caret keys across pages', () => {
   });
 
   test('DOCE-PAGINATION-7.21 moves with the same keys in the web layout', async ({ lab, page }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     await page.getByLabel('Web layout').check();
     const paragraph = content(page).locator('p', { hasText: 'Each requirement' }).last();
     await paragraph.scrollIntoViewIfNeeded();
@@ -258,7 +264,7 @@ test.describe('caret keys across pages', () => {
     lab,
     page,
   }) => {
-    await lab.open('document-editor');
+    await openEditor(lab, page);
     await page.getByLabel('Authoring').uncheck();
     const before = await content(page).textContent();
     await clickInto(page, 0, 'last');
