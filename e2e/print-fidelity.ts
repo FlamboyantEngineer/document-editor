@@ -217,9 +217,13 @@ export async function expectPrintEqualsEditor(
   snapshot: () => Promise<string>,
 ): Promise<readonly PageComparison[]> {
   // The caret is hidden by a stylesheet: Playwright hides it by writing a style on each editable
-  // element, which the editor takes for an edit of its pages and draws them again.
+  // element, which the editor takes for an edit of its pages and draws them again. So are the
+  // manual page break markers, which print leaves out (DOCE-EDITOR-6.33).
   await page.addStyleTag({
-    content: '#lab-chrome { display: none !important; } * { caret-color: transparent !important; }',
+    content: [
+      '#lab-chrome { display: none !important; } * { caret-color: transparent !important; }',
+      ':is(hr.manual-page-break, [data-page-break])::before, :is(hr.manual-page-break, [data-page-break])::after { display: none !important; }',
+    ].join(' '),
   });
   await page.mouse.move(0, 0);
   const pages = content(page).locator('.pm-page');
