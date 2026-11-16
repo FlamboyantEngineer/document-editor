@@ -31,6 +31,11 @@ export interface RoomChangeGuardOptions {
 /** A room-server openGuard result, disposed when its shadow is replaced or unloaded. */
 export interface RoomChangeGuard {
   check(change: RoomGuardRequest): boolean;
+  /**
+   * Reads the shadow's content from scratch and says whether the guard's kept reading still
+   * matches it; the room server calls it every `verifyEvery` changes and on idle.
+   */
+  verify(): boolean;
   destroy(): void;
 }
 
@@ -110,6 +115,7 @@ export function openRoomChangeGuard(
         return false;
       }
     },
+    verify: () => !destroyed && snapshots.verify(),
     destroy() {
       destroyed = true;
       snapshots.destroy();

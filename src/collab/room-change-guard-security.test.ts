@@ -286,12 +286,82 @@ describe('DOCE-COLLAB-7.2 authoritative document guard', () => {
       await room.close();
     }
   });
+
+  it('DOCE-COMMENTS-2.27 refuses naming an assistant or keeping meta without the host’s grant', async () => {
+    const room = await setup();
+    try {
+      room.doc.get('comments').setAttr(JSON.stringify(['entry', 'foreign', 'mine']), {
+        id: 'mine',
+        author: 'writer',
+        text: 'Reply',
+        createdAt: '2026-01-02',
+        agent: 'helper',
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+    } finally {
+      await room.close();
+    }
+  });
+
+  it('DOCE-COMMENTS-2.27 accepts the assistant and meta of a thread the host lets label, refusing malformed meta', async () => {
+    const room = await setup({
+      resolvePermissions: () => ({ ...permissions, labelAgents: true }),
+    });
+    try {
+      const comments = createRoomCommentStore({
+        doc: room.doc,
+        identity: createMemoryHost({ person: { id: 'writer', name: 'Writer' } }).identity,
+        createId: () => 'entry',
+      });
+      await comments.create('guard', {
+        id: 'thread',
+        quote: 'Original',
+        text: 'Discussion',
+        agent: 'helper',
+        meta: { review: 'pending' },
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBeNull();
+      room.doc.get('comments').setAttr(JSON.stringify(['entry', 'thread', 'second']), {
+        id: 'second',
+        author: 'writer',
+        text: 'More',
+        createdAt: '2026-01-01',
+        meta: 'not a record',
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+    } finally {
+      await room.close();
+    }
+  });
 });
 
 const attackCases: readonly [string, (doc: Y.Doc) => void][] = [
   [
     'foreign thread tombstone',
     (doc) => doc.get('comments').setAttr(JSON.stringify(['removed', 'foreign']), true),
+  ],
+  [
+    'foreign thread deletion',
+    (doc) =>
+      doc
+        .get('comments')
+        .setAttr(JSON.stringify(['removed', 'foreign']), { by: 'writer', at: '2026-01-01' }),
+  ],
+  [
+    'foreign comment deletion',
+    (doc) =>
+      doc.get('comments').setAttr(JSON.stringify(['entry', 'foreign', 'entry']), {
+        ...(doc.get('comments').getAttr(JSON.stringify(['entry', 'foreign', 'entry'])) as object),
+        deletedBy: 'writer',
+        deletedAt: '2026-01-01',
+      }),
+  ],
+  [
+    'comment taken out',
+    (doc) => doc.get('comments').deleteAttr(JSON.stringify(['entry', 'foreign', 'entry'])),
   ],
   [
     'foreign quote',
@@ -402,7 +472,7 @@ it.each(attackCases)(
   },
 );
 
-it('DOCE-COLLAB-7.2 permits an owned whole-thread removal including replies and reactions', async () => {
+it('DOCE-COLLAB-7.2 permits an owned thread deletion, which keeps the thread and its replies', async () => {
   const room = await setup();
   try {
     const comments = createRoomCommentStore({
@@ -432,7 +502,9 @@ it('DOCE-COLLAB-7.2 permits an owned whole-thread removal including replies and 
       doc: room.snapshot(),
       identity: createMemoryHost().identity,
     }).list('guard');
-    expect(remaining.ok && remaining.value.some((thread) => thread.id === 'mine')).toBe(false);
+    const deleted = remaining.ok ? remaining.value.find((thread) => thread.id === 'mine') : null;
+    expect(deleted).toMatchObject({ state: 'deleted', deletedBy: 'writer' });
+    expect(deleted?.entries.map((entry) => entry.text)).toEqual(['Discussion', 'Reply']);
   } finally {
     await room.close();
   }
@@ -922,6 +994,125 @@ it('DOCE-COLLAB-7.2 refuses a foreign block-format author hidden behind an own p
         });
       return state.apply(tr);
     });
+    await room.provider.whenStored();
+    expect(room.provider.getState().refusal).toBe('unauthorized-write');
+  } finally {
+    await room.close();
+  }
+});
+
+it('DOCE-COMMENTS-2.30 refuses deleting a reply that is not the last left, and keeps a deleted one', async () => {
+  const room = await setup();
+  try {
+    let ids = 0;
+    const comments = createRoomCommentStore({
+      doc: room.doc,
+      identity: createMemoryHost({ person: { id: 'writer', name: 'Writer' } }).identity,
+      createId: () => `c${String((ids += 1))}`,
+    });
+    await comments.create('guard', { id: 'mine', quote: 'Original', text: 'Discussion' });
+    await comments.reply('guard', 'mine', 'First');
+    await comments.reply('guard', 'mine', 'Second');
+    await room.provider.whenStored();
+    const name = JSON.stringify(['entry', 'mine', 'c2']);
+    const first = room.doc.get('comments').getAttr(name) as object;
+    room.doc
+      .get('comments')
+      .setAttr(name, { ...first, deletedBy: 'writer', deletedAt: '2026-01-02' });
+    await room.provider.whenStored();
+    expect(room.provider.getState().refusal).toBe('unauthorized-write');
+  } finally {
+    await room.close();
+  }
+});
+
+it('DOCE-COMMENTS-2.31 lets a moderator delete another person’s comment, kept as a record', async () => {
+  const room = await setup({
+    resolvePermissions: () => ({ ...permissions, manageComments: true }),
+  });
+  try {
+    const comments = createRoomCommentStore({
+      doc: room.doc,
+      identity: createMemoryHost({ person: { id: 'writer', name: 'Writer' } }).identity,
+      moderates: true,
+    });
+    await expect(
+      comments.removeEntry?.('guard', { threadId: 'foreign', entryId: 'entry' }),
+    ).resolves.toMatchObject({ ok: true });
+    await comments.remove('guard', 'foreign');
+    await room.provider.whenStored();
+    expect(room.provider.getState().refusal).toBeNull();
+    const stored = await createRoomCommentStore({
+      doc: room.snapshot(),
+      identity: createMemoryHost().identity,
+    }).list('guard');
+    const thread = stored.ok ? stored.value.find((each) => each.id === 'foreign') : null;
+    expect(thread).toMatchObject({ state: 'deleted', deletedBy: 'writer' });
+    expect(thread?.entries[0]).toMatchObject({ text: 'Owned discussion', deletedBy: 'writer' });
+  } finally {
+    await room.close();
+  }
+});
+
+it('DOCE-COMMENTS-2.30 accepts deleting the last reply left, kept with its text', async () => {
+  const room = await setup();
+  try {
+    let ids = 0;
+    const comments = createRoomCommentStore({
+      doc: room.doc,
+      identity: createMemoryHost({ person: { id: 'writer', name: 'Writer' } }).identity,
+      createId: () => `c${String((ids += 1))}`,
+    });
+    await comments.create('guard', { id: 'mine', quote: 'Original', text: 'Discussion' });
+    await comments.reply('guard', 'mine', 'First');
+    await comments.react?.('guard', {
+      threadId: 'mine',
+      entryId: 'c2',
+      emoji: 'ok',
+      reacted: true,
+    });
+    await comments.removeEntry?.('guard', { threadId: 'mine', entryId: 'c2' });
+    await room.provider.whenStored();
+    expect(room.provider.getState().refusal).toBeNull();
+    const stored = await createRoomCommentStore({
+      doc: room.snapshot(),
+      identity: createMemoryHost().identity,
+    }).list('guard');
+    const thread = stored.ok ? stored.value.find((each) => each.id === 'mine') : null;
+    expect(thread?.entries[1]).toMatchObject({ text: 'First', deletedBy: 'writer' });
+    expect(thread?.entries[1]?.reactions).toBeUndefined();
+  } finally {
+    await room.close();
+  }
+});
+
+it('DOCE-COMMENTS-2.32 refuses taking another person’s reaction from a comment deleted before', async () => {
+  const room = await setup();
+  try {
+    let ids = 0;
+    const comments = createRoomCommentStore({
+      doc: room.doc,
+      identity: createMemoryHost({ person: { id: 'writer', name: 'Writer' } }).identity,
+      createId: () => `c${String((ids += 1))}`,
+    });
+    await comments.create('guard', { id: 'mine', quote: 'Original', text: 'Discussion' });
+    await comments.reply('guard', 'mine', 'First');
+    await room.provider.whenStored();
+    const reaction = JSON.stringify(['reaction', 'mine', 'c2', 'ok', 'owner']);
+    room.handle.transact({ actor: { id: 'owner' }, capabilities: ['comment'] }, (doc) => {
+      doc.get('comments').setAttr(reaction, true);
+    });
+    await vi.waitFor(() => expect(room.doc.get('comments').getAttr(reaction)).toBe(true));
+    const name = JSON.stringify(['entry', 'mine', 'c2']);
+    // Deleted without its reactions, as another editor might, then the reaction taken later.
+    room.doc.get('comments').setAttr(name, {
+      ...(room.doc.get('comments').getAttr(name) as object),
+      deletedBy: 'writer',
+      deletedAt: '2026-01-02',
+    });
+    await room.provider.whenStored();
+    expect(room.provider.getState().refusal).toBeNull();
+    room.doc.get('comments').deleteAttr(reaction);
     await room.provider.whenStored();
     expect(room.provider.getState().refusal).toBe('unauthorized-write');
   } finally {

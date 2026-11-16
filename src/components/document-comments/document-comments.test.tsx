@@ -111,7 +111,10 @@ describe('DocumentComments', () => {
     act(() => stored?.());
     await waitFor(async () => {
       const listed = await store.list('doc');
-      expect(listed.ok && listed.value.map((each) => each.id)).toEqual(['open', 'done']);
+      // The thread is deleted, kept as a record of it.
+      expect(
+        listed.ok && listed.value.filter((each) => each.state !== 'deleted').map((each) => each.id),
+      ).toEqual(['open', 'done']);
     });
     expect(seen.state && listCommentAnchors(seen.state.doc).map((each) => each.text)).toEqual([
       'blue',

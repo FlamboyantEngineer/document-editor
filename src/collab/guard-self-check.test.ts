@@ -1,0 +1,152 @@
+// @vitest-environment node
+import { createRoomProvider } from '@flamboyantengineer/collaboration-tools/client';
+import {
+  createMemoryPersistence,
+  createRoomServer,
+  type RoomEvent,
+} from '@flamboyantengineer/collaboration-tools/server';
+import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
+import * as Y from '@y/y';
+import { EditorState } from 'prosemirror-state';
+import { describe, expect, it, vi } from 'vitest';
+import { documentSchema as schema } from '../../test/document-markup.js';
+import type { DocumentFile } from '../model/index.js';
+import { documentToYjs } from './convert.js';
+import { readContent } from './delta.js';
+import { diffNodes } from './diff.js';
+import type * as Replay from './replay.js';
+import { openRoomChangeGuard } from './room-change-guard.js';
+
+const skip = vi.hoisted(() => ({ next: false }));
+
+vi.mock('./replay.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof Replay>();
+  return {
+    ...actual,
+    replayChange: (...args: Parameters<typeof actual.replayChange>) => {
+      // Lets a test make the guard's kept reading miss one change, as a replay defect would.
+      if (skip.next) {
+        skip.next = false;
+        return;
+      }
+      actual.replayChange(...args);
+    },
+  };
+});
+
+const file = (text: string): DocumentFile => ({
+  formatVersion: 1,
+  template: null,
+  sections: [
+    {
+      name: null,
+      content: [
+        { type: 'paragraph', attrs: { id: 'a0000001' }, content: [{ type: 'text', text }] },
+      ],
+    },
+  ],
+});
+
+function seeded(text: string) {
+  const shadow = new Y.Doc();
+  Y.applyUpdate(shadow, documentToYjs(file(text), { schema }));
+  return shadow;
+}
+
+function edit(doc: Y.Doc, action: (state: EditorState) => EditorState) {
+  const held = readContent(schema, doc.get('content'));
+  if (!held) throw new Error('Missing seeded content.');
+  const next = action(EditorState.create({ doc: held }));
+  doc.get('content').applyDelta(diffNodes(held, next.doc) as never);
+}
+
+const open = (shadow: Y.Doc) =>
+  openRoomChangeGuard(shadow, {
+    schema,
+    permissions: () => ({ edit: true, suggest: true, comment: true, decide: true }),
+  });
+
+describe('DOCE-COLLAB-7.3 guard self-check', () => {
+  it('verifies its kept reading against the shadow read from scratch after every change', () => {
+    const shadow = seeded('Original');
+    const guard = open(shadow);
+    expect(guard.verify()).toBe(true);
+    for (let step = 0; step < 20; step++) {
+      edit(shadow, (state) => state.apply(state.tr.insertText(String(step % 10), 1 + (step % 5))));
+      expect(guard.verify()).toBe(true);
+    }
+    edit(shadow, (state) => state.apply(state.tr.delete(1, 6)));
+    expect(guard.verify()).toBe(true);
+    guard.destroy();
+    shadow.destroy();
+  });
+
+  it('reports a kept reading that missed a change, and a destroyed guard', () => {
+    const shadow = seeded('Original');
+    const guard = open(shadow);
+    skip.next = true;
+    edit(shadow, (state) => state.apply(state.tr.insertText('X', 1)));
+
+    expect(guard.verify()).toBe(false);
+    const reopened = open(shadow);
+    expect(reopened.verify()).toBe(true);
+    reopened.destroy();
+    expect(reopened.verify()).toBe(false);
+    guard.destroy();
+    shadow.destroy();
+  });
+
+  it('rebuilds a drifted reading on a real room server with verifyEvery 1, and reports it', async () => {
+    const events: RoomEvent[] = [];
+    let opens = 0;
+    const server = createRoomServer({
+      storeDebounceMs: 0,
+      host: {
+        persistence: createMemoryPersistence(),
+        auth: {
+          admit: () => Promise.resolve({ ok: true, actor: { id: 'writer' }, access: 'read-write' }),
+        },
+        events: { emit: (event) => void events.push(event) },
+        permissions: {
+          rulesFor: () => ({
+            verifyEvery: 1,
+            openGuard: (shadow) => {
+              opens++;
+              return open(shadow);
+            },
+          }),
+        },
+        seeds: { seed: () => Promise.resolve(documentToYjs(file('Original'), { schema })) },
+      },
+    });
+    const doc = new Y.Doc();
+    const provider = createRoomProvider({
+      endpoint: 'ws://test/rooms',
+      room: 'guarded',
+      doc,
+      createSocket: connectToServer(server).createSocket,
+    });
+    try {
+      await vi.waitFor(() => expect(provider.getState().synced).toBe(true));
+      edit(doc, (state) => state.apply(state.tr.insertText('A', 1)));
+      expect(await provider.whenStored()).toBe(true);
+      expect(events.filter((event) => event.type === 'guard-repaired')).toEqual([]);
+
+      skip.next = true;
+      edit(doc, (state) => state.apply(state.tr.insertText('B', 1)));
+      expect(await provider.whenStored()).toBe(true);
+      expect(events.filter((event) => event.type === 'guard-repaired')).toEqual([
+        { type: 'guard-repaired', room: 'guarded', reason: 'reading' },
+      ]);
+      expect(opens).toBe(2);
+      // The rebuilt guard reads the room as it is and keeps admitting the writer's edits.
+      edit(doc, (state) => state.apply(state.tr.insertText('C', 1)));
+      expect(await provider.whenStored()).toBe(true);
+      expect(provider.getState().refusal).toBeNull();
+    } finally {
+      provider.destroy();
+      await server.close();
+      doc.destroy();
+    }
+  });
+});

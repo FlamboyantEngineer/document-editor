@@ -62,6 +62,14 @@ export function watchGuardSnapshots(
   return {
     before: (transaction: Y.Transaction) => before.get(transaction),
     content: (scope: RoomScope) => (invalid.has(scope) ? undefined : content.get(scope)),
+    /** Whether the kept reading of every scope equals a reading of its content from scratch. */
+    verify: () =>
+      options.scopes.every((scope) => {
+        if (invalid.has(scope)) return false;
+        const held = content.get(scope) ?? null;
+        const fresh = readContent(options.schema, scope.content);
+        return held === null || fresh === null ? held === fresh : held.eq(fresh);
+      }),
     destroy() {
       for (const stop of stops) stop();
       doc.off('beforeTransaction', remember);

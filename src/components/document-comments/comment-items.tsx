@@ -12,7 +12,6 @@ import {
   describeDraftTarget,
   linkSuggestionThread,
   listSuggestions,
-  removeCommentAnchor,
   selectedText,
   setCommentState,
   type Suggestion,
@@ -258,7 +257,8 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           }}
           onRemove={async () => {
             await context.comments.remove(item.thread.id);
-            run(inDocument(removeCommentAnchor(item.thread.id)));
+            // The anchor stays as a record of the thread, deleted as the store keeps it.
+            run(inDocument(setCommentState(item.thread.id, 'deleted')));
           }}
         />
       );

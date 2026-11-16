@@ -18,8 +18,21 @@ const recordFields: Readonly<Record<string, readonly string[]>> = {
     'target',
     'change',
     'automatic',
+    'agent',
+    'meta',
   ],
-  entry: ['id', 'author', 'text', 'createdAt', 'editedAt'],
+  entry: [
+    'id',
+    'author',
+    'text',
+    'createdAt',
+    'editedAt',
+    'agent',
+    'meta',
+    'deletedBy',
+    'deletedAt',
+  ],
+  removed: ['by', 'at'],
   state: ['state', 'by', 'at'],
   decision: ['decision', 'suggestion', 'by', 'at', 'dependsOn'],
   quote: ['value', 'at'],
@@ -80,13 +93,27 @@ export function isDiscussionField(kind: string, record: unknown): boolean {
   return kind === 'target' ? isTarget(value.value) : isChange(value.value);
 }
 
+// The assistant a thread or a comment names is text, and the host's meta a record of its own.
+function hasValidLabels(value: unknown): boolean {
+  const { agent, meta } = fieldsOf(value);
+  const isRecord = typeof meta === 'object' && meta !== null && !Array.isArray(meta);
+  return (agent === undefined || typeof agent === 'string') && (meta === undefined || isRecord);
+}
+
+// A thread's or a comment's record names the id its key does, and its labels are well formed.
 function hasRecordIdentity(key: RecordKey, value: unknown): boolean {
-  if (key[0] === 'thread') return fieldsOf(value).id === key[1];
-  if (key[0] === 'entry') return fieldsOf(value).id === key[2];
+  if (key[0] === 'thread') return fieldsOf(value).id === key[1] && hasValidLabels(value);
+  if (key[0] === 'entry') return fieldsOf(value).id === key[2] && hasValidLabels(value);
   return true;
 }
 
-/** Rejects dangling records and tombstones that hide records left underneath them. */
+/** Who deleted a thread and when, as its removal record says. */
+function isRemoval(value: unknown): boolean {
+  const { by, at } = fieldsOf(value);
+  return hasOnly(value, ['by', 'at']) && typeof by === 'string' && typeof at === 'string';
+}
+
+/** Rejects dangling records and removals of threads that are not there. */
 export function hasConsistentRecords(records: ReadonlyMap<string, unknown>): boolean {
   for (const [name, value] of records) {
     const key = parseKey(name);
@@ -95,11 +122,7 @@ export function hasConsistentRecords(records: ReadonlyMap<string, unknown>): boo
     if (!hasRecordIdentity(key, value)) return false;
     const allowed = recordFields[kind];
     if (allowed && !hasOnly(value, allowed)) return false;
-    if (kind === 'removed') {
-      if (value !== true) return false;
-      continue;
-    }
-    if (records.has(JSON.stringify(['removed', thread]))) return false;
+    if (kind === 'removed' && !isRemoval(value)) return false;
     if (!records.has(JSON.stringify(['thread', thread]))) return false;
     if (kind === 'reaction' && key[2] && !records.has(JSON.stringify(['entry', thread, key[2]])))
       return false;

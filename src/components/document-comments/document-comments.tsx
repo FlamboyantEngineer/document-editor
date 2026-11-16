@@ -38,6 +38,7 @@ import { useCommentPointer } from './comment-pointer-controls.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import type { CommentPointer } from './document-pointer.js';
 import { MarginCard, useCardPolicy, useStableCallbacks } from './margin-card.js';
+import type { ReplyStart, ShownActivity } from './thread-card-hooks.js';
 import type { ThreadPermissionPolicy } from './thread-permissions.js';
 import { useCardContext } from './use-card-context.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
@@ -97,6 +98,16 @@ export interface DocumentCommentsOptions {
    * to it; the opening comment's (`index` 0) act on the whole thread.
    */
   commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
+  /**
+   * The text a thread's reply starts with for the reader, such as a mention of the assistant the
+   * reader's last comment asked; used only while nothing is typed for the thread.
+   */
+  replyStart?: ReplyStart | undefined;
+  /**
+   * Called once a reply being written for the reader (a `pending` comment) is drawn and painted on
+   * a card, once for each card that shows it, so the host may start the work behind it only then.
+   */
+  onActivityShown?: ((shown: ShownActivity) => void) | undefined;
   /**
    * Shows a marker beside the text of each thread and suggestion, whose card opens only when the
    * reader asks for it (`markers`, the default), or a card for each (`cards`).
