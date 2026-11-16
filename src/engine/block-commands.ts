@@ -14,6 +14,7 @@ export const OBJECT_BLOCK_TYPES: ReadonlySet<string> = new Set([
   'toc_block',
   'signature',
   'horizontal_rule',
+  'script_block',
 ]);
 
 /**

@@ -23,6 +23,7 @@ export {
   paginationKey,
 } from './layout-marks.js';
 export type { LayoutState } from './layout-readiness.js';
+export type { LayoutTrace, LayoutTraceSink } from './layout-trace.js';
 export type { PageOverflow } from './layout-validation.js';
 export { findPageOverflow } from './layout-validation.js';
 export { createListStarts, listStartsKey } from './list-starts.js';
@@ -30,8 +31,8 @@ export type { MeasureCache, MeasureOptions } from './measure-blocks.js';
 export { createMeasureCache, measureChildBlocks } from './measure-blocks.js';
 export type { FootnoteArea } from './measure-footnotes.js';
 export { footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
-export type { PageDebugParts } from './page-debug.js';
-export { createPageDebug, pageDebugKey } from './page-debug.js';
+export type { PageDebugOptions, PageDebugParts, PageDebugSheet } from './page-debug.js';
+export { createPageDebug, debugLength, pageDebugKey } from './page-debug.js';
 export type { PageBox } from './page-geometry.js';
 export { pageAtPoint, pageBoxes, pageElements } from './page-geometry.js';
 export type { LaidOutPage, PageMap } from './page-map.js';

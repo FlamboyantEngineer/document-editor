@@ -24,7 +24,6 @@ import {
 } from './toolbar-items.js';
 import { toolsEntries, type ToolsFeatures } from './tools-entries.js';
 import type { DocumentExports } from './use-document-exports.js';
-import type { DocumentLayout } from './use-document-layout.js';
 
 /** A top-level menu of the menubar. */
 export interface DocumentMenu {
@@ -51,8 +50,6 @@ export interface DocumentMenubarOptions {
 export interface MenubarFeatures extends ToolsFeatures {
   readonly groups: readonly ToolbarGroup[];
   readonly openFind: (() => void) | null;
-  readonly layout: DocumentLayout;
-  readonly onLayoutChange?: ((layout: DocumentLayout) => void) | undefined;
   readonly zoom?: EditorZoom | null;
   /** What the mode and markup controls change, while the host offers them. */
   readonly shell?: ShellFeatures | undefined;
@@ -173,15 +170,7 @@ function zoomEntries(zoom: EditorZoom, labels: EditorContext['labels']): MenuEnt
 
 function viewMenu(context: EditorContext, features: MenubarFeatures): DocumentMenu {
   const { labels } = context;
-  const { onLayoutChange, zoom } = features;
-  const layouts: MenuEntry[] = onLayoutChange
-    ? (['page', 'web'] as const).map((layout) => ({
-        id: `layout-${layout}`,
-        label: layout === 'page' ? labels.pageLayout : labels.webLayout,
-        isSelected: features.layout === layout,
-        onAction: () => onLayoutChange(layout),
-      }))
-    : [];
+  const { zoom } = features;
   const zooms: MenuEntry[] = zoom ? zoomEntries(zoom, labels) : [];
   const shell = features.shell ?? {};
   const modes: MenuEntry[] = [
@@ -192,7 +181,7 @@ function viewMenu(context: EditorContext, features: MenubarFeatures): DocumentMe
       ? [{ id: 'markup', label: labels.markup, items: markupEntries(context, shell) }]
       : []),
   ];
-  const parts = [modes, layouts, zooms].filter((part) => part.length > 0);
+  const parts = [modes, zooms].filter((part) => part.length > 0);
   return {
     id: 'view',
     label: labels.menuView,

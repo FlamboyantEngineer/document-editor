@@ -256,25 +256,26 @@ export function tableCellEntries(view: EditorView, labels: DocumentEditorLabels)
 }
 
 /**
- * The entries of the object at `pos`, such as a table or a figure, holding the selection: a
- * paragraph before or after it, and, for an object other than a table, which the table entries
- * delete, deleting it.
+ * The entry deleting the object at `pos`, such as a figure, holding the selection; none for a
+ * table, which the table entries delete.
  */
 export function objectEntries(
   view: EditorView,
   labels: DocumentEditorLabels,
   pos: number,
 ): MenuEntry[] {
-  const isTable = view.state.doc.nodeAt(pos)?.type.name === 'table';
-  const deleting: MenuEntry[] = isTable
-    ? []
-    : [
-        commandEntry(
-          view,
-          { id: 'delete-object', label: labels.deleteBlock, icon: DeleteGlyph, tone: 'danger' },
-          deleteObject,
-        ),
-      ];
+  if (view.state.doc.nodeAt(pos)?.type.name === 'table') return [];
+  return [
+    commandEntry(
+      view,
+      { id: 'delete-object', label: labels.deleteBlock, icon: DeleteGlyph, tone: 'danger' },
+      deleteObject,
+    ),
+  ];
+}
+
+/** The entries adding a paragraph before or after the object holding the selection. */
+export function paragraphEntries(view: EditorView, labels: DocumentEditorLabels): MenuEntry[] {
   return [
     commandEntry(
       view,
@@ -286,6 +287,5 @@ export function objectEntries(
       { id: 'paragraph-after', label: labels.paragraphAfter },
       insertParagraphBesideObject('after'),
     ),
-    ...deleting,
   ];
 }

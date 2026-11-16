@@ -74,9 +74,10 @@ const figureSource = (fields: FigureFields): FigureSource => ({
 
 // The width of the pages' content: the editor's measuring area in page layout, else the document.
 function contentWidth(view: EditorView): number {
-  const measure = view.dom
-    .closest('.de-document-editor')
-    ?.querySelector(':scope > .de-document-editor__measure');
+  const root = view.dom.closest('.de-document-editor');
+  const measure = [...(root?.querySelectorAll('.de-document-editor__measure') ?? [])].find(
+    (element) => element.closest('.de-document-editor') === root,
+  );
   return (measure ?? view.dom).clientWidth;
 }
 

@@ -8,6 +8,7 @@ import {
   SearchGlyph,
   UsersGlyph,
 } from '@flamboyantengineer/ui-components/core';
+import { EmptyState } from '@flamboyantengineer/ui-components/empty-state';
 import type { ContextType } from 'react';
 import {
   type DocumentCommentsOptions,
@@ -57,8 +58,8 @@ function CommentsPane({
   return <DocumentCommentsPanel {...shared} defaultFilter={filter} context={context} />;
 }
 
-/** A built-in pane as a host pane; null for the comments pane of an editor without comments. */
-export function builtInPane(id: BuiltInPane, sources: BuiltInSources): DocumentPane | null {
+/** A built-in pane as a host pane. */
+export function builtInPane(id: BuiltInPane, sources: BuiltInSources): DocumentPane {
   const { props, labels, comments } = sources;
   const { template } = props;
   switch (id) {
@@ -94,15 +95,18 @@ export function builtInPane(id: BuiltInPane, sources: BuiltInSources): DocumentP
         ),
       };
     case 'comments':
-      return comments
-        ? {
-            id,
-            label: labels.comments,
-            icon: ChatBubbleCheckGlyph,
-            count: openThreads(sources),
-            render: (context) => <CommentsPane comments={comments} context={context} />,
-          }
-        : null;
+      return {
+        id,
+        label: labels.comments,
+        icon: ChatBubbleCheckGlyph,
+        count: openThreads(sources),
+        render: (context) =>
+          comments ? (
+            <CommentsPane comments={comments} context={context} />
+          ) : (
+            <EmptyState size="sm" description={labels.commentsUnavailable} />
+          ),
+      };
     case 'contributors':
       return {
         id,

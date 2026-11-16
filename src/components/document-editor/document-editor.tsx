@@ -44,11 +44,12 @@ import {
   type TemplatePin,
   templateProperties,
 } from '../../model/index.js';
-import type { LayoutState, PageDebugParts } from '../../pagination/index.js';
+import type { LayoutState, LayoutTrace, PageDebugParts } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { type DocumentBanner, useReportedFonts } from './banners.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
+import { useDebugShortcut } from './debug-modes.js';
 import type { HostDialogProps } from './dialog-parts.js';
 import type { DocumentStatusBarOptions } from './document-status-bar.js';
 import { EditorBody } from './editor-body.js';
@@ -93,8 +94,12 @@ export interface DocumentEditorIdRepair {
 
 /** What the layout debugging shows. */
 export interface DocumentEditorDebug extends PageDebugParts {
-  /** The hidden view the pages are measured in, for a stylesheet to show beside them. */
+  /** The hidden view the pages are measured in, shown in a pane beside them. */
   readonly measure?: boolean | undefined;
+  /** The pages' markup, read-only and highlighted, in a pane beside them. */
+  readonly source?: boolean | undefined;
+  /** Receives the layout's trace, a line for each layout, mirror and scheduling event. */
+  readonly trace?: ((entry: LayoutTrace) => void) | undefined;
 }
 import {
   type DocumentComparison,
@@ -218,6 +223,8 @@ export interface DocumentEditorProps
    * left; the parts name what else shows.
    */
   debug?: boolean | DocumentEditorDebug | undefined;
+  /** Receives the next debugging mode's parts when the writer presses the `debug` shortcut. */
+  onDebugChange?: ((debug: DocumentEditorDebug) => void) | undefined;
   /** Shows who wrote what: each writer's text in their colour slot (`data-author-slot`). */
   authorship?: boolean | undefined;
   /**
@@ -300,17 +307,7 @@ export interface DocumentEditorProps
   panels?: { readonly start?: ReactNode; readonly end?: ReactNode } | undefined;
 }
 
-const hooks = createHooks('document-editor', [
-  'measure',
-  'toolbar',
-  'body',
-  'content',
-  'status-bar',
-  'find',
-]);
-
-// The measuring view is hidden from assistive technology and out of the keyboard's reach.
-const MEASURE_SLOT = { 'aria-hidden': 'true', inert: true, spellCheck: false } as const;
+const hooks = createHooks('document-editor', ['toolbar', 'body', 'content', 'status-bar', 'find']);
 
 // Where the pages are measured, and the editor's context, which the ghost's node views read too.
 interface EditorLayoutRefs {
@@ -365,6 +362,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const root = useRef<HTMLDivElement>(null);
   useWheelZoom(root, props);
   useSaveShortcut(root, { session: props.session, shortcuts: shortcutsOf(state) });
+  useDebugShortcut(root, props);
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props, tap);
   const editorContext = useRef<EditorContext | null>(null);
@@ -414,10 +412,8 @@ export function DocumentEditor(given: DocumentEditorProps) {
           { ...templateStyle, '--de-zoom': String((props.zoom ?? 100) / 100) } as CSSProperties
         }
       >
-        {layout === 'page' ? (
-          <div {...hooks.slot('measure')} {...MEASURE_SLOT} ref={measureIn} />
-        ) : null}
         <EditorSurface
+          measureIn={layout === 'page' ? measureIn : null}
           chrome={chrome}
           following={{ top, bottom }}
           root={root}

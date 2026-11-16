@@ -1,6 +1,7 @@
 // Keeps the caret where the writer sees it when a layout moves the pages: a line that moves onto
 // the next page would otherwise jump by the space between pages, or out of view.
 
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 
 /** Where the caret is on screen before a layout: its top, when the editor has focus. */
@@ -36,4 +37,22 @@ export function keepCaretInPlace(view: EditorView, before: number | null): void 
   if (before === null || after === null || Math.abs(after - before) < 1) return;
   const element = scroller(view);
   if (element) element.scrollTop += after - before;
+}
+
+// Where the caret was on screen before each laid-out document was taken, until it is drawn.
+const caretBefore = new WeakMap<ProseMirrorNode, number | null>();
+
+/**
+ * Where the caret was on screen before the layout that made a document, once, so the view that
+ * draws it can put the caret back there (DOCE-PAGINATION-5.8); null for none.
+ */
+export function takeCaretBefore(doc: ProseMirrorNode): number | null {
+  const caret = caretBefore.get(doc) ?? null;
+  caretBefore.delete(doc);
+  return caret;
+}
+
+/** Records where the caret was on screen before the layout that made a document. */
+export function rememberCaret(doc: ProseMirrorNode, caret: number | null): void {
+  caretBefore.set(doc, caret);
 }

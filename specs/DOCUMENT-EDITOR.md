@@ -87,7 +87,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.1 - Opening the menu
 
-A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. The menu shall stay open once the button is released, on an object as on text. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it. `contextMenu={false}` leaves the browser's menu.
+A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. The menu shall stay open once the button is released, on an object as on text. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it; scrolling the document does not, and the open menu moves with the content it opened on. `contextMenu={false}` leaves the browser's menu.
 Once the menu closes, the document takes focus back when nothing else has it.
 Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`
 Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`
@@ -108,10 +108,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.4 - Objects
 
-In an editable document, with the selection in an object (a table, figure, code block, display equation, list of contents, signature or rule), the menu shall offer to add an empty paragraph before or after it (`insertParagraphBesideObject`), around the whole table, and, for an object other than a table, to delete it (`deleteObject`); deleting a page's only block leaves an empty paragraph.
+In an editable document, with the selection in an object (a table, figure, code block, display equation, list of contents, signature, rule or script block), the menu shall offer, for an object other than a table, to delete it (`deleteObject`), and, as its last group, to add an empty paragraph before or after it (`insertParagraphBesideObject`), around the whole table, with the caret in it and the object left as it was; deleting a page's only block leaves an empty paragraph. Inline math offers neither. The host names the object in these entries through `arrange`, which receives the target's kind.
 
-Implementation: `src/engine/block-commands.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/block-commands.test.ts`, `e2e/document-editor.spec.ts`
+Implementation: `src/engine/block-commands.ts`, `src/components/document-editor/table-actions.ts`, `src/components/document-editor/context-entries.ts`
+Verification: `src/engine/block-commands.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.5 - Tables
 
@@ -122,7 +122,7 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.6 - The host's entries
 
-`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `element`, `table`, `object`); each of the host's `providers` returns its entries for the target and the editor context (DOCE-EDITOR-4.4), which says the editor's mode, markup, layout and zoom on the state the menu opens on, that the writer cannot edit at a locked position, and opens a dialog for an entry (`openDialog`), and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
+`contextMenu` given as options shall shape the menu. The menu resolves what it opens on (`ContextTarget`): the position under the pointer, or the caret's; its kind (`text`, `table-cell`, `figure`, `code`, `math`, `contents`, `script`, `footnote`, `link`, `reference`, or a host node's type name); the innermost node there that is not text and its position; the marks there; the id of the innermost element with one; the table cell's row and column; the proofing issue and the suggestion there; whether the writer can edit; and whether the position is locked. The editor's own entries form groups with stable ids (`CONTEXT_MENU_GROUPS`: `proofing`, `suggestion`, `clipboard`, `editing`, `element`, `table`, `object`, `paragraphs`); each of the host's `providers` returns its entries for the target and the editor context (DOCE-EDITOR-4.4), which says the editor's mode, markup, layout and zoom on the state the menu opens on, that the writer cannot edit at a locked position, and opens a dialog for an entry (`openDialog`), and its group goes before the editor's (`leading`), after them (`trailing`, the default), or before or after one of them. `arrange` then receives the groups and the target and returns them reordered, without some or with entries changed. Groups are separated, an empty group is left out, and a menu with no entries does not open.
 
 Implementation: `src/components/document-editor/context-target.ts`, `src/components/document-editor/context-providers.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/document-context-menu.tsx`, `labs/src/host-context-menu.ts`
 Verification: `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
@@ -140,6 +140,13 @@ In an editable document the menu shall offer, for the element at the selection: 
 
 Implementation: `src/components/document-editor/element-entries.ts`, `src/components/document-editor/context-entries.ts`
 Verification: `e2e/objects.spec.ts`
+
+### DOCE-EDITOR-3.9 - Copying a link to the content
+
+With `onCopyLink`, the menu shall offer Copy link after Comment, in a read document too, showing the key the shortcut table binds it to (`copy-link`, by default Mod-Shift-K), and that key, in the document holding focus, shall do the same: each hands the host the address of the element holding the selection (`contentLinkAddress`): its id, with the selected text's offsets in it when text is selected (DOCE-OUTLINE-3.1), so a selection inside a block is kept while the menu is open; the host makes and copies the link. Outside an element with an id, the menu offers no Copy link and the key does nothing.
+
+Implementation: `src/components/document-editor/copy-link.ts`, `src/components/document-editor/context-entries.ts`, `src/components/document-editor/editor-body.tsx`, `src/engine/shortcuts.ts`
+Verification: `src/components/document-editor/copy-link.test.ts`, `src/components/document-editor/document-context-menu.test.tsx`, `e2e/document-editor.spec.ts`
 
 ## DOCE-EDITOR-4 - Toolbar and frame
 
@@ -208,7 +215,7 @@ Verification: `src/components/document-editor/script-language.test.ts`, `src/com
 
 ### DOCE-EDITOR-4.10 - The menubar
 
-`menubar` shall show a menubar above the toolbar (`de-document-editor__menubar`, the base library's `Menubar` named by `menubar`) whose menus (`menubarMenus`) run the toolbar's own items: File, holding only the host's entries; Edit, with undo and redo, select all and, with `find`, find; View, with the page and web views while the host switches layouts and zooming in, out and to actual size while it zooms; Insert, with a table and the toolbar's insert items, a menu of them as a submenu; Format, with the marks, the text styles and the lists; and Tools, with the next proofing issue and the updates of DOCE-EDITOR-4.17. View also offers the mode and markup controls of DOCE-EDITOR-4.12 as submenus while the host offers them, and Format the layout menu of DOCE-EDITOR-4.13; an entry the toolbar would disable says why (DOCE-EDITOR-4.14), and so do Format's text styles and Insert's table where the document is read or the position locked, where they are disabled. A host given as options adds entries to a menu by its id, or a menu of its own (`items`), and arranges the menus (`arrange`); a menu without entries is left out.
+`menubar` shall show a menubar above the toolbar (`de-document-editor__menubar`, the base library's `Menubar` named by `menubar`) whose menus (`menubarMenus`) run the toolbar's own items: File, holding only the host's entries; Edit, with undo and redo, select all and, with `find`, find; View, with zooming in, out and to actual size while the host zooms, and no layouts, which the status bar switches; Insert, with a table and the toolbar's insert items, a menu of them as a submenu; Format, with the marks, the text styles and the lists; and Tools, with the next proofing issue and the updates of DOCE-EDITOR-4.17. View also offers the mode and markup controls of DOCE-EDITOR-4.12 as submenus while the host offers them, and Format the layout menu of DOCE-EDITOR-4.13; an entry the toolbar would disable says why (DOCE-EDITOR-4.14), and so do Format's text styles and Insert's table where the document is read or the position locked, where they are disabled. A host given as options adds entries to a menu by its id, or a menu of its own (`items`), and arranges the menus (`arrange`); a menu without entries is left out.
 
 Implementation: `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/document-menubar.tsx`, `labs/src/host-menubar.ts`
 Verification: `e2e/full-editor.spec.ts`, `src/components/document-editor/menubar-menus.test.ts`
@@ -299,7 +306,7 @@ Verification: `src/components/document-editor/slash-menu.test.tsx`, `e2e/documen
 
 ### DOCE-EDITOR-4.23 - Mentions
 
-`mentions` shall open the typed menu (`de-document-editor__mention-menu`, named by the `mentionMenu` label) below an `@` the writer types at the start of a text block or after whitespace, while they can edit there and the schema has mentions, its query holding single spaces between words (DOCE-EDITING-9.1). It shall ask `mentions.find` (a mentions adapter's, DOCE-HOST-1.21) for the targets matching the query once it rests for 120 ms, cancelling the request before through its abort signal, and show the people among them, by name with their second line, since the document's mentions name a person; it keeps those found last while the next are on their way; the `noPeople` label shows while the host finds nobody. Choosing a person, by the keys or a pointer as in the slash menu (DOCE-EDITOR-4.22), shall replace the typed text with a mention of them (their id and name) and a space after it, and tell `mentions.onMention` of them.
+`mentions` shall open the typed menu (`de-document-editor__mention-menu`, named by the `mentionMenu` label) below an `@` the writer types at the start of a text block or after whitespace, while they can edit there and the schema has mentions, its query holding single spaces between words (DOCE-EDITING-9.1). It shall ask `mentions.find` (a mentions adapter's, DOCE-HOST-1.21) for the targets matching the query once it rests for 120 ms, cancelling the request before through its abort signal, and show the people among them, each with their avatar (their picture, or their initials), by name with their second line, since the document's mentions name a person; it keeps those found last while the next are on their way; the `noPeople` label shows while the host finds nobody. Choosing a person, by the keys or a pointer as in the slash menu (DOCE-EDITOR-4.22), shall replace the typed text with a mention of them (their id and name) and a space after it, and tell `mentions.onMention` of them.
 
 Implementation: `src/components/document-editor/mention-menu.tsx`, `src/components/document-editor/trigger-menu.tsx`
 Verification: `src/components/document-editor/mention-menu.test.tsx`, `e2e/document-editor.spec.ts`
@@ -387,7 +394,7 @@ Verification: `e2e/document-editor.spec.ts`, `e2e/full-editor.spec.ts`, `src/com
 
 ### DOCE-EDITOR-6.2 - The host's keys
 
-`keymap` shall bind the host's own keys, which run before the editor's. The editor's own shortcuts shall come from one table (`DEFAULT_SHORTCUTS`): each action's keys by its id, in ProseMirror's key notation, Mod being Ctrl, or Cmd on a Mac. The document's actions are undo (Mod-z), redo (Mod-y, Mod-Shift-z), select all (Mod-a), bold, italic, underline, strikethrough and code (Mod-b, Mod-i, Mod-u, Mod-Shift-s, Mod-Alt-i), superscript (Mod-. and Mod-;), subscript (Mod-, and Mod-'), clearing formatting (Mod-\\, Mod-Space), the paragraph and headings 1 to 6 (Mod-Shift-0 to Mod-Shift-6), bulleted and numbered lists (Mod-Shift-8, Mod-Shift-7), a page break (Mod-Alt-Enter), a code block (Mod-Alt-c), a footnote (Mod-Alt-f), a table (Mod-Alt-t) and writing math (Mod-Alt-l, DOCE-OBJECTS-1.8); the editor's are the script dialog while the host runs scripts (Mod-Alt-s), the reference dialog (Mod-k), starting a comment (Mod-Alt-m) and finding (Mod-f); the table also lists replacing (`replace`, Mod-h) for the find bar, and saving (`save`, Mod-s) for the editor's session (DOCE-SESSION-9.2). The editing's `shortcuts` option remaps any of them by id: the keys given replace the library's, and none (`null` or an empty list) leaves the action unbound (`resolveShortcuts`). The document's keymap binds the table's keys (`documentKeys`) and holds the table (`shortcutsOf(state)`); the editor's own keys, the toolbar's tooltips and the menus' entries read it there, showing an action's first key in the base library's notation (`shortcutLabel`, `formatShortcut`), and `matchesShortcut` tells whether a key press is one of an action's keys. Enter at a gap cursor between two objects adds a paragraph there.
+`keymap` shall bind the host's own keys, which run before the editor's. The editor's own shortcuts shall come from one table (`DEFAULT_SHORTCUTS`): each action's keys by its id, in ProseMirror's key notation, Mod being Ctrl, or Cmd on a Mac. The document's actions are undo (Mod-z), redo (Mod-y, Mod-Shift-z), select all (Mod-a), bold, italic, underline, strikethrough and code (Mod-b, Mod-i, Mod-u, Mod-Shift-s, Mod-Alt-i), superscript (Mod-. and Mod-;), subscript (Mod-, and Mod-'), clearing formatting (Mod-\\, Mod-Space), the paragraph and headings 1 to 6 (Mod-Shift-0 to Mod-Shift-6), bulleted and numbered lists (Mod-Shift-8, Mod-Shift-7), a page break (Mod-Alt-Enter), a code block (Mod-Alt-c), a footnote (Mod-Alt-f), a table (Mod-Alt-t) and writing math (Mod-Alt-l, DOCE-OBJECTS-1.8); the editor's are the script dialog while the host runs scripts (Mod-Alt-s), the reference dialog (Mod-k), starting a comment (Mod-Alt-m), copying a link to the content while the host takes it (`copy-link`, Mod-Shift-k, DOCE-EDITOR-3.9) and finding (Mod-f); the table also lists replacing (`replace`, Mod-h) for the find bar, and saving (`save`, Mod-s) for the editor's session (DOCE-SESSION-9.2), and stepping through the layout debugging's modes (`debug`, Mod-Alt-b and Mod-Alt-Shift-b, DOCE-EDITOR-6.30). The editing's `shortcuts` option remaps any of them by id: the keys given replace the library's, and none (`null` or an empty list) leaves the action unbound (`resolveShortcuts`). The document's keymap binds the table's keys (`documentKeys`) and holds the table (`shortcutsOf(state)`); the editor's own keys, the toolbar's tooltips and the menus' entries read it there, showing an action's first key in the base library's notation (`shortcutLabel`, `formatShortcut`), and `matchesShortcut` tells whether a key press is one of an action's keys. Enter at a gap cursor between two objects adds a paragraph there.
 
 Implementation: `src/engine/shortcuts.ts`, `src/engine/document-editing.ts`, `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/editor-body.tsx`
 Verification: `src/engine/shortcuts.test.ts`, `e2e/document-editor.spec.ts`
@@ -464,10 +471,10 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/do
 
 ### DOCE-EDITOR-6.13 - Layout debugging
 
-`debug` shall show the pages' layout for debugging (DOCE-PAGINATION-7.4): `true`, or `{ pages: true }`, what each page's blocks take of its height and what is left, published as `data-debug`; `{ blocks: true }` each block's measured height, published as `data-debug-blocks`; and `{ measure: true }` publishes `data-debug-measure`, for a stylesheet to show the hidden view the pages are measured in (`DocumentEditorDebug`).
+`debug` shall show the pages' layout for debugging (DOCE-PAGINATION-7.4, `DocumentEditorDebug`): `true`, or `{ pages: true }`, each page's label of its sheet, content, header and footer sizes, what its blocks take and what is left, published as `data-debug`; `{ blocks: true }` the block borders: each page region and block marked with its type and each block with its measured height, published as `data-debug-blocks`, with a tooltip on the hovered one (DOCE-EDITOR-6.31); `{ measure: true }` the hidden view the pages are measured in, and `{ source: true }` the pages' markup, each in the debugging pane beside the pages (DOCE-EDITOR-6.29), published as `data-debug-measure` and `data-debug-source`; and `trace` receives the layout's trace (DOCE-PAGINATION-7.20). Every length the debugging shows has three decimals (`debugLength`). The reference stylesheet puts each page's label at its top-right corner, outlines the regions and the blocks on the pages, keeps the pages' own borders, and outlines the measuring view's blocks too while it shows with the block borders. The toolbar and menus hold no debugging item.
 
-Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `labs/reference/document.css`, `labs/src/document-editor.lab.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/root-data.ts`, `labs/reference/document.css`, `labs/src/document-editor.lab.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/debug-pane.test.tsx`
 
 ### DOCE-EDITOR-6.14 - Section sheet sizes
 
@@ -478,7 +485,7 @@ Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 
 ### DOCE-EDITOR-6.15 - View-only decorations
 
-A decoration drawn only for the person working in the editor (search matches, proofing issues, other people's selections and carets, an empty section's placeholder, an offered completion and the layout debugging) shall be made view-only (`viewOnlyInline`, `viewOnlyNode`, `viewOnlyWidget`), which puts the common hook `data-de-view-only` on the element it draws or decorates, naming, for an inline or node decoration, the attributes and classes it adds (classes as `.name`), which its spec records too. A snapshot shall take off what the hooks in the markup name and what the view's decorations record, so a decoration another state drew, as on a projection, comes off too. A snapshot shall leave out a view-only widget whole, take the recorded attributes, classes and the hook off every other element carrying it, unwrap an inline decoration's wrapper left with no attributes, and keep the decorations that are not view-only. It shall also leave out the editor root's data attributes that describe the view rather than the document (`data-suggesting`, `data-scrollable`, `data-layout-state`, `data-debug`, `data-debug-blocks`, `data-debug-measure`, `data-formatting-marks`). Every other widget is content and shall stay, such as a variable's value or a comparison's deleted text (DOCE-EDITOR-6.17).
+A decoration drawn only for the person working in the editor (search matches, proofing issues, other people's selections and carets, an empty section's placeholder, an offered completion and the layout debugging) shall be made view-only (`viewOnlyInline`, `viewOnlyNode`, `viewOnlyWidget`), which puts the common hook `data-de-view-only` on the element it draws or decorates, naming, for an inline or node decoration, the attributes and classes it adds (classes as `.name`), which its spec records too. A snapshot shall take off what the hooks in the markup name and what the view's decorations record, so a decoration another state drew, as on a projection, comes off too. A snapshot shall leave out a view-only widget whole, take the recorded attributes, classes and the hook off every other element carrying it, unwrap an inline decoration's wrapper left with no attributes, and keep the decorations that are not view-only. It shall also leave out the editor root's data attributes that describe the view rather than the document (`data-suggesting`, `data-scrollable`, `data-layout-state`, `data-debug`, `data-debug-blocks`, `data-debug-measure`, `data-debug-source`, `data-formatting-marks`). Every other widget is content and shall stay, such as a variable's value or a comparison's deleted text (DOCE-EDITOR-6.17).
 
 Implementation: `src/engine/print-view.ts`, `src/utils/view-only-decorations.ts`, `src/engine/search.ts`, `src/engine/proofing.ts`, `src/engine/presence.ts`, `src/engine/inline-completion.ts`, `src/engine/document-sections.ts`, `src/pagination/page-debug.ts`
 Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
@@ -574,6 +581,27 @@ With the host's `exports` adapter (DOCE-HOST-1.22), the menubar's File menu shal
 Implementation: `src/components/document-editor/use-document-exports.ts`, `src/components/document-editor/menubar-menus.ts`, `src/components/document-editor/export-labels.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-exports.ts`
 Verification: `src/components/document-editor/use-document-exports.test.tsx`, `e2e/print.spec.ts`
 
+### DOCE-EDITOR-6.29 - The debugging pane
+
+While the debugging shows the measuring view or the pages' markup, a pane (`de-document-editor__debug`, a region named by the `debugPane` label, with `data-view` saying which) shall show it beside the pages, under the toolbar, in place of the host's end panel, which comes back as it was when the pane goes; a handle before it (the base library's `ResizeHandle`, named by `debugPaneResize`) resizes it by pointer and keyboard, its width published as `--de-debug-width`. The measuring view shows there as it measures, at its width, without being mounted again; the markup is the pages' elements and text, read-only in the base library's `CodeBlock`, pretty-printed one element a line by depth (`formatMarkup`), with tag names, attribute names and values highlighted apart (`tokenizeMarkup`), printed again a moment after the pages change, so typing does not wait for it. The markup's view loads the first time it shows. In the web layout only the markup shows. Without either the pane takes no box and the measuring view stays out of sight.
+
+Implementation: `src/components/document-editor/debug-pane.tsx`, `src/components/document-editor/debug-source.tsx`, `src/components/document-editor/debug-markup.ts`, `src/components/document-editor/editor-surface.tsx`, `labs/reference/document.css`
+Verification: `src/components/document-editor/debug-pane.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.30 - The debugging modes
+
+With `onDebugChange`, the `debug` shortcut pressed anywhere in the editor, its chrome included, shall hand the host the parts of the next debugging mode, in this order: none; the block borders with the pages' labels (`{ pages: true, blocks: true }`); the same with the measuring view (`measure`); the pages' markup (`{ source: true }`); and none again. Which mode shows is the host's, through `debug`. Without `onDebugChange` the shortcut does nothing.
+
+Implementation: `src/components/document-editor/debug-modes.ts`, `src/engine/shortcuts.ts`
+Verification: `src/components/document-editor/debug-pane.test.tsx`
+
+### DOCE-EDITOR-6.31 - A block's debugging tooltip
+
+While the block borders show, hovering a block or a region of a page shall show a tooltip (`de-document-editor__debug-tip`, `role="tooltip"`) at its top-right corner, placed by `--de-debug-tip-x` and `--de-debug-tip-y` in the editor body: its type, its width and height without and with its margins (the latter headed by `debugWithMargins`), and where it sits from its page's top-left corner (headed by `debugPosition`), unscaled by the zoom, with three decimals. Moving off the pages hides it, and so does anything that is not marked, such as the chrome.
+
+Implementation: `src/components/document-editor/debug-tooltip.tsx`, `labs/reference/document.css`
+Verification: `src/components/document-editor/debug-pane.test.tsx`, `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-7 - Banners
 
 ### DOCE-EDITOR-7.1 - The banner region
@@ -608,10 +636,10 @@ Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-e
 
 ### DOCE-EDITOR-8.1 - A controlled side panel
 
-A side panel's selected pane (`selectedPane`, `defaultSelectedPane`, `onSelectedPaneChange`), expanded state (`isExpanded`, `defaultExpanded`, `onExpandedChange`) and width (`size`, `defaultSize`, `onSizeChange` once a resize ends) shall each be controlled by the host or held by the panel, which saves what it holds under `persistKey` through the base library's storage; a tab, a launcher, the toggle and `revealPane` report each change. Its width stays between `minSize` (200 pixels by default) and `maxSize` (640 by default). Each pane's content sits in a `de-document-side-panel__pane` naming the pane in `data-pane`.
+A side panel's selected pane (`selectedPane`, `defaultSelectedPane`, `onSelectedPaneChange`), expanded state (`isExpanded`, `defaultExpanded`, `onExpandedChange`) and width (`size`, `defaultSize`, `onSizeChange` once a resize ends) shall each be controlled by the host or held by the panel, which saves what it holds under `persistKey` through the base library's storage; a tab, a launcher, the toggle and `revealPane` report each change. Its width stays between `minSize` (200 pixels by default) and `maxSize` (640 by default), narrowed, never below `minSize`, to leave its parent's other content `minMainSize` (480 pixels by default) without changing the width it saves. Each pane's content sits in a `de-document-side-panel__pane` naming the pane in `data-pane`.
 
 Implementation: `src/components/document-panels/document-side-panel.tsx`
-Verification: `src/components/document-panels/document-side-panel.test.tsx`
+Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/panels.spec.ts`
 
 ### DOCE-EDITOR-8.2 - Revealing a pane
 
@@ -622,7 +650,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 
 ### DOCE-EDITOR-8.3 - The comments pane
 
-The built-in `comments` pane shall show the comments panel (`DocumentCommentsPanel`) of the editor's `comments`, sharing the editor's thread state (DOCE-COMMENTS-2.14), with the open threads the reader is among the audience of (DOCE-COMMENTS-4.2) counted on its tab. The pane's filter is its own to choose, starting at the margin's `filter`. An editor without comments has no comments pane.
+The built-in `comments` pane shall show the comments panel (`DocumentCommentsPanel`) of the editor's `comments`, sharing the editor's thread state (DOCE-COMMENTS-2.14), with the open threads the reader is among the audience of (DOCE-COMMENTS-4.2) counted on its tab. The pane's filter is its own to choose, starting at the margin's `filter`. An editor without comments keeps the pane, which says comments are not available (`commentsUnavailable`).
 
 Implementation: `src/components/document-panels/built-in-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
@@ -706,9 +734,25 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `data-debug`                            | state     | `true`                                                                 | The layout debugging shows what each page's blocks take.                                |
 | `data-debug-blocks`                     | state     | `true`                                                                 | The layout debugging shows each block's height.                                         |
 | `data-debug-measure`                    | state     | `true`                                                                 | The layout debugging shows the measuring view.                                          |
-| `data-debug-used`                       | attribute |                                                                        | On a page while debugging: the height its blocks take, in CSS pixels.                   |
-| `data-debug-free`                       | attribute |                                                                        | On a page while debugging: the height left for blocks, in CSS pixels.                   |
-| `data-debug-height`                     | attribute |                                                                        | On a block while debugging: its measured height, in CSS pixels.                         |
+| `data-debug-source`                     | state     | `true`                                                                 | The layout debugging shows the pages' markup.                                           |
+| `data-debug-used`                       | attribute |                                                                        | On a page while debugging: the height its blocks take, margins collapsed.               |
+| `data-debug-stacked`                    | attribute |                                                                        | On a page while debugging: the height its blocks take with every margin counted.        |
+| `data-debug-free`                       | attribute |                                                                        | On a page while debugging: the height left for blocks.                                  |
+| `data-debug-paper`                      | attribute |                                                                        | On a page while debugging: its sheet's width × height.                                  |
+| `data-debug-content`                    | attribute |                                                                        | On a page while debugging: its content's width × height, inside the margins.            |
+| `data-debug-header`                     | attribute |                                                                        | On a page while debugging: the room its header takes.                                   |
+| `data-debug-footer`                     | attribute |                                                                        | On a page while debugging: the room its footer takes.                                   |
+| `data-debug-dpr`                        | attribute |                                                                        | On a page while debugging: the device pixel ratio it is drawn at.                       |
+| `data-debug-type`                       | attribute |                                                                        | On a region or block while debugging: its node type.                                    |
+| `data-debug-height`                     | attribute |                                                                        | On a block while debugging: its measured height.                                        |
+| `data-debug-top`                        | attribute |                                                                        | On a block while debugging: where it starts below its page's content top.               |
+| `data-debug-overflow`                   | attribute | `true`                                                                 | On a block while debugging: it reaches below its page's room.                           |
+| `de-document-editor__debug`             | slot      |                                                                        | The debugging pane, which holds the measuring view (DOCE-EDITOR-6.29).                  |
+| `data-view`                             | attribute | `measure`, `source`                                                    | On the debugging pane: what it shows.                                                   |
+| `--de-debug-width`                      | property  |                                                                        | On the debugging pane while it shows: its width.                                        |
+| `de-document-editor__debug-tip`         | slot      |                                                                        | A hovered block's debugging tooltip (DOCE-EDITOR-6.31).                                 |
+| `--de-debug-tip-x`                      | property  |                                                                        | On the debugging tooltip: its hovered block's right edge in the editor body.            |
+| `--de-debug-tip-y`                      | property  |                                                                        | On the debugging tooltip: its hovered block's top in the editor body.                   |
 | `data-de-view-only`                     | attribute | names, `widget`                                                        | On an element a view-only decoration draws or decorates; a snapshot leaves it out.      |
 | `data-print-sheet`                      | attribute |                                                                        | In a snapshot, on a section: the index of the sheet size it prints on.                  |
 | `data-print`                            | attribute | `true`                                                                 | On a snapshot's root: the snapshot prints, for a stylesheet's print overrides.          |

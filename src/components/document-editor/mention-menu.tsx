@@ -2,6 +2,7 @@
 // what the writer types on, as the host's mentions adapter finds them, and the person chosen takes
 // the typed text's place as a mention, followed by a space. The document mentions people only.
 
+import { Avatar } from '@flamboyantengineer/ui-components/avatar';
 import type { CompletionListItem } from '@flamboyantengineer/ui-components/completion-list';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { Command } from 'prosemirror-state';
@@ -99,6 +100,16 @@ export function DocumentMentionMenu({
         id: person.id,
         label: person.name,
         kind: 'person',
+        description: person.description,
+        icon: (
+          <Avatar
+            name={person.name}
+            src={person.avatarUrl}
+            colorKey={person.id}
+            size="xs"
+            decorative
+          />
+        ),
       })),
     [people],
   );

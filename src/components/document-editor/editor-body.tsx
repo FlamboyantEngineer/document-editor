@@ -12,6 +12,8 @@ import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/inde
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import { useEditorPanesContext } from '../document-panels/document-panels.js';
+import { copyContentLink } from './copy-link.js';
+import { DebugTooltip } from './debug-tooltip.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
@@ -19,6 +21,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
 import { PagesView } from './pages-view.js';
+import { debugParts } from './root-data.js';
 import { useOpeningScripts } from './script-entries.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { TableHandles } from './table-handles.js';
@@ -65,13 +68,16 @@ function editorKeys({
   startComment,
   onDialog,
   scripts,
+  copyLink,
 }: {
   startComment: (() => void) | null;
   onDialog: ((dialog: ObjectDialog) => void) | null;
   scripts: boolean;
+  copyLink: (() => void) | null;
 }): (readonly [ShortcutId, () => void])[] {
   return [
     ...(startComment ? [['comment', startComment] as const] : []),
+    ...(copyLink ? [['copy-link', copyLink] as const] : []),
     ...(onDialog ? [['reference', () => onDialog({ kind: 'reference' })] as const] : []),
     ...(onDialog && scripts ? [['script', () => onDialog({ kind: 'script' })] as const] : []),
   ];
@@ -89,7 +95,7 @@ function useBodyViewProps({
 }: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs'> & {
   startCommentRef: CommentRefs['startCommentRef'];
 }) {
-  const { editable = true, assets, feedback } = props;
+  const { editable = true, assets, feedback, onCopyLink } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
   const decorations = useWritingDecorations(props, labels.insertBlock);
@@ -109,6 +115,7 @@ function useBodyViewProps({
           startComment: startCommentRef.current,
           onDialog,
           scripts,
+          copyLink: onCopyLink ? () => copyContentLink(view, onCopyLink) : null,
         }).find(([id]) => matchesShortcut(table, id, event))?.[1];
         if (!action) return false;
         event.preventDefault();
@@ -135,6 +142,7 @@ function useBodyViewProps({
     startCommentRef,
     menuKeys,
     decorations,
+    onCopyLink,
   ]);
 }
 
@@ -266,6 +274,12 @@ export function EditorBody({
         content
       )}
       {props.children}
+      <DebugTooltip
+        view={view}
+        isShown={debugParts(props.debug).blocks ?? false}
+        scale={(props.zoom ?? 100) / 100}
+        labels={labels}
+      />
       {editable && !suggesting ? <TableHandles view={view} state={state} labels={labels} /> : null}
       {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
     </div>
