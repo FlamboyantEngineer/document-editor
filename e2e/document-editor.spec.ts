@@ -495,10 +495,10 @@ test.describe('document editor lab', () => {
     page,
   }) => {
     await lab.open('document-editor');
-    const notices = page.getByRole('region', { name: 'Document notices' });
-    await expect(notices).toHaveCount(0);
     const target = heading(page, 'Scope');
     await target.scrollIntoViewIfNeeded();
+    const notices = page.getByRole('region', { name: 'Document notices' });
+    await expect(notices).toHaveCount(0);
     const box = await target.boundingBox();
     if (!box) throw new Error('The heading should show.');
     await page.mouse.move(box.x + 4, box.y + box.height / 2);
@@ -513,6 +513,49 @@ test.describe('document editor lab', () => {
     await banner.getByRole('button', { name: /dismiss/i }).click();
     await expect(notices).toHaveCount(0);
     await expect(page.getByLabel('Banner')).not.toBeChecked();
+  });
+
+  test('DOCE-EDITOR-4.28 keeps the selection drawn while a host field has focus', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await selectText(page, 'Normal operation');
+    // The document has taken the selection once the status bar counts its words.
+    const status = page.getByRole('group', { name: 'Document status' });
+    await expect(status.locator('[data-status="words"]')).toContainText(/2 of [\d,]+ words/);
+    const held = page.locator('.de-held-selection');
+    await expect(held).toHaveCount(0);
+    await page.getByLabel('Prompt').click();
+    await expect(held.first()).toBeVisible();
+    await expect(held.first()).toHaveText('Normal operation');
+    await held.first().click();
+    await expect(held).toHaveCount(0);
+  });
+
+  test('DOCE-EDITOR-7.5 floats the banners over the document without moving it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const target = heading(page, 'Scope');
+    await target.scrollIntoViewIfNeeded();
+    const before = await target.boundingBox();
+    // Clicked in place, so the page does not scroll to the control.
+    const toggle = () =>
+      page.getByLabel('Banner').evaluate((input) => (input as HTMLInputElement).click());
+    await toggle();
+    const notices = page.getByRole('region', { name: 'Document notices' });
+    await expect(notices.locator('[data-banner="review"]')).toContainText('In review');
+    expect(await target.boundingBox()).toEqual(before);
+    const center = page.locator('.de-document-editor__center');
+    const [region, column] = await Promise.all([notices.boundingBox(), center.boundingBox()]);
+    if (!region || !column) throw new Error('The banners and the document should show.');
+    expect(region.y).toBeGreaterThanOrEqual(column.y);
+    expect(region.height).toBeLessThanOrEqual(column.height / 2 + 1);
+    await toggle();
+    await expect(notices).toHaveCount(0);
+    expect(await target.boundingBox()).toEqual(before);
   });
 
   test('DOCE-EDITOR-4.18 DOCE-EDITOR-4.19 shows the lead, then the pages, with the overview over the frame', async ({
