@@ -6,6 +6,7 @@ import {
   isTemplateBullet,
   TEMPLATE_SHAPE,
   type TemplateFile,
+  templateProperties,
   validateTemplateFile,
 } from '../index.js';
 
@@ -64,6 +65,41 @@ describe('stored template format', () => {
       'template.styles.paragraph.size must be a length with a unit, such as 12pt',
       'template.footnotes.numbering must be one of document, page',
     ]);
+  });
+
+  it("DOCE-FORMAT-2.1 keeps a section's own extensions, and rejects keys it does not know", () => {
+    const sectioned = (section: Record<string, unknown>) =>
+      validateTemplateFile({
+        formatVersion: 1,
+        id: 'sectioned',
+        sections: [{ name: 'body', ...section }],
+      } as TemplateFile);
+    expect(sectioned({ extensions: { review: { stage: 'draft' } } })).toEqual([]);
+    expect(sectioned({ workflow: 'draft' })).toEqual([
+      'template.sections[0].workflow is not a template setting',
+    ]);
+  });
+
+  it('DOCE-FORMAT-2.1 takes any plain CSS color, and no color that carries more', () => {
+    const colored = (color: string) =>
+      validateTemplateFile({ formatVersion: 1, id: 'colors', styles: { paragraph: { color } } });
+    for (const color of [
+      '#1f2937',
+      'rgb(31 41 55)',
+      'rgba(31, 41, 55, 0.5)',
+      'hsl(210 20% 30%)',
+      'navy',
+    ])
+      expect(colored(color)).toEqual([]);
+    for (const color of ['red; position: fixed', 'url(x)', 'rgb(var(--x))'])
+      expect(colored(color)).toEqual(['template.styles.paragraph.color must be a color']);
+    expect(
+      templateProperties({
+        formatVersion: 1,
+        id: 'colors',
+        styles: { paragraph: { color: 'navy' } },
+      })['--doc-paragraph-color'],
+    ).toBe('navy');
   });
 
   it('DOCE-FORMAT-2.2 names a setting called like a member of every object', () => {

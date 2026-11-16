@@ -45,6 +45,15 @@ export function sectionRestartsNumbering(section: TemplateSection | null | undef
   return Boolean(styles?.paragraph) || HEADING_STYLES.some((name) => Boolean(styles?.[name]));
 }
 
+/** The height a section's page header or footer keeps at least, in CSS pixels. */
+export function resolveRegionHeight(
+  template: TemplateFile,
+  section: TemplateSection | null | undefined,
+  region: 'header' | 'footer',
+): string | null {
+  return lengthToCssPx(resolveSectionRegion(template, section, region)?.height);
+}
+
 /** The space between a section's page header or footer and its content, in CSS pixels. */
 export function resolveRegionSpacing(
   template: TemplateFile,

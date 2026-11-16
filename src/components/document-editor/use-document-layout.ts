@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createTemplateEditDefaults } from '../../engine/figure-defaults.js';
 import {
   type CompareSuggestions,
   createAuthorship,
@@ -105,6 +106,7 @@ function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
       onChange: (change) => latest.current.onTemplatePartChange?.(change),
     }),
     createDocumentSections({ template: () => latest.current.template }),
+    ...createTemplateEditDefaults(() => latest.current.template),
     createChangeLines(),
     createVersionChanges({
       previous: () => latest.current.compare?.previous ?? null,

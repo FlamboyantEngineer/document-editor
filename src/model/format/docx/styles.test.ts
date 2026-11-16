@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BASE_TEMPLATE } from '../../templates/base-template.js';
 import { mergeTemplateFiles } from '../template-format-resolve.js';
 import { customStyleId, paragraphLevelStyleId, writeStylesPart } from './styles.js';
+import { toWordColor } from './word-xml.js';
 
 const template = mergeTemplateFiles(BASE_TEMPLATE, {
   formatVersion: 1,
@@ -64,5 +65,12 @@ describe('writeStylesPart', () => {
     expect(part).toContain('w:styleId="FootnoteReference"');
     expect(part).toContain('w:styleId="CaptionLabel"');
     expect(part).toContain('w:styleId="Hyperlink"');
+  });
+
+  it('DOCE-FORMAT-5.4 writes a hex or rgb() template color, and leaves other colors to Word', () => {
+    expect(toWordColor('#1f2937')).toBe('1F2937');
+    expect(toWordColor('rgb(31 41 55)')).toBe('1F2937');
+    expect(toWordColor('rgba(255, 0, 300, 0.5)')).toBe('FF00FF');
+    expect(toWordColor('navy')).toBeNull();
   });
 });

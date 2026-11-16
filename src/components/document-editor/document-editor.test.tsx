@@ -571,6 +571,37 @@ describe('DocumentEditor', () => {
     expect(repaired?.attrs.dataAuthor).toBe('system');
   });
 
+  it('DOCE-TEMPLATES-8.7 turns the {{key}} text it opens with into variables, as a repair', async () => {
+    const causes: { repair: boolean }[] = [];
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'By {{author}}' }] }] },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    function Repairing() {
+      const [state, setState] = useState(() => EditorState.create({ doc }));
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          onContentChange={(tr) => causes.push(contentChangeCause(tr))}
+          template={TEMPLATE}
+          layout="web"
+          repairIds
+          aria-label="Report"
+        />
+      );
+    }
+    render(<Repairing />);
+    await waitFor(() => expect(causes.length).toBeGreaterThan(0));
+    expect(causes.every((cause) => cause.repair)).toBe(true);
+    expect(screen.getByRole('textbox', { name: 'Report' })).not.toHaveTextContent('{{author}}');
+  });
+
   it('DOCE-HOST-1.12 DOCE-PAGINATION-8.4 shows the host variables and page numbers', async () => {
     const variable = (key: string): StoredNode => ({ type: 'variable', attrs: { key } });
     const line = (...content: StoredNode[]) => ({ content: [{ type: 'paragraph', content }] });

@@ -1,6 +1,7 @@
 // A template's sections: finding one by name, the ones every document has, a new document made
 // from them, and content from elsewhere composed into them.
 
+import { Fragment, type Schema } from 'prosemirror-model';
 import { cloneJson } from '../clone-json.js';
 import {
   DOCUMENT_FORMAT_VERSION,
@@ -10,8 +11,10 @@ import {
   type StoredSection,
 } from '../format/document-format.js';
 import { assignStoredIds } from '../format/document-format-ids.js';
+import { writeStoredContent } from '../format/document-format-write.js';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
 import { fitStoredTables } from '../layout/stored-table-widths.js';
+import { readTemplateContent, type TemplateContentOptions } from './template-content.js';
 import { templatePageMetrics } from './template-properties.js';
 
 /** The template's section with a name, or null. */
@@ -31,7 +34,7 @@ export function requiredTemplateSections(
 }
 
 /** How a new document is made from its template. */
-export interface CreateDocumentOptions {
+export interface CreateDocumentOptions extends TemplateContentOptions {
   /** The resolved template the document uses. */
   readonly template: TemplateFile;
   /** The template's revision to pin the document to; none for its latest. */
@@ -40,6 +43,11 @@ export interface CreateDocumentOptions {
   readonly newId: () => string;
   /** The writer the new elements are attributed to; none by default. */
   readonly author?: string | null | undefined;
+  /**
+   * The schema to read the template's content with, so its `{{key}}` and list tokens become live
+   * variables and lists of contents (`readTemplateContent`); without one it is copied as it is.
+   */
+  readonly schema?: Schema | undefined;
 }
 
 /** How content from elsewhere is composed into a template's sections. */
@@ -51,29 +59,27 @@ export interface ComposeDocumentOptions extends CreateDocumentOptions {
 const isLocked = (section: { readonly editable?: boolean | null | undefined }) =>
   section.editable === false;
 
+// A template section's content as a new document holds it: read with its tokens when there is a
+// schema, else a copy.
+function startingContent(section: TemplateSection, options: CreateDocumentOptions): StoredContent {
+  if (!options.schema) return cloneJson(section.content ?? []);
+  const nodes = readTemplateContent(section.content ?? [], options.schema, options);
+  return writeStoredContent(Fragment.fromArray(nodes));
+}
+
 // The section a new document has for a template section: its fixed or starting content, locked
 // when a writer may not edit it.
-function newSection(section: TemplateSection): StoredSection {
-  const content = cloneJson(section.content ?? []);
+function newSection(section: TemplateSection, options: CreateDocumentOptions): StoredSection {
+  const content = startingContent(section, options);
   return isLocked(section)
     ? { name: section.name, editable: false, content }
     : { name: section.name, content };
 }
 
-// The file with fresh ids on the elements of its editable sections; a locked section keeps the
-// template's content as it is, without ids.
+// The file with a fresh id on each element without a unique one, locked sections' too, so
+// comments and links can hold on to the template's fixed content.
 function withIds(file: DocumentFile, options: CreateDocumentOptions): DocumentFile {
-  const editable = file.sections.filter((section) => !isLocked(section));
-  const assigned = assignStoredIds(
-    { ...file, sections: editable },
-    { newId: options.newId, author: options.author },
-  ).sections;
-  return {
-    ...file,
-    sections: file.sections.map((section) =>
-      isLocked(section) ? section : (assigned.shift() ?? section),
-    ),
-  };
+  return assignStoredIds(file, { newId: options.newId, author: options.author });
 }
 
 // The width of a section's pages' content, in pixels, which its tables keep within.
@@ -84,7 +90,7 @@ function contentWidth(template: TemplateFile, name: string | null | undefined): 
 
 /**
  * A new document of a template: its required sections in order, each with the template's content
- * (a locked one exactly as the template has it, the others with fresh element ids), or one empty
+ * (a locked one as the template has it), each element with a fresh element id, or one empty
  * section when the template has none, pinned to the template at `revision`.
  */
 export function createDocumentFile(options: CreateDocumentOptions): DocumentFile {
@@ -93,17 +99,17 @@ export function createDocumentFile(options: CreateDocumentOptions): DocumentFile
 
 // A document of the template's required sections and the editable ones named in `also`, in the
 // template's order, without ids.
-function templateDocument(
-  { template, revision }: CreateDocumentOptions,
-  also: ReadonlySet<string>,
-): DocumentFile {
+function templateDocument(options: CreateDocumentOptions, also: ReadonlySet<string>): DocumentFile {
+  const { template, revision } = options;
   const chosen = (template.sections ?? []).filter(
     (section) => section.required === true || (!isLocked(section) && also.has(section.name)),
   );
   return {
     formatVersion: DOCUMENT_FORMAT_VERSION,
     template: revision ? { id: template.id, revision } : { id: template.id },
-    sections: chosen.length ? chosen.map(newSection) : [{ content: [] }],
+    sections: chosen.length
+      ? chosen.map((section) => newSection(section, options))
+      : [{ content: [] }],
   };
 }
 
@@ -123,7 +129,7 @@ function withFirstEditable(template: TemplateFile, also: ReadonlySet<string>): S
  * ones and the ones named, else the template's first editable one, added. The template's other required
  * sections keep their content as `createDocumentFile` gives it; the content's own section settings
  * are left out, since the template's apply. Each table wider than its section's pages' content is
- * fitted to it, and every element of an editable section without a unique id gets one.
+ * fitted to it, and every element without a unique id gets one.
  */
 export function composeDocumentFile(
   content: DocumentFile | StoredContent,

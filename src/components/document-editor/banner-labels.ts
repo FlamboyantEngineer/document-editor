@@ -8,8 +8,14 @@ export interface BannerLabels {
   /** Names the banner region. */
   readonly banners: string;
   readonly templateDrift: string;
-  /** What drifted, from the sections that did. */
-  readonly templateDriftDetail: (drift: readonly SectionDrift[]) => string;
+  /**
+   * What drifted, from the sections that did; `nameOf` gives a section's name as the template shows
+   * it, its label or else its name.
+   */
+  readonly templateDriftDetail: (
+    drift: readonly SectionDrift[],
+    nameOf: (name: string) => string,
+  ) => string;
   readonly updateFromTemplate: string;
   readonly fontsMissing: string;
   /** Which families did not load. */
@@ -27,8 +33,8 @@ const DRIFT_KINDS: Readonly<Record<SectionDrift['kind'], string>> = {
 export const DEFAULT_BANNER_LABELS: BannerLabels = {
   banners: 'Document notices',
   templateDrift: 'This document is out of step with its template',
-  templateDriftDetail: (drift) =>
-    `Sections: ${list.format(drift.map((each) => `${each.name} (${DRIFT_KINDS[each.kind]})`))}.`,
+  templateDriftDetail: (drift, nameOf) =>
+    `Sections: ${list.format(drift.map((each) => `${nameOf(each.name)} (${DRIFT_KINDS[each.kind]})`))}.`,
   updateFromTemplate: 'Update from template',
   fontsMissing: 'Some fonts did not load',
   fontsMissingDetail: (families) =>

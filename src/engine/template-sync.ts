@@ -2,8 +2,8 @@
 // required section missing, a section the template no longer has, a section the writer cannot
 // edit whose content is not the template's), bringing them back in line, and locking the sections
 // the writer cannot edit. Content is compared as the template sets it: an element's identity and
-// a script's output are the document's own, so neither is drift, and bringing a section back in
-// line keeps the output of each script the template still has.
+// a script's output and what its run recorded are the document's own, so neither is drift, and
+// bringing a section back in line keeps them for each script the template still has.
 
 import { Fragment, type Node as ProseMirrorNode, type Schema } from 'prosemirror-model';
 import type { Command, Transaction } from 'prosemirror-state';
@@ -22,6 +22,7 @@ import {
 import { identityAttributesOf } from '../model/schema/element-attributes.js';
 import { sectionOf } from './document-sections.js';
 import type { EditLockOptions } from './edit-lock.js';
+import { assignElementIds } from './element-ids.js';
 import { placeOf } from './section-insertion.js';
 import { markSystemChange } from './transaction-kind.js';
 
@@ -52,10 +53,14 @@ function sectionsOf(doc: ProseMirrorNode) {
 
 const SCRIPT = 'script_block';
 
+// What running a script recorded beside its output: when it ran, where its output came from and
+// the signatures the output carries. They are the document's own, as the output is.
+const SCRIPT_RUN = ['renderedAt', 'provenance', 'signatures'] as const;
+
 // A node's attributes as the template sets them: without its identity, such as its element id.
 function settledAttrs(node: ProseMirrorNode): Record<string, unknown> {
-  const identity = new Set(identityAttributesOf(node.type).map(({ name }) => name));
-  if (node.type.name === SCRIPT) identity.add('renderedAt');
+  const identity = new Set<string>(identityAttributesOf(node.type).map(({ name }) => name));
+  if (node.type.name === SCRIPT) for (const name of SCRIPT_RUN) identity.add(name);
   return Object.fromEntries(Object.entries(node.attrs).filter(([name]) => !identity.has(name)));
 }
 
@@ -145,10 +150,8 @@ function carryScriptOutput(
     if (node.type.name === SCRIPT) {
       const previous = ran.get(String(node.attrs.script ?? ''))?.shift();
       if (!previous) return node;
-      return node.type.create(
-        { ...node.attrs, renderedAt: previous.attrs.renderedAt },
-        previous.content,
-      );
+      const run = Object.fromEntries(SCRIPT_RUN.map((name) => [name, previous.attrs[name]]));
+      return node.type.create({ ...node.attrs, ...run }, previous.content);
     }
     if (node.isLeaf || node.isTextblock) return node;
     const children: ProseMirrorNode[] = [];
@@ -162,7 +165,7 @@ function carryScriptOutput(
  * Brings the document's sections back in line with the template: a section the writer cannot edit
  * takes the template's content again, a section of a name the template does not have becomes a
  * plain section, keeping its content, and a missing required section is added where the template
- * places it, with its starting content. The change is a system change (`markSystemChange`) outside
+ * places it, with its starting content, each element it brings without an id given one. The change is a system change (`markSystemChange`) outside
  * the history. Refused when nothing drifted.
  */
 export function syncTemplateSections(
@@ -195,6 +198,8 @@ export function syncTemplateSections(
     for (const missing of drift.filter((each) => each.kind === 'missing')) {
       insertMissing(tr, { template, options }, missing.name);
     }
+    // The content it brings back gets element ids, so comments and links can hold on to it.
+    assignElementIds(tr, {});
     // The template's change, not the writer's: it passes the lock on the very sections it brings
     // back, and stays out of the history, where undoing it would be an edit the lock refuses.
     dispatch(markSystemChange(tr).setMeta('addToHistory', false).scrollIntoView());
@@ -229,8 +234,10 @@ export function lockedTemplateSections(template: () => TemplateFile): EditLockOp
   return (doc, pos) => {
     const section = sectionAt(doc.resolve(pos));
     if (!section) return false;
-    if (section.node.attrs.editable === false) return true;
-    return findTemplateSection(template(), section.name)?.editable === false;
+    // A section of the template's follows the template as it is now, whatever it stored when it
+    // was made; any other section follows its own setting.
+    const own = findTemplateSection(template(), section.name);
+    return own ? own.editable === false : section.node.attrs.editable === false;
   };
 }
 

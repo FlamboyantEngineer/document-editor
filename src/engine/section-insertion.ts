@@ -4,7 +4,7 @@
 // could take one are its insert points. An insertable section left empty can be taken out again.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, Selection } from 'prosemirror-state';
+import { type Command, Plugin, Selection, type Transaction } from 'prosemirror-state';
 import {
   type DocumentSection,
   documentSections,
@@ -14,6 +14,7 @@ import {
   type TemplateSection,
 } from '../model/index.js';
 import { contentStart, sectionOf, startingContent } from './document-sections.js';
+import { isLocalEdit, isRemoteTransaction } from './transaction-kind.js';
 
 /** Where a document could take a template section it lacks. */
 export interface SectionInsertPoint {
@@ -121,4 +122,48 @@ export function removeEmptyTemplateSections(template: TemplateFile): Command {
     dispatch(tr.scrollIntoView());
     return true;
   };
+}
+
+// The names of a document's insertable sections that hold something.
+function filledInsertable(doc: ProseMirrorNode, template: TemplateFile): Set<string> {
+  const names = new Set<string>();
+  for (const section of documentSections(doc)) {
+    const own = findTemplateSection(template, section.name);
+    if (section.name && isInsertable(own) && !isEmptySection(section)) names.add(section.name);
+  }
+  return names;
+}
+
+/** How `createEmptySectionRemoval` finds the template and tells another writer's change. */
+interface EmptySectionRemovalOptions {
+  readonly template: () => TemplateFile;
+  readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
+}
+
+/**
+ * Takes out an insertable section as soon as the writer's change leaves it holding nothing, in
+ * the same undo step as that change, keeping at least one section. A section added empty, and
+ * another writer's change, are left as they are.
+ */
+export function createEmptySectionRemoval({
+  template,
+  isRemote = isRemoteTransaction,
+}: EmptySectionRemovalOptions): Plugin {
+  return new Plugin({
+    appendTransaction(transactions, before, after) {
+      if (!transactions.some((tr) => isLocalEdit(tr, isRemote))) return null;
+      const filled = filledInsertable(before.doc, template());
+      if (filled.size === 0) return null;
+      const still = filledInsertable(after.doc, template());
+      const sections = documentSections(after.doc);
+      const emptied = sections.filter(
+        (section) => section.name && filled.has(section.name) && !still.has(section.name),
+      );
+      const removed = emptied.length === sections.length ? emptied.slice(1) : emptied;
+      if (removed.length === 0) return null;
+      const { tr } = after;
+      for (const { pos, node } of removed.reverse()) tr.delete(pos, pos + node.nodeSize);
+      return tr;
+    },
+  });
 }
