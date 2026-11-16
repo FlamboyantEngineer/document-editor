@@ -3,6 +3,7 @@
 // document itself: its status follows the room's, and saving waits for the room to store it.
 
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
+import { movedDocument } from '../engine/template-move.js';
 import type { HostResult, SavedState } from '../host/adapters.js';
 import { type EditorCapabilities, READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
 import type { TemplatePin } from '../model/format/template-format.js';
@@ -260,7 +261,11 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
       const opened = room();
       if (!opened || document.get()?.editingMode !== 'edit') return false;
       const shown = await showPin(pin);
-      if (shown) opened.binding.setPin(pin);
+      // The pin and the content moved to the template reach the room in one change.
+      const template = document.get()?.template;
+      if (shown && template) {
+        opened.binding.setPin(pin, (held) => movedDocument(held, template));
+      }
       return shown;
     },
     save: async () => {
