@@ -1,26 +1,39 @@
-// Reading a resolved template's settings: what one kind of list of contents shows (its title and
-// each level's leader, a kind's settings over the lists' and a level's over its list's), the
-// entries of a host's keyed extension collection, and the settings a template leaves unset.
+// Reading a resolved template's settings: what one kind of list of contents looks like (the kind's
+// settings over the lists', each level's type over the entries' and its leader over the list's),
+// the entries of a host's keyed extension collection, and the settings a template leaves unset.
 
 import type {
+  ContentsKindSettings,
   ContentsLeader,
   ContentsLevelSettings,
   ContentsSettings,
+  FontSettings,
+  Length,
+  Sides,
   TemplateFile,
 } from '../format/template-format.js';
 import { mergeTemplateSettings } from '../format/template-format-resolve.js';
 import { BASE_TEMPLATE } from './base-template.js';
 
-/** A list level's settings, its leader resolved. */
-export interface ResolvedContentsLevel extends Omit<ContentsLevelSettings, 'leader'> {
-  /** The leader's character, or null for none. Its spacing is a custom property (DOCE-TEMPLATES-5.2). */
-  leader: string | null;
+/** A list level's settings: its type over the entries', and its leader over the list's. */
+export interface ResolvedContentsLevel {
+  /** The entry's type at this level: the level's size, weight and slant over the entries'. */
+  font: FontSettings;
+  indentation?: Length | null | undefined;
+  spaceBefore?: Length | null | undefined;
+  spaceAfter?: Length | null | undefined;
+  /** The leader, or null for none. Its character is never empty. */
+  leader: (ContentsLeader & { character: string }) | null;
 }
 
-/** One kind of list's settings. */
+/** One kind of list's settings, its own over the lists'. */
 export interface ResolvedContentsList {
   /** The template's title for the list, or null to show the editor's. */
   title: string | null;
+  titleFont: FontSettings;
+  entry: FontSettings;
+  padding: Sides<Length>;
+  spacing: Sides<Length>;
   /** Levels 1 to 6. */
   levels: ResolvedContentsLevel[];
 }
@@ -32,27 +45,54 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 const DEFAULT_LEADER = '.';
 
+// A level's type over the entries': only the size, weight and slant a level sets.
+function levelFont(entry: FontSettings, level: ContentsLevelSettings): FontSettings {
+  const own: FontSettings = {};
+  if (level.size) own.size = level.size;
+  if (typeof level.weight === 'number') own.weight = level.weight;
+  if (typeof level.italic === 'boolean') own.italic = level.italic;
+  return { ...entry, ...own };
+}
+
 /**
- * One kind of list's settings, by its key: the kind's title, and each level's settings with its
- * leader resolved, the kind's over the lists' and a level's over its list's. An empty leader
- * character draws none; without any, the leader is `.`.
+ * One kind of list's settings, by its key: the kind's own settings over the lists' (levels merge
+ * by index), then each level's size, weight and slant over the entries' type and its leader over
+ * the list's. An empty leader character draws none; without any, the leader is `.`.
  */
 export function resolveContentsList(
   contents: ContentsSettings | null | undefined,
   kind: string,
 ): ResolvedContentsList {
-  const own = contents?.kinds?.[kind];
+  const { kinds, ...lists } = contents ?? {};
+  const own: ContentsKindSettings = mergeTemplateSettings<ContentsKindSettings>(
+    lists,
+    kinds?.[kind] ?? null,
+  );
+  const entry = own.entry ?? {};
   const levels = Array.from({ length: LEVELS }, (_, index): ResolvedContentsLevel => {
-    const { leader: levelLeader, ...level } = contents?.levels?.[index] ?? {};
-    // From the least to the most specific: the lists', their level's, the kind's, its level's.
-    const leader = [levelLeader, own?.leader, own?.levels?.[index]?.leader].reduce<ContentsLeader>(
-      (inherited, next) => mergeTemplateSettings(inherited, next),
-      contents?.leader ?? {},
-    );
+    const {
+      leader: levelLeader,
+      size: _size,
+      weight: _weight,
+      italic: _italic,
+      ...level
+    } = own.levels?.[index] ?? {};
+    const leader = mergeTemplateSettings<ContentsLeader>(own.leader ?? {}, levelLeader);
     const character = leader.character ?? DEFAULT_LEADER;
-    return { ...level, leader: character || null };
+    return {
+      ...level,
+      font: levelFont(entry, own.levels?.[index] ?? {}),
+      leader: character ? { ...leader, character } : null,
+    };
   });
-  return { title: own?.title || null, levels };
+  return {
+    title: own.customTitle || null,
+    titleFont: own.title ?? {},
+    entry,
+    padding: own.padding ?? {},
+    spacing: own.spacing ?? {},
+    levels,
+  };
 }
 
 /**

@@ -59,7 +59,7 @@ Verification: `src/model/contents/document-catalog.test.ts`
 
 `createContents({ template, kinds, labels })` shall give a plugin and a `toc_block` node view that draws each list from the catalog of the kind its `tocType` names: its title, then one entry per node of its kind down to its depth, with the number, the text, a leader and the page, or its empty text when there is nothing to list. The page shall be the one the layout shows the entry on (`pageMap`), and follow each layout. A kind marked `after`, as the table of contents is, shall list only the nodes after the list. The lists shall follow every change to the document.
 
-Implementation: `src/engine/contents.ts`, `labs/src/contents.lab.ts`
+Implementation: `src/engine/contents.ts`, `src/engine/contents-view.ts`, `labs/src/contents.lab.ts`
 Verification: `e2e/contents.spec.ts`
 
 ### DOCE-CONTENTS-2.2 - Lists across pages
@@ -73,7 +73,7 @@ Verification: `e2e/contents.spec.ts`
 
 A change that adds, removes or moves a heading or an object shall renumber the entries and their pages in every list.
 
-Implementation: `src/engine/contents.ts`, `labs/src/contents.lab.ts`
+Implementation: `src/engine/contents.ts`, `src/engine/contents-view.ts`, `labs/src/contents.lab.ts`
 Verification: `e2e/contents.spec.ts`
 
 ### DOCE-CONTENTS-2.4 - Going to an entry
@@ -87,7 +87,7 @@ Verification: `e2e/contents.spec.ts`
 
 The kinds a host gives `createContents` shall be listed alongside the default ones, or in place of a default kind of the same key, each with the labels the host gives it. A list whose `tocType` names no known kind shall list headings.
 
-Implementation: `src/engine/contents.ts`, `labs/src/contents.lab.ts`
+Implementation: `src/engine/contents.ts`, `src/engine/contents-view.ts`, `labs/src/contents.lab.ts`
 Verification: `e2e/contents.spec.ts`
 
 ### DOCE-CONTENTS-2.6 - Anchors
@@ -104,6 +104,13 @@ The contents plugin shall catalog a document only once its catalog or its lists'
 Implementation: `src/engine/contents.ts`, `src/engine/contents-presence.ts`
 Verification: `src/engine/contents.test.ts`
 
+### DOCE-CONTENTS-2.8 - Wrapping and leaders
+
+An entry shall sit on one line and wrap only when its text would run into its page number, its leader and page staying on its last line; an entry without a page wraps within the row. A leader shall fill the whole room between the entry's text and its page number, at any width and font size, ending against the page number and cut off on the text's side, its characters kept in their order and direction. The leader is drawn from its `data-leader` attribute, and copying rows (`copy` in the editor) shall give each row's number, text and page, one space apart and one row a line, without the leader. The list shall carry its kind's custom properties and each row its level's (DOCE-TEMPLATES-10.5).
+
+Implementation: `src/engine/contents-view.ts`, `labs/reference/document.css`, `labs/src/contents.lab.ts`
+Verification: `e2e/contents.spec.ts`, `src/engine/contents.test.ts`
+
 ## Hooks
 
 | Hook                  | Kind      | Values                                                                               | Description                                     |
@@ -115,6 +122,7 @@ Verification: `src/engine/contents.test.ts`
 | `de-contents__number` | slot      |                                                                                      | The number the entry's heading or object shows. |
 | `de-contents__text`   | slot      |                                                                                      | The entry's text.                               |
 | `de-contents__leader` | slot      |                                                                                      | The leader between the text and the page.       |
+| `data-leader`         | attribute |                                                                                      | The leader's characters, for the stylesheet.    |
 | `de-contents__page`   | slot      |                                                                                      | The page the entry is on.                       |
 | `data-contents-type`  | attribute | `toc`, `figures`, `tables`, `codeBlocks`, `equations`, `references`, `abbreviations` | The kind the list lists, or a configured kind.  |
 | `data-level`          | state     |                                                                                      | An entry's heading level.                       |

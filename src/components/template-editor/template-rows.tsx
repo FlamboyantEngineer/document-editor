@@ -2,21 +2,16 @@
 // value and showing the one it inherits, the cards of a section, and the sections themselves, with
 // only the settings the scope may set.
 
-import { PropertyCard, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
-import { Fragment, memo, type ReactNode, useCallback, useLayoutEffect, useRef } from 'react';
+import { PropertySection } from '@flamboyantengineer/ui-components/property-panel';
+import { Fragment, type ReactNode, useCallback, useLayoutEffect, useRef } from 'react';
 import type { TemplateFile } from '../../model/index.js';
-import { isSameRows } from './same-rows.js';
+import { ContentsSection } from './contents-section.js';
+import { SettingCard } from './setting-card.js';
 import { rows } from './setting-row.js';
 import { TEMPLATE_SECTIONS } from './settings-catalog.js';
-import { styleSummary } from './style-fields.js';
-import { styleKeys, StyleRows } from './style-rows.js';
 import { CustomStyleSection, TextStyleSection } from './style-sections.js';
 import type { TemplateEditorLabels, TemplateEditorProps } from './template-editor.js';
-import {
-  settingAt,
-  type TemplateSettingCard,
-  type TemplateSettingSection,
-} from './template-settings.js';
+import { settingAt, type TemplateSettingSection } from './template-settings.js';
 
 // What the rows read and change: the document's settings, or a section's over them.
 export interface Target {
@@ -32,42 +27,6 @@ export interface Rows {
   readonly labels: TemplateEditorLabels;
   readonly target: Target;
 }
-
-interface SettingCardProps {
-  readonly context: Rows;
-  readonly scope: readonly string[];
-  readonly card: TemplateSettingCard;
-  /** The target's own settings at the card, and those it inherits, for `isSameRows`. */
-  readonly own: unknown;
-  readonly inherited: unknown;
-}
-
-// A card of a section: its style's rows, then its settings. It renders again only when what it
-// shows changes, as a template has several hundred settings.
-const SettingCard = memo(
-  function SettingCard({ context, scope, card }: SettingCardProps) {
-    const path = [...scope, ...card.path];
-    const style = { context, path };
-    const keys = [
-      ...styleKeys(card.style ?? []),
-      ...(card.settings ?? []).map((each) => each.path),
-    ];
-    const isOverridden = keys.some(
-      (key) => settingAt(context.target.own, [...path, ...key]) !== undefined,
-    );
-    return (
-      <PropertyCard
-        name={card.title}
-        summary={card.style?.includes('font') ? styleSummary(style) : undefined}
-        isOverridden={isOverridden}
-      >
-        {card.style ? <StyleRows scope={style} parts={card.style} code={card.code} /> : null}
-        {rows(context, path, card.settings ?? [])}
-      </PropertyCard>
-    );
-  },
-  (before, after) => before.card === after.card && isSameRows(before, after),
-);
 
 // A section of settings, with its cards; in a template section, only what a section may set.
 function SettingSection({
@@ -137,13 +96,17 @@ export function SettingSections({
   );
   return shown.map((section) => (
     <Fragment key={section.id}>
-      <SettingSection
-        context={context}
-        section={section}
-        inSection={inSection}
-        onPages={onPages}
-        extra={extra?.(section.id)}
-      />
+      {section.id === 'contents' ? (
+        <ContentsSection context={context} extra={extra?.(section.id)} />
+      ) : (
+        <SettingSection
+          context={context}
+          section={section}
+          inSection={inSection}
+          onPages={onPages}
+          extra={extra?.(section.id)}
+        />
+      )}
       {section.id === 'page' ? (
         <>
           <TextStyleSection context={context} />

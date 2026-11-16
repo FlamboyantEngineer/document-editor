@@ -223,12 +223,14 @@ export * from './templates/template-css-values.js';
 export * from './templates/template-numbering.js';
 export * from './templates/template-preview.js';
 export type {
+  ContentsListProperties,
   CustomProperties,
   FontStacks,
   PageMetrics,
   TemplatePropertiesOptions,
 } from './templates/template-properties.js';
 export {
+  contentsListProperties,
   customStyleProperties,
   templatePageMetrics,
   templateProperties,

@@ -4,6 +4,7 @@ import { expect, test, waitForLab } from './fixtures.js';
 import {
   closeCard,
   openCard,
+  pickIn,
   sectionOf,
   setField,
   type SettingStep,
@@ -317,13 +318,15 @@ test.describe('template editor lab', () => {
     // The steps by section and card, each card open only while its fields are set.
     const groups = new Map<string, SettingStep[]>();
     for (const step of steps) {
-      const key = `${step.section}\u0000${step.card ?? ''}`;
+      const picks = (step.picks ?? []).map((each) => each.option).join('/');
+      const key = `${step.section}\u0000${picks}\u0000${step.card ?? ''}`;
       groups.set(key, [...(groups.get(key) ?? []), step]);
     }
     for (const group of groups.values()) {
       const [first] = group;
       if (!first) continue;
       const section = sectionOf(settings, first.section);
+      await pickIn(section, first.picks);
       const scope = first.card ? await openCard(section, first.card) : section;
       for (const step of group) await setField(scope, step);
       if (first.card) await closeCard(section, first.card);

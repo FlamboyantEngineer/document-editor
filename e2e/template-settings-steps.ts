@@ -3,11 +3,16 @@
 // value to give it, read from the editor's own list of settings (`TEMPLATE_SECTIONS`).
 
 import { expect, type Locator } from '@playwright/test';
+import {
+  CONTENTS_KINDS,
+  contentsSettings,
+} from '../src/components/template-editor/contents-catalog.js';
 import { TEMPLATE_SECTIONS } from '../src/components/template-editor/settings-catalog.js';
 import type {
   SettingKind,
   StylePart,
   TemplateSetting,
+  TemplateSettingSection,
 } from '../src/components/template-editor/template-settings.js';
 
 type FieldKind =
@@ -21,6 +26,14 @@ export interface SettingStep {
   readonly label: string;
   readonly kind: FieldKind;
   readonly value: unknown;
+  /** What its section shows first, such as the list type and heading level of the contents. */
+  readonly picks?: readonly Pick[];
+}
+
+/** A choice a section's picker makes before a setting's field shows: the picker and its option. */
+export interface Pick {
+  readonly label: string;
+  readonly option: string;
 }
 
 type Field = Omit<SettingStep, 'path' | 'section' | 'card' | 'value'> & { value: unknown };
@@ -113,9 +126,9 @@ function findSetting(
 // The part of a style's rows that sets a key below the style.
 const PART_OF: Readonly<Record<string, readonly StylePart[]>> = {
   font: ['font'],
-  size: ['font'],
-  weight: ['face'],
-  italic: ['face'],
+  size: ['font', 'size'],
+  weight: ['face', 'emphasis'],
+  italic: ['face', 'emphasis'],
   underline: ['face'],
   color: ['colour'],
   alignment: ['align', 'justify'],
@@ -134,6 +147,41 @@ const cardStyleField = (parts: readonly StylePart[], rest: readonly string[], va
 const startsWith = (path: readonly string[], prefix: readonly string[]) =>
   prefix.every((key, index) => path[index] === key);
 
+// The step that sets a setting below a section, by its path, or null when it has no field there.
+function sectionStep(
+  section: TemplateSettingSection,
+  path: readonly string[],
+  value: unknown,
+): SettingStep | null {
+  if (!startsWith(path, section.scope)) return null;
+  const below = path.slice(section.scope.length);
+  const own = findSetting(section.settings, below, value);
+  if (own) return { path, section: section.title, ...own };
+  for (const card of section.cards ?? []) {
+    if (!startsWith(below, card.path)) continue;
+    const inCard = below.slice(card.path.length);
+    const field =
+      findSetting(card.settings ?? [], inCard, value) ??
+      cardStyleField(card.style ?? [], inCard, value);
+    if (field) return { path, section: section.title, card: card.title, ...field };
+  }
+  return null;
+}
+
+// The step that sets a contents setting: the list type and heading level picked, then its field.
+function contentsStep(path: readonly string[], value: unknown): SettingStep | null {
+  const kind = path[2] === 'kinds' ? (path[3] ?? null) : null;
+  const rest = path.slice(kind === null ? 2 : 4);
+  const level = rest[0] === 'levels' ? Number(rest[1]) : 0;
+  const step = sectionStep(contentsSettings(kind, level), path, value);
+  if (!step) return null;
+  const type = CONTENTS_KINDS.find(([key]) => key === kind)?.[1] ?? 'All lists';
+  const picks: Pick[] = [{ label: 'List type', option: type }];
+  if (rest[0] === 'levels')
+    picks.push({ label: 'Heading level', option: `Heading ${String(level + 1)}` });
+  return { ...step, picks };
+}
+
 // The step that sets a setting of the template, by its path.
 function stepOf(path: readonly string[], value: unknown): SettingStep | null {
   const [top, style, ...rest] = path;
@@ -147,19 +195,10 @@ function stepOf(path: readonly string[], value: unknown): SettingStep | null {
     const field = styleField(rest.slice(1).join('.'), value);
     return field ? { path, section: 'Custom styles', card: rest[0], ...field } : null;
   }
+  if (top === 'styles' && style === 'contents') return contentsStep(path, value);
   for (const section of TEMPLATE_SECTIONS) {
-    if (!startsWith(path, section.scope)) continue;
-    const below = path.slice(section.scope.length);
-    const own = findSetting(section.settings, below, value);
-    if (own) return { path, section: section.title, ...own };
-    for (const card of section.cards ?? []) {
-      if (!startsWith(below, card.path)) continue;
-      const inCard = below.slice(card.path.length);
-      const field =
-        findSetting(card.settings ?? [], inCard, value) ??
-        cardStyleField(card.style ?? [], inCard, value);
-      if (field) return { path, section: section.title, card: card.title, ...field };
-    }
+    const step = sectionStep(section, path, value);
+    if (step) return step;
   }
   return null;
 }
@@ -226,6 +265,16 @@ const pointsOf = (value: unknown) => {
 async function typeIn(field: Locator, text: string) {
   await field.fill(text);
   await field.press('Enter');
+}
+
+/** Makes a section's picks, so the fields of a step show. */
+export async function pickIn(section: Locator, picks: readonly Pick[] = []): Promise<void> {
+  const page = section.page();
+  for (const { label, option } of picks) {
+    await section.getByRole('button', { name: new RegExp(label) }).click();
+    await page.getByRole('option', { name: option, exact: true }).click();
+    await expect(page.getByRole('listbox')).toHaveCount(0);
+  }
 }
 
 /** Sets one setting in its field, within the scope that holds its row. */

@@ -20,7 +20,7 @@ const headings = (page: Page) =>
     .locator('.lab-pages .pm-page')
     .evaluateAll((pages) =>
       pages.flatMap((each, index) =>
-        [...each.querySelectorAll('.pm-page-content h1, .pm-page-content h2')].map(
+        [...each.querySelectorAll('.pm-page-content :is(h1, h2, h3, h4, h5, h6)')].map(
           (heading) => `${heading.textContent ?? ''}|${String(index + 1)}`,
         ),
       ),
@@ -133,5 +133,103 @@ test.describe('contents lab', () => {
     await expect(entries.first()).toContainText('Quoted in chapter 9.');
     await expect(entries.locator('.de-contents__page')).toHaveCount(0);
     await expect(entries.locator('.de-contents__leader')).toHaveCount(0);
+  });
+
+  test('DOCE-TEMPLATES-10.11 nests the levels and sets each in the type the template gives it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('contents');
+    const styles = await rows(page).evaluateAll((all) =>
+      all.map((row) => {
+        const style = getComputedStyle(row);
+        return {
+          level: Number((row as HTMLElement).dataset.level),
+          indent: Number.parseFloat(style.paddingLeft),
+          weight: style.fontWeight,
+          italic: style.fontStyle,
+          size: Number.parseFloat(style.fontSize),
+        };
+      }),
+    );
+    const first = styles.find((row) => row.level === 1);
+    const second = styles.find((row) => row.level === 2);
+    expect(first).toMatchObject({ weight: '700', italic: 'normal' });
+    expect(first?.size).toBeCloseTo((13 * 4) / 3, 1);
+    expect(second).toMatchObject({ weight: '400', italic: 'italic' });
+    const indents = [1, 2, 3, 4, 5, 6].map(
+      (level) => styles.find((row) => row.level === level)?.indent ?? -1,
+    );
+    expect(indents[0]).toBe(0);
+    for (let index = 1; index < 6; index += 1) {
+      expect(indents[index]).toBeGreaterThan(indents[index - 1] ?? 0);
+    }
+  });
+
+  test('DOCE-CONTENTS-2.8 wraps an entry too long for its row and fills each leader to the page', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('contents');
+    const long = rows(page).filter({ hasText: 'Archive retention' });
+    const shape = await long.evaluate((row) => {
+      const text = row.querySelector('.de-contents__text')?.getBoundingClientRect();
+      const number = row.querySelector('.de-contents__page')?.getBoundingClientRect();
+      const box = row.getBoundingClientRect();
+      const line = Number.parseFloat(getComputedStyle(row).lineHeight);
+      return {
+        lines: (text?.height ?? 0) / line,
+        textRight: text?.right ?? Infinity,
+        pageRight: number?.right ?? 0,
+        right: box.right,
+      };
+    });
+    expect(shape.lines).toBeGreaterThan(1.5);
+    expect(shape.textRight).toBeLessThan(shape.pageRight);
+    expect(shape.pageRight).toBeLessThanOrEqual(shape.right + 1);
+    // Every leader ends against its page number and is never shorter than the room it has.
+    const leaders = await rows(page).evaluateAll((all) =>
+      all.map((row) => {
+        const leader = row.querySelector<HTMLElement>('.de-contents__leader');
+        const number = row.querySelector('.de-contents__page')?.getBoundingClientRect();
+        const box = leader?.getBoundingClientRect();
+        const glyphs = leader
+          ? Number.parseFloat(getComputedStyle(leader, '::before').width) || leader.scrollWidth
+          : 0;
+        return {
+          gap: (number?.left ?? 0) - (box?.right ?? 0),
+          filled: glyphs >= (box?.width ?? 0) - 1,
+        };
+      }),
+    );
+    for (const leader of leaders) {
+      expect(leader.filled).toBe(true);
+      expect(leader.gap).toBeCloseTo(4, 0);
+    }
+  });
+
+  test('DOCE-CONTENTS-2.8 copies rows as their text and page, without the leader', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('contents');
+    await page.evaluate(() => {
+      const editor = document.querySelector<HTMLElement>('.lab-pages .ProseMirror');
+      const rows = document.querySelectorAll('.lab-pages .de-contents__entry');
+      const [first, second] = rows;
+      editor?.focus();
+      if (!first || !second) return;
+      const range = document.createRange();
+      range.setStart(first, 0);
+      range.setEnd(second, second.childNodes.length);
+      document.getSelection()?.removeAllRanges();
+      document.getSelection()?.addRange(range);
+      document.addEventListener('copy', (event) => {
+        document.body.dataset.copied = event.clipboardData?.getData('text/plain') ?? '';
+      });
+    });
+    await page.keyboard.press('ControlOrMeta+C');
+    const copied = await page.evaluate(() => document.body.dataset.copied ?? '');
+    expect(copied).toMatch(/^1\. Scope \d+\n1\.1\. Scope conditions \d+$/);
   });
 });

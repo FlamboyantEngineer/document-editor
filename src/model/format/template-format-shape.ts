@@ -51,36 +51,41 @@ const NUMBERING_FIELDS = {
 const NUMBERING = { object: NUMBERING_FIELDS } as const;
 
 const LEADER = {
-  object: { character: 'text', spacing: 'length', gapBefore: 'length', gapAfter: 'length' },
+  object: {
+    character: 'text',
+    spacing: 'length',
+    gapBefore: 'length',
+    gapAfter: 'length',
+    weight: 'weight',
+    italic: 'boolean',
+  },
 } as const;
-const LEADER_CHARACTER = { object: { character: 'text' } } as const;
+
+const CONTENTS_LIST = {
+  title: { object: FONT },
+  entry: { object: FONT },
+  padding: sides,
+  spacing: sides,
+  leader: LEADER,
+  levels: {
+    list: {
+      object: {
+        size: 'length',
+        weight: 'weight',
+        italic: 'boolean',
+        indentation: 'length',
+        spaceBefore: 'length',
+        spaceAfter: 'length',
+        leader: LEADER,
+      },
+    },
+  },
+} as const;
 
 const CONTENTS = {
   object: {
-    title: { object: FONT },
-    entry: { object: FONT },
-    padding: sides,
-    spacing: sides,
-    leader: LEADER,
-    levels: {
-      list: {
-        object: {
-          indentation: 'length',
-          spaceBefore: 'length',
-          spaceAfter: 'length',
-          leader: LEADER,
-        },
-      },
-    },
-    kinds: {
-      record: {
-        object: {
-          title: 'text',
-          leader: LEADER_CHARACTER,
-          levels: { list: { object: { leader: LEADER_CHARACTER } } },
-        },
-      },
-    },
+    ...CONTENTS_LIST,
+    kinds: { record: { object: { ...CONTENTS_LIST, customTitle: 'text' } } },
   },
 } as const;
 

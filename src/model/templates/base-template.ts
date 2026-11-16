@@ -30,7 +30,12 @@ const LEVEL_INDENTS = [
   ['35px', '110px'],
 ] as const;
 
-const CONTENTS_LEVEL = { indentation: '0pt', spaceBefore: '0pt', spaceAfter: '0pt' };
+// Each level of a list of contents indented 12pt past the one above it.
+const contentsLevel = (index: number) => ({
+  indentation: `${String(index * 12)}pt`,
+  spaceBefore: '0pt',
+  spaceAfter: '0pt',
+});
 
 /** The base template's id. */
 export const BASE_TEMPLATE_ID = 'base';
@@ -113,8 +118,8 @@ export const BASE_TEMPLATE: Readonly<TemplateFile> = Object.freeze<TemplateFile>
       entry: { weight: 400 },
       padding: { left: '0pt', right: '0pt' },
       spacing: { top: '0pt', bottom: '0pt' },
-      leader: { character: '.', gapBefore: '3pt', gapAfter: '3pt' },
-      levels: LEVEL_INDENTS.map(() => CONTENTS_LEVEL),
+      leader: { character: '.', gapBefore: '3pt', gapAfter: '3pt', weight: 400, italic: false },
+      levels: LEVEL_INDENTS.map((_, index) => contentsLevel(index)),
     },
   },
   header: { content: [] },

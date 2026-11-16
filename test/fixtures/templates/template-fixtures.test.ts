@@ -136,8 +136,8 @@ describe('template fixtures', () => {
     const paragraph = handbook.styles?.paragraph?.numbering;
     expect(paragraph?.enabled).toBe(false);
     expect(paragraph?.levels?.[1]).toMatchObject({ format: '1.a)', textIndent: '48pt' });
-    expect(handbook.styles?.contents?.kinds?.figures?.title).toBe('Figures');
-    expect(handbook.styles?.contents?.kinds?.toc?.title).toBe('Handbook contents');
+    expect(handbook.styles?.contents?.kinds?.figures?.customTitle).toBe('Figures');
+    expect(handbook.styles?.contents?.kinds?.toc?.customTitle).toBe('Handbook contents');
     expect(Object.keys(extensionRecord(handbook, 'fields'))).toEqual(['site', 'edition']);
   });
 
