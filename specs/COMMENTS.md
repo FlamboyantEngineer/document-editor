@@ -272,6 +272,34 @@ Pressing a card itself, in the margin or the panel, rather than one of its contr
 Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/comment-opening.test.tsx`, `src/components/document-comments/comment-focus.test.tsx`
 
+### DOCE-COMMENTS-2.26 - Replies that failed for good
+
+A reply being written for the reader that failed (`status: 'failed'`) shall show as an error row with Cancel and Retry, except that one the store marks final (`retryable: false`) shall offer no Retry.
+
+Implementation: `src/host/comment-adapters.ts`, `src/components/document-comments/use-thread-activity.ts`
+Verification: `src/components/document-comments/comment-records.test.tsx`
+
+### DOCE-COMMENTS-2.27 - Comments an assistant wrote
+
+A thread and a comment may name the assistant that wrote them (`agent`) and carry the host's own plain values (`meta`), which the editor keeps as they are, the room store too. A comment's element, and a thread's, shall carry the assistant as `data-agent`, for the host to mark it.
+
+Implementation: `src/host/comment-adapters.ts`, `src/collab/comment-records.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`, `src/collab/comment-store.test.ts`
+
+### DOCE-COMMENTS-2.28 - Telling the host a reply being written shows
+
+With `onActivityShown`, a card shall tell the host each reply being written for the reader (`status: 'pending'`) once its row is drawn and painted, once for each card that shows it, so a host may start the work behind the reply only when the reader sees it.
+
+Implementation: `src/components/document-comments/thread-card-hooks.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`
+
+### DOCE-COMMENTS-2.29 - The text a reply starts with
+
+With `replyStart`, a thread's reply box shall start with the text the host gives for the thread and the reader, such as a mention of the assistant the reader's last comment asked, while nothing is typed and kept for the thread; a reader who may not reply gets no reply box. It starts again after each reply, as the host's text then says.
+
+Implementation: `src/components/document-comments/thread-card-hooks.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

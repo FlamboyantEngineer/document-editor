@@ -66,6 +66,7 @@ export type {
   CommentChange,
   CommentDecision,
   CommentEntry,
+  CommentMeta,
   CommentStoreAdapter,
   CommentTarget,
   CommentTargetRange,

@@ -24,6 +24,12 @@ import { activityRows } from './comment-activity-rows.js';
 import type { OpenedComment } from './comment-focus.js';
 import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
+import {
+  type ReplyStart,
+  replyStartOf,
+  type ShownActivity,
+  useActivityShown,
+} from './thread-card-hooks.js';
 import { resolveThreadPermissions, type ThreadPermissionPolicy } from './thread-permissions.js';
 import type { CommentThreads } from './use-comment-threads.js';
 import { focusCard } from './use-open-cards.js';
@@ -70,6 +76,10 @@ export interface CardContext {
   readonly opened?: OpenedComment | null | undefined;
   /** The text a thread being started begins with. */
   readonly newText?: string | null | undefined;
+  /** The text a thread's next reply starts with, when nothing is typed for it. */
+  readonly replyStart?: ReplyStart | undefined;
+  /** Tells the host a reply being written for the reader shows. */
+  readonly onActivityShown?: ((shown: ShownActivity) => void) | undefined;
 }
 
 /** The element id of a comment where the cards show. */
@@ -87,19 +97,22 @@ export function DraftComposer({
   first,
   onSubmit,
   defaultValue,
+  startValue,
 }: {
   context: CardContext;
   draftKey: string;
   first: boolean;
   onSubmit: (text: string) => Promise<unknown>;
-  /** The text to begin with, such as a reply a link starts. */
+  /** The text to begin with, such as a reply a link starts, in place of the kept draft. */
   defaultValue?: string | undefined;
+  /** The text to begin with when nothing is kept for the thread. */
+  startValue?: string | undefined;
 }) {
   const { labels } = context;
   return (
     <CommentComposer
       mentions={context.mentions}
-      defaultValue={defaultValue}
+      defaultValue={defaultValue ?? startValue}
       // A kept draft would hide the text a host starts the reply with.
       persistKey={
         defaultValue === undefined ? `de-comments:${context.documentId}:${draftKey}` : undefined
@@ -197,6 +210,8 @@ export function renderEntries({
       <CommentThreadReply
         key={entry.id}
         id={entryElementId(context, entry.id)}
+        // A comment an assistant wrote names it, for the host to mark it so.
+        data-agent={entry.agent}
         author={people.get(entry.author) ?? { name: context.labels.someone }}
         time={entry.createdAt}
         text={entry.text}
@@ -240,9 +255,12 @@ export function ThreadCard({
   useEffect(() => {
     if (answer !== null) focusCard(root.current, 'reply');
   }, [answer]);
+  useActivityShown(thread, { onActivityShown: context.onActivityShown, card: root });
+  const start = replyStartOf(thread, context);
   return (
     <CommentThread
       ref={root}
+      data-agent={thread.agent}
       mentions={context.mentions}
       quote={thread.quote}
       highlightedId={opened?.entryId ? entryElementId(context, opened.entryId) : undefined}
@@ -255,12 +273,18 @@ export function ThreadCard({
         may.reply ? (
           <DraftComposer
             // A reply a link starts takes the composer's place, with the text it begins with.
-            key={opened?.reply === undefined ? 'draft' : `opened-${String(opened.sequence)}`}
+            // A new start, as after a reply, draws the composer again to begin with it.
+            key={
+              opened?.reply === undefined
+                ? `draft:${start ?? ''}`
+                : `opened-${String(opened.sequence)}`
+            }
             context={context}
             draftKey={thread.id}
             first={thread.entries.length === 0}
             onSubmit={(text) => comments.reply(thread.id, text)}
             defaultValue={opened?.reply}
+            startValue={start}
           />
         ) : undefined
       }

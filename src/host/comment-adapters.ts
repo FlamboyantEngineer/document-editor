@@ -19,7 +19,16 @@ export interface CommentEntry {
    * could not be (`failed`, with why in `text`), which the reader may cancel or retry.
    */
   status?: 'pending' | 'failed' | undefined;
+  /** A failed reply the reader may not retry, as one the store decided is final. */
+  retryable?: false | undefined;
+  /** The assistant that wrote it, by id, for a comment an assistant wrote. */
+  agent?: string | undefined;
+  /** What the host keeps with it, such as review details; the editor keeps it as it is. */
+  meta?: CommentMeta | undefined;
 }
+
+/** Plain values a host keeps with a thread or a comment, which the editor never reads. */
+export type CommentMeta = Readonly<Record<string, unknown>>;
 
 /** A stretch of a thread's text: offsets inside the text block with this element id. */
 export interface CommentTargetRange {
@@ -86,6 +95,10 @@ export interface CommentThread {
   automatic?: boolean | undefined;
   /** The people who reacted to the thread as a whole, by the emoji they reacted with. */
   reactions?: Record<string, string[]> | undefined;
+  /** The assistant that started it, by id, for a thread an assistant started. */
+  agent?: string | undefined;
+  /** What the host keeps with it; the editor keeps it as it is. */
+  meta?: CommentMeta | undefined;
 }
 
 /** A thread to start: its id, what it quotes, its opening comment, and its suggestion. */
@@ -99,6 +112,8 @@ export interface NewCommentThread {
   target?: CommentThread['target'];
   change?: CommentThread['change'];
   automatic?: boolean | undefined;
+  agent?: CommentThread['agent'];
+  meta?: CommentThread['meta'];
 }
 
 /** What someone is doing in a thread now, such as writing a reply. */

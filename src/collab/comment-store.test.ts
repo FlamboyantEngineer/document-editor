@@ -290,6 +290,29 @@ describe('readRoomThreads', () => {
       ['toString', ['bea']],
     ]);
   });
+  it('DOCE-COMMENTS-2.27 keeps the assistant and the host’s meta of a thread and a comment', async () => {
+    const { first, second, exchange, ada } = writers();
+    await ada.create('doc', {
+      id: 't1',
+      quote: 'blue',
+      text: 'First',
+      agent: 'helper',
+      meta: { review: 'pending', steps: [1, 2] },
+    });
+    exchange();
+    attribute(second, ['entry', 't1', 'a1'], {
+      id: 'a1',
+      author: 'bea',
+      text: 'Blue fits.',
+      createdAt: '2026-01-02T03:04:06Z',
+      agent: 'helper',
+      meta: { model: 'small' },
+    });
+    exchange();
+    const [thread] = readRoomThreads(first.get('comments'));
+    expect(thread).toMatchObject({ agent: 'helper', meta: { review: 'pending', steps: [1, 2] } });
+    expect(thread?.entries.at(-1)).toMatchObject({ agent: 'helper', meta: { model: 'small' } });
+  });
 });
 
 describe('createRoomCommentStore, with changes made at once', () => {

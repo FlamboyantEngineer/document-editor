@@ -126,15 +126,25 @@ function threadOf(id: string, value: unknown): CommentThread | null {
     change: optional(fields.change, changeOf),
     decision: optional(fields.decision, decisionOf),
     automatic: fields.automatic === true ? true : undefined,
+    agent: textOf(fields.agent),
+    meta: fieldsOf(fields.meta) ?? undefined,
   });
 }
 
 /** The comment a record under a comment's key holds; null for a value that is not such a record. */
 export function entryOf(id: string, value: unknown): CommentEntry | null {
-  const { author, text, createdAt, editedAt } = fieldsOf(value) ?? {};
+  const { author, text, createdAt, editedAt, agent, meta } = fieldsOf(value) ?? {};
   if (typeof author !== 'string' || typeof text !== 'string' || typeof createdAt !== 'string')
     return null;
-  return plain({ id, author, text, createdAt, editedAt: textOf(editedAt) });
+  return plain<CommentEntry>({
+    id,
+    author,
+    text,
+    createdAt,
+    editedAt: textOf(editedAt),
+    agent: textOf(agent),
+    meta: fieldsOf(meta) ?? undefined,
+  });
 }
 
 // A thread changed at `at`, when that is later than its record says.
