@@ -28,6 +28,7 @@ export type {
   DocumentMenu,
   DocumentMenubarOptions,
   DocumentToolbarOptions,
+  EditorContentsOptions,
   EditorContext,
   EditorSession,
   EditorSessionDocument,

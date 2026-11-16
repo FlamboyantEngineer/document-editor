@@ -146,6 +146,13 @@ A list of a kind that groups its entries shall show them group by group in the k
 Implementation: `src/engine/contents-listing.ts`, `src/engine/contents-view.ts`, `src/engine/contents-keys.ts`, `src/engine/contents-commands.ts`, `src/engine/contents.ts`, `src/components/document-editor/contents-entries.ts`, `labs/src/contents.lab.ts`
 Verification: `src/engine/contents.test.ts`, `e2e/contents.spec.ts`
 
+### DOCE-CONTENTS-2.12 - Lists a document editor draws
+
+A document editor (`DocumentEditor`) shall draw the lists of contents of a document whose state holds no contents plugin of the host's own, under its template and with the kinds and labels of its `contents` prop, a list of references linking where its `referenceSource` adapter's `href` says, and draw them again when its template changes. A contents plugin the host installs shall be kept in its place.
+
+Implementation: `src/components/document-editor/editor-contents.ts`, `src/components/document-editor/layout-own-plugins.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/components/document-editor/editor-contents.test.tsx`
+
 ## Hooks
 
 | Hook                     | Kind      | Values                                                                               | Description                                                                      |

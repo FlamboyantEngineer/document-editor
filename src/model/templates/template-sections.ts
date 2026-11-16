@@ -14,7 +14,11 @@ import { assignStoredIds } from '../format/document-format-ids.js';
 import { writeStoredContent } from '../format/document-format-write.js';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
 import { fitStoredTables } from '../layout/stored-table-widths.js';
-import { readTemplateContent, type TemplateContentOptions } from './template-content.js';
+import {
+  readTemplateContent,
+  storedContentsTokens,
+  type TemplateContentOptions,
+} from './template-content.js';
 import { templatePageMetrics } from './template-properties.js';
 
 /** The template's section with a name, or null. */
@@ -45,7 +49,8 @@ export interface CreateDocumentOptions extends TemplateContentOptions {
   readonly author?: string | null | undefined;
   /**
    * The schema to read the template's content with, so its `{{key}}` and list tokens become live
-   * variables and lists of contents (`readTemplateContent`); without one it is copied as it is.
+   * variables and lists of contents (`readTemplateContent`); without one it is copied as it is,
+   * each paragraph that is only a list token a list of contents (`storedContentsTokens`).
    */
   readonly schema?: Schema | undefined;
 }
@@ -60,9 +65,9 @@ const isLocked = (section: { readonly editable?: boolean | null | undefined }) =
   section.editable === false;
 
 // A template section's content as a new document holds it: read with its tokens when there is a
-// schema, else a copy.
+// schema, else a copy with its list tokens lists of contents.
 function startingContent(section: TemplateSection, options: CreateDocumentOptions): StoredContent {
-  if (!options.schema) return cloneJson(section.content ?? []);
+  if (!options.schema) return storedContentsTokens(cloneJson(section.content ?? []), options);
   const nodes = readTemplateContent(section.content ?? [], options.schema, options);
   return writeStoredContent(Fragment.fromArray(nodes));
 }

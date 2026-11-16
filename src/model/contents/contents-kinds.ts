@@ -115,7 +115,10 @@ const codeText = (node: ProseMirrorNode) =>
 // Whether a table shows its caption, which a table that is listed and numbered does.
 const isCaptioned = (node: ProseMirrorNode) => node.attrs.captionEnabled !== false;
 
-/** The kinds of list a document has unless a host gives others, keyed by a list's `tocType`. */
+/**
+ * The kinds of list a document has unless a host gives others, keyed by a list's `tocType`, in the
+ * order the insert menu offers them.
+ */
 export const DEFAULT_CONTENTS_KINDS = {
   toc: { nodes: ['heading'], after: true },
   figures: { nodes: ['figure'], after: true, separator: ' - ' },
@@ -125,14 +128,14 @@ export const DEFAULT_CONTENTS_KINDS = {
     after: true,
     separator: ' - ',
   },
+  // An equation's entry is its number alone.
+  equations: { nodes: ['math_display'], text: () => '', after: true },
   codeBlocks: {
     nodes: ['code_block', 'linked_code_block'],
     text: codeText,
     after: true,
     separator: ' - ',
   },
-  // An equation's entry is its number alone.
-  equations: { nodes: ['math_display'], text: () => '', after: true },
   // Each document, and each revision of it, cited after the table of contents, once, grouped by
   // its reference type and ordered by publisher and number.
   references: {
