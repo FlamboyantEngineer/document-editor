@@ -212,14 +212,21 @@ describe('DocumentSidePanel', () => {
     expect(details()).not.toContainElement(document.activeElement as HTMLElement);
   });
 
-  it('DOCE-EDITOR-8.3 adds the comments pane with the open threads counted, only with comments', async () => {
+  it('DOCE-EDITOR-8.3 adds the comments pane with the open threads counted, ', async () => {
     const { unmount } = render(<Harness panel={{ panes: ['comments', 'properties'] }} />);
     const tab = within(details()).getByRole('tab', { name: /Comments/ });
     await waitFor(() => expect(tab).toHaveTextContent('1'));
     expect(await within(details()).findByText('Note one')).toBeInTheDocument();
     unmount();
-    render(<Harness comments={false} panel={{ panes: ['comments', 'properties'] }} />);
-    expect(within(details()).queryByRole('tab', { name: /Comments/ })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-8.3 keeps the comments pane of an editor without comments, saying they are not available', async () => {
+    const user = userEvent.setup();
+    render(<Harness comments={false} panel={{ panes: ['properties', 'comments'] }} />);
+    await user.click(within(details()).getByRole('tab', { name: 'Comments' }));
+    expect(
+      await within(details()).findByText('Comments are not available for this document.'),
+    ).toBeInTheDocument();
   });
 
   it('DOCE-EDITOR-8.3 DOCE-COMMENTS-4.2 leaves the comments pane its own filter, whatever the margin’s', async () => {

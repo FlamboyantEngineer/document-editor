@@ -15,7 +15,13 @@ installEditorDom();
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'plain' };
 
 const PEOPLE = [
-  { kind: 'person', id: 'u1', name: 'Ada Lovelace' },
+  {
+    kind: 'person',
+    id: 'u1',
+    name: 'Ada Lovelace',
+    avatarUrl: 'https://example.test/ada.png',
+    description: 'Analyst',
+  },
   { kind: 'person', id: 'u2', name: 'Alan Turing' },
   { kind: 'group', id: 'g1', name: 'Analysts' },
   { kind: 'person', id: 'u3', name: 'Grace Hopper' },
@@ -106,7 +112,7 @@ describe('the mention menu', () => {
   it('DOCE-EDITOR-4.23 finds the people for the typed query and mentions the one chosen', async () => {
     const { user, type, view, lastBlock } = await setup();
     type('Ask @a');
-    expect(await screen.findByRole('option', { name: 'Ada Lovelace' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /Ada Lovelace/ })).toBeInTheDocument();
     // People only: the document's mentions name a person.
     expect(screen.queryByRole('option', { name: 'Analysts' })).not.toBeInTheDocument();
     type('da L');
@@ -119,6 +125,14 @@ describe('the mention menu', () => {
     expect(lastBlock()?.childCount).toBe(3);
     expect(lastBlock()?.lastChild?.text).toBe(' ');
     expect(onMention).toHaveBeenCalledWith(PEOPLE[0]);
+  });
+
+  it('DOCE-EDITOR-4.23 shows each person with their picture and second line', async () => {
+    const { type } = await setup();
+    type('@ada');
+    const option = await screen.findByRole('option', { name: /Ada Lovelace/ });
+    expect(option).toHaveTextContent('Analyst');
+    expect(option.querySelector('.ui-avatar')).not.toBeNull();
   });
 
   it('DOCE-EDITOR-4.23 says when nobody matches, and closes on Escape', async () => {

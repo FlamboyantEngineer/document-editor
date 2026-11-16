@@ -11,6 +11,8 @@ export interface DocumentPanelsLabels {
   readonly search: string;
   readonly properties: string;
   readonly comments: string;
+  /** The comments pane of an editor without comments. */
+  readonly commentsUnavailable: string;
   readonly contributors: string;
   /** The contributors pane's switch that shows who wrote what. */
   readonly showAuthorship: string;
@@ -55,6 +57,7 @@ export const DEFAULT_PANELS_LABELS: DocumentPanelsLabels = {
   search: 'Search',
   properties: 'Properties',
   comments: 'Comments',
+  commentsUnavailable: 'Comments are not available for this document.',
   contributors: 'Contributors',
   showAuthorship: 'Show who wrote what',
   noContributors: 'No one has written in this document yet.',

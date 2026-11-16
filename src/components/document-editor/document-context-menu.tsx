@@ -84,10 +84,57 @@ function useFocusAfterClose(view: EditorView | null, controller: MenuController)
   }, [view, controller]);
 }
 
+/** Where an open menu sits against the content it opened on. */
+interface MenuHold {
+  readonly element: Element;
+  readonly dx: number;
+  readonly dy: number;
+}
+
+// The element of the content at a document position, which an open menu moves with.
+function contentElementAt(view: EditorView, pos: number): Element | null {
+  try {
+    const { node } = view.domAtPos(pos);
+    return node.nodeType === node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  } catch {
+    return null;
+  }
+}
+
+// How an open menu holds on to the content it opened on: as the document scrolls, the menu moves
+// with that content, staying open.
+function holdAt(view: EditorView, anchor: MenuPoint, pos: number): MenuHold | null {
+  const element = contentElementAt(view, pos);
+  if (!element) return null;
+  const box = element.getBoundingClientRect();
+  return { element, dx: anchor.x - box.left, dy: anchor.y - box.top };
+}
+
+// Moves the open menu with the content it opened on as anything scrolls.
+function useMenuFollowsContent(
+  view: EditorView | null,
+  controller: MenuController,
+  holdRef: RefObject<MenuHold | null>,
+) {
+  useEffect(() => {
+    const owner = view?.dom.ownerDocument;
+    if (!owner) return undefined;
+    const follow = () => {
+      const hold = holdRef.current;
+      if (!hold || !controller.isOpen() || !hold.element.isConnected) return;
+      const box = hold.element.getBoundingClientRect();
+      controller.move({ x: box.left + hold.dx, y: box.top + hold.dy });
+    };
+    owner.addEventListener('scroll', follow, { capture: true, passive: true });
+    return () => owner.removeEventListener('scroll', follow, { capture: true });
+  }, [view, controller, holdRef]);
+}
+
 /** Opens the editor's context menu on the document of `view`. */
 export function DocumentContextMenu(props: DocumentContextMenuProps) {
   const { view } = props;
   const controller = useMenuController();
+  const holdRef = useRef<MenuHold | null>(null);
   const latest = useRef(props);
   useEffect(() => {
     latest.current = props;
@@ -110,7 +157,9 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       });
       const entries = { ...options, startComment: startCommentRef.current };
       const items = composeContextMenu(view, target, { context, entries, menu });
-      if (items.length > 0) controller.open(anchor, { items });
+      if (items.length === 0) return;
+      holdRef.current = holdAt(view, anchor, pos);
+      controller.open(anchor, { items });
     };
     const onContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
@@ -148,5 +197,6 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     };
   }, [view, controller]);
   useFocusAfterClose(view, controller);
+  useMenuFollowsContent(view, controller, holdRef);
   return <ContextMenu controller={controller} aria-label={props.labels.contextMenu} isNonModal />;
 }

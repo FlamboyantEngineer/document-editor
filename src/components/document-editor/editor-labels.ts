@@ -47,6 +47,7 @@ export interface DocumentEditorLabels
   readonly paste: string;
   readonly pasteAsText: string;
   readonly addComment: string;
+  readonly copyLink: string;
   readonly clearFormatting: string;
   readonly acceptSuggestion: string;
   readonly rejectSuggestion: string;
@@ -157,6 +158,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   paste: 'Paste',
   pasteAsText: 'Paste as plain text',
   addComment: 'Comment',
+  copyLink: 'Copy link',
   clearFormatting: 'Clear formatting',
   acceptSuggestion: 'Accept suggestion',
   rejectSuggestion: 'Reject suggestion',

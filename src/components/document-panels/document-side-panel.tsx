@@ -79,6 +79,11 @@ export interface DocumentSidePanelProps {
   readonly minSize?: number | undefined;
   /** Its widest width, in pixels. Defaults to 640. */
   readonly maxSize?: number | undefined;
+  /**
+   * The width, in pixels, the panel leaves its parent's other content, narrowing below `maxSize`
+   * (never below `minSize`) without changing the width it saves. Defaults to 480.
+   */
+  readonly minMainSize?: number | undefined;
   /** Saves the panel's selected pane, expanded state and size under this key. */
   readonly persistKey?: string | undefined;
   readonly className?: string | undefined;
@@ -161,10 +166,9 @@ export function DocumentSidePanel(props: DocumentSidePanelProps) {
   const threads = useContext(SharedCommentThreadsContext);
   const labels = { ...DEFAULT_PANELS_LABELS, ...props.labels };
   const sources = { props, labels, comments: editorPanes?.comments, threads };
-  const panes = props.panes.flatMap((pane) => {
-    const shown = typeof pane === 'string' ? builtInPane(pane, sources) : pane;
-    return shown ? [shown] : [];
-  });
+  const panes = props.panes.map((pane) =>
+    typeof pane === 'string' ? builtInPane(pane, sources) : pane,
+  );
   const state = usePanelState(props, panes[0]?.id);
   const panel = useRevealedPanes(
     panes.map((pane) => pane.id),
@@ -187,7 +191,7 @@ export function DocumentSidePanel(props: DocumentSidePanelProps) {
       onSizeChangeEnd={props.onSizeChange}
       minSize={props.minSize ?? 200}
       maxSize={props.maxSize}
-      minMainSize={480}
+      minMainSize={props.minMainSize ?? 480}
     >
       {panes.map((pane) => (
         <DockPanelPane
