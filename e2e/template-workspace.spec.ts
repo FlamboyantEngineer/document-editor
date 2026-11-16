@@ -116,9 +116,15 @@ test.describe('template workspace lab', () => {
           ),
       )
       .toEqual(new Set(['deletion', 'formatting', 'insertion', 'modification']));
-    await expect(
-      shown.locator('.de-change-lines__line[data-diff-line="modification"]').first(),
-    ).toBeAttached();
+    const line = shown.locator('.de-change-lines__line[data-diff-line="modification"]').first();
+    await expect(line).toBeAttached();
+    // The bar takes the template's width and its kind's colour (base: 5px, #0000dd).
+    expect(
+      await line.evaluate((element) => {
+        const computed = getComputedStyle(element);
+        return [computed.width, computed.backgroundColor];
+      }),
+    ).toEqual(['5px', 'rgb(0, 0, 221)']);
     await expect(shown.locator('ul ul ul').first()).toBeAttached();
     await expect(shown.locator('.pm-page').nth(1)).toBeAttached();
     // The table goes on over a page break, its header row repeated.
