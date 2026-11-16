@@ -8,6 +8,7 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../model/index.js';
+import { documentAuthors } from './authorship.js';
 import {
   createDocumentEditing,
   createDocumentEditingExtension,
@@ -100,8 +101,12 @@ describe('element ids', () => {
     const doc = read(paragraph('Alpha blue', { id: '0000000a', author: 'first' }));
     const state = run(stateAt(doc, 'blue', plugins), key('Enter'));
     const [first, second] = body(state).children;
-    expect(first?.attrs.dataAuthor).toBe('first');
+    expect(first?.attrs.dataAuthor).toBe('writer');
     expect(second?.attrs.dataAuthor).toBe('writer');
+    // The split's blocks are the splitter's; the text they carry is still its writer's.
+    expect(documentAuthors(state.doc)).toEqual([
+      expect.objectContaining({ id: 'first', characters: 10 }),
+    ]);
   });
 
   it('DOCE-EDITING-1.3 leaves remote, layout and typing changes as they are', () => {
@@ -189,7 +194,8 @@ describe('document keys', () => {
     };
     let state = run(stateAt(read(heading), 'Title', plugins), key('Enter'));
     const [empty, title] = body(state).children;
-    expect(title?.attrs).toMatchObject({ dataId: '0000000a', dataAuthor: 'first', level: 2 });
+    expect(title?.attrs).toMatchObject({ dataId: '0000000a', dataAuthor: 'writer', level: 2 });
+    expect(title?.firstChild?.marks.map((mark) => mark.attrs.dataAuthor)).toEqual(['first']);
     expect(title?.type.name).toBe('heading');
     expect(String(empty?.attrs.dataId)).toMatch(ELEMENT_ID_PATTERN);
     expect(empty?.attrs).toMatchObject({ dataAuthor: 'writer' });
