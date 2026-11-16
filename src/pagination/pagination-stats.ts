@@ -3,7 +3,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { SectionReport } from './layout-document.js';
-import { type MeasureCache, measureCacheCounts } from './measure-blocks.js';
+import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
 
 /** What a projection's layouts did since it was made (`PagedProjection.stats`). */
 export interface PaginationStats {
@@ -15,6 +15,8 @@ export interface PaginationStats {
   readonly cacheHits: number;
   /** Blocks the cache did not hold. */
   readonly cacheMisses: number;
+  /** Blocks forgotten alone because their element changed size after they were measured. */
+  readonly blocksDrifted: number;
   /** Sections laid out with at least one block measured again. */
   readonly sectionsRelaid: number;
   /** Sections laid out from cached measurements alone. */
@@ -84,8 +86,14 @@ export function createPaginationCounter(cache: MeasureCache) {
       }
     },
     stats(): PaginationStats {
-      const { hits, misses, measured } = measureCacheCounts(cache);
-      return { ...counts, blocksMeasured: measured, cacheHits: hits, cacheMisses: misses };
+      const { hits, misses, measured, drifted } = measureCacheCounts(cache);
+      return {
+        ...counts,
+        blocksMeasured: measured,
+        cacheHits: hits,
+        cacheMisses: misses,
+        blocksDrifted: drifted,
+      };
     },
   };
 }

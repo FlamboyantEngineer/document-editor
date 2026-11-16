@@ -13,6 +13,7 @@ import {
   type ResolvedSchemaOptions,
   resolveSchemaOptions,
 } from './schema-options.js';
+import { svgIntrinsicSize } from './svg-size.js';
 
 /** The image a diagram without a stored rendering shows. */
 const DIAGRAM_PLACEHOLDER =
@@ -118,7 +119,6 @@ function figureAttrs(node: ProseMirrorNode, asset: FigureAsset | null): DomAttri
 
 function figureImageAttrs(node: ProseMirrorNode, previewSrc: string): DomAttributes {
   const { figureType, src, alt, caption } = node.attrs;
-  const { width, height } = figureSize(node);
   const isDiagram = figureType === 'diagram';
   const style = imageStyle(node);
   const attrs: DomAttributes = {
@@ -130,9 +130,20 @@ function figureImageAttrs(node: ProseMirrorNode, previewSrc: string): DomAttribu
   // A diagram always takes the sizing style; an image only when it has a size or alignment.
   if (style) attrs.style = style;
   else if (isDiagram) attrs.style = 'display:block;max-width:100%;object-fit:contain';
-  if (width) attrs.width = String(width);
-  if (height) attrs.height = String(height);
+  Object.assign(attrs, imageSize(node, attrs.src ?? ''));
   return attrs;
+}
+
+// The width and height an image is written with: the figure's own, or, for an inline SVG image
+// without one, the size it states, so it is drawn at its size before it loads.
+function imageSize(node: ProseMirrorNode, src: string): DomAttributes {
+  const own = figureSize(node);
+  const size =
+    own.width || own.height || node.attrs.figureType === 'diagram' ? own : svgIntrinsicSize(src);
+  const written: DomAttributes = {};
+  if (size?.width) written.width = String(size.width);
+  if (size?.height) written.height = String(size.height);
+  return written;
 }
 
 function renderFigure(node: ProseMirrorNode, options: ResolvedSchemaOptions) {

@@ -19,7 +19,7 @@ import type { createLayoutReadiness } from './layout-readiness.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
 import type { DrawChecks } from './layout-validation.js';
-import type { MeasureCache } from './measure-blocks.js';
+import type { MeasureCache } from './measure-cache.js';
 import { showOnPages } from './page-map.js';
 import type { createPaginationCounter } from './pagination-stats.js';
 import type { PagedProjectionOptions } from './projection.js';
