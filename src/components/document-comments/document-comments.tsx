@@ -95,7 +95,7 @@ export interface DocumentCommentsOptions {
    */
   mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
   /**
-   * The host's own actions in each comment's menu, before Edit and Delete, such as copying a link
+   * The host's own actions in each comment's menu, after Edit and Delete, such as copying a link
    * to it; the opening comment's (`index` 0) act on the whole thread.
    */
   commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;

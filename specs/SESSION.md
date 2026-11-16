@@ -148,6 +148,13 @@ A room-mode session's editor state shall run the presence plugins on the room's 
 Implementation: `src/session/room-binding.ts`, `src/session/room-open.ts`
 Verification: `src/session/room-session.test.ts`
 
+### DOCE-SESSION-3.10 - Stepping away from the room
+
+`suspend()` shall keep what the session has unsaved, as `flush` does, and then, in room mode, leave the shared room: the connection closes, so the binding stops, the reader's presence leaves the others' views and no pending write is left there; the document stays as it was and the connection store reads `connecting` with nothing editable. `resume()` shall, after a `suspend`, reload the document from its shared room and join it again, as opening does, and resolve false when that fails; a `resume` while the changes are still being kept keeps the room joined. In store mode `suspend` keeps what is unsaved and `resume` does nothing. A historical view uses them (DOCE-VERSIONS-5.1).
+
+Implementation: `src/session/room-session.ts`, `src/session/store-session.ts`, `src/session/document-session.ts`
+Verification: `src/session/room-session.test.ts`
+
 ## DOCE-SESSION-4 - Merging another writer's saves
 
 In store mode two readers can edit the same stored document. When a save is refused as `conflict`, or the store tells of a save made elsewhere (DOCE-SESSION-7), the session merges the reader's unsaved changes into the stored document (D28) rather than asking the reader to choose a whole document.

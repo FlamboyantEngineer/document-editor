@@ -242,6 +242,13 @@ Verification: `src/collab/room-scope.test.ts`, `src/collab/awareness.test.ts`
 Implementation: `src/collab/room-change-guard.ts`, `src/collab/guard-anchors.ts`, `src/collab/guard-attributes.ts`, `src/collab/guard-format.ts`, `src/collab/guard-positions.ts`, `src/collab/guard-proposals.ts`, `src/collab/guard-content.ts`, `src/collab/guard-comments.ts`, `src/collab/guard-records.ts`, `src/collab/guard-snapshots.ts`, `src/collab/guard-shape.ts`, `src/collab/guard-marks.ts`
 Verification: `src/collab/room-change-guard-security.test.ts`, `src/collab/guard-content.test.ts`, `src/collab/guard-positions.test.ts`, `src/collab/room-change-guard-perf.test.ts`
 
+### DOCE-COLLAB-7.3 - Guard self-check
+
+The guard returned by `openRoomChangeGuard` shall offer `verify()` for the room server's self-check (collaboration-tools `RoomWriteRules.verifyEvery` and `verifyIdleMs`): it shall read every configured scope's content from the shadow from scratch and return `true` only when each equals the parsed reading the guard keeps by replaying changes, `false` when a reading differs, could not be replayed, or the guard is destroyed. A room server that gets `false` rebuilds the shadow, reopens the guard and reports the drift, so a defect in the kept reading cannot outlive the next verification. Comment records and metadata are read from the shadow at each check and need no verification. The comparison costs a reading of the room and runs only when the server calls it, never on the per-update path.
+
+Implementation: `src/collab/guard-snapshots.ts`, `src/collab/room-change-guard.ts`
+Verification: `src/collab/guard-self-check.test.ts`
+
 ## Hooks
 
 | Hook                                    | Kind      | Values                                                                           | Description                                                   |

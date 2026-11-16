@@ -1188,6 +1188,11 @@ a.de-contents__entry {
   user-select: none;
 }
 
+/* A block with line bars places them from its own top. */
+.de-document-editor :has(> .de-change-lines) {
+  position: relative;
+}
+
 .de-document-editor span[data-diff-change='insertion'] {
   position: static;
   background: color-mix(in srgb, var(--doc-change-bar-insertions-color, #00dd00) 18%, transparent);

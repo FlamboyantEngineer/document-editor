@@ -76,7 +76,7 @@ export interface CardContext {
   readonly mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
   /** What the reader may do in each thread, of what `canComment` allows. */
   readonly threadPermissions?: ThreadPermissionPolicy | undefined;
-  /** The host's own actions in a comment's menu, before Edit and Delete. */
+  /** The host's own actions in a comment's menu, after Edit and Delete. */
   readonly commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
   /** The host's own actions in a thread's or a suggestion's header menu. */
   readonly threadActions?: ((target: ThreadActionTarget) => readonly MenuEntry[]) | undefined;

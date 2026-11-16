@@ -757,6 +757,40 @@ test.describe('document editor lab', () => {
     await expect(deleted).toBeVisible();
   });
 
+  test('DOCE-EDITOR-6.5 DOCE-VERSIONS-2.4 bars each line a suggestion shows on in the simple markup', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByRole('button', { name: 'Rewrite a phrase' }).click();
+    await page.getByLabel('Markup').selectOption('simple');
+    const bars = content(page).locator('.de-change-lines__line[data-diff-line="suggestion"]');
+    await expect(bars.first()).toBeAttached();
+    // Each line holding suggested text has a bar on it, and each bar is on such a line.
+    const placed = await content(page).evaluate((root) => {
+      const middles = [...root.querySelectorAll('ins[data-id]')].flatMap((element) =>
+        [...element.getClientRects()].map((box) => (box.top + box.bottom) / 2),
+      );
+      const bands = [...root.querySelectorAll('.de-change-lines__line')].map((bar) => {
+        const box = bar.getBoundingClientRect();
+        return { top: box.top, bottom: box.bottom };
+      });
+      return {
+        unbarred: middles.filter((y) => !bands.some((band) => y >= band.top && y <= band.bottom)),
+        empty: bands.filter((band) => !middles.some((y) => y >= band.top && y <= band.bottom))
+          .length,
+        blockShadows: [...root.querySelectorAll('.pm-page-content > *')].filter(
+          (block) => getComputedStyle(block).boxShadow !== 'none',
+        ).length,
+      };
+    });
+    expect(placed.unbarred).toEqual([]);
+    expect(placed.empty).toBe(0);
+    expect(placed.blockShadows).toBe(0);
+    await page.getByLabel('Markup').selectOption('all');
+    await expect(bars).toHaveCount(0);
+  });
+
   test('DOCE-EDITOR-6.11 tells the host the bars the simple markup draws', async ({
     lab,
     page,

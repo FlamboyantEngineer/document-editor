@@ -41,9 +41,9 @@ Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequen
 
 ### DOCE-VERSIONS-1.6 - Suggestions accepted
 
-Asked to (`compareVersions(older, newer, { suggestions: 'accepted' })`, or a comparison's `suggestions` in the editor), the versions shall be compared with every suggestion accepted: the text a suggestion deletes left out, the text and blocks it inserts compared.
+Asked to (`compareVersions(older, newer, { suggestions: 'accepted' })`, or a comparison's `suggestions` in the editor), the versions shall be compared with every suggestion accepted: the text a suggestion deletes left out, the text and blocks it inserts compared. Inline markup shall not show text the document still shows as suggested for deletion a second time as deleted text: its line keeps the deletion's bar, and the struck suggestion stands for it.
 
-Implementation: `src/engine/version-compare.ts`, `src/engine/version-changes.ts`, `src/components/document-editor/use-document-layout.ts`
+Implementation: `src/engine/version-compare.ts`, `src/engine/version-changes.ts`, `src/engine/version-decorations.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.7 - Containers
@@ -99,7 +99,7 @@ Verification: `e2e/versions.spec.ts`
 
 ### DOCE-VERSIONS-2.4 - Changed lines
 
-`createChangeLines()` shall draw, inside each block it is given lines for (`setChangeLines`), a bar for each line (`de-change-lines__line`) with its kind (`data-diff-line`) and its top and height from the block's top (`--de-change-line-top`, `--de-change-line-height`), and keep the lines where their blocks go until they are set again. Changes on one line merge into the strongest (`strongerChange`): a modification, then an insertion, a deletion and a formatting change. The document editor shall install it, and, while the document shows changes, measure the lines of each block whose text changed after each render: a line takes the strongest change marked on it, a deleted block's text the deletion, blocks deleted before or after a block whose text does not show its first or last line, and every line of a block whose formatting changed too at least the formatting; each line reaches halfway to the next, so the bars of successive lines meet. A kind of change the template's change bars turn off where the block is (its section's setting, or else the template's) shall not count, so it never hides a shown kind on the same line.
+`createChangeLines()` shall draw, inside each block it is given lines for (`setChangeLines`), a bar for each line (`de-change-lines__line`) with its kind (`data-diff-line`) and its top and height from the block's top (`--de-change-line-top`, `--de-change-line-height`), and keep the lines where their blocks go until they are set again. Changes on one line merge into the strongest (`strongerChange`): a modification, then an insertion, a deletion, a formatting change and a pending suggestion. The document editor shall install it, and, while the document shows changes or the simple markup shows suggestions (DOCE-EDITOR-6.5), measure the lines of each block whose text changed, and in the simple markup of each text block holding a suggestion's text, after each render; a line holding suggested text, or where hidden suggested-deleted text sits, takes the kind `suggestion`, and the template's change bar settings never hide it; a line takes the strongest change marked on it, a deleted block's text the deletion, blocks deleted before or after a block whose text does not show its first or last line, and every line of a block whose formatting changed too at least the formatting; each line reaches halfway to the next, so the bars of successive lines meet. A kind of change the template's change bars turn off where the block is (its section's setting, or else the template's) shall not count, so it never hides a shown kind on the same line.
 
 Implementation: `src/engine/change-lines.ts`, `src/components/document-editor/change-lines-measure.ts`
 Verification: `src/engine/change-lines.test.ts`, `src/components/document-editor/change-lines-measure.test.ts`, `e2e/versions.spec.ts`
@@ -225,10 +225,10 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 ### DOCE-VERSIONS-5.1 - Viewing a version
 
-`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own (only the version asked for last is shown, and none still being read when the reader returns), read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. The document's own state and saving shall go on unchanged.
+`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own (only the version asked for last is shown, and none still being read when the reader returns), read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. Before it reads the version, `viewVersion` shall step the session away from the live document (`suspend`, DOCE-SESSION-3.10): in room mode it leaves the shared room, so the view can write nothing there and the reader's presence leaves it; `returnFromView`, a view that fails before it shows, and `restore` shall `resume` it, which reloads the document from the room and joins it again. In store mode the document's own state and saving go on unchanged.
 
 Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
-Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+Verification: `src/session/versions.test.ts`, `src/session/room-session.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-5.2 - Comparing two versions
 
@@ -262,33 +262,33 @@ Verification: `src/session/version-snapshot.test.ts`, `src/session/version-templ
 
 ## Hooks
 
-| Hook                        | Kind      | Values                                                        | Description                                                     |
-| --------------------------- | --------- | ------------------------------------------------------------- | --------------------------------------------------------------- |
-| `data-comparing`            | state     | `markup`, `bars`                                              | On the editor while it shows changes from an older version.     |
-| `data-diff-change`          | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move` | On a changed block, an inserted word or a deleted text.         |
-| `data-diff-deletion`        | attribute | `before`, `after`                                             | On the block before which, or after which, blocks were deleted. |
-| `data-diff-block`           | attribute | `true`                                                        | On a deleted block's text.                                      |
-| `data-diff-scope`           | attribute | `outside`                                                     | On a block outside a scoped comparison.                         |
-| `data-diff-lines`           | attribute | `kept`, `formatting`                                          | On a block whose text changed: what its other lines show.       |
-| `data-diff-line`            | attribute | `insertion`, `deletion`, `modification`, `formatting`         | On a changed word, where text was deleted, or a line's bar.     |
-| `de-change-lines`           | root      |                                                               | The bars beside a block's changed lines.                        |
-| `de-change-lines__line`     | slot      |                                                               | One changed line's bar.                                         |
-| `--de-change-line-top`      | property  |                                                               | The line's top from the block's top, in pixels.                 |
-| `--de-change-line-height`   | property  |                                                               | The line's height, in pixels.                                   |
-| `de-revision-list`          | root      |                                                               | The revision list, with `data-loading` while versions load.     |
-| `de-revision-list__toolbar` | slot      |                                                               | The filters and the compare action.                             |
-| `de-revision-list__error`   | slot      |                                                               | Why the versions could not be listed, with its retry.           |
-| `de-revision-list__list`    | slot      |                                                               | The selectable versions.                                        |
-| `de-revision-list__empty`   | slot      |                                                               | No versions, or none matching the filters.                      |
-| `de-revision-list__row`     | slot      |                                                               | A version; see its state attributes below.                      |
-| `data-current`              | state     | `true`                                                        | On the row of the current version.                              |
-| `data-named`                | state     | `true`                                                        | On the row of a named version.                                  |
-| `data-nested`               | state     | `true`                                                        | On an automatic version shown under its named version.          |
-| `data-expanded`             | state     | `true`                                                        | On a row whose folded versions show.                            |
-| `de-revision-list__fold`    | slot      |                                                               | The toggle that shows or folds a row's earlier versions.        |
-| `de-revision-list__title`   | slot      |                                                               | A version's name or saved time.                                 |
-| `de-revision-list__current` | slot      |                                                               | The current version's badge.                                    |
-| `de-revision-list__meta`    | slot      |                                                               | Who saved a version and when, and its summary.                  |
-| `de-revision-list__summary` | slot      |                                                               | What a version keeps beside its content.                        |
-| `de-revision-list__actions` | slot      |                                                               | A version's rename and restore menu.                            |
-| `de-revision-list__dialog`  | slot      |                                                               | A rename or restore dialog, with `data-action`.                 |
+| Hook                        | Kind      | Values                                                              | Description                                                     |
+| --------------------------- | --------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `data-comparing`            | state     | `markup`, `bars`                                                    | On the editor while it shows changes from an older version.     |
+| `data-diff-change`          | attribute | `insertion`, `deletion`, `modification`, `formatting`, `move`       | On a changed block, an inserted word or a deleted text.         |
+| `data-diff-deletion`        | attribute | `before`, `after`                                                   | On the block before which, or after which, blocks were deleted. |
+| `data-diff-block`           | attribute | `true`                                                              | On a deleted block's text.                                      |
+| `data-diff-scope`           | attribute | `outside`                                                           | On a block outside a scoped comparison.                         |
+| `data-diff-lines`           | attribute | `kept`, `formatting`                                                | On a block whose text changed: what its other lines show.       |
+| `data-diff-line`            | attribute | `insertion`, `deletion`, `modification`, `formatting`, `suggestion` | On a changed word, where text was deleted, or a line's bar.     |
+| `de-change-lines`           | root      |                                                                     | The bars beside a block's changed lines.                        |
+| `de-change-lines__line`     | slot      |                                                                     | One changed line's bar.                                         |
+| `--de-change-line-top`      | property  |                                                                     | The line's top from the block's top, in pixels.                 |
+| `--de-change-line-height`   | property  |                                                                     | The line's height, in pixels.                                   |
+| `de-revision-list`          | root      |                                                                     | The revision list, with `data-loading` while versions load.     |
+| `de-revision-list__toolbar` | slot      |                                                                     | The filters and the compare action.                             |
+| `de-revision-list__error`   | slot      |                                                                     | Why the versions could not be listed, with its retry.           |
+| `de-revision-list__list`    | slot      |                                                                     | The selectable versions.                                        |
+| `de-revision-list__empty`   | slot      |                                                                     | No versions, or none matching the filters.                      |
+| `de-revision-list__row`     | slot      |                                                                     | A version; see its state attributes below.                      |
+| `data-current`              | state     | `true`                                                              | On the row of the current version.                              |
+| `data-named`                | state     | `true`                                                              | On the row of a named version.                                  |
+| `data-nested`               | state     | `true`                                                              | On an automatic version shown under its named version.          |
+| `data-expanded`             | state     | `true`                                                              | On a row whose folded versions show.                            |
+| `de-revision-list__fold`    | slot      |                                                                     | The toggle that shows or folds a row's earlier versions.        |
+| `de-revision-list__title`   | slot      |                                                                     | A version's name or saved time.                                 |
+| `de-revision-list__current` | slot      |                                                                     | The current version's badge.                                    |
+| `de-revision-list__meta`    | slot      |                                                                     | Who saved a version and when, and its summary.                  |
+| `de-revision-list__summary` | slot      |                                                                     | What a version keeps beside its content.                        |
+| `de-revision-list__actions` | slot      |                                                                     | A version's rename and restore menu.                            |
+| `de-revision-list__dialog`  | slot      |                                                                     | A rename or restore dialog, with `data-action`.                 |

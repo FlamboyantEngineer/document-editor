@@ -467,7 +467,7 @@ Verification: `src/components/document-comments/comment-mentions.test.tsx`
 
 ### DOCE-COMMENTS-4.11 - The host's comment actions
 
-Given `commentActions(target)`, each comment's menu, in the margin and the panel, shall offer the host's actions for it, as the base library's menu entries: a reply's before its Edit and Delete, and the opening comment's (`index` 0), which stand for the whole thread, in the thread's header menu after its Edit and Delete (DOCE-COMMENTS-2.33).
+Given `commentActions(target)`, each comment's menu, in the margin and the panel, shall offer the host's actions for it, as the base library's menu entries after its Edit and Delete: a reply's in its own menu, and the opening comment's (`index` 0), which stand for the whole thread, in the thread's header menu (DOCE-COMMENTS-2.33).
 
 Implementation: `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`

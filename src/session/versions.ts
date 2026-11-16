@@ -176,6 +176,7 @@ type ViewParts<R> = Pick<
 // The historical view: versions opened by `open`, shown until the reader returns.
 function createHistoricalView<R>(
   open: (revision: string) => Promise<HostResult<OpenedVersion>>,
+  session: Pick<DocumentSession, 'suspend' | 'resume'>,
 ): ViewParts<R> {
   const view = createValueStore<HistoricalView<R> | null>(null);
   // Each call to show a version, and each return, counts: only the latest call shows its version.
@@ -185,12 +186,17 @@ function createHistoricalView<R>(
     viewVersion: async (revision, { returnTo, compareWith = null }) => {
       asked += 1;
       const ask = asked;
+      // A historical view leaves the live document's shared room until the reader returns.
+      await session.suspend();
       const [version, previous] = await Promise.all([
         open(revision),
         compareWith === null ? null : open(compareWith),
       ]);
-      if (!version.ok) return version;
-      if (previous && !previous.ok) return previous;
+      if (!version.ok || (previous && !previous.ok)) {
+        // A view that never showed gives the live document back, unless another view shows.
+        if (ask === asked && !view.get()) void session.resume();
+        return !version.ok ? version : (previous as { ok: false; error: HostError });
+      }
       // A view opened while another shows keeps what the reader had before the first.
       const shown = {
         version: version.value,
@@ -211,6 +217,7 @@ function createHistoricalView<R>(
       asked += 1;
       const shown = view.get();
       view.set(null);
+      void session.resume();
       return shown?.returnTo ?? null;
     },
   };
@@ -242,7 +249,7 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
     session,
     identity: host.identity,
     list,
-    ...createHistoricalView<R>(open),
+    ...createHistoricalView<R>(open, session),
     refresh,
     saveVersion: async (label) => {
       if (!may('saveVersion')) return denied('save');
@@ -265,6 +272,8 @@ export function createDocumentVersions<R>(options: DocumentVersionsOptions): Doc
       if (!may('edit')) return denied('restore');
       const opened = await open(revision);
       if (!opened.ok) return opened;
+      // Restoring writes to the live document, so a session a view stepped away from joins again.
+      if (!(await session.resume())) return { ok: false, error: failure('unavailable') };
       const error = await restoreVersion({ host, session }, opened.value);
       return error ? { ok: false, error } : { ok: true, value: opened.value.version };
     },
