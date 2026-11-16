@@ -41,6 +41,7 @@ import type { LayoutTraceSink } from './layout-trace.js';
 import { awaitReady, followMeasuring, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
 import { createMeasureCache } from './measure-cache.js';
+import { pressBelowContent } from './page-caret.js';
 import { pageChromeDecorations } from './page-chrome.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
@@ -218,6 +219,7 @@ function inputPlugin(session: () => Session, source: CanonicalPluginsSource): Pl
       handleDOMEvents: {
         mousedown(view, event) {
           const current = session();
+          if (pressBelowContent(view, event, source)) return true;
           current.cells.release();
           current.cells.drag(view, event, {
             cellAt: (moved) => canonicalCellAt(view, current, moved),
