@@ -59,7 +59,7 @@ installEditorDom();
 describe('DocumentStatusBar', () => {
   it('DOCE-EDITOR-5.1 shows the words and the mode, each item naming what it reports', () => {
     const { container } = render(<Harness statusBar onZoomChange={() => undefined} />);
-    expect(itemsAt(container, 'start')).toEqual(['page', 'words', 'proofing', 'presence', 'mode']);
+    expect(itemsAt(container, 'start')).toEqual(['page', 'words', 'proofing', 'mode']);
     expect(itemsAt(container, 'end')).toEqual(['zoom']);
     const bar = screen.getByRole('group', { name: 'Document status' });
     expect(bar).toHaveTextContent('3 words');
@@ -80,7 +80,7 @@ describe('DocumentStatusBar', () => {
         }}
       />,
     );
-    expect(itemsAt(container, 'start')).toEqual(['page', 'proofing', 'presence']);
+    expect(itemsAt(container, 'start')).toEqual(['page', 'proofing']);
     expect(itemsAt(container, 'end')).toEqual(['mode', 'workflow']);
     expect(screen.getByText('In review')).toBeInTheDocument();
     expect(STATUS_BAR_ITEMS).toContain('words');

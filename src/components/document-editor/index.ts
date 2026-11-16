@@ -44,6 +44,11 @@ export type { MentionOptions } from './mention-menu.js';
 export type { DocumentMenu, DocumentMenubarOptions } from './menubar-menus.js';
 export { menubarMenus } from './menubar-menus.js';
 export type { ObjectLabels } from './object-labels.js';
+export {
+  DocumentPresence,
+  type DocumentPresenceProps,
+  PRESENCE_VISIBLE,
+} from './presence-avatars.js';
 export type { EditorSession, EditorSessionDocument } from './save-status-item.js';
 export type { SelectionToolbarOptions } from './selection-toolbar.js';
 export { SELECTION_TOOLBAR_GROUPS } from './selection-toolbar.js';
@@ -51,7 +56,6 @@ export type { SlashMenuItem, SlashMenuOptions } from './slash-menu.js';
 export {
   DocumentModeStatus,
   DocumentPageStatus,
-  DocumentPresence,
   DocumentProofingLanguage,
   DocumentProofingStatus,
   DocumentWordStatus,

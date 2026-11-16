@@ -15,7 +15,6 @@ import { LayoutToggle } from './status-controls.js';
 import {
   DocumentModeStatus,
   DocumentPageStatus,
-  DocumentPresence,
   DocumentProofingLanguage,
   DocumentProofingStatus,
   DocumentWordStatus,
@@ -59,7 +58,6 @@ export const STATUS_BAR_ITEMS = [
   'page',
   'words',
   'proofing',
-  'presence',
   'mode',
   'connection',
   'save',
@@ -107,7 +105,6 @@ function editorItems({
         </>
       ),
     },
-    { id: 'presence', side: 'start', content: <DocumentPresence /> },
     { id: 'mode', side: 'start', content: <DocumentModeStatus /> },
   ];
   if (session?.connection) {

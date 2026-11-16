@@ -51,12 +51,14 @@ export type { LineNumbers, ObjectViewsOptions } from './object-views.js';
 export { createObjectViews, lineNumbers } from './object-views.js';
 export type { OutlineEntry } from './outline.js';
 export { documentOutline } from './outline.js';
-export type { Peer, PlacedPeer, PresenceState } from './presence.js';
+export type { Peer, PlacedPeer, PresenceActivity, PresenceState } from './presence.js';
 export {
+  byName,
   createPresence,
   listPeers,
   placePeers,
   PRESENCE_COLOR_SLOTS,
+  PRESENCE_REVEAL_MARGIN,
   presenceKey,
   scrollToPeer,
   setPeers,

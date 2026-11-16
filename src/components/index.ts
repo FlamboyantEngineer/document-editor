@@ -63,6 +63,7 @@ export {
   DocumentModeStatus,
   DocumentPageStatus,
   DocumentPresence,
+  type DocumentPresenceProps,
   DocumentProofingLanguage,
   DocumentProofingStatus,
   DocumentWordStatus,

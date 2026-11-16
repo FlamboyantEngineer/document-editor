@@ -4,6 +4,7 @@ import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSessionRooms, type SessionRooms } from '../../test/session-rooms.js';
+import type * as Activity from '../collab/presence-activity.js';
 import { listPeers } from '../engine/presence.js';
 import { undoCommand } from '../engine/undo-commands.js';
 import { FULL_CAPABILITIES } from '../host/capabilities.js';
@@ -11,6 +12,20 @@ import { createMemoryHost, type MemoryHostOptions } from '../host/memory-host.js
 import type { DocumentFile } from '../model/format/document-format.js';
 import { createDocumentSession, type DocumentSession } from './document-session.js';
 import { createDocumentVersions } from './versions.js';
+// Counts the test's own events as the reader's and, unless a test says otherwise, takes the reader
+// as placed in the content from the start.
+const reader = vi.hoisted(() => ({ placed: true }));
+
+vi.mock('../collab/presence-activity.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof Activity>();
+  return {
+    ...actual,
+    followReader: (...[view, gate, handlers]: Parameters<typeof actual.followReader>) => {
+      if (reader.placed) gate.placed = true;
+      return actual.followReader(view, gate, { ...handlers, isReader: () => true });
+    },
+  };
+});
 
 const DOCUMENT: DocumentFile = {
   formatVersion: 1,
