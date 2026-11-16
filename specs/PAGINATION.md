@@ -535,3 +535,10 @@ On the pages of a projection, the header and footer of each page of a section af
 
 Implementation: `src/pagination/page-chrome.ts`, `src/pagination/projection.ts`
 Verification: `src/pagination/projection-view.test.ts`, `e2e/a11y.spec.ts`
+
+### DOCE-PAGINATION-8.6 - Spacing in headers and footers
+
+The reference stylesheet shall give a page's header and footer no padding and their blocks no vertical margins, so a header of several paragraphs is as tall as its lines; the body's blocks keep the template's spacing.
+
+Implementation: `labs/reference/document.css`
+Verification: `e2e/page-regions.spec.ts`

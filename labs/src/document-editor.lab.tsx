@@ -150,6 +150,7 @@ const LAB_MENTIONS = {
 function Lab() {
   const [state, setState] = useState(initialState);
   const [layout, setLayout] = useState<DocumentLayout>('page');
+  const [pageWidth, setPageWidth] = useState(false);
   const [editable, setEditable] = useState(true);
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
@@ -196,6 +197,15 @@ function Lab() {
               {value === 'page' ? 'Pages' : 'Web layout'}
             </label>
           ))}
+          <label>
+            <input
+              type="checkbox"
+              name="page-width"
+              checked={pageWidth}
+              onChange={(event) => setPageWidth(event.currentTarget.checked)}
+            />{' '}
+            Page width
+          </label>
           <label>
             <input
               type="checkbox"
@@ -349,6 +359,7 @@ function Lab() {
         onStateChange={setState}
         template={TEMPLATE}
         layout={layout}
+        webWidth={pageWidth ? 'page' : 'fill'}
         onLayoutChange={setLayout}
         editable={editable}
         toolbar={toolbar && (hostItems ? HOST_TOOLBAR : true)}
