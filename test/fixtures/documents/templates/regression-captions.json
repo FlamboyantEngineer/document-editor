@@ -1,0 +1,109 @@
+{
+  "formatVersion": 1,
+  "id": "regression-captions",
+  "name": "Caption numbering",
+  "parent": "regression-base",
+  "sections": [
+    {
+      "name": "front_matter",
+      "label": "Front matter",
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "i."
+          }
+        },
+        "figure": {
+          "numbering": {
+            "format": "i"
+          }
+        },
+        "table": {
+          "numbering": {
+            "format": "i"
+          }
+        },
+        "codeBlock": {
+          "numbering": {
+            "format": "i"
+          }
+        },
+        "equation": {
+          "numbering": {
+            "format": "i"
+          }
+        }
+      }
+    },
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true,
+      "restartNumbering": true,
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "1."
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "1.1"
+          }
+        },
+        "figure": {
+          "numbering": {
+            "format": "1.1"
+          }
+        },
+        "table": {
+          "numbering": {
+            "format": "1.1"
+          }
+        },
+        "codeBlock": {
+          "numbering": {
+            "format": "1.1"
+          }
+        },
+        "equation": {
+          "numbering": {
+            "format": "1.1"
+          }
+        }
+      }
+    },
+    {
+      "name": "annex",
+      "label": "Annex",
+      "restartNumbering": true,
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "A."
+          }
+        },
+        "figure": {
+          "numbering": {
+            "format": "A-1"
+          }
+        },
+        "table": {
+          "numbering": {
+            "format": "A-1"
+          }
+        },
+        "codeBlock": {
+          "numbering": {
+            "format": "A-1"
+          }
+        },
+        "equation": {
+          "numbering": {
+            "format": "A-1"
+          }
+        }
+      }
+    }
+  ]
+}

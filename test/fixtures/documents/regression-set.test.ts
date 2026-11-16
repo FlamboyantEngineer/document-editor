@@ -130,3 +130,37 @@ describe('list split stress', () => {
     expect(runways.map((list) => (list.content ?? []).length)).toEqual([60, 60]);
   });
 });
+
+// The block types a section holds at its top level, each once.
+const typesOf = (file: DocumentFile, name: string) =>
+  new Set(file.sections.find((section) => section.name === name)?.content.map(({ type }) => type));
+
+describe('numbering stress', () => {
+  const read = (name: string) =>
+    JSON.parse(readFileSync(join(here, `${name}.json`), 'utf8')) as DocumentFile;
+  const objects = ['figure', 'table', 'codeBlock', 'mathBlock'];
+
+  it('DOCE-LABS-4.12 holds Roman lists from their subtractive and thousand edges', () => {
+    const file = read('roman-numbering-coverage');
+    const starts = (file.sections[1]?.content ?? [])
+      .filter((node) => node.type === 'orderedList')
+      .map((list) => Number(list.attrs?.start ?? 1));
+    expect(starts).toEqual(
+      expect.arrayContaining([3, 8, 38, 48, 98, 398, 498, 898, 998, 3998, 3999, 7998, 12000]),
+    );
+    for (const section of ['body', 'annex']) {
+      expect([...typesOf(file, section)]).toEqual(expect.arrayContaining(objects));
+    }
+  });
+
+  it('DOCE-LABS-4.13 holds four object kinds in three sections and a list of each', () => {
+    const file = read('caption-numbering');
+    for (const section of ['body', 'annex']) {
+      expect([...typesOf(file, section)]).toEqual(expect.arrayContaining(objects));
+    }
+    const kinds = (file.sections[0]?.content ?? [])
+      .filter((node) => node.type === 'contents')
+      .map((node) => node.attrs?.kind);
+    expect(kinds).toEqual(['figures', 'tables', 'codeBlocks', 'equations']);
+  });
+});

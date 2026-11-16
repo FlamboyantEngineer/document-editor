@@ -10,6 +10,7 @@ import {
   type TemplateFile,
 } from '../../../src/model/index.js';
 import blockquotes from '../../../test/fixtures/documents/blockquotes.json' with { type: 'json' };
+import captionNumbering from '../../../test/fixtures/documents/caption-numbering.json' with { type: 'json' };
 import codeBlockStress from '../../../test/fixtures/documents/code-block-stress.json' with { type: 'json' };
 import codeBlocks from '../../../test/fixtures/documents/code-blocks.json' with { type: 'json' };
 import emptySections from '../../../test/fixtures/documents/empty-sections.json' with { type: 'json' };
@@ -26,6 +27,7 @@ import nestedLists from '../../../test/fixtures/documents/nested-lists.json' wit
 import oversizedBlocks from '../../../test/fixtures/documents/oversized-blocks.json' with { type: 'json' };
 import pageBreaksAndRules from '../../../test/fixtures/documents/page-breaks-and-rules.json' with { type: 'json' };
 import romanAndAlpha from '../../../test/fixtures/documents/roman-and-alpha-numbering.json' with { type: 'json' };
+import romanCoverage from '../../../test/fixtures/documents/roman-numbering-coverage.json' with { type: 'json' };
 import romanStress from '../../../test/fixtures/documents/roman-numbering-stress.json' with { type: 'json' };
 import tableBothHeaderModes from '../../../test/fixtures/documents/table-both-header-modes.json' with { type: 'json' };
 import tableLongHeaderless from '../../../test/fixtures/documents/table-long-headerless.json' with { type: 'json' };
@@ -34,15 +36,18 @@ import tableLongSingle from '../../../test/fixtures/documents/table-long-single-
 import tableMergedCells from '../../../test/fixtures/documents/table-merged-cells.json' with { type: 'json' };
 import tableRichCells from '../../../test/fixtures/documents/table-rich-cells.json' with { type: 'json' };
 import regressionBase from '../../../test/fixtures/documents/templates/regression-base.json' with { type: 'json' };
+import regressionCaptions from '../../../test/fixtures/documents/templates/regression-captions.json' with { type: 'json' };
 import regressionFootnotes from '../../../test/fixtures/documents/templates/regression-footnotes.json' with { type: 'json' };
 import regressionLocked from '../../../test/fixtures/documents/templates/regression-locked.json' with { type: 'json' };
 import regressionMixedGeometry from '../../../test/fixtures/documents/templates/regression-mixed-geometry.json' with { type: 'json' };
 import regressionNumbering from '../../../test/fixtures/documents/templates/regression-numbering.json' with { type: 'json' };
+import regressionRoman from '../../../test/fixtures/documents/templates/regression-roman.json' with { type: 'json' };
 import regressionTables from '../../../test/fixtures/documents/templates/regression-tables.json' with { type: 'json' };
 
 /** The regression documents the labs show, by their name in the set. */
 export const REGRESSION_DOCUMENTS = {
   blockquotes,
+  'caption-numbering': captionNumbering,
   'code-block-stress': codeBlockStress,
   'code-blocks': codeBlocks,
   'empty-sections': emptySections,
@@ -59,6 +64,7 @@ export const REGRESSION_DOCUMENTS = {
   'oversized-blocks': oversizedBlocks,
   'page-breaks-and-rules': pageBreaksAndRules,
   'roman-and-alpha-numbering': romanAndAlpha,
+  'roman-numbering-coverage': romanCoverage,
   'roman-numbering-stress': romanStress,
   'table-both-header-modes': tableBothHeaderModes,
   'table-long-headerless': tableLongHeaderless,
@@ -75,10 +81,12 @@ const TEMPLATES = new Map<string, unknown>([
   [BASE_TEMPLATE_ID, BASE_TEMPLATE],
   ...[
     regressionBase,
+    regressionCaptions,
     regressionFootnotes,
     regressionLocked,
     regressionMixedGeometry,
     regressionNumbering,
+    regressionRoman,
     regressionTables,
   ].map((template) => [template.id, template] as const),
 ]);

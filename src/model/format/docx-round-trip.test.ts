@@ -34,6 +34,7 @@ const documents = readdirSync(root)
 /** The documents that do not round-trip block for block, and why. */
 const GAPS: Readonly<Record<string, string>> = {
   blockquotes: 'quotes nested in quotes are written flat',
+  'caption-numbering': 'lists of contents, figures and display math',
   'code-block-stress': 'linked code is written as code',
   columns: 'columns are written as their blocks',
   'contents-lists': 'lists of contents are written as a field or left out',
@@ -44,6 +45,7 @@ const GAPS: Readonly<Record<string, string>> = {
   math: 'display math is written as a paragraph',
   'oversized-blocks': 'code in a quote is written after it',
   'roman-and-alpha-numbering': 'lists of contents are written as a field',
+  'roman-numbering-coverage': 'lists of contents, figures and display math',
   scripts: 'scripts are written as their output',
   'template-blocks-and-variables': 'template blocks are written as their content',
 };

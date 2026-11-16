@@ -32,6 +32,19 @@
           ]
         },
         {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "5a170400"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "One level"
+            }
+          ]
+        },
+        {
           "type": "orderedList",
           "attrs": {
             "id": "5a17003f"
@@ -636,6 +649,19 @@
                   ]
                 }
               ]
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "5a170401"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Two subitems each"
             }
           ]
         },
@@ -2688,6 +2714,19 @@
           ]
         },
         {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "5a170402"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Twenty subitems each"
+            }
+          ]
+        },
+        {
           "type": "orderedList",
           "attrs": {
             "id": "5a170169"
@@ -3548,6 +3587,19 @@
                   ]
                 }
               ]
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "5a170403"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Subitems with children"
             }
           ]
         },

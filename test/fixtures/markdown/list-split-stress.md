@@ -2,6 +2,8 @@
 
 Four ordered lists come first: thirty items on one level, thirty items with two subitems each, two items with twenty subitems each, and twenty items with two subitems that each hold one child. Long runways of list items follow, so every structure meets a page boundary somewhere.
 
+## One level
+
 1. Single item 1
 2. Single item 2
 3. Single item 3
@@ -32,6 +34,8 @@ Four ordered lists come first: thirty items on one level, thirty items with two 
 28. Single item 28
 29. Single item 29
 30. Single item 30
+
+## Two subitems each
 
 1. Parent 1
 
@@ -154,6 +158,8 @@ Four ordered lists come first: thirty items on one level, thirty items with two 
     1. Parent 30, subitem 1
     2. Parent 30, subitem 2
 
+## Twenty subitems each
+
 1. Long parent 1
 
    1. Long parent 1, subitem 1
@@ -198,6 +204,8 @@ Four ordered lists come first: thirty items on one level, thirty items with two 
    18. Long parent 2, subitem 18
    19. Long parent 2, subitem 19
    20. Long parent 2, subitem 20
+
+## Subitems with children
 
 1. Outer 1
 

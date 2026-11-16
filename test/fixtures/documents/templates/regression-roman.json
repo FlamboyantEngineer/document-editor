@@ -1,0 +1,125 @@
+{
+  "formatVersion": 1,
+  "id": "regression-roman",
+  "name": "Roman numbering stress",
+  "parent": "regression-base",
+  "sections": [
+    {
+      "name": "front_matter",
+      "label": "Front matter",
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "i."
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "i.i"
+          }
+        },
+        "figure": {
+          "numbering": {
+            "format": "i"
+          }
+        },
+        "table": {
+          "numbering": {
+            "format": "i"
+          }
+        },
+        "codeBlock": {
+          "numbering": {
+            "format": "i"
+          }
+        },
+        "equation": {
+          "numbering": {
+            "format": "i"
+          }
+        }
+      }
+    },
+    {
+      "name": "body",
+      "label": "Body",
+      "required": true,
+      "restartNumbering": true,
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "I."
+          }
+        },
+        "heading2": {
+          "numbering": {
+            "format": "I.1"
+          }
+        },
+        "heading3": {
+          "numbering": {
+            "format": "I.1.i"
+          }
+        },
+        "list": {
+          "format": "i)"
+        },
+        "figure": {
+          "numbering": {
+            "format": "I-1"
+          }
+        },
+        "table": {
+          "numbering": {
+            "format": "I-1"
+          }
+        },
+        "codeBlock": {
+          "numbering": {
+            "format": "I-1"
+          }
+        },
+        "equation": {
+          "numbering": {
+            "format": "I-1"
+          }
+        }
+      }
+    },
+    {
+      "name": "annex",
+      "label": "Annex",
+      "restartNumbering": true,
+      "styles": {
+        "heading1": {
+          "numbering": {
+            "format": "I-"
+          }
+        },
+        "list": {
+          "format": "I."
+        },
+        "figure": {
+          "numbering": {
+            "format": "I.i"
+          }
+        },
+        "table": {
+          "numbering": {
+            "format": "I.i"
+          }
+        },
+        "codeBlock": {
+          "numbering": {
+            "format": "I.i"
+          }
+        },
+        "equation": {
+          "numbering": {
+            "format": "I.i"
+          }
+        }
+      }
+    }
+  ]
+}
