@@ -155,7 +155,7 @@ describe('DocumentCommentsPanel', () => {
         panel={{ commentActions: inPanel }}
       />,
     );
-    await within(panel()).findByRole('heading', { name: 'Ada Lovelace' });
+    await within(panel()).findAllByText('Ada Lovelace');
     await waitFor(() => expect(handle.current).not.toBeNull());
     const drawn = { margin: inMargin.mock.calls.length, panel: inPanel.mock.calls.length };
     act(() => {
@@ -176,7 +176,9 @@ describe('DocumentCommentsPanel', () => {
   it('DOCE-COMMENTS-2.11 lists its cards as a list, and hands keyboard focus on when a card goes', async () => {
     const user = userEvent.setup();
     render(<Harness host={host()} panel options={{ placement: 'pane' }} />);
-    const list = within(panel()).getByRole('list');
+    // The panel's own list comes first; each card holds a list of its comments.
+    const [list] = within(panel()).getAllByRole('list');
+    if (!list) throw new Error('The panel should list its cards.');
     await within(list).findByText('Is blue right?');
     // Each card is an item of the list; a thread's comments are a list of their own inside it.
     const thread = list.querySelector<HTMLElement>(':scope > .de-comments-panel__thread');

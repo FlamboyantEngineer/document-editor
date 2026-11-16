@@ -29,6 +29,7 @@ import {
   type DocumentCommentsLabels,
   hooks,
   type MentionCardTarget,
+  type ThreadActionTarget,
 } from './comment-cards.js';
 import { useCommentControls } from './comment-controls.js';
 import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
@@ -98,6 +99,14 @@ export interface DocumentCommentsOptions {
    * to it; the opening comment's (`index` 0) act on the whole thread.
    */
   commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
+  /**
+   * The host's own actions in each thread's and each suggestion's header menu, after the opening
+   * comment's Edit and Delete, such as copying a link to it; the menu shows also while the thread is
+   * resolved or the reader may not comment.
+   */
+  threadActions?: ((target: ThreadActionTarget) => readonly MenuEntry[]) | undefined;
+  /** Whether deleting a comment asks for confirmation first; true by default. */
+  confirmsDelete?: boolean | undefined;
   /**
    * The text a thread's reply starts with for the reader, such as a mention of the assistant the
    * reader's last comment asked; used only while nothing is typed for the thread.
@@ -289,7 +298,15 @@ function CommentsMargin(props: DocumentCommentsProps) {
   }
   const byKey = new Map(items.map((item) => [item.key, item]));
   const policy = useCardPolicy(props.suggestionPolicy, comments.threads);
-  const commands = useStableCallbacks({ run, startThread: () => startThread() });
+  const commands = useStableCallbacks({
+    run,
+    startThread: () => startThread(),
+    // The thread just stored stays the active card, and keeps focus.
+    onStored: (key) => {
+      setActive(key);
+      cards.focusOn(key, 'card');
+    },
+  });
   return (
     <AnnotationLayer
       ref={setLayer}
