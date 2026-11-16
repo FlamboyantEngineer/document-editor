@@ -7,6 +7,8 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { cellAround, TableMap } from 'prosemirror-tables';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { createTableDrag, tableScale } from './table-drag.js';
+import { createTableView } from './table-view.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
 
 // How close to a cell's side border the pointer picks the border, in pixels.
@@ -87,7 +89,11 @@ function borderAt(view: EditorView, event: MouseEvent): number {
 
 // The widths a table's columns are laid out at: a column's set width, or the width of a cell that
 // covers only it.
-function laidOutWidths(view: EditorView, at: ReturnType<typeof tableOfCell>): number[] {
+function laidOutWidths(
+  view: EditorView,
+  at: ReturnType<typeof tableOfCell>,
+  scale: number,
+): number[] {
   const { table, pos, map } = at;
   return Array.from({ length: map.width }, (_, column) => {
     for (let row = 0; row < map.height; row += 1) {
@@ -96,7 +102,7 @@ function laidOutWidths(view: EditorView, at: ReturnType<typeof tableOfCell>): nu
       if (Number(cell?.attrs.colspan) !== 1) continue;
       const dom = view.nodeDOM(pos + 1 + offset) as Element | null;
       const width = dom?.getBoundingClientRect?.().width ?? 0;
-      if (width > 0) return Math.round(width);
+      if (width > 0) return Math.round(width / scale);
     }
     return DEFAULT_TABLE_CELL_MIN_WIDTH;
   });
@@ -197,30 +203,33 @@ function endDrag(view: EditorView): number {
 }
 
 // Drags the right border of the cell at `handle` until the pointer is released.
-function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
+function dragBorder(
+  view: EditorView,
+  event: MouseEvent,
+  drag: { readonly handle: number; readonly gesture: ReturnType<typeof createTableDrag> },
+): void {
+  const { handle, gesture } = drag;
   const at = tableOfCell(view.state, handle);
   const dom = view.nodeDOM(at.pos) as HTMLElement | null;
   if (!dom) return;
-  const start = laidOutWidths(view, at);
+  const scale = tableScale(dom).x;
+  const start = laidOutWidths(view, at, scale);
   const resize = { column: at.column, max: roomFor(dom) };
   const restore = shownStyles(dom);
-  const owner = view.dom.ownerDocument;
-  const widthsAt = (x: number) => resizeColumns(start, { ...resize, by: x - event.clientX });
+  const widthsAt = (x: number) =>
+    resizeColumns(start, { ...resize, by: (x - event.clientX) / scale });
   const move = (moved: MouseEvent) => showWidths(dom, widthsAt(moved.clientX));
-  const finish = (up: MouseEvent) => {
-    owner.removeEventListener('mousemove', move);
-    owner.removeEventListener('mouseup', finish);
-    if (view.isDestroyed) return;
+  const finish = (up: MouseEvent | null) => {
     const table = endDrag(view);
     const kept =
+      up !== null &&
       table >= 0 &&
       Math.abs(up.clientX - event.clientX) >= 1 &&
       setColumnWidths(table, widthsAt(up.clientX))(view.state, view.dispatch, view);
     // A drag that kept nothing has the document draw nothing again: put back what it showed.
     if (!kept) restore();
   };
-  owner.addEventListener('mousemove', move);
-  owner.addEventListener('mouseup', finish);
+  gesture.start(view, { move, finish });
   view.dispatch(view.state.tr.setMeta(resizeKey, { handle, dragging: true }));
 }
 
@@ -248,8 +257,10 @@ function handleDecorations(state: EditorState, handle: number): DecorationSet {
 
 /** Resizes columns by dragging the borders between cells, in pairs. */
 export function createColumnResize(): Plugin<ResizeState> {
+  const gesture = createTableDrag();
   return new Plugin<ResizeState>({
     key: resizeKey,
+    view: gesture.view,
     state: {
       init: () => ({ handle: -1, dragging: false }),
       apply(tr, value) {
@@ -264,6 +275,7 @@ export function createColumnResize(): Plugin<ResizeState> {
       },
     },
     props: {
+      nodeViews: { table: createTableView },
       attributes: (state): Record<string, string> =>
         (resizeKey.getState(state)?.handle ?? -1) >= 0 ? { class: 'resize-cursor' } : {},
       decorations: (state) => {
@@ -291,7 +303,7 @@ export function createColumnResize(): Plugin<ResizeState> {
           const current = resizeKey.getState(view.state);
           if (!view.editable || event.button !== 0 || !current || current.handle < 0) return false;
           event.preventDefault();
-          dragBorder(view, event, current.handle);
+          dragBorder(view, event, { handle: current.handle, gesture });
           return true;
         },
       },

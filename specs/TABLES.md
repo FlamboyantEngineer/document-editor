@@ -78,10 +78,10 @@ Verification: `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-2.4 - Column widths
 
-Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. While the pointer is on a border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`. On release the widths are kept in every cell of the whole table (`setColumnWidths`); a release where it was pressed changes nothing. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows the widths it had. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags.
+Dragging the border between two cells shall resize the column before it and the column after it together, the one giving the other what it takes (`resizeColumns`), so the table keeps its width, neither narrower than `DEFAULT_TABLE_CELL_MIN_WIDTH`. While the pointer is on a border, the editor carries `resize-cursor` and each cell of the column draws a `column-resize-handle`. Each pointer move shall preview the actual column widths in DOM and HTML-in-Canvas rendering, surviving view redraws without changing the document or its history. Pointer distances and measured cells shall be converted from displayed pixels to layout pixels at the current editor zoom. On release the widths are kept in every cell of the whole table (`setColumnWidths`) as one undoable edit; a release where it was pressed changes nothing. Escape or loss of window focus cancels the preview, and destroying the view removes its drag listeners. The drag follows its table through the changes made meanwhile, such as a collaborator's: the widths are kept on the table the border's cell is in at the release, and when that cell is gone, or the table then has another number of columns, nothing is kept and the table shows its current model's columns. `setColumnWidths` refuses widths for another number of columns than the table has, so no cell is left with an empty width. Every table writes a column group (DOCE-SCHEMA-3.5), which the resize sizes as it drags. The view shall synchronize this derived column group and the caption after document changes and undo while retaining the editable table body.
 
-Implementation: `src/engine/table-resize.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
-Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`
+Implementation: `src/engine/table-resize.ts`, `src/engine/table-view.ts`, `src/engine/table-drag.ts`, `src/engine/tables.ts`, `src/model/schema/table-nodes.ts`
+Verification: `src/engine/table-resize.test.ts`, `e2e/tables.spec.ts`, `e2e/canvas-table-resize.spec.ts`
 
 ## DOCE-TABLES-3 - Formatting tables
 
@@ -122,10 +122,10 @@ Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
 
 ### DOCE-TABLES-3.6 - Row heights
 
-Dragging a row's bottom border in an editable document shall set the row's height (`setRowHeight`) on each of its cells once the pointer is released, never below `MIN_ROW_HEIGHT` (16 pixels). The row is the one the pressed cell is in at the release, whatever changed meanwhile, such as rows a collaborator added above it; a cell no longer in the document sets nothing.
+Dragging a row's bottom border in an editable document shall preview the row's height on every pointer move in DOM and HTML-in-Canvas rendering, without changing the document or its history. The editor carries `de-table-row-resize` while the pointer is on the bottom border or dragging it; corners belong to column resizing. Each previewed cell carries `de-table-row-preview` and the measured height in `--de-table-row-height`, which the stylesheet applies over its saved inline height without replacing it. Displayed pointer distances shall be converted to layout pixels at the current editor zoom. On release, `setRowHeight` shall save the height on each of the row's cells as one undoable edit, never below `MIN_ROW_HEIGHT` (16 pixels). The reference stylesheet shall interpret cell height as a border-box minimum, including padding and borders; content may require more height. Escape or loss of window focus cancels the preview, restoring any previously saved height, and destroying the view removes its drag listeners. The row is the one the pressed cell is in at the release, whatever changed meanwhile, such as rows a collaborator added above it; a cell no longer in the document sets nothing.
 
-Implementation: `src/engine/table-pointer.ts`
-Verification: `src/engine/table-format.test.ts`, `src/engine/table-pointer.test.ts`, `e2e/tables.spec.ts`
+Implementation: `src/engine/table-pointer.ts`, `src/engine/table-drag.ts`, `labs/reference/document.css`, `labs/reference/editor-chrome.css`
+Verification: `src/engine/table-format.test.ts`, `src/engine/table-pointer.test.ts`, `e2e/tables.spec.ts`, `e2e/canvas-table-resize.spec.ts`
 
 ### DOCE-TABLES-3.7 - Within the page
 
@@ -166,14 +166,17 @@ Verification: `src/document/stored-table.test.ts`
 
 ## Hooks
 
-| Hook                               | Kind      | Values          | Description                                                |
-| ---------------------------------- | --------- | --------------- | ---------------------------------------------------------- |
-| `de-table-handles`                 | root      |                 | The layer over the editor's body that holds the handles.   |
-| `de-table-handles__grip`           | slot      |                 | The grip of a row or a column, holding its button.         |
-| `de-table-handles__drop-indicator` | slot      |                 | The line marking the gap a dragged row or column drops in. |
-| `data-axis`                        | attribute | `row`, `column` | On a grip and the drop indicator: what it moves.           |
-| `data-dragging`                    | state     | `row`, `column` | On the layer while a row or a column is dragged.           |
-| `--de-table-handles-top`           | property  |                 | The top of a grip's row or column, or of the drop line.    |
-| `--de-table-handles-left`          | property  |                 | The left edge of a grip's row or column, or of the line.   |
-| `--de-table-handles-width`         | property  |                 | The width of a grip's column, or of a row's drop line.     |
-| `--de-table-handles-height`        | property  |                 | The height of a grip's row, or of a column's drop line.    |
+| Hook                               | Kind      | Values          | Description                                                    |
+| ---------------------------------- | --------- | --------------- | -------------------------------------------------------------- |
+| `de-table-handles`                 | root      |                 | The layer over the editor's body that holds the handles.       |
+| `de-table-row-resize`              | root      |                 | On the editable view while a row border is hovered or resized. |
+| `de-table-row-preview`             | root      |                 | On a cell whose row height is being previewed.                 |
+| `--de-table-row-height`            | property  |                 | The previewed row height in layout pixels, on each cell.       |
+| `de-table-handles__grip`           | slot      |                 | The grip of a row or a column, holding its button.             |
+| `de-table-handles__drop-indicator` | slot      |                 | The line marking the gap a dragged row or column drops in.     |
+| `data-axis`                        | attribute | `row`, `column` | On a grip and the drop indicator: what it moves.               |
+| `data-dragging`                    | state     | `row`, `column` | On the layer while a row or a column is dragged.               |
+| `--de-table-handles-top`           | property  |                 | The top of a grip's row or column, or of the drop line.        |
+| `--de-table-handles-left`          | property  |                 | The left edge of a grip's row or column, or of the line.       |
+| `--de-table-handles-width`         | property  |                 | The width of a grip's column, or of a row's drop line.         |
+| `--de-table-handles-height`        | property  |                 | The height of a grip's row, or of a column's drop line.        |

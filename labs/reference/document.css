@@ -172,6 +172,11 @@ div.de-host-view {
   /* Pages are paper in every theme: dark text on white, whatever the page around them. */
   background: #fff;
   color: #111827;
+}
+
+/* Page shadows extend beyond the page's bitmap, so Canvas paints them on its outer element. */
+.de-document-editor .pm-page,
+.de-document-editor__canvas {
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
@@ -535,6 +540,7 @@ div.de-host-view {
 
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content td,
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content th {
+  box-sizing: border-box;
   padding: var(--doc-table-cell-padding, 4px);
   border: var(--doc-table-border-width, 1px) solid var(--doc-table-border-color, #334155);
   text-align: left;

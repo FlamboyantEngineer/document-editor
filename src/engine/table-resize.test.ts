@@ -1,3 +1,5 @@
+import { userEvent } from '@testing-library/user-event';
+import { history, undo, undoDepth } from 'prosemirror-history';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -98,7 +100,7 @@ function tableView() {
     documentSchema,
   );
   const view = new EditorView(document.body.appendChild(document.createElement('div')), {
-    state: EditorState.create({ doc, plugins: [createColumnResize()] }),
+    state: EditorState.create({ doc, plugins: [createColumnResize(), history()] }),
   });
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
     new DOMRect(0, 0, 100, 20),
@@ -148,16 +150,67 @@ describe('dragging a column border', () => {
     document.body.replaceChildren();
   });
 
-  it('DOCE-TABLES-2.4 shows the widths while the border is dragged and keeps them on release', () => {
+  it('DOCE-TABLES-2.4 keeps live widths through redraws, commits once and restores the drawing on undo', async () => {
     const view = tableView();
+    const original = view.state.doc;
     dragBorderOf(view, 'Pump');
+    // Allow the DOM observer to see the column preview, then redraw the same model.
+    await Promise.resolve();
+    view.dispatch(view.state.tr.setMeta('redraw', true));
     expect(view.dom).toHaveClass('resize-cursor');
     expect(shownWidths(view)).toEqual(['130px', '70px']);
+    document.dispatchEvent(pointer('mousemove', 138));
+    expect(shownWidths(view)).toEqual(['140px', '60px']);
+    expect(view.state.doc.eq(original)).toBe(true);
+    expect(undoDepth(view.state)).toBe(0);
     document.dispatchEvent(pointer('mouseup', 128));
     expect(cellWidths(view)).toEqual([[130], [70], [130], [70]]);
+    expect(shownWidths(view)).toEqual(['130px', '70px']);
     expect(view.dom).not.toHaveClass('resize-cursor');
+    expect(undoDepth(view.state)).toBe(1);
+    undo(view.state, view.dispatch);
+    expect(view.state.doc.eq(original)).toBe(true);
+    expect(shownWidths(view)).toEqual(['', '']);
     view.destroy();
   });
+
+  it('DOCE-TABLES-2.4 translates zoomed pointer distances and cell widths to layout pixels', () => {
+    const view = tableView();
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
+      new DOMRect(0, 0, 125, 25),
+    );
+    const table = view.dom.querySelector('table');
+    if (!table) throw new Error('Missing table');
+    vi.spyOn(table, 'offsetWidth', 'get').mockReturnValue(100);
+    const cell = cellElement(view, 'Pump');
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(cell.querySelector('p'));
+    cell.dispatchEvent(pointer('mousemove', 123));
+    cell.dispatchEvent(pointer('mousedown', 123));
+    document.dispatchEvent(pointer('mousemove', 148));
+    expect(shownWidths(view)).toEqual(['120px', '80px']);
+    document.dispatchEvent(pointer('mouseup', 148));
+    expect(cellWidths(view)).toEqual([[120], [80], [120], [80]]);
+    view.destroy();
+  });
+
+  it.each(['Escape', 'window blur'])(
+    'DOCE-TABLES-2.4 cancels live widths on %s without changing history',
+    async (cancel) => {
+      const user = userEvent.setup();
+      const view = tableView();
+      const original = view.state.doc;
+      dragBorderOf(view, 'Pump');
+      if (cancel === 'Escape') await user.keyboard('{Escape}');
+      else window.dispatchEvent(new Event('blur'));
+      expect(shownWidths(view)).toEqual(['', '']);
+      document.dispatchEvent(pointer('mousemove', 148));
+      document.dispatchEvent(pointer('mouseup', 148));
+      expect(view.state.doc.eq(original)).toBe(true);
+      expect(undoDepth(view.state)).toBe(0);
+      expect(view.dom).not.toHaveClass('resize-cursor');
+      view.destroy();
+    },
+  );
 
   it('DOCE-TABLES-2.4 keeps the widths on the table dragged when text was typed above it meanwhile', () => {
     const view = tableView();
@@ -181,7 +234,8 @@ describe('dragging a column border', () => {
     view.dispatch(markRemote(tr));
     document.dispatchEvent(pointer('mouseup', 128));
     expect(cellWidths(view)).toEqual([null, null, null, null, null, null]);
-    expect(shownWidths(view)).toEqual(before);
+    // The new model has three columns; its derived column group must follow it too.
+    expect(shownWidths(view)).toEqual(['', ...before]);
     view.destroy();
   });
 

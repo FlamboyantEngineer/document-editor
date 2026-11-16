@@ -120,6 +120,16 @@
   cursor: col-resize;
 }
 
+.de-document-editor .de-table-row-resize {
+  cursor: row-resize;
+}
+
+/* Preview a row without replacing its saved inline height; removing the hook cancels it. */
+.de-document-editor .de-table-row-preview {
+  height: var(--de-table-row-height) !important;
+  min-height: var(--de-table-row-height) !important;
+}
+
 .de-document-editor td,
 .de-document-editor th {
   position: relative;

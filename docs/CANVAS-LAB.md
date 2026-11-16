@@ -24,7 +24,10 @@ rich content and paragraphs whose metrics fail validation still use DOM ranges.
 ## Things to try
 
 1. **Edit and compare.** Type, select across paragraphs, paste, use the formatting toolbar and undo.
-   Switch renderers and confirm the text and page breaks remain the same.
+   Switch renderers and confirm the text, page breaks and page edge shadow remain the same.
+   In the Mixed content sample, drag a table's column border sideways or a row's bottom border vertically.
+   Keep the mouse pressed: the cell sizes should follow each move in both renderers, including at
+   75% and 125% zoom. Release to save the size, then undo once to restore it. Escape cancels a drag.
 2. **Check fractional zoom.** Select 75%, 125% and 150% editor zoom. Diagnostics show the first
    allocated canvas's displayed CSS size and backing size. Backing dimensions follow the browser's
    exact device-pixel content box, including pixel snapping. They can differ by one pixel from
@@ -58,7 +61,7 @@ an extra resampling step; it does not promise identical font rasterization on ev
 
 ```sh
 npm run build:labs
-CHROMIUM_PATH=/path/to/chromium npx playwright test e2e/canvas-lab.spec.ts e2e/canvas-rendering.spec.ts --project=chromium
+CHROMIUM_PATH=/path/to/chromium npx playwright test e2e/canvas-lab.spec.ts e2e/canvas-rendering.spec.ts e2e/canvas-table-resize.spec.ts --project=chromium
 ```
 
 Omit `CHROMIUM_PATH` when Playwright's browser is installed. The tests enable the native API where
