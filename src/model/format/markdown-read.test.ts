@@ -3,11 +3,19 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { importWarningGroup } from '../../import/import-warnings.js';
 import { createDocumentSchema } from '../schema/document-schema.js';
 import type { DocumentFile, StoredNode } from './document-format.js';
 import { readDocumentFile } from './document-format-convert.js';
 import { writeMarkdown } from './markdown.js';
 import { readMarkdown } from './markdown-read.js';
+
+const warning = (code: string, detail: string, count: number) => ({
+  code,
+  detail,
+  count,
+  group: importWarningGroup(code),
+});
 
 const documents = join(dirname(fileURLToPath(import.meta.url)), '../../../test/fixtures/documents');
 
@@ -203,8 +211,8 @@ describe('reading Markdown', () => {
     const read = readMarkdown('<div>\nbox\n</div>\n\nText <span>kept</span> here.\n');
     expect(read.file.sections[0]?.content).toEqual([paragraph(text('Text kept here.'))]);
     expect(read.warnings).toEqual([
-      { code: 'content-left-out', detail: 'HTML block', count: 1 },
-      { code: 'content-left-out', detail: '<span>', count: 2 },
+      warning('content-left-out', 'HTML block', 1),
+      warning('content-left-out', '<span>', 2),
     ]);
     expect(readMarkdown('').file).toEqual({ formatVersion: 1, sections: [{ content: [] }] });
   });

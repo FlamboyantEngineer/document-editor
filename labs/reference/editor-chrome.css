@@ -347,14 +347,29 @@
  * The other people in the document: a caret in their colour with their name above it, and the text
  * they select tinted. A peer without a colour of its own takes one of eight slots.
  */
-.de-presence-caret,
-/* Carets at the same place raise their labels one above another. */
+
+/*
+ * Carets at the same place stand side by side, each a little after the one before, and raise
+ * their labels one above another.
+ */
 .de-presence-caret[data-presence-stack='1'] .de-presence-caret__label {
   bottom: calc(100% + 16px);
 }
 
 .de-presence-caret[data-presence-stack='2'] .de-presence-caret__label {
   bottom: calc(100% + 32px);
+}
+
+.de-presence-caret[data-presence-stack='1'] {
+  left: 3px;
+}
+
+.de-presence-caret[data-presence-stack='2'] {
+  left: 6px;
+}
+
+.de-presence-caret[data-presence-stack='3'] {
+  left: 9px;
 }
 
 .de-presence-selection {
@@ -435,9 +450,41 @@
   opacity: 0.5;
 }
 
-/* The other people's avatars in the status bar. */
+/* The other people's avatars in the toolbar, an idle or away person's faded. */
 .de-document-editor__presence {
   display: inline-flex;
+}
+
+.de-document-editor__presence :is([data-status='idle'], [data-status='away']) {
+  opacity: 0.55;
+}
+
+/* A person's card from their avatar: their email and what they are doing, one per line. */
+.de-document-editor__presence-card [data-presence-email],
+.de-document-editor__presence-card [data-presence-activity] {
+  display: block;
+}
+
+/* A person's name over any part of their selection, while the pointer is on it. */
+.de-presence-selection {
+  position: relative;
+}
+
+.de-presence-selection:hover::after {
+  content: attr(data-presence-name);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  z-index: 1;
+  padding: 0 4px;
+  border-radius: 3px 3px 3px 0;
+  background: var(--de-presence-color, var(--de-presence-fallback));
+  color: #fff;
+  font:
+    600 10px/16px system-ui,
+    sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* The shared room's connection in the status bar: a warning while it locks the document. */

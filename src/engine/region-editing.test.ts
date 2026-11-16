@@ -76,6 +76,50 @@ describe('editing regions in place', () => {
     view.destroy();
   });
 
+  it('DOCE-SECTIONS-5.1 shows an edit of the document header in every section that shows it, at once', () => {
+    const template: TemplateFile = {
+      formatVersion: 1,
+      id: 't',
+      header: { content: text('Old') },
+      sections: [{ name: 'annex', header: { content: text('Annex') } }],
+    };
+    const plugins = [
+      createRegionEditing({ enabled: () => true, template: () => template, onChange: () => {} }),
+      createDocumentSections({ template: () => template }),
+    ];
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          { name: null, content: text('Body') },
+          { name: 'notes', content: text('Notes') },
+          { name: 'annex', content: text('Annex body') },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let state = EditorState.create({ doc, plugins });
+    state = state.apply(setPageRegions(state.tr, template, { editable: true }));
+    const headers = () => {
+      const found: string[] = [];
+      state.doc.descendants((node) => {
+        if (node.type.name === 'page_header') found.push(node.textContent);
+        return node.type.name !== 'page_header';
+      });
+      return found;
+    };
+    expect(headers()).toEqual(['Old', 'Old', 'Annex']);
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (at < 0 && node.type.name === 'page_header') at = pos + 1 + 1 + 3;
+      return at < 0;
+    });
+    // Before the template holds the edit, the section that inherits the header shows it too, in the
+    // same transaction, as the host's state will once its template changes.
+    state = state.apply(state.tr.insertText(' and new', at));
+    expect(headers()).toEqual(['Old and new', 'Old and new', 'Annex']);
+  });
+
   it('DOCE-SECTIONS-5.3 hands on a mark set in a header, which changes no positions', () => {
     const template: TemplateFile = { formatVersion: 1, id: 't', header: { content: text('Old') } };
     const changes: RegionChange[] = [];

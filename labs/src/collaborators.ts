@@ -4,10 +4,16 @@
 import type { EditorView } from 'prosemirror-view';
 import { describeBlocks, type Peer, setPeers } from '../../src/engine/index.js';
 
-const PEOPLE = [
-  { id: 'grace', name: 'Grace Hopper' },
-  { id: 'alan', name: 'Alan Turing' },
-] as const;
+const PEOPLE: readonly Peer[] = [
+  { id: 'grace', name: 'Grace Hopper', email: 'grace@example.com', activity: 'editing' },
+  {
+    id: 'alan',
+    name: 'Alan Turing',
+    email: 'alan@example.com',
+    activity: 'viewing',
+    status: 'idle',
+  },
+];
 
 // The position just inside a text block's text, at an offset.
 function positionIn(view: EditorView, elementId: string, offset: number): number | null {

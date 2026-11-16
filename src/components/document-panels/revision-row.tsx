@@ -16,11 +16,35 @@ interface RevisionRowProps {
   currentKey: Key | null | undefined;
   expanded: boolean;
   onToggle: () => void;
+  canView: boolean;
   canRename: boolean;
   canRestore: boolean;
   labels: RevisionLabels;
   timeFormat: RevisionTimeFormat;
-  onAction: (action: 'rename' | 'restore') => void;
+  onAction: (action: 'view' | 'rename' | 'restore') => void;
+}
+
+// The row's actions the reader may take: view it, name or rename it, restore it.
+function actionItems(
+  allowed: { canView: boolean; canRename: boolean; canRestore: boolean },
+  { version, labels, onAction }: Pick<RevisionRowProps, 'version' | 'labels' | 'onAction'>,
+) {
+  const named = Boolean(version.label?.trim());
+  return [
+    allowed.canView ? { id: 'view', label: labels.viewRevision, action: 'view' as const } : null,
+    allowed.canRename
+      ? {
+          id: 'rename',
+          label: named ? labels.renameRevision : labels.nameRevision,
+          action: 'rename' as const,
+        }
+      : null,
+    allowed.canRestore
+      ? { id: 'restore', label: labels.restoreRevision, action: 'restore' as const }
+      : null,
+  ].flatMap((item) =>
+    item ? [{ id: item.id, label: item.label, onAction: () => onAction(item.action) }] : [],
+  );
 }
 
 /** A revision's collection row, including its host-owned grouping and action policy. */
@@ -30,6 +54,7 @@ export function RevisionRow({
   currentKey,
   expanded,
   onToggle,
+  canView,
   canRename,
   canRestore,
   labels,
@@ -70,32 +95,13 @@ export function RevisionRow({
         </Stack>
       }
       trailing={
-        canRename || canRestore ? (
+        canView || canRename || canRestore ? (
           <DropdownMenu
             {...hooks.slot('actions')}
             label={labels.revisionActions}
             variant="ghost"
             size="sm"
-            items={[
-              ...(canRename
-                ? [
-                    {
-                      id: 'rename',
-                      label: version.label?.trim() ? labels.renameRevision : labels.nameRevision,
-                      onAction: () => onAction('rename'),
-                    },
-                  ]
-                : []),
-              ...(canRestore
-                ? [
-                    {
-                      id: 'restore',
-                      label: labels.restoreRevision,
-                      onAction: () => onAction('restore'),
-                    },
-                  ]
-                : []),
-            ]}
+            items={actionItems({ canView, canRename, canRestore }, { version, labels, onAction })}
           />
         ) : undefined
       }

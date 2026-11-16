@@ -9,6 +9,8 @@ export interface RevisionLabels {
   readonly noMatchingRevisions: string;
   readonly currentRevision: string;
   readonly revisionActions: string;
+  /** The row action that shows a version in place of the document. */
+  readonly viewRevision: string;
   readonly nameRevision: string;
   readonly renameRevision: string;
   readonly restoreRevision: string;
@@ -30,6 +32,7 @@ export const DEFAULT_REVISION_LABELS: RevisionLabels = {
   noMatchingRevisions: 'No matching versions',
   currentRevision: 'Current',
   revisionActions: 'Version actions',
+  viewRevision: 'View version',
   nameRevision: 'Name version',
   renameRevision: 'Rename version',
   restoreRevision: 'Restore version',

@@ -3,7 +3,12 @@ import { Modal } from '@flamboyantengineer/ui-components/modal';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';
 import { revisionHooks as hooks } from './revision-hooks.js';
-import { type RevisionItem, type RevisionTimeFormat, revisionTitle } from './revision-item.js';
+import {
+  REVISION_NAME_MAX_LENGTH,
+  type RevisionItem,
+  type RevisionTimeFormat,
+  revisionTitle,
+} from './revision-item.js';
 import type { RevisionLabels } from './revision-labels.js';
 
 interface RevisionDialogProps {
@@ -61,6 +66,7 @@ export function RevisionDialog({
               label={labels.revisionName}
               value={name}
               onChange={setName}
+              maxLength={REVISION_NAME_MAX_LENGTH}
               autoFocus
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !isComposingKey(event.nativeEvent)) {
