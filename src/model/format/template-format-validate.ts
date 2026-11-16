@@ -4,6 +4,7 @@
 
 import type { ContentMatch, Schema } from 'prosemirror-model';
 import { referenceFormatError, referenceFormatKeys } from '../reference-format.js';
+import { isCssColor } from '../schema/css-color.js';
 import { templateImageErrors } from '../templates/template-content.js';
 import { DOCUMENT_FORMAT_VERSION, STORED_NODE_TYPES } from './document-format.js';
 import { readDocumentFile, readStoredContent } from './document-format-convert.js';
@@ -13,7 +14,6 @@ import { type SettingShape, TEMPLATE_SHAPE } from './template-format-shape.js';
 type LooseRecord = Record<string, unknown>;
 
 const LENGTH = /^-?\d+(?:\.\d+)?(?:px|pt|mm|cm|in|em|rem|%)$/;
-const COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const TEMPLATE_ID = /^[A-Za-z0-9_-]+$/;
 const SECTION_NAME = /^[a-z0-9_]+$/;
 const NAME_MAX_LENGTH = 120;
@@ -78,9 +78,12 @@ export function isTemplateBullet(value: unknown): boolean {
 /** What a custom style's name may be: a letter, then letters, digits, `_` or `-`, 16 at most. */
 export const CUSTOM_STYLE_NAME = /^[a-z][a-z0-9_-]{0,15}$/i;
 
-/** Whether a value is a hex color. */
+/**
+ * Whether a value is a template color: a CSS color written plainly, as a hex color, a color's name
+ * or a color function of numbers (`isCssColor`).
+ */
 export function isTemplateColor(value: unknown): boolean {
-  return typeof value === 'string' && COLOR.test(value);
+  return isCssColor(value);
 }
 
 /** Whether a value is a line height: a positive multiple of the font size. */
@@ -95,7 +98,7 @@ export function isTemplateWeight(value: unknown): boolean {
 
 const LEAF_CHECKS: Readonly<Record<string, [(value: unknown) => boolean, string]>> = {
   length: [isTemplateLength, 'must be a length with a unit, such as 12pt'],
-  color: [isTemplateColor, 'must be a hex color'],
+  color: [isTemplateColor, 'must be a color'],
   text: [(value) => typeof value === 'string', 'must be text'],
   boolean: [(value) => typeof value === 'boolean', 'must be true or false'],
   lineHeight: [isTemplateLineHeight, 'must be a positive number'],

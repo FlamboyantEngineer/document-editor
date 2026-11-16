@@ -157,7 +157,16 @@ describe('automation on stored documents', () => {
   });
 
   it('DOCE-AUTOMATION-4.4 refuses edits in sections that may not be edited and at host locks', () => {
-    const { stored: file, template } = storedFixture('section-settings');
+    const fixture = storedFixture('section-settings');
+    const { stored: file } = fixture;
+    // The lock follows the template as it is now (DOCE-SECTIONS-4.3), so the template locks the
+    // section the document stored locked.
+    const template = {
+      ...fixture.template,
+      sections: fixture.template.sections?.map((section) =>
+        section.name === 'body' ? { ...section, editable: false } : section,
+      ),
+    };
     const options = { ...AGENT, template };
     const body = describeDocument(file, { schema, template }).blocks.find(
       (block) => block.section === 1 && block.type === 'paragraph',

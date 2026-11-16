@@ -8,6 +8,7 @@ import {
   resolveRegionSpacing,
   sectionRestartsNumbering,
   type TemplateFile,
+  templateProperties,
   validateTemplateFile,
 } from '../index.js';
 
@@ -188,5 +189,23 @@ describe('template footnotes and captions', () => {
       '--doc-table-caption-continued': '" (continued)"',
       '--doc-figure-caption-continued': null,
     });
+  });
+
+  it('DOCE-TEMPLATES-2.5 gives a page region the height its scope fixes, zero included', () => {
+    const template: TemplateFile = {
+      formatVersion: 1,
+      id: 't',
+      header: { height: '36pt' },
+      footer: { height: '0pt', spacingToContent: '0pt' },
+    };
+    const properties = templateProperties(template);
+    expect(properties['--doc-page-header-height']).toBe('48px');
+    expect(properties['--doc-page-footer-height']).toBe('0px');
+    expect(properties['--doc-page-footer-content-gap']).toBe('0px');
+    const section = { name: 's', header: { height: '1in' } };
+    expect(templateProperties(template, { section })['--doc-page-header-height']).toBe('96px');
+    expect(templateProperties({ formatVersion: 1, id: 'u' })).not.toHaveProperty(
+      '--doc-page-header-height',
+    );
   });
 });

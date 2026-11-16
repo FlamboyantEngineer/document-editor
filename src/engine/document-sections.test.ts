@@ -38,7 +38,7 @@ const TEMPLATE: TemplateFile = {
   ],
 };
 
-const read = (...sections: { name: string | null; content: StoredNode[] }[]) =>
+const read = (...sections: { name: string | null; editable?: boolean; content: StoredNode[] }[]) =>
   readDocumentFile({ formatVersion: 1, sections }, documentSchema).doc;
 
 // Each section as its name and its blocks' text.
@@ -155,6 +155,25 @@ describe('section scopes', () => {
     expect(headers(next)).toEqual(['', 'Appendix']);
     expect(transactions.at(-1)?.getMeta('addToHistory')).toBe(false);
     expect(next.apply(next.tr.setMeta(documentSectionsKey, true)).doc.eq(next.doc)).toBe(true);
+  });
+
+  it('DOCE-SECTIONS-4.3 drops a stored lock the template no longer asks for, outside the history', () => {
+    const doc = read(
+      { name: 'appendix', editable: false, content: [paragraph('Extra')] },
+      { name: 'annex', editable: false, content: [paragraph('Old annex')] },
+    );
+    const state = EditorState.create({
+      doc,
+      plugins: [createDocumentSections({ template: () => TEMPLATE })],
+    });
+    const { state: next, transactions } = state.applyTransaction(
+      state.tr.setMeta(documentSectionsKey, true),
+    );
+    expect(writeDocumentFile(next.doc).sections.map((section) => section.editable)).toEqual([
+      undefined,
+      false,
+    ]);
+    expect(transactions.at(-1)?.getMeta('addToHistory')).toBe(false);
   });
 });
 

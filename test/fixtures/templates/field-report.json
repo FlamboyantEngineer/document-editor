@@ -610,6 +610,9 @@
       "name": "findings",
       "label": "Findings",
       "required": true,
+      "extensions": {
+        "review": { "stage": "draft" }
+      },
       "content": [
         {
           "type": "heading",

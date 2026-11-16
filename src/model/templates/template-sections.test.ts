@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { documentSchema } from '../../../test/document-markup.js';
 import {
   composeDocumentFile,
   createDocumentFile,
@@ -81,10 +82,38 @@ describe('new and composed documents', () => {
     expect(file.sections[0]).toEqual({
       name: 'notice',
       editable: false,
-      content: [paragraph('Fixed notice.')],
+      content: [paragraph('Fixed notice.', '00000001')],
     });
-    expect(file.sections[1]?.content[0]?.attrs).toEqual({ id: '00000001' });
+    expect(file.sections[1]?.content[0]?.attrs).toEqual({ id: '00000002' });
     expect(LOCKED.sections?.[1]?.content?.[0]?.attrs).toBeUndefined();
+  });
+
+  it('DOCE-IMPORT-3.1 DOCE-TEMPLATES-8.1 reads the template tokens of its content with a schema', () => {
+    const template: TemplateFile = {
+      formatVersion: 1,
+      id: 'tokens',
+      sections: [
+        {
+          name: 'cover',
+          required: true,
+          editable: false,
+          content: [paragraph('By {{author}}'), paragraph('{{list_of_figures}}')],
+        },
+      ],
+    };
+    const file = createDocumentFile({ template, newId: counter(), schema: documentSchema });
+    const [byline, contents] = file.sections[0]?.content ?? [];
+    expect(byline?.content).toEqual([
+      { type: 'text', text: 'By ' },
+      expect.objectContaining({
+        type: 'variable',
+        attrs: expect.objectContaining({ key: 'author' }),
+      }),
+    ]);
+    expect(contents?.type).not.toBe('paragraph');
+    expect(JSON.stringify(file)).not.toContain('{{');
+    const copied = createDocumentFile({ template, newId: counter() });
+    expect(JSON.stringify(copied)).toContain('{{author}}');
   });
 
   it('DOCE-IMPORT-3.1 gives a template without sections one empty section', () => {
@@ -111,10 +140,10 @@ describe('new and composed documents', () => {
       ['body', []],
     ]);
     expect(file.sections[1]?.content.map((node) => node.attrs)).toEqual([
-      { id: '00000001', author: 'importer' },
+      { id: '00000002', author: 'importer' },
       { id: '0000abcd' },
     ]);
-    expect(file.sections[0]?.content[0]?.attrs).toBeUndefined();
+    expect(file.sections[0]?.content[0]?.attrs).toEqual({ id: '00000001', author: 'importer' });
   });
 
   it('DOCE-IMPORT-3.2 places named sections and fills the chosen section with the rest', () => {

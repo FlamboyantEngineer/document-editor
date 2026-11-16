@@ -41,9 +41,24 @@ export function toHalfPoints(length: unknown): number | null {
   return value === null ? null : Math.round(value * 1.5);
 }
 
-/** A template's hex color as Word writes it, `1F2937`; null for anything else. */
+const channel = (value: string) =>
+  Math.max(0, Math.min(255, Math.round(Number(value))))
+    .toString(16)
+    .padStart(2, '0');
+
+/**
+ * A template's color as Word writes it, `1F2937`, from a hex color or an `rgb()` color of
+ * numbers; null for anything else, which Word leaves to its default.
+ */
 export function toWordColor(color: unknown): string | null {
   if (typeof color !== 'string') return null;
+  const rgb = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)\s*(?:[,/][\s\d.%]*)?\)$/i.exec(color.trim());
+  if (rgb)
+    return rgb
+      .slice(1, 4)
+      .map((value) => channel(value))
+      .join('')
+      .toUpperCase();
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())?.[1];
   if (!hex) return null;
   const full = hex.length === 3 ? [...hex].map((digit) => digit + digit).join('') : hex;

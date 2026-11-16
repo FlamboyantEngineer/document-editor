@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
 import { createVariableTokens } from './index.js';
+import { repairVariableTokens, VARIABLE_TOKENS_REPAIR } from './variable-tokens.js';
 
 const read = (...content: StoredNode[]) =>
   readDocumentFile({ formatVersion: 1, sections: [{ name: null, content }] }, documentSchema).doc;
@@ -64,5 +65,18 @@ describe('variable tokens', () => {
     expect(partsOf(plain)).toEqual(['${name} [[name]]']);
     const code = typeInto({ type: 'code_block', content: [] }, '', '{{name}}');
     expect(partsOf(code)).toEqual(['{{name}}']);
+  });
+
+  it('DOCE-TEMPLATES-8.7 turns the {{key}} text a document opens with into variables, outside code', () => {
+    const text = (value: string): StoredNode => ({ type: 'text', text: value });
+    const doc = read(
+      { type: 'paragraph', content: [text('By {{author}} on {{ date }}')] },
+      { type: 'code_block', content: [text('{{name}}')] },
+    );
+    const tr = repairVariableTokens(EditorState.create({ doc }));
+    expect(tr?.getMeta('addToHistory')).toBe(false);
+    expect(tr?.getMeta(VARIABLE_TOKENS_REPAIR)).toBe(true);
+    expect(tr && partsOf(tr.doc)).toEqual(['By ', '[author]', ' on ', '[date]', '{{name}}']);
+    expect(tr && repairVariableTokens(EditorState.create({ doc: tr.doc }))).toBeNull();
   });
 });

@@ -33,6 +33,7 @@ import {
   buildCaptionCssVarEntries,
   buildFootnoteCssVarEntries,
   resolveFootnoteSettings,
+  resolveRegionHeight,
   resolveRegionSpacing,
 } from './template-scopes.js';
 import {
@@ -212,6 +213,8 @@ export function templateProperties(
   for (const region of ['header', 'footer'] as const) {
     const gap = resolveRegionSpacing(template, section, region);
     if (gap) properties[`--doc-page-${region}-content-gap`] = gap;
+    const height = resolveRegionHeight(template, section, region);
+    if (height) properties[`--doc-page-${region}-height`] = height;
   }
   return properties;
 }
