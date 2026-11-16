@@ -78,7 +78,7 @@ import type { DocumentToolbarOptions } from './toolbar-items.js';
 import type { MenuKeys } from './trigger-menu.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
-import { useLayoutTap } from './use-editor-telemetry.js';
+import { useLayoutTap, useMountTelemetry } from './use-editor-telemetry.js';
 import {
   type DocumentEditorNotifications,
   useActiveProps,
@@ -357,6 +357,7 @@ function useEditorLayout(
     ),
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
+  useMountTelemetry(props.telemetry, engine.view, progress.paged?.projection ?? null);
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
   // Pages that wait for template fonts are not shown without them: their first layout fails.
   const fontsFailed = reported.missing.length > 0;

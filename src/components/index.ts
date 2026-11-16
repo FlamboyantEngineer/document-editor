@@ -52,9 +52,12 @@ export type {
   DocumentStatusBarOptions,
   StatusBarItem,
   VisibleElement,
+  VisiblePage,
 } from './document-editor/index.js';
 export type { ConnectionStatusLabels, ConnectionStatusProps } from './document-editor/index.js';
+export type { LazyEditorSurface } from './document-editor/index.js';
 export { EDITOR_BANNERS } from './document-editor/index.js';
+export { preloadEditorSurfaces } from './document-editor/index.js';
 export {
   DocumentModeStatus,
   DocumentPageStatus,
@@ -73,6 +76,7 @@ export {
   DEFAULT_SYMBOLS,
   DocumentEditor,
   EDITOR_COUNTS,
+  EDITOR_LAYOUT_PASS,
   EDITOR_MEASURES,
   EditorModal,
   inlineCompletionItem,

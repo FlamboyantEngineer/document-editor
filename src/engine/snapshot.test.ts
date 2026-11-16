@@ -3,6 +3,7 @@ import { Transform } from 'prosemirror-transform';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
+import { viewOnlyInline, viewOnlyWidget } from '../index.js';
 import {
   BASE_TEMPLATE,
   readDocumentFile,
@@ -12,7 +13,6 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { createPageVariables } from '../pagination/index.js';
-import { viewOnlyInline, viewOnlyWidget } from '../utils/view-only-decorations.js';
 import { createSearch, setSearch } from './search.js';
 import { documentSnapshot } from './snapshot.js';
 

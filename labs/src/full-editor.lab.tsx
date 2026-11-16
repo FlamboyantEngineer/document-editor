@@ -342,7 +342,7 @@ function Lab() {
   const [authorship, setAuthorship] = useState(false);
   const [markers, setMarkers] = useState(false);
   const handle = useRef<DocumentEditorHandle>(null);
-  const host = useHostPanel();
+  const host = useHostPanel(handle);
   // What the host's feedback last told the reader, such as a failed upload.
   const [notice, setNotice] = useState('');
   const [snapshot, setSnapshot] = useState('');
