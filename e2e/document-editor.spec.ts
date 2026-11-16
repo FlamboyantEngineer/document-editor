@@ -139,6 +139,26 @@ test.describe('document editor lab', () => {
     await expect(item(page, /^Paste as plain text/)).toBeEnabled();
   });
 
+  test('DOCE-EDITOR-3.1 keeps the context menu open and with its content as the document scrolls', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await openMenuAt(page, 'Normal operation');
+    const before = await menu(page).boundingBox();
+    // The nearest scrolling ancestor of the document's content scrolls by 80 pixels.
+    await content(page).evaluate((element) => {
+      let at: Element | null = element;
+      while (at && at.scrollHeight <= at.clientHeight) at = at.parentElement;
+      (at ?? document.scrollingElement ?? document.documentElement).scrollBy(0, 80);
+    });
+    await expect(menu(page)).toBeVisible();
+    await expect(async () => {
+      const after = await menu(page).boundingBox();
+      expect((before?.y ?? 0) - (after?.y ?? 0)).toBeCloseTo(80, -1);
+    }).toPass();
+  });
+
   test('DOCE-EDITOR-3.2 cuts and pastes as plain text from the menu', async ({
     lab,
     page,

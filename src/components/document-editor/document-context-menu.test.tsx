@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { scriptState } from '../../../test/script-blocks.js';
-import { createDocumentEditing, listScriptBlocks } from '../../engine/index.js';
-import type { TemplateFile } from '../../model/index.js';
+import { createDocumentEditing, type EditAddress, listScriptBlocks } from '../../engine/index.js';
+import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import type { ContextMenuProvider } from './context-providers.js';
 import { EditorModal, type HostDialogProps } from './dialog-parts.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
@@ -131,5 +131,103 @@ describe('DocumentContextMenu', () => {
     });
     expect(run).toHaveAttribute('aria-disabled', 'true');
     expect(run).toHaveTextContent('Not available while suggesting');
+  });
+
+  it('DOCE-EDITOR-3.4 ends a script block’s menu with adding a paragraph before or after it', async () => {
+    const user = userEvent.setup();
+    const handleRef = createRef<DocumentEditorHandle>();
+    const arrange = vi.fn((groups: readonly { id: string }[], target: { kind: string }) => {
+      expect(target.kind).toBe('script');
+      return groups;
+    });
+    render(<Harness handleRef={handleRef} contextMenu={{ arrange: arrange as never }} />);
+    await user.click(screen.getByRole('textbox', { name: 'Report' }));
+    act(() => {
+      handleRef.current?.run((state, dispatch) => {
+        const at = listScriptBlocks(state.doc)[0]?.pos ?? 0;
+        dispatch?.(state.tr.setSelection(NodeSelection.create(state.doc, at)));
+        return true;
+      });
+    });
+    await user.keyboard('{Shift>}{F10}{/Shift}');
+    const menu = await screen.findByRole('menu');
+    const names = within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent);
+    expect(names.slice(-3)).toEqual(['Delete', 'Add paragraph before', 'Add paragraph after']);
+    expect(arrange.mock.lastCall?.[0].map((group) => group.id).slice(-2)).toEqual([
+      'object',
+      'paragraphs',
+    ]);
+    await user.click(within(menu).getByRole('menuitem', { name: 'Add paragraph after' }));
+    expect(
+      listScriptBlocks(handleRef.current?.view()?.state.doc ?? scriptState([]).doc),
+    ).toHaveLength(1);
+  });
+});
+
+// A document of one paragraph with an element id.
+function linkedState() {
+  const { doc } = readDocumentFile(
+    {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: 'b0000001' },
+              content: [{ type: 'text', text: 'Linked' }],
+            },
+          ],
+        },
+      ],
+    },
+    documentSchema,
+  );
+  return EditorState.create({ doc, plugins: createDocumentEditing(documentSchema) });
+}
+
+describe('copying a link to the content', () => {
+  it('DOCE-EDITOR-3.9 offers Copy link with its key in the menu of a read document', async () => {
+    const user = userEvent.setup();
+    const onCopyLink = vi.fn<(address: EditAddress) => void>();
+    render(<Harness initial={linkedState()} editable={false} onCopyLink={onCopyLink} />);
+    await user.pointer({ keys: '[MouseRight]', target: screen.getByText('Linked') });
+    const menu = await screen.findByRole('menu');
+    const copy = within(menu).getByRole('menuitem', { name: /Copy link/ });
+    expect(copy).toHaveTextContent(/Shift\+K/);
+    await user.click(copy);
+    expect(onCopyLink).toHaveBeenLastCalledWith({ elementId: 'b0000001' });
+  });
+
+  it('DOCE-EDITOR-3.9 copies the link with Mod-Shift-K', async () => {
+    const user = userEvent.setup();
+    const onCopyLink = vi.fn<(address: EditAddress) => void>();
+    render(<Harness initial={linkedState()} onCopyLink={onCopyLink} />);
+    await user.click(screen.getByText('Linked'));
+    await user.keyboard('{Control>}{Shift>}K{/Shift}{/Control}');
+    expect(onCopyLink).toHaveBeenLastCalledWith({ elementId: 'b0000001' });
+  });
+
+  it('DOCE-EDITOR-3.9 DOCE-EDITOR-3.3 shows the host’s words for its entries', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initial={linkedState()}
+        onCopyLink={vi.fn()}
+        labels={{ copyLink: 'Copy link to content', addComment: 'Add comment' }}
+      />,
+    );
+    const menu = await openMenu(user);
+    expect(within(menu).getByRole('menuitem', { name: /Copy link to content/ })).toBeVisible();
+  });
+
+  it('DOCE-EDITOR-3.9 offers no Copy link without the host’s callback', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const menu = await openMenu(user);
+    expect(within(menu).queryByRole('menuitem', { name: /Copy link/ })).not.toBeInTheDocument();
   });
 });

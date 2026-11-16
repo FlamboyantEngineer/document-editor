@@ -1,5 +1,5 @@
 import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { type DecorationSet, EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
@@ -98,6 +98,72 @@ describe('paragraph numbering', () => {
       { name: 'appendix', content: [paragraph('D')] },
     );
     expect(numbersOf(doc)).toEqual(['1.', '1.1.', '1.', '2.', '3.', '1.']);
+  });
+
+  it('DOCE-NUMBERING-6.5 numbers paragraphs under a numbered heading after its number', () => {
+    const headed: TemplateFile = {
+      formatVersion: 1,
+      id: 'headed',
+      styles: {
+        heading1: { numbering: { format: '1.' } },
+        heading2: { numbering: { format: '1.1.' } },
+        heading3: { numbering: { format: 'A-1-1' } },
+        paragraph: { numbering: { format: '1.1.1.1.' } },
+      },
+      sections: [{ name: 'body' }],
+    };
+    const doc = documentOf({
+      name: 'body',
+      content: [
+        paragraph('Before'),
+        heading('One'),
+        heading('One two', 2),
+        heading('One three', 2),
+        paragraph('A'),
+        paragraph('A sub', 2),
+        paragraph('B'),
+        heading('Unseparated', 3),
+        paragraph('C'),
+        { ...heading('Unnumbered', 2), attrs: { level: 2, numbered: false } },
+        paragraph('D'),
+      ],
+    });
+    expect(numbersOf(doc, headed)).toEqual([
+      '1.',
+      '1.2.1.',
+      '1.2.1.1.',
+      '1.2.2.',
+      'A-2-1.1.',
+      '1.',
+    ]);
+  });
+
+  it('DOCE-NUMBERING-6.6 keeps the numbers while typing leaves each block earning one', () => {
+    const doc = documentOf({ name: 'body', content: [paragraph('One'), paragraph('')] });
+    const state = EditorState.create({
+      doc,
+      plugins: [createParagraphNumbering({ template: () => TEMPLATE })],
+    });
+    const plugin = state.plugins[0];
+    const numbers = (current: EditorState) =>
+      (plugin?.getState(current) as DecorationSet).find().map((each) => each.from);
+    const at = (current: EditorState, value: string) => {
+      let found = -1;
+      current.doc.descendants((node, pos) => {
+        if (found < 0 && node.type.name === 'paragraph' && node.textContent === value) found = pos;
+      });
+      return found + 1;
+    };
+    const typed = state.apply(state.tr.insertText('ne', at(state, 'One')));
+    expect(plugin?.getState(typed)).not.toBe(plugin?.getState(state));
+    expect(numbers(typed)).toEqual(numbers(state));
+    // Typing into the empty paragraph earns it a number, so the paragraphs are numbered again.
+    const filled = typed.apply(typed.tr.insertText('Two', at(typed, '')));
+    expect(numberedParagraphs(filled.doc, TEMPLATE).map((entry) => entry.text)).toEqual([
+      '1.',
+      '2.',
+    ]);
+    expect(numbers(filled)).toHaveLength(2);
   });
 
   it('DOCE-NUMBERING-6.3 writes the number with its levels, separators and affixes', () => {

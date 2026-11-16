@@ -10,6 +10,8 @@ import {
   resolveTemplateFile,
   resolveTemplateFileAsync,
   type TemplateFile,
+  templateScopeStyles,
+  type TemplateStyles,
 } from '../index.js';
 
 const template = (id: string, settings: Partial<TemplateFile> = {}): TemplateFile => ({
@@ -63,7 +65,7 @@ describe('template inheritance', () => {
       page: { size: 'A4', orientation: 'landscape' },
     });
     expect(await resolveTemplateFileAsync(leaf, options)).toEqual(resolved);
-    expect(resolveTemplateFile(BASE, options)).toEqual({ ...BASE, parent: null });
+    expect(resolveTemplateFile(BASE, options)).toMatchObject({ ...BASE, parent: null });
     expect(resolveTemplateFile(template('lost', { parent: 'gone' }), options).name).toBeUndefined();
   });
 
@@ -113,17 +115,55 @@ describe('template inheritance', () => {
     });
   });
 
-  it('DOCE-FORMAT-3.1 merges paragraph numbering levels by their place', () => {
+  it('DOCE-FORMAT-3.1 replaces paragraph numbering levels whole and merges contents levels by place', () => {
     const parent = template('parent', {
-      styles: { paragraph: { numbering: { levels: [{ format: '1.' }, { format: '1.1.' }] } } },
+      styles: {
+        paragraph: { numbering: { levels: [{ format: '1.' }, { format: '1.1.' }] } },
+        contents: { levels: [{ indentation: '0pt' }, { indentation: '10pt' }] },
+      },
     });
     const child = template('child', {
-      styles: { paragraph: { numbering: { levels: [null, { textIndent: '40pt' }] } } },
+      styles: {
+        paragraph: { numbering: { levels: [null, { textIndent: '40pt' }] } },
+        contents: { levels: [null, { spaceBefore: '2pt' }] },
+      },
     });
-    expect(mergeTemplateFiles(parent, child).styles?.paragraph?.numbering?.levels).toEqual([
-      { format: '1.' },
-      { format: '1.1.', textIndent: '40pt' },
+    const merged = mergeTemplateFiles(parent, child).styles;
+    expect(merged?.paragraph?.numbering?.levels).toEqual([null, { textIndent: '40pt' }]);
+    expect(merged?.contents?.levels).toEqual([
+      { indentation: '0pt' },
+      { indentation: '10pt', spaceBefore: '2pt' },
     ]);
+    // A template that sets no levels keeps the ones it inherits.
+    const unset = template('unset', { styles: { paragraph: { numbering: { format: '1.' } } } });
+    expect(mergeTemplateFiles(parent, unset).styles?.paragraph?.numbering?.levels).toHaveLength(2);
+  });
+});
+
+describe('heading formats', () => {
+  it('DOCE-FORMAT-3.5 gives a heading level without a format the nearest higher one the styles set', () => {
+    const parent = template('parent', {
+      styles: {
+        heading1: { numbering: { format: '1.' } },
+        heading2: { numbering: { format: '1.1.' } },
+        heading3: { numbering: { format: '1.1.1.' } },
+      },
+    });
+    const child = template('child', {
+      styles: {
+        heading1: { numbering: { format: 'A.1.1.' } },
+        heading3: { numbering: { format: '' } },
+      },
+      sections: [{ name: 'annex', styles: { heading2: { numbering: { format: 'I.i.' } } } }],
+    });
+    const merged = mergeTemplateFiles(parent, child);
+    const formats = (styles: TemplateStyles | null | undefined) =>
+      ([1, 2, 3, 4] as const).map((level) => styles?.[`heading${level}`]?.numbering?.format);
+    expect(formats(merged.styles)).toEqual(['A.1.1.', 'A.1.1.', '', undefined]);
+    const annex = templateScopeStyles(merged, merged.sections?.[0]);
+    expect(formats(annex)).toEqual(['A.1.1.', 'I.i.', 'I.i.', 'I.i.']);
+    // The template's own styles are not changed.
+    expect(child.styles?.heading2).toBeUndefined();
   });
 });
 

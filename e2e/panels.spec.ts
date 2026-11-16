@@ -41,6 +41,20 @@ test.describe('side panels lab', () => {
     );
   });
 
+  test('DOCE-EDITOR-8.1 narrows the panel to leave the document the width the host asks', async ({
+    lab,
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1100, height: 800 });
+    await lab.open('panels');
+    await page.getByLabel('Controlled by the host').uncheck();
+    const handle = navigation(page).getByRole('separator');
+    const room = await navigation(page).evaluate(
+      (panel) => (panel.parentElement?.clientWidth ?? 0) - 600,
+    );
+    await expect(handle).toHaveAttribute('aria-valuemax', String(Math.max(200, room)));
+  });
+
   test('DOCE-LABS-3.6 leaves the title out of the outline on its own', async ({ lab, page }) => {
     await lab.open('panels');
     const outline = ownPanes(page).getByRole('navigation', { name: 'Outline' });

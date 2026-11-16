@@ -856,6 +856,15 @@
   visibility: hidden;
 }
 
+/* The error in place of pages whose first layout failed; the pages stay hidden behind it. */
+.de-document-editor__layout-error {
+  margin: 24px;
+}
+
+.de-document-editor__layout-error ~ .de-document-editor__body {
+  visibility: hidden;
+}
+
 /* The scroll overview over the frame's track, in the overview layers' colours. */
 .de-document-editor {
   --de-overview-search: #bf8700;

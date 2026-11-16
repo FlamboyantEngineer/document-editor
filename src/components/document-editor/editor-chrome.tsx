@@ -180,8 +180,6 @@ function TopChrome({
           menus={{
             view,
             openFind: openFind ? () => openFind('find') : null,
-            layout: props.layout ?? 'page',
-            onLayoutChange: props.onLayoutChange,
             zoom: editorZoom(props),
             scriptRunner: props.scriptRunner,
             glossary: props.glossary,
@@ -263,6 +261,7 @@ export function EditorContextMenu({
       editable={editable}
       suggestionPolicy={editorSuggestionPolicy(props)}
       startCommentRef={startCommentRef}
+      copyLink={props.onCopyLink}
       openDialog={openDialog}
       linkedCode={Boolean(props.codeSource)}
       codeLanguages={props.codeLanguages}

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { headingNumberText, objectNumberText, parseNumberingStyle } from '../index.js';
+import {
+  headingNumberText,
+  objectNumberText,
+  parseNumberingStyle,
+  resolveObjectNumbering,
+} from '../index.js';
 
 describe('number text', () => {
   it('DOCE-NUMBERING-5.1 writes a heading number as its counter content prints it', () => {
@@ -42,5 +47,26 @@ describe('number text', () => {
     expect(
       objectNumberText(parseNumberingStyle('1~1'), { count: 5, headingCounters: [0] }, {}),
     ).toBe('0~5');
+  });
+
+  it("DOCE-NUMBERING-5.3 numbers an object one by one with its kind's label when its numbering leaves them unset", () => {
+    const table = resolveObjectNumbering({}, 'table');
+    expect(table.prefix).toBe('Table ');
+    expect(objectNumberText(table.config, { count: 3, headingCounters: [2] }, table)).toBe(
+      'Table 3',
+    );
+    expect(resolveObjectNumbering({}, 'codeBlock').prefix).toBe('Code Block ');
+    expect(resolveObjectNumbering({}, 'figure').prefix).toBe('Figure ');
+    expect(resolveObjectNumbering({}, 'equation').prefix).toBe('(Eq. ');
+    // A prefix the template sets, empty included, is its own; an empty format numbers nothing.
+    const own = resolveObjectNumbering(
+      { figure: { numbering: { prefix: '', format: '' } } },
+      'figure',
+    );
+    expect(own.prefix).toBe('');
+    expect(own.config.levels).toEqual([]);
+    expect(
+      resolveObjectNumbering({ table: { numbering: { enabled: false } } }, 'table').config.levels,
+    ).toEqual([]);
   });
 });

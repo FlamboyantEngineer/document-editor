@@ -7,6 +7,7 @@ import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { TelemetryAdapter } from '../../host/index.js';
+import { createLoadProgress } from '../../session/load-progress.js';
 import type { SessionStatus } from '../../session/status.js';
 import {
   SESSION_MEASURES,
@@ -85,6 +86,44 @@ describe('SessionLoading', () => {
     const { session } = stubSession({ ...LOADING, load: 'failed' });
     const { container } = render(<SessionLoading session={session} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('SessionLoading with progress', () => {
+  it('DOCE-SESSION-9.8 shows the estimate and the phase counter until the editor makes the load ready', () => {
+    const { session, setStatus } = stubSession({ ...LOADING, load: 'connecting' });
+    const progress = createLoadProgress();
+    render(
+      <SessionLoading
+        session={session}
+        progress={progress}
+        labels={{ estimatedProgress: (percent) => `About ${String(percent)}%` }}
+      />,
+    );
+    expect(screen.getByText('Connecting')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuetext', 'About 0%');
+    setStatus({ load: 'syncing' });
+    expect(screen.getByText('Syncing changes')).toBeInTheDocument();
+    setStatus({ load: 'ready' });
+    expect(screen.getByText('Laying out the pages')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuetext', 'About 59%');
+    expect(screen.getByText(/4 of 4/)).toBeInTheDocument();
+    act(() => progress.ready());
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+
+  it('DOCE-SESSION-9.8 skips the phases a session never went through, and fails with it', () => {
+    const { session, setStatus } = stubSession({ ...LOADING, load: 'loading' });
+    const progress = createLoadProgress();
+    render(<SessionLoading session={session} progress={progress} />);
+    expect(progress.get()).toMatchObject({ phase: 'loading', done: 1 });
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuetext',
+      'Estimated progress: 9%',
+    );
+    setStatus({ load: 'failed' });
+    expect(progress.get().status).toBe('failed');
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 });
 

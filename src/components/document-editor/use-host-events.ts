@@ -7,6 +7,7 @@ import type { Command, EditorState, Selection, Transaction } from 'prosemirror-s
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  type EditAddress,
   ELEMENT_IDS_REPAIR,
   isRemoteTransaction,
   proofingKey,
@@ -39,6 +40,11 @@ export interface DocumentEditorNotifications {
   readonly onReviewChange?: ((change: ReviewChange, tr: Transaction) => void) | undefined;
   /** The pages are laid out for the first time, or the web layout shows: the editor is ready. */
   readonly onLayoutReady?: (() => void) | undefined;
+  /**
+   * The pages could not be laid out for the first time: the document stays covered by the error
+   * the editor shows in its place.
+   */
+  readonly onLayoutFailed?: (() => void) | undefined;
   /** The document's suggestions changed: added, decided, edited or discussed. */
   readonly onSuggestionsChange?: ((suggestions: readonly Suggestion[]) => void) | undefined;
   /** The change bars a comparison draws changed, measured on their pages (`ChangeBar`). */
@@ -53,6 +59,12 @@ export interface DocumentEditorNotifications {
    * parts (`templatePreviewDocument`), handing each part's edit here to write into the template.
    */
   readonly onTemplatePartChange?: ((change: TemplatePartChange) => void) | undefined;
+  /**
+   * Copies a link to the content: the context menu's Copy link and `Mod-Shift-k` hand it the
+   * address of the element holding the selection, with the selected text's offsets when text is
+   * selected (`contentLinkAddress`), in a read document too. The host makes and copies the link.
+   */
+  readonly onCopyLink?: ((address: EditAddress) => void) | undefined;
   /** The host's own keys, such as `Mod-s`, which run before the editor's. */
   readonly keymap?: Readonly<Record<string, Command>> | undefined;
 }

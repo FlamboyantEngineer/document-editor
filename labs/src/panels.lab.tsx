@@ -87,6 +87,7 @@ function Lab() {
       defaultSelectedPane="search"
       defaultExpanded
       defaultSize={320}
+      minMainSize={600}
       persistKey="lab-panels"
       onSelectedPaneChange={(pane) => report(`Selected ${pane}`)}
       onExpandedChange={(shown) => report(shown ? 'Expanded' : 'Collapsed')}

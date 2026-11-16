@@ -12,6 +12,7 @@ import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/inde
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import { useEditorPanesContext } from '../document-panels/document-panels.js';
+import { copyContentLink } from './copy-link.js';
 import { DebugTooltip } from './debug-tooltip.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
@@ -58,6 +59,8 @@ interface EditorBodyProps {
   commentRefs: CommentRefs;
   /** The open typed menus' keys, which the document's keys ask first. */
   menuKeys: MenuKeys;
+  /** The pages await or failed their first layout: the document is busy and out of reach. */
+  isBlocked: boolean;
 }
 
 // The editor's own keys beside the document's, by their ids in the shortcut table, while each can
@@ -67,13 +70,16 @@ function editorKeys({
   startComment,
   onDialog,
   scripts,
+  copyLink,
 }: {
   startComment: (() => void) | null;
   onDialog: ((dialog: ObjectDialog) => void) | null;
   scripts: boolean;
+  copyLink: (() => void) | null;
 }): (readonly [ShortcutId, () => void])[] {
   return [
     ...(startComment ? [['comment', startComment] as const] : []),
+    ...(copyLink ? [['copy-link', copyLink] as const] : []),
     ...(onDialog ? [['reference', () => onDialog({ kind: 'reference' })] as const] : []),
     ...(onDialog && scripts ? [['script', () => onDialog({ kind: 'script' })] as const] : []),
   ];
@@ -88,10 +94,10 @@ function useBodyViewProps({
   startCommentRef,
   onDialog,
   menuKeys,
-}: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs'> & {
+}: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs' | 'isBlocked'> & {
   startCommentRef: CommentRefs['startCommentRef'];
 }) {
-  const { editable = true, assets, feedback } = props;
+  const { editable = true, assets, feedback, onCopyLink } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
   const decorations = useWritingDecorations(props, labels.insertBlock);
@@ -111,6 +117,7 @@ function useBodyViewProps({
           startComment: startCommentRef.current,
           onDialog,
           scripts,
+          copyLink: onCopyLink ? () => copyContentLink(view, onCopyLink) : null,
         }).find(([id]) => matchesShortcut(table, id, event))?.[1];
         if (!action) return false;
         event.preventDefault();
@@ -137,6 +144,7 @@ function useBodyViewProps({
     startCommentRef,
     menuKeys,
     decorations,
+    onCopyLink,
   ]);
 }
 
@@ -212,6 +220,7 @@ export function EditorBody({
   commentRefs,
   onDialog,
   menuKeys,
+  isBlocked,
 }: EditorBodyProps) {
   const { startCommentRef, openThreadRef } = commentRefs;
   const { state, onStateChange, editable = true, suggesting = false } = props;
@@ -249,7 +258,7 @@ export function EditorBody({
     </RichTextEngineHost>
   );
   return (
-    <div {...hooks.slot('body')}>
+    <div {...hooks.slot('body')} inert={isBlocked} aria-busy={isBlocked || undefined}>
       <SelectionFirst view={engine.view} state={engineProps.state} />
       {props.comments ? (
         <DocumentComments
