@@ -55,7 +55,7 @@ describe('paragraph numbering', () => {
     const place = (level: number, label = '1.') => ({ level, label });
     const indentation = 'var(--doc-paragraph-indentation, 0pt)';
     expect(paragraphNumberingIndentationStyle({ styleConfig: null }, place(1))).toBe(
-      `--doc-paragraph-number-indent: calc(${indentation} + 0pt); --doc-paragraph-text-indent: calc(${indentation} + 0pt + 2.6ch);`,
+      `--doc-paragraph-number-indent: calc(${indentation} + 0pt); --doc-paragraph-text-indent: calc(${indentation} + 0pt + 3ch);`,
     );
     expect(
       paragraphNumberingIndentationStyle(
@@ -63,7 +63,7 @@ describe('paragraph numbering', () => {
         place(3, '1.2.3.'),
       ),
     ).toBe(
-      `--doc-paragraph-indentation: 40pt; --doc-paragraph-number-indent: calc(${indentation} + 4mm); --doc-paragraph-text-indent: calc(${indentation} + 4mm + 5.8ch);`,
+      `--doc-paragraph-indentation: 40pt; --doc-paragraph-number-indent: calc(${indentation} + 4mm); --doc-paragraph-text-indent: calc(${indentation} + 4mm + 7ch);`,
     );
     // A text position overrides the gutter; the number then starts at its own position.
     expect(
@@ -84,10 +84,10 @@ describe('paragraph numbering', () => {
   });
 
   it('DOCE-NUMBERING-3.5 reserves room for a longer label, wider letters taking more', () => {
-    expect(paragraphNumberWidth('1.')).toBe('2.6ch');
-    expect(paragraphNumberWidth('10.')).toBe('3.6ch');
-    expect(paragraphNumberWidth('IV.')).toBe('4.4ch');
-    expect(paragraphNumberWidth('MW.')).toBe('5.2ch');
-    expect(paragraphNumberWidth('§ 1.2.1.')).toBe('8ch');
+    expect(paragraphNumberWidth('1.')).toBe('3ch');
+    expect(paragraphNumberWidth('10.')).toBe('4ch');
+    expect(paragraphNumberWidth('IV.')).toBe('4.8ch');
+    expect(paragraphNumberWidth('MW.')).toBe('5.6ch');
+    expect(paragraphNumberWidth('§ 1.2.1.')).toBe('9.6ch');
   });
 });

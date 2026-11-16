@@ -63,15 +63,13 @@ export function hasParagraphNumberingContent(paragraph: ProseMirrorNode): boolea
 }
 
 // The advance of a label's characters, in widths of the font's zero, on the generous side, so the
-// gutter a label reserves holds it in the common text fonts without measuring it.
+// gutter a label reserves holds it in the common text fonts, fixed-width ones too, without
+// measuring it: no character is narrower than a digit.
 function characterWidth(character: string): number {
-  if (/[0-9]/.test(character)) return 1;
   if (/[MW]/.test(character)) return 1.8;
   if (/[A-Z]/.test(character)) return 1.4;
   if (/[mw]/.test(character)) return 1.5;
-  if (/[a-z]/.test(character)) return 1;
-  if (/[\s.,:;'|!]/.test(character)) return 0.6;
-  if (/[-()[\]{}/_]/.test(character)) return 0.7;
+  if (/[0-9a-z\s.,:;'|!\-()[\]{}/_]/.test(character)) return 1;
   return 1.6;
 }
 

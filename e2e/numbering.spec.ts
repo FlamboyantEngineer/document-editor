@@ -31,25 +31,23 @@ test.describe('numbering', () => {
     await expect
       .poll(() => numbered.evaluateAll((all) => all.map((each) => each.dataset.paragraphNumber)))
       .toContain('A.1.1.');
-    // The label fits the gutter it reserves, and the paragraph's lines start after it.
+    // The label fits the gutter it reserves: the paragraph's first line starts at the gutter's end,
+    // where its other lines start, so the label never pushes the text along.
     await expect(async () => {
       const geometry = await numbered.first().evaluate((element) => {
         const style = getComputedStyle(element);
-        const probe = document.createElement('span');
-        probe.style.font = style.font;
-        probe.textContent = `${element.dataset.paragraphNumber ?? ''} `;
-        document.body.append(probe);
-        const label = probe.getBoundingClientRect().width;
-        probe.remove();
+        const text = document.createTreeWalker(element, NodeFilter.SHOW_TEXT).nextNode();
+        const range = document.createRange();
+        if (text) range.selectNodeContents(text);
         return {
           margin: parseFloat(style.marginLeft),
           indent: parseFloat(style.textIndent),
           gutter: parseFloat(getComputedStyle(element, '::before').minWidth),
-          label,
+          textStart: range.getBoundingClientRect().left - element.getBoundingClientRect().left,
         };
       });
-      expect(geometry.label).toBeGreaterThan(0);
-      expect(geometry.gutter).toBeGreaterThanOrEqual(geometry.label);
+      expect(geometry.gutter).toBeGreaterThan(0);
+      expect(geometry.textStart).toBeCloseTo(0, 0);
       expect(geometry.margin).toBeCloseTo(geometry.gutter, 0);
       expect(geometry.indent).toBeCloseTo(-geometry.gutter, 0);
     }).toPass();

@@ -122,7 +122,7 @@ Verification: `src/model/numbering/paragraph-numbering.test.ts`, `e2e/numbering.
 
 ### DOCE-NUMBERING-3.5 - Room for the label
 
-`paragraphNumberWidth(label)` shall give the room a paragraph's number takes before its text, in widths of the font's zero (`ch`): each character by its advance, on the generous side for capitals and wide letters, and a gap after the label, rounded up to a tenth.
+`paragraphNumberWidth(label)` shall give the room a paragraph's number takes before its text, in widths of the font's zero (`ch`): each character by its advance, on the generous side for capitals and wide letters and no narrower than a digit, so a fixed-width font fits too, and a gap after the label, rounded up to a tenth.
 
 Implementation: `src/model/numbering/paragraph-numbering.ts`
 Verification: `src/model/numbering/paragraph-numbering.test.ts`
