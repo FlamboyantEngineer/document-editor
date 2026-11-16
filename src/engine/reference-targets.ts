@@ -4,6 +4,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   catalogDocument,
+  ELEMENT_KINDS,
   formatReference,
   type ReferenceBaseline,
   type TemplateFile,
@@ -35,7 +36,7 @@ const CATALOG_KINDS = {
 
 /** The targets a document holds, by kind, in reading order: those with an element id. */
 export function referenceTargets(doc: ProseMirrorNode, template: TemplateFile): ReferenceTarget[] {
-  const catalog = catalogDocument(doc, template);
+  const catalog = catalogDocument(doc, template, ELEMENT_KINDS);
   const targets: ReferenceTarget[] = [];
   for (const [key, kind] of Object.entries(CATALOG_KINDS)) {
     for (const entry of catalog[key] ?? []) {

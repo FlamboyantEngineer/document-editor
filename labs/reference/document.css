@@ -1039,6 +1039,23 @@ div.de-host-view {
   flex: 1 1 auto;
 }
 
+/* An object's number and its caption are kept apart by the separator its kind gives. */
+.de-contents__number:has(+ .de-contents__separator) {
+  margin-right: 0;
+}
+
+.de-contents__separator {
+  flex: none;
+  white-space: pre;
+}
+
+/* A list of abbreviations is two aligned columns: each abbreviation, then its expansion. */
+.de-contents[data-contents-type='abbreviations'] .de-contents__number {
+  flex: 0 0 8em;
+  margin-right: 12px;
+  overflow-wrap: anywhere;
+}
+
 /* Suggestions: suggested insertions underlined, deletions struck, suggested blocks barred. */
 .de-document-editor ins[data-id] {
   background: rgb(26 127 55 / 10%);
