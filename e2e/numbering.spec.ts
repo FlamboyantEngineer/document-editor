@@ -17,4 +17,41 @@ test.describe('numbering', () => {
     const measured = await increments('.de-document-editor__measure');
     expect(measured[0]).toBe('table 1');
   });
+
+  test('DOCE-NUMBERING-6.5 DOCE-NUMBERING-3.4 numbers paragraphs after their heading, in a gutter before the text', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('sections');
+    const appendix = page.locator('.de-document-editor__content .pm-section').nth(1);
+    const numbered = appendix.locator('.pm-page-content > p[data-paragraph-number]');
+    await expect(numbered.first()).toHaveAttribute('data-paragraph-number', 'A.1.');
+    const under = appendix.locator('.pm-page-content > h2').first();
+    await expect(under).toBeVisible();
+    await expect
+      .poll(() => numbered.evaluateAll((all) => all.map((each) => each.dataset.paragraphNumber)))
+      .toContain('A.1.1.');
+    // The label fits the gutter it reserves, and the paragraph's lines start after it.
+    await expect(async () => {
+      const geometry = await numbered.first().evaluate((element) => {
+        const style = getComputedStyle(element);
+        const probe = document.createElement('span');
+        probe.style.font = style.font;
+        probe.textContent = `${element.dataset.paragraphNumber ?? ''} `;
+        document.body.append(probe);
+        const label = probe.getBoundingClientRect().width;
+        probe.remove();
+        return {
+          margin: parseFloat(style.marginLeft),
+          indent: parseFloat(style.textIndent),
+          gutter: parseFloat(getComputedStyle(element, '::before').minWidth),
+          label,
+        };
+      });
+      expect(geometry.label).toBeGreaterThan(0);
+      expect(geometry.gutter).toBeGreaterThanOrEqual(geometry.label);
+      expect(geometry.margin).toBeCloseTo(geometry.gutter, 0);
+      expect(geometry.indent).toBeCloseTo(-geometry.gutter, 0);
+    }).toPass();
+  });
 });

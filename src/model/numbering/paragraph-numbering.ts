@@ -62,21 +62,62 @@ export function hasParagraphNumberingContent(paragraph: ProseMirrorNode): boolea
   return content;
 }
 
+// The advance of a label's characters, in widths of the font's zero, on the generous side, so the
+// gutter a label reserves holds it in the common text fonts without measuring it.
+function characterWidth(character: string): number {
+  if (/[0-9]/.test(character)) return 1;
+  if (/[MW]/.test(character)) return 1.8;
+  if (/[A-Z]/.test(character)) return 1.4;
+  if (/[mw]/.test(character)) return 1.5;
+  if (/[a-z]/.test(character)) return 1;
+  if (/[\s.,:;'|!]/.test(character)) return 0.6;
+  if (/[-()[\]{}/_]/.test(character)) return 0.7;
+  return 1.6;
+}
+
 /**
- * The custom properties that indent a numbered paragraph: 20pt per level below the first, and the
- * level's number and text positions, measured from the content edge, when it sets them.
+ * The room a paragraph's number takes before its text: the label's characters, by their advance in
+ * widths of the font's zero (`ch`), and a gap after it.
+ */
+export function paragraphNumberWidth(label: string): string {
+  const width = [...label].reduce((total, character) => total + characterWidth(character), 1);
+  // Rounded up to a tenth, past the sum's floating point error.
+  return `${String(Math.ceil(width * 10 - 1e-9) / 10)}ch`;
+}
+
+/** The level a numbered paragraph is at and the label it shows. */
+export interface ParagraphNumberPlace {
+  readonly level: number;
+  readonly label: string;
+}
+
+/**
+ * The custom properties that place a numbered paragraph: 20pt of indentation per level below the
+ * first, and where its number (`--doc-paragraph-number-indent`) and its text
+ * (`--doc-paragraph-text-indent`) start, from the content edge. A level that sets its text position
+ * places the text there and the number at its number position, else at the edge. Without one, the
+ * number starts after the indentation and the number position, and the text after the room its
+ * label takes (`paragraphNumberWidth`).
  */
 export function paragraphNumberingIndentationStyle(
   style: ParagraphLevelStyle,
-  level: number,
+  { level, label }: ParagraphNumberPlace,
 ): string {
   // A position is written into a style, so one that is not a length is left out.
-  const numberIndent = cssLength(style.numberIndent);
+  const numberIndent = cssLength(style.numberIndent) ?? '0pt';
   const textIndent = cssLength(style.textIndent);
+  const indentation =
+    level > 1 ? `--doc-paragraph-indentation: ${String((level - 1) * 20)}pt;` : '';
+  const numberStart = textIndent
+    ? numberIndent
+    : `calc(var(--doc-paragraph-indentation, 0pt) + ${numberIndent})`;
+  const textStart =
+    textIndent ??
+    `calc(var(--doc-paragraph-indentation, 0pt) + ${numberIndent} + ${paragraphNumberWidth(label)})`;
   return [
-    level > 1 ? `--doc-paragraph-indentation: ${String((level - 1) * 20)}pt;` : '',
-    numberIndent ? `--doc-paragraph-number-indent: ${numberIndent};` : '',
-    textIndent ? `--doc-paragraph-text-indent: ${textIndent};` : '',
+    indentation,
+    `--doc-paragraph-number-indent: ${numberStart};`,
+    `--doc-paragraph-text-indent: ${textStart};`,
   ]
     .filter(Boolean)
     .join(' ');

@@ -47,6 +47,25 @@ describe('Word numbering levels', () => {
     });
   });
 
+  it('DOCE-FORMAT-5.5 numbers the paragraphs under a heading after its number', () => {
+    const styles = { paragraph: { numbering: { format: '1.1.1.' } } };
+    const levels = paragraphLevels(styles, { depth: 2, text: '1.2.', separated: true });
+    expect(levels[0]).toMatchObject({ format: 'decimal', text: '1.2.%1.' });
+    expect(levels[1]).toMatchObject({ text: '1.2.%1.%2.' });
+    expect(paragraphLevels(styles, { depth: 1, text: 'A-3', separated: false })[0]?.text).toBe(
+      'A-3.%1.',
+    );
+    const numbering = createWordNumbering();
+    const scope = addNumberingScope(numbering, styles);
+    restartParagraphs(numbering, scope, {
+      styles,
+      context: { depth: 2, text: '1.2.', separated: true },
+    });
+    expect(writeNumberingPart(numbering)).toContain(
+      '<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="1.2.%1."/>',
+    );
+  });
+
   it('DOCE-FORMAT-5.5 writes list bullets and numbers from the list settings', () => {
     expect(bulletLevels({ bullet: 'square', indentation: '24pt' })[1]).toEqual({
       format: 'bullet',

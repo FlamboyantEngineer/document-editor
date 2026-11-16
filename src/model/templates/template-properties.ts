@@ -10,7 +10,10 @@ import type {
   TemplateSection,
   TemplateStyles,
 } from '../format/template-format.js';
-import { mergeTemplateSettings } from '../format/template-format-resolve.js';
+import {
+  mergeTemplateSettings,
+  withInheritedHeadingFormats,
+} from '../format/template-format-resolve.js';
 import { buildCaptionPlacementVariables } from '../numbering/caption-placement.js';
 import {
   buildHeadingCounterContent,
@@ -61,12 +64,18 @@ function scopeOf(template: TemplateFile, section: TemplateSection | null | undef
   return { styles, page };
 }
 
-/** A scope's styles: a section's over the template's, or the template's for the document. */
+/**
+ * A scope's styles: a section's over the template's, its heading levels without a format taking
+ * the nearest higher one's it sets, or the template's for the document.
+ */
 export function templateScopeStyles(
   template: TemplateFile,
   section: TemplateSection | null | undefined,
 ): TemplateStyles {
-  return mergeTemplateSettings<TemplateStyles>(template.styles ?? {}, section?.styles);
+  return mergeTemplateSettings<TemplateStyles>(
+    template.styles ?? {},
+    withInheritedHeadingFormats(section?.styles),
+  );
 }
 
 function pixels(length: string | null | undefined): number {

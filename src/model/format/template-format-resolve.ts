@@ -3,7 +3,12 @@
 // one walk is driven by a synchronous or an asynchronous loader.
 
 import { cloneJson } from '../clone-json.js';
-import type { RegionSettings, TemplateFile, TemplateSection } from './template-format.js';
+import type {
+  RegionSettings,
+  TemplateFile,
+  TemplateSection,
+  TemplateStyles,
+} from './template-format.js';
 
 type LooseRecord = Record<string, unknown>;
 
@@ -15,7 +20,9 @@ function isRegionKey(key: string): boolean {
   return key === 'header' || key === 'footer';
 }
 
-// Levels are kept by their place, so a template that sets one level keeps the others it inherits.
+// Contents levels are kept by their place, so a template that sets one level keeps the others it
+// inherits. Paragraph numbering levels describe one scheme together, so a template's list replaces
+// the one it inherits whole.
 function mergeLevels(parent: unknown[], child: unknown[]): unknown[] {
   const length = Math.max(parent.length, child.length);
   return Array.from({ length }, (_, index) => mergeValue(parent[index], child[index], ''));
@@ -30,7 +37,9 @@ function mergeValue(parent: unknown, child: unknown, key: string): unknown {
   if (!isRecord(parent) || !isRecord(child)) return cloneJson(child);
   const merged: LooseRecord = {};
   for (const name of new Set([...Object.keys(parent), ...Object.keys(child)])) {
-    merged[name] = mergeValue(parent[name], child[name], name);
+    // A numbering's levels are paragraph levels, which merge as a list.
+    const childKey = key === 'numbering' && name === 'levels' ? 'numbering-levels' : name;
+    merged[name] = mergeValue(parent[name], child[name], childKey);
   }
   return merged;
 }
@@ -46,14 +55,46 @@ export function mergeTemplateSettings<T>(
   return mergeValue(inherited, own, '') as T;
 }
 
+const HEADING_KEYS = [
+  'heading1',
+  'heading2',
+  'heading3',
+  'heading4',
+  'heading5',
+  'heading6',
+] as const;
+
+/**
+ * A scope's own styles with each heading level that sets no numbering format taking the format of
+ * the nearest higher level these styles set, into a copy, so styles that number heading 1 `A.1.1.`
+ * number heading 2 `A.1.` before anything they inherit applies.
+ */
+export function withInheritedHeadingFormats(
+  styles: TemplateStyles | null | undefined,
+): TemplateStyles | null | undefined {
+  if (!styles) return styles;
+  const filled = cloneJson(styles);
+  let format: string | null = null;
+  for (const key of HEADING_KEYS) {
+    const own = filled[key]?.numbering?.format;
+    // An empty format numbers nothing, so it passes nothing down.
+    if (typeof own === 'string') format = own || null;
+    else if (format !== null)
+      filled[key] = { ...filled[key], numbering: { ...filled[key]?.numbering, format } };
+  }
+  return filled;
+}
+
 /**
  * A template over its parent, into a copy. A setting that is absent or null takes the parent's,
- * objects merge setting by setting, a list replaces the parent's list whole except a list of levels,
- * which merges level by level, a header or footer that asks to inherit takes the parent's, and any
- * other value is the template's own.
+ * objects merge setting by setting, a list replaces the parent's list whole except a list of
+ * contents levels, which merges level by level, a header or footer that asks to inherit takes the
+ * parent's, and any other value is the template's own. A heading level the template leaves without
+ * a numbering format first takes the nearest higher level's it sets (`withInheritedHeadingFormats`).
  */
 export function mergeTemplateFiles(parent: TemplateFile | null, child: TemplateFile): TemplateFile {
-  const merged = mergeValue(parent, child, '') as TemplateFile;
+  const own = { ...child, styles: withInheritedHeadingFormats(child.styles) };
+  const merged = mergeValue(parent, own, '') as TemplateFile;
   merged.id = child.id;
   merged.parent = child.parent ?? null;
   return merged;

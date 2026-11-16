@@ -115,7 +115,14 @@ Verification: `src/model/numbering/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-3.4 - Paragraph indentation
 
-`paragraphNumberingIndentationStyle` shall indent a numbered paragraph 20pt per level below the first (`--doc-paragraph-indentation`) and set `--doc-paragraph-number-indent` and `--doc-paragraph-text-indent` when its level sets the number and text positions as lengths; a position that is not a length (DOCE-TEMPLATES-5.2) is left out.
+`paragraphNumberingIndentationStyle(style, { level, label })` shall indent a numbered paragraph 20pt per level below the first (`--doc-paragraph-indentation`) and place its number and its text, from the content edge, as `--doc-paragraph-number-indent` and `--doc-paragraph-text-indent`. A level that sets its text position shall put the text there and the number at its number position, else at the content edge. A level without one shall reserve a gutter for the label: the number shall start after the indentation and the number position, and the text after the room the label takes (DOCE-NUMBERING-3.5), so the indentation adds to that room. A position that is not a length (DOCE-TEMPLATES-5.2) shall be left out.
+
+Implementation: `src/model/numbering/paragraph-numbering.ts`, `labs/reference/document.css`
+Verification: `src/model/numbering/paragraph-numbering.test.ts`, `e2e/numbering.spec.ts`
+
+### DOCE-NUMBERING-3.5 - Room for the label
+
+`paragraphNumberWidth(label)` shall give the room a paragraph's number takes before its text, in widths of the font's zero (`ch`): each character by its advance, on the generous side for capitals and wide letters, and a gap after the label, rounded up to a tenth.
 
 Implementation: `src/model/numbering/paragraph-numbering.ts`
 Verification: `src/model/numbering/paragraph-numbering.test.ts`
@@ -145,6 +152,13 @@ Verification: `src/model/numbering/numbering-text.test.ts`
 Implementation: `src/model/numbering/numbering-text.ts`, `src/model/templates/template-numbering.ts`
 Verification: `src/model/numbering/numbering-text.test.ts`
 
+### DOCE-NUMBERING-5.3 - Object numbering defaults
+
+`resolveObjectNumbering(styles, kind)` shall number a figure, table, code block or equation one by one (`1`) when its numbering sets no format, and label it with its kind's label (`DEFAULT_OBJECT_LABELS`: `Figure `, `Table `, `Code Block `, `Eq. `) when it sets no prefix, so the caption, the catalog and references agree. A prefix it sets, empty included, shall be its own, and an empty format or `enabled: false` shall number nothing. The base template labels code blocks `Code Block `.
+
+Implementation: `src/model/templates/template-numbering.ts`, `src/model/templates/base-template.ts`
+Verification: `src/model/numbering/numbering-text.test.ts`
+
 ## DOCE-NUMBERING-6 - Numbered paragraphs
 
 ### DOCE-NUMBERING-6.1 - Paragraphs numbered in the editor
@@ -163,7 +177,7 @@ Verification: `src/engine/paragraph-numbering.test.ts`
 
 ### DOCE-NUMBERING-6.3 - Paragraph number text
 
-`paragraphNumberText(format, parts, affixes)` shall write a paragraph's number as each of its counters in its level's format character, joined by the levels' separators (the format's last level for counters past its levels), then the trailing separator and the suffix, after the prefix and, for a prefix not ending in space, the trailing separator.
+`paragraphNumberText(format, parts, options)` shall write a paragraph's number as the heading number it is under (`context`, DOCE-NUMBERING-6.5), then each of its counters in its level's format character, joined by the levels' separators (the format's last level for counters past its levels), then the trailing separator and the suffix, after the prefix and, for a prefix not ending in space, the trailing separator.
 
 Implementation: `src/engine/paragraph-numbering.ts`
 Verification: `src/engine/paragraph-numbering.test.ts`
@@ -174,3 +188,17 @@ The reference stylesheet shall count headings, tables, figures and code blocks i
 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/numbering.spec.ts`
+
+### DOCE-NUMBERING-6.5 - Heading number before paragraph numbers
+
+A numbered paragraph under a numbered heading shall show the heading's number before its own counters, so paragraphs under heading `1.2.` read `1.2.1.`, `1.2.2.`. The heading's number shall be its counters as its level's format writes them (DOCE-NUMBERING-5.1), without the heading's prefix and suffix, and followed by the heading format's trailing separator, or else by the paragraph format's. Headings shall be counted as the stylesheet counts them: across sections, again from a section that restarts numbering, and not at all for the title or an unnumbered heading. A heading that shows no number shall start the paragraph counters again and give them nothing before them.
+
+Implementation: `src/engine/paragraph-numbering.ts`
+Verification: `src/engine/paragraph-numbering.test.ts`, `e2e/numbering.spec.ts`
+
+### DOCE-NUMBERING-6.6 - Typing keeps the numbers
+
+A change that only types or deletes text, and leaves every block it types in earning a number or not as before (DOCE-NUMBERING-3.3), shall keep the paragraph numbers without walking the document. Typing the first visible text into a paragraph, or deleting its last, shall number the paragraphs again.
+
+Implementation: `src/engine/paragraph-numbering.ts`
+Verification: `src/engine/paragraph-numbering.test.ts`, `src/engine/hot-path.test.ts`

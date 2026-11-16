@@ -1336,16 +1336,15 @@ div.de-host-view {
 }
 
 /*
- * Numbered paragraphs (DOCE-NUMBERING-6): the number before the text, the paragraph indented by its
- * level, and the number and text at the level's positions when it sets them.
+ * Numbered paragraphs (DOCE-NUMBERING-6): the paragraph's text at its text position and its number
+ * in the gutter before it, at its number position (DOCE-NUMBERING-3.4).
  */
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
   p[data-paragraph-number] {
-  margin-inline-start: var(--doc-paragraph-text-indent, var(--doc-paragraph-indentation, 0));
+  margin-inline-start: var(--doc-paragraph-text-indent, 0pt);
   text-indent: calc(
-    var(--doc-paragraph-number-indent, var(--doc-paragraph-text-indent, 0)) -
-      var(--doc-paragraph-text-indent, 0)
+    var(--doc-paragraph-number-indent, 0pt) - var(--doc-paragraph-text-indent, 0pt)
   );
 }
 
@@ -1353,4 +1352,7 @@ div.de-host-view {
   .pm-page-content
   p[data-paragraph-number]::before {
   content: attr(data-paragraph-number) ' ';
+  display: inline-block;
+  min-width: calc(var(--doc-paragraph-text-indent, 0pt) - var(--doc-paragraph-number-indent, 0pt));
+  text-indent: 0;
 }

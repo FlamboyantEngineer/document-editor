@@ -80,7 +80,7 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-3.1 - One inheritance rule
 
-`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, except a list of `levels` (paragraph numbering and contents levels), which merges level by level by its place, so a null level takes the parent's, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own. The merged template shall keep its own `id` and `parent`.
+`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, paragraph numbering levels included, except a list of contents levels, which merges level by level by its place, so a null level takes the parent's, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own. The merged template shall keep its own `id` and `parent`.
 
 Implementation: `src/model/format/template-format-resolve.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`, `src/model/templates/template-settings.test.ts`
@@ -104,6 +104,13 @@ Verification: `src/model/format/template-format-resolve.test.ts`
 `resolveSectionRegion(template, section, region)` shall give a section the template's page header or footer when the section has none or asks to inherit, and otherwise the section's region settings over the template's, field by field, so a section that sets only a height keeps the template's content and one that sets empty content shows none.
 
 Implementation: `src/model/format/template-format-resolve.ts`
+Verification: `src/model/format/template-format-resolve.test.ts`
+
+### DOCE-FORMAT-3.5 - Heading formats follow the level above
+
+Before a template's styles, or a section's, merge over what they inherit, a heading level that they leave without a numbering format shall take the format of the nearest higher heading level they set (`withInheritedHeadingFormats`), so styles that number heading 1 `A.1.1.` number heading 2 `A.1.`. An empty format is a format of its own: it numbers nothing and passes nothing down.
+
+Implementation: `src/model/format/template-format-resolve.ts`, `src/model/templates/template-properties.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`
 
 ## DOCE-FORMAT-4 - Markdown
@@ -203,7 +210,7 @@ Verification: `src/model/format/docx/styles.test.ts`, `src/model/format/docx-reg
 
 ### DOCE-FORMAT-5.5 - Numbering in a word processing document
 
-Headings and paragraphs of the document's structure shall be numbered with the word processor's own numbering, from the template's formats, prefixes and suffixes as the editor numbers them (`Headings` and `Paragraphs` definitions per numbering scope, a section that restarts numbering starting them again, the paragraphs counting again after each heading); lists shall use the template's bullet and number format (`Bullets` and `Numbers`), each numbered list counting from its start, a checklist item's text led by its box, `☒` or `☐`, and a space; and the captions of tables, figures and code, and the numbers of equations, shall show their numbers as the editor counts them, the caption's label in the `CaptionLabel` style. Headings and paragraphs in lists, tables, quotes and page regions, the title, and a heading stored as `numbered: false` are not numbered; such a heading moves no heading or object counter, though the paragraphs after it count again.
+Headings and paragraphs of the document's structure shall be numbered with the word processor's own numbering, from the template's formats, prefixes and suffixes as the editor numbers them (`Headings` and `Paragraphs` definitions per numbering scope, a section that restarts numbering starting them again, the paragraphs counting again after each heading, at the levels of their displayed depth under it and after its number, DOCE-NUMBERING-6.5); lists shall use the template's bullet and number format (`Bullets` and `Numbers`), each numbered list counting from its start, a checklist item's text led by its box, `☒` or `☐`, and a space; and the captions of tables, figures and code, and the numbers of equations, shall show their numbers as the editor counts them, the caption's label in the `CaptionLabel` style. Headings and paragraphs in lists, tables, quotes and page regions, the title, and a heading stored as `numbered: false` are not numbered; such a heading moves no heading or object counter, though the paragraphs after it count again.
 
 Implementation: `src/model/format/docx/numbering.ts`, `src/model/format/docx/numbering-levels.ts`, `src/model/format/docx/counting.ts`, `src/model/format/docx/tables.ts`
 Verification: `src/model/format/docx/numbering.test.ts`, `src/model/format/docx-regression.test.ts`

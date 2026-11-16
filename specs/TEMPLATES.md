@@ -283,7 +283,7 @@ Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-TEMPLATES-10.7 - Missing settings
 
-`missingTemplateSettings(template, base)` shall list, by path such as `styles.heading1.size`, each setting a full template sets (the base template's, or the host's `base`, apart from its identity and sections) that the template leaves absent or null, so a host can tell what a root template (DOCE-TEMPLATES-5.7) leaves to the stylesheet. A template resolved over the base shall miss none.
+`missingTemplateSettings(template, base)` shall list, by path such as `styles.heading1.size`, each setting a full template sets (the base template's, or the host's `base`, apart from its identity and sections) that the template leaves absent or null, a list missing nothing past its own last entry, so a host can tell what a root template (DOCE-TEMPLATES-5.7) leaves to the stylesheet. A template resolved over the base shall miss none.
 
 Implementation: `src/model/templates/template-settings.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`
@@ -301,6 +301,13 @@ Verification: `test/fixtures/templates/template-fixtures.test.ts`
 
 Implementation: `src/model/format/template-format-validate.ts`
 Verification: `src/model/format/template-format.test.ts`
+
+### DOCE-TEMPLATES-10.10 - List numbers follow heading 1
+
+An ordered list whose style sets no numbering format of its own shall be numbered with the first level of heading 1's format, and with `1.` when that sets none either (`--doc-ol-counter-content`).
+
+Implementation: `src/model/templates/template-text-properties.ts`
+Verification: `src/model/templates/template-properties.test.ts`
 
 ## DOCE-TEMPLATES-11 - Template pinning
 

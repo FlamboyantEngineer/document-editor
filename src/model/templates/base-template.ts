@@ -104,7 +104,7 @@ export const BASE_TEMPLATE: Readonly<TemplateFile> = Object.freeze<TemplateFile>
       background: '#f8fafc',
       spaceBefore: '8pt',
       spaceAfter: '8pt',
-      numbering: { format: '1.1.', prefix: '', suffix: '' },
+      numbering: { format: '1.1.', prefix: 'Code Block ', suffix: '' },
       caption: { placement: 'above', continuedSuffix: '(continued)' },
     },
     equation: { numbering: { format: '1.1.', prefix: '(Eq. ', suffix: ')' } },
