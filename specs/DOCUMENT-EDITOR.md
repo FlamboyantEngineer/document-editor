@@ -64,7 +64,7 @@ Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/pe
 
 ### DOCE-EDITOR-2.1 - Editing on pages
 
-Edits shall change the document, the pages and the lists of contents together. The reference stylesheet contains each page's layout and paint, so a change on one page lays out and paints only that page, while the heading and object numbers still count across the document.
+Edits shall change the document, the pages and the lists of contents together. The reference stylesheet contains each page's layout and paint, so a change on one page lays out and paints only that page, while the heading and object numbers still count across the document. It wraps text in the measuring view as on the pages, keeping runs of spaces and breaking a word longer than a line, so a block measures at the height the pages draw it.
 
 Implementation: `src/components/document-editor/document-editor.tsx`, `labs/src/document-editor.lab.tsx`, `labs/reference/document.css`
 Verification: `e2e/document-editor.spec.ts`

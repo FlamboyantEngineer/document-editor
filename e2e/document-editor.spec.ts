@@ -83,6 +83,31 @@ test.describe('document editor lab', () => {
     ).toHaveCount(1);
   });
 
+  test('DOCE-EDITOR-2.1 measures a long word and a run of spaces as the pages wrap them', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await heading(page, 'Timing').click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.insertText(`wide${' '.repeat(40)}${'x'.repeat(300)}`);
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
+    // The block's height on the pages and in the measuring view.
+    const heights = () =>
+      page.evaluate(() =>
+        ['.de-document-editor__content', '.de-document-editor__measure'].map((scope) => {
+          const block = Array.from(document.querySelectorAll(`${scope} p`)).find((each) =>
+            each.textContent?.startsWith('wide '),
+          );
+          return block?.getBoundingClientRect().height ?? 0;
+        }),
+      );
+    const [drawn = 0, measured] = await heights();
+    expect(drawn).toBeGreaterThan(36);
+    expect(measured).toBe(drawn);
+  });
+
   test('DOCE-EDITOR-2.2 joins the pages in the web layout and lays them out again', async ({
     lab,
     page,

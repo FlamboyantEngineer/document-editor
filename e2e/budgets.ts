@@ -348,18 +348,32 @@ export async function measureSectionsEdit(lab: LabFixture, page: Page) {
   };
 }
 
-/** Five remote keystrokes in 1600 blocks: the most sections relaid and blocks measured by one. */
+/**
+ * Remote keystrokes in 1600 blocks, five times over: one inside a line, which keeps its block's
+ * height and needs no layout, and one that starts a new line, which grows it and lays the pages out.
+ * The most layouts a keystroke inside a line caused, how many line-starting keystrokes laid nothing
+ * out, and the most layouts, sections relaid and blocks measured by one that did.
+ */
 export async function measureRemoteKeystrokes(lab: LabFixture, page: Page) {
   await openScale(lab, page, SIZE.remote1600);
-  const keystrokes: PaginationStats[] = [];
-  for (let index = 0; index < 5; index += 1) {
+  const keystroke = async () => {
     const before = await stats(page);
     await page.evaluate(() => window.stressLab.typeRemotely('x'));
     await settle(page);
-    keystrokes.push(difference(await stats(page), before));
+    return difference(await stats(page), before);
+  };
+  const inLine: PaginationStats[] = [];
+  const newLine: PaginationStats[] = [];
+  for (let index = 0; index < 5; index += 1) {
+    inLine.push(await keystroke());
+    await page.evaluate(() => window.stressLab.typeRemotelyToLineEnd());
+    await settle(page);
+    newLine.push(await keystroke());
   }
-  const worst = (key: keyof PaginationStats) => Math.max(...keystrokes.map((each) => each[key]));
+  const worst = (key: keyof PaginationStats) => Math.max(...newLine.map((each) => each[key]));
   return {
+    inLineLayouts: Math.max(...inLine.map((each) => each.layouts)),
+    newLineMissed: newLine.filter((each) => each.layouts === 0).length,
     layouts: worst('layouts'),
     sectionsRelaid: worst('sectionsRelaid'),
     blocksMeasured: worst('blocksMeasured'),
