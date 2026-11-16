@@ -16,9 +16,17 @@ export {
   recordGlossaryEntries,
 } from './abbreviation-health.js';
 export { isActive } from './active.js';
-export type { ChangeLine, ChangeLineKind, ChangeLines } from './change-lines.js';
+export type {
+  ChangeInset,
+  ChangeInsets,
+  ChangeLine,
+  ChangeLineKind,
+  ChangeLines,
+} from './change-lines.js';
 export {
   CHANGE_LINE_KINDS,
+  changeInsetsKeyOf,
+  changeInsetsOf,
   changeLinesKeyOf,
   changeLinesOf,
   createChangeLines,
@@ -66,12 +74,14 @@ export type { LineNumbers, ObjectViewsOptions } from './object-views.js';
 export { createObjectViews, lineNumbers } from './object-views.js';
 export type { OutlineEntry } from './outline.js';
 export { documentOutline } from './outline.js';
-export type { Peer, PlacedPeer, PresenceState } from './presence.js';
+export type { Peer, PlacedPeer, PresenceActivity, PresenceState } from './presence.js';
 export {
+  byName,
   createPresence,
   listPeers,
   placePeers,
   PRESENCE_COLOR_SLOTS,
+  PRESENCE_REVEAL_MARGIN,
   presenceKey,
   scrollToPeer,
   setPeers,

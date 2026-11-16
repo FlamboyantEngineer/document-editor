@@ -57,9 +57,14 @@ const CONTROLS =
  * selecting a thread to answer it; a thread without a composer showing keeps focus where it was.
  */
 export function focusReplyOnPress(event: { target: EventTarget; currentTarget: HTMLElement }) {
-  const pressed = isElement(event.target) ? event.target : null;
-  if (!pressed || pressed.closest(CONTROLS)) return;
+  if (isControlPress(event.target)) return;
   replyBoxOf(event.currentTarget)?.focus();
+}
+
+/** Whether a press landed on one of a card's controls, which take it themselves. */
+export function isControlPress(target: EventTarget): boolean {
+  const pressed = isElement(target) ? target : null;
+  return !pressed || pressed.closest(CONTROLS) !== null;
 }
 
 interface OpenCardsOptions {

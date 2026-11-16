@@ -41,7 +41,7 @@ async function typeAtEnd(page: Page, name: string, value: string) {
 }
 
 test.describe('presence lab', () => {
-  test('DOCE-COLLAB-1.5 shows each caret on the same word in editors of different widths', async ({
+  test('DOCE-COLLAB-1.5 DOCE-PAGINATION-7.22 shows each caret on the same word in editors of different widths', async ({
     lab,
     page,
   }) => {
@@ -66,6 +66,28 @@ test.describe('presence lab', () => {
       content(page, 'Grace Hopper').boundingBox(),
     ]);
     expect(narrow?.width ?? 0).toBeLessThan((wide?.width ?? 0) * 0.75);
+  });
+
+  test('DOCE-COLLAB-1.5 shares no caret until the reader clicks in the content, then keeps it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('presence');
+    await expect(connection(page, 'Ada Lovelace')).toHaveAttribute('data-phase', 'synced');
+    await expect(connection(page, 'Grace Hopper')).toHaveAttribute('data-phase', 'synced');
+    const adaSeenByGrace = pane(page, 'Grace Hopper').locator(
+      '.de-presence-caret[data-presence-peer="ada"]',
+    );
+    // Ada is in the room, but has placed herself nowhere yet.
+    await expect(pane(page, 'Grace Hopper').locator('.de-document-editor__presence')).toBeVisible();
+    await expect(adaSeenByGrace).toHaveCount(0);
+    await content(page, 'Ada Lovelace').evaluate((node: HTMLElement) => node.focus());
+    await expect(adaSeenByGrace).toHaveCount(0);
+    await selectWord(page, 'Ada Lovelace', 'elsewhere');
+    await expect(adaSeenByGrace).toHaveCount(1);
+    // Moving the focus out of the content keeps her caret where she left it.
+    await content(page, 'Ada Lovelace').evaluate((node: HTMLElement) => node.blur());
+    await expect(adaSeenByGrace).toHaveCount(1);
   });
 
   test('DOCE-COLLAB-5.2 edits at once from a cached state while offline, and sends on reconnect', async ({

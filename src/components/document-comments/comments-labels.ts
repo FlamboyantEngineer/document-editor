@@ -41,6 +41,8 @@ export interface DocumentCommentsLabels {
   replyPlaceholder: string;
   /** Names the composer of a thread's opening comment. */
   addComment: string;
+  /** Names the comments panel's action that starts a thread on the whole document. */
+  addDocumentComment: string;
   /** Names the comments panel. */
   commentsPanel: string;
   /** Names the panel's filter, and its choices. */
@@ -98,6 +100,7 @@ export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   reply: 'Reply',
   replyPlaceholder: 'Reply',
   addComment: 'Add a comment',
+  addDocumentComment: 'Comment on the document',
   commentsPanel: 'All comments',
   filter: 'Show',
   filterOpen: 'Open',

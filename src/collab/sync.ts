@@ -6,6 +6,7 @@
 import type * as Y from '@y/y';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { holdDuringGestures } from './gesture-hold.js';
 import { resolveRoomScope, type RoomScope } from './room-scope.js';
 import {
   type Binding,
@@ -120,6 +121,7 @@ export function createCollabSync({
       // One view at a time takes the shared document's changes: a second binding would replay
       // each change on a document that already holds it.
       if (binding || unreadable) return {};
+      const hold = holdDuringGestures(view, () => binding?.flush());
       const bound = join(view, {
         doc,
         type,
@@ -127,15 +129,20 @@ export function createCollabSync({
         derivedOrigin,
         isRemoteOrigin,
         schedule,
+        held: hold.held,
         onUnreadable: stop,
         tag: (tr, change) => tr.setMeta(collabSyncKey, change),
         tracked: (state) => collabSyncKey.getState(state) ?? NOT_TRACKING,
       });
-      if (!bound) return {};
+      if (!bound) {
+        hold.destroy();
+        return {};
+      }
       binding = bound;
       return {
         update: () => bound.update(),
         destroy() {
+          hold.destroy();
           bound.destroy();
           if (binding === bound) binding = null;
         },

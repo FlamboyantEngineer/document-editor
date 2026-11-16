@@ -1,7 +1,7 @@
-import { getColorIndex, placeColorIndexes } from '@flamboyantengineer/ui-components/core';
+import { getColorIndex } from '@flamboyantengineer/ui-components/core';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
 import {
@@ -10,6 +10,7 @@ import {
   placePeers,
   PRESENCE_COLOR_SLOTS,
   presenceKey,
+  scrollToPeer,
   setPeers,
 } from './presence.js';
 
@@ -126,13 +127,23 @@ describe('presence', () => {
     expect(listPeers(state).map((peer) => peer.name)).toEqual(['Ada', 'Grace', 'Hedy']);
   });
 
-  it('DOCE-COLLAB-1.4 gives each peer the slot the base library places them in', () => {
-    const ids = ['ada', 'grace', 'hedy', 'a', 'b', 'p1', 'p9'];
-    const placed = placeColorIndexes(ids, PRESENCE_COLOR_SLOTS);
-    const peers = placePeers(ids.map((id) => ({ id, name: id })));
-    expect(peers.map((peer) => peer.slot)).toEqual(ids.map((id) => placed.get(id)));
+  it('DOCE-COLLAB-1.4 gives the people the avatars show first slots no other has, by name', () => {
+    // Ids that would take the same slots in id order, named so that the name order differs.
+    const ids = Array.from({ length: 12 }, (_, index) => `person-${String(index)}`);
+    const peers = placePeers(
+      ids.map((id, index) => ({ id, name: String.fromCharCode(76 - index) })),
+    );
+    const shown = [...peers].sort((a, b) => a.name.localeCompare(b.name));
+    expect(new Set(shown.slice(0, PRESENCE_COLOR_SLOTS).map((peer) => peer.slot)).size).toBe(
+      PRESENCE_COLOR_SLOTS,
+    );
     expect(placePeers([{ id: 'grace', name: 'Grace' }])[0]?.slot).toBe(
       getColorIndex('grace', PRESENCE_COLOR_SLOTS),
+    );
+    // The same people give the same slots whatever order they are listed in.
+    const reversed = placePeers([...peers].reverse());
+    expect(reversed.map((peer) => [peer.id, peer.slot]).sort()).toEqual(
+      peers.map((peer) => [peer.id, peer.slot]).sort(),
     );
   });
 
@@ -173,5 +184,48 @@ describe('presence', () => {
     expect(caret()).toHaveAttribute('data-presence-status', 'idle');
     expect(caret()).toHaveTextContent('Grace H.');
     expect(caret()?.getAttribute('style')).toContain('#c00');
+  });
+
+  it('DOCE-COLLAB-1.1 names the peer on their selection, for a name on hover', () => {
+    const view = viewOf('Shared text');
+    const at = start(view.state);
+    view.dispatch(setPeers(view.state, [{ id: 'grace', name: 'Grace', anchor: at, head: at + 6 }]));
+    expect(view.dom.querySelector('.de-presence-selection')).toHaveAttribute(
+      'data-presence-name',
+      'Grace',
+    );
+  });
+
+  it('DOCE-COLLAB-1.3 scrolls the least distance that leaves a caret 24 pixels inside the view', () => {
+    const view = viewOf('Shared text');
+    const scroller = document.createElement('div');
+    scroller.style.overflowY = 'auto';
+    document.body.append(scroller);
+    scroller.append(view.dom);
+    Object.defineProperties(scroller, {
+      scrollHeight: { value: 2000 },
+      clientHeight: { value: 400 },
+    });
+    scroller.getBoundingClientRect = () => new DOMRect(0, 100, 600, 400);
+    const scrollBy = vi.fn();
+    scroller.scrollBy = scrollBy as unknown as typeof scroller.scrollBy;
+    view.dispatch(setPeers(view.state, [{ id: 'grace', name: 'Grace', head: start(view.state) }]));
+    const caret = view.dom.querySelector('.de-presence-caret');
+    if (!caret) throw new Error('No caret drawn.');
+    const placeCaret = (top: number) => {
+      caret.getBoundingClientRect = () => new DOMRect(50, top, 2, 20);
+    };
+
+    placeCaret(300);
+    expect(scrollToPeer(view, 'grace')).toBe(true);
+    expect(scrollBy).not.toHaveBeenCalled();
+    placeCaret(900);
+    scrollToPeer(view, 'grace');
+    expect(scrollBy).toHaveBeenLastCalledWith({ top: 444, left: 0, behavior: 'smooth' });
+    placeCaret(110);
+    scrollToPeer(view, 'grace');
+    expect(scrollBy).toHaveBeenLastCalledWith({ top: -14, left: 0, behavior: 'smooth' });
+    expect(scrollToPeer(view, 'alan')).toBe(false);
+    scroller.remove();
   });
 });

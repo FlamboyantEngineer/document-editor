@@ -96,7 +96,7 @@ export const TOOLBAR_GROUPS = {
     'symbol',
   ],
   layout: ['layout'],
-  mode: ['mode', 'markup'],
+  mode: ['presence', 'mode', 'markup'],
 } as const;
 
 /** What happens to a toolbar too wide for its row: it wraps onto more rows, or scrolls. */

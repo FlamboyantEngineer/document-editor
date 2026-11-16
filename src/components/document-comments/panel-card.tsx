@@ -13,7 +13,7 @@ import { type CardContext, ThreadCard } from './comment-cards.js';
 import { renderCommentCard } from './comment-items.js';
 import { hooks } from './comments-panel-hooks.js';
 import { isSameCardShown, type ShownCard } from './margin-card.js';
-import { focusReplyOnPress } from './use-open-cards.js';
+import { focusReplyOnPress, isControlPress } from './use-open-cards.js';
 
 // Whether an element took focus from the keyboard, rather than a pointer press.
 function isFocusVisible(element: Element): boolean {
@@ -30,12 +30,15 @@ function PanelItem({
   isActive,
   slot,
   onSelect,
+  onActivate,
   children,
 }: {
   isActive: boolean;
   slot: ReturnType<typeof hooks.slot>;
   /** Makes the card the active one, as a press on it or focus in it does. */
   onSelect: () => void;
+  /** Shows the card's text in the document, as a press on the card itself does. */
+  onActivate?: (() => void) | undefined;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -54,6 +57,7 @@ function PanelItem({
       onClick={(event) => {
         const { currentTarget, target } = event;
         flushSync(onSelect);
+        if (!isControlPress(target)) onActivate?.();
         focusReplyOnPress({ currentTarget, target });
       }}
       // Keyboard focus moving into the card selects it too.
@@ -67,12 +71,17 @@ function PanelItem({
   );
 }
 
+/** How a card's text is shown: by default the document takes focus with the caret at the text. */
+export interface ShowOptions {
+  readonly focus?: boolean | undefined;
+}
+
 interface PanelCardProps extends ShownCard {
   /**
    * Takes the reader to the text the card is about, found where the document now has it, so the
    * card need not be drawn again as its text moves; none without a view to take them in.
    */
-  readonly onShow?: ((target: AnchorTarget) => void) | undefined;
+  readonly onShow?: ((target: AnchorTarget, options?: ShowOptions) => void) | undefined;
   /** Makes a card the active one, by its item's key. */
   readonly onSelect: (key: Key) => void;
 }
@@ -85,6 +94,8 @@ export const PanelCard = memo(
       <PanelItem
         isActive={actions.isActive}
         onSelect={() => onSelect(item.key)}
+        // Pressing the card shows its text, leaving focus in the panel.
+        onActivate={shows ? () => onShow(item.target, { focus: false }) : undefined}
         slot={hooks.slot(item.kind === 'suggestion' ? 'suggestion' : 'thread', { anchored: true })}
       >
         {renderCommentCard(item, actions)}

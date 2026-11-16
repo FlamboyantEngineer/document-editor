@@ -1,10 +1,8 @@
 // The status bar's parts, which a host may also place in its own chrome inside the editor: the page
-// in view, the words, the proofing status and menu, the other people in the document and the
-// editing mode. Each reads the editor it is in and counts the state React defers, so typing in a
+// in view, the words, the proofing status and menu and the editing mode. Each reads the editor it is in and counts the state React defers, so typing in a
 // long document never waits on it.
 
 import { useAnnounce } from '@flamboyantengineer/ui-components/announcer';
-import { AvatarGroup } from '@flamboyantengineer/ui-components/avatar-group';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { GlobeGlyph } from '@flamboyantengineer/ui-components/core';
 import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
@@ -18,11 +16,8 @@ import {
   hasAbbreviationHealth,
   isProofingPending,
   listDocumentIssues,
-  listPeers,
-  PRESENCE_COLOR_SLOTS,
   proofingLanguages,
   proofingState,
-  scrollToPeer,
   selectNextProofingIssue,
   setProofingLanguage,
 } from '../../engine/index.js';
@@ -36,7 +31,7 @@ import { PageJump } from './status-controls.js';
 import { runCommand } from './table-actions.js';
 import { useDocumentViewport } from './visible-elements.js';
 
-const hooks = createHooks('document-editor', ['proofing-status', 'proofing-language', 'presence']);
+const hooks = createHooks('document-editor', ['proofing-status', 'proofing-language']);
 
 const MODE_LABELS = {
   edit: 'editingMode',
@@ -262,35 +257,6 @@ const ProofingLanguageMenu = memo(function ProofingLanguageMenu({
     />
   );
 }, sameMenu);
-
-/**
- * The other people in the document, as avatars by name in their carets' colour slots; choosing one
- * scrolls to their caret.
- */
-export function DocumentPresence() {
-  const shown = useDeferredEditor();
-  if (!shown) return null;
-  const { view, labels } = shown.editor;
-  const peers = [...listPeers(shown.deferred)].sort((a, b) => a.name.localeCompare(b.name));
-  if (peers.length === 0) return null;
-  return (
-    <AvatarGroup
-      {...hooks.slot('presence')}
-      size="xs"
-      maxVisible={5}
-      nameTooltip
-      colorCount={PRESENCE_COLOR_SLOTS}
-      aria-label={labels.presence}
-      onAction={view ? (id) => void scrollToPeer(view, id) : undefined}
-      people={peers.map((peer) => ({
-        id: peer.id,
-        name: peer.name,
-        colorIndex: peer.slot,
-        ...(peer.avatar ? { src: peer.avatar } : {}),
-      }))}
-    />
-  );
-}
 
 /** Whether the writer is editing, suggesting, commenting or reading. */
 export function DocumentModeStatus() {

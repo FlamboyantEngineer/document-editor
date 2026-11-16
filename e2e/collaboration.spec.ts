@@ -17,10 +17,22 @@ test.describe('collaboration', () => {
     await expect(
       page.locator('.de-presence-selection[data-presence-peer="grace"]').first(),
     ).toBeAttached();
-    const avatars = page
-      .getByRole('group', { name: 'Document status' })
-      .locator('.de-document-editor__presence');
+    // The avatars sit in the toolbar, just before the editing mode, the idle person faded.
+    const avatars = page.locator(
+      '[data-group="mode"] [data-item="presence"] .de-document-editor__presence',
+    );
     await expect(avatars).toBeVisible();
+    await expect(avatars.locator('[data-status="idle"]').first()).toHaveCSS('opacity', '0.55');
+    // Hovering an avatar opens the person's card; hovering a selection names its person.
+    await avatars.getByRole('button', { name: /Grace Hopper/ }).hover();
+    const card = page.locator('.de-document-editor__presence-card');
+    await expect(card).toContainText('grace@example.com');
+    await expect(card.locator('[data-presence-activity]')).toHaveText('Editing');
+    const selection = page.locator('.de-presence-selection[data-presence-peer="grace"]').first();
+    await selection.hover();
+    expect(await selection.evaluate((node) => getComputedStyle(node, '::after').content)).toBe(
+      '"Grace Hopper"',
+    );
     await page.getByLabel('Collaborators').uncheck();
     await expect(carets).toHaveCount(0);
     await expect(avatars).toHaveCount(0);
