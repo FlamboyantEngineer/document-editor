@@ -6,13 +6,15 @@ import {
   RichTextEngineContent,
   RichTextEngineHost,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
-import { DecorationSet, type EditorView } from 'prosemirror-view';
+import { DecorationSet, type EditorProps, type EditorView } from 'prosemirror-view';
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   useMemo,
+  useState,
 } from 'react';
 import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/index.js';
+import { inputAfterFocusKeeper } from '../../utils/dom-selection.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import { useEditorPanesContext } from '../document-panels/document-panels.js';
@@ -127,6 +129,8 @@ function useBodyViewProps({
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
   const decorations = useWritingDecorations(props, labels, held);
+  // One per view, so the focus it saw outlives new props (DOCE-PAGINATION-7.22).
+  const [keepInput] = useState(inputAfterFocusKeeper);
   return useMemo(() => {
     const images = figurePasteOptions({ assets, feedback }, labels);
     return {
@@ -154,11 +158,11 @@ function useBodyViewProps({
       // A secondary click belongs to the context menu, which selects what it opens on: left to the
       // engine, its release would select the clicked object again and take focus from the menu.
       handleClick: (_view: EditorView, _pos: number, event: MouseEvent) => event.button === 2,
-      handleDOMEvents: {
+      handleDOMEvents: keepingInput(keepInput, {
         ...READ_SELECTION_FIRST,
         ...(host.focus ? { focus: host.focus } : {}),
         ...(host.blur ? { blur: host.blur } : {}),
-      },
+      }),
     };
   }, [
     editable,
@@ -172,8 +176,16 @@ function useBodyViewProps({
     menuKeys,
     decorations,
     onCopyLink,
+    keepInput,
   ]);
 }
+
+// DOM handlers with a click or key right after focus kept, in the web layout's view; the pages
+// view keeps them on the pages itself.
+const keepingInput = (
+  keep: ReturnType<typeof inputAfterFocusKeeper>,
+  handlers: NonNullable<EditorProps['handleDOMEvents']>,
+) => ({ ...handlers, ...keep(handlers) });
 
 // The projection takes each of its states itself (`projectionDispatch`), so a commit the engine
 // makes has nothing more to do.

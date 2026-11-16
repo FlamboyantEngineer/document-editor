@@ -41,7 +41,7 @@ async function typeAtEnd(page: Page, name: string, value: string) {
 }
 
 test.describe('presence lab', () => {
-  test('DOCE-COLLAB-1.5 shows each caret on the same word in editors of different widths', async ({
+  test('DOCE-COLLAB-1.5 DOCE-PAGINATION-7.22 shows each caret on the same word in editors of different widths', async ({
     lab,
     page,
   }) => {
