@@ -44,13 +44,61 @@ function diffChildren(change: Builder, a: Fragment, b: Fragment): void {
   change.append(delta.diff(insertAll(a, start, endA), insertAll(b, start, endB)));
 }
 
+const SURROGATE = /[\uD800-\uDFFF]/;
+const isLow = (unit: string) => unit >= '\uDC00' && unit <= '\uDFFF';
+
+// One unit of inline content at `offset`: a UTF-16 unit of text, or '' for an inline leaf.
+const unitAt = (content: Fragment, offset: number) =>
+  offset >= 0 && offset < content.size ? content.textBetween(offset, offset + 1, '', '') : '';
+
+/**
+ * The changed range of two inline contents, widened so that neither end falls between the two
+ * halves of a character outside the basic plane, or null when nothing changed. Offsets count text
+ * by UTF-16 unit and each inline leaf as one, as the shared text does.
+ */
+function wholeCharacterChange(a: Fragment, b: Fragment) {
+  let start = a.findDiffStart(b);
+  const end = a.findDiffEnd(b);
+  if (start === null || !end) return null;
+  let { a: endA, b: endB } = end;
+  const overlap = start - Math.min(endA, endB);
+  if (overlap > 0) {
+    endA += overlap;
+    endB += overlap;
+  }
+  if (isLow(unitAt(a, start)) || isLow(unitAt(b, start))) start -= 1;
+  if (isLow(unitAt(a, endA))) {
+    endA += 1;
+    endB += 1;
+  }
+  return { start, endA, endB };
+}
+
+// lib0's diff compares text by UTF-16 unit, so it can keep one half of an emoji and replace the
+// other; a peer typing between the halves then breaks the character for everyone. Where the change
+// touches such a character, the changed range is replaced whole instead.
+function diffInline(a: Fragment, b: Fragment): AnyDelta {
+  const range = wholeCharacterChange(a, b);
+  if (!range) return delta.create().done();
+  const { start, endA, endB } = range;
+  const touched =
+    a.textBetween(Math.max(0, start - 1), Math.min(a.size, endA + 1), '', '') +
+    b.textBetween(Math.max(0, start - 1), Math.min(b.size, endB + 1), '', '');
+  if (!SURROGATE.test(touched)) return delta.diff(contentToDelta(a), contentToDelta(b));
+  const change = delta.create();
+  if (start > 0) change.retain(start);
+  if (endA > start) change.delete(endA - start);
+  change.append(contentToDelta(b.cut(start, endB)));
+  return change.done();
+}
+
 /** The delta that turns node `a` into node `b` in a shared type that holds `a`. */
 export function diffNodes(a: Node, b: Node): AnyDelta {
   const change = delta.create();
   diffAttrs(change, a, b);
   if (a.content !== b.content) {
     if (a.inlineContent) {
-      change.append(delta.diff(contentToDelta(a.content), contentToDelta(b.content)));
+      change.append(diffInline(a.content, b.content));
     } else {
       diffChildren(change, a.content, b.content);
     }
