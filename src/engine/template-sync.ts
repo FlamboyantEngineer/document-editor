@@ -31,9 +31,10 @@ export interface SectionDrift {
   /**
    * `missing`: a required section the document lacks; `unexpected`: a section of a name the
    * template does not have; `stale`: a section the writer cannot edit whose content is not the
-   * template's.
+   * template's; `misplaced`: a section of the template's that comes after one the template places
+   * after it.
    */
-  readonly kind: 'missing' | 'unexpected' | 'stale';
+  readonly kind: 'missing' | 'unexpected' | 'stale' | 'misplaced';
   readonly name: string;
 }
 
@@ -113,7 +114,36 @@ export function templateSectionDrift(
       drift.push({ kind: 'stale', name });
     }
   }
+  for (const name of misplacedIn(sections, template)) drift.push({ kind: 'misplaced', name });
   return drift;
+}
+
+// The template's sections that come after one the template places after them, in the document's
+// order; plain sections and sections the template does not have have no place to keep.
+function misplacedIn(
+  sections: readonly { readonly name: string | null }[],
+  template: TemplateFile,
+): string[] {
+  const order = (template.sections ?? []).map((section) => section.name);
+  let latest = -1;
+  const misplaced: string[] = [];
+  for (const { name } of sections) {
+    const rank = name === null ? -1 : order.indexOf(name);
+    if (rank < 0) continue;
+    if (rank < latest) misplaced.push(name ?? '');
+    latest = Math.max(latest, rank);
+  }
+  return misplaced;
+}
+
+// Moves a section of the template's to its place among the template's sections (`placeOf`).
+function moveToPlace(tr: Transaction, template: TemplateFile, name: string) {
+  const section = documentSections(tr.doc).find((each) => each.name === name);
+  if (!section) return;
+  const order = (template.sections ?? []).map((each) => each.name);
+  const { node, pos } = section;
+  tr.delete(pos, pos + node.nodeSize);
+  tr.insert(placeOf(tr.doc, order, order.indexOf(name)), node);
 }
 
 // The template content a section starts with, or an empty paragraph.
@@ -164,7 +194,8 @@ function carryScriptOutput(
 /**
  * Brings the document's sections back in line with the template: a section the writer cannot edit
  * takes the template's content again, a section of a name the template does not have becomes a
- * plain section, keeping its content, and a missing required section is added where the template
+ * plain section, keeping its content, a section out of the template's order moves to its place
+ * there, and a missing required section is added where the template
  * places it, with its starting content, each element it brings without an id given one. The change is a system change (`markSystemChange`) outside
  * the history. Refused when nothing drifted.
  */
@@ -195,6 +226,11 @@ export function syncTemplateSections(
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, sectionName: null });
       }
     }
+    // In the template's order, so each moves after those the template places before it.
+    const order = (template.sections ?? []).map((section) => section.name);
+    const misplaced = drift.filter((each) => each.kind === 'misplaced').map((each) => each.name);
+    misplaced.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    for (const name of misplaced) moveToPlace(tr, template, name);
     for (const missing of drift.filter((each) => each.kind === 'missing')) {
       insertMissing(tr, { template, options }, missing.name);
     }

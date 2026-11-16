@@ -114,4 +114,25 @@ test.describe('sections lab', () => {
     await expect(placeholder).toHaveCount(0);
     await expect(content).toContainText('Results hold.');
   });
+
+  test('DOCE-SECTIONS-3.5 adds a section the document lacks from its button after the pages before it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('sections');
+    const content = page.locator('.de-document-editor__content');
+    const add = content.getByRole('button', { name: 'Add Summary' });
+    await expect(add).toBeVisible();
+    // After the last page of the appendix, the section the template places before the summary.
+    const lastPage = content.locator('.pm-section').last().locator('.pm-page').last();
+    const [pageBox, buttonBox] = [await lastPage.boundingBox(), await add.boundingBox()];
+    expect(buttonBox?.y ?? 0).toBeGreaterThanOrEqual((pageBox?.y ?? 0) + (pageBox?.height ?? 0));
+    await expect(content.getByRole('button', { name: 'Add Appendix' })).toHaveCount(0);
+    await add.click();
+    await expect
+      .poll(() => outline(page))
+      .toEqual(['-|portrait', 'appendix|landscape', 'summary|portrait']);
+    await expect(add).toHaveCount(0);
+    await expect(content.locator('.de-section-placeholder')).toHaveText('Summarise the findings.');
+  });
 });

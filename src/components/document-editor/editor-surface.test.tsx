@@ -2,10 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState } from 'prosemirror-state';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
+import type { FontsAdapter } from '../../host/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { createLoadProgress } from '../../session/load-progress.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
@@ -81,6 +82,28 @@ describe('EditorSurface', () => {
     expect(body).not.toHaveAttribute('aria-busy');
     expect(loadProgress.get()).toMatchObject({ status: 'ready', percent: 100 });
     expect(container.firstElementChild).toHaveAttribute('data-layout-state', 'settled');
+  });
+
+  it('DOCE-EDITOR-4.29 DOCE-SESSION-9.8 shows no pages without the template fonts, failing the load', async () => {
+    const loadProgress = createLoadProgress();
+    const onLayoutFailed = vi.fn();
+    const fonts: FontsAdapter = {
+      load: () => Promise.resolve({ ok: true, value: [] }),
+    };
+    const { container } = render(
+      <Harness
+        template={{ ...TEMPLATE, styles: { paragraph: { font: 'Serif Pro' } } }}
+        fonts={fonts}
+        loadProgress={loadProgress}
+        onLayoutFailed={onLayoutFailed}
+      />,
+    );
+    const error = await screen.findByText('The document cannot be shown: Serif Pro did not load.');
+    expect(error.closest('.de-document-editor__layout-error')).toBeInTheDocument();
+    expect(container.querySelector('.de-document-editor__body')).toHaveAttribute('inert');
+    expect(onLayoutFailed).toHaveBeenCalledOnce();
+    expect(loadProgress.get().status).toBe('failed');
+    expect(screen.queryByRole('region', { name: 'Document notices' })).not.toBeInTheDocument();
   });
 
   it('DOCE-EDITOR-4.18 shows no placeholder in the web layout', () => {

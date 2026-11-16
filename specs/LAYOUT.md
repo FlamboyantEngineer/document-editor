@@ -82,10 +82,10 @@ Verification: `src/model/layout/layout-sections.test.ts`
 
 ### DOCE-LAYOUT-4.1 - Filling the surface
 
-A surface marked `data-layout="web"` shall show each section as one page that fills the surface's width and grows with its content, inset only by the template's page margins; a title shown above the content (`de-document-title`) shall line up with it. Layout sections shall show their columns side by side at their preset's widths.
+A surface marked `data-layout="web"` shall show each section as one page that fills the surface's width and grows with its content, inset only by the template's page margins, on the page background (`--doc-page-background`), without the pages' headers and footers; a title shown above the content (`de-document-title`) shall line up with it. Layout sections shall show their columns side by side at their preset's widths.
 
 Implementation: `labs/reference/document.css`, `labs/src/web-layout.lab.ts`
-Verification: `e2e/web-layout.spec.ts`
+Verification: `e2e/web-layout.spec.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-LAYOUT-4.2 - Reading and authoring
 
@@ -100,3 +100,10 @@ Controls running the layout commands (DOCE-LAYOUT-2) shall arrange the section h
 
 Implementation: `labs/src/web-layout.lab.ts`, `src/engine/layout-sections.ts`
 Verification: `e2e/web-layout.spec.ts`
+
+### DOCE-LAYOUT-4.4 - A document at its page width
+
+`DocumentEditor` shall mark its root with how wide the web layout shows each section (`webWidth`, `data-web-width`): `fill` (the default), filling the surface as an article does, or `page`, as a document. A web-layout surface marked `page` shall show each section at its page width, centred and never wider than the surface, with no page margins, like a large text area.
+
+Implementation: `src/components/document-editor/root-data.ts`, `labs/reference/document.css`
+Verification: `src/components/document-editor/document-editor.test.tsx`, `e2e/document-editor.spec.ts`

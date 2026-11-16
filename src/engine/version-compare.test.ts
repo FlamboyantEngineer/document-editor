@@ -1,10 +1,16 @@
 import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import { readDocumentFile, type StoredNode } from '../model/index.js';
+import {
+  assignStoredIds,
+  readDocumentFile,
+  type StoredNode,
+  templatePreviewDocument,
+  templatePreviewPrevious,
+} from '../model/index.js';
 import { diffText } from './text-diff.js';
 import { createVersionChanges, refreshVersionChanges, versionChanges } from './version-changes.js';
-import { compareVersions } from './version-compare.js';
+import { compareVersions, compareWithOlder, readOlderVersion } from './version-compare.js';
 import { changeLineMarks, versionChangeDecorations } from './version-decorations.js';
 
 const paragraph = (id: string, value: string, attrs: Record<string, unknown> = {}): StoredNode => ({
@@ -367,5 +373,27 @@ describe('showing version changes', () => {
     ]);
     state = state.apply(state.tr.insertText('!', state.doc.content.size - 4));
     expect(versionChanges(state)).toHaveLength(3);
+  });
+});
+
+// Element ids in order, as an editor would give them.
+function counter() {
+  let next = 0;
+  return () => (next += 1).toString(16).padStart(8, '0');
+}
+
+describe('the template preview compared with its older version', () => {
+  it('DOCE-TEMPLATES-8.8 shows a change of each kind', () => {
+    const template = { formatVersion: 1 as const, id: 'preview' };
+    const shown = assignStoredIds(templatePreviewDocument(template), { newId: counter() });
+    const newer = readDocumentFile(shown, documentSchema).doc;
+    const older = readDocumentFile(templatePreviewPrevious(shown), documentSchema).doc;
+    const kinds = compareWithOlder(readOlderVersion(older), newer).map((change) => change.kind);
+    expect([...new Set(kinds)].sort()).toEqual([
+      'deletion',
+      'formatting',
+      'insertion',
+      'modification',
+    ]);
   });
 });

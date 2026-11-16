@@ -137,7 +137,7 @@ Verification: `src/components/template-editor/template-structure.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-2.6 - The id before the first save
 
-While the host has never saved the template (`isNew`), the identity rows shall start with its id, committed on Enter or on leaving the field and written with letters, digits, underscores and hyphens, other characters becoming hyphens (`templateIdOf`); an id with nothing left is refused, saying why. A saved template's id has no row.
+While the host has never saved the template (`isNew`), the identity rows shall start with its id, committed on Enter or on leaving the field and written as a letter and then up to 63 letters, digits and underscores, other characters becoming underscores and what comes before the first letter left out (`templateIdOf`); an id with nothing left is refused, saying why. A saved template's id has no row.
 
 Implementation: `src/components/template-editor/template-identity.tsx`
 Verification: `src/components/template-editor/template-structure.test.tsx`

@@ -26,7 +26,7 @@ export function SaveAsDialog({ workspace, labels, isDisabled }: DialogProps) {
   const begin = () => {
     if (!draft) return;
     const name = labels.copyOf(draft.name ?? draft.id);
-    setIdentity({ id: templateIdOf(`${draft.id}-copy`), name });
+    setIdentity({ id: templateIdOf(`${draft.id}_copy`), name });
   };
   const id = identity ? templateIdOf(identity.id) : '';
   return (

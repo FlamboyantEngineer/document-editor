@@ -25,6 +25,7 @@ export function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
   return {
     markup: props.markup ?? 'all',
     layout,
+    webWidth: props.webWidth ?? 'fill',
     mode: editable ? 'authoring' : 'reading',
     suggesting: editable && suggesting,
     comparing: compare ? (compare.display ?? 'markup') : undefined,

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import {
   createDocumentKit,
+  documentRegions,
   readDocumentFile,
   type StoredNode,
   type TemplateFile,
@@ -268,6 +269,18 @@ describe('document keys', () => {
   it('DOCE-EDITING-2.6 selects the body, and inserts a page break at the caret', () => {
     let state = run(stateAt(read(paragraph('Alpha'), paragraph('Omega')), 'Alpha'), key('Mod-a'));
     expect(state.doc.textBetween(state.selection.from, state.selection.to)).toBe('AlphaOmega');
+    const plain = stateAt(read(paragraph('Alpha')), 'Alpha');
+    const [header] = documentRegions(plain.doc, new Set(['header'] as const));
+    if (!header) throw new Error('no header');
+    const head = documentSchema.nodes.paragraph?.create(null, documentSchema.text('Running head'));
+    if (!head) throw new Error('no paragraph');
+    let headed = plain.apply(
+      plain.tr.replaceWith(header.pos + 1, header.pos + header.node.nodeSize - 1, head),
+    );
+    headed = headed.apply(headed.tr.setSelection(TextSelection.create(headed.doc, header.pos + 4)));
+    // In a header, Select All takes that header's text alone.
+    state = run(headed, key('Mod-a'));
+    expect(state.doc.textBetween(state.selection.from, state.selection.to)).toBe('Running head');
     state = run(stateAt(read(paragraph('Alpha')), 'pha'), key('Mod-Alt-Enter'));
     expect(outline(state)).toEqual(['paragraph:Al', 'page_break:', 'paragraph:pha']);
     expect(state.selection.$from.parent.textBetween(0, 3)).toBe('pha');

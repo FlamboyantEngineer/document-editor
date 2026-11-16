@@ -63,10 +63,12 @@ function textStart(state: EditorState): number {
 function Harness({
   editable,
   layout,
+  webWidth,
   handleRef,
 }: {
   editable: boolean;
   layout: DocumentLayout;
+  webWidth?: 'fill' | 'page';
   handleRef?: Ref<DocumentEditorHandle>;
 }) {
   const [state, setState] = useState(initial);
@@ -76,6 +78,7 @@ function Harness({
       onStateChange={setState}
       template={TEMPLATE}
       layout={layout}
+      webWidth={webWidth}
       editable={editable}
       aria-label="Report"
       handleRef={handleRef}
@@ -106,6 +109,14 @@ describe('DocumentEditor', () => {
     expect(root).toHaveAttribute('data-mode', 'authoring');
     expect(root?.getAttribute('style')).toContain('--doc-page-margin-left: 24px');
     expect(container.querySelector('.de-document-editor__measure')).toBeNull();
+  });
+
+  it('DOCE-LAYOUT-4.4 marks how wide the web layout shows the document', () => {
+    const { container, rerender } = render(<Harness editable layout="web" />);
+    const root = container.querySelector('.de-document-editor');
+    expect(root).toHaveAttribute('data-web-width', 'fill');
+    rerender(<Harness editable layout="web" webWidth="page" />);
+    expect(root).toHaveAttribute('data-web-width', 'page');
   });
 
   it('DOCE-EDITOR-1.2 switches between reading and authoring, keeping the document', async () => {
@@ -273,6 +284,36 @@ describe('DocumentEditor', () => {
       return found;
     };
     await waitFor(() => expect(headings()).toEqual(['Oh, Hello']));
+  });
+
+  it('DOCE-TEMPLATES-7.1 offers custom styles while editing template content, not to authors', async () => {
+    const styled: TemplateFile = {
+      ...TEMPLATE,
+      styles: { custom: { callout: { weight: 700 } } },
+    };
+    function Shown({ template }: { template: boolean }) {
+      const [state, setState] = useState(initial);
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={styled}
+          layout="web"
+          toolbar
+          onTemplatePartChange={template ? () => undefined : undefined}
+          aria-label="Report"
+        />
+      );
+    }
+    const user = userEvent.setup();
+    const { unmount } = render(<Shown template={false} />);
+    await user.click(screen.getByRole('button', { name: /Text style/ }));
+    expect(await screen.findByRole('option', { name: /Heading 1/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /callout/ })).not.toBeInTheDocument();
+    unmount();
+    render(<Shown template />);
+    await user.click(screen.getByRole('button', { name: /Text style/ }));
+    expect(await screen.findByRole('option', { name: /callout/ })).toBeInTheDocument();
   });
 
   it('DOCE-EDITOR-1.8 draws the pages in a plain view, the host views in the editor', async () => {

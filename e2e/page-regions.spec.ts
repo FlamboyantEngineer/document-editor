@@ -45,6 +45,33 @@ test.describe('page regions lab', () => {
     for (const overflow of await overflows(page)) expect(overflow).toBeLessThanOrEqual(1);
   });
 
+  test('DOCE-PAGINATION-8.6 gives the blocks of a header and footer no vertical margins', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('page-regions');
+    await page.getByLabel('Two-line header').check();
+    await expect(page.locator('html')).toHaveAttribute('data-lab-laid-out', 'regions-tall');
+    const margins = await page
+      .locator('.lab-pages .pm-page')
+      .first()
+      .locator(':is(.pm-page-header, .pm-page-footer) > *')
+      .evaluateAll((blocks) =>
+        blocks.map((block) => {
+          const style = getComputedStyle(block);
+          return [style.marginTop, style.marginBottom];
+        }),
+      );
+    expect(margins.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(margins.flat())).toEqual(new Set(['0px']));
+    // The body's paragraphs keep the template's spacing.
+    const body = await page
+      .locator('.lab-pages .pm-page-content > p')
+      .first()
+      .evaluate((block) => getComputedStyle(block).marginBottom);
+    expect(body).not.toBe('0px');
+  });
+
   test("DOCE-PAGINATION-8.2 shows each page's number, the page count and the host's values", async ({
     lab,
     page,

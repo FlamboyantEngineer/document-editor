@@ -30,6 +30,7 @@ export type {
   DocumentToolbarOptions,
   EditorContext,
   EditorSession,
+  EditorSessionDocument,
   FindBarMode,
   HostDialogProps,
   MentionOptions,

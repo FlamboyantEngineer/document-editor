@@ -106,6 +106,13 @@ On pages, the reference stylesheet shall stack every page in one column, each ce
 Implementation: `labs/reference/document.css`, `labs/src/sections.lab.tsx`
 Verification: `e2e/sections.spec.ts`
 
+### DOCE-SECTIONS-3.5 - Adding a section on the pages
+
+While the writer edits and does not suggest, the document editor shall show a button, "Add" followed by the section's label or else its name, at each place the document could take an insertable template section it lacks, after the last page of the section the template places before it; pressing it shall add that section there with its starting content, and the button shall go once the document has the section.
+
+Implementation: `src/components/document-editor/section-insert-buttons.ts`, `src/components/document-editor/writing-decorations.ts`, `labs/reference/editor-chrome.css`, `labs/src/sections.lab.tsx`
+Verification: `src/components/document-editor/writing-decorations.test.tsx`, `e2e/sections.spec.ts`
+
 ## DOCE-SECTIONS-4 - Keeping to the template
 
 ### DOCE-SECTIONS-4.1 - Drift
@@ -128,6 +135,13 @@ Verification: `src/engine/template-sync.test.ts`
 
 Implementation: `src/engine/template-sync.ts`, `src/engine/document-sections.ts`
 Verification: `src/engine/template-sync.test.ts`, `src/engine/document-sections.test.ts`
+
+### DOCE-SECTIONS-4.4 - Sections in the template's order
+
+`templateSectionDrift` shall also list each section of the template's that comes after one the template places after it (`misplaced`), in the document's order, and `syncTemplateSections` shall move each, in the template's order, to its place among the template's sections as `insertTemplateSection` places one (DOCE-SECTIONS-2.5); plain sections stay where they are. The drift banner names such a section "out of order".
+
+Implementation: `src/engine/template-sync.ts`, `src/components/document-editor/banner-labels.ts`
+Verification: `src/engine/template-sync.test.ts`
 
 ## DOCE-SECTIONS-5 - Headers and footers in place
 
@@ -158,4 +172,6 @@ Verification: `src/engine/template-content-editing.test.ts`, `src/engine/region-
 | ------------------------ | --------- | ---------------------------------- | ------------------------------------------------------------------------ |
 | `data-numbering`         | attribute | `restart`                          | On a section whose template section restarts numbering.                  |
 | `de-section-placeholder` | root      |                                    | The placeholder an empty section shows.                                  |
+| `de-section-insert`      | root      |                                    | The button that adds a template section the document lacks.              |
+| `data-section-name`      | attribute | section name                       | On an add-section button, the template section it adds.                  |
 | `data-template-part`     | attribute | `content`, `placeholder`, `sample` | On each section of a preview shown in parts while its content is edited. |

@@ -5,7 +5,7 @@ import type { FontsAdapter } from '../host/adapters.js';
 import type { TemplateFile } from '../model/index.js';
 
 /** How long the pages wait for the host's font faces before they settle without them. */
-export const FONT_TIMEOUT = 3000;
+export const FONT_TIMEOUT = 5000;
 
 function collect(value: unknown, families: Set<string>): void {
   if (Array.isArray(value)) {

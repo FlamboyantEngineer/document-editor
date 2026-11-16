@@ -275,8 +275,9 @@ test.describe('template editor lab', () => {
         content(page).locator(`h${String(level)}`, { hasText: `Heading ${String(level)}` }),
       ).toHaveCount(1);
     }
-    await expect(content(page).locator('table')).toHaveCount(1);
-    await expect(content(page).locator('pre')).toHaveCount(1);
+    // The table and the code block go on over a page, each in two parts or more.
+    await expect.poll(() => content(page).locator('table').count()).toBeGreaterThan(1);
+    await expect.poll(() => content(page).locator('pre').count()).toBeGreaterThan(1);
     await expect(content(page).locator('[data-section-name]')).not.toHaveCount(0);
   });
 

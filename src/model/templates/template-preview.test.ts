@@ -75,6 +75,27 @@ describe('template preview', () => {
     expect(equation).not.toBe('');
   });
 
+  it('DOCE-TEMPLATES-8.8 shows nested lists, a figure, two footnotes and objects long enough to continue', () => {
+    const doc = readDocumentFile(templatePreviewDocument(TEMPLATE), documentSchema).doc;
+    let notes = 0;
+    let rows = 0;
+    let figures = 0;
+    doc.descendants((node) => {
+      if (node.type.name === 'footnote_reference') notes += 1;
+      if (node.type.name === 'figure') figures += 1;
+      if (node.type.name === 'table_row') rows += 1;
+    });
+    expect(notes).toBe(2);
+    expect(figures).toBe(1);
+    expect(rows).toBeGreaterThan(40);
+    const bullets: number[] = [];
+    doc.descendants((node) => {
+      if (node.type.name === 'bullet_list') bullets.push(node.childCount);
+    });
+    // Three items, each with two under it, each with one under that.
+    expect(bullets).toEqual([3, 2, 1, 1, 2, 1, 1, 2, 1, 1]);
+  });
+
   it('DOCE-TEMPLATES-8.6 shows each template section in parts, its content then its placeholder', () => {
     const template: TemplateFile = {
       ...TEMPLATE,

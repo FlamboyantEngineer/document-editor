@@ -179,7 +179,7 @@ Verification: `src/model/templates/page-regions.test.ts`
 
 ### DOCE-TEMPLATES-7.1 - Applying a custom style
 
-A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall apply to paragraphs and headings by name (`setCustomStyle`, `customStyleAt`), kept as the block's style; `createCustomStyles({ template })`, which the editing plugins install when given the template, gives each block in a style the style's values from its section's template or the document's (`customStyleProperties`, `--doc-custom-*`, with `data-custom-style`), in every view, again when the template changes. A built-in text style takes a block out of its custom style. The toolbar's text style field offers the custom styles after the built-in ones. A block's style shall read from markup, and be written, as its `class` only when the class is one name a custom style may have (`CUSTOM_STYLE_NAME`): any other class, such as those markup pasted from a page carries, is not kept and not written, so a host's stylesheet never acts on it.
+A template's custom styles (`styles.custom`, by name, `customStyleNames`) shall apply to paragraphs and headings by name (`setCustomStyle`, `customStyleAt`), kept as the block's style; `createCustomStyles({ template })`, which the editing plugins install when given the template, gives each block in a style the style's values from its section's template or the document's (`customStyleProperties`, `--doc-custom-*`, with `data-custom-style`), in every view, again when the template changes. A built-in text style takes a block out of its custom style. While the editor edits a template's own content (`onRegionChange` or `onTemplatePartChange`), the toolbar's text style field and the slash menu offer the custom styles after the built-in ones; a document's authors are offered the built-in styles only, and a block keeps the custom style it has. A block's style shall read from markup, and be written, as its `class` only when the class is one name a custom style may have (`CUSTOM_STYLE_NAME`): any other class, such as those markup pasted from a page carries, is not kept and not written, so a host's stylesheet never acts on it.
 
 Implementation: `src/engine/custom-styles.ts`, `src/model/schema/core-nodes.ts`, `src/model/templates/template-text-properties.ts`, `src/components/document-editor/toolbar-controls.tsx`
 Verification: `src/engine/custom-styles.test.ts`, `src/model/schema/core-nodes.test.ts`, `e2e/template-editor.spec.ts`
@@ -234,6 +234,13 @@ Verification: `src/model/templates/template-preview.test.ts`
 
 Implementation: `src/engine/variable-tokens.ts`, `src/components/document-editor/use-host-events.ts`
 Verification: `src/engine/variable-tokens.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+
+### DOCE-TEMPLATES-8.8 - The preview's samples
+
+The preview document (DOCE-TEMPLATES-8.2) shall also hold a bulleted and a numbered list of three items, each with two items under it and each of those with one under it, a captioned figure, a second footnote, a table and a code block long enough to continue on the next page (their continued captions and repeated header row), and a paragraph per kind of change; `templatePreviewPrevious(preview, text)` shall give the older version of a preview as shown, its other blocks and element ids the same, which the preview compared with (DOCE-VERSIONS-2.3) shows as an insertion, a deletion, a modification and a formatting change, each marked by its kind.
+
+Implementation: `src/model/templates/template-preview-samples.ts`, `src/model/templates/template-preview.ts`
+Verification: `src/model/templates/template-preview.test.ts`, `src/engine/version-compare.test.ts`
 
 ## DOCE-TEMPLATES-9 - Template blocks
 
