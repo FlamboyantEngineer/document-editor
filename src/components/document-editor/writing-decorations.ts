@@ -11,6 +11,7 @@ import { useMemo } from 'react';
 import { documentCounts } from '../../engine/index.js';
 import { documentRegions } from '../../model/index.js';
 import { viewOnlyInline, viewOnlyNode, viewOnlyWidget } from '../../utils/view-only-decorations.js';
+import { heldSelectionDecorations } from './held-selection.js';
 
 /** The hints the editor shows where there is no text yet. */
 export interface PlaceholderOptions {
@@ -27,6 +28,8 @@ interface WritingDecorationOptions {
   readonly insertButton?: { readonly label: string } | undefined;
   readonly formattingMarks?: boolean | undefined;
   readonly caretBlock?: boolean | undefined;
+  /** Focus is elsewhere on the page: the editor draws the document's selection (`held-selection`). */
+  readonly held?: boolean | undefined;
 }
 
 /** The hook class of a placeholder's hint; `data-placeholder-kind` is `document` or `line`. */
@@ -177,13 +180,14 @@ function spaceDecorations() {
 
 /**
  * The view's decorations for the helpers turned on, or null when none is: the spaces the formatting
- * marks show, then the placeholder and the caret block.
+ * marks show, then the placeholder, the caret block and the held selection.
  */
 export function writingDecorations(
   options: WritingDecorationOptions,
 ): ((state: EditorState) => DecorationSet) | null {
   const { placeholder, insertButton, formattingMarks = false, caretBlock = false } = options;
-  if (!placeholder && !insertButton && !formattingMarks && !caretBlock) return null;
+  const { held = false } = options;
+  if (!placeholder && !insertButton && !formattingMarks && !caretBlock && !held) return null;
   const spaces = formattingMarks ? spaceDecorations() : null;
   return (state) => {
     const base = spaces ? spaces(state.doc) : DecorationSet.empty;
@@ -191,6 +195,7 @@ export function writingDecorations(
       ...(insertButton ? insertButtonDecorations(state, insertButton.label) : []),
       ...(placeholder ? placeholderDecorations(state, placeholder) : []),
       ...(caretBlock ? caretBlockDecorations(state) : []),
+      ...(held ? heldSelectionDecorations(state) : []),
     ];
     return extra.length > 0 ? base.add(state.doc, extra) : base;
   };
@@ -206,6 +211,7 @@ export function useWritingDecorations(
     readonly editable?: boolean | undefined;
   },
   insertLabel: string,
+  held: boolean,
 ) {
   const { placeholderText: placeholder, formattingMarks, caretBlock, editable = true } = props;
   const document = typeof placeholder === 'string' ? placeholder : placeholder?.document;
@@ -219,7 +225,8 @@ export function useWritingDecorations(
         insertButton: insert ? { label: insertLabel } : undefined,
         formattingMarks,
         caretBlock,
+        held,
       }),
-    [document, emptyLine, insert, insertLabel, formattingMarks, caretBlock],
+    [document, emptyLine, insert, insertLabel, formattingMarks, caretBlock, held],
   );
 }

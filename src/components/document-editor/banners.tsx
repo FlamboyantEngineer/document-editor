@@ -1,11 +1,13 @@
-// The editor's banner region, between its toolbar and the document: the host's banners, then the
-// editor's own, telling the writer the document is out of step with its template and which of the
-// template's fonts did not load. Banners that come or go while the reader drags, selects or resizes
-// wait for the gesture to end, so the document does not jump under the pointer.
+// The editor's banner region, floating over the top of the document between the panels: the host's
+// banners, then the editor's own, telling the writer the document is out of step with its template
+// and which of the template's fonts did not load. The region scrolls on its own, so a long stack
+// never pushes the document; banners that come or go while the reader drags, selects or resizes
+// wait for the gesture to end, so nothing changes under the pointer.
 
 import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import type { Tone } from '@flamboyantengineer/ui-components/core';
+import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
@@ -161,16 +163,25 @@ function useEditorBanners(props: DocumentBannersProps): DocumentBanner[] {
   return own;
 }
 
-/** The host's banners and the editor's own, above the document; nothing while there are none. */
+/**
+ * The host's banners and the editor's own, over the top of the document in a region that scrolls on
+ * its own; nothing while there are none.
+ */
 export function DocumentBanners(props: DocumentBannersProps) {
   const own = useEditorBanners(props);
   const shown = useHeldDuringGesture(props.root, [...(props.banners ?? []), ...own]);
   if (shown.length === 0) return null;
   return (
-    <section {...hooks.slot('banners')} aria-label={props.labels.banners}>
+    <ScrollRegion
+      {...hooks.slot('banners')}
+      role="region"
+      aria-label={props.labels.banners}
+      grow={false}
+      tabIndex={0}
+    >
       {shown.map(({ id, ...banner }) => (
         <Banner key={id} data-banner={id} {...banner} />
       ))}
-    </section>
+    </ScrollRegion>
   );
 }

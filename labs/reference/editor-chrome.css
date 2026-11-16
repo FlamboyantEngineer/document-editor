@@ -36,8 +36,14 @@
   display: contents;
 }
 
-.de-document-editor__workspace > .de-document-editor__viewport {
+/* The document's column between the panels, which the banners float over. */
+.de-document-editor__center {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 /* The document scrolls without the shades that mark more content above or below. */
@@ -832,14 +838,25 @@
   max-width: 120ch;
 }
 
-/* The banner region between the chrome and the document. */
+/* The banner stack floats over the top of the document between the panels: at most half the
+   document's height, scrolling on its own, its banners nearly opaque over the pages. */
 .de-document-editor__banners {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 3;
   display: flex;
-  flex: none;
   flex-direction: column;
-  gap: 4px;
+  max-height: 50%;
   padding: 4px 8px;
-  border-bottom: 1px solid var(--ref-border, #d0d7de);
+}
+
+.de-document-editor__banners [data-banner] {
+  background-color: color-mix(in srgb, var(--ref-surface, #ffffff) 90%, transparent);
+}
+
+.de-document-editor__banners [data-banner] + [data-banner] {
+  margin-top: 4px;
 }
 
 /* The host's lead before the pages, and the placeholder standing in for them until they are laid out. */
@@ -920,6 +937,20 @@
 /* The mention menu takes the base library's completion list at a readable width. */
 .de-document-editor__mention-menu {
   min-width: 12rem;
+}
+
+/* The document's selection while focus is in a host panel: the text it covers, or a caret mark. */
+.de-held-selection {
+  background-color: color-mix(in srgb, var(--ref-accent, #0969da) 20%, transparent);
+}
+
+.de-held-caret {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+  margin-inline-end: -2px;
+  border-inline-start: 2px solid var(--ref-text-muted, #6e7781);
+  vertical-align: text-bottom;
 }
 
 /* Placeholder hints, read as hints and taking no room; an empty line's only while the document

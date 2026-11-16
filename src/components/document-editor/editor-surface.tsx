@@ -23,7 +23,7 @@ import { DocumentOverview, type DocumentOverviewOptions } from './editor-overvie
 import { type FirstLayout, FirstLayoutCover } from './first-layout.js';
 import { debugParts } from './root-data.js';
 
-const hooks = createHooks('document-editor', ['workspace', 'viewport', 'lead']);
+const hooks = createHooks('document-editor', ['workspace', 'center', 'viewport', 'lead']);
 
 const NO_OVERVIEW_OPTIONS: DocumentOverviewOptions = {};
 
@@ -47,14 +47,17 @@ interface EditorSurfaceProps {
 // The document between the panels beside it. The element is there without panels too (`data-panels`
 // tells when it holds one), so a panel the host shows or hides leaves the document where it is in
 // the tree: its view, its focus and the scroll position stay. While the debugging pane shows, it
-// stands in for the end panel, which comes back as it was when the pane goes.
+// stands in for the end panel, which comes back as it was when the pane goes. The banners float
+// over the top of the document, between the panels, so coming and going they move nothing.
 function Workspace({
   panels,
   debug,
+  banners,
   children,
 }: {
   panels: DocumentEditorProps['panels'];
   debug: { readonly pane: ReactNode; readonly isShown: boolean };
+  banners: ReactNode;
   children: ReactNode;
 }) {
   const end = debug.isShown ? null : panels?.end;
@@ -62,7 +65,10 @@ function Workspace({
   return (
     <div {...hooks.slot('workspace', { panels: held })}>
       {panels?.start}
-      {children}
+      <div {...hooks.slot('center')}>
+        {banners}
+        {children}
+      </div>
       {debug.pane}
       {end}
     </div>
@@ -92,6 +98,26 @@ function SurfaceContent({
       />
       {children}
     </>
+  );
+}
+
+// The host's banners and the editor's own, over the document.
+function EditorBanners({
+  chrome: { props, context, view },
+  root,
+  missingFonts,
+}: Pick<EditorSurfaceProps, 'chrome' | 'root' | 'missingFonts'>) {
+  return (
+    <DocumentBanners
+      root={root}
+      view={view}
+      state={context.state}
+      template={props.template}
+      editable={context.editable}
+      labels={context.labels}
+      banners={props.banners}
+      missingFonts={missingFonts}
+    />
   );
 }
 
@@ -130,17 +156,11 @@ export function EditorSurface({
   return (
     <Announcer>
       <FollowingTopChrome {...following.top} />
-      <DocumentBanners
-        root={root}
-        view={view}
-        state={context.state}
-        template={props.template}
-        editable={context.editable}
-        labels={context.labels}
-        banners={props.banners}
-        missingFonts={missingFonts}
-      />
-      <Workspace panels={props.panels} debug={{ pane, isShown: shown !== null }}>
+      <Workspace
+        panels={props.panels}
+        debug={{ pane, isShown: shown !== null }}
+        banners={<EditorBanners chrome={chrome} root={root} missingFonts={missingFonts} />}
+      >
         {props.scrollable ? (
           <>
             <ScrollRegion

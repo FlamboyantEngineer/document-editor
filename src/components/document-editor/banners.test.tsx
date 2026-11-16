@@ -14,7 +14,7 @@ import {
   type TemplateFile,
 } from '../../model/index.js';
 import { type DocumentBanner, EDITOR_BANNERS, useReportedFonts } from './banners.js';
-import { DocumentEditor } from './document-editor.js';
+import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
 
 const paragraph = (value: string): StoredNode => ({
   type: 'paragraph',
@@ -45,10 +45,12 @@ function Harness({
   cover = 'Cover text',
   banners,
   editable,
+  panels,
 }: {
   cover?: string;
   banners?: readonly DocumentBanner[];
   editable?: boolean;
+  panels?: DocumentEditorProps['panels'];
 }) {
   const [state, setState] = useState(() => stateWith(cover));
   return (
@@ -59,6 +61,7 @@ function Harness({
       layout="web"
       editable={editable}
       banners={banners}
+      panels={panels}
       aria-label="Report"
     />
   );
@@ -85,9 +88,31 @@ describe('DocumentBanners', () => {
       ),
     ).toEqual(['locked', 'offline']);
     expect(within(region).getByText('Locked for review')).toBeInTheDocument();
-    expect(region).toHaveClass('de-document-editor__banners');
+    expect(region.closest('.de-document-editor__banners')).toBeInTheDocument();
     await user.click(within(region).getByRole('button', { name: /dismiss/i }));
     expect(onDismiss).toHaveBeenCalledOnce();
+  });
+
+  it('DOCE-EDITOR-7.5 puts the banners over the top of the document, between the panels', () => {
+    render(
+      <Harness
+        banners={[{ id: 'locked', title: 'Locked for review' }]}
+        panels={{
+          start: <aside aria-label="Outline">Outline</aside>,
+          end: <aside aria-label="Details">Details</aside>,
+        }}
+      />,
+    );
+    const region = screen
+      .getByRole('region', { name: 'Document notices' })
+      .closest('.de-document-editor__banners');
+    const center = region?.parentElement;
+    expect(center).toHaveClass('de-document-editor__center');
+    expect(center?.previousElementSibling).toHaveAccessibleName('Outline');
+    expect(center?.parentElement?.lastElementChild).toHaveAccessibleName('Details');
+    expect(region?.nextElementSibling).toContainElement(
+      screen.getByRole('textbox', { name: 'Report' }),
+    );
   });
 
   it('DOCE-EDITOR-7.1 shows no region without banners', () => {
