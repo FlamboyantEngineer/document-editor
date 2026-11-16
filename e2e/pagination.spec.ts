@@ -142,24 +142,33 @@ test.describe('pagination lab', () => {
     await expect(entry).toContainText('Note: The meter');
   });
 
-  test('DOCE-PAGINATION-7.1 lays the pages out once the writer pauses, not after every key', async ({
+  test('DOCE-PAGINATION-7.1 DOCE-PAGINATION-5.17 lays out typing that moves its block at once, and none that keeps its height', async ({
     lab,
     page,
   }) => {
     await lab.open('pagination');
     const html = page.locator('html');
-    await page
-      .locator('.lab-pages')
-      .getByText('Room 3:')
-      .click({ position: { x: 1, y: 8 } });
-    const before = Number(await html.getAttribute('data-lab-layouts'));
-    await page.keyboard.type('Twelve keys.', { delay: 20 });
-    await expect(html).toHaveAttribute('data-lab-caret-text', /^Room 3:/);
-    await expect
-      .poll(async () => Number(await html.getAttribute('data-lab-layouts')))
-      .toBeGreaterThan(before);
+    const layouts = async () => Number(await html.getAttribute('data-lab-layouts'));
+    // A paragraph the pages hold whole, not split across two of them.
+    const paragraph = page.locator('.lab-pages p:not([data-split-part-index])').nth(1);
+    await paragraph.click({ position: { x: 1, y: 8 } });
+    const start = (await paragraph.textContent())?.slice(0, 6) ?? '';
+    const height = () => paragraph.evaluate((element) => element.getBoundingClientRect().height);
+    const tall = await height();
+    // A few keys that keep the paragraph's lines: nothing is laid out, even after the pause.
+    let before = await layouts();
+    await page.keyboard.type('Ab', { delay: 20 });
+    await expect(html).toHaveAttribute('data-lab-caret-text', new RegExp(`^${start}`));
     await page.waitForTimeout(400);
-    expect(Number(await html.getAttribute('data-lab-layouts')) - before).toBeLessThanOrEqual(2);
+    expect(await height()).toBe(tall);
+    expect(await layouts()).toBe(before);
+    // Enough keys to give the paragraph a line: the pages are laid out again, not after every key.
+    before = await layouts();
+    await page.keyboard.type(' twelve more keys and then some more words.'.repeat(3), { delay: 5 });
+    await expect.poll(height).toBeGreaterThan(tall);
+    await expect.poll(layouts).toBeGreaterThan(before);
+    await page.waitForTimeout(400);
+    expect((await layouts()) - before).toBeLessThanOrEqual(8);
     await expectPagesHoldContent(page);
   });
 

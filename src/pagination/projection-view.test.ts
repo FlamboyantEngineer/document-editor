@@ -59,7 +59,7 @@ describe('projection view', () => {
     const { projection, drain } = mount({ mountGhost });
     expect(mountGhost).toHaveBeenCalledOnce();
     const at = positionOf(projection.view.state.doc, 'Alpha');
-    projection.view.dispatch(projection.view.state.tr.insertText('New ', at));
+    projection.view.dispatch(layoutNow(projection.view.state.tr.insertText('New ', at)));
     drain();
     expect(shown.at(-1)?.doc.eq(projection.state.doc)).toBe(true);
     expect(pageCount(projection.view.state.doc)).toBe(3);
@@ -89,7 +89,7 @@ describe('projection view', () => {
     const { projection, drain } = mount({ dispatch: (tr) => sent.push(tr) });
     const { view } = projection;
     const at = positionOf(view.state.doc, 'Gamma');
-    view.dispatch(view.state.tr.insertText('New ', at));
+    view.dispatch(layoutNow(view.state.tr.insertText('New ', at)));
     expect(sent).toHaveLength(1);
     expect(textOf(projection.state.doc)).toContain('New Gamma three');
     expect(textOf(view.state.doc)).toContain('New Gamma three');
@@ -498,7 +498,9 @@ describe('projection layouts', () => {
       pagesLaidOut: 3,
       overflowPages: 0,
     });
-    edit(projection, (state) => state.tr.insertText('First ', positionOf(state.doc, 'Alpha')));
+    edit(projection, (state) =>
+      layoutNow(state.tr.insertText('First ', positionOf(state.doc, 'Alpha'))),
+    );
     drain();
     expect(projection.stats()).toMatchObject({
       layouts: 2,
@@ -528,6 +530,50 @@ describe('projection layouts', () => {
     expect(projection.stats().layouts).toBe(3);
   });
 
+  it('DOCE-PAGINATION-5.17 lays typing out on the next frame once it changed the height of its block', () => {
+    const { projection, drain } = mount({ settle: 150 }, { height: 20 });
+    const typeInAlpha = (text: string) =>
+      edit(projection, (state) => {
+        const at = positionOf(state.doc, 'Alpha');
+        return state.tr.setSelection(TextSelection.create(state.doc, at)).insertText(text, at);
+      });
+    typeInAlpha('Same ');
+    drain();
+    expect(projection.stats().layouts).toBe(1);
+    // The typed paragraph gains a line on the pages.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const height = this.textContent.includes('Longer') ? 40 : 20;
+      return new DOMRect(0, 0, 100, this.tagName === 'P' ? height : 0);
+    });
+    typeInAlpha('Longer ');
+    drain();
+    expect(projection.stats().layouts).toBe(2);
+  });
+
+  it('DOCE-PAGINATION-5.17 lays nothing out at the pause when typing kept its block at its height', async () => {
+    const { projection, drain } = mount();
+    drain();
+    const layouts = projection.stats().layouts;
+    const typeAt = (text: string, at: (doc: EditorState['doc']) => number) =>
+      edit(projection, (state) => {
+        const pos = at(state.doc);
+        return state.tr.setSelection(TextSelection.create(state.doc, pos)).insertText(text, pos);
+      });
+    typeAt('Same ', (doc) => positionOf(doc, 'Alpha'));
+    drain();
+    expect(projection.stats().layouts).toBe(layouts);
+    await expect(projection.whenSettled()).resolves.toBe('settled');
+    // A paragraph emptied may lose its number: the pause lays the pages out.
+    edit(projection, (state) => {
+      const from = positionOf(state.doc, 'Beta two');
+      return state.tr.delete(from, from + 'Beta two'.length);
+    });
+    drain();
+    expect(projection.stats().layouts).toBe(layouts + 1);
+  });
+
   it('DOCE-PAGINATION-5.9 measures again once after a change when a page overflows', () => {
     // The test DOM draws pages with no height, so a page of two paragraphs overflows.
     const { projection, drain } = mount(
@@ -537,7 +583,9 @@ describe('projection layouts', () => {
     drain();
     expect(projection.stats()).toMatchObject({ layouts: 2, blocksMeasured: 4, overflowPages: 2 });
     expect(projection.layoutState()).toBe('settled');
-    edit(projection, (state) => state.tr.insertText('First ', positionOf(state.doc, 'One')));
+    edit(projection, (state) =>
+      layoutNow(state.tr.insertText('First ', positionOf(state.doc, 'One'))),
+    );
     drain();
     expect(projection.stats()).toMatchObject({ layouts: 4, overflowPages: 4 });
   });
@@ -611,7 +659,9 @@ describe('projection layouts', () => {
     }
     expect(projection.layoutState()).toBe('failed');
     const { layouts } = projection.stats();
-    edit(projection, (state) => state.tr.insertText('First ', positionOf(state.doc, 'One')));
+    edit(projection, (state) =>
+      layoutNow(state.tr.insertText('First ', positionOf(state.doc, 'One'))),
+    );
     drain();
     expect(projection.stats().layouts).toBe(layouts + 1);
     expect(projection.layoutState()).toBe('settled');

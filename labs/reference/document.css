@@ -998,15 +998,32 @@ div.de-host-view {
   }
 }
 
-/* A manual page break: a dashed line across the page, labelled, and highlighted when selected. */
+/*
+ * A manual page break: a marker only, taking no height of the page: a thin line across the page
+ * that fades towards its edges, drawn over the page's foot, with light centred lettering, and
+ * highlighted when selected.
+ */
 .de-document-editor .pm-page-content hr.manual-page-break,
 .de-document-editor .pm-page-content [data-page-break] {
   position: relative;
   height: 0;
-  margin: 12px 0;
+  margin: 0;
   border: 0;
-  border-top: 1px dashed #9ca3af;
   overflow: visible;
+}
+
+.de-document-editor .pm-page-content :is(hr.manual-page-break, [data-page-break])::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgb(148 163 184 / 90%) 15%,
+    rgb(148 163 184 / 90%) 85%,
+    transparent
+  );
 }
 
 .de-document-editor .pm-page-content :is(hr.manual-page-break, [data-page-break])::after {
@@ -1016,18 +1033,23 @@ div.de-host-view {
   left: 50%;
   padding: 0 6px;
   background: #fff;
-  color: #6b7280;
+  color: #94a3b8;
   font:
-    600 9px/16px system-ui,
+    600 9.92px/16px system-ui,
     sans-serif;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   transform: translateX(-50%);
 }
 
 .de-document-editor
   .pm-page-content
+  :is(hr.manual-page-break, [data-page-break]).ProseMirror-selectednode::before {
+  background: var(--ref-accent, #0969da);
+}
+
+.de-document-editor
+  .pm-page-content
   :is(hr.manual-page-break, [data-page-break]).ProseMirror-selectednode {
-  border-top-color: var(--ref-accent, #0969da);
   outline: 2px solid color-mix(in srgb, var(--ref-accent, #0969da) 30%, transparent);
 }
 

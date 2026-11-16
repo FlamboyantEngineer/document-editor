@@ -36,6 +36,8 @@ const PX_PER_UNIT: Readonly<Record<string, number>> = Object.freeze({
   in: 96,
   mm: MM_TO_CSS_PX,
   cm: MM_TO_CSS_PX * 10,
+  Q: MM_TO_CSS_PX / 4,
+  pc: 16,
 });
 
 /**
@@ -44,7 +46,7 @@ const PX_PER_UNIT: Readonly<Record<string, number>> = Object.freeze({
  */
 export function lengthToCssPx(length: unknown): string | null {
   if (typeof length !== 'string') return null;
-  const match = /^(-?\d+(?:\.\d+)?)(px|pt|in|mm|cm)$/.exec(length.trim());
+  const match = /^(-?\d+(?:\.\d+)?)(px|pt|pc|in|mm|cm|Q)$/.exec(length.trim());
   const unit = match?.[2];
   if (!match || !unit) return null;
   return `${String(Math.max(0, Number(match[1]) * (PX_PER_UNIT[unit] ?? 1)))}px`;

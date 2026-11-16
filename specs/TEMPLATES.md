@@ -6,7 +6,7 @@ A template sets a document's pages, typography, numbering, footnotes and section
 
 ### DOCE-TEMPLATES-1.1 - Pages and lengths
 
-`PAGE_SIZE_DIMENSIONS` shall give the width and height of each ISO A size and US size a template may name. `lengthToCssPx(length)` shall read an absolute length in `px`, `pt`, `in`, `mm` or `cm` as non-negative CSS pixels, and return null for a relative length or anything that is not a length.
+`PAGE_SIZE_DIMENSIONS` shall give the width and height of each ISO A size and US size a template may name. `lengthToCssPx(length)` shall read an absolute length in `px`, `pt`, `pc`, `in`, `mm`, `cm` or `Q` as non-negative CSS pixels, by arithmetic and with no layout, and return null for a relative length or anything that is not a length.
 
 Implementation: `src/model/templates/template-css-values.ts`
 Verification: `src/model/templates/template-css-values.test.ts`

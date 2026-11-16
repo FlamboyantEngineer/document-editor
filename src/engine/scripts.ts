@@ -17,6 +17,7 @@ import {
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { ScriptRunnerAdapter, ScriptRunPurpose } from '../host/index.js';
 import { readStoredContent, writeDocumentFile } from '../model/index.js';
+import { changedNodes } from '../utils/changed-ranges.js';
 import { isWritersChange } from './edit-lock.js';
 import {
   listScriptBlocks,
@@ -248,12 +249,14 @@ export async function checkStaleScripts(
 // after the change whose output holds something else, by its nodes, text, marks or attributes.
 function editsOutput(tr: Transaction): boolean {
   let edited = false;
-  tr.before.descendants((node, pos) => {
+  const back = tr.mapping.invert();
+  // Only a block the change reaches can hold what it edits.
+  changedNodes(tr.doc, [tr], (after, pos) => {
     if (edited) return false;
-    if (node.type.name !== 'script_block') return !node.isTextblock;
-    const mapped = tr.mapping.mapResult(pos, 1);
-    const after = mapped.deletedAfter ? null : tr.doc.nodeAt(mapped.pos);
-    edited = after?.type === node.type && !sameOutputContent(node.content, after.content);
+    if (after.type.name !== 'script_block') return !after.isTextblock;
+    const mapped = back.mapResult(pos, 1);
+    const node = mapped.deletedAfter ? null : tr.before.nodeAt(mapped.pos);
+    edited = node?.type === after.type && !sameOutputContent(node.content, after.content);
     return false;
   });
   return edited;
