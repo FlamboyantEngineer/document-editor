@@ -1,9 +1,17 @@
 // The second half of the engine's exports, re-exported by its index.
 
 export { isActive } from './active.js';
-export type { ChangeLine, ChangeLineKind, ChangeLines } from './change-lines.js';
+export type {
+  ChangeInset,
+  ChangeInsets,
+  ChangeLine,
+  ChangeLineKind,
+  ChangeLines,
+} from './change-lines.js';
 export {
   CHANGE_LINE_KINDS,
+  changeInsetsKeyOf,
+  changeInsetsOf,
   changeLinesKeyOf,
   changeLinesOf,
   createChangeLines,
