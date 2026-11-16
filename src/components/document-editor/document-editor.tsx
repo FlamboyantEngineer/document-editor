@@ -127,6 +127,11 @@ export interface DocumentEditorProps
   templatePin?: TemplatePin | null | undefined;
   /** On pages (the default), or as one page per section that fills the surface. */
   layout?: DocumentLayout | undefined;
+  /**
+   * How wide the web layout shows each section: filling the surface, as an article (the default),
+   * or at its page width without page margins, as a document (`data-web-width`).
+   */
+  webWidth?: 'fill' | 'page' | undefined;
   /** Whether the writer can edit; a read document keeps its state and selection. Defaults to true. */
   editable?: boolean | undefined;
   /**

@@ -170,7 +170,7 @@ div.de-host-view {
   padding: var(--doc-page-margin-top) var(--doc-page-margin-right) var(--doc-page-margin-bottom)
     var(--doc-page-margin-left);
   /* Pages are paper in every theme: dark text on white, whatever the page around them. */
-  background: #fff;
+  background: var(--doc-page-background, #fff);
   color: #111827;
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
@@ -210,13 +210,10 @@ div.de-host-view {
   display: flow-root;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :first-child,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :first-child {
+/* Blocks in a header or footer take no vertical margins; `:nth-child(n)` outweighs the text styles. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :nth-child(n),
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :nth-child(n) {
   margin-top: 0;
-}
-
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :last-child,
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :last-child {
   margin-bottom: 0;
 }
 
@@ -844,10 +841,12 @@ div.de-host-view {
 
 /*
  * Web layout: the surface (`data-layout="web"`) shows each section as one page that fills its
- * container and grows with its content, inset only by the template's margins.
+ * container and grows with its content, inset only by the template's margins, without the pages'
+ * headers and footers. A document's web layout (`data-web-width="page"`) keeps its page width,
+ * centred, with no page margins, like a large text area.
  */
 .de-document-editor[data-layout='web'] {
-  background: #fff;
+  background: var(--doc-page-background, #fff);
   color: #111827;
 }
 
@@ -859,6 +858,18 @@ div.de-host-view {
   width: auto;
   height: auto;
   box-shadow: none;
+}
+
+.de-document-editor[data-layout='web'] .pm-page-header,
+.de-document-editor[data-layout='web'] .pm-page-footer {
+  display: none;
+}
+
+.de-document-editor[data-layout='web'][data-web-width='page'] .pm-page {
+  width: var(--doc-page-width);
+  max-width: 100%;
+  margin-inline: auto;
+  padding: 0;
 }
 
 /* A document title shown above the content, outside it, in the template's title style. */

@@ -99,6 +99,34 @@ test.describe('document editor lab', () => {
     await expect(pages(page)).toHaveCount(count);
   });
 
+  test('DOCE-LAYOUT-4.1 DOCE-LAYOUT-4.4 shows the web layout without page chrome, a document at its page width', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const paged = await pages(page).first().boundingBox();
+    await page.getByLabel('Web layout').check();
+    await expect(editor(page)).toHaveAttribute('data-web-width', 'fill');
+    const regions = page.locator(
+      '.de-document-editor__content :is(.pm-page-header, .pm-page-footer)',
+    );
+    expect(
+      await regions.evaluateAll((all) => all.map((region) => getComputedStyle(region).display)),
+    ).not.toContain('flow-root');
+    const filled = await pages(page).first().boundingBox();
+    expect(filled?.width ?? 0).toBeGreaterThan(paged?.width ?? 0);
+    await page.getByLabel('Page width').check();
+    await expect(editor(page)).toHaveAttribute('data-web-width', 'page');
+    const shown = await pages(page).first().boundingBox();
+    const content = await page
+      .locator('.de-document-editor__content .pm-page-content')
+      .first()
+      .boundingBox();
+    expect(shown?.width).toBeCloseTo(paged?.width ?? 0, 0);
+    expect(content?.x).toBeCloseTo(shown?.x ?? 0, 0);
+    expect(content?.width).toBeCloseTo(shown?.width ?? 0, 0);
+  });
+
   test('DOCE-EDITOR-2.3 reads the document without taking edits, keeping its text', async ({
     lab,
     page,
