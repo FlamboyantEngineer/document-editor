@@ -9,6 +9,8 @@ export type {
   CreateDocumentOptions,
 } from '../model/templates/template-sections.js';
 export { composeDocumentFile, createDocumentFile } from '../model/templates/template-sections.js';
+export type { DocxLimits } from './docx/docx-checks.js';
+export { DEFAULT_DOCX_LIMITS } from './docx/docx-checks.js';
 export type { ImportedImage } from './docx/docx-package.js';
 export type { DocxCounts } from './docx/docx-resolve.js';
 export type { ImportedPage } from './docx/docx-sections.js';

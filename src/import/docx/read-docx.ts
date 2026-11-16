@@ -19,8 +19,15 @@ import {
   type ImportWarnings,
 } from '../import-warnings.js';
 import { childElement, childElements, type XmlElement } from '../xml-read.js';
-import { DEFAULT_ZIP_LIMITS, readZip, type ZipLimits } from '../zip-read.js';
+import { readZip } from '../zip-read.js';
 import { type BlockReading, readBlockElements, readBlocks } from './docx-blocks.js';
+import {
+  DEFAULT_DOCX_LIMITS,
+  type DocxLimits,
+  refuseLargeOutput,
+  refuseMacros,
+  refuseNonStandardPart,
+} from './docx-checks.js';
 import { type DocxComments, readComments } from './docx-comments.js';
 import { stripHeadingNumbers } from './docx-heading-numbers.js';
 import { readInlineContent } from './docx-inline.js';
@@ -43,8 +50,8 @@ export interface DocxReadOptions {
   readonly template?: Pick<TemplateFile, 'styles'> | undefined;
   /** The `src` an embedded image is given, such as a host's upload placeholder; a `data:` URL by default. */
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
-  /** How much the archive may hold; `DEFAULT_ZIP_LIMITS` by default. */
-  readonly limits?: Partial<ZipLimits> | undefined;
+  /** How much the document may hold; `DEFAULT_DOCX_LIMITS` by default. */
+  readonly limits?: Partial<DocxLimits> | undefined;
   /**
    * Makes the id of each tracked change's suggestion and of each comment (`comment-<id>`); eight
    * random hexadecimal digits by default.
@@ -151,15 +158,19 @@ async function openParts(
   options: DocxReadOptions,
   warnings: ImportWarnings,
 ): Promise<Parts> {
-  const archive = readZip(bytes, { ...DEFAULT_ZIP_LIMITS, ...options.limits });
-  const pkg = openPackage(archive, warnings, { imageSource: options.imageSource });
+  const limits = { ...DEFAULT_DOCX_LIMITS, ...options.limits };
+  const archive = readZip(bytes, limits);
+  await refuseMacros(archive);
+  const pkg = openPackage(archive, warnings, { imageSource: options.imageSource, limits });
   const main = await pkg.part(await mainDocumentPath(archive));
   if (!main) throw importError('damaged', 'The document part is missing.');
   const related = async (kind: string) => {
     const relationship = [...main.relationships.values()].find(
       (each) => relationshipKind(each.type) === kind,
     );
-    return relationship && !relationship.external ? pkg.part(relationship.target) : null;
+    if (!relationship || relationship.external) return null;
+    refuseNonStandardPart(kind, relationship.target);
+    return pkg.part(relationship.target);
   };
   return { package: pkg, main, related };
 }
@@ -290,6 +301,7 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
   const { sections, pages } = await readSections(shared);
   resolveReferences(sections, { bookmarks: shared.bookmarks, warnings, newId });
   const file: DocumentFile = { formatVersion: DOCUMENT_FORMAT_VERSION, sections };
+  refuseLargeOutput(file, { ...DEFAULT_DOCX_LIMITS, ...options.limits });
   return {
     ok: true,
     file,

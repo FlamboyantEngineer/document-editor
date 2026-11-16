@@ -24,8 +24,13 @@ describe('the import entry', () => {
     expect(entry.readMarkdown('# Read').file.sections[0]?.content[0]?.type).toBe('heading');
     expect(entry.readDocx).toBeTypeOf('function');
     expect(entry.importWarningGroup('caption-numbered')).toBe('applied');
-    expect(entry.DEFAULT_ZIP_LIMITS.files).toBe(5000);
-    expect(entry.DEFAULT_ZIP_LIMITS.totalBytes).toBe(256 * 1024 * 1024);
+    expect(entry.DEFAULT_ZIP_LIMITS.files).toBe(10_000);
+    expect(entry.DEFAULT_ZIP_LIMITS.totalBytes).toBe(100 * 1024 * 1024);
+    expect(entry.DEFAULT_DOCX_LIMITS).toMatchObject({
+      xmlBytes: 10 * 1024 * 1024,
+      xmlDepth: 256,
+      outputBytes: 10 * 1024 * 1024,
+    });
     expect(typeof window).toBe('undefined');
   });
 });

@@ -31,10 +31,10 @@ The reader takes styles and numbering by the mapping the library's Word writer u
 
 ### DOCE-IMPORT-2.1 - Reading the file
 
-`readDocx(bytes, { template, imageSource, limits })` shall read a word processing document (`.docx`) with no DOM and no third-party converter: it shall inflate its zip archive with the platform's `DecompressionStream`, parse its XML parts with the library's own reader, and give `{ ok: true, file, warnings, comments, images, pages }`. Bytes that are not a zip archive, an archive without a main document part, a damaged archive, compressed data or XML part, and an archive listing more files than `limits` allow, holding a file larger than they allow, or whose files read inflate to more bytes together than they allow, each part counted once since it is read once (`DEFAULT_ZIP_LIMITS`: 5000 files, 64 MB a file, 256 MB in all) shall give `{ ok: false, failure, message }`, with `failure` `unreadable`, `damaged` or `too-large`, and never throw.
+`readDocx(bytes, { template, imageSource, limits })` shall read a word processing document (`.docx`) with no DOM and no third-party converter: it shall inflate its zip archive with the platform's `DecompressionStream`, parse its XML parts with the library's own reader, and give `{ ok: true, file, warnings, comments, images, pages }`. Bytes that are not a zip archive, an archive without a main document part, a damaged archive, compressed data or XML part, an archive listing more files than `limits` allow, holding a file larger than they allow, or whose files read inflate to more bytes together than they allow, each part counted once since it is read once (`DEFAULT_ZIP_LIMITS`: 10,000 files, 64 MiB a file, 100 MiB in all), an XML part larger or nesting deeper than they allow, and a document read whose JSON is larger than they allow (`DEFAULT_DOCX_LIMITS`: 10 MiB an XML part, 256 levels, 10 MiB read), and a package the reader refuses (DOCE-IMPORT-2.14) shall give `{ ok: false, failure, message }`, with `failure` `unreadable`, `damaged`, `too-large` or `refused`, and never throw. The time a reading may take is the host's to limit, since `readDocx` is a pure function a host runs where it chooses.
 
-Implementation: `src/import/docx/read-docx.ts`, `src/import/zip-read.ts`, `src/import/xml-read.ts`, `src/import/import-error.ts`, `src/import/docx/docx-package.ts`
-Verification: `src/import/docx/read-docx.test.ts`
+Implementation: `src/import/docx/read-docx.ts`, `src/import/zip-read.ts`, `src/import/xml-read.ts`, `src/import/import-error.ts`, `src/import/docx/docx-package.ts`, `src/import/docx/docx-checks.ts`
+Verification: `src/import/docx/read-docx.test.ts`, `src/import/docx/read-docx-limits.test.ts`
 
 ### DOCE-IMPORT-2.2 - Paragraphs and text
 
@@ -119,6 +119,13 @@ A table of contents shall be left out, with a `contents-skipped` warning for eac
 
 Implementation: `src/import/docx/docx-fields.ts`, `src/import/docx/docx-styles.ts`, `src/import/docx/docx-captions.ts`
 Verification: `src/import/docx/read-docx-structure.test.ts`
+
+### DOCE-IMPORT-2.14 - Packages the reader refuses
+
+The reader shall refuse (`refused`) a package with macros: a part named `vbaProject` or `vbaData`, a content type (`[Content_Types].xml` default or override) that is macro-enabled or VBA, or a relationship of a VBA type, whatever its file is called; a main document, styles, numbering, footnotes, endnotes or comments part that is not at its standard place (`word/document.xml`, `word/styles.xml` and so on); and an XML part declaring a document type, which could declare entities or name outside files. It shall never read a part outside the archive, an outside relationship target being only a link's address.
+
+Implementation: `src/import/docx/docx-checks.ts`, `src/import/xml-read.ts`, `src/import/docx/docx-package.ts`
+Verification: `src/import/docx/read-docx-limits.test.ts`, `src/import/xml-read.test.ts`
 
 ## DOCE-IMPORT-3 - Composing documents
 

@@ -6,6 +6,7 @@ import { importError } from '../import-error.js';
 import type { ImportWarnings } from '../import-warnings.js';
 import { childElements, readXml, type XmlElement } from '../xml-read.js';
 import type { ZipArchive } from '../zip-read.js';
+import { DEFAULT_DOCX_LIMITS, type DocxLimits, refuseNonStandardPart } from './docx-checks.js';
 
 /** An image the document embeds: its bytes, media type and where it was stored. */
 export interface ImportedImage {
@@ -38,6 +39,8 @@ export interface DocxPart {
 interface PackageOptions {
   /** The `src` an embedded image is given; a `data:` URL by default. */
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
+  /** How large an XML part may be and how deep it may nest. */
+  readonly limits?: Pick<DocxLimits, 'xmlBytes' | 'xmlDepth'> | undefined;
 }
 
 const MEDIA_TYPES: ReadonlyMap<string, string> = new Map([
@@ -85,8 +88,14 @@ export interface DocxPackage {
   readonly images: ImportedImage[];
 }
 
-async function readText(archive: ZipArchive, path: string): Promise<string | null> {
+async function readText(
+  archive: ZipArchive,
+  path: string,
+  limits: Pick<DocxLimits, 'xmlBytes'> = DEFAULT_DOCX_LIMITS,
+): Promise<string | null> {
   const bytes = await archive.read(path);
+  if (bytes && bytes.length > limits.xmlBytes)
+    throw importError('too-large', `An XML part is larger than ${String(limits.xmlBytes)} bytes.`);
   return bytes ? new TextDecoder().decode(bytes) : null;
 }
 
@@ -97,6 +106,11 @@ export function openPackage(
   options: PackageOptions = {},
 ): DocxPackage {
   const images: ImportedImage[] = [];
+  const limits = options.limits ?? DEFAULT_DOCX_LIMITS;
+  const xml = async (path: string) => {
+    const text = await readText(archive, path, limits);
+    return text === null ? null : readXml(text, limits.xmlDepth);
+  };
   const byPath = new Map<string, ImportedImage | null>();
   const readImage = async (path: string): Promise<ImportedImage | null> => {
     if (byPath.has(path)) return byPath.get(path) ?? null;
@@ -114,9 +128,8 @@ export function openPackage(
     return image;
   };
   const relationshipsOf = async (path: string) => {
-    const text = await readText(archive, relationshipsPath(path));
     const relationships = new Map<string, Relationship>();
-    for (const element of childElements(text ? readXml(text) : null, 'Relationship')) {
+    for (const element of childElements(await xml(relationshipsPath(path)), 'Relationship')) {
       const external = element.attrs.TargetMode === 'External';
       const target = element.attrs.Target ?? '';
       relationships.set(element.attrs.Id ?? '', {
@@ -128,9 +141,8 @@ export function openPackage(
     return relationships;
   };
   const readPart = async (path: string): Promise<DocxPart | null> => {
-    const text = await readText(archive, path);
-    if (text === null) return null;
-    const root = readXml(text);
+    const root = await xml(path);
+    if (root === null) return null;
     const relationships = await relationshipsOf(path);
     const partImages = new Map<string, ImportedImage | null>();
     for (const [id, relationship] of relationships) {
@@ -167,5 +179,7 @@ export async function mainDocumentPath(archive: ZipArchive): Promise<string> {
     (element) => relationshipKind(element.attrs.Type ?? '') === 'officeDocument',
   );
   if (!main) throw importError('unreadable', 'The file is not a word processing document.');
-  return resolvePath('', main.attrs.Target ?? '');
+  const path = resolvePath('', main.attrs.Target ?? '');
+  refuseNonStandardPart('officeDocument', path);
+  return path;
 }
