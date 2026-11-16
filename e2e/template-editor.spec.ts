@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect, test, waitForLab } from './fixtures.js';
 import {
   closeCard,
@@ -22,6 +22,35 @@ const style = (page: Page, selector: string, property: string) =>
     .evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
 
 // The landscape segment of the orientation choice.
+// Every page's header or footer.
+const regions = (page: Page, kind: 'header' | 'footer') =>
+  content(page).locator(`.pm-page-${kind}`);
+// The text of every page's header or footer.
+const regionTexts = (page: Page, kind: 'header' | 'footer') =>
+  regions(page, kind).evaluateAll((all) => all.map((one) => one.textContent ?? ''));
+// Clicks into the end of a block of one page's header or footer, its page scrolled to it, and
+// returns the block.
+async function clickRegion(
+  page: Page,
+  at: { kind: 'header' | 'footer'; page: number; block?: string; last?: boolean },
+) {
+  const blocks = regions(page, at.kind)
+    .nth(at.page)
+    .locator(at.block ?? 'p');
+  const target = at.last === false ? blocks.first() : blocks.last();
+  await target.scrollIntoViewIfNeeded();
+  await target.click();
+  await page.keyboard.press('End');
+  return target;
+}
+// Types text key by key, each key's text shown in the block before the next key.
+async function typeInto(page: Page, block: Locator, text: string) {
+  const before = (await block.textContent()) ?? '';
+  for (let index = 1; index <= text.length; index += 1) {
+    await page.keyboard.type(text.charAt(index - 1));
+    await expect(block).toHaveText(before + text.slice(0, index));
+  }
+}
 const landscape = (page: Page) =>
   panel(page)
     .first()
@@ -461,5 +490,57 @@ test.describe('template editor lab', () => {
     await expect(page.getByRole('status', { name: 'Template report' })).toContainText(
       'JSON invalid',
     );
+  });
+
+  test('DOCE-SECTIONS-5.1 DOCE-PAGINATION-8.7 types in headers and footers, in a paragraph and a table cell, on the first and a later page', async ({
+    lab,
+    page,
+  }) => {
+    test.slow();
+    await lab.open('template-editor');
+    // Each region holds a paragraph and a table of two cells.
+    await page.getByLabel('Edit as JSON').check();
+    const json = page.getByRole('textbox', { name: 'Template JSON' });
+    const template = JSON.parse((await json.inputValue()) || '{}') as Record<string, unknown>;
+    const text = (value: string) => [
+      { type: 'paragraph', content: [{ type: 'text', text: value }] },
+    ];
+    const cell = { type: 'tableCell', content: [{ type: 'paragraph' }] };
+    const region = (name: string) => ({
+      content: [
+        ...text(name),
+        { type: 'table', content: [{ type: 'tableRow', content: [cell, cell] }] },
+      ],
+    });
+    await json.fill(
+      JSON.stringify({ ...template, header: region('Head'), footer: region('Foot') }),
+    );
+    await json.blur();
+    await page.getByLabel('Edit as JSON').uncheck();
+    await expect(regions(page, 'footer').first().locator('td')).toHaveCount(2);
+    await expect(page.locator('.de-document-editor')).toHaveAttribute(
+      'data-layout-state',
+      'settled',
+    );
+    const later = (await regions(page, 'footer').count()) - 1;
+    expect(later).toBeGreaterThan(0);
+    for (const kind of ['header', 'footer'] as const) {
+      // A paragraph, on a later page and then on the first: every page shows the text.
+      await typeInto(page, await clickRegion(page, { kind, page: later }), ' later');
+      await typeInto(page, await clickRegion(page, { kind, page: 0 }), ' first');
+      await expect
+        .poll(() => regionTexts(page, kind))
+        .toEqual(Array(later + 1).fill(expect.stringMatching(/ later first/)));
+      // A table cell, on the first page and then on a later one.
+      const first = await clickRegion(page, { kind, page: 0, block: 'td', last: false });
+      await typeInto(page, first, 'Cell one');
+      await typeInto(page, await clickRegion(page, { kind, page: later, block: 'td' }), 'Cell two');
+      for (const index of [0, later]) {
+        for (const value of ['Cell one', 'Cell two']) {
+          const cells = regions(page, kind).nth(index).locator('td', { hasText: value });
+          await expect(cells).toHaveCount(1);
+        }
+      }
+    }
   });
 });
