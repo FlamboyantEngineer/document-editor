@@ -392,4 +392,26 @@ describe('collab sync on a shared document its schema cannot read', () => {
     typeAtEnd(editor, 0, '!');
     expect(Y.encodeStateAsUpdate(editor.doc)).toEqual(held);
   });
+
+  it('DOCE-COLLAB-4.1 sends edits beside characters outside the basic plane as whole characters', async () => {
+    const { a, b, sync } = pair();
+    // 😀 and 😁 share their first UTF-16 unit, so a diff by units would cut between the two halves.
+    typeAtEnd(a, 1, ' 😀😁');
+    sync();
+    await settle();
+    const end = block(b.state.doc, 1).to;
+    b.dispatch(b.state.tr.delete(end - 2, end));
+    b.dispatch(b.state.tr.insertText('😂', end - 2));
+    a.dispatch(a.state.tr.insertText('👍', block(a.state.doc, 1).to - 4));
+    sync();
+    await settle();
+    expectConverged(a, b);
+    const text = block(a.state.doc, 1).node.textContent;
+    expect(text.endsWith(' 👍😀😂')).toBe(true);
+    expect(text).not.toMatch(
+      /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u,
+    );
+    const shared = sharedDocument(b.doc)?.textContent ?? '';
+    expect(shared).toContain(' 👍😀😂');
+  });
 });

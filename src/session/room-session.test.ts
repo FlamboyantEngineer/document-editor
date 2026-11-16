@@ -3,7 +3,11 @@ import * as delta from 'lib0/delta';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { documentSchema } from '../../test/document-markup.js';
 import { createSessionRooms, type SessionRooms } from '../../test/session-rooms.js';
+import { readContent } from '../collab/delta.js';
+import type * as Activity from '../collab/presence-activity.js';
+import { createRoomScope } from '../collab/room-scope.js';
 import { listPeers } from '../engine/presence.js';
 import { undoCommand } from '../engine/undo-commands.js';
 import { FULL_CAPABILITIES } from '../host/capabilities.js';
@@ -11,6 +15,20 @@ import { createMemoryHost, type MemoryHostOptions } from '../host/memory-host.js
 import type { DocumentFile } from '../model/format/document-format.js';
 import { createDocumentSession, type DocumentSession } from './document-session.js';
 import { createDocumentVersions } from './versions.js';
+// Counts the test's own events as the reader's and, unless a test says otherwise, takes the reader
+// as placed in the content from the start.
+const reader = vi.hoisted(() => ({ placed: true }));
+
+vi.mock('../collab/presence-activity.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof Activity>();
+  return {
+    ...actual,
+    followReader: (...[view, gate, handlers]: Parameters<typeof actual.followReader>) => {
+      if (reader.placed) gate.placed = true;
+      return actual.followReader(view, gate, { ...handlers, isReader: () => true });
+    },
+  };
+});
 
 const DOCUMENT: DocumentFile = {
   formatVersion: 1,
@@ -312,6 +330,59 @@ describe('createDocumentSession in room mode', () => {
     expect(shown(ada).template.page?.size).toBe('US Letter');
     await vi.waitFor(() => expect(shown(grace).pin?.id).toBe('memo'));
     await vi.waitFor(() => expect(shown(grace).template.page?.size).toBe('US Letter'));
+  });
+
+  it('DOCE-SESSION-3.5 stores the pin and the content moved to the template in one change', async () => {
+    roomsFor({
+      formatVersion: 1,
+      sections: [
+        {
+          name: 'cover',
+          content: [
+            {
+              type: 'paragraph',
+              attrs: { id: 'c0000001' },
+              content: [{ type: 'text', text: 'Old cover' }],
+            },
+          ],
+        },
+        DOCUMENT.sections[0] as DocumentFile['sections'][number],
+      ],
+    });
+    const templates = [
+      {
+        formatVersion: 1 as const,
+        id: 'memo',
+        sections: [
+          {
+            name: 'cover',
+            required: true,
+            editable: false,
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'New cover' }] }],
+          },
+        ],
+      },
+    ];
+    const ada = openAs('ada', { templates });
+    const grace = openAs('grace', { templates });
+    await Promise.all([ada.ready, grace.ready]);
+    mount(ada);
+    const graceDoc = rooms?.providerOf('grace')?.doc;
+    if (!graceDoc) throw new Error('Grace has no room.');
+    const scope = createRoomScope(graceDoc);
+    // Each time Grace's copy of the room changes, whether it pins the template and holds its cover.
+    const seen: [unknown, boolean][] = [];
+    graceDoc.on('afterTransaction', () => {
+      const text = readContent(documentSchema, scope.content)?.textContent ?? '';
+      seen.push([
+        (scope.meta.getAttr('template') as { id?: string } | undefined)?.id,
+        text.includes('New cover'),
+      ]);
+    });
+    expect(await ada.setTemplate({ id: 'memo', revision: null })).toBe(true);
+    await vi.waitFor(() => expect(seen.at(-1)).toEqual(['memo', true]));
+    expect(seen.filter(([pin, moved]) => (pin === 'memo') !== moved)).toEqual([]);
+    expect(textOf(shown(ada).state)).toContain('New cover');
   });
 
   it('DOCE-SESSION-3.7 connects through a room provider', async () => {

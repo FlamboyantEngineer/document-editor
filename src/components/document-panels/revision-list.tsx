@@ -26,6 +26,8 @@ interface RevisionListProps {
   selectedKeys?: Iterable<Key> | undefined;
   onSelectionChange: (keys: Set<Key>) => void;
   onCompare?: ((keys: [Key, Key]) => void) | undefined;
+  /** Offers to view a version from its row's actions. */
+  onView?: ((key: Key) => void) | undefined;
   onRestore?: ((key: Key) => unknown) | undefined;
   onRename?: ((key: Key, label: string) => unknown) | undefined;
   showFilters?: boolean | undefined;
@@ -115,7 +117,7 @@ function useRevisionList(props: RevisionListProps) {
 
 /** The editor's saved-revision collection and the dialogs its actions open. */
 export function RevisionList(props: RevisionListProps) {
-  const { onRename, onRestore } = props;
+  const { onRename, onRestore, onView } = props;
   const model = useRevisionList(props);
   return (
     <Stack
@@ -167,9 +169,12 @@ export function RevisionList(props: RevisionListProps) {
             onToggle={() => model.toggle(version.id)}
             labels={model.labels}
             timeFormat={model.timeFormat}
+            canView={Boolean(onView)}
             canRename={Boolean(onRename)}
             canRestore={Boolean(onRestore && version.id !== props.currentKey)}
-            onAction={(action) => model.openDialog(version.id, action)}
+            onAction={(action) =>
+              action === 'view' ? onView?.(version.id) : model.openDialog(version.id, action)
+            }
           />
         ))}
       </ListView>

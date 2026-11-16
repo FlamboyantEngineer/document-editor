@@ -5,6 +5,7 @@ import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type HeadlessEditor, headlessEditor, readFixture } from '../../test/collab-fixtures.js';
 import { createPresence, listPeers } from '../engine/presence.js';
+import { suggestionsKey } from '../engine/suggestions.js';
 import type { DocumentFile } from '../model/index.js';
 import {
   type AwarenessChanges,
@@ -12,6 +13,22 @@ import {
   createAwarenessPresence,
   type PresenceAwareness,
 } from './awareness.js';
+import type * as Activity from './presence-activity.js';
+
+// Counts the test's own events as the reader's and, unless a test says otherwise, takes the reader
+// as placed in the content from the start.
+const reader = vi.hoisted(() => ({ placed: true }));
+
+vi.mock('./presence-activity.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof Activity>();
+  return {
+    ...actual,
+    followReader: (...[view, gate, handlers]: Parameters<typeof actual.followReader>) => {
+      if (reader.placed) gate.placed = true;
+      return actual.followReader(view, gate, { ...handlers, isReader: () => true });
+    },
+  };
+});
 
 const FILE: DocumentFile = {
   formatVersion: 1,
@@ -243,6 +260,87 @@ describe('awareness presence', () => {
       expect(listPeers(b.state)[0]?.status).toBe('away');
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('DOCE-COLLAB-1.5 takes from another person only an email of one line', async () => {
+    const { a, awarenessB } = await pair();
+    const publish = async (email: string) => {
+      awarenessB.setLocalStateField('user', { id: 'grace', name: 'Grace', email });
+      await settle();
+      return listPeers(a.state)[0];
+    };
+    expect(await publish('grace@example.com')).toMatchObject({ email: 'grace@example.com' });
+    expect(await publish('grace@example.com\nforged')).not.toHaveProperty('email');
+    expect(await publish('not an email')).not.toHaveProperty('email');
+  });
+
+  it('DOCE-COLLAB-1.6 shares what each person did last: viewing, editing or reviewing', async () => {
+    const { a, b, sync } = await pair();
+    const activityOfAda = async () => {
+      await settle();
+      sync();
+      await settle();
+      return listPeers(b.state)[0]?.activity;
+    };
+    expect(await activityOfAda()).toBe('viewing');
+    a.dispatch(a.state.tr.insertText('New ', 3));
+    expect(await activityOfAda()).toBe('editing');
+    select(a, 5);
+    expect(await activityOfAda()).toBe('viewing');
+    a.dispatch(a.state.tr.insertText('x', 5).setMeta(suggestionsKey, 'suggest'));
+    expect(await activityOfAda()).toBe('reviewing');
+    select(a, 5);
+    const comment = a.state.schema.marks.comment_highlight?.create({ commentId: 'c1' });
+    if (!comment) throw new Error('The schema has no comment anchors.');
+    a.dispatch(a.state.tr.addMark(3, 8, comment));
+    expect(await activityOfAda()).toBe('reviewing');
+    // Another person's change is no activity of the reader's.
+    b.dispatch(b.state.tr.insertText('Grace ', 3));
+    expect(await activityOfAda()).toBe('reviewing');
+    expect(listPeers(a.state)[0]?.activity).toBe('editing');
+  });
+
+  it('DOCE-COLLAB-1.6 makes an idle person active when they scroll the editor by wheel', async () => {
+    vi.useFakeTimers();
+    try {
+      const { a, b } = await pair({ idleAfter: 1000 });
+      document.body.append(a.view.dom);
+      vi.advanceTimersByTime(1500);
+      await settle();
+      expect(listPeers(b.state)[0]?.status).toBe('idle');
+      const elsewhere = document.body.appendChild(document.createElement('aside'));
+      elsewhere.dispatchEvent(new WheelEvent('wheel', { bubbles: true }));
+      elsewhere.remove();
+      await settle();
+      expect(listPeers(b.state)[0]?.status).toBe('idle');
+      a.view.dom.dispatchEvent(new WheelEvent('wheel', { bubbles: true }));
+      await settle();
+      expect(listPeers(b.state)[0]).toMatchObject({ status: 'active', activity: 'viewing' });
+      a.view.dom.remove();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('DOCE-COLLAB-1.5 shares no caret until the reader points, selects or types in the content, and keeps it after', async () => {
+    reader.placed = false;
+    try {
+      const { a, b } = await pair();
+      const ada = () => listPeers(b.state).find((peer) => peer.id === 'ada');
+      select(a, 5);
+      await settle();
+      expect(ada()).toMatchObject({ id: 'ada', head: null });
+      a.view.dom.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      await vi.waitFor(() => expect(ada()?.head).toBe(5));
+      // A layout switch makes a new view of the same state: the reader stays placed.
+      const state = a.state;
+      a.destroy();
+      const next = new EditorView(document.createElement('div'), { state });
+      await vi.waitFor(() => expect(ada()?.head).toBe(5));
+      next.destroy();
+    } finally {
+      reader.placed = true;
     }
   });
 });

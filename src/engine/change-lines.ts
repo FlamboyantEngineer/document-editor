@@ -31,6 +31,23 @@ export interface ChangeLine {
 /** The lines that changed, by the position of the block they are in. */
 export type ChangeLines = ReadonlyMap<number, readonly ChangeLine[]>;
 
+/**
+ * How far a barred block's edges sit inside the page's content box, in unscaled CSS pixels, so its
+ * bars keep one column at the template's offset from the content whatever the block's indent.
+ */
+export interface ChangeInset {
+  readonly left: number;
+  readonly right: number;
+}
+
+/** The insets of the barred blocks, by the block's position. */
+export type ChangeInsets = ReadonlyMap<number, ChangeInset>;
+
+interface Drawn {
+  readonly lines: ChangeLines;
+  readonly insets: ChangeInsets;
+}
+
 /** The stronger of two kinds of change on one line, by `CHANGE_LINE_KINDS`'s order. */
 export function strongerChange(
   one: ChangeLineKind | null,
@@ -40,13 +57,18 @@ export function strongerChange(
   return CHANGE_LINE_KINDS.indexOf(one) <= CHANGE_LINE_KINDS.indexOf(other) ? one : other;
 }
 
-const changeLinesKey = new PluginKey<ChangeLines>('changeLines');
+const changeLinesKey = new PluginKey<Drawn>('changeLines');
 
-const NO_LINES: ChangeLines = new Map();
+const NOTHING: Drawn = { lines: new Map(), insets: new Map() };
 
 /** The lines a state shows bars beside. */
 export function changeLinesOf(state: EditorState): ChangeLines {
-  return changeLinesKey.getState(state) ?? NO_LINES;
+  return (changeLinesKey.getState(state) ?? NOTHING).lines;
+}
+
+/** The insets of the blocks a state shows bars beside. */
+export function changeInsetsOf(state: EditorState): ChangeInsets {
+  return (changeLinesKey.getState(state) ?? NOTHING).insets;
 }
 
 /** Whether a state draws the bars beside changed lines. */
@@ -54,9 +76,20 @@ export function drawsChangeLines(state: EditorState): boolean {
   return changeLinesKey.getState(state) !== undefined;
 }
 
-/** Sets the lines measured, out of the undo history. */
-export function setChangeLines(tr: Transaction, lines: ChangeLines): Transaction {
-  return tr.setMeta(changeLinesKey, lines).setMeta('addToHistory', false);
+/** Sets the lines and the insets measured, out of the undo history. */
+export function setChangeLines(
+  tr: Transaction,
+  lines: ChangeLines,
+  insets: ChangeInsets = NOTHING.insets,
+): Transaction {
+  return tr.setMeta(changeLinesKey, { lines, insets }).setMeta('addToHistory', false);
+}
+
+/** What a set of insets reads as, for telling whether it changed. */
+export function changeInsetsKeyOf(insets: ChangeInsets): string {
+  return [...insets]
+    .map(([pos, inset]) => `${String(pos)}:${inset.left.toFixed(1)},${inset.right.toFixed(1)}`)
+    .join('|');
 }
 
 /** What a set of lines reads as, for telling whether it changed. */
@@ -71,16 +104,18 @@ export function changeLinesKeyOf(lines: ChangeLines): string {
     .join('|');
 }
 
-// The lines kept where their blocks went, until they are measured again.
-function mapLines(lines: ChangeLines, tr: Transaction): ChangeLines {
-  if (!lines.size) return lines;
-  const mapped = new Map<number, readonly ChangeLine[]>();
-  for (const [pos, found] of lines) {
+// The lines or insets kept where their blocks went, until they are measured again.
+function mapByBlock<T>(byBlock: ReadonlyMap<number, T>, tr: Transaction): ReadonlyMap<number, T> {
+  if (!byBlock.size) return byBlock;
+  const mapped = new Map<number, T>();
+  for (const [pos, found] of byBlock) {
     const result = tr.mapping.mapResult(pos, 1);
     if (!result.deletedAfter) mapped.set(result.pos, found);
   }
   return mapped;
 }
+
+const px = (value: number) => `${String(Math.round(value * 10) / 10)}px`;
 
 function drawLines(owner: Document, lines: readonly ChangeLine[]): HTMLElement {
   const holder = owner.createElement('span');
@@ -98,8 +133,20 @@ function drawLines(owner: Document, lines: readonly ChangeLine[]): HTMLElement {
   return holder;
 }
 
-function decorate(state: EditorState): DecorationSet {
+// Each barred block's inset, as the properties its bars, and its lines' bars, place themselves by.
+function insetDecorations(state: EditorState): Decoration[] {
   const decorations: Decoration[] = [];
+  for (const [pos, inset] of changeInsetsOf(state)) {
+    const node = pos < state.doc.content.size ? state.doc.nodeAt(pos) : null;
+    if (!node || node.isInline) continue;
+    const style = `--de-change-bar-inset-left: ${px(inset.left)}; --de-change-bar-inset-right: ${px(inset.right)};`;
+    decorations.push(Decoration.node(pos, pos + node.nodeSize, { style }));
+  }
+  return decorations;
+}
+
+function decorate(state: EditorState): DecorationSet {
+  const decorations = insetDecorations(state);
   for (const [pos, lines] of changeLinesOf(state)) {
     const node = pos < state.doc.content.size ? state.doc.nodeAt(pos) : null;
     if (!node?.isTextblock || !lines.length) continue;
@@ -119,15 +166,16 @@ function decorate(state: EditorState): DecorationSet {
  * Draws the bars beside the lines that changed, as `setChangeLines` sets them, kept where their
  * blocks go until they are set again.
  */
-export function createChangeLines(): Plugin<ChangeLines> {
-  return new Plugin<ChangeLines>({
+export function createChangeLines(): Plugin<Drawn> {
+  return new Plugin<Drawn>({
     key: changeLinesKey,
     state: {
-      init: () => NO_LINES,
+      init: () => NOTHING,
       apply: (tr, value) => {
-        const set = tr.getMeta(changeLinesKey) as ChangeLines | undefined;
+        const set = tr.getMeta(changeLinesKey) as Drawn | undefined;
         if (set) return set;
-        return tr.docChanged ? mapLines(value, tr) : value;
+        if (!tr.docChanged) return value;
+        return { lines: mapByBlock(value.lines, tr), insets: mapByBlock(value.insets, tr) };
       },
     },
     props: { decorations: decorate },

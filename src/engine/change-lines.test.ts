@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile } from '../model/index.js';
 import {
+  changeInsetsOf,
   changeLinesOf,
   createChangeLines,
   setChangeLines,
@@ -65,6 +66,21 @@ describe('change lines', () => {
     // Typing before the block moves its lines with it.
     view.dispatch(view.state.tr.insertText('First ', blockOf(view.state, 'One') + 1));
     expect([...changeLinesOf(view.state).keys()]).toEqual([blockOf(view.state, 'Two')]);
+    view.destroy();
+  });
+
+  it('DOCE-VERSIONS-2.4 sets each barred block its inset in the page content, kept where it goes', () => {
+    let state = EditorState.create({ doc, plugins: [createChangeLines()] });
+    const two = blockOf(state, 'Two');
+    state = state.apply(
+      setChangeLines(state.tr, new Map(), new Map([[two, { left: 24, right: 0 }]])),
+    );
+    const view = new EditorView(document.createElement('div'), { state });
+    const block = view.nodeDOM(blockOf(view.state, 'Two')) as HTMLElement;
+    expect(block.style.getPropertyValue('--de-change-bar-inset-left')).toBe('24px');
+    expect(block.style.getPropertyValue('--de-change-bar-inset-right')).toBe('0px');
+    view.dispatch(view.state.tr.insertText('First ', blockOf(view.state, 'One') + 1));
+    expect([...changeInsetsOf(view.state).keys()]).toEqual([blockOf(view.state, 'Two')]);
     view.destroy();
   });
 });

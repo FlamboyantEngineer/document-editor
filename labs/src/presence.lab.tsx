@@ -26,7 +26,7 @@ import {
   documentToYjs,
   type PresenceAwareness,
 } from '../../src/collab/index.js';
-import { ConnectionStatus, DocumentEditor } from '../../src/components/index.js';
+import { ConnectionStatus, DocumentEditor, DocumentPresence } from '../../src/components/index.js';
 import { createDocumentEditing, createPresence } from '../../src/engine/index.js';
 import {
   BASE_TEMPLATE,
@@ -222,7 +222,12 @@ function PersonDocument(props: PersonDocumentProps) {
       toolbar={false}
       aria-label={`${props.person.name}’s document`}
       statusBar={{
-        arrange: (items) => [...items, { id: 'connection', side: 'end', content: props.status }],
+        // Without a toolbar, the people in the room show in the status bar.
+        arrange: (items) => [
+          { id: 'presence', side: 'start', content: <DocumentPresence /> },
+          ...items,
+          { id: 'connection', side: 'end', content: props.status },
+        ],
       }}
     />
   );

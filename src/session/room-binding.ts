@@ -32,7 +32,14 @@ export interface RoomBinding {
   readonly plugins: readonly Plugin[];
   /** The template the room's document pins, or null for the base template. */
   pin(): TemplatePin | null;
-  setPin(pin: TemplatePin | null): void;
+  /**
+   * Pins a template for every reader; given `move`, also writes the room's content as `move` gives
+   * it from what the room holds, in the same change, so no reader sees one without the other.
+   */
+  setPin(
+    pin: TemplatePin | null,
+    move?: ((held: ProseMirrorNode) => ProseMirrorNode | null) | undefined,
+  ): void;
   /** Calls `onPin` whenever another writer pins another template, until the returned function. */
   followPin(onPin: (pin: TemplatePin | null) => void): () => void;
   /**
@@ -132,9 +139,14 @@ export function bindRoom(shared: unknown, options: RoomBindingOptions): RoomBind
       createCollabUndo(),
     ],
     pin: () => asPin(meta.getAttr(TEMPLATE_ATTR)),
-    setPin: (pin) => {
+    setPin: (pin, move) => {
+      const held = move && !unreadable ? content() : null;
+      const moved = held && move ? move(held) : null;
       doc.transact(() => {
         meta.setAttr(TEMPLATE_ATTR, pin as never);
+        if (held && moved && !moved.eq(held)) {
+          scope.content.applyDelta(diffNodes(held, moved) as never);
+        }
       }, origin);
     },
     followPin: (onPin) => {

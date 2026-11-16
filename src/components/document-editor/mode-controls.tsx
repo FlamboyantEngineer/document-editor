@@ -4,8 +4,10 @@
 
 import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
+import { listPeers } from '../../engine/presence.js';
 import type { EditingMode } from '../../host/index.js';
 import type { DocumentMarkup, EditorContext } from './editor-context.js';
+import { DocumentPresence } from './presence-avatars.js';
 import type { ShellLabels } from './shell-labels.js';
 import type { ToolbarItem } from './toolbar-items.js';
 
@@ -69,9 +71,22 @@ function markupLabel(context: EditorContext): string {
   return context.labels[shown.label];
 }
 
-/** The toolbar's mode and markup menus, each showing what it chose, while the host offers it. */
+/**
+ * The other people in the document, then the mode and markup menus, each showing what it chose,
+ * while the host offers it (DOCE-COLLAB-1.3).
+ */
 export function shellItems(features: ShellFeatures): ToolbarItem[] {
   return [
+    {
+      kind: 'custom' as const,
+      id: 'presence',
+      isVisible: (context: EditorContext) => listPeers(context.state).length > 0,
+      render: () => (
+        <span data-item="presence">
+          <DocumentPresence />
+        </span>
+      ),
+    },
     ...(features.onModeChange
       ? [
           {

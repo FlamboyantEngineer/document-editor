@@ -52,6 +52,13 @@ const heading = (id: string, value: string): StoredNode => ({
   content: [text(value)],
 });
 
+// A list whose one item the newest version changes, so its bars show beside an indented block.
+const list = (value: string): StoredNode => ({
+  type: 'bullet_list',
+  attrs: { id: 'l0000001' },
+  content: [{ type: 'list_item', attrs: { id: 'l0000002' }, content: [line('l0000003', value)] }],
+});
+
 // Every version ends with a retention section, whose rule the newest version changes.
 const file = (retention: string, ...content: StoredNode[]): DocumentFile => ({
   formatVersion: 1,
@@ -79,6 +86,7 @@ const FIRST = file(
   line('a0000003', 'The log keeps every report for ninety days.'),
   line('a0000004', 'Operators may clear the log at any time.'),
   line('a0000006', RECORD),
+  list('Faults go to the log.'),
 );
 
 const SECOND = file(
@@ -92,6 +100,7 @@ const SECOND = file(
   line('a0000003', 'The log keeps every report for ninety days.'),
   line('a0000004', 'Operators may clear the log at any time.'),
   line('a0000006', RECORD),
+  list('Faults go to the log.'),
 );
 
 const THIRD = file(
@@ -105,6 +114,7 @@ const THIRD = file(
   ]),
   line('a0000005', 'Each report names the fault and where it was detected.'),
   line('a0000006', RECORD.replace('what happened', 'the fault')),
+  list('Faults go to the log at once.'),
 );
 
 const HOST = createMemoryHost({
