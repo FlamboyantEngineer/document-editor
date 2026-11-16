@@ -147,10 +147,10 @@ Verification: `src/engine/template-sync.test.ts`
 
 ### DOCE-SECTIONS-5.1 - Editing the regions on the pages
 
-While `createRegionEditing` is enabled, which the document editor's `onRegionChange` turns on, every page's header and footer shall be editable, an empty one holding a paragraph to type in; a writer's edit in one shall show in the same region of every page of its section, stand over the template's region (`regionEdits`) until the template holds it, and be handed to `onChange` as the section, the region and its stored content (`writeStoredContent`).
+While `createRegionEditing` is enabled, which the document editor's `onRegionChange` turns on, every page's header and footer shall be editable, an empty one holding a paragraph to type in; a writer's edit in one shall show in the same region of every page of its section, and an edit of the document's own region in every page of a section that shows it, neither the section nor its template section setting its own, in the same transaction, so keys typed before the template holds the edit are all kept; it shall stand over the template's region (`regionEdits`) until the template holds it, and be handed to `onChange` as the section, the region and its stored content (`writeStoredContent`).
 
 Implementation: `src/engine/region-editing.ts`, `src/model/templates/page-regions.ts`, `src/engine/document-sections.ts`, `src/components/document-editor/use-document-layout.ts`
-Verification: `src/engine/region-editing.test.ts`, `e2e/template-editor.spec.ts`
+Verification: `src/engine/region-editing.test.ts`, `e2e/template-editor.spec.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-SECTIONS-5.2 - Section content and placeholders in place
 

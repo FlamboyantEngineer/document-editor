@@ -29,6 +29,7 @@ import {
   type DocumentCommentsLabels,
   hooks,
   type MentionCardTarget,
+  type ThreadActionTarget,
 } from './comment-cards.js';
 import { useCommentControls } from './comment-controls.js';
 import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
@@ -38,6 +39,7 @@ import { useCommentPointer } from './comment-pointer-controls.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import type { CommentPointer } from './document-pointer.js';
 import { MarginCard, useCardPolicy, useStableCallbacks } from './margin-card.js';
+import type { ReplyStart, ShownActivity } from './thread-card-hooks.js';
 import type { ThreadPermissionPolicy } from './thread-permissions.js';
 import { useCardContext } from './use-card-context.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
@@ -93,10 +95,28 @@ export interface DocumentCommentsOptions {
    */
   mentionCard?: ((target: MentionCardTarget) => ReactNode) | null | undefined;
   /**
-   * The host's own actions in each comment's menu, before Edit and Delete, such as copying a link
+   * The host's own actions in each comment's menu, after Edit and Delete, such as copying a link
    * to it; the opening comment's (`index` 0) act on the whole thread.
    */
   commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
+  /**
+   * The host's own actions in each thread's and each suggestion's header menu, after the opening
+   * comment's Edit and Delete, such as copying a link to it; the menu shows also while the thread is
+   * resolved or the reader may not comment.
+   */
+  threadActions?: ((target: ThreadActionTarget) => readonly MenuEntry[]) | undefined;
+  /** Whether deleting a comment asks for confirmation first; true by default. */
+  confirmsDelete?: boolean | undefined;
+  /**
+   * The text a thread's reply starts with for the reader, such as a mention of the assistant the
+   * reader's last comment asked; used only while nothing is typed for the thread.
+   */
+  replyStart?: ReplyStart | undefined;
+  /**
+   * Called once a reply being written for the reader (a `pending` comment) is drawn and painted on
+   * a card, once for each card that shows it, so the host may start the work behind it only then.
+   */
+  onActivityShown?: ((shown: ShownActivity) => void) | undefined;
   /**
    * Shows a marker beside the text of each thread and suggestion, whose card opens only when the
    * reader asks for it (`markers`, the default), or a card for each (`cards`).
@@ -278,7 +298,15 @@ function CommentsMargin(props: DocumentCommentsProps) {
   }
   const byKey = new Map(items.map((item) => [item.key, item]));
   const policy = useCardPolicy(props.suggestionPolicy, comments.threads);
-  const commands = useStableCallbacks({ run, startThread: () => startThread() });
+  const commands = useStableCallbacks({
+    run,
+    startThread: () => startThread(),
+    // The thread just stored stays the active card, and keeps focus.
+    onStored: (key) => {
+      setActive(key);
+      cards.focusOn(key, 'card');
+    },
+  });
   return (
     <AnnotationLayer
       ref={setLayer}

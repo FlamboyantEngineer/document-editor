@@ -124,8 +124,15 @@
   color: var(--doc-paragraph-color, #111827);
 }
 
-.de-document-editor__content {
+/*
+ * The pages and the measuring view wrap text alike: runs of spaces kept, and a word longer than a
+ * line broken, as the browser breaks it in an editable view on its own, so a block measures at the
+ * height the pages draw it.
+ */
+.de-document-editor__content,
+.de-document-editor__measure {
   white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 /*
@@ -1188,6 +1195,11 @@ a.de-contents__entry {
   user-select: none;
 }
 
+/* A block with line bars places them from its own top. */
+.de-document-editor :has(> .de-change-lines) {
+  position: relative;
+}
+
 .de-document-editor span[data-diff-change='insertion'] {
   position: static;
   background: color-mix(in srgb, var(--doc-change-bar-insertions-color, #00dd00) 18%, transparent);
@@ -1235,6 +1247,16 @@ a.de-contents__entry {
 
 .de-document-comments__card {
   translate: var(--de-comment-offset, 0px) 0;
+}
+
+/* A suggestion's opening post: what it does above the text it changes. */
+.de-document-comments__change p {
+  margin: 0 0 4px;
+}
+
+/* How a decided suggestion's thread was decided, beside its header's controls. */
+.de-document-comments__decision {
+  margin-inline-start: auto;
 }
 
 /* The gap cursor: a blinking line where the caret stands between two objects. */

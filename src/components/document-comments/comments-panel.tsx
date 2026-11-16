@@ -9,7 +9,7 @@ import type { Key } from '@flamboyantengineer/ui-components/core';
 import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-choice';
 import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   canStartComment,
   commentAnchors,
@@ -22,7 +22,7 @@ import { type EditorContext, useDocumentEditor } from '../document-editor/docume
 import type { AnchorTarget } from './anchor-rects.js';
 import { DEFAULT_COMMENTS_LABELS } from './comment-cards.js';
 import type { CommentsFilter } from './comment-filters.js';
-import { useCommentFocus } from './comment-focus.js';
+import { type OpenedComment, useCommentFocus } from './comment-focus.js';
 import { caretKey } from './comment-items.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import { hooks } from './comments-panel-hooks.js';
@@ -139,6 +139,27 @@ function usePanelPolicy(
   );
 }
 
+/**
+ * The active card: the one the reader pressed or focused, until the caret moves; else the one the
+ * caret is in, or the reader was taken to.
+ */
+function usePanelActive(caret: Key | null, opened: OpenedComment | null) {
+  const [chosen, setChosen] = useState<{ key: Key; caret: Key | null } | null>(null);
+  const at = useRef(caret);
+  useLayoutEffect(() => {
+    at.current = caret;
+  });
+  const select = useCallback((key: Key) => {
+    setChosen((current) =>
+      current?.key === key && current.caret === at.current ? current : { key, caret: at.current },
+    );
+  }, []);
+  const pressed = chosen?.caret === caret ? chosen.key : null;
+  const active =
+    pressed ?? (caret && caret !== 'draft' ? caret : opened && `comment:${opened.threadId}`);
+  return { active, select };
+}
+
 function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const held = useDocumentEditor();
   const context = props.context ?? held;
@@ -157,7 +178,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const count = (each: CommentsFilter) => counts.get(each) ?? 0;
   const { run, startThread, onShow } = usePanelCommands(context?.view ?? null);
   const caret = state ? caretKey(items, state) : null;
-  const active = caret && caret !== 'draft' ? caret : opened && `comment:${opened.threadId}`;
+  const { active, select } = usePanelActive(caret, opened);
   const policy = usePanelPolicy(props, context, comments);
   return (
     <section {...hooks.root({ className: props.className })} aria-label={labels.commentsPanel}>
@@ -180,6 +201,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
             item={item}
             actions={{ context: card, isActive: item.key === active, policy, run, startThread }}
             onShow={onShow}
+            onSelect={select}
           />
         ))}
         {unanchored.map((thread) => (
@@ -188,6 +210,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
             thread={thread}
             isActive={`comment:${thread.id}` === active}
             context={card}
+            onSelect={select}
           />
         ))}
       </div>

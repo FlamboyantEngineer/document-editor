@@ -46,10 +46,9 @@ describe('DocumentComments', () => {
     const margin = screen.getByRole('list', { name: 'Comments' });
     expect(await within(margin).findByText('Is blue right?')).toBeInTheDocument();
     // Authors' names come from the identity adapter once the threads are listed.
-    expect(
-      await within(margin).findByRole('heading', { name: 'Ada Lovelace' }),
-    ).toBeInTheDocument();
-    expect(within(margin).getByText('epsilon')).toBeInTheDocument();
+    expect(await within(margin).findAllByText('Ada Lovelace')).not.toHaveLength(0);
+    const suggestion = within(margin).getByRole('group', { name: 'Suggestion' });
+    expect(within(suggestion).getByText('epsilon')).toBeInTheDocument();
     expect(within(margin).queryByText('Old')).not.toBeInTheDocument();
     expect(within(margin).getAllByRole('group', { name: 'Comment thread' })).toHaveLength(1);
     expect(within(margin).getByRole('button', { name: 'Accept' })).toBeInTheDocument();
@@ -111,7 +110,10 @@ describe('DocumentComments', () => {
     act(() => stored?.());
     await waitFor(async () => {
       const listed = await store.list('doc');
-      expect(listed.ok && listed.value.map((each) => each.id)).toEqual(['open', 'done']);
+      // The thread is deleted, kept as a record of it.
+      expect(
+        listed.ok && listed.value.filter((each) => each.state !== 'deleted').map((each) => each.id),
+      ).toEqual(['open', 'done']);
     });
     expect(seen.state && listCommentAnchors(seen.state.doc).map((each) => each.text)).toEqual([
       'blue',
@@ -194,6 +196,8 @@ describe('DocumentComments', () => {
     const margin = screen.getByRole('list', { name: 'Comments' });
     await within(margin).findByText('Is blue right?');
     const first = screen.getByRole('group', { name: 'Comment thread' });
+    // The reply box shows on the selected card.
+    await user.click(within(first).getByText('Is blue right?'));
     await user.type(within(first).getByRole('textbox', { name: 'Reply' }), 'Yes');
     await user.click(within(first).getByRole('button', { name: 'Reply' }));
     expect(await within(margin).findByText('Yes')).toBeInTheDocument();
@@ -250,8 +254,8 @@ describe('DocumentComments', () => {
     if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show.');
     expect(within(card).queryByRole('textbox')).not.toBeInTheDocument();
     await user.click(within(card).getByText('epsilon'));
-    await user.type(within(card).getByRole('textbox', { name: 'Add a comment' }), 'Why add it?');
-    await user.click(within(card).getByRole('button', { name: 'Comment' }));
+    await user.type(within(card).getByRole('textbox', { name: 'Reply' }), 'Why add it?');
+    await user.click(within(card).getByRole('button', { name: 'Reply' }));
     expect(await within(card).findByText('Why add it?')).toBeInTheDocument();
     const [suggestion] = seen.state ? listSuggestions(seen.state.doc) : [];
     expect(suggestion?.thread).toEqual(expect.any(String));
@@ -312,6 +316,7 @@ describe('DocumentComments', () => {
     await within(margin).findByText('Is blue right?');
     const [thread] = within(panel).getAllByRole('group', { name: 'Comment thread' });
     if (!thread) throw new Error('The panel should list the open thread.');
+    await user.click(within(thread).getByText('Is blue right?'));
     await user.type(within(thread).getByRole('textbox', { name: 'Reply' }), 'From the panel');
     await user.click(within(thread).getByRole('button', { name: 'Reply' }));
     expect(await within(margin).findByText('From the panel')).toBeInTheDocument();
@@ -382,8 +387,8 @@ describe('DocumentComments', () => {
     const card = (await within(margin).findByText('epsilon')).closest('[role="listitem"]');
     if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show.');
     await user.click(within(card).getByText('epsilon'));
-    await user.type(within(card).getByRole('textbox', { name: 'Add a comment' }), 'Hmm');
-    await user.click(within(card).getByRole('button', { name: 'Comment' }));
+    await user.type(within(card).getByRole('textbox', { name: 'Reply' }), 'Hmm');
+    await user.click(within(card).getByRole('button', { name: 'Reply' }));
     await within(card).findByText('Hmm');
     await user.click(within(card).getByRole('button', { name: 'Reject' }));
     await waitFor(async () => {
@@ -425,6 +430,7 @@ describe('DocumentComments', () => {
     const margin = screen.getByRole('list', { name: 'Comments' });
     const card = (await within(margin).findByText('Why epsilon?')).closest('[role="listitem"]');
     if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show its thread.');
+    await user.click(within(card).getByText('Why epsilon?'));
     await user.type(within(card).getByRole('textbox', { name: 'Reply' }), 'Because');
     await user.click(within(card).getByRole('button', { name: 'Reply' }));
     // The row says why, and is announced too.
@@ -477,9 +483,10 @@ describe('DocumentComments', () => {
       />,
     );
     const margin = screen.getByRole('list', { name: 'Comments' });
-    const comment = (await within(margin).findByText('Is blue right?')).closest('article');
-    if (!(comment instanceof HTMLElement)) throw new Error('The comment should show.');
-    await user.click(within(comment).getByRole('button', { name: /actions|more/i }));
+    await within(margin).findByText('Is blue right?');
+    // The opening comment's menu is its thread's header menu.
+    const first = within(margin).getByRole('group', { name: 'Comment thread' });
+    await user.click(within(first).getByRole('button', { name: 'More actions' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Copy link to thread' }));
     expect(copied).toEqual(['open/open-1']);
   });
@@ -496,7 +503,7 @@ describe('DocumentComments', () => {
     const margin = screen.getByRole('list', { name: 'Comments' });
     await within(margin).findByText('Is blue right?');
     const first = screen.getByRole('group', { name: 'Comment thread' });
-    expect(within(first).getByRole('textbox', { name: 'Reply' })).toBeInTheDocument();
+    expect(within(first).getByRole('textbox', { name: 'Reply', hidden: true })).toBeInTheDocument();
     expect(within(first).queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument();
   });
 });

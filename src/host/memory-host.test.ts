@@ -366,7 +366,12 @@ describe('createMemoryHost', () => {
     });
     expect(reacted).toMatchObject({ value: { entries: [{ reactions: { '👍': ['p1'] } }, {}] } });
     const removed = await comments.removeEntry('doc', { threadId: 't1', entryId: 'comment-2' });
-    expect(removed.ok && removed.value.entries).toHaveLength(1);
+    // A deleted reply stays as a record of it, deleted by the reader and now.
+    expect(removed.ok && removed.value.entries[1]).toMatchObject({
+      text: 'So.',
+      deletedBy: 'p1',
+      deletedAt: '2026-01-02T03:04:05.000Z',
+    });
     stop();
     await comments.reply('doc', 't1', 'Unseen.');
     expect(seen).toEqual([1, 1, 1, 1, 1]);

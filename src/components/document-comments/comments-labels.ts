@@ -6,8 +6,13 @@ export interface DocumentCommentsLabels {
   comments: string;
   /** Starts a thread on the selected text. */
   comment: string;
+  /** Posts a thread's opening comment. */
+  submitComment: string;
   accept: string;
   reject: string;
+  /** Says how a decided suggestion's thread was decided. */
+  accepted: string;
+  rejected: string;
   /** Introduces the text a suggestion adds. */
   insert: string;
   /** Introduces the text a suggestion deletes. */
@@ -20,6 +25,8 @@ export interface DocumentCommentsLabels {
   whitespace: (text: string) => string;
   /** Describes a suggestion that only changes formatting. */
   format: string;
+  /** Names a suggestion's card. */
+  suggestion: string;
   /** Names a suggestion's Accept and Reject. */
   decide: string;
   /** Names a writer the host does not know. */
@@ -30,6 +37,8 @@ export interface DocumentCommentsLabels {
   reactions: string;
   /** Names a reply's composer and its button. */
   reply: string;
+  /** The hint a reply's empty composer shows. */
+  replyPlaceholder: string;
   /** Names the composer of a thread's opening comment. */
   addComment: string;
   /** Names the comments panel. */
@@ -70,19 +79,24 @@ function nameWhitespace(text: string): string {
 export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   comments: 'Comments',
   comment: 'Comment',
+  submitComment: 'Comment',
   accept: 'Accept',
   reject: 'Reject',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
   insert: 'Add',
   remove: 'Delete',
   replace: 'Replace',
   split: 'Split the paragraph',
   whitespace: nameWhitespace,
   format: 'Change the formatting',
+  suggestion: 'Suggestion',
   decide: 'Decide',
   someone: 'Someone',
   failed: 'The comment could not be saved.',
   reactions: 'Reactions',
   reply: 'Reply',
+  replyPlaceholder: 'Reply',
   addComment: 'Add a comment',
   commentsPanel: 'All comments',
   filter: 'Show',

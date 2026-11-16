@@ -83,6 +83,31 @@ test.describe('document editor lab', () => {
     ).toHaveCount(1);
   });
 
+  test('DOCE-EDITOR-2.1 measures a long word and a run of spaces as the pages wrap them', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await heading(page, 'Timing').click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.insertText(`wide${' '.repeat(40)}${'x'.repeat(300)}`);
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
+    // The block's height on the pages and in the measuring view.
+    const heights = () =>
+      page.evaluate(() =>
+        ['.de-document-editor__content', '.de-document-editor__measure'].map((scope) => {
+          const block = Array.from(document.querySelectorAll(`${scope} p`)).find((each) =>
+            each.textContent?.startsWith('wide '),
+          );
+          return block?.getBoundingClientRect().height ?? 0;
+        }),
+      );
+    const [drawn = 0, measured] = await heights();
+    expect(drawn).toBeGreaterThan(36);
+    expect(measured).toBe(drawn);
+  });
+
   test('DOCE-EDITOR-2.2 joins the pages in the web layout and lays them out again', async ({
     lab,
     page,
@@ -755,6 +780,40 @@ test.describe('document editor lab', () => {
     await page.getByLabel('Markup').selectOption('original');
     await expect(inserted).toBeHidden();
     await expect(deleted).toBeVisible();
+  });
+
+  test('DOCE-EDITOR-6.5 DOCE-VERSIONS-2.4 bars each line a suggestion shows on in the simple markup', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByRole('button', { name: 'Rewrite a phrase' }).click();
+    await page.getByLabel('Markup').selectOption('simple');
+    const bars = content(page).locator('.de-change-lines__line[data-diff-line="suggestion"]');
+    await expect(bars.first()).toBeAttached();
+    // Each line holding suggested text has a bar on it, and each bar is on such a line.
+    const placed = await content(page).evaluate((root) => {
+      const middles = [...root.querySelectorAll('ins[data-id]')].flatMap((element) =>
+        [...element.getClientRects()].map((box) => (box.top + box.bottom) / 2),
+      );
+      const bands = [...root.querySelectorAll('.de-change-lines__line')].map((bar) => {
+        const box = bar.getBoundingClientRect();
+        return { top: box.top, bottom: box.bottom };
+      });
+      return {
+        unbarred: middles.filter((y) => !bands.some((band) => y >= band.top && y <= band.bottom)),
+        empty: bands.filter((band) => !middles.some((y) => y >= band.top && y <= band.bottom))
+          .length,
+        blockShadows: [...root.querySelectorAll('.pm-page-content > *')].filter(
+          (block) => getComputedStyle(block).boxShadow !== 'none',
+        ).length,
+      };
+    });
+    expect(placed.unbarred).toEqual([]);
+    expect(placed.empty).toBe(0);
+    expect(placed.blockShadows).toBe(0);
+    await page.getByLabel('Markup').selectOption('all');
+    await expect(bars).toHaveCount(0);
   });
 
   test('DOCE-EDITOR-6.11 tells the host the bars the simple markup draws', async ({

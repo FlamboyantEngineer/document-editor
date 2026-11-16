@@ -3,7 +3,7 @@
 // body: a reader working by keyboard would travel back to the cards for each of the next ones.
 
 import { type RefObject, useLayoutEffect } from 'react';
-import { getComposedActiveElement } from '../../utils/composed-focus.js';
+import { getComposedActiveElement, isFocusLost } from '../../utils/composed-focus.js';
 
 const listOf = (item: Element) => item.parentElement?.closest<HTMLElement>('[role="list"]') ?? null;
 
@@ -43,9 +43,10 @@ export function useFocusHandOver(cardRef: RefObject<HTMLElement | null>): void {
       // The card is still in the document here, with the focus it is about to lose.
       if (!card?.contains(getComposedActiveElement(card.ownerDocument))) return;
       const successor = successorOf(card);
-      // Focus moves once the cards are committed, when the one that takes it hears of it.
+      // Focus moves once the cards are committed, when the one that takes it hears of it, unless
+      // something took it meanwhile, as the card of a thread just stored does.
       queueMicrotask(() => {
-        if (successor?.isConnected) successor.focus();
+        if (successor?.isConnected && isFocusLost(card.ownerDocument)) successor.focus();
       });
     };
   }, [cardRef]);

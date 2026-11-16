@@ -57,4 +57,34 @@ describe('measureBlockLines', () => {
   it('DOCE-VERSIONS-2.4 takes the change bars of a section over the template', () => {
     expect(shownChangesAt(TEMPLATE, positionIn('appendix'))('modification')).toBe(true);
   });
+
+  it('DOCE-EDITOR-6.5 bars every line a suggestion shows on, where its deleted text would be', () => {
+    const rect = (top: number, bottom: number) => new DOMRect(0, top, 100, bottom - top);
+    const block = document.createElement('p');
+    block.getBoundingClientRect = () => rect(0, 80);
+    const plain = document.createElement('span');
+    plain.textContent = 'Kept text on the first line ';
+    plain.getClientRects = () => Object.assign([rect(0, 20)]) as unknown as DOMRectList;
+    // Suggested text over the second and third lines, and hidden suggested deletion on the fourth.
+    const inserted = document.createElement('ins');
+    inserted.setAttribute('data-id', 's1');
+    inserted.textContent = 'inserted text that wraps';
+    inserted.getClientRects = () =>
+      Object.assign([rect(20, 40), rect(40, 60)]) as unknown as DOMRectList;
+    const deleted = document.createElement('del');
+    deleted.setAttribute('data-id', 's2');
+    deleted.textContent = 'gone';
+    deleted.getBoundingClientRect = () => rect(62, 78);
+    block.append(plain, inserted, deleted);
+
+    const lines = measureBlockLines(block, { scale: 1, suggestions: true });
+    // jsdom lays out no plain text, so the first measured line reaches the block's top.
+    expect(lines.map((line) => [line.kind, line.top, line.height])).toEqual([
+      ['suggestion', 0, 40],
+      ['suggestion', 40, 21],
+      ['suggestion', 61, 19],
+    ]);
+    // Without the change bars markup, suggestions draw no bars of their own.
+    expect(measureBlockLines(block, { scale: 1 })).toEqual([]);
+  });
 });

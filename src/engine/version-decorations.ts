@@ -73,6 +73,23 @@ function deletedText(owner: Document, text: string, block = false): HTMLElement 
   return element;
 }
 
+// Whether the document still shows `text` at `pos`, just before or after it, as text suggested for
+// deletion: a comparison that counts suggestions as accepted reads it as deleted, and inline markup
+// shows it once, as the suggestion, not again as a deleted run.
+function showsAsSuggestedDeletion(doc: ProseMirrorNode, pos: number, text: string): boolean {
+  const suggested = (from: number, to: number) => {
+    if (from < 0 || to > doc.content.size || doc.textBetween(from, to) !== text) return false;
+    let all = true;
+    doc.nodesBetween(from, to, (node) => {
+      if (node.isText && !node.marks.some((mark) => mark.type.name === 'deletion')) all = false;
+    });
+    return all;
+  };
+  return (
+    text.length > 0 && (suggested(pos - text.length, pos) || suggested(pos, pos + text.length))
+  );
+}
+
 // Runs of consecutive positions, as ranges.
 function ranges(positions: readonly number[]): [number, number][] {
   const found: [number, number][] = [];
@@ -88,7 +105,7 @@ function ranges(positions: readonly number[]): [number, number][] {
 // those it lost in place before what follows them; in bars, where it lost them is marked alone.
 function textDecorations(
   change: VersionChange,
-  display: VersionChangeDisplay,
+  { display, doc }: { display: VersionChangeDisplay; doc: ProseMirrorNode },
   decorations: Decoration[],
 ) {
   const markup = display === 'markup';
@@ -100,25 +117,26 @@ function textDecorations(
       continue;
     }
     const { from, text } = mark;
+    const withText = markup && !showsAsSuggestedDeletion(doc, from, text);
     decorations.push(
       Decoration.widget(
         from,
         (view) => {
           const owner = view.dom.ownerDocument;
-          const element = markup ? deletedText(owner, text) : owner.createElement('span');
+          const element = withText ? deletedText(owner, text) : owner.createElement('span');
           element.setAttribute(LINE_ATTR, 'deletion');
           return element;
         },
-        { ...OWN, side: -1, key: `del-${display}-${String(from)}-${text}` },
+        { ...OWN, side: -1, key: `del-${display}-${String(withText)}-${String(from)}-${text}` },
       ),
     );
   }
   // In markup, a replaced run's deleted text shows too.
-  if (markup) replacedText(change, decorations);
+  if (markup) replacedText(change, doc, decorations);
 }
 
 // The text a block lost where it was replaced, in place before the run that replaced it.
-function replacedText(change: VersionChange, decorations: Decoration[]) {
+function replacedText(change: VersionChange, doc: ProseMirrorNode, decorations: Decoration[]) {
   let index = 0;
   const start = (change.parts[0]?.from ?? 0) + 1;
   change.segments.forEach((segment, at) => {
@@ -130,6 +148,7 @@ function replacedText(change: VersionChange, decorations: Decoration[]) {
     if (!near.includes('inserted')) return;
     const pos = segmentAt(change, index, start);
     const text = segment.text;
+    if (showsAsSuggestedDeletion(doc, pos, text)) return;
     decorations.push(
       Decoration.widget(pos, (view) => deletedText(view.dom.ownerDocument, text), {
         ...OWN,
@@ -174,7 +193,7 @@ function deletionDecorations(changes: readonly VersionChange[], display: Version
  */
 export function blockChangeDecorations(
   change: VersionChange,
-  display: VersionChangeDisplay = 'markup',
+  { display = 'markup', doc }: { display?: VersionChangeDisplay; doc: ProseMirrorNode },
 ): Decoration[] {
   const decorations: Decoration[] = [];
   // A block whose text changed has a bar beside each line that changed, the others marked as
@@ -185,7 +204,7 @@ export function blockChangeDecorations(
   for (const part of change.parts) {
     decorations.push(Decoration.node(part.from, part.to, attrs, OWN));
   }
-  if (lines) textDecorations(change, display, decorations);
+  if (lines) textDecorations(change, { display, doc }, decorations);
   return decorations;
 }
 
@@ -203,6 +222,8 @@ export function versionChangeDecorations(
   display: VersionChangeDisplay = 'markup',
 ): DecorationSet {
   const decorations = deletionDecorations(changes, display);
-  for (const change of changes) decorations.push(...blockChangeDecorations(change, display));
+  for (const change of changes) {
+    decorations.push(...blockChangeDecorations(change, { display, doc }));
+  }
   return DecorationSet.create(doc, decorations);
 }

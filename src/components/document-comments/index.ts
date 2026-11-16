@@ -2,6 +2,7 @@ export type {
   CommentActionTarget,
   DocumentCommentsLabels,
   MentionCardTarget,
+  ThreadActionTarget,
 } from './comment-cards.js';
 export { DEFAULT_COMMENTS_LABELS } from './comment-cards.js';
 export type { CommentsAudience } from './comment-filters.js';

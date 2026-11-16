@@ -5,8 +5,17 @@
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
-/** The kinds of change a line shows, strongest first. */
-export const CHANGE_LINE_KINDS = ['modification', 'insertion', 'deletion', 'formatting'] as const;
+/**
+ * The kinds of change a line shows, strongest first: a comparison's four kinds, then a pending
+ * suggestion, which the change bars markup bars on every line it shows on.
+ */
+export const CHANGE_LINE_KINDS = [
+  'modification',
+  'insertion',
+  'deletion',
+  'formatting',
+  'suggestion',
+] as const;
 
 /** A kind of change a line shows. */
 export type ChangeLineKind = (typeof CHANGE_LINE_KINDS)[number];

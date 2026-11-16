@@ -213,8 +213,23 @@ describe('createRoomCommentStore', () => {
       ok: false,
       error: { kind: 'conflict' },
     });
+    await expect(commenter.store.remove('doc', 't1')).resolves.toEqual({
+      ok: false,
+      error: { kind: 'denied' },
+    });
     await expect(store.remove('doc', 't1')).resolves.toEqual({ ok: true, value: null });
-    expect(value(await store.list('doc')).map((thread) => thread.id)).toEqual(['s1']);
+    // A deleted thread stays, with its comments, deleted by whom and when.
+    expect(
+      value(await store.list('doc')).map(({ id, state, deletedBy, entries }) => ({
+        id,
+        state,
+        deletedBy,
+        entries: entries.length,
+      })),
+    ).toEqual([
+      { id: 's1', state: 'resolved', deletedBy: undefined, entries: 0 },
+      { id: 't1', state: 'deleted', deletedBy: 'editor', entries: 1 },
+    ]);
     await expect(store.reply('doc', 't1', 'Gone')).resolves.toMatchObject({
       ok: false,
       error: { kind: 'not-found' },
@@ -290,6 +305,29 @@ describe('readRoomThreads', () => {
       ['toString', ['bea']],
     ]);
   });
+  it('DOCE-COMMENTS-2.27 keeps the assistant and the host’s meta of a thread and a comment', async () => {
+    const { first, second, exchange, ada } = writers();
+    await ada.create('doc', {
+      id: 't1',
+      quote: 'blue',
+      text: 'First',
+      agent: 'helper',
+      meta: { review: 'pending', steps: [1, 2] },
+    });
+    exchange();
+    attribute(second, ['entry', 't1', 'a1'], {
+      id: 'a1',
+      author: 'bea',
+      text: 'Blue fits.',
+      createdAt: '2026-01-02T03:04:06Z',
+      agent: 'helper',
+      meta: { model: 'small' },
+    });
+    exchange();
+    const [thread] = readRoomThreads(first.get('comments'));
+    expect(thread).toMatchObject({ agent: 'helper', meta: { review: 'pending', steps: [1, 2] } });
+    expect(thread?.entries.at(-1)).toMatchObject({ agent: 'helper', meta: { model: 'small' } });
+  });
 });
 
 describe('createRoomCommentStore, with changes made at once', () => {
@@ -317,7 +355,7 @@ describe('createRoomCommentStore, with changes made at once', () => {
     }
   });
 
-  it('DOCE-COMMENTS-2.20 keeps a thread removed while another writer changes it', async () => {
+  it('DOCE-COMMENTS-2.20 keeps a thread deleted while another writer changes it', async () => {
     const { second, exchange, ada, bea } = writers();
     await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
     await ada.create('doc', { id: 't2', quote: 'red', text: 'Second' });
@@ -329,7 +367,11 @@ describe('createRoomCommentStore, with changes made at once', () => {
     // An earlier editor resolves by writing the thread's whole record again.
     attribute(second, ['thread', 't2'], { id: 't2', quote: 'red', state: 'resolved' });
     exchange();
-    for (const store of [ada, bea]) expect(value(await store.list('doc'))).toEqual([]);
+    for (const store of [ada, bea])
+      expect(value(await store.list('doc')).map(({ id, state }) => ({ id, state }))).toEqual([
+        { id: 't1', state: 'deleted' },
+        { id: 't2', state: 'deleted' },
+      ]);
     await expect(bea.create('doc', { id: 't1', quote: 'blue', text: 'Again' })).resolves.toEqual({
       ok: false,
       error: { kind: 'conflict' },
@@ -373,7 +415,7 @@ describe('createRoomCommentStore, with changes made at once', () => {
 });
 
 describe('createRoomCommentStore, its comments', () => {
-  it('DOCE-COMMENTS-2.20 removes a comment with the reactions to it', async () => {
+  it('DOCE-COMMENTS-2.20 keeps a deleted comment as a record of it, without its reactions', async () => {
     const { first, exchange, ada, bea } = writers();
     await ada.create('doc', { id: 't1', quote: 'blue', text: 'First' });
     exchange();
@@ -386,9 +428,20 @@ describe('createRoomCommentStore, its comments', () => {
     exchange();
     expect(attributeNames(first)).toEqual([
       '["entry","t1","ada-1"]',
+      '["entry","t1","bea-1"]',
       '["reaction","t1","ada-1","🎉","ada"]',
       '["thread","t1"]',
     ]);
+    const [thread] = readRoomThreads(first.get('comments'));
+    expect(thread?.entries[1]).toMatchObject({
+      text: 'Second',
+      deletedBy: 'bea',
+      deletedAt: '2026-01-02T03:04:05.000Z',
+    });
+    // Nothing changes it any more, and only the last reply left may be changed.
+    await expect(
+      bea.edit?.('doc', { threadId: 't1', entryId: 'bea-1', text: 'Back' }),
+    ).resolves.toMatchObject({ ok: false });
   });
 
   it('DOCE-COMMENTS-2.20 makes its own ids where the page is not a secure context', async () => {

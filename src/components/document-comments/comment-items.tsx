@@ -12,7 +12,6 @@ import {
   describeDraftTarget,
   linkSuggestionThread,
   listSuggestions,
-  removeCommentAnchor,
   selectedText,
   setCommentState,
   type Suggestion,
@@ -21,8 +20,9 @@ import {
 } from '../../engine/index.js';
 import type { CommentTarget, CommentThread } from '../../host/index.js';
 import type { AnchorTarget } from './anchor-rects.js';
-import { type CardContext, DraftCard, PendingCard, ThreadCard } from './comment-cards.js';
+import { type CardContext, ThreadCard } from './comment-cards.js';
 import { isSuggestionShown, isThreadShown, type ThreadFilter } from './comment-filters.js';
+import { DraftCard, PendingCard } from './new-thread-cards.js';
 import { SuggestionCard } from './suggestion-card.js';
 
 interface Placed {
@@ -152,6 +152,8 @@ export interface CardActions {
   readonly run: (command: Command) => void;
   /** Starts a thread on the selected text. */
   readonly startThread: () => void;
+  /** Called with the key of a thread's card once the thread being started is stored. */
+  readonly onStored?: ((key: string) => void) | undefined;
 }
 
 // A change of the document a comment makes, made only where the reader may change the document.
@@ -241,6 +243,7 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
                 inDocument(commitCommentDraft(item.id), clearCommentDraft),
               ),
             );
+            actions.onStored?.(`comment:${item.id}`);
           }}
           onCancel={() => run(clearCommentDraft)}
         />
@@ -258,7 +261,8 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           }}
           onRemove={async () => {
             await context.comments.remove(item.thread.id);
-            run(inDocument(removeCommentAnchor(item.thread.id)));
+            // The anchor stays as a record of the thread, deleted as the store keeps it.
+            run(inDocument(setCommentState(item.thread.id, 'deleted')));
           }}
         />
       );

@@ -6,6 +6,7 @@ export type {
   CommentActionTarget,
   CommentsAudience,
   MentionCardTarget,
+  ThreadActionTarget,
 } from './document-comments/index.js';
 export { DEFAULT_COMMENTS_LABELS } from './document-comments/index.js';
 export { DocumentCommentsPanel } from './document-comments/index.js';

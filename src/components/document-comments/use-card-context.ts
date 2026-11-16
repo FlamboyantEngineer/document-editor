@@ -21,7 +21,11 @@ type CardOptions = Pick<
   | 'format'
   | 'mentionCard'
   | 'commentActions'
+  | 'threadActions'
+  | 'confirmsDelete'
   | 'threadPermissions'
+  | 'replyStart'
+  | 'onActivityShown'
 >;
 
 /**
@@ -36,6 +40,7 @@ export function useCardContext(
   const mentions = useCommentMentions(props.identity, props.mentions);
   const me = props.identity.currentPerson().id;
   const { documentId, format, mentionCard, audience, commentActions, threadPermissions } = props;
+  const { replyStart, onActivityShown, threadActions, confirmsDelete } = props;
   const host = props.mentions;
   const { opened, newText } = useCommentFocus();
   const revealed = opened?.threadId;
@@ -53,12 +58,16 @@ export function useCardContext(
       format,
       mentionCard,
       commentActions,
+      threadActions,
+      confirmsDelete,
       threadPermissions,
       documentId,
       me,
       scope,
       opened,
       newText,
+      replyStart,
+      onActivityShown,
     }),
     [
       comments,
@@ -68,12 +77,16 @@ export function useCardContext(
       format,
       mentionCard,
       commentActions,
+      threadActions,
+      confirmsDelete,
       threadPermissions,
       documentId,
       me,
       scope,
       opened,
       newText,
+      replyStart,
+      onActivityShown,
     ],
   );
   return { context, listed, opened };

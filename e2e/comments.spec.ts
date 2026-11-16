@@ -50,7 +50,7 @@ test.describe('comments lab', () => {
       .poll(async () => Math.abs((await top(thread)) - (await top(anchor))))
       .toBeLessThan(16);
     await expect(card(page, 'Grace Hopper')).toHaveCount(2);
-    await expect(card(page, 'every')).toContainText('Accept');
+    await expect(card(page, 'every').getByRole('button', { name: 'Accept' })).toBeVisible();
   });
 
   test('DOCE-COMMENTS-2.23 opens a card only on request with markers', async ({ lab, page }) => {
@@ -110,8 +110,8 @@ test.describe('comments lab', () => {
     await lab.open('comments');
     const suggestion = card(page, 'every');
     await suggestion.getByText('Grace Hopper').click();
-    await suggestion.getByRole('textbox', { name: 'Add a comment' }).fill('Agreed.');
-    await suggestion.getByRole('button', { name: 'Comment' }).click();
+    await suggestion.getByRole('textbox', { name: 'Reply' }).fill('Agreed.');
+    await suggestion.getByRole('button', { name: 'Reply' }).click();
     await expect(suggestion).toContainText('Agreed.');
     await expect(content(page).locator('ins[data-comment-id]')).toHaveText('each');
     await suggestion.getByRole('button', { name: 'Accept' }).click();
@@ -162,10 +162,7 @@ test.describe('comments lab', () => {
     // The card by the text it quotes, which the edit leaves.
     const thread = card(page, 'operator console');
     await expect(thread).toContainText('Which console?');
-    await thread
-      .getByRole('button', { name: /actions|More/i })
-      .first()
-      .click();
+    await thread.getByRole('button', { name: 'More actions' }).click();
     await page.getByRole('menuitem', { name: 'Edit' }).click();
     await thread.getByRole('textbox', { name: 'Edit comment' }).fill('Which consoles?');
     await thread.getByRole('button', { name: 'Save' }).click();
@@ -178,7 +175,9 @@ test.describe('comments lab', () => {
     await expect(card(page, 'Is one second measured')).toHaveCount(0);
     await page.getByLabel('Resolved threads').check();
     const thread = card(page, 'Is one second measured');
-    await thread.getByRole('button', { name: 'Reopen' }).click();
+    await thread.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Reopen' }).click();
+    await expect(thread.getByRole('button', { name: 'Resolve' })).toBeVisible();
     await page.getByLabel('Resolved threads').uncheck();
     await expect(card(page, 'Is one second measured')).toHaveCount(1);
     await expect(
@@ -234,6 +233,8 @@ test.describe('comments lab', () => {
   }) => {
     await lab.open('comments');
     const thread = card(page, 'Is one second measured');
+    // The reply box shows on the selected card.
+    await thread.getByText('Is one second measured').click();
     await thread.getByRole('textbox', { name: 'Reply' }).fill('From the detection.');
     await page.getByLabel('Reading only').check();
     await expect(thread.getByRole('textbox', { name: 'Reply' })).toHaveCount(0);
@@ -247,6 +248,7 @@ test.describe('comments lab', () => {
   }) => {
     await lab.open('comments');
     const thread = card(page, 'Is one second measured');
+    await thread.getByText('Is one second measured').click();
     await thread.getByRole('textbox', { name: 'Reply' }).click();
     await page.keyboard.type('Over to @Gra');
     await page.getByRole('option', { name: /Grace Hopper/ }).click();
@@ -275,6 +277,7 @@ test.describe('comments lab', () => {
     await lab.open('comments');
     await page.getByLabel('Markdown comments').check();
     const thread = card(page, 'Is one second measured');
+    await thread.getByText('Is one second measured').click();
     await thread.getByRole('textbox', { name: 'Reply' }).click();
     await page.keyboard.type('**Ask** @Gra');
     await page.getByRole('option', { name: /Grace Hopper/ }).click();
@@ -340,6 +343,7 @@ test.describe('comments lab', () => {
     await page.getByLabel('Groups and assistants in mentions').check();
     await page.getByLabel('Copy-link action').check();
     const thread = card(page, 'Is one second measured');
+    await thread.getByText('Is one second measured').click();
     await thread.getByRole('textbox', { name: 'Reply' }).click();
     await page.keyboard.type('Over to @Rev');
     await page.getByRole('option', { name: /Reviewers/ }).click();
@@ -347,9 +351,8 @@ test.describe('comments lab', () => {
     const reply = thread.getByRole('article').last();
     await expect(reply).toContainText('Reviewers');
     await expect(reply).not.toContainText('@group[');
-    const first = thread.getByRole('article').first();
-    await first.hover();
-    await first.getByRole('button', { name: /actions|more/i }).click();
+    // The opening comment's menu is the thread's header menu.
+    await thread.getByRole('button', { name: 'More actions' }).click();
     await page.getByRole('menuitem', { name: 'Copy link to thread' }).click();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.dataset.labCopied))
