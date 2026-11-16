@@ -212,14 +212,14 @@ Verification: `e2e/pagination.spec.ts`, `e2e/layout-rules.spec.ts`
 
 Given a cache (`createMeasureCache`), measuring shall reuse a block's measurement while its node is the same, at the node's new position, measure a changed block again, and measure everything again after `clear()`. A cached block that became or stopped being the first or last of its siblings, where styles zero a page's edge margins, shall read its margins again.
 
-Implementation: `src/pagination/measure-blocks.ts`
+Implementation: `src/pagination/measure-blocks.ts`, `src/pagination/measure-cache.ts`
 Verification: `src/pagination/measure-blocks.test.ts`
 
 ### DOCE-PAGINATION-5.4 - Measuring again what changed size
 
-When the measuring view's content changes size after it was drawn, the pages shall be laid out again once a frame, measuring again only what changed: an element that dispatches the remeasure event (`REMEASURE_EVENT`, such as math once typeset) or an image that loads or fails shall forget the measurement of the block that holds it (`forgetMeasurement`), and a change of the measuring container's width shall forget every measurement (`remeasureOn`). A block holding an image still loading measures provisionally and is not kept, so the next layout measures it again. Measuring shall read styles and frames from the window its views mount in, never the global one.
+When the measuring view's content changes size after it was drawn, the pages shall be laid out again once a frame, measuring again only what changed: an element that dispatches the remeasure event (`REMEASURE_EVENT`, such as math once typeset) or an image that loads or fails shall forget the measurement of the block that holds it when that block's height moved by more than 0.01 px (`forgetMeasurement`), and lay nothing out when it did not; an element in no block of the view shall forget every measurement; and a change of the measuring container's width shall forget every measurement (`remeasureOn`), but a width of zero, as when the editor is hidden, shall change nothing. A block holding an image still loading measures provisionally and is not served from the cache, so the next layout measures it again. Measuring shall read styles and frames from the window its views mount in, never the global one.
 
-Implementation: `src/pagination/measure-blocks.ts`, `src/pagination/layout-triggers.ts`, `src/pagination/projection.ts`
+Implementation: `src/pagination/measure-blocks.ts`, `src/pagination/measure-cache.ts`, `src/pagination/layout-triggers.ts`, `src/pagination/projection.ts`
 Verification: `src/pagination/measure-blocks.test.ts`, `src/pagination/layout-triggers.test.ts`
 
 ### DOCE-PAGINATION-5.5 - Incremental layout
@@ -284,6 +284,27 @@ The hidden view that measures a whole document shall follow each new one by the 
 
 Implementation: `src/pagination/ghost-view.ts`
 Verification: `src/pagination/ghost-view.test.ts`
+
+### DOCE-PAGINATION-5.14 - A block that changed size after it was measured
+
+Each element a block of the measuring view was measured from shall be followed with a resize observer of the view's window (`watchBlockSizes`). When one changes size after it was measured, for a reason the measuring cannot see, such as a host's node view that fills in late or a late style, growing or shrinking, its block alone shall be forgotten when its height moved by more than 0.01 px (`forgetDrifted`), and the pages laid out again once a frame. A first or same-size notification, a block whose node changed since, which its own change lays out, and an element of no size, hidden or gone, shall lay nothing out; an element gone shall no longer be followed.
+
+Implementation: `src/pagination/measure-cache.ts`, `src/pagination/layout-triggers.ts`, `src/pagination/projection.ts`
+Verification: `src/pagination/measure-blocks.test.ts`, `src/pagination/layout-triggers.test.ts`, `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-5.15 - Images in the measuring view
+
+An image still loading whose box is already fixed, by its width and height attributes or an aspect ratio, shall not make its block provisional, so the block is kept at once. A lazy image in a block being measured shall load at once (`loading` set to `eager`), since the measuring view sits out of sight, where a lazy image never loads; once it loads, its block measures again only when its height moved (DOCE-PAGINATION-5.4).
+
+Implementation: `src/pagination/measure-blocks.ts`
+Verification: `src/pagination/measure-blocks.test.ts`, `e2e/pagination.spec.ts`
+
+### DOCE-PAGINATION-5.16 - A block drawn as no element
+
+A block the measured view draws as no element, such as one whose host node view renders none, shall still be laid out, one line of its parent's text tall (its line height, or 24 px when that says none), with no margins, so it is never left out of the pages.
+
+Implementation: `src/pagination/measure-blocks.ts`
+Verification: `src/pagination/measure-blocks.test.ts`
 
 ## DOCE-PAGINATION-6 - Projection
 
@@ -361,9 +382,9 @@ Verification: `src/pagination/page-debug.test.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-PAGINATION-7.5 - Stats
 
-A projection's `stats()` shall count what its layouts did since it was made (`PaginationStats`), its first layout, run while it is made, included: the layouts run (`layouts`); the blocks measured in the measuring view (`blocksMeasured`), those the cache did not hold (`cacheMisses`) and those taken from it (`cacheHits`); the sections laid out with at least one block measured again (`sectionsRelaid`) and from cached measurements alone (`sectionsReused`); the pages broken from their blocks rather than reused from the layout before (`pagesLaidOut`, DOCE-PAGINATION-5.5); the pages drawn taller than they are (`overflowPages`, DOCE-PAGINATION-5.9); and the pages a layout kept as they were (`pagesReused`) and built anew (`pagesRebuilt`). The transaction a layout moves the projection with carries the counts as they stood after it (`layoutStats(tr)`); any other transaction carries none.
+A projection's `stats()` shall count what its layouts did since it was made (`PaginationStats`), its first layout, run while it is made, included: the layouts run (`layouts`); the blocks measured in the measuring view (`blocksMeasured`), those the cache did not hold (`cacheMisses`) and those taken from it (`cacheHits`); the sections laid out with at least one block measured again (`sectionsRelaid`) and from cached measurements alone (`sectionsReused`); the pages broken from their blocks rather than reused from the layout before (`pagesLaidOut`, DOCE-PAGINATION-5.5); the pages drawn taller than they are (`overflowPages`, DOCE-PAGINATION-5.9); the blocks forgotten alone because their element changed size after they were measured (`blocksDrifted`, DOCE-PAGINATION-5.14); and the pages a layout kept as they were (`pagesReused`) and built anew (`pagesRebuilt`). The transaction a layout moves the projection with carries the counts as they stood after it (`layoutStats(tr)`); any other transaction carries none.
 
-Implementation: `src/pagination/layout-marks.ts`, `src/pagination/pagination-stats.ts`, `src/pagination/measure-blocks.ts`, `src/pagination/layout-document.ts`
+Implementation: `src/pagination/layout-marks.ts`, `src/pagination/pagination-stats.ts`, `src/pagination/measure-cache.ts`, `src/pagination/layout-document.ts`
 Verification: `src/pagination/projection-view.test.ts`
 
 ### DOCE-PAGINATION-7.6 - Layout state

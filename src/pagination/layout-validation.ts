@@ -6,7 +6,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { keepCaretInPlace } from './caret.js';
 import { isPaginationTransaction, pageMetrics } from './layout-marks.js';
-import type { MeasureCache } from './measure-blocks.js';
+import type { MeasureCache } from './measure-cache.js';
 import { pageElements } from './page-geometry.js';
 
 /** A page drawn taller than it is. */

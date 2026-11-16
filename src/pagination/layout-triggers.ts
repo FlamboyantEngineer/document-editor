@@ -3,7 +3,12 @@
 
 import type { EditorView } from 'prosemirror-view';
 import { REMEASURE_EVENT } from '../utils/remeasure.js';
-import { forgetMeasurement, type MeasureCache } from './measure-blocks.js';
+import {
+  forgetDrifted,
+  forgetMeasurement,
+  type MeasureCache,
+  watchMeasured,
+} from './measure-cache.js';
 import type { PagedProjectionOptions } from './projection.js';
 
 // What ends a press on the editor.
@@ -118,7 +123,8 @@ export function remeasureOn(
   const observer = Observer
     ? new Observer(() => {
         const next = container.getBoundingClientRect().width;
-        if (Math.abs(next - width) < 0.5) return;
+        // A container of no width is hidden: its blocks keep what they measured when shown.
+        if (next === 0 || Math.abs(next - width) < 0.5) return;
         width = next;
         due.all = true;
         flush();
@@ -144,16 +150,111 @@ export function remeasureOn(
 }
 
 /**
- * Forgets what a remeasure asks for: every block after a width change or loaded fonts, otherwise
- * the blocks of the elements that changed size in the view `measuring`.
+ * Forgets what a remeasure asks for: every block after a width change or loaded fonts, or for an
+ * element in no block of the view `measuring`; otherwise the blocks of the elements that changed
+ * size whose height moved. Returns whether the pages need a layout: not when every such block kept
+ * its height.
  */
 export function forgetRemeasured(
   cache: MeasureCache,
   measuring: EditorView | null,
   change: Remeasure,
-): void {
-  if (change.all || !measuring) cache.clear();
-  else for (const target of change.targets) forgetMeasurement(cache, measuring, target);
+): boolean {
+  if (change.all || !measuring) {
+    cache.clear();
+    return true;
+  }
+  let layout = false;
+  for (const target of change.targets) {
+    const result = forgetMeasurement(cache, measuring, target);
+    if (result === 'outside') {
+      cache.clear();
+      return true;
+    }
+    if (result !== 'kept') layout = true;
+  }
+  return layout;
+}
+
+/** Follows the size of the elements blocks were measured from. */
+interface BlockSizes {
+  /** Follows an element a block was just measured from; again changes nothing. */
+  watch(element: HTMLElement): void;
+  stop(): void;
+}
+
+/**
+ * Follows the size of each element a block was measured from with a resize observer of its window,
+ * and gives `changed` the elements whose size changed, gathered over a frame. An element of no
+ * size, hidden or gone, changes nothing, and one gone is no longer followed.
+ */
+export function watchBlockSizes(
+  container: HTMLElement,
+  changed: (elements: readonly HTMLElement[]) => void,
+): BlockSizes {
+  const owner = container.ownerDocument.defaultView;
+  const Observer = owner?.ResizeObserver;
+  if (!owner || !Observer) return { watch: () => undefined, stop: () => undefined };
+  const watched = new WeakSet<Element>();
+  const due = { frame: null as number | null, elements: [] as HTMLElement[] };
+  const observer = new Observer((entries) => {
+    for (const { target, contentRect } of entries) {
+      if (contentRect.width > 0 || contentRect.height > 0) due.elements.push(target as HTMLElement);
+      else if (!target.isConnected) {
+        observer.unobserve(target);
+        watched.delete(target);
+      }
+    }
+    if (due.elements.length === 0 || due.frame !== null) return;
+    due.frame = owner.requestAnimationFrame(() => {
+      const { elements } = due;
+      Object.assign(due, { frame: null, elements: [] });
+      changed(elements);
+    });
+  });
+  return {
+    watch(element) {
+      if (watched.has(element)) return;
+      watched.add(element);
+      observer.observe(element);
+    },
+    stop() {
+      observer.disconnect();
+      if (due.frame !== null) owner.cancelAnimationFrame(due.frame);
+    },
+  };
+}
+
+/** What the measuring of a view in a container forgets from and asks. */
+interface Measuring {
+  readonly cache: MeasureCache;
+  readonly view: () => EditorView;
+  /** Lays the pages out again soon. */
+  readonly request: () => void;
+}
+
+/**
+ * Lays the pages out again when the measuring view's content changes size after it was drawn
+ * (`remeasureOn`), and when an element a block was measured from changes size, forgetting that
+ * block alone (`watchBlockSizes`), so a host's node view that fills in late, or a late style, is
+ * measured again; returns how to stop.
+ */
+export function followMeasuring(container: HTMLElement, measuring: Measuring): () => void {
+  const { cache, view, request } = measuring;
+  const sizes = watchBlockSizes(container, (elements) => {
+    let moved = false;
+    for (const element of elements) moved = forgetDrifted(cache, view(), element) || moved;
+    if (moved) request();
+  });
+  const unwatch = watchMeasured(cache, sizes.watch);
+  const stop = remeasureOn(container, (change) => {
+    if (forgetRemeasured(cache, view(), change)) request();
+  });
+  return () => {
+    stop();
+    unwatch();
+    sizes.stop();
+  };
 }
 
 /** Runs on the next animation frame of the window an element is in: a layout's default schedule. */

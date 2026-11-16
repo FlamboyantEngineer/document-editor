@@ -7,7 +7,39 @@ import {
   type Remeasure,
   remeasureOn,
   settleEdits,
+  watchBlockSizes,
 } from './layout-triggers.js';
+
+// A resize observer the test notifies, which tells what it follows.
+function stubResizeObserver() {
+  const stub = {
+    observed: [] as Element[],
+    unobserved: [] as Element[],
+    notify: (_entries: { target: Element; size: [number, number] }[]) => undefined as void,
+  };
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: ResizeObserverCallback) {
+        stub.notify = (entries) => {
+          const records = entries.map(({ target, size: [width, height] }) => ({
+            target,
+            contentRect: new DOMRect(0, 0, width, height),
+          }));
+          callback(records as unknown as ResizeObserverEntry[], this as unknown as ResizeObserver);
+        };
+      }
+      observe(target: Element) {
+        stub.observed.push(target);
+      }
+      unobserve(target: Element) {
+        stub.unobserved.push(target);
+      }
+      disconnect() {}
+    },
+  );
+  return stub;
+}
 
 // Runs animation frames when the test says, so the events of one frame gather.
 function stubFrames() {
@@ -65,7 +97,41 @@ describe('remeasure triggers', () => {
     resized([], {} as ResizeObserver);
     drain();
     expect(changes).toEqual([{ targets: [], all: true }]);
+    // Hidden, the container is of no width: its blocks keep what they measured.
+    width = 0;
+    resized([], {} as ResizeObserver);
+    drain();
+    expect(changes).toHaveLength(1);
     stop();
+  });
+
+  it('DOCE-PAGINATION-5.14 gives the elements followed that changed size, not those of no size', () => {
+    const drain = stubFrames();
+    const observer = stubResizeObserver();
+    const changed: (readonly HTMLElement[])[] = [];
+    const container = document.body.appendChild(document.createElement('div'));
+    const [one, two, gone] = ['p', 'p', 'p'].map((tag) =>
+      container.appendChild(document.createElement(tag)),
+    );
+    if (!one || !two || !gone) throw new Error('Three blocks are drawn');
+    const sizes = watchBlockSizes(container, (elements) => changed.push(elements));
+    sizes.watch(one);
+    sizes.watch(one);
+    sizes.watch(two);
+    sizes.watch(gone);
+    expect(observer.observed).toEqual([one, two, gone]);
+    gone.remove();
+    observer.notify([
+      { target: one, size: [100, 20] },
+      { target: two, size: [0, 0] },
+      { target: gone, size: [0, 0] },
+    ]);
+    observer.notify([{ target: one, size: [100, 30] }]);
+    drain();
+    expect(changed).toEqual([[one, one]]);
+    expect(observer.unobserved).toEqual([gone]);
+    sizes.stop();
+    container.remove();
   });
 
   it("DOCE-PAGINATION-5.6 tells of font faces loading in the container's document", () => {
