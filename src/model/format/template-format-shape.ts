@@ -211,6 +211,7 @@ const SECTION_SHAPE: SettingShape = {
     header: REGION,
     footer: REGION,
     footnotes: { object: FOOTNOTES },
+    extensions: { record: 'any' },
   },
 };
 

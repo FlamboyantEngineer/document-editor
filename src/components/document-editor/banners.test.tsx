@@ -45,19 +45,24 @@ function Harness({
   cover = 'Cover text',
   banners,
   editable,
+  suggesting,
+  template = TEMPLATE,
 }: {
   cover?: string;
+  template?: TemplateFile;
   banners?: readonly DocumentBanner[];
   editable?: boolean;
+  suggesting?: boolean;
 }) {
   const [state, setState] = useState(() => stateWith(cover));
   return (
     <DocumentEditor
       state={state}
       onStateChange={setState}
-      template={TEMPLATE}
+      template={template}
       layout="web"
       editable={editable}
+      suggesting={suggesting}
       banners={banners}
       aria-label="Report"
     />
@@ -107,6 +112,22 @@ describe('DocumentBanners', () => {
     );
     expect(screen.getByText('Cover text')).toBeInTheDocument();
     expect(EDITOR_BANNERS).toContain('template-drift');
+  });
+
+  it('DOCE-EDITOR-7.2 names the sections by their label, and shows no drift while suggesting', async () => {
+    const labelled: TemplateFile = {
+      ...TEMPLATE,
+      sections: [
+        { name: 'cover', label: 'Cover page', editable: false, content: [paragraph('Cover text')] },
+      ],
+    };
+    const { rerender } = render(<Harness cover="Edited cover" template={labelled} />);
+    const region = await screen.findByRole('region', { name: 'Document notices' });
+    expect(within(region).getByText(/Cover page \(changed\)/)).toBeInTheDocument();
+    rerender(<Harness cover="Edited cover" template={labelled} suggesting />);
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Document notices' })).not.toBeInTheDocument(),
+    );
   });
 
   it('DOCE-EDITOR-7.2 leaves a read document and one in step with its template alone', async () => {

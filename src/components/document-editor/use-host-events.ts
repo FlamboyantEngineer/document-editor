@@ -7,15 +7,16 @@ import type { Command, EditorState, Selection, Transaction } from 'prosemirror-s
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  assignElementIds,
   type EditAddress,
   ELEMENT_IDS_REPAIR,
   isRemoteTransaction,
   proofingKey,
   type RegionChange,
-  repairElementIds,
   type ReviewChange,
   type Suggestion,
 } from '../../engine/index.js';
+import { repairVariableTokens, VARIABLE_TOKENS_REPAIR } from '../../engine/variable-tokens.js';
 import type { TemplatePartChange } from '../../model/index.js';
 import { isPaginationTransaction } from '../../pagination/index.js';
 import { readDomSelection } from '../../utils/dom-selection.js';
@@ -66,7 +67,8 @@ export interface DocumentEditorNotifications {
 
 /**
  * Why the content changed: `remote` for another writer's change (`isRemoteTransaction`), and
- * `repair` for the editor's repair of element ids (`repairElementIds`). Neither is the writer's.
+ * `repair` for the editor's repair of element ids (`repairElementIds`) or of `{{key}}` text
+ * (`repairVariableTokens`). Neither is the writer's.
  */
 export interface ContentChangeCause {
   readonly remote: boolean;
@@ -75,7 +77,9 @@ export interface ContentChangeCause {
 
 /** The cause of a content change. */
 export function contentChangeCause(tr: Transaction): ContentChangeCause {
-  return { remote: isRemoteTransaction(tr), repair: tr.getMeta(ELEMENT_IDS_REPAIR) === true };
+  const repair =
+    tr.getMeta(ELEMENT_IDS_REPAIR) === true || tr.getMeta(VARIABLE_TOKENS_REPAIR) === true;
+  return { remote: isRemoteTransaction(tr), repair };
 }
 
 /**
@@ -152,8 +156,9 @@ export function useHostViewProps(host: DocumentEditorNotifications) {
 }
 
 /**
- * Repairs the element ids of the document a view opens with, once per document it is given, as
- * `repair` says: not at all, or with the repaired elements without a writer attributed to `author`.
+ * Repairs the document a view opens with, once per document it is given, as `repair` says: not at
+ * all, or its `{{key}}` text made live variables and its element ids repaired, with the repaired
+ * elements without a writer attributed to `author`.
  */
 export function useElementIdRepair(
   view: EditorView | null,
@@ -165,8 +170,12 @@ export function useElementIdRepair(
   const author = typeof repair === 'object' ? (repair.author ?? null) : null;
   useEffect(() => {
     if (!view || !enabled) return;
-    const tr = repairElementIds(view.state, { author });
-    if (tr) view.dispatch(tr);
+    // One change for both repairs, since the view takes its next state from the host.
+    const tokens = repairVariableTokens(view.state);
+    const tr = tokens ?? view.state.tr;
+    const ids = assignElementIds(tr, { author });
+    if (ids) tr.setMeta('addToHistory', false).setMeta(ELEMENT_IDS_REPAIR, true);
+    if (tokens || ids) view.dispatch(tr);
   }, [view, plugins, enabled, author]);
 }
 

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readRegressionDocument, readRegressionTemplate } from '../../test/stored-fixtures.js';
-import type { DocumentFile } from '../model/index.js';
+import type { DocumentFile, StoredNode } from '../model/index.js';
 import { documentTargets, replaceTemplate, validateRequiredSections } from './stored-template.js';
 
 const schema = documentSchema;
@@ -72,7 +72,8 @@ describe('stored-file readers with a template', () => {
       'sign_off',
     ]);
     const notice = template.sections?.find((section) => section.name === 'notice');
-    expect(moved.sections[0]?.content).toEqual(notice?.content);
+    // The template's content comes back with element ids of its own (DOCE-SECTIONS-4.2).
+    expect(moved.sections[0]?.content).toMatchObject(notice?.content ?? []);
     expect(validateRequiredSections(moved, template)).toEqual([
       { name: 'summary', problem: 'empty' },
     ]);
@@ -98,7 +99,28 @@ describe('stored-file readers with a template', () => {
     };
     const moved = replaceTemplate(edited, { schema, template });
     expect(moved.template).toEqual({ id: 'regression-locked' });
-    expect(moved.sections.slice(0, -1)).toEqual(file.sections);
+    expect(moved.sections.slice(0, -1)).toMatchObject(file.sections);
     expect(moved.sections.at(-1)).toEqual({ name: null, content: [kept] });
+  });
+
+  it('DOCE-FORMAT-9.7 renders the references again as the template it moves to formats them', () => {
+    const template = readRegressionTemplate('regression-base');
+    const moved = replaceTemplate(readRegressionDocument('cross-references'), {
+      schema,
+      template: {
+        ...template,
+        references: { formats: { 'internal-heading': 'see {{ref.title}}' } },
+      },
+    });
+    const cited: string[] = [];
+    const walk = (nodes: readonly StoredNode[]) => {
+      for (const node of nodes) {
+        if (node.marks?.some((mark) => mark.type === 'reference')) cited.push(node.text ?? '');
+        walk(node.content ?? []);
+      }
+    };
+    for (const section of moved.sections) walk(section.content);
+    expect(cited).toContain('see Target heading');
+    expect(cited).not.toContain('the heading');
   });
 });

@@ -73,6 +73,44 @@ function setPaths(shape: SettingShape, value: unknown, path: string): string[] {
   );
 }
 
+// The settings the base template leaves unset on purpose, each with why: it follows another
+// setting, or it is a template's own choice with nothing to inherit.
+const BASE_UNSET: readonly (readonly [RegExp, string])[] = [
+  [/^parent$/, 'the base inherits nothing'],
+  [/\.numbering\.enabled$/, 'unset, the format decides (DOCE-NUMBERING-2.6)'],
+  [/\.caption\.(label|text)\./, 'a caption label follows its text, and its text the paragraph'],
+  [/^styles\.(figure|codeBlock|equation)\.caption\.alignment$/, 'only table captions align'],
+  [
+    /^styles\.equation\.(caption\.(placement|continuedSuffix)|wrapper)$/,
+    'equation numbers sit in `()`',
+  ],
+  [/^styles\.(title|heading[1-6]|codeBlock)\.lineHeight$/, 'follows the paragraph line height'],
+  [/^styles\.codeBlock\.(weight|italic|underline|alignment)$/, 'code is set as written'],
+  [/^styles\.paragraph\.indentation$/, 'paragraph levels place numbered paragraphs'],
+  [/^styles\.list\.(prefix|suffix)$/, 'a list number has no affixes unless a template adds them'],
+  [
+    /^styles\.contents\.(title|entry)\.(font|size|italic|underline|color)$/,
+    'follows the paragraph',
+  ],
+  [
+    /^styles\.contents\.(padding\.(top|bottom)|spacing\.(left|right))$/,
+    'lists of contents sit in the text column',
+  ],
+  [/^styles\.contents\.leader\.spacing$/, 'the leader character repeats without spacing'],
+  [
+    /^styles\.contents\.(levels\[\]|kinds\.\*)\./,
+    "a level or kind follows the lists' own settings",
+  ],
+  [/^styles\.custom\.\*\./, 'a template names its own custom styles'],
+  [
+    /^(header|footer)\.(height|spacingToContent|inherit)$/,
+    'a region is as tall as its content unless a template fixes it',
+  ],
+  [/^footnotes\.(marker|text)\.underline$/, 'footnotes are not underlined'],
+  [/^footnotes\.text\.(spaceBefore|spaceAfter)$/, 'entries are spaced by the entry spacing'],
+  [/^references\./, "reference formats and links are a template's own"],
+];
+
 describe('template fixtures', () => {
   it.each(fixtures)(
     'DOCE-TEMPLATES-10.8 $id is valid and resolves with every setting',
@@ -101,5 +139,15 @@ describe('template fixtures', () => {
     expect(handbook.styles?.contents?.kinds?.figures?.title).toBe('Figures');
     expect(handbook.styles?.contents?.kinds?.toc?.title).toBe('Handbook contents');
     expect(Object.keys(extensionRecord(handbook, 'fields'))).toEqual(['site', 'edition']);
+  });
+
+  it('DOCE-TEMPLATES-2.4 gives every setting a base default, apart from a reviewed list', () => {
+    const set = new Set(setPaths(TEMPLATE_SHAPE, BASE_TEMPLATE, ''));
+    const unset = [...new Set(shapePaths(TEMPLATE_SHAPE, ''))].filter(
+      (path) => !set.has(path) && !path.startsWith('sections[]') && !path.startsWith('extensions'),
+    );
+    expect(unset.filter((path) => !BASE_UNSET.some(([rule]) => rule.test(path)))).toEqual([]);
+    // Every reviewed rule still names a setting the base leaves unset.
+    expect(BASE_UNSET.filter(([rule]) => !unset.some((path) => rule.test(path)))).toEqual([]);
   });
 });

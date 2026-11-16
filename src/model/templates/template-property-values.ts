@@ -15,7 +15,7 @@ import {
 export const cssLength = (value: unknown): string | null =>
   isTemplateLength(value) ? String(value) : null;
 
-/** A hex color as a CSS value, or null. */
+/** A template color as a CSS value, or null. */
 export const cssColor = (value: unknown): string | null =>
   isTemplateColor(value) ? String(value) : null;
 

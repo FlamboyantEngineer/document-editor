@@ -14,7 +14,7 @@ export const TEMPLATE_FORMAT_VERSION = 1;
 /** A CSS length with its unit, such as `12pt`, `25.4mm` or `0.5in`. */
 export type Length = string;
 
-/** A hex color, such as `#1f2937`. */
+/** A CSS color written plainly, such as `#1f2937`, `rgb(31 41 55)` or `navy`. */
 export type Color = string;
 
 /** The page sizes a template may name. */
@@ -297,6 +297,8 @@ export interface TemplateSection {
   footnotes?: Omit<FootnoteSettings, 'numbering'> | null;
   /** The section's own change bars, over the document's. */
   changeBars?: ChangeBarSettings | null;
+  /** The host's own settings for the section, keyed by the host's name for them. */
+  extensions?: Record<string, unknown> | null;
 }
 
 /** A stored template. */

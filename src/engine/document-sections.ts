@@ -106,6 +106,16 @@ function placeholderOf(section: DocumentSection, template: TemplateSection): Dec
   );
 }
 
+// A section of the template's that stored a lock when it was made, but that the template now lets
+// the writer edit, drops its lock: the template's sections follow the template as it is now.
+function followTemplateLocks(tr: Transaction, template: TemplateFile) {
+  for (const { node, pos, name } of documentSections(tr.doc)) {
+    const section = findTemplateSection(template, name);
+    if (section && section.editable !== false && node.attrs.editable === false)
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, editable: true });
+  }
+}
+
 /**
  * Whether a change only types or deletes text in the pages' content, in blocks that hold text
  * before and after it: it changes no section, no page region and no section placeholder, so the
@@ -153,6 +163,7 @@ export function createDocumentSections({
         editable: editsRegions(after),
         edits: regionEdits(after),
       });
+      followTemplateLocks(tr, template());
       return tr.docChanged ? tr.setMeta('addToHistory', false) : null;
     },
     props: { decorations: (state) => documentSectionsKey.getState(state) ?? null },

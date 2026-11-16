@@ -50,7 +50,7 @@ Verification: `src/model/format/document-format.test.ts`
 
 ### DOCE-FORMAT-2.1 - Stored template
 
-A stored template (`TemplateFile`) shall hold `formatVersion` 1, its `id`, and optionally its `name`, its `parent`, and its `page`, `styles`, `header`, `footer`, `footnotes`, `references`, `changeBars`, `sections` and the host's own `extensions`, as `TEMPLATE_SHAPE` describes. Lengths shall carry their unit, colors shall be hex colors, a line height shall be a multiple of the font size and a font weight a number. A header, footer or section's content shall be stored content (DOCE-FORMAT-1.1).
+A stored template (`TemplateFile`) shall hold `formatVersion` 1, its `id`, and optionally its `name`, its `parent`, and its `page`, `styles`, `header`, `footer`, `footnotes`, `references`, `changeBars`, `sections` and the host's own `extensions`, as `TEMPLATE_SHAPE` describes. A section may carry `extensions` of its own too. A key the format does not know is an error anywhere (DOCE-FORMAT-2.2), so a host keeps its own data under `extensions`. Lengths shall carry their unit, colors shall be CSS colors written plainly (a hex color, a color's name or a color function of numbers, `isCssColor`), a line height shall be a multiple of the font size and a font weight a number. A header, footer or section's content shall be stored content (DOCE-FORMAT-1.1).
 
 Implementation: `src/model/format/template-format.ts`, `src/model/format/template-format-shape.ts`, `src/model/format/template-format-validate.ts`
 Verification: `src/model/format/template-format.test.ts`
@@ -376,7 +376,7 @@ Verification: `src/document/stored-elements.test.ts`, `e2e/automation-lab.spec.t
 
 ### DOCE-FORMAT-9.7 - Template replacement
 
-`replaceTemplate(file, { schema, template, revision })` shall give a stored document moved to a resolved template, pinned at `revision` (its latest when none is given), with its sections brought in line as the editor does (`syncTemplateSections`, DOCE-SECTIONS-4.2): a section the writer cannot edit takes the template's content, a section of a name the template does not have becomes a plain section with its content, and a missing required section is added where the template places it.
+`replaceTemplate(file, { schema, template, revision })` shall give a stored document moved to a resolved template, pinned at `revision` (its latest when none is given), with its sections brought in line as the editor does (`syncTemplateSections`, DOCE-SECTIONS-4.2): a section the writer cannot edit takes the template's content, a section of a name the template does not have becomes a plain section with its content, and a missing required section is added where the template places it; and with its internal references rendered again as the template formats them (`refreshReferences`, DOCE-REFERENCES-1.8).
 
 Implementation: `src/document/stored-template.ts`
 Verification: `src/document/stored-template.test.ts`, `e2e/automation-lab.spec.ts`
