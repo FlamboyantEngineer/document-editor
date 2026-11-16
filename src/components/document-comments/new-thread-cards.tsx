@@ -18,7 +18,8 @@ export function PendingCard({
 }: {
   /** The thread's id, which keeps the text typed for it apart from any other thread's. */
   id: string;
-  quote: string;
+  /** The text it is started on; none for a thread on the whole document. */
+  quote?: string | undefined;
   context: CardContext;
   onSubmit: (text: string) => Promise<unknown>;
   onCancel: () => void;
@@ -27,7 +28,7 @@ export function PendingCard({
   return (
     <CommentThread
       mentions={context.mentions}
-      quote={quote}
+      quote={quote || undefined}
       isSelected
       onClose={onCancel}
       composer={
