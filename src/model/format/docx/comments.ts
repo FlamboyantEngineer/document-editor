@@ -13,12 +13,15 @@ export interface WordCommentEntry {
   readonly text: string;
   /** When it was posted: an ISO 8601 date and time. */
   readonly createdAt?: string | undefined;
+  /** When a deleted reply was deleted; it is left out. */
+  readonly deletedAt?: string | undefined;
 }
 
 /** A comment thread, as the host's comment store keeps it. */
 export interface WordCommentThread {
   readonly id: string;
-  readonly state: 'open' | 'resolved';
+  /** Open, resolved, or deleted, which is left out. */
+  readonly state: 'open' | 'resolved' | 'deleted';
   /** The opening comment, then the replies, oldest first. */
   readonly entries: readonly WordCommentEntry[];
 }
@@ -67,7 +70,19 @@ export function createWordComments(
   content: readonly StoredNode[],
   options: WordCommentOptions & { readonly suggestions: SuggestionsMode },
 ): WordComments {
-  const records = new Map((options.threads ?? []).map((thread) => [thread.id, thread]));
+  // A deleted thread, and a deleted reply, are records the store keeps, not comments to write.
+  const records = new Map(
+    (options.threads ?? []).flatMap((thread) =>
+      thread.state === 'deleted'
+        ? []
+        : [
+            [
+              thread.id,
+              { ...thread, entries: thread.entries.filter((each) => each.deletedAt === undefined) },
+            ] as const,
+          ],
+    ),
+  );
   const anchored = new Map<string, Anchored>();
   let next = 0;
   visit(content, options.suggestions, (node) => {

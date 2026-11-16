@@ -62,12 +62,12 @@ function anchorElement(layer: HTMLElement, marking: Marking, target: AnchorTarge
   return startContainer.nodeType === 1 ? (startContainer as Element) : startContainer.parentElement;
 }
 
-/** The space between a page's edge and the cards beside it, in pixels. */
-const CARD_GAP = 16;
+/** The space between a page's edge and the cards beside it, in pixels, unless the host sets one. */
+const DEFAULT_CARD_GAP = 20;
 
 /**
  * How far each card moves across from the margin's start to sit beside the page its anchor is on,
- * `CARD_GAP` pixels from the page's end edge, by annotation key: pages of another size or
+ * `gap` pixels from the page's end edge, by annotation key: pages of another size or
  * orientation have their own edge. A card whose anchor is on no page does not move.
  */
 // The class of the margin of cards, a child of the annotation layer.
@@ -76,7 +76,7 @@ const MARGIN_CLASS = 'de-document-comments__margin';
 function measureCardOffsets(
   layer: HTMLElement,
   targets: ReadonlyMap<string, AnchorTarget>,
-  marking: Marking,
+  { marking, gap }: { marking: Marking; gap: number },
 ): Map<string, number> {
   const offsets = new Map<string, number>();
   const margin = layer.querySelector(`:scope > .${MARGIN_CLASS}`);
@@ -87,10 +87,7 @@ function measureCardOffsets(
   for (const [key, target] of targets) {
     const page = anchorElement(layer, marking, target)?.closest('.pm-page');
     if (!page) continue;
-    offsets.set(
-      key,
-      Math.round((page.getBoundingClientRect().right - start) / (scale || 1)) + CARD_GAP,
-    );
+    offsets.set(key, Math.round((page.getBoundingClientRect().right - start) / (scale || 1)) + gap);
   }
   return offsets;
 }
@@ -152,18 +149,19 @@ interface LayerMeasurement {
 
 /**
  * Measures each target's anchor inside a layer, and how far its card moves across to sit beside
- * the anchor's page (`CARD_GAP` from its end edge), by annotation key; a missing anchor has no
+ * the anchor's page (`gap` from its end edge, `DEFAULT_CARD_GAP` unless given), by annotation key; a missing anchor has no
  * rectangles and its card does not move. The marking elements are found in one pass over the
  * layer, however many targets there are.
  */
 export function measureLayer(
   layer: HTMLElement,
   targets: ReadonlyMap<string, AnchorTarget>,
+  gap = DEFAULT_CARD_GAP,
 ): LayerMeasurement {
   const marking = markingOf(layer);
   return {
     rects: measureAnchors(layer, targets, marking),
-    offsets: measureCardOffsets(layer, targets, marking),
+    offsets: measureCardOffsets(layer, targets, { marking, gap }),
   };
 }
 

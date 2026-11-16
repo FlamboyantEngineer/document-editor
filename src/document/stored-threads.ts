@@ -6,8 +6,11 @@ import { EditorState } from 'prosemirror-state';
 import { removeCommentAnchor, setCommentState } from '../engine/comments.js';
 import { type DocumentFile, readDocumentFile, writeDocumentFile } from '../model/index.js';
 
-/** What becomes of a thread's anchor: marked open or resolved, or removed, leaving its text. */
-export type StoredThreadChange = 'open' | 'resolved' | 'removed';
+/**
+ * What becomes of a thread's anchor: marked open, resolved or deleted, the record of a deleted
+ * thread, or removed, leaving its text.
+ */
+export type StoredThreadChange = 'open' | 'resolved' | 'deleted' | 'removed';
 
 /** Which threads `updateStoredThreads` changes, and how. */
 export interface StoredThreadsOptions {
@@ -24,7 +27,8 @@ export interface StoredThreadsResult {
 }
 
 /**
- * A stored document with each named thread's comment anchor marked open or resolved, or removed;
+ * A stored document with each named thread's comment anchor marked open, resolved or deleted, or
+ * removed;
  * the document as it was, with nothing changed, when no anchor changed. A suggestion a thread
  * discusses is left as it is: deciding it is `decideStoredSuggestions`'s. Content the schema cannot
  * read is kept as it was stored.

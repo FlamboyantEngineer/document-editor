@@ -295,6 +295,48 @@ describe('projection view', () => {
     expect(marked(view.dom)).toBe('Alpha|two|Gamma');
   });
 
+  it('DOCE-PAGINATION-8.7 types in each page copy of the header and footer, the caret kept in it', () => {
+    const { projection, drain } = mount();
+    const regionAt = (doc: EditorState['doc'], name: string, nth: number) => {
+      const found: number[] = [];
+      doc.descendants((node, pos) => {
+        if (node.type.name === name) found.push(pos);
+        return !node.isTextblock;
+      });
+      return found[nth] ?? -1;
+    };
+    edit(projection, (state) => {
+      const tr = state.tr;
+      for (const name of ['page_footer', 'page_header']) {
+        const paragraph = state.schema.node('paragraph', null, state.schema.text('R'));
+        tr.insert(regionAt(tr.doc, name, 0) + 1, paragraph);
+      }
+      return tr;
+    });
+    drain();
+    const { view } = projection;
+    for (const name of ['page_header', 'page_footer']) {
+      // The second page's copy: neither the first page's header nor the last page's footer.
+      const start = regionAt(view.state.doc, name, 1) + 3;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start)));
+      for (const [index, letter] of [...'XY'].entries()) {
+        view.dispatch(view.state.tr.insertText(letter));
+        drain();
+        expect(view.state.selection.head).toBe(regionAt(view.state.doc, name, 1) + 4 + index);
+      }
+      const copies: string[] = [];
+      view.state.doc.descendants((node) => {
+        if (node.type.name === name) copies.push(node.textContent);
+        return !node.isTextblock;
+      });
+      expect(copies).toEqual(['RXY', 'RXY', 'RXY']);
+      expect(
+        projection.state.doc.nodeAt(regionAt(projection.state.doc, name, 0))?.textContent,
+      ).toBe('RXY');
+    }
+    expect(projection.stats().refused).toBe(0);
+  });
+
   it('DOCE-PAGINATION-8.5 hides the header and footer a section repeats on its later pages', () => {
     const { projection } = mount();
     const { view } = projection;

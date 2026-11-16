@@ -12,7 +12,6 @@ import {
   describeDraftTarget,
   linkSuggestionThread,
   listSuggestions,
-  removeCommentAnchor,
   selectedText,
   setCommentState,
   type Suggestion,
@@ -121,9 +120,8 @@ export function keepCommentItems(
 ): CommentItem[] {
   const items = found.filter((item) => isItemShown(item, options));
   const { from, to } = state.selection;
-  // Comments may overlap: only the selection a thread was just anchored to offers none again.
-  const anchored = items.some((item) => item.from === from && item.to === to);
-  if (options.canComment && !anchored && selectedText(state).trim()) {
+  // Comments may overlap, even on exactly the same text; a thread being started holds the caret.
+  if (options.canComment && selectedText(state).trim()) {
     items.push({ key: 'draft', target: { kind: 'selection' }, from, to, kind: 'draft' });
   }
   return items.sort((a, b) => a.from - b.from);
@@ -259,7 +257,8 @@ export function renderCommentCard(item: CommentItem, actions: CardActions): Reac
           }}
           onRemove={async () => {
             await context.comments.remove(item.thread.id);
-            run(inDocument(removeCommentAnchor(item.thread.id)));
+            // The anchor stays as a record of the thread, deleted as the store keeps it.
+            run(inDocument(setCommentState(item.thread.id, 'deleted')));
           }}
         />
       );

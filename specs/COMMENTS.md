@@ -20,7 +20,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.3 - Resolving and removing
 
-`setCommentState(thread, state)` shall mark a thread's anchor open or resolved, and `removeCommentAnchor(thread)` shall remove it, keeping its text. Both shall refuse a thread the document does not anchor.
+`setCommentState(thread, state)` shall mark a thread's anchor open, resolved or deleted, and `removeCommentAnchor(thread)` shall remove it, keeping its text. A deleted anchor stays in the document as a record of its thread and is no anchor of the editor's: no list of anchors, card, panel or click finds it. Both shall refuse a thread the document does not anchor.
 
 Implementation: `src/engine/comments.ts`
 Verification: `src/engine/comments.test.ts`
@@ -41,7 +41,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.6 - A thread being started
 
-`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`), with a range per selected cell, that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
+`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), leaving the caret at its end, as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`), with a range per selected cell, that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
 
 Implementation: `src/engine/comment-draft.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/comments.test.ts`
@@ -99,21 +99,21 @@ Verification: `src/engine/review-changes.test.ts`
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
 
-Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each person the threads name (who started, wrote, reacted to or decided one, and who is writing in one) resolved by the identity adapter, each person asked about once (`usePeople`); a lookup that fails names no one. Each card (`de-document-comments__card`) sits beside the page its text is on, a gap from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureLayer`), so cards follow each page's edge whatever its size and orientation. With `presentation: 'markers'`, the margin shows a marker for each thread and suggestion instead, which opens its card (the base library's icons presentation). Resolved threads shall not be shown, unless `filter: 'all'` asks (DOCE-COMMENTS-4.2); their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
+Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each person the threads name (who started, wrote, reacted to or decided one, and who is writing in one) resolved by the identity adapter, each person asked about once (`usePeople`); a lookup that fails names no one. Each card (`de-document-comments__card`) sits beside the page its text is on, `cardGap` pixels (20 by default) from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureLayer`), so cards follow each page's edge whatever its size and orientation. By default (`presentation: 'markers'`) the margin shows a marker for each thread and suggestion instead, whose card opens on request (DOCE-COMMENTS-2.23, the base library's icons presentation); with `presentation: 'cards'` every card shows. Resolved threads shall not be shown, unless `filter: 'all'` asks (DOCE-COMMENTS-4.2); their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/utils/use-people.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`, `src/utils/use-people.test.ts`
 
 ### DOCE-COMMENTS-2.2 - Starting a thread
 
-While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes and its portable target (DOCE-COMMENTS-1.10), then anchor it in the document, or, for a reader who may not change the document but may comment (an editor that is not editable), leave the document as it was and place the anchor by its target (DOCE-COMMENTS-1.12), removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
+While text is selected, the margin shall offer Comment beside it, inside another thread's text too and on exactly another thread's text, since threads may overlap. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes and its portable target (DOCE-COMMENTS-1.10), then anchor it in the document, or, for a reader who may not change the document but may comment (an editor that is not editable), leave the document as it was and place the anchor by its target (DOCE-COMMENTS-1.12), removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ### DOCE-COMMENTS-2.3 - Answering and resolving
 
-A thread's card shall post replies to the store, and Resolve shall resolve the thread in the store and its anchor in the document, hiding the card. The author of a thread may delete it from its opening comment, which removes the thread and its anchor. For a reader who may not change the document, Resolve and Delete change the store only, and a reply on a suggestion keeps its link to the suggestion in the store. When a card that holds keyboard focus goes, in the margin or the panel, as its thread is resolved or deleted or its suggestion decided, focus shall move to the card after it, else the one before (`useFocusHandOver`), and in the panel to the list when none is left.
+A thread's card shall post replies to the store, and Resolve shall resolve the thread in the store and its anchor in the document, hiding the card. The author of a thread may delete it from its opening comment, which deletes the thread in the store and marks its anchor deleted (DOCE-COMMENTS-2.32). For a reader who may not change the document, Resolve and Delete change the store only, and a reply on a suggestion keeps its link to the suggestion in the store. When a card that holds keyboard focus goes, in the margin or the panel, as its thread is resolved or deleted or its suggestion decided, focus shall move to the card after it, else the one before (`useFocusHandOver`), and in the panel to the list when none is left.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/card-focus.ts`, `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comments-panel.test.tsx`
@@ -155,10 +155,10 @@ Verification: `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.9 - Opening a thread
 
-The handle's `openThread(threadId)` shall put the caret in the thread's anchor and scroll it into view, which makes its card the active one; it is refused for a thread the document does not anchor and the comments do not hold (DOCE-COMMENTS-4.8).
+The handle's `openThread(threadId)` shall put the caret in the thread's anchor and scroll it to the centre of the view, both ways, centring it again each time the area scrolling it changes width, as when a side panel collapses, until the reader scrolls or presses there or opens another thread (`keepCentred`); this makes its card the active one, opened and focused (DOCE-COMMENTS-2.23); it is refused for a thread the document does not anchor and the comments do not hold (DOCE-COMMENTS-4.8).
 
-Implementation: `src/components/document-editor/editor-handle.ts`
-Verification: `e2e/comments.spec.ts`
+Implementation: `src/components/document-editor/editor-handle.ts`, `src/utils/keep-centred.ts`
+Verification: `e2e/comments.spec.ts`, `src/components/document-comments/comment-opening.test.tsx`
 
 ### DOCE-COMMENTS-2.10 - Who decides a suggestion
 
@@ -232,7 +232,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `sr
 
 ### DOCE-COMMENTS-2.20 - Threads in a shared room
 
-In room mode, `createRoomCommentStore({ doc, identity })` from `./collab` shall keep the threads in the shared document's `comments` type (decision D29), which a commenter may write while the rest is refused to them, and tell each subscriber every change, by anyone. Each thread, each field of a thread that changes after it starts, each comment and each reaction is one attribute of that type, keyed by a JSON array: `["thread", thread]` holds the thread as it started, without its comments and reactions; `["state", thread]` its state with who set it and when, `["decision", thread]` how its suggestion was decided, and `["quote", thread]`, `["target", thread]` and `["change", thread]` each a value an update set, with when; `["entry", thread, comment]` a comment without its reactions, and `["reaction", thread, comment, emoji, person]` a reaction, with an empty comment id for one to the whole thread; so the replies, reactions, edits, resolutions, decisions and updates that writers make at once to one thread all stay. A field kept apart stands over the same field of the thread's record, so a thread an earlier editor kept as one record, its state and decision in it, reads as it did and changes as any other. It attributes changes to the reader, refuses changing another person's comment and starting a thread twice, records decisions, removes a comment with the reactions to it, and removes a thread with its comments, reactions and fields, leaving `["removed", thread]`: the thread stays removed whatever another writer wrote to it at the same time, and its id is not started again. A comment's id is random by default, made without `crypto.randomUUID`, which only a secure context has. Anyone who may comment writes the type, so its values are read as untrusted (`readRoomThreads`): a thread is the one its key names, whatever its record says, and a value that is not a thread's record (with the text it quotes) or a comment's (with its author, text and time) is left out, as is a field that is not of its kind, the other threads and comments listed as they are; a reaction's emoji is read as any text, even a name every object has, such as `constructor` or `__proto__`.
+In room mode, `createRoomCommentStore({ doc, identity })` from `./collab` shall keep the threads in the shared document's `comments` type (decision D29), which a commenter may write while the rest is refused to them, and tell each subscriber every change, by anyone. Each thread, each field of a thread that changes after it starts, each comment and each reaction is one attribute of that type, keyed by a JSON array: `["thread", thread]` holds the thread as it started, without its comments and reactions; `["state", thread]` its state with who set it and when, `["decision", thread]` how its suggestion was decided, and `["quote", thread]`, `["target", thread]` and `["change", thread]` each a value an update set, with when; `["entry", thread, comment]` a comment without its reactions, and `["reaction", thread, comment, emoji, person]` a reaction, with an empty comment id for one to the whole thread; so the replies, reactions, edits, resolutions, decisions and updates that writers make at once to one thread all stay. A field kept apart stands over the same field of the thread's record, so a thread an earlier editor kept as one record, its state and decision in it, reads as it did and changes as any other. It attributes changes to the reader, refuses changing another person's comment and starting a thread twice, records decisions, keeps a deleted comment as a record of it with who deleted it and when (`deletedBy`, `deletedAt`) and takes away the reactions to it, and deletes a thread by writing who deleted it and when as `["removed", thread]`, keeping the thread with its comments, reactions and fields: the thread stays deleted whatever another writer wrote to it at the same time, it changes no more, and its id is not started again (DOCE-COMMENTS-2.32). With `moderates`, the reader may change and delete anyone's comments and threads (DOCE-COMMENTS-2.31); otherwise their own, a reply only while it is the last left in an open thread (DOCE-COMMENTS-2.30). A comment's id is random by default, made without `crypto.randomUUID`, which only a secure context has. Anyone who may comment writes the type, so its values are read as untrusted (`readRoomThreads`): a thread is the one its key names, whatever its record says, and a value that is not a thread's record (with the text it quotes) or a comment's (with its author, text and time) is left out, as is a field that is not of its kind, the other threads and comments listed as they are; a reaction's emoji is read as any text, even a name every object has, such as `constructor` or `__proto__`.
 
 Implementation: `src/collab/comment-store.ts`, `src/collab/comment-records.ts`
 Verification: `src/collab/comment-store.test.ts`
@@ -250,6 +250,76 @@ Given `threadPermissions(thread, me)`, the margin and the comments panel shall o
 
 Implementation: `src/components/document-comments/thread-permissions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`
 Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-2.23 - Cards that open on request
+
+With markers, no card shall be open when the document loads; a card opens only when the reader asks for it: its marker, a click on its thread's or suggestion's text, the comments panel or a link (`openThread`), or starting a thread, whose composer always shows. Opening a card from its text or a link shall focus the card, not its reply box; a click on the text of a card already open focuses its reply box. The marker offering Comment on a selection starts the thread at once.
+
+Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-comments/comment-opening.test.tsx`
+
+### DOCE-COMMENTS-2.24 - Putting a thread being started away
+
+A primary mouse click on the document's own text shall put away the thread being started, as Cancel and Escape do, in the margin and in the pane placement; scrolling, other buttons, touch and pens, and presses in the composer or elsewhere outside the text keep it.
+
+Implementation: `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-comments/comment-opening.test.tsx`
+
+### DOCE-COMMENTS-2.25 - Selecting a thread to answer it
+
+Pressing a card itself, in the margin or the panel, rather than one of its controls, shall focus its reply box while it has one showing; a resolved or read-only thread keeps focus where it was. With the pane placement, a click on a thread's text shall make its card in the panel the active one and focus its reply box.
+
+Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/comment-opening.test.tsx`, `src/components/document-comments/comment-focus.test.tsx`
+
+### DOCE-COMMENTS-2.26 - Replies that failed for good
+
+A reply being written for the reader that failed (`status: 'failed'`) shall show as an error row with Cancel and Retry, except that one the store marks final (`retryable: false`) shall offer no Retry.
+
+Implementation: `src/host/comment-adapters.ts`, `src/components/document-comments/use-thread-activity.ts`
+Verification: `src/components/document-comments/comment-records.test.tsx`
+
+### DOCE-COMMENTS-2.27 - Comments an assistant wrote
+
+A thread and a comment may name the assistant that wrote them (`agent`) and carry the host's own plain values (`meta`), which the editor keeps as they are, the room store too; the room's write guard accepts them only from a writer the host grants `labelAgents`. A comment's element, and a thread's, shall carry the assistant as `data-agent`, for the host to mark it.
+
+Implementation: `src/host/comment-adapters.ts`, `src/collab/comment-records.ts`, `src/collab/guard-records.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`, `src/collab/comment-store.test.ts`, `src/collab/room-change-guard-security.test.ts`
+
+### DOCE-COMMENTS-2.28 - Telling the host a reply being written shows
+
+With `onActivityShown`, a card shall tell the host each reply being written for the reader (`status: 'pending'`) once its row is drawn and painted, once for each card that shows it, so a host may start the work behind the reply only when the reader sees it.
+
+Implementation: `src/components/document-comments/thread-card-hooks.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`
+
+### DOCE-COMMENTS-2.29 - The text a reply starts with
+
+With `replyStart`, a thread's reply box shall start with the text the host gives for the thread and the reader, such as a mention of the assistant the reader's last comment asked, while nothing is typed and kept for the thread; a reader who may not reply gets no reply box. It starts again after each reply, as the host's text then says.
+
+Implementation: `src/components/document-comments/thread-card-hooks.ts`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-records.test.tsx`
+
+### DOCE-COMMENTS-2.30 - Changing a reply
+
+A reader shall edit and delete their own opening comment, and their own reply only while it is the last reply left (not deleted) in an open thread (`mayChangeComment`); the cards, the in-memory store, the room store and the room's write guard keep the same rule.
+
+Implementation: `src/host/comment-rules.ts`, `src/components/document-comments/thread-permissions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/host/memory-comments.ts`, `src/collab/comment-store.ts`, `src/collab/guard-comments.ts`
+Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/collab/room-change-guard-security.test.ts`, `src/collab/comment-store.test.ts`
+
+### DOCE-COMMENTS-2.31 - Moderating comments
+
+A host's thread policy may grant the reader moderation (`moderate`), which the default never gives: a moderator may edit and delete anyone's comments, any reply of a thread, and delete anyone's thread. The in-memory and room stores take it as `moderates`, and the room's write guard as `manageComments`.
+
+Implementation: `src/host/comment-rules.ts`, `src/components/document-comments/thread-permissions.ts`, `src/host/memory-comments.ts`, `src/collab/comment-store.ts`, `src/collab/guard-comments.ts`
+Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/collab/room-change-guard-security.test.ts`
+
+### DOCE-COMMENTS-2.32 - Deleted threads and replies kept as records
+
+Deleting a thread shall keep it as a record, with its comments, in the `deleted` state with who deleted it and when (`deletedBy`, `deletedAt`), and mark its anchor deleted rather than remove it; deleting a reply shall keep it with who deleted it and when, without its reactions. Nothing changes a deleted thread or reply again, and no card, panel, count, list of anchors or export shows them.
+
+Implementation: `src/host/comment-adapters.ts`, `src/host/memory-comments.ts`, `src/collab/comment-store.ts`, `src/collab/comment-records.ts`, `src/collab/guard-comments.ts`, `src/collab/guard-records.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-items.tsx`, `src/engine/comments.ts`, `src/engine/comment-anchors.ts`, `src/model/format/markdown/appendix.ts`, `src/model/format/docx/comments.ts`
+Verification: `src/components/document-comments/comment-records.test.tsx`, `src/collab/comment-store.test.ts`, `src/collab/room-change-guard-security.test.ts`, `src/host/memory-host.test.ts`, `src/model/format/markdown-appendix.test.ts`, `src/model/format/docx/comments.test.ts`
 
 ## DOCE-COMMENTS-3 - Comments in the browser
 

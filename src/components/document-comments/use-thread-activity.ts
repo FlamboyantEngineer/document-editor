@@ -76,7 +76,8 @@ function entryRows(
         person: entry.author,
         message: entry.status === 'failed' ? entry.text : undefined,
         onCancel: act('cancel'),
-        onRetry: entry.status === 'failed' ? act('retry') : undefined,
+        // A reply the store decided is final offers no retry.
+        onRetry: entry.status === 'failed' && entry.retryable !== false ? act('retry') : undefined,
       };
       rows.set(thread.id, [...(rows.get(thread.id) ?? []), row]);
     }

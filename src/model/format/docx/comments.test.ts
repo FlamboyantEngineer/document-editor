@@ -67,3 +67,30 @@ describe('Word comments', () => {
     expect(writeCommentParts(createWordComments([], { suggestions: 'accepted' }))).toBeNull();
   });
 });
+
+describe('Word comments, deleted', () => {
+  it('DOCE-COMMENTS-2.32 leaves out a deleted thread and a deleted reply', () => {
+    const content: StoredNode[] = [
+      { type: 'paragraph', content: [marked('Alpha', 'kept'), marked('Beta', 'gone')] },
+    ];
+    const parts = writeCommentParts(
+      createWordComments(content, {
+        threads: [
+          {
+            id: 'kept',
+            state: 'open',
+            entries: [
+              { author: 'p1', text: 'Shown' },
+              { author: 'p1', text: 'Deleted reply', deletedAt: '2026-11-13T10:00:00Z' },
+            ],
+          },
+          { id: 'gone', state: 'deleted', entries: [{ author: 'p1', text: 'Deleted thread' }] },
+        ],
+        suggestions: 'accepted',
+      }),
+    );
+    expect(parts?.comments).toContain('Shown');
+    expect(parts?.comments).not.toContain('Deleted reply');
+    expect(parts?.comments).not.toContain('Deleted thread');
+  });
+});

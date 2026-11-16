@@ -5,6 +5,7 @@
 
 import type * as Y from '@y/y';
 import type { IdentityAdapter } from '../host/adapters.js';
+import { mayChangeComment } from '../host/comment-rules.js';
 import type {
   CommentEntry,
   CommentStoreAdapter,
@@ -33,6 +34,11 @@ export interface RoomCommentStoreOptions {
   now?: (() => Date) | undefined;
   /** A new comment's id. Defaults to a random one. */
   createId?: (() => string) | undefined;
+  /**
+   * Whether the reader moderates the comments: changes and deletes anyone's. The room's write
+   * guard must grant it too (`manageComments`).
+   */
+  moderates?: boolean | undefined;
 }
 
 function missing<T>(id: string): HostResult<T> {
@@ -54,9 +60,11 @@ interface Room {
   write: (change: () => void) => void;
   me: () => string;
   stamp: () => string;
-  /** Whether the type holds the thread, and it was not removed. */
+  /** Whether the type holds the thread, and it was not deleted. */
   has: (threadId: string) => boolean;
   found: (threadId: string) => HostResult<CommentThread>;
+  /** Whether the reader moderates the comments. */
+  moderates: boolean;
 }
 
 // The changes to a thread's own fields: resolving, deciding and updating it. Each field is
@@ -100,6 +108,7 @@ export function createRoomCommentStore({
   identity,
   now = () => new Date(),
   createId = createRandomId,
+  moderates = false,
 }: RoomCommentStoreOptions): CommentStoreAdapter {
   const type = resolveRoomScope(doc, scope).comments;
   const origin = { roomComments: true };
@@ -113,7 +122,7 @@ export function createRoomCommentStore({
     const thread = readRoomThreads(type).find((each) => each.id === threadId);
     return thread ? { ok: true, value: thread } : missing(threadId);
   };
-  const room: Room = { type, write, me, stamp, has, found };
+  const room: Room = { type, write, me, stamp, has, found, moderates };
   const addEntry = (threadId: string, text: string) => {
     const id = createId();
     type.setAttr(keyOf(['entry', threadId, id]), { id, author: me(), text, createdAt: stamp() });
@@ -148,8 +157,12 @@ export function createRoomCommentStore({
     },
     ...fieldChanges(room),
     remove: (_documentId, threadId) => {
-      if (!has(threadId)) return Promise.resolve(missing(threadId));
-      write(() => removeThread(type, threadId));
+      const thread = found(threadId);
+      if (!thread.ok || !has(threadId)) return Promise.resolve(missing(threadId));
+      if (!moderates && thread.value.author !== me())
+        return Promise.resolve({ ok: false, error: { kind: 'denied' } });
+      // The thread stays, with its comments, deleted by the reader and now.
+      write(() => type.setAttr(keyOf(['removed', threadId]), { by: me(), at: stamp() }));
       return Promise.resolve({ ok: true, value: null });
     },
     ...entryChanges(room),
@@ -159,14 +172,6 @@ export function createRoomCommentStore({
       return () => type.unobserve(tell);
     },
   };
-}
-
-// Removes a thread's records and marks the thread removed. The mark stays: a change another
-// writer makes to the thread at the same time, or an older editor writing its record again, would
-// otherwise bring back a thread with nothing in it.
-function removeThread(type: Y.Type, threadId: string): void {
-  deleteRecords(type, (key) => key[1] === threadId);
-  type.setAttr(keyOf(['removed', threadId]), true);
 }
 
 // Deletes the records whose keys `matches` takes, found before any is deleted.
@@ -186,17 +191,24 @@ function entryChanges({
   write,
   me,
   stamp,
+  has,
   found,
+  moderates,
 }: Room): Pick<CommentStoreAdapter, 'edit' | 'removeEntry' | 'react'> {
-  // The reader's own comment, or why they may not change it.
+  // A comment the reader may change, or why they may not: their own, and a reply only while it is
+  // the last one left in an open thread; any, for a moderator.
   const own = (
     threadId: string,
     entryId: string,
   ): { key: string; entry: CommentEntry } | { refused: HostResult<CommentThread> } => {
     const key = keyOf(['entry', threadId, entryId]);
     const entry = entryOf(entryId, type.getAttr(key));
-    if (!entry) return { refused: missing<CommentThread>(entryId) };
-    return entry.author === me() ? { key, entry } : { refused: denied };
+    const thread = found(threadId);
+    if (!entry || entry.deletedAt || !thread.ok || !has(threadId))
+      return { refused: missing<CommentThread>(entryId) };
+    return mayChangeComment(thread.value, entry, { me: me(), moderates })
+      ? { key, entry }
+      : { refused: denied };
   };
   return {
     edit: (_documentId, { threadId, entryId, text }) => {
@@ -208,19 +220,24 @@ function entryChanges({
     removeEntry: (_documentId, { threadId, entryId }) => {
       const mine = own(threadId, entryId);
       if ('refused' in mine) return Promise.resolve(mine.refused);
-      // The reactions to a comment go with it, or the room would keep them for good.
-      write(() =>
+      // The comment stays as a record of it, deleted by the reader and now; its reactions go.
+      write(() => {
+        type.setAttr(mine.key, { ...mine.entry, deletedBy: me(), deletedAt: stamp() });
         deleteRecords(
           type,
           ([kind, thread, entry]) =>
-            (kind === 'entry' || kind === 'reaction') && thread === threadId && entry === entryId,
-        ),
-      );
+            kind === 'reaction' && thread === threadId && entry === entryId,
+        );
+      });
       return Promise.resolve(found(threadId));
     },
     react: (_documentId, { threadId, entryId = '', emoji, reacted }) => {
       const thread = found(threadId);
       if (!thread.ok) return Promise.resolve(thread);
+      // A deleted thread or comment takes no reactions.
+      const entry = entryId ? thread.value.entries.find((each) => each.id === entryId) : null;
+      if (!has(threadId) || entry?.deletedAt || (entryId && !entry))
+        return Promise.resolve(missing<CommentThread>(entryId || threadId));
       const key = keyOf(['reaction', threadId, entryId, emoji, me()]);
       write(() => (reacted ? type.setAttr(key, true) : type.deleteAttr(key)));
       return Promise.resolve(found(threadId));

@@ -15,12 +15,15 @@ export interface MarkdownComment {
   readonly createdAt?: string | undefined;
   /** A reply still being written or that failed, which is not listed. */
   readonly status?: 'pending' | 'failed' | undefined;
+  /** When a deleted reply was deleted; it is not listed. */
+  readonly deletedAt?: string | undefined;
 }
 
 /** A comment thread as the Markdown writer lists it; a host's `CommentThread` is one. */
 export interface MarkdownThread {
   readonly id: string;
-  readonly state: 'open' | 'resolved';
+  /** Open, resolved, or deleted, which is not listed. */
+  readonly state: 'open' | 'resolved' | 'deleted';
   /** The text the thread was started on. */
   readonly quote: string;
   /** About part of the text (the default) or about the whole document. */
@@ -54,8 +57,9 @@ const indented = (value: string) =>
     .join('\n    ');
 
 function threadOf(thread: MarkdownThread, person: PersonName | undefined): string | null {
+  if (thread.state === 'deleted') return null;
   const comments = thread.entries
-    .filter((entry) => !entry.status && entry.text.trim())
+    .filter((entry) => !entry.status && entry.deletedAt === undefined && entry.text.trim())
     .map((entry) => {
       const date = entry.createdAt ? ` · ${entry.createdAt.slice(0, 10)}` : '';
       return `  - **${escapeText(nameOf(entry.author, person))}**${date}: ${indented(entry.text)}`;

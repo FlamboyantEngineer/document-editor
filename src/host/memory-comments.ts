@@ -2,7 +2,13 @@
 // page session, with every change told to the document's subscribers.
 
 import type { HostResult, IdentityAdapter } from './adapters.js';
-import type { CommentEntry, CommentStoreAdapter, CommentThread } from './comment-adapters.js';
+import type {
+  CommentEntry,
+  CommentStoreAdapter,
+  CommentThread,
+  CommentThreadState,
+} from './comment-adapters.js';
+import { mayChangeComment } from './comment-rules.js';
 
 /** What the in-memory comment store starts with and how it tells time. */
 export interface MemoryCommentsOptions {
@@ -10,6 +16,8 @@ export interface MemoryCommentsOptions {
   threads?: Readonly<Record<string, readonly CommentThread[]>> | undefined;
   /** The time a comment is posted at. Defaults to now. */
   now?: (() => Date) | undefined;
+  /** Whether the reader moderates the comments: changes and deletes anyone's. */
+  moderates?: boolean | undefined;
 }
 
 function missing<T>(threadId: string): HostResult<T> {
@@ -32,7 +40,7 @@ function threadChanges(
   { me, now }: { me: () => string; now: () => Date },
 ): Pick<CommentStoreAdapter, 'setState' | 'decide' | 'update'> {
   // Opens or resolves a thread, stamping who resolved it and when.
-  const resolve = (thread: CommentThread, state: CommentThread['state']) => {
+  const resolve = (thread: CommentThread, state: CommentThreadState) => {
     thread.state = state;
     thread.resolvedBy = state === 'resolved' ? me() : undefined;
     thread.resolvedAt = state === 'resolved' ? now().toISOString() : undefined;
@@ -60,13 +68,15 @@ function threadChanges(
 // The changes to one comment of a thread: editing and deleting the reader's own, and reacting.
 function entryChanges(
   change: Change,
-  { me, now }: { me: () => string; now: () => Date },
+  { me, now, moderates }: { me: () => string; now: () => Date; moderates: boolean },
 ): Pick<CommentStoreAdapter, 'edit' | 'removeEntry' | 'react'> {
-  // The reader's own comment, or why the reader may not change it.
+  // A comment the reader may change, or why they may not.
   const own = (thread: CommentThread, entryId: string) => {
-    const found = thread.entries.find((each) => each.id === entryId);
+    const found = thread.entries.find((each) => each.id === entryId && !each.deletedAt);
     if (!found) return { refused: missing<CommentThread>(entryId) };
-    return found.author === me() ? { found } : { refused: denied };
+    return mayChangeComment(thread, found, { me: me(), moderates })
+      ? { found }
+      : { refused: denied };
   };
   return {
     edit: (documentId, { threadId, entryId, text }) =>
@@ -81,13 +91,17 @@ function entryChanges(
       change(documentId, threadId, (thread) => {
         const { found, refused } = own(thread, entryId);
         if (!found) return refused;
-        thread.entries = thread.entries.filter((each) => each !== found);
+        // The reply stays as a record of it, deleted by the reader and now, without reactions.
+        found.deletedBy = me();
+        found.deletedAt = now().toISOString();
+        found.reactions = undefined;
         return null;
       }),
     react: (documentId, { threadId, entryId, emoji, reacted }) =>
       change(documentId, threadId, (thread) => {
         const found = entryId === undefined ? thread : thread.entries.find((e) => e.id === entryId);
-        if (!found) return missing(entryId ?? threadId);
+        if (!found || ('deletedAt' in found && found.deletedAt))
+          return missing(entryId ?? threadId);
         const reactions = { ...found.reactions };
         const people = (reactions[emoji] ?? []).filter((person) => person !== me());
         if (reacted) people.push(me());
@@ -99,13 +113,30 @@ function entryChanges(
   };
 }
 
+// Deleting a thread, which its author or a moderator does: it is kept, deleted by them and now.
+function threadRemoval(
+  change: Change,
+  { me, now, moderates }: { me: () => string; now: () => Date; moderates: boolean },
+): CommentStoreAdapter['remove'] {
+  return async (documentId, threadId) => {
+    const removed = await change(documentId, threadId, (thread) => {
+      if (!moderates && (thread.author ?? thread.entries[0]?.author) !== me()) return denied;
+      thread.state = 'deleted';
+      thread.deletedBy = me();
+      thread.deletedAt = now().toISOString();
+      return null;
+    });
+    return removed.ok ? { ok: true, value: null } : removed;
+  };
+}
+
 /**
  * A comment store that keeps threads in memory, attributing comments to the reader, and tells each
  * subscriber of a document about every change to its threads.
  */
 export function createMemoryComments(
   identity: IdentityAdapter,
-  { threads = {}, now = () => new Date() }: MemoryCommentsOptions = {},
+  { threads = {}, now = () => new Date(), moderates = false }: MemoryCommentsOptions = {},
 ): CommentStoreAdapter & { snapshot(documentId: string): CommentThread[] } {
   const stored = new Map<string, Map<string, CommentThread>>(
     Object.entries(threads).map(([id, list]) => [
@@ -131,7 +162,8 @@ export function createMemoryComments(
   };
   const change: Change = (documentId, threadId, apply) => {
     const thread = threadsOf(documentId).get(threadId);
-    if (!thread) return Promise.resolve(missing(threadId));
+    // A deleted thread is a record of it, which nothing changes.
+    if (!thread || thread.state === 'deleted') return Promise.resolve(missing(threadId));
     const refused = apply(thread);
     if (refused) return Promise.resolve(refused);
     thread.updatedAt = now().toISOString();
@@ -164,13 +196,9 @@ export function createMemoryComments(
         thread.entries.push(entry(text));
         return null;
       }),
-    remove: (documentId, threadId) => {
-      if (!threadsOf(documentId).delete(threadId)) return Promise.resolve(missing(threadId));
-      notify(documentId);
-      return Promise.resolve({ ok: true, value: null });
-    },
+    remove: threadRemoval(change, { me, now, moderates }),
     ...threadChanges(change, { me, now }),
-    ...entryChanges(change, { me, now }),
+    ...entryChanges(change, { me, now, moderates }),
     subscribe: (documentId, onThreads) => {
       const set = listeners.get(documentId) ?? new Set();
       listeners.set(documentId, set);

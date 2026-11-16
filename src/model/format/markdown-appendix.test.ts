@@ -63,7 +63,15 @@ const THREADS: MarkdownThread[] = [
       { author: 'p-ada', text: 'Which bed?\n- the old one', createdAt: '2026-11-01T08:30:00Z' },
       { author: 'p-bo', text: 'The *old* one.', createdAt: '2026-11-01T09:00:00Z' },
       { author: 'p-bot', text: '', status: 'pending' },
+      // A deleted reply and a deleted thread are records the store keeps, not listed.
+      { author: 'p-bo', text: 'Gone.', createdAt: '2026-11-01T09:30:00Z', deletedAt: '2026-11-01' },
     ],
+  },
+  {
+    id: 't-gone',
+    state: 'deleted',
+    quote: 'north bed',
+    entries: [{ author: 'p-ada', text: 'Deleted.', createdAt: '2026-11-01T07:00:00Z' }],
   },
   // A thread the editor started for a suggestion, with no comment, is not listed.
   { id: 's-water', state: 'open', quote: 'little', entries: [] },
