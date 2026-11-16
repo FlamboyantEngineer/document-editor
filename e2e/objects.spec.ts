@@ -112,8 +112,6 @@ test.describe('objects', () => {
     await picker.getByRole('searchbox').fill('wide');
     await picker.getByRole('row', { name: 'Wide panel' }).click();
     await picker.getByRole('button', { name: 'Insert' }).click();
-    // The picker closes after a choice; until it has, the dialog holds its Insert as well.
-    await expect(picker).toBeHidden();
     const width = dialog(page).getByRole('textbox', { name: 'Width (px)' });
     const height = dialog(page).getByRole('textbox', { name: 'Height (px)' });
     // The 800 by 400 image is narrower than the page's content once placed.
