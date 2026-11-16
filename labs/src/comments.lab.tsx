@@ -182,6 +182,8 @@ function Lab() {
   const [suggestionThreads, setSuggestionThreads] = useState(false);
   const [othersReadOnly, setOthersReadOnly] = useState(false);
   const [ownRejects, setOwnRejects] = useState(false);
+  // Every card shown, unless the reader asks for markers, the editor's default.
+  const [markers, setMarkers] = useState(false);
   const [panelFilter, setPanelFilter] = useState('');
   const handle = useRef<DocumentEditorHandle>(null);
   const comments = HOST.comments;
@@ -302,6 +304,15 @@ function Lab() {
         <label>
           <input
             type="checkbox"
+            name="markers"
+            checked={markers}
+            onChange={(event) => setMarkers(event.currentTarget.checked)}
+          />{' '}
+          Markers, cards on request
+        </label>
+        <label>
+          <input
+            type="checkbox"
             name="suggestion-threads"
             checked={suggestionThreads}
             onChange={(event) => setSuggestionThreads(event.currentTarget.checked)}
@@ -360,6 +371,7 @@ function Lab() {
             canComment: !reading,
             ...review,
             filter,
+            presentation: markers ? 'markers' : 'cards',
             suggestionThreads: suggestionThreads ? { delay: 300 } : false,
           }
         }

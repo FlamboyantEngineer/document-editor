@@ -18,12 +18,20 @@ import {
 import { CellSelection } from 'prosemirror-tables';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { characterWidth } from './graphemes.js';
+import { regionCopyNear, sameRegionIn } from './page-positions.js';
 import type { ProjectionMap } from './projection-map.js';
 
-// The projection position of a canonical one nearest `near`, where a page break gives two. A side
+// The projection position of a canonical one nearest `near`: on the side of a page break nearer it,
+// and in the copy of a page header or footer it is in.
+function nearest(map: ProjectionMap, pos: number, near: number): number | null {
+  const at = nearestSide(map, pos, near);
+  return at === null ? null : regionCopyNear(map.projection, at, near);
+}
+
+// The projection position of a canonical one on the side of a page break nearer `near`. A side
 // that stands for another canonical position, as a code fragment's end stands for the place before
 // the line break its split dropped, is no place of this one.
-function nearest(map: ProjectionMap, pos: number, near: number): number | null {
+function nearestSide(map: ProjectionMap, pos: number, near: number): number | null {
   const side = (assoc: -1 | 1) => {
     const at = map.toProjection(pos, assoc);
     return at !== null && map.toCanonical(at) === pos ? at : null;
@@ -32,6 +40,17 @@ function nearest(map: ProjectionMap, pos: number, near: number): number | null {
   const after = side(1);
   if (before === null || after === null) return before ?? after ?? map.toProjection(pos, 1);
   return Math.abs(before - near) <= Math.abs(after - near) ? before : after;
+}
+
+/**
+ * A projection selection on the pages a transaction lays out again: mapped through it, or, in a
+ * page's header or footer, which the new pages draw again, in the same page's copy of it.
+ */
+export function nearAfter(selection: Selection, tr: Transaction): Selection {
+  const start = sameRegionIn(selection.$head, tr.doc);
+  return start === null
+    ? selection.map(tr.doc, tr.mapping)
+    : TextSelection.near(tr.doc.resolve(start));
 }
 
 /**

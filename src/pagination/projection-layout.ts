@@ -17,7 +17,7 @@ import {
 } from './layout-document.js';
 import type { MeasureCache } from './measure-cache.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
-import { projectionSelection } from './selection-mirror.js';
+import { nearAfter, projectionSelection } from './selection-mirror.js';
 
 /** The views and state a layout reads. */
 interface LayoutSource {
@@ -68,7 +68,8 @@ export function layOutProjection(
   const tr = projection.tr;
   repaginate(tr, target, options.fragmentRules);
   const map = createProjectionMap(tr.doc, options.fragmentRules);
-  const near = projection.selection.map(tr.doc, tr.mapping);
-  tr.setSelection(projectionSelection(map, canonical.selection, near));
+  tr.setSelection(
+    projectionSelection(map, canonical.selection, nearAfter(projection.selection, tr)),
+  );
   return { tr, map, metrics };
 }

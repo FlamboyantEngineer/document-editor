@@ -11,6 +11,7 @@ import { type CardContext, ThreadCard } from './comment-cards.js';
 import { renderCommentCard } from './comment-items.js';
 import { hooks } from './comments-panel-hooks.js';
 import { isSameCardShown, type ShownCard } from './margin-card.js';
+import { focusReplyOnPress } from './use-open-cards.js';
 
 // An item of the panel's list, scrolled into view within the panel when it becomes the active one;
 // it can take focus, as the card after one that goes does.
@@ -29,7 +30,8 @@ function PanelItem({
     if (isActive) ref.current?.scrollIntoView?.({ block: 'nearest' });
   }, [isActive]);
   return (
-    <div ref={ref} role="listitem" tabIndex={-1} {...slot}>
+    // A press on the card itself, not one of its controls, focuses its reply box.
+    <div ref={ref} role="listitem" tabIndex={-1} onClick={focusReplyOnPress} {...slot}>
       {children}
     </div>
   );

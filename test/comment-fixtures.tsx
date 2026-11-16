@@ -124,6 +124,8 @@ export function Harness(props: {
               identity,
               canComment: props.canComment,
               decide: props.decide,
+              // A card for each thread, unless a test asks for markers, whose cards open on request.
+              presentation: 'cards',
               ...props.options,
             }
           : undefined

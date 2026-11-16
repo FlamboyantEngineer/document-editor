@@ -33,6 +33,20 @@ const answered = () =>
 const panel = () => screen.getByRole('region', { name: 'All comments' });
 
 describe('Comment focus', () => {
+  it('DOCE-COMMENTS-2.25 takes a click on a thread’s text to its reply box in the pane', async () => {
+    const user = userEvent.setup();
+    render(<Harness host={host()} options={{ placement: 'pane' }} panel={{ placement: 'pane' }} />);
+    await within(panel()).findByText('Is blue right?');
+    const blue = screen
+      .getByRole('textbox', { name: 'Report' })
+      .querySelector<HTMLElement>('mark[data-comment-id="open"]');
+    await user.click(blue as HTMLElement);
+    const thread = within(panel()).getAllByRole('group', { name: 'Comment thread' })[0];
+    await waitFor(() =>
+      expect(within(thread as HTMLElement).getByRole('textbox', { name: 'Reply' })).toHaveFocus(),
+    );
+  });
+
   it('DOCE-COMMENTS-4.7 shows threads only in the panel with pane placement, the new one too', async () => {
     const user = userEvent.setup();
     const handle = createRef<DocumentEditorHandle>();

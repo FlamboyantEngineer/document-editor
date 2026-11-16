@@ -98,6 +98,100 @@ function redirectPosition({ $pos, to, direction, forward }: Redirect): number | 
   return start === null ? null : start + header.offset;
 }
 
+const PAGE_REGIONS = new Set(['page_header', 'page_footer']);
+
+// A position in a page's header or footer: the region's depth, its section's depth and the page.
+function regionAt($pos: ResolvedPos) {
+  for (let depth = $pos.depth; depth > 1; depth -= 1) {
+    if (!PAGE_REGIONS.has($pos.node(depth).type.name)) continue;
+    const section = depth - 2;
+    if ($pos.node(section).type.name !== 'page_section') return null;
+    return { depth, section, page: $pos.index(section) };
+  }
+  return null;
+}
+
+// Where the content of the `name` region on page `page` of the section at depth `section` around
+// `$pos` starts.
+function regionContentStart(
+  $pos: ResolvedPos,
+  { section, page }: { readonly section: number; readonly page: number },
+  name: string,
+) {
+  const pagePos = $pos.posAtIndex(page, section);
+  let start: number | null = null;
+  $pos
+    .node(section)
+    .child(page)
+    .forEach((region, offset) => {
+      if (region.type.name === name) start = pagePos + 1 + offset + 1;
+    });
+  return start;
+}
+
+// The same place in another page's copy of the region `$pos` is in: the same offset, kept inside.
+function placeInCopy($pos: ResolvedPos, region: { depth: number; section: number }, page: number) {
+  const name = $pos.node(region.depth).type.name;
+  const start = regionContentStart($pos, { section: region.section, page }, name);
+  if (start === null) return null;
+  const size = $pos
+    .node(region.section)
+    .child(page)
+    .child($pos.index(region.depth - 1)).content.size;
+  return start + Math.min($pos.pos - $pos.start(region.depth), size);
+}
+
+/**
+ * A position in a copy of a page header or footer that joining the pages drops, at the same place
+ * in the copy the join keeps: the section's first page's header and its last page's footer
+ * (DOCE-SECTIONS-5.1). Null for any other position.
+ */
+function keptRegionPlace($pos: ResolvedPos): number | null {
+  const region = regionAt($pos);
+  if (!region) return null;
+  const pages = $pos.node(region.section).childCount;
+  const kept = $pos.node(region.depth).type.name === 'page_header' ? 0 : pages - 1;
+  return region.page === kept ? null : placeInCopy($pos, region, kept);
+}
+
+/**
+ * A projection position as the same place in the copy of its page header or footer that `near` is
+ * in, on another page of the same section; `pos` itself otherwise. A canonical position in a
+ * header or footer maps to one copy, and the writer's place may be in another.
+ */
+export function regionCopyNear(doc: ProseMirrorNode, pos: number, near: number): number {
+  const $pos = doc.resolve(pos);
+  const $near = doc.resolve(near);
+  const region = regionAt($pos);
+  const other = regionAt($near);
+  const same =
+    region &&
+    other &&
+    region.page !== other.page &&
+    $pos.before(region.section) === $near.before(other.section) &&
+    $pos.node(region.depth).type === $near.node(other.depth).type;
+  return same ? (placeInCopy($pos, region, other.page) ?? pos) : pos;
+}
+
+/**
+ * Where the content of the header or footer `$pos` is in starts in `doc`, on the page of the same
+ * index in the section of the same index, as a new layout of the same pages holds it; null when
+ * `$pos` is in neither or `doc` has no such page.
+ */
+export function sameRegionIn($pos: ResolvedPos, doc: ProseMirrorNode): number | null {
+  const region = regionAt($pos);
+  if (!region || region.section !== 1) return null;
+  const index = $pos.index(0);
+  if (index >= doc.childCount || doc.child(index).type !== $pos.node(1).type) return null;
+  const $section = doc.resolve(doc.resolve(0).posAtIndex(index) + 1);
+  if (region.page >= $section.parent.childCount) return null;
+  return regionContentStart(
+    $section,
+    { section: 1, page: region.page },
+    $pos.node(region.depth).type.name,
+  );
+}
+
 /** Two documents and the mappings between them: projection to canonical, and back. */
 export interface PagePositions {
   readonly projection: ProseMirrorNode;
@@ -119,6 +213,8 @@ export function mapPosition(
   const toCanonical = direction === 'toCanonical';
   const result = (toCanonical ? forward : backward).mapResult(at.pos, at.assoc);
   if (!result.deletedAcross) return result.pos;
+  const kept = toCanonical ? keptRegionPlace(projection.resolve(at.pos)) : null;
+  if (kept !== null) return mapPosition(positions, { pos: kept, assoc: at.assoc }, direction);
   const [from, to] = toCanonical ? [projection, canonical] : [canonical, projection];
   return redirectPosition({ $pos: from.resolve(at.pos), to, direction, forward });
 }

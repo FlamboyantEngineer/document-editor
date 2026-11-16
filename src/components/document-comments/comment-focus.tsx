@@ -16,6 +16,8 @@ export interface ThreadTarget {
 /** The opened comment, numbered so opening the same one again shows it again. */
 export interface OpenedComment extends ThreadTarget {
   readonly sequence: number;
+  /** Where focus goes in the thread's card: its reply box, as when its text was clicked. */
+  readonly focus?: 'reply' | undefined;
 }
 
 /** What a thread being started begins with. */
@@ -33,7 +35,7 @@ export type OpenComment = (target: ThreadTarget) => boolean;
 /** The comment the reader was taken to, and how to take them to another. */
 interface CommentFocus {
   readonly opened: OpenedComment | null;
-  open(target: ThreadTarget): void;
+  open(target: ThreadTarget, options?: { readonly focus?: 'reply' | undefined }): void;
   /** The text the thread being started begins with. */
   readonly newText: string | null;
   setNewText(text: string | null): void;
@@ -55,8 +57,12 @@ export function CommentFocusProvider({ children }: { readonly children: ReactNod
   const focus = useMemo<CommentFocus>(
     () => ({
       opened,
-      open: (target) =>
-        setOpened((current) => ({ ...target, sequence: (current?.sequence ?? 0) + 1 })),
+      open: (target, options) =>
+        setOpened((current) => ({
+          ...target,
+          focus: options?.focus,
+          sequence: (current?.sequence ?? 0) + 1,
+        })),
       newText,
       setNewText,
     }),

@@ -41,7 +41,7 @@ Verification: `src/engine/comments.test.ts`
 
 ### DOCE-COMMENTS-1.6 - A thread being started
 
-`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`), with a range per selected cell, that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
+`startCommentDraft(id)` shall start a thread on the selected text, or, without a selection, on the text block holding the caret (`canStartComment`), leaving the caret at its end, as a draft drawn like an anchor (`mark` with `data-comment-id` and `data-comment-draft`), with a range per selected cell, that follows the text through edits but is not stored; `commitCommentDraft(id)` anchors it in the document once the thread is kept, and `clearCommentDraft` forgets it. The editing plugins keep the draft (`createCommentDraft`).
 
 Implementation: `src/engine/comment-draft.ts`, `src/engine/document-editing.ts`
 Verification: `src/engine/comments.test.ts`
@@ -99,14 +99,14 @@ Verification: `src/engine/review-changes.test.ts`
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
 
-Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each person the threads name (who started, wrote, reacted to or decided one, and who is writing in one) resolved by the identity adapter, each person asked about once (`usePeople`); a lookup that fails names no one. Each card (`de-document-comments__card`) sits beside the page its text is on, a gap from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureLayer`), so cards follow each page's edge whatever its size and orientation. With `presentation: 'markers'`, the margin shows a marker for each thread and suggestion instead, which opens its card (the base library's icons presentation). Resolved threads shall not be shown, unless `filter: 'all'` asks (DOCE-COMMENTS-4.2); their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
+Given `comments` (a comment store, the document's id and the identity adapter), the document editor shall list the store's threads and show, in a margin labelled Comments, a card for each open thread the document anchors and for each suggestion, in reading order, with each person the threads name (who started, wrote, reacted to or decided one, and who is writing in one) resolved by the identity adapter, each person asked about once (`usePeople`); a lookup that fails names no one. Each card (`de-document-comments__card`) sits beside the page its text is on, `cardGap` pixels (20 by default) from that page's end edge, with how far it moves across from the margin's start published as `--de-comment-offset` (`measureLayer`), so cards follow each page's edge whatever its size and orientation. By default (`presentation: 'markers'`) the margin shows a marker for each thread and suggestion instead, whose card opens on request (DOCE-COMMENTS-2.23, the base library's icons presentation); with `presentation: 'cards'` every card shows. Resolved threads shall not be shown, unless `filter: 'all'` asks (DOCE-COMMENTS-4.2); their anchors stay in the document. A store that tells of changes (`subscribe`) keeps the cards current, whoever changes the threads.
 
 Implementation: `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/use-comment-threads.ts`, `src/utils/use-people.ts`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`, `src/utils/use-people.test.ts`
 
 ### DOCE-COMMENTS-2.2 - Starting a thread
 
-While text is selected, the margin shall offer Comment beside it, inside another thread's text too, since threads may overlap; only a selection that is exactly a thread's anchor offers none. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes and its portable target (DOCE-COMMENTS-1.10), then anchor it in the document, or, for a reader who may not change the document but may comment (an editor that is not editable), leave the document as it was and place the anchor by its target (DOCE-COMMENTS-1.12), removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
+While text is selected, the margin shall offer Comment beside it, inside another thread's text too and on exactly another thread's text, since threads may overlap. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes and its portable target (DOCE-COMMENTS-1.10), then anchor it in the document, or, for a reader who may not change the document but may comment (an editor that is not editable), leave the document as it was and place the anchor by its target (DOCE-COMMENTS-1.12), removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
@@ -155,10 +155,10 @@ Verification: `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.9 - Opening a thread
 
-The handle's `openThread(threadId)` shall put the caret in the thread's anchor and scroll it into view, which makes its card the active one; it is refused for a thread the document does not anchor and the comments do not hold (DOCE-COMMENTS-4.8).
+The handle's `openThread(threadId)` shall put the caret in the thread's anchor and scroll it to the centre of the view, both ways, centring it again each time the area scrolling it changes width, as when a side panel collapses, until the reader scrolls or presses there or opens another thread (`keepCentred`); this makes its card the active one, opened and focused (DOCE-COMMENTS-2.23); it is refused for a thread the document does not anchor and the comments do not hold (DOCE-COMMENTS-4.8).
 
-Implementation: `src/components/document-editor/editor-handle.ts`
-Verification: `e2e/comments.spec.ts`
+Implementation: `src/components/document-editor/editor-handle.ts`, `src/utils/keep-centred.ts`
+Verification: `e2e/comments.spec.ts`, `src/components/document-comments/comment-opening.test.tsx`
 
 ### DOCE-COMMENTS-2.10 - Who decides a suggestion
 
@@ -250,6 +250,27 @@ Given `threadPermissions(thread, me)`, the margin and the comments panel shall o
 
 Implementation: `src/components/document-comments/thread-permissions.ts`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`
 Verification: `src/components/document-comments/thread-permissions.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
+
+### DOCE-COMMENTS-2.23 - Cards that open on request
+
+With markers, no card shall be open when the document loads; a card opens only when the reader asks for it: its marker, a click on its thread's or suggestion's text, the comments panel or a link (`openThread`), or starting a thread, whose composer always shows. Opening a card from its text or a link shall focus the card, not its reply box; a click on the text of a card already open focuses its reply box. The marker offering Comment on a selection starts the thread at once.
+
+Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-comments/comment-opening.test.tsx`
+
+### DOCE-COMMENTS-2.24 - Putting a thread being started away
+
+A primary mouse click on the document's own text shall put away the thread being started, as Cancel and Escape do, in the margin and in the pane placement; scrolling, other buttons, touch and pens, and presses in the composer or elsewhere outside the text keep it.
+
+Implementation: `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-comments/comment-opening.test.tsx`
+
+### DOCE-COMMENTS-2.25 - Selecting a thread to answer it
+
+Pressing a card itself, in the margin or the panel, rather than one of its controls, shall focus its reply box while it has one showing; a resolved or read-only thread keeps focus where it was. With the pane placement, a click on a thread's text shall make its card in the panel the active one and focus its reply box.
+
+Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/comment-opening.test.tsx`, `src/components/document-comments/comment-focus.test.tsx`
 
 ## DOCE-COMMENTS-3 - Comments in the browser
 

@@ -31,7 +31,9 @@ import type { ReferenceSourceAdapter, SelectionActionsAdapter } from '../../host
 import type { TemplateFile } from '../../model/index.js';
 import type { CitationHref } from '../../model/schema/reference-mark.js';
 import type { LayoutState, PaginationStats } from '../../pagination/index.js';
+import { keepCentred } from '../../utils/keep-centred.js';
 import type {
+  CommentPointer,
   OpenComment,
   StartComment,
   StartCommentOptions,
@@ -169,8 +171,14 @@ function selectIn(view: EditorView | null, address: EditAddress): boolean {
   return true;
 }
 
-// Puts the caret in a thread's anchor and centres its text in view.
-function placeInThread(view: EditorView, threadId: string): boolean {
+// Puts the caret in a thread's anchor and centres its text in view, both ways, and again as the
+// area around it changes width until the reader acts there (`keepCentred`); `stopCentring` holds
+// what stops the centring of the thread opened before.
+function placeInThread(
+  view: EditorView,
+  threadId: string,
+  stopCentring: RefObject<(() => void) | null>,
+): boolean {
   const anchor = commentAnchors(view.state).find((each) => each.thread === threadId);
   if (!anchor) return false;
   const selection = TextSelection.create(view.state.doc, anchor.from);
@@ -178,7 +186,8 @@ function placeInThread(view: EditorView, threadId: string): boolean {
   // The anchor's text, centred: a text node's parent, since only elements scroll into view.
   const { node } = view.domAtPos(anchor.from);
   const element = node.nodeType === node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-  element?.scrollIntoView?.({ block: 'center' });
+  stopCentring.current?.();
+  stopCentring.current = element ? keepCentred(element) : null;
   view.focus();
   return true;
 }
@@ -187,13 +196,16 @@ function placeInThread(view: EditorView, threadId: string): boolean {
 export interface CommentRefs {
   readonly startCommentRef: RefObject<StartComment | null>;
   readonly openThreadRef: RefObject<OpenComment | null>;
+  /** What the comments do with pointer presses and clicks in the document. */
+  readonly commentPointerRef: RefObject<CommentPointer | null>;
 }
 
 /** The refs the comments fill with their ways in. */
 export function useCommentRefs(): CommentRefs {
   const startCommentRef = useRef<StartComment | null>(null);
   const openThreadRef = useRef<OpenComment | null>(null);
-  return useMemo(() => ({ startCommentRef, openThreadRef }), []);
+  const commentPointerRef = useRef<CommentPointer | null>(null);
+  return useMemo(() => ({ startCommentRef, openThreadRef, commentPointerRef }), []);
 }
 
 // Where the host links a printed citation: its references adapter's `href`, when it gives one.
@@ -250,6 +262,7 @@ export function useEditorHandle(
     openFind: ((mode?: FindBarMode) => void) | null;
   },
 ) {
+  const stopCentring = useRef<(() => void) | null>(null);
   useImperativeHandle(
     ref,
     () => ({
@@ -260,7 +273,7 @@ export function useEditorHandle(
         view ? revealElement(view, elementId, options) : false,
       select: (address) => selectIn(view, address),
       openThread: (threadId, options) => {
-        const placed = view ? placeInThread(view, threadId) : false;
+        const placed = view ? placeInThread(view, threadId, stopCentring) : false;
         const opened = openThreadRef.current?.({ threadId, ...options }) ?? false;
         return placed || opened;
       },
