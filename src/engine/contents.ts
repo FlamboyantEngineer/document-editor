@@ -18,16 +18,20 @@ import {
   contentsListProperties,
   DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
+  EXTERNAL_DOCUMENT_REFERENCE_TYPE,
   type FontStacks,
   resolveContentsList,
   type TemplateFile,
 } from '../model/index.js';
+import { type CitationHref, referencePrintHref } from '../model/schema/reference-mark.js';
 import { type PageMap, pageMap } from '../pagination/page-map.js';
 import {
+  type ContentsGroup,
   type ContentsState,
   decorate,
   type InnerState,
   type Kinds,
+  listGroups,
   stateOf,
 } from './contents-listing.js';
 import { hasContents } from './contents-presence.js';
@@ -40,6 +44,7 @@ import {
   rowsIn,
 } from './contents-view.js';
 
+export type { ContentsGroup } from './contents-listing.js';
 export type { ContentsLabels } from './contents-view.js';
 
 /** The labels each default list shows unless a host gives its own. */
@@ -51,7 +56,11 @@ export const CONTENTS_LABELS: Readonly<
   tables: { title: 'Table of Tables', empty: 'No tables found.' },
   codeBlocks: { title: 'Table of Code Blocks', empty: 'No code listings found.' },
   equations: { title: 'Table of Equations', empty: 'No equations found.' },
-  references: { title: 'References', empty: 'No references found.' },
+  references: {
+    title: 'References',
+    empty: 'No references found.',
+    groups: { [EXTERNAL_DOCUMENT_REFERENCE_TYPE]: 'Documents' },
+  },
   abbreviations: { title: 'Abbreviations', empty: 'No abbreviations found.' },
 };
 
@@ -71,6 +80,11 @@ export interface ContentsOptions {
   labels?: Readonly<Record<string, Partial<ContentsLabels>>> | undefined;
   /** The fonts the host serves itself, by the family name a template uses. */
   fontStacks?: FontStacks | undefined;
+  /**
+   * Where an entry that stands for a citation of another document opens, in a new tab; such an
+   * entry is plain text without it, or when it gives nothing (DOCE-CONTENTS-2.11).
+   */
+  citationHref?: CitationHref | undefined;
 }
 
 export type { ContentsState } from './contents-listing.js';
@@ -128,6 +142,18 @@ export function contentsCatalog(state: EditorState): DocumentCatalog | null {
   return contentsKey.getState(state)?.catalog ?? null;
 }
 
+/**
+ * The groups the list of contents at a position may show (DOCE-CONTENTS-2.11), with their
+ * headings and whether it shows each; none for a kind that does not group or without a plugin.
+ */
+export function contentsGroupsAt(state: EditorState, pos: number): ContentsGroup[] {
+  const node = state.doc.nodeAt(pos);
+  const groups = (contentsKey.get(state)?.spec as { groups?: GroupsOf } | undefined)?.groups;
+  return node?.type.name === 'toc_block' && groups ? groups(state, node) : [];
+}
+
+type GroupsOf = (state: EditorState, node: ProseMirrorNode) => ContentsGroup[];
+
 /** The rows the list of contents at a position shows; none without a contents plugin. */
 export function contentsRowsAt(state: EditorState, pos: number): ContentsRows {
   const size = state.doc.nodeAt(pos)?.nodeSize ?? 0;
@@ -141,8 +167,11 @@ function drawingWith({
   kinds,
   labels = {},
   fontStacks,
+  citationHref,
 }: Omit<ContentsOptions, 'kinds'> & { kinds: Kinds }) {
   const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
+  const href = (cites: Readonly<Record<string, unknown>>) =>
+    citationHref ? referencePrintHref(cites, citationHref) : null;
   return (
     node: ProseMirrorNode,
     rows: ContentsRows,
@@ -161,6 +190,7 @@ function drawingWith({
       properties: contentsListProperties(list, fontStacks),
       showPage: kind?.showPage !== false,
       navigate,
+      href,
     };
   };
 }
@@ -175,16 +205,20 @@ export function createContents({
   kinds: added = {},
   labels = {},
   fontStacks,
+  citationHref,
 }: ContentsOptions): Plugin<ContentsState> {
   const all: Record<string, ContentsKind> = { ...DEFAULT_CONTENTS_KINDS, ...added };
+  const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
   const kinds: Kinds = {
     all,
     of: (node) => {
       const type: unknown = node.attrs.tocType;
       return typeof type === 'string' && Object.hasOwn(all, type) ? type : 'toc';
     },
+    groupTitle: (key, group) =>
+      labels[key]?.groups?.[group] ?? defaults[key]?.groups?.[group] ?? null,
   };
-  const drawingFor = drawingWith({ template, kinds, labels, fontStacks });
+  const drawingFor = drawingWith({ template, kinds, labels, fontStacks, citationHref });
   const view: NodeViewConstructor = (...[node, editor, , decorations]) => {
     const dom = document.createElement('div');
     dom.className = 'de-contents';
@@ -216,6 +250,10 @@ export function createContents({
   const counter = { builds: 0 };
   return new Plugin<ContentsState>({
     key: contentsKey,
+    groups: ((state, node) => {
+      const value = contentsKey.getState(state);
+      return value ? listGroups(value, node, kinds) : [];
+    }) satisfies GroupsOf,
     state: {
       init: (_config, state) => stateOf({ doc: state.doc, template: template(), kinds, counter }),
       apply: (tr, value) => {

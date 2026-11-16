@@ -7,10 +7,12 @@ import type { Decoration, EditorView } from 'prosemirror-view';
 import type { CatalogEntry, ContentsListProperties, CustomProperties } from '../model/index.js';
 import { chooseEntryWith } from './contents-keys.js';
 
-/** A list's title, and what it shows when it lists nothing. */
+/** A list's title, what it shows when it lists nothing, and the heading of each group it shows. */
 export interface ContentsLabels {
   title: string;
   empty: string;
+  /** The heading over each group of entries, by the group's name; a group without one has none. */
+  groups?: Readonly<Record<string, string>> | undefined;
 }
 
 /** A list of contents' rows, as its block's decoration hands them to its view. */
@@ -26,7 +28,7 @@ export interface ContentsRows {
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
 function measureKey(
   node: ProseMirrorNode,
-  { rows, labels, leaders, showPage, properties }: Drawing,
+  { rows, labels, leaders, showPage, properties, href }: Drawing,
 ): string {
   const text = [
     String(node.attrs.showTitle),
@@ -39,7 +41,7 @@ function measureKey(
     String(rows.empty),
     ...rows.entries.map(
       (entry) =>
-        `${String(entry.level)}|${entry.number}|${entry.text}|${String(entry.page)}|${entry.anchor ?? ''}|${entry.target ?? ''}`,
+        `${String(entry.level)}|${entry.number}|${entry.text}|${String(entry.page)}|${entry.anchor ?? ''}|${entry.target ?? ''}|${entry.heading ? 'h' : ''}|${entry.cites ? (href(entry.cites) ?? '') : ''}`,
     ),
   ].join('\n');
   let hash = 0x811c9dc5;
@@ -77,6 +79,8 @@ export interface Drawing {
   readonly showPage: boolean;
   /** Takes the reader to the entry at an index of the rows the list shows now. */
   readonly navigate: (index: number) => void;
+  /** Where an entry that stands for a citation opens, or null where it opens nowhere. */
+  readonly href: (cites: Readonly<Record<string, unknown>>) => string | null;
 }
 
 // How many times a leader repeats: enough to fill the widest row, as the row clips it on the
@@ -89,12 +93,32 @@ function setProperties(element: HTMLElement, properties: CustomProperties | unde
   }
 }
 
-function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLElement {
+// A row's element, by what choosing it does: a link that opens a citation where the host says, in
+// a new tab; plain text for a citation the host links nowhere and for a group's heading; or a link
+// that takes the reader to what the entry names.
+function rowOf(entry: CatalogEntry, index: number, drawing: Drawing): HTMLElement {
+  const href = entry.cites ? drawing.href(entry.cites) : null;
+  if (href) {
+    const link = document.createElement('a');
+    link.href = href;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    chooseEntryWith(link, null);
+    return link;
+  }
   const row = document.createElement('div');
-  const level = entry.level || 1;
-  row.className = 'de-contents__entry';
-  row.dataset.level = String(level);
+  if (entry.heading) row.classList.add('de-contents__group');
+  if (entry.heading || entry.cites) return row;
   row.setAttribute('role', 'link');
+  chooseEntryWith(row, () => drawing.navigate(index));
+  return row;
+}
+
+function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLElement {
+  const row = rowOf(entry, index, drawing);
+  const level = entry.level || 1;
+  row.classList.add('de-contents__entry');
+  row.dataset.level = String(level);
   setProperties(row, drawing.properties.levels[level - 1]);
   if (entry.anchor) row.id = entry.anchor;
   // The element a printed row links to (DOCE-CONTENTS-2.10).
@@ -113,8 +137,7 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
     leader.setAttribute('aria-hidden', 'true');
     row.append(leader);
   } else if (drawing.showPage) row.append(' ');
-  if (drawing.showPage) row.append(span('de-contents__page', String(entry.page)));
-  chooseEntryWith(row, index === 0, () => drawing.navigate(index));
+  if (drawing.showPage && !entry.heading) row.append(span('de-contents__page', String(entry.page)));
   return row;
 }
 
@@ -136,7 +159,11 @@ export function draw(dom: HTMLElement, node: ProseMirrorNode, drawing: Drawing) 
       parts.push(empty);
     }
   }
-  parts.push(...rows.entries.map((entry, index) => drawEntry(entry, index, drawing)));
+  const entries = rows.entries.map((entry, index) => drawEntry(entry, index, drawing));
+  // The first entry the keys reach is in the tab order.
+  const first = entries.find((row) => row.dataset.choosable !== undefined);
+  if (first) first.tabIndex = 0;
+  parts.push(...entries);
   dom.removeAttribute('style');
   setProperties(dom, drawing.properties.list);
   dom.replaceChildren(...parts);

@@ -87,8 +87,6 @@ export {
   setCommentState,
 } from './comments.js';
 export { completionRequest, normalizeCompletion } from './completion-text.js';
-export type { ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
-export { CONTENTS_LABELS, contentsCatalog, contentsKey, createContents } from './contents.js';
 export type { CustomStylesOptions } from './custom-styles.js';
 export {
   createCustomStyles,

@@ -987,7 +987,7 @@ div.de-host-view {
   --de-contents-default-indentation: 80px;
 }
 
-.de-contents__entry:hover .de-contents__text {
+.de-contents__entry[data-choosable]:hover .de-contents__text {
   text-decoration: underline;
 }
 
@@ -1037,6 +1037,23 @@ div.de-host-view {
 /* A row without a page, such as a cited document's, has neither leader nor page to keep apart. */
 .de-contents__entry > .de-contents__text:last-child {
   flex: 1 1 auto;
+}
+
+/* A group's heading over its entries, such as a kind of cited document, names nothing to go to. */
+.de-contents__group {
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+/* A row that takes the reader nowhere, a group's heading or a citation without an address. */
+.de-contents__entry:not([data-choosable]) {
+  cursor: default;
+}
+
+/* A cited document's row opens it, and reads as its text. */
+a.de-contents__entry {
+  color: inherit;
+  text-decoration: none;
 }
 
 /* An object's number and its caption are kept apart by the separator its kind gives. */

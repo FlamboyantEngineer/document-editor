@@ -8,6 +8,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { parseCodeLines, readDocumentFile, type StoredNode } from '../model/index.js';
+import { setContentsDepth } from './contents-commands.js';
 import { documentKeys } from './document-editing.js';
 import {
   convertMath,
@@ -18,7 +19,6 @@ import {
   insertMath,
   linkAt,
   setCodeLanguage,
-  setContentsDepth,
   setFigure,
   setLink,
   setLinkedCode,

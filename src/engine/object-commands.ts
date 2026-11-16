@@ -58,8 +58,8 @@ export function insertCodeBlock(language = 'plaintext'): Command {
   };
 }
 
-// The innermost node of a type holding, or selected at, the selection.
-function nodeAtSelection(state: EditorState, types: readonly string[]) {
+/** The innermost node of a type holding, or selected at, the selection. */
+export function nodeAtSelection(state: EditorState, types: readonly string[]) {
   const { selection } = state;
   if (selection instanceof NodeSelection && types.includes(selection.node.type.name)) {
     return { node: selection.node, pos: selection.from };
@@ -267,18 +267,6 @@ export function insertContents(kind = 'toc', depth?: number): Command {
     if (!type) return false;
     const attrs = { tocType: kind, ...(depth ? { minLevel: depth } : {}) };
     return insertBlock(type.create(attrs), 'select')(state, dispatch);
-  };
-}
-
-/** Sets the deepest heading level the list of contents selected shows. */
-export function setContentsDepth(depth: number): Command {
-  return (state, dispatch) => {
-    const found = nodeAtSelection(state, ['toc_block']);
-    if (!found || depth < 1 || depth > 6) return false;
-    dispatch?.(
-      state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, minLevel: depth }),
-    );
-    return true;
   };
 }
 
