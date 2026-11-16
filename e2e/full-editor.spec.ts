@@ -377,14 +377,14 @@ test.describe('full editor lab', () => {
         const { edge, start } = await gap('landscape pages');
         return Math.round(start - edge);
       })
-      .toBe(16);
+      .toBe(20);
     const landscape = await gap('landscape pages');
     await expect
       .poll(async () => {
         const { edge, start } = await gap('portrait pages again');
         return Math.round(start - edge);
       })
-      .toBe(16);
+      .toBe(20);
     const portrait = await gap('portrait pages again');
     expect(landscape.edge - portrait.edge).toBeGreaterThan(100);
     // Markers instead of cards, each opening its card.

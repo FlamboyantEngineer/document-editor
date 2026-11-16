@@ -96,7 +96,12 @@ function Harness({
       labels={labels}
       comments={
         host.comments
-          ? { store: host.comments, documentId: 'doc', identity: host.identity }
+          ? {
+              store: host.comments,
+              documentId: 'doc',
+              identity: host.identity,
+              presentation: 'cards',
+            }
           : undefined
       }
     />

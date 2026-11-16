@@ -53,6 +53,37 @@ test.describe('comments lab', () => {
     await expect(card(page, 'every')).toContainText('Accept');
   });
 
+  test('DOCE-COMMENTS-2.23 opens a card only on request with markers', async ({ lab, page }) => {
+    await lab.open('comments');
+    await page.getByLabel('Markers, cards on request').check();
+    await expect(margin(page).getByText('Is one second measured')).toHaveCount(0);
+    // A click on the thread's text opens its card, focused, and a second one its reply box.
+    const anchor = content(page).locator('mark[data-comment-id]').first();
+    await anchor.click();
+    const thread = margin(page).getByRole('group', { name: 'Comment thread' }).first();
+    await expect(thread).toContainText('Is one second measured');
+    await expect(page.locator('.de-document-comments__card').first()).toBeFocused();
+    await anchor.click();
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toBeFocused();
+  });
+
+  test('DOCE-COMMENTS-2.24 puts a thread being started away on a click in the page', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await selectText(page, 'operator console');
+    await margin(page).getByRole('button', { name: 'Comment' }).click();
+    const composer = margin(page).getByRole('textbox', { name: 'Add a comment' });
+    await expect(composer).toBeFocused();
+    await content(page).getByText('operator console').click({ button: 'right' });
+    await page.keyboard.press('Escape');
+    await expect(composer).toBeVisible();
+    await content(page).getByText('operator console').click();
+    await expect(composer).toHaveCount(0);
+    await expect(content(page).locator('mark[data-comment-draft]')).toHaveCount(0);
+  });
+
   test('DOCE-COMMENTS-3.2 starts, answers and resolves a thread', async ({ lab, page }) => {
     await lab.open('comments');
     await selectText(page, 'operator console');
