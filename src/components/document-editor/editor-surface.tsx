@@ -8,6 +8,7 @@ import { type ReactNode, type RefObject, useState } from 'react';
 import type { LayoutState } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentBanners } from './banners.js';
+import { DebugPane, debugPaneView } from './debug-pane.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import {
   type BottomChromeProps,
@@ -20,6 +21,7 @@ import {
 } from './editor-chrome.js';
 import type { ObjectDialog } from './editor-context.js';
 import { DocumentOverview, type DocumentOverviewOptions } from './editor-overview.js';
+import { debugParts } from './root-data.js';
 
 const hooks = createHooks('document-editor', ['workspace', 'viewport', 'lead', 'placeholder']);
 
@@ -35,25 +37,33 @@ interface EditorSurfaceProps {
   /** The template's font families that did not load. */
   readonly missingFonts: readonly string[];
   readonly layoutState: LayoutState;
+  /** Where the pages are measured, in page layout; the debugging pane holds its element. */
+  readonly measureIn: RefObject<HTMLDivElement | null> | null;
   /** The document with its handles. */
   readonly children: ReactNode;
 }
 
 // The document between the panels beside it. The element is there without panels too (`data-panels`
 // tells when it holds one), so a panel the host shows or hides leaves the document where it is in
-// the tree: its view, its focus and the scroll position stay.
+// the tree: its view, its focus and the scroll position stay. While the debugging pane shows, it
+// stands in for the end panel, which comes back as it was when the pane goes.
 function Workspace({
   panels,
+  debug,
   children,
 }: {
   panels: DocumentEditorProps['panels'];
+  debug: { readonly pane: ReactNode; readonly isShown: boolean };
   children: ReactNode;
 }) {
+  const end = debug.isShown ? null : panels?.end;
+  const held = Boolean(panels?.start) || Boolean(end) || debug.isShown;
   return (
-    <div {...hooks.slot('workspace', { panels: Boolean(panels?.start) || Boolean(panels?.end) })}>
+    <div {...hooks.slot('workspace', { panels: held })}>
       {panels?.start}
       {children}
-      {panels?.end}
+      {debug.pane}
+      {end}
     </div>
   );
 }
@@ -98,9 +108,20 @@ export function EditorSurface({
   openDialog,
   missingFonts,
   layoutState,
+  measureIn,
   children,
 }: EditorSurfaceProps) {
   const { props, context, view } = chrome;
+  const shown = debugPaneView(debugParts(props.debug), measureIn !== null);
+  const pane = (
+    <DebugPane
+      shown={shown}
+      view={view}
+      pages={chrome.pages}
+      labels={context.labels}
+      measureIn={measureIn}
+    />
+  );
   const isAwaiting = useAwaitingFirstLayout((props.layout ?? 'page') === 'page', layoutState);
   const [region, setRegion] = useState<HTMLDivElement | null>(null);
   const content = (
@@ -121,7 +142,7 @@ export function EditorSurface({
         banners={props.banners}
         missingFonts={missingFonts}
       />
-      <Workspace panels={props.panels}>
+      <Workspace panels={props.panels} debug={{ pane, isShown: shown !== null }}>
         {props.scrollable ? (
           <>
             <ScrollRegion

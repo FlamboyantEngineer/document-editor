@@ -1292,25 +1292,43 @@ div.de-host-view {
   pointer-events: none;
 }
 
-/* Layout debugging: each page says what its blocks take of its content height, and what is left. */
+/*
+ * Layout debugging: each page keeps its own border and carries a label at its top-right corner with
+ * its sheet and content sizes, its header's and footer's room, what its blocks take (collapsed and
+ * stacked), what is left and the device pixel ratio, in CSS pixels with three decimals.
+ */
 .de-document-editor[data-debug='true'] .pm-page {
   position: relative;
-  outline: 1px dashed #f97316;
 }
 
-.de-document-editor[data-debug='true'] .pm-page[data-debug-free]::after {
+.de-document-editor[data-debug='true'] .pm-page[data-debug-used]::after {
   position: absolute;
+  top: 2px;
   right: 4px;
-  bottom: 2px;
   color: #c2410c;
-  font: 10px/1.2 monospace;
-  content: attr(data-debug-used) 'px used, ' attr(data-debug-free) 'px free';
+  font: 9px/1.25 monospace;
+  text-align: right;
+  white-space: pre;
+  pointer-events: none;
+  content: 'paper ' attr(data-debug-paper) '\A content ' attr(data-debug-content) '\A header '
+    attr(data-debug-header) ' footer ' attr(data-debug-footer) '\A used ' attr(data-debug-used)
+    ' stacked ' attr(data-debug-stacked) '\A free ' attr(data-debug-free) ' dpr '
+    attr(data-debug-dpr);
 }
 
-/* Block heights: each block on the pages outlined, with the height the last layout measured. */
+/* Block borders: each page region outlined, and each block with the height the last layout measured. */
+.de-document-editor[data-debug-blocks='true'] .pm-page > [data-debug-type] {
+  outline: 1px dashed #a855f7;
+  outline-offset: -1px;
+}
+
 .de-document-editor[data-debug-blocks='true'] [data-debug-height] {
   position: relative;
   outline: 1px dotted #0ea5e9;
+}
+
+.de-document-editor[data-debug-blocks='true'] [data-debug-overflow] {
+  outline: 1px solid #dc2626;
 }
 
 .de-document-editor[data-debug-blocks='true'] [data-debug-height]::after {
@@ -1323,16 +1341,59 @@ div.de-host-view {
   content: attr(data-debug-height) 'px';
 }
 
-/* The measuring view: shown over the editor's end, at the width it measures at. */
-.de-document-editor[data-debug-measure='true'] .de-document-editor__measure {
-  left: auto;
-  right: 0;
-  z-index: 2;
-  max-height: 100%;
-  overflow: hidden;
-  outline: 1px dashed #0ea5e9;
-  background: rgb(255 255 255 / 0.92);
+/* The measuring view's blocks get borders too while it shows beside the pages. */
+.de-document-editor[data-debug-blocks='true'] .de-document-editor__measure .pm-page-content > * {
+  outline: 1px dotted #0ea5e9;
+}
+
+/* A hovered block's tooltip, at its top-right corner. */
+.de-document-editor__debug-tip {
+  position: absolute;
+  top: var(--de-debug-tip-y);
+  left: var(--de-debug-tip-x);
+  z-index: 4;
+  display: grid;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #0f172a;
+  color: #f8fafc;
+  font: 10px/1.35 monospace;
+  white-space: nowrap;
   pointer-events: none;
+  transform: translateX(-100%);
+}
+
+/*
+ * The debugging pane beside the pages, after its resize handle, at its own width: the measuring
+ * view at the width it measures at, or the pages' markup. Without a view the pane takes no box, and
+ * the measuring view stays out of sight.
+ */
+.de-document-editor__debug:not([data-view]) {
+  display: contents;
+}
+
+.de-document-editor__debug[data-view] {
+  position: sticky;
+  top: 0;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--de-debug-width, 480px);
+  max-height: 100vh;
+  overflow: auto;
+  border-left: 1px solid #cbd5e1;
+  background: #f8fafc;
+}
+
+.de-document-editor__debug[data-view='measure'] > .de-document-editor__measure {
+  position: static;
+  margin: 8px;
+  background: #fff;
+}
+
+.de-document-editor__debug[data-view='source'] > .ui-code-block {
+  margin: 0;
+  border: 0;
+  font-size: 11px;
 }
 
 /*

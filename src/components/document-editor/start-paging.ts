@@ -147,6 +147,7 @@ export function startPaging(
     fragmentRules: fragmentRulesOf(latest.current),
     footnoteNumbering: settings.footnoteNumbering,
     onLayoutStateChange: (state: LayoutState) => latest.current.onLayoutStateChange?.(state),
+    trace: () => latest.current.debug?.trace ?? null,
   };
   const start = () => startProjectionOf(setup, latest, { refs, setPaged });
   if (!ghostWith(latest)) return start();

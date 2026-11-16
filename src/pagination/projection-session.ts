@@ -9,13 +9,14 @@ import { Transform } from 'prosemirror-transform';
 import type { EditorView } from 'prosemirror-view';
 import type { FragmentRules } from '../model/index.js';
 import { readDomSelection } from '../utils/dom-selection.js';
-import { caretPlace } from './caret.js';
+import { caretPlace, rememberCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import type { MeasuringView } from './ghost-view.js';
 import type { LayoutMemory } from './layout-document.js';
 import { wantsLayoutNow } from './layout-latency.js';
 import { markLayout } from './layout-marks.js';
 import type { createLayoutReadiness } from './layout-readiness.js';
+import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
 import type { DrawChecks } from './layout-validation.js';
 import type { MeasureCache } from './measure-blocks.js';
@@ -39,19 +40,6 @@ const PROJECTION_META = 'projection-view';
 // How many layouts in a row may move the pages with no change in between before the layout counts
 // as not converging (DOCE-PAGINATION-7.6).
 const LAYOUT_PASSES = 8;
-
-// Where the caret was on screen before each laid-out document was taken, until it is drawn.
-const caretBefore = new WeakMap<ProseMirrorNode, number | null>();
-
-/**
- * Where the caret was on screen before the layout that made a document, once, so the view that
- * draws it can put the caret back there (DOCE-PAGINATION-5.8); null for none.
- */
-export function takeCaretBefore(doc: ProseMirrorNode): number | null {
-  const caret = caretBefore.get(doc) ?? null;
-  caretBefore.delete(doc);
-  return caret;
-}
 
 /** How the layouts are going: what they did, whether the pages settled, and what is due. */
 interface LayoutPace {
@@ -170,6 +158,7 @@ export function quietly(session: Session, run: () => void): void {
 // Draws the projection's state again over a DOM change it did not take.
 function refuse(session: Session): void {
   session.counts.refused += 1;
+  writeTrace(session.options.trace, 'refuse');
   setProjection(session, session.projection);
   session.view?.updateState(session.projection);
 }
@@ -201,8 +190,10 @@ function syncSelection(session: Session): void {
 /** Lays the pages out once the scheduler runs, unless a layout is already due. */
 export function requestLayout(session: Session): void {
   session.pace.readiness.pending();
+  if (session.cancelLayout) return;
+  writeTrace(session.options.trace, 'request');
   const schedule = session.options.schedule ?? frameIn(session.options.measureIn);
-  session.cancelLayout ??= schedule(() => layout(session));
+  session.cancelLayout = schedule(() => layout(session));
 }
 
 /**
@@ -260,11 +251,19 @@ export function layout(session: Session): void {
   session.edits.cancel();
   const { view, ghost, pace } = session;
   if (view?.isDestroyed || ghost.view.isDestroyed) return;
-  if (view?.composing) return requestLayout(session);
+  const { trace } = session.options;
+  if (view?.composing) {
+    writeTrace(trace, 'skip', () => ({ reason: 'composing' }));
+    return requestLayout(session);
+  }
   keepShownSelection(session);
   if (pace.changed) pace.passes = 0;
-  else if (pace.passes >= LAYOUT_PASSES) return pace.readiness.fail();
+  else if (pace.passes >= LAYOUT_PASSES) {
+    writeTrace(trace, 'fail', () => ({ passes: pace.passes }));
+    return pace.readiness.fail();
+  }
   pace.changed = false;
+  const traced = traceLayout(trace, session.options.measureIn.ownerDocument.defaultView);
   let laidOut: ReturnType<typeof layOutProjection>;
   try {
     laidOut = layOutPages(session);
@@ -272,13 +271,14 @@ export function layout(session: Session): void {
     pace.readiness.fail();
     throw error;
   }
-  const before = session.projection.doc;
-  pace.counter.layout(before, laidOut.tr.doc);
+  pace.counter.layout(session.projection.doc, laidOut.tr.doc);
   pace.passes = laidOut.tr.docChanged ? pace.passes + 1 : 0;
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
-  if (laidOut.tr.docChanged && view) caretBefore.set(laidOut.tr.doc, caretPlace(view));
-  take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats: pace.counter.stats() }));
+  if (laidOut.tr.docChanged && view) rememberCaret(laidOut.tr.doc, caretPlace(view));
+  const stats = pace.counter.stats();
+  take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));
+  traced(() => ({ layouts: stats.layouts, pages: laidOut.metrics.length }));
   pace.readiness.laidOut(
     () => session.cancelLayout === null && !session.edits.waiting() && !pace.ready.waiting(),
   );
@@ -323,6 +323,7 @@ export function showCanonical(session: Session, tr: Transform | null, how: Showi
   session.map = mirrored.map;
   session.shown = canonical.doc;
   take(session, how.scroll ? mirrored.tr.scrollIntoView() : mirrored.tr);
+  writeTrace(session.options.trace, 'mirror');
   if (!changed) return;
   afterChange(session, how.now);
 }
@@ -330,8 +331,9 @@ export function showCanonical(session: Session, tr: Transform | null, how: Showi
 // A change shown on the pages: laid out on the next frame when `now`, or once the writer pauses.
 function afterChange(session: Session, now: boolean): void {
   markChanged(session);
-  if (now) requestLayout(session);
-  else session.edits.request();
+  if (now) return requestLayout(session);
+  writeTrace(session.options.trace, 'settle');
+  session.edits.request();
 }
 
 /**
