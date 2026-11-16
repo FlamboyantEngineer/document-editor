@@ -16,7 +16,11 @@ import { PropertyRow, PropertySection } from '@flamboyantengineer/ui-components/
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { useState } from 'react';
-import type { TemplateFile, TemplateSection } from '../../model/index.js';
+import {
+  sectionRestartsNumbering,
+  type TemplateFile,
+  type TemplateSection,
+} from '../../model/index.js';
 import { SettingRow } from './setting-row.js';
 import type { TemplateScope } from './template-scope-state.js';
 import {
@@ -276,6 +280,14 @@ function SectionNameRow({ section, props }: { section: TemplateSection; props: S
   );
 }
 
+// What a section's unset flag means: an unset restart restarts when the section sets its own
+// heading or paragraph styles (`sectionRestartsNumbering`); the others have no implied value.
+function impliedSetting(section: TemplateSection, id: string): unknown {
+  if (id !== 'restartNumbering') return undefined;
+  const { restartNumbering: _own, ...rest } = section;
+  return sectionRestartsNumbering(rest);
+}
+
 /** The shown section's own rows: its name, label and flags. */
 export function SectionRows(props: ScopeProps) {
   const { template, scope, onChange, labels, isDisabled } = props;
@@ -290,7 +302,7 @@ export function SectionRows(props: ScopeProps) {
           key={setting.id}
           setting={setting}
           value={settingAt(own, setting.path)}
-          inherited={undefined}
+          inherited={impliedSetting(section, setting.id)}
           onChange={(value) => {
             const next = withSetting(own, setting.path, value) as unknown as TemplateSection;
             onChange(withNamedSection(template, scope, () => next));
