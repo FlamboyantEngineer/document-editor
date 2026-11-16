@@ -166,7 +166,7 @@ describe('document catalog', () => {
     expect(catalog.terms?.map((entry) => entry.text)).toEqual(['Ampere', 'Ohm', 'Volt']);
   });
 
-  it('DOCE-CONTENTS-1.5 lists each cited document once, in the order first cited', () => {
+  it('DOCE-CONTENTS-1.5 lists each cited document once, by its number', () => {
     const cite = (value: string, attrs: Record<string, unknown>): StoredNode => ({
       type: 'text',
       text: value,
@@ -222,8 +222,8 @@ describe('document catalog', () => {
     ).doc;
     const { references } = catalogDocument(cited, BASE_TEMPLATE);
     expect(references?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
-      'STD-2|Interface standard',
       'HB-1|Handbook',
+      'STD-2|Interface standard',
       '|Part list',
     ]);
     expect(cited.textBetween(references?.[0]?.pos ?? 0, (references?.[0]?.pos ?? 0) + 3)).toBe(
@@ -349,7 +349,8 @@ describe('document catalog', () => {
     ]);
     expect(catalog.tables?.[0]?.target).toBe('limits-table');
     // A document cited before and after the list is listed at its first citation after it.
-    expect(catalog.references?.map((entry) => entry.number)).toEqual(['STD-3', 'STD-1']);
+    expect(catalog.references?.map((entry) => entry.number)).toEqual(['STD-1', 'STD-3']);
+    expect(catalog.references?.[0]?.pos).toBeGreaterThan(catalog.toc?.[0]?.pos ?? Infinity);
     // Abbreviations count the whole document, one entry per glossary entry.
     expect(catalog.abbreviations?.map((entry) => entry.identity)).toEqual(['ac', 'ac-2']);
     expect(catalog.equations?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([

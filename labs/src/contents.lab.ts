@@ -60,6 +60,78 @@ const DEEP: StoredNode[] = [
   })),
 ];
 
+// Citations in the last chapter: two revisions of one standard, a catalogue entry, a paper, one
+// with a title too long for its row, and a cross-reference to a heading of this document, which
+// a list of references leaves out.
+const cite = (value: string, attrs: Record<string, unknown>): StoredNode => ({
+  type: 'text',
+  text: value,
+  marks: [{ type: 'reference', attrs: { referenceType: 'external-document', ...attrs } }],
+});
+
+const baseline = (documentId: string) =>
+  JSON.stringify({
+    version: 1,
+    documentId,
+    numbering: documentId,
+    title: documentId,
+    revision: null,
+    revisionLabel: '',
+    target: null,
+    defaultLabel: documentId,
+  });
+
+const CITATIONS: StoredNode = {
+  type: 'paragraph',
+  content: [
+    text('This archive follows '),
+    cite('the records standard', {
+      publisher: 'XYZ',
+      number: 'RS-200',
+      revision: 'B',
+      title: 'Records',
+      target: 'rs-200',
+      baseline: baseline('rs-200'),
+    }),
+    text(', '),
+    cite('its earlier revision', {
+      publisher: 'XYZ',
+      number: 'RS-200',
+      revision: 'A',
+      title: 'Records',
+      target: 'rs-200',
+    }),
+    text(', '),
+    cite('the retention guide', {
+      publisher: 'ABC',
+      number: 'ABC RG-9',
+      title:
+        'Retention of records, reports, logs and minutes across every phase of a programme, from its first review to its retirement',
+      target: 'rg-9',
+      baseline: baseline('rg-9'),
+    }),
+    text(', '),
+    cite('the paper', {
+      authors: 'Doe, Jane',
+      revision: '2019',
+      title: 'Keeping records',
+      number: '10.1000/records',
+      target: 'paper',
+    }),
+    text(', '),
+    cite('the shelf entry', {
+      referenceType: 'catalogue-entry',
+      publisher: 'DEF',
+      number: 'SH-4',
+      title: 'Shelf list',
+      target: 'sh-4',
+    }),
+    text(' and '),
+    cite('the scope', { referenceType: 'internal-heading', target: 'scope' }),
+    text('.'),
+  ],
+};
+
 const CHAPTERS = [
   'Scope',
   'Interfaces',
@@ -119,9 +191,9 @@ function sample() {
       ? [block, quotation(`Quoted in chapter ${String(chapter)}.`)]
       : [block];
   });
-  section.content.push(...DEEP);
+  section.content.push(...DEEP, CITATIONS);
   section.content.unshift(contentsBlock('toc'), contentsBlock('tables'));
-  section.content.push(contentsBlock('quotes'));
+  section.content.push(contentsBlock('quotes'), contentsBlock('references'));
   return document;
 }
 
@@ -133,7 +205,12 @@ function render(): void {
   const contents = createContents({
     template: () => TEMPLATE,
     kinds: { quotes: QUOTES },
-    labels: { quotes: { title: 'Table of Quotations', empty: 'No quotations found.' } },
+    labels: {
+      quotes: { title: 'Table of Quotations', empty: 'No quotations found.' },
+      references: { groups: { 'catalogue-entry': 'Catalogue' } },
+    },
+    // A cited document opens at its own address, in a new tab.
+    citationHref: ({ baseline: cited }) => `https://example.com/documents/${cited.documentId}`,
   });
   const schema = createDocumentSchema();
   const pages = showOnPages(mounts, {

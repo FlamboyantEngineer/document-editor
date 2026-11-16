@@ -3,7 +3,16 @@
 
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { abbreviationTargetId, compareAbbreviations } from '../glossary.js';
+import { EXTERNAL_DOCUMENT_REFERENCE_TYPE } from '../reference-format.js';
 import { deriveLinkedCodeBlockCaption } from '../schema/caption-text.js';
+import {
+  citedAttrs,
+  citedGroup,
+  citedIdentity,
+  citedNumber,
+  citedOrder,
+  citedText,
+} from './reference-entries.js';
 
 /**
  * One kind of list: the nodes or marks it lists and how it shows them. For a mark, each run of text
@@ -43,6 +52,21 @@ export interface ContentsKind {
   readonly unique?: boolean | undefined;
   /** What makes two entries one for `unique`: their number and text by default. */
   readonly identity?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
+  /**
+   * An entry's group: the entries of a kind that groups are listed group by group, each under a
+   * heading its list's labels name, after `sort`, and a list may show only some groups.
+   */
+  readonly group?: ((node: ProseMirrorNode, mark?: Mark) => string) | undefined;
+  /** The order of the groups; others follow, in the order of their names. */
+  readonly groups?: readonly string[] | undefined;
+  /** What an entry sorts by, part by part, for `sort` (`compareOrder`); none by default. */
+  readonly order?: ((node: ProseMirrorNode, mark?: Mark) => readonly string[]) | undefined;
+  /**
+   * The attributes of the citation an entry stands for: its row opens where the host links the
+   * citation, in a new tab, or is plain text when the host links it nowhere.
+   */
+  readonly cites?:
+    ((node: ProseMirrorNode, mark?: Mark) => Readonly<Record<string, unknown>>) | undefined;
   /** The text between an entry's number and its text, when it has both; none by default. */
   readonly separator?: string | undefined;
   /** Whether an entry shows its page number. Defaults to true. */
@@ -58,12 +82,23 @@ export interface ContentsKind {
 
 const attrText = (value: unknown) => (typeof value === 'string' ? value : '');
 
-// A cited document's number and title, or a catalogue entry's label, as a citation recorded them.
+// Whether a citation names another document, not a place in this one.
 const isExternal = (_node: ProseMirrorNode, mark?: Mark) =>
   !String(mark?.attrs.refType ?? '').startsWith('internal-');
-const citedNumber = (_node: ProseMirrorNode, mark?: Mark) => attrText(mark?.attrs.docNumber);
-const citedTitle = (node: ProseMirrorNode, mark?: Mark) =>
-  attrText(mark?.attrs.docTitle) || attrText(mark?.attrs.libraryLabel) || node.textContent;
+
+/** Compares two entries by their `order`, part by part, ignoring case and accents. */
+export function compareOrder(a: CatalogEntry, b: CatalogEntry): number {
+  const left = a.order ?? [];
+  const right = b.order ?? [];
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const delta = (left[index] ?? '').localeCompare(right[index] ?? '', undefined, {
+      sensitivity: 'base',
+      numeric: true,
+    });
+    if (delta !== 0) return delta;
+  }
+  return a.pos - b.pos;
+}
 
 const byAbbreviation = (a: CatalogEntry, b: CatalogEntry) =>
   compareAbbreviations(
@@ -98,15 +133,23 @@ export const DEFAULT_CONTENTS_KINDS = {
   },
   // An equation's entry is its number alone.
   equations: { nodes: ['math_display'], text: () => '', after: true },
-  // Each document cited after the table of contents, once, in the order it is first cited there.
+  // Each document, and each revision of it, cited after the table of contents, once, grouped by
+  // its reference type and ordered by publisher and number.
   references: {
     nodes: [],
     marks: ['reference'],
     include: isExternal,
     number: citedNumber,
-    text: citedTitle,
+    text: citedText,
+    separator: ' - ',
     after: true,
     unique: true,
+    identity: citedIdentity,
+    group: citedGroup,
+    groups: [EXTERNAL_DOCUMENT_REFERENCE_TYPE],
+    order: citedOrder,
+    sort: compareOrder,
+    cites: citedAttrs,
     showPage: false,
     leader: false,
   },
@@ -156,6 +199,29 @@ export interface CatalogEntry {
   readonly target?: string | undefined;
   /** What makes it one with another entry for `unique` (`ContentsKind.identity`), when given. */
   readonly identity?: string | undefined;
+  /** Its group (`ContentsKind.group`), when its kind groups. */
+  readonly group?: string | undefined;
+  /** What it sorts by (`ContentsKind.order`), when given. */
+  readonly order?: readonly string[] | undefined;
+  /** The attributes of the citation it stands for (`ContentsKind.cites`), when given. */
+  readonly cites?: Readonly<Record<string, unknown>> | undefined;
+  /** Whether it is a row naming its group, over the group's entries, which names no element. */
+  readonly heading?: boolean | undefined;
+}
+
+/** The parts of an entry its kind's callbacks give beside its number, text and level. */
+export function entryParts(
+  kind: ContentsKind,
+  node: ProseMirrorNode,
+  mark?: Mark,
+): Pick<CatalogEntry, 'anchor' | 'identity' | 'group' | 'order' | 'cites'> {
+  return {
+    ...(kind.anchor ? { anchor: kind.anchor(node, mark) } : {}),
+    ...(kind.identity ? { identity: kind.identity(node, mark) } : {}),
+    ...(kind.group ? { group: kind.group(node, mark) } : {}),
+    ...(kind.order ? { order: kind.order(node, mark) } : {}),
+    ...(kind.cites ? { cites: kind.cites(node, mark) } : {}),
+  };
 }
 
 /** A document's entries for each kind of list, each in reading order. */
@@ -198,8 +264,7 @@ export function nodeEntry(
     text: kind.text?.(node) ?? defaultText(node),
     pos,
     page,
-    ...(kind.anchor ? { anchor: kind.anchor(node) } : {}),
+    ...entryParts(kind, node),
     ...(typeof target === 'string' && target ? { target } : {}),
-    ...(kind.identity ? { identity: kind.identity(node) } : {}),
   };
 }

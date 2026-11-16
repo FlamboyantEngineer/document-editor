@@ -135,6 +135,37 @@ test.describe('contents lab', () => {
     await expect(entries.locator('.de-contents__leader')).toHaveCount(0);
   });
 
+  test('DOCE-CONTENTS-1.9 DOCE-CONTENTS-2.11 lists cited documents by group, sorted, wrapped and linked', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('contents');
+    const list = page.locator('.lab-pages .de-contents[data-contents-type="references"]');
+    const entries = list.locator('.de-contents__entry');
+    await expect(entries).toHaveText([
+      'Documents',
+      'Doe, Jane. (2019). Keeping records. 10.1000/records.',
+      /^ABC RG-9 - Retention of records/,
+      'XYZ RS-200 A - Records',
+      'XYZ RS-200 B - Records',
+      'Catalogue',
+      'DEF SH-4 - Shelf list',
+    ]);
+    // A cross-reference inside the document is no cited document.
+    await expect(list).not.toContainText('scope');
+    const link = entries.nth(4);
+    await expect(link).toHaveAttribute('href', 'https://example.com/documents/rs-200');
+    await expect(link).toHaveAttribute('target', '_blank');
+    // A revision the host gives no address is plain text, as a group's heading is.
+    await expect(list.locator('a.de-contents__entry')).toHaveCount(2);
+    await expect(entries.nth(3)).not.toHaveAttribute('role');
+    // A title too long for its row wraps.
+    const long = await entries.nth(2).boundingBox();
+    const short = await entries.nth(3).boundingBox();
+    expect(long?.height ?? 0).toBeGreaterThan((short?.height ?? 0) * 1.5);
+    await expect(entries.locator('.de-contents__page')).toHaveCount(0);
+  });
+
   test('DOCE-TEMPLATES-10.11 nests the levels and sets each in the type the template gives it', async ({
     lab,
     page,

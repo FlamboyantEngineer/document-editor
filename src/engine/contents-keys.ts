@@ -12,8 +12,8 @@ const ENTRY_MOVES: Readonly<Record<string, (entries: number, at: number) => numb
  * Enter or Space chooses an entry; the arrow keys, Home and End move the focus between a list's
  * entries, keeping the one focused in the tab order.
  */
-function onEntryKey(event: KeyboardEvent, row: HTMLElement, choose: () => void) {
-  if (event.key === 'Enter' || event.key === ' ') {
+function onEntryKey(event: KeyboardEvent, row: HTMLElement, choose: (() => void) | null) {
+  if (choose && (event.key === 'Enter' || event.key === ' ')) {
     event.preventDefault();
     choose();
     return;
@@ -22,16 +22,23 @@ function onEntryKey(event: KeyboardEvent, row: HTMLElement, choose: () => void) 
   const list = row.parentElement;
   if (!move || !list) return;
   event.preventDefault();
-  const entries = [...list.querySelectorAll<HTMLElement>(':scope > .de-contents__entry')];
+  const entries = [...list.querySelectorAll<HTMLElement>(`:scope > ${CHOOSABLE}`)];
   const next = entries[move(entries.length, entries.indexOf(row))];
   if (!next) return;
   for (const entry of entries) entry.tabIndex = entry === next ? 0 : -1;
   next.focus();
 }
 
-/** Makes an entry choosable with a click or the keys; the first entry of a list is in the tab order. */
-export function chooseEntryWith(row: HTMLElement, first: boolean, choose: () => void) {
-  row.tabIndex = first ? 0 : -1;
-  row.addEventListener('click', choose);
+// The rows the keys reach: those that take the reader somewhere.
+const CHOOSABLE = '[data-choosable]';
+
+/**
+ * Makes an entry reachable with the keys, and choosable with a click or Enter or Space; a link
+ * (`choose` null) opens as a link does. The list puts its first one in the tab order.
+ */
+export function chooseEntryWith(row: HTMLElement, choose: (() => void) | null) {
+  row.tabIndex = -1;
+  row.dataset.choosable = '';
+  if (choose) row.addEventListener('click', choose);
   row.addEventListener('keydown', (event) => onEntryKey(event, row, choose));
 }

@@ -136,10 +136,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.8 - The element at the selection
 
-In an editable document the menu shall offer, for the element at the selection: on a footnote's marker, to edit its entry, and in its entry, to go to its marker, and either way to delete the footnote (DOCE-FOOTNOTES-1.4); on math, to edit it in the math dialog and to convert it between inline and display (DOCE-OBJECTS-1.3); in a code block, its language from `codeLanguages` (by default `CODE_LANGUAGES`), the current one checked, and for linked code, while the host resolves it, to edit it in the linked code dialog; on a figure, to edit it in the figure dialog, and on a figure or a table, to align it left, centred, right or across the page; on a table of contents, its depth; in a link, to edit or remove it; and for a table, figure or code block, to edit its caption in the caption dialog and to show or hide it (DOCE-OBJECTS-2.1).
+In an editable document the menu shall offer, for the element at the selection: on a footnote's marker, to edit its entry, and in its entry, to go to its marker, and either way to delete the footnote (DOCE-FOOTNOTES-1.4); on math, to edit it in the math dialog and to convert it between inline and display (DOCE-OBJECTS-1.3); in a code block, its language from `codeLanguages` (by default `CODE_LANGUAGES`), the current one checked, and for linked code, while the host resolves it, to edit it in the linked code dialog; on a figure, to edit it in the figure dialog, and on a figure or a table, to align it left, centred, right or across the page; on a table of contents, its depth, and on a list whose kind groups its entries, such as a list of references, a check item for each group it may show (DOCE-CONTENTS-2.11); in a link, to edit or remove it; and for a table, figure or code block, to edit its caption in the caption dialog and to show or hide it (DOCE-OBJECTS-2.1).
 
-Implementation: `src/components/document-editor/element-entries.ts`, `src/components/document-editor/context-entries.ts`
-Verification: `e2e/objects.spec.ts`
+Implementation: `src/components/document-editor/element-entries.ts`, `src/components/document-editor/contents-entries.ts`, `src/components/document-editor/context-entries.ts`
+Verification: `e2e/objects.spec.ts`, `src/components/document-editor/contents-entries.test.ts`
 
 ### DOCE-EDITOR-3.9 - Copying a link to the content
 
