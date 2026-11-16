@@ -56,6 +56,28 @@ test.describe('template content lab', () => {
     await expect(content(page).locator('.pm-section[data-section-name="summary"]')).toHaveCount(2);
   });
 
+  test('DOCE-SECTIONS-5.1 keeps every key typed fast in a header, on every page that shows it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-content');
+    await expect(page.locator('.de-document-editor')).toHaveAttribute(
+      'data-layout-state',
+      'settled',
+    );
+    const headers = content(page).locator('.pm-page-header');
+    await headers.first().locator('p').last().click();
+    await page.keyboard.press('End');
+    // Typed at once, each key before the template and the host's state have caught up.
+    await page.keyboard.type('abcdefghijklmnop');
+    await expect(headers.first()).toHaveText('Lab templateabcdefghijklmnop');
+    await expect(headers.last()).toHaveText('Lab templateabcdefghijklmnop');
+    await expect
+      .poll(async () => JSON.stringify((await template(page)).header?.content))
+      .toContain('Lab templateabcdefghijklmnop');
+    expect(lab.errors).toEqual([]);
+  });
+
   test('DOCE-TEMPLATES-8.5 DOCE-SECTIONS-5.3 inserts a variable from the menu into template content', async ({
     lab,
     page,

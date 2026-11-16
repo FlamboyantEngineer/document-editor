@@ -73,6 +73,15 @@ function regionContents(template: TemplateFile, schema: Schema) {
   };
 }
 
+// Whether a section shows the document's own region: neither the document section nor its
+// template section sets one, so an edit of the document's region stands over it too.
+function inherits(template: TemplateFile, section: ProseMirrorNode, region: 'header' | 'footer') {
+  const sectionName = (section.attrs.sectionName as string | null) ?? null;
+  if (sectionName === null || ownRegion(section, region)) return false;
+  const own = findTemplateSection(template, sectionName)?.[region];
+  return !own || own.inherit === true;
+}
+
 // An editable region has a paragraph to type in, even while the template gives it none.
 function withParagraph(content: Fragment, schema: Schema): Fragment {
   const paragraph = schema.nodes.paragraph;
@@ -117,6 +126,9 @@ export function setPageRegions<T extends Transform>(
         // in the transaction that sets the regions, and no edit could be made.
         const content =
           edits?.get(`${sectionName ?? ''}\u0000${REGIONS[name]}`) ??
+          (inherits(template, section, REGIONS[name])
+            ? edits?.get(`\u0000${REGIONS[name]}`)
+            : null) ??
           contents[name] ??
           node.content;
         const shown = editable ? withParagraph(content, node.type.schema) : content;
