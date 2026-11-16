@@ -235,6 +235,13 @@ Verification: `src/model/templates/template-preview.test.ts`
 Implementation: `src/engine/variable-tokens.ts`, `src/components/document-editor/use-host-events.ts`
 Verification: `src/engine/variable-tokens.test.ts`, `src/components/document-editor/document-editor.test.tsx`
 
+### DOCE-TEMPLATES-8.8 - The preview's samples
+
+The preview document (DOCE-TEMPLATES-8.2) shall also hold a bulleted and a numbered list of three items, each with two items under it and each of those with one under it, a captioned figure, a second footnote, a table and a code block long enough to continue on the next page (their continued captions and repeated header row), and a paragraph per kind of change; `templatePreviewPrevious(preview, text)` shall give the older version of a preview as shown, its other blocks and element ids the same, which the preview compared with (DOCE-VERSIONS-2.3) shows as an insertion, a deletion, a modification and a formatting change, each marked by its kind.
+
+Implementation: `src/model/templates/template-preview-samples.ts`, `src/model/templates/template-preview.ts`
+Verification: `src/model/templates/template-preview.test.ts`, `src/engine/version-compare.test.ts`
+
 ## DOCE-TEMPLATES-9 - Template blocks
 
 ### DOCE-TEMPLATES-9.1 - Rendering a template block

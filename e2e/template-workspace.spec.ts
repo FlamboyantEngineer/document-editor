@@ -97,4 +97,31 @@ test.describe('template workspace lab', () => {
       'web',
     );
   });
+
+  test('DOCE-TEMPLATES-8.8 previews nested lists, continued objects and a change bar of each kind', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-workspace');
+    const shown = preview(page);
+    // Each change sample is marked by its kind, the modified one's changed line with its bar.
+    const kinds = shown.locator('[data-diff-change]');
+    await expect
+      .poll(
+        async () =>
+          new Set(
+            await kinds.evaluateAll((all) =>
+              all.map((each) => each.getAttribute('data-diff-change')),
+            ),
+          ),
+      )
+      .toEqual(new Set(['deletion', 'formatting', 'insertion', 'modification']));
+    await expect(
+      shown.locator('.de-change-lines__line[data-diff-line="modification"]').first(),
+    ).toBeAttached();
+    await expect(shown.locator('ul ul ul').first()).toBeAttached();
+    await expect(shown.locator('.pm-page').nth(1)).toBeAttached();
+    // The table goes on over a page break, its header row repeated.
+    await expect.poll(() => shown.locator('table').count()).toBeGreaterThan(1);
+  });
 });

@@ -4,13 +4,20 @@
 import { autoJoin, splitBlock } from 'prosemirror-commands';
 import type { Node as ProseMirrorNode, NodeType, ResolvedPos } from 'prosemirror-model';
 import { wrapInList } from 'prosemirror-schema-list';
-import { type Command, Selection, TextSelection, type Transaction } from 'prosemirror-state';
+import {
+  type Command,
+  type EditorState,
+  Selection,
+  TextSelection,
+  type Transaction,
+} from 'prosemirror-state';
 import {
   documentRegions,
   findTemplateSection,
   isSectionNode,
   MAX_PARAGRAPH_LEVEL,
   normalizeParagraphLevel,
+  regionAt,
   type RegionKind,
   regionKind,
   resolveParagraphNumberingConfig,
@@ -106,25 +113,34 @@ export const splitBlockKeepingLevel: Command = (state, dispatch, view) => {
   );
 };
 
-/** The first and last positions inside the text blocks of each page's content, in order. */
-function bodyTextblocks(doc: ProseMirrorNode): { pos: number; node: ProseMirrorNode }[] {
+// The text blocks inside a node, each with where it starts, `at` being where the node's content starts.
+function textblocksIn(node: ProseMirrorNode, at: number): { pos: number; node: ProseMirrorNode }[] {
   const blocks: { pos: number; node: ProseMirrorNode }[] = [];
-  for (const content of documentRegions(doc, CONTENT)) {
-    content.node.descendants((node, pos) => {
-      if (node.isInline) return false;
-      if (node.isTextblock) blocks.push({ pos: content.pos + 1 + pos, node });
-      return !node.isTextblock;
-    });
-  }
+  node.descendants((child, pos) => {
+    if (child.isInline) return false;
+    if (child.isTextblock) blocks.push({ pos: at + pos, node: child });
+    return !child.isTextblock;
+  });
   return blocks;
+}
+
+// The text blocks Select All takes: the region holding the selection when it is a header, footer
+// or footnote area, else the body of every page.
+function selectedTextblocks(state: EditorState): { pos: number; node: ProseMirrorNode }[] {
+  const region = regionAt(state.selection.$from);
+  if (region && region.kind !== 'content') return textblocksIn(region.node, region.pos + 1);
+  return documentRegions(state.doc, CONTENT).flatMap((content) =>
+    textblocksIn(content.node, content.pos + 1),
+  );
 }
 
 /**
  * Selects the body of every page, from its first text block to its last, so neither the page
- * chrome nor a footnote area is taken in. A document without pages selects everything.
+ * chrome nor a footnote area is taken in; in a header, footer or footnote area, that region's text
+ * alone. A document without pages selects everything.
  */
 export const selectBody: Command = (state, dispatch) => {
-  const blocks = bodyTextblocks(state.doc);
+  const blocks = selectedTextblocks(state);
   const first = blocks[0];
   const last = blocks[blocks.length - 1];
   if (!first || !last || !state.doc.firstChild || !isSectionNode(state.doc.firstChild))
