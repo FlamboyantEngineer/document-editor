@@ -418,7 +418,7 @@ Verification: `src/engine/shortcuts.test.ts`, `e2e/document-editor.spec.ts`
 `handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, telling whether a command applies without running it (`can`) and whether a mark or node holds at the selection (`isActive`, DOCE-EDITING-8.1), applying a batch of automation edits (DOCE-AUTOMATION), and waiting for the pages to settle (`whenSettled`, `layoutStats`, DOCE-EDITOR-6.12). Each returns false, or null, when it cannot act.
 
 Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-store.test.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-store.test.tsx`, `src/components/document-editor/host-seams.test.tsx`
 
 ### DOCE-EDITOR-6.4 - Zoom
 
@@ -446,7 +446,7 @@ Verification: `e2e/document-editor.spec.ts`
 `onLayoutReady` shall be called once, when the editor first lays its pages out, or as soon as it shows the web layout.
 
 Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/host-seams.test.tsx`
 
 ### DOCE-EDITOR-6.8 - The browser's own checks
 
