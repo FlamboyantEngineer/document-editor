@@ -2,6 +2,7 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { footnoteState, note, paragraph, text } from '../../test/footnote-fixtures.js';
 import { BASE_TEMPLATE, type ReferenceBaseline, type StoredNode } from '../model/index.js';
+import { addPrintLinks } from './print-links.js';
 import { documentSnapshot } from './snapshot.js';
 
 const BASELINE: ReferenceBaseline = {
@@ -131,5 +132,31 @@ describe('print links', () => {
       '.de-snapshot a[data-print-link] { color: inherit; text-decoration: inherit; }',
     );
     view.destroy();
+  });
+
+  it('DOCE-CONTENTS-2.10 links a list of contents row to the element it names', () => {
+    const printed = body(
+      [
+        '<h1 data-id="h-scope">Scope</h1>',
+        '<div class="de-contents__entry" data-target="h-scope">',
+        '<span class="de-contents__number">1.</span><span class="de-contents__text">Scope</span>',
+        '<span class="de-contents__leader"> </span><span class="de-contents__page">3</span></div>',
+        '<div class="de-contents__entry" data-target="gone">',
+        '<span class="de-contents__text">Gone</span></div>',
+      ].join(''),
+    );
+    addPrintLinks(printed, { numbers: new Map() });
+    const [row, gone] = printed.querySelectorAll('.de-contents__entry');
+    const links = [...(row?.querySelectorAll('a') ?? [])];
+    expect(links.map((link) => [link.parentElement?.className, link.getAttribute('href')])).toEqual(
+      [
+        ['de-contents__number', '#h-scope'],
+        ['de-contents__text', '#h-scope'],
+        ['de-contents__page', '#h-scope'],
+      ],
+    );
+    expect(links[0]).toHaveAttribute('data-print-link', 'contents');
+    // A row whose element is not in the snapshot keeps no link.
+    expect(gone?.querySelector('a')).toBeNull();
   });
 });

@@ -82,7 +82,7 @@ test.describe('contents lab', () => {
     const tables = page.locator(
       '.lab-pages .de-contents[data-contents-type="tables"] .de-contents__entry',
     );
-    await expect(tables.first()).toContainText('Table 2.1Scope limits');
+    await expect(tables.first()).toContainText('Table 2.1 - Scope limits');
   });
 
   test('DOCE-CONTENTS-2.4 takes the reader to the heading an entry names', async ({

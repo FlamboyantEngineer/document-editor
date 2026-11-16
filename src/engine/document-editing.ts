@@ -28,6 +28,7 @@ import {
   templatePageMetrics,
 } from '../model/index.js';
 import { addParagraphNear, deleteEmptyParagraph } from './block-keys.js';
+import { BODY_EDGE_KEYS } from './body-edge.js';
 import { createChecklists, splitChecklistItem } from './checklists.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentAnchors } from './comment-anchors.js';
@@ -339,7 +340,7 @@ export function createDocumentEditingExtension<C = unknown>(
           const table = resolveShortcuts(options.shortcuts);
           return [
             createShortcuts(table, documentKeys(schema, template, table)),
-            keymap(baseKeymap),
+            keymap({ ...baseKeymap, ...BODY_EDGE_KEYS }),
           ];
         },
       },
