@@ -12,26 +12,29 @@ const columnBoxes = (page: Page) =>
   );
 
 test.describe('web layout lab', () => {
-  test('DOCE-LAYOUT-4.1 fills the surface, inset only by the margins, with columns at their preset widths', async ({
-    lab,
-    page,
-  }) => {
-    await lab.open('web-layout');
-    await expect(page.locator('.lab-content .pm-page')).toHaveCount(1);
-    const surface = await page.locator('.de-document-editor').boundingBox();
-    const pageBox = await page.locator('.lab-content .pm-page').boundingBox();
-    const content = await page.locator('.lab-content .pm-page-content').boundingBox();
-    const title = await page.locator('.de-document-title').boundingBox();
-    expect(pageBox?.width).toBeCloseTo(surface?.width ?? 0, 0);
-    expect((content?.x ?? 0) - (pageBox?.x ?? 0)).toBeCloseTo(24, 0);
-    expect(title?.x).toBeCloseTo(content?.x ?? 0, 0);
-    const [summary, detail] = await sections(page)
-      .nth(2)
-      .locator('.doc-layout-column')
-      .evaluateAll((columns) => columns.map((column) => column.getBoundingClientRect().width));
-    expect((detail ?? 0) / (summary ?? 1)).toBeGreaterThan(1.8);
-    expect((detail ?? 0) / (summary ?? 1)).toBeLessThan(2.2);
-  });
+  for (const width of [1600, 900]) {
+    test(`DOCE-LAYOUT-4.1 fills the surface at ${String(width)} px, inset only by the margins, with columns at their preset widths`, async ({
+      lab,
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await lab.open('web-layout');
+      await expect(page.locator('.lab-content .pm-page')).toHaveCount(1);
+      const surface = await page.locator('.de-document-editor').boundingBox();
+      const pageBox = await page.locator('.lab-content .pm-page').boundingBox();
+      const content = await page.locator('.lab-content .pm-page-content').boundingBox();
+      const title = await page.locator('.de-document-title').boundingBox();
+      expect(pageBox?.width).toBeCloseTo(surface?.width ?? 0, 0);
+      expect((content?.x ?? 0) - (pageBox?.x ?? 0)).toBeCloseTo(24, 0);
+      expect(title?.x).toBeCloseTo(content?.x ?? 0, 0);
+      const [summary, detail] = await sections(page)
+        .nth(2)
+        .locator('.doc-layout-column')
+        .evaluateAll((columns) => columns.map((column) => column.getBoundingClientRect().width));
+      expect((detail ?? 0) / (summary ?? 1)).toBeGreaterThan(1.8);
+      expect((detail ?? 0) / (summary ?? 1)).toBeLessThan(2.2);
+    });
+  }
 
   test('DOCE-LAYOUT-4.2 shows column boxes only while authoring, without moving the content', async ({
     lab,
