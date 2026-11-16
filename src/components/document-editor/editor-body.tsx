@@ -12,6 +12,7 @@ import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/inde
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
 import { useEditorPanesContext } from '../document-panels/document-panels.js';
+import { DebugTooltip } from './debug-tooltip.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
@@ -19,6 +20,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
 import { ObjectEditors } from './object-editors.js';
 import { PagesView } from './pages-view.js';
+import { debugParts } from './root-data.js';
 import { useOpeningScripts } from './script-entries.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { TableHandles } from './table-handles.js';
@@ -266,6 +268,12 @@ export function EditorBody({
         content
       )}
       {props.children}
+      <DebugTooltip
+        view={view}
+        isShown={debugParts(props.debug).blocks ?? false}
+        scale={(props.zoom ?? 100) / 100}
+        labels={labels}
+      />
       {editable && !suggesting ? <TableHandles view={view} state={state} labels={labels} /> : null}
       {editable ? <ObjectEditors view={view} state={state} labels={labels} /> : null}
     </div>

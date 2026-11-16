@@ -66,12 +66,45 @@ export function createLayoutMemory(): LayoutMemory {
 
 /** A page as it was laid out: how much of its content height its blocks take. */
 export interface PageMetric {
-  /** The height its blocks take, in unscaled CSS pixels. */
+  /** The height its blocks take, facing margins collapsed, in unscaled CSS pixels. */
   readonly used: number;
+  /** The height its blocks would take with every margin between them counted, none collapsed. */
+  readonly stacked: number;
   /** The height it has for its blocks, beside its header, footer and footnotes. */
   readonly available: number;
   /** The height of each of its blocks, in order, without their margins. */
   readonly blocks: readonly number[];
+  /** Where each of its blocks starts below the top of its content, in order. */
+  readonly tops: readonly number[];
+  /** The room its header and its footer take, with their margins. */
+  readonly header: number;
+  readonly footer: number;
+  /** The room its footnote area takes. */
+  readonly footnotes: number;
+}
+
+// Where each block starts below the top of the content, facing margins collapsed.
+function blockTops(page: readonly LayoutBlock[]): number[] {
+  let top = 0;
+  return page.map((block, index) => {
+    const previous = index > 0 ? page[index - 1] : undefined;
+    if (previous) top += Math.max(previous.marginBottom, block.marginTop, 0);
+    const at = top;
+    top += Math.max(0, block.height);
+    return at;
+  });
+}
+
+// The height blocks take with every margin between them counted.
+function stackedWithMargins(page: readonly LayoutBlock[]): number {
+  return page.reduce(
+    (sum, block, index) =>
+      sum +
+      Math.max(0, block.height) +
+      (index > 0 ? Math.max(0, block.marginTop) : 0) +
+      (index < page.length - 1 ? Math.max(0, block.marginBottom) : 0),
+    0,
+  );
 }
 
 const citations = new WeakMap<ProseMirrorNode, readonly string[]>();
@@ -97,7 +130,8 @@ interface SectionPlace {
   readonly content: number;
   readonly footnotes: number | null;
   /** The header's and footer's positions. */
-  readonly regions: number[];
+  readonly header: number | null;
+  readonly footer: number | null;
 }
 
 // Where each section's page content and footnote area start in a whole document.
@@ -106,24 +140,27 @@ function sectionPlaces(doc: ProseMirrorNode): SectionPlace[] {
   doc.forEach((section, offset) => {
     const page = section.type.name === 'page_section' ? section.firstChild : null;
     if (!page) return;
-    let content: number | null = null;
-    let footnotes: number | null = null;
-    const regions: number[] = [];
+    const at: Record<string, number> = {};
     page.forEach((region, regionOffset) => {
-      const pos = offset + 2 + regionOffset;
-      const name = region.type.name;
-      if (name === 'page_content') content = pos;
-      if (name === 'page_footnotes') footnotes = pos;
-      if (name === 'page_header' || name === 'page_footer') regions.push(pos);
+      at[region.type.name] = offset + 2 + regionOffset;
     });
-    if (content !== null) places.push({ section, content, footnotes, regions });
+    const content = at.page_content;
+    if (content === undefined) return;
+    const [footnotes, header, footer] = [at.page_footnotes, at.page_header, at.page_footer];
+    places.push({
+      section,
+      content,
+      footnotes: footnotes ?? null,
+      header: header ?? null,
+      footer: footer ?? null,
+    });
   });
   return places;
 }
 
 // The room a page header or footer takes, with its margins; one the view hides takes none.
-function regionHeight(view: EditorView, pos: number, ratio: number): number {
-  const dom = view.nodeDOM(pos);
+function regionHeight(view: EditorView, pos: number | null, ratio: number): number {
+  const dom = pos === null ? null : view.nodeDOM(pos);
   if (!dom || dom.nodeType !== 1) return 0;
   const element = dom as HTMLElement;
   const { height } = element.getBoundingClientRect();
@@ -138,6 +175,8 @@ interface SectionFill {
   readonly blocks: LayoutBlock[];
   readonly area: FootnoteArea | null;
   readonly baseHeight: number;
+  /** The room the header and the footer take. */
+  readonly regions: { readonly header: number; readonly footer: number };
   /** Footnotes whose entries an earlier page holds. */
   readonly shown: Set<string>;
 }
@@ -168,10 +207,15 @@ function layoutSection(
     state: () => (area && !perPage ? [...shown].join(' ') : ''),
     next: (queue, index) => layoutNextPage(queue, index, { pageHeight, rules: options.rules }),
     page(page) {
+      const available = pageHeight(page);
       options.onPage?.({
         used: stackedHeight(page),
-        available: pageHeight(page),
+        stacked: stackedWithMargins(page),
+        available,
         blocks: page.map((block) => block.height),
+        tops: blockTops(page),
+        ...fill.regions,
+        footnotes: baseHeight - available,
       });
       for (const id of cited(page)) shown.add(id);
     },
@@ -189,17 +233,21 @@ export function layoutDocument(view: EditorView, options: DocumentLayoutOptions)
   const shown = new Set<string>();
   const measuredSoFar = () => (cache ? measureCacheCounts(cache).measured : 0);
   const places = sectionPlaces(view.state.doc);
-  const sections = places.map(({ section, content, footnotes, regions }, index) => {
+  const sections = places.map(({ section, content, footnotes, header, footer }, index) => {
     const height = options.pageHeight;
     const pageHeight = typeof height === 'function' ? height(section, index) : height;
-    const regionsHeight = regions.reduce((sum, pos) => sum + regionHeight(view, pos, ratio), 0);
+    const regions = {
+      header: regionHeight(view, header, ratio),
+      footer: regionHeight(view, footer, ratio),
+    };
     const before = measuredSoFar();
     const rules =
       typeof options.rules === 'function' ? options.rules(section, index) : options.rules;
     const blocks = measureChildBlocks(view, content, { scale, cache, rules });
     const blocksMeasured = cache ? measuredSoFar() - before : blocks.length;
     const area = footnotes === null ? null : measureFootnotes(view, footnotes, { scale });
-    const fill = { blocks, area, baseHeight: pageHeight - regionsHeight, shown };
+    const baseHeight = pageHeight - regions.header - regions.footer;
+    const fill = { blocks, area, baseHeight, regions, shown };
     const result = layoutSection(fill, { ...options, rules }, memory?.sections[index]);
     const { pagesLaidOut, pages } = result;
     options.onSection?.({ blocksMeasured, pagesLaidOut, pages: pages.length });

@@ -760,7 +760,7 @@ test.describe('document editor lab', () => {
     await page.getByLabel('Layout debugging').check();
     await expect(editor(page)).toHaveAttribute('data-debug', 'true');
     const first = pages(page).first();
-    await expect(first).toHaveAttribute('data-debug-used', /^\d+$/);
+    await expect(first).toHaveAttribute('data-debug-used', /^\d+\.\d{3}$/);
     const used = Number(await first.getAttribute('data-debug-used'));
     const free = Number(await first.getAttribute('data-debug-free'));
     expect(used).toBeGreaterThan(100);
@@ -778,7 +778,7 @@ test.describe('document editor lab', () => {
     await expect(block).not.toHaveAttribute('data-debug-height');
     await page.getByLabel('Block heights').check();
     await expect(editor(page)).toHaveAttribute('data-debug-blocks', 'true');
-    await expect(block).toHaveAttribute('data-debug-height', /^\d+$/);
+    await expect(block).toHaveAttribute('data-debug-height', /^\d+\.\d{3}$/);
     const height = Number(await block.getAttribute('data-debug-height'));
     const box = await block.boundingBox();
     expect(Math.abs(height - (box?.height ?? 0))).toBeLessThanOrEqual(1);
@@ -790,5 +790,82 @@ test.describe('document editor lab', () => {
     await page.getByLabel('Measuring view').check();
     await expect(editor(page)).toHaveAttribute('data-debug-measure', 'true');
     await expect(measure).toBeInViewport();
+  });
+
+  test('DOCE-PAGINATION-7.4 DOCE-EDITOR-6.13 labels each page with its sheet and outlines its regions', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByLabel('Layout debugging').check();
+    await page.getByLabel('Block heights').check();
+    const first = pages(page).first();
+    await expect(first).toHaveAttribute('data-debug-paper', /^\d+\.\d{3} × \d+\.\d{3}$/);
+    await expect(first).toHaveAttribute('data-debug-content', /^\d+\.\d{3} × \d+\.\d{3}$/);
+    await expect(first).toHaveAttribute('data-debug-dpr', /^\d+\.\d{3}$/);
+    const label = await first.evaluate((element) => getComputedStyle(element, '::after').content);
+    expect(label).toContain('paper');
+    const region = first.locator(':scope > [data-debug-type="page_content"]');
+    await expect(region).toHaveCSS('outline-style', 'dashed');
+    await expect(first).toHaveCSS('outline-style', 'none');
+  });
+
+  test('DOCE-EDITOR-6.31 shows a hovered block its type, sizes and place', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByLabel('Block heights').check();
+    const block = content(page).locator('.pm-page-content > [data-debug-type]').first();
+    await block.scrollIntoViewIfNeeded();
+    await block.hover({ position: { x: 4, y: 4 } });
+    const tip = page.getByRole('tooltip');
+    await expect(tip).toBeVisible();
+    await expect(tip).toContainText(/\d+\.\d{3} × \d+\.\d{3}/);
+    await expect(tip).toContainText('With margins');
+    const type = await block.getAttribute('data-debug-type');
+    await expect(tip).toContainText(type ?? '');
+    await expect(async () => {
+      const [tipBox, blockBox] = [await tip.boundingBox(), await block.boundingBox()];
+      expect(
+        Math.abs(
+          (tipBox?.x ?? 0) + (tipBox?.width ?? 0) - ((blockBox?.x ?? 0) + (blockBox?.width ?? 0)),
+        ),
+      ).toBeLessThanOrEqual(2);
+    }).toPass();
+    await page.getByRole('button', { name: 'Bold' }).hover();
+    await expect(tip).toBeHidden();
+  });
+
+  test('DOCE-EDITOR-6.29 DOCE-EDITOR-6.30 shows the measuring view and the markup in a resizable pane', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await content(page).locator('.pm-page-content p').first().click();
+    await page.keyboard.press('Control+Alt+b');
+    await expect(page.getByLabel('Block heights')).toBeChecked();
+    await page.keyboard.press('Control+Alt+b');
+    await expect(page.getByLabel('Measuring view')).toBeChecked();
+    const pane = page.getByRole('region', { name: 'Layout debugging' });
+    await expect(pane.locator('.de-document-editor__measure')).toBeInViewport();
+    const handle = page.getByRole('separator', { name: 'Resize the layout debugging' });
+    const before = (await pane.boundingBox())?.width ?? 0;
+    const grip = await handle.boundingBox();
+    if (!grip) throw new Error('no resize handle');
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + 40);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2 - 80, grip.y + 40, { steps: 4 });
+    await page.mouse.up();
+    await expect(async () => {
+      expect((await pane.boundingBox())?.width ?? 0).toBeGreaterThan(before + 40);
+    }).toPass();
+    await content(page).locator('.pm-page-content p').first().click();
+    await page.keyboard.press('Control+Alt+b');
+    await expect(page.getByLabel('Page source')).toBeChecked();
+    await expect(pane).toHaveAttribute('data-view', 'source');
+    await expect(pane).toContainText('pm-page-content');
+    await page.keyboard.press('Control+Alt+b');
+    await expect(pane).toBeHidden();
   });
 });

@@ -4,13 +4,14 @@
 import type { RevealedProofingIssue } from '../../engine/proofing-commands.js';
 import type { ProofingKind } from '../../host/index.js';
 import { type BannerLabels, DEFAULT_BANNER_LABELS } from './banner-labels.js';
+import { type DebuggingLabels, DEFAULT_DEBUGGING_LABELS } from './debugging-labels.js';
 import { DEFAULT_EXPORT_LABELS, type ExportLabels } from './export-labels.js';
 import { DEFAULT_OBJECT_LABELS, type ObjectLabels } from './object-labels.js';
 import { DEFAULT_SHELL_LABELS, type ShellLabels } from './shell-labels.js';
 
 /** The text of the editor's toolbar, menus and handles. */
 export interface DocumentEditorLabels
-  extends ObjectLabels, ShellLabels, BannerLabels, ExportLabels {
+  extends ObjectLabels, ShellLabels, BannerLabels, ExportLabels, DebuggingLabels {
   readonly toolbar: string;
   readonly undo: string;
   readonly redo: string;
@@ -222,5 +223,6 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   ...DEFAULT_OBJECT_LABELS,
   ...DEFAULT_SHELL_LABELS,
   ...DEFAULT_BANNER_LABELS,
+  ...DEFAULT_DEBUGGING_LABELS,
   ...DEFAULT_EXPORT_LABELS,
 };

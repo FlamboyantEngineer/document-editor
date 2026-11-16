@@ -8,10 +8,20 @@ export function debugParts(debug: DocumentEditorProps['debug']): DocumentEditorD
   return typeof debug === 'object' ? debug : { pages: debug ?? false };
 }
 
+// The root's debugging states: which parts of the layout debugging show.
+function debugData(props: DocumentEditorProps) {
+  const debug = debugParts(props.debug);
+  return {
+    debug: debug.pages ?? false,
+    debugBlocks: debug.blocks ?? false,
+    debugMeasure: debug.measure ?? false,
+    debugSource: debug.source ?? false,
+  };
+}
+
 /** The editor root's hook values. */
 export function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
   const { layout = 'page', editable = true, suggesting = false, compare } = props;
-  const debug = debugParts(props.debug);
   return {
     markup: props.markup ?? 'all',
     layout,
@@ -20,9 +30,7 @@ export function rootData(props: DocumentEditorProps, layoutState: LayoutState) {
     comparing: compare ? (compare.display ?? 'markup') : undefined,
     scrollable: props.scrollable ?? false,
     authorship: props.authorship ?? false,
-    debug: debug.pages ?? false,
-    debugBlocks: debug.blocks ?? false,
-    debugMeasure: debug.measure ?? false,
+    ...debugData(props),
     formattingMarks: props.formattingMarks ?? false,
     layoutState,
   };

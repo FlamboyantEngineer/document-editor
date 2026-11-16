@@ -28,6 +28,7 @@ import {
   type CanonicalPluginsSource,
   canonicalViewOf,
 } from './canonical-plugins.js';
+import { takeCaretBefore } from './caret.js';
 import { holdCellSelection } from './cell-drag.js';
 import { type MeasuringView, type MeasuringViewOptions, mountMeasuringView } from './ghost-view.js';
 import {
@@ -36,6 +37,7 @@ import {
   type SectionPageHeight,
 } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
+import type { LayoutTraceSink } from './layout-trace.js';
 import {
   awaitReady,
   forgetRemeasured,
@@ -66,7 +68,6 @@ import {
   shownBy,
   showsNewerSelection,
   take,
-  takeCaretBefore,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
 
@@ -136,6 +137,8 @@ export interface PagedProjectionOptions {
    * are laid out at once, measured again then, and pending until it settles (DOCE-PAGINATION-5.6).
    */
   readonly ready?: PromiseLike<unknown> | undefined;
+  /** Where the layout's trace goes while it is read (`LayoutTrace`); nothing is written otherwise. */
+  readonly trace?: LayoutTraceSink | undefined;
 }
 
 /** What a projection has done since it was made: what its layouts did. */
