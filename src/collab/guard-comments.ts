@@ -1,5 +1,7 @@
 import type { EditorCapabilities } from '../host/capabilities.js';
-import { entryOf, parseKey, type RecordKey } from './comment-records.js';
+import { mayChangeComment } from '../host/comment-rules.js';
+import type { CommentThread } from '../host/index.js';
+import { entryOf, parseKey, readRecordThreads, type RecordKey } from './comment-records.js';
 import {
   fieldsOf as fields,
   hasConsistentRecords,
@@ -33,14 +35,37 @@ function ownsThread(thread: string, options: CommentGuardOptions): boolean {
   return options.permissions.manageComments === true || fields(record).author === options.actor;
 }
 
-function removingThread(thread: string, options: CommentGuardOptions): boolean {
+// Whether a thread is deleted: a removal record says who deleted it and when.
+const isDeleted = (records: ReadonlyMap<string, unknown>, thread: string) =>
+  records.has(nameOf('removed', thread));
+
+// The threads as they were before the change, read once for all the comments it changes.
+const threadsBefore = new WeakMap<ReadonlyMap<string, unknown>, Map<string, CommentThread>>();
+function threadBefore(thread: string, options: CommentGuardOptions): CommentThread | undefined {
+  let threads = threadsBefore.get(options.before);
+  if (!threads) {
+    threads = new Map(readRecordThreads(options.before).map((each) => [each.id, each]));
+    threadsBefore.set(options.before, threads);
+  }
+  return threads.get(thread);
+}
+
+// Deleting a thread: its owner, or a moderator, says once who deleted it and when; the thread and
+// its comments stay as they are.
+function checkRemoval(thread: string, options: CommentGuardOptions): boolean {
+  const name = nameOf('removed', thread);
+  const next = options.after.get(name);
   return (
-    ownsThread(thread, options) &&
-    options.after.get(nameOf('removed', thread)) === true &&
-    !options.after.has(nameOf('thread', thread))
+    options.before.get(name) === undefined &&
+    fields(next).by === options.actor &&
+    options.after.has(nameOf('thread', thread)) &&
+    ownsThread(thread, options)
   );
 }
 
+// A comment is written by its author, then changed or deleted only as `mayChangeComment` allows:
+// by its author or a moderator. A deleted comment stays as a record of it, text and all, and is
+// never taken out or changed again.
 function checkEntry(
   key: readonly ['entry', string, string],
   options: CommentGuardOptions,
@@ -48,20 +73,18 @@ function checkEntry(
   const { before, after, actor, permissions } = options;
   const name = JSON.stringify(key);
   const previous = entryOf(key[2], before.get(name));
-  const next = after.get(name);
-  const current = entryOf(key[2], next);
-  if (next === undefined)
-    return (
-      removingThread(key[1], options) ||
-      previous?.author === actor ||
-      permissions.manageComments === true
-    );
-  if (!after.has(nameOf('thread', key[1])) || after.has(nameOf('removed', key[1]))) return false;
-  if (previous && previous.author !== actor && !permissions.manageComments) return false;
+  const current = entryOf(key[2], after.get(name));
+  if (!current || !after.has(nameOf('thread', key[1])) || isDeleted(after, key[1])) return false;
+  if (!previous) return current.author === actor && current.deletedAt === undefined;
+  const thread = threadBefore(key[1], options);
+  const moderates = permissions.manageComments === true;
+  if (!thread || !mayChangeComment(thread, previous, { me: actor, moderates })) return false;
+  if (current.author !== previous.author || current.createdAt !== previous.createdAt) return false;
+  if (current.deletedAt === undefined) return current.deletedBy === undefined;
   return (
-    current !== null &&
-    current.author === (previous?.author ?? actor) &&
-    (!previous || current.createdAt === previous.createdAt)
+    current.deletedBy === actor &&
+    current.text === previous.text &&
+    current.editedAt === previous.editedAt
   );
 }
 
@@ -70,8 +93,9 @@ function checkThread(key: RecordKey, options: CommentGuardOptions): boolean {
   const name = JSON.stringify(key);
   const was = before.get(name);
   const next = after.get(name);
-  if (was !== undefined) return next === undefined && removingThread(key[1], options);
-  if (before.has(nameOf('removed', key[1])) || after.has(nameOf('removed', key[1]))) return false;
+  // A thread's record is written once and kept, deleted or not.
+  if (was !== undefined) return false;
+  if (isDeleted(before, key[1]) || isDeleted(after, key[1])) return false;
   return (
     fields(next).author === actor &&
     typeof fields(next).createdAt === 'string' &&
@@ -83,10 +107,8 @@ function checkThread(key: RecordKey, options: CommentGuardOptions): boolean {
 function checkOwnedField(key: RecordKey, options: CommentGuardOptions): boolean {
   const { before, after, actor } = options;
   const next = after.get(JSON.stringify(key));
-  if (key[0] === 'removed') return next === true && removingThread(key[1], options);
-  if (!after.has(nameOf('thread', key[1])))
-    return next === undefined && removingThread(key[1], options);
-  if (after.has(nameOf('removed', key[1]))) return false;
+  if (key[0] === 'removed') return checkRemoval(key[1], options);
+  if (!after.has(nameOf('thread', key[1])) || isDeleted(after, key[1])) return false;
   if (next !== undefined && !isDiscussionField(key[0], next)) return false;
   if (key[0] === 'state') return next === undefined || fields(next).by === actor;
   if (key[0] === 'decision')
@@ -105,16 +127,11 @@ function checkReaction(
 ): boolean {
   const { after, actor } = options;
   const next = after.get(JSON.stringify(key));
-  if (next === undefined && removingThread(key[1], options)) return true;
-  const entryName = JSON.stringify(['entry', key[1], key[2]]);
-  if (
-    next === undefined &&
-    !after.has(entryName) &&
-    fields(options.before.get(entryName)).author === actor
-  )
-    return true;
-  if (!after.has(nameOf('thread', key[1])) || after.has(nameOf('removed', key[1]))) return false;
-  if (key[2] && !after.has(JSON.stringify(['entry', key[1], key[2]]))) return next === undefined;
+  if (!after.has(nameOf('thread', key[1])) || isDeleted(after, key[1])) return false;
+  // The reactions to a deleted comment go with it, whoever takes them.
+  const entry = after.get(JSON.stringify(['entry', key[1], key[2]]));
+  if (key[2] && (entry === undefined || fields(entry).deletedAt !== undefined))
+    return next === undefined;
   return key[4] === actor && (next === true || next === undefined);
 }
 

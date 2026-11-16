@@ -1,7 +1,9 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Harness, thread } from '../../../test/comment-fixtures.js';
+import { Harness, seen, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { listCommentAnchors } from '../../engine/index.js';
 import {
   type CommentEntry,
   type CommentStoreAdapter,
@@ -12,6 +14,16 @@ import {
 installEditorDom();
 
 const margin = () => screen.getByRole('list', { name: 'Comments' });
+
+// Chooses an action from a comment's menu, confirming a deletion.
+async function act(user: ReturnType<typeof userEvent.setup>, text: string, action: string) {
+  const comment = (await within(margin()).findByText(text)).closest('article');
+  if (!(comment instanceof HTMLElement)) throw new Error(`No comment says ${text}`);
+  await user.click(within(comment).getByRole('button', { name: /actions|more/i }));
+  await user.click(await screen.findByRole('menuitem', { name: action }));
+  const dialog = screen.queryByRole('alertdialog') ?? screen.queryByRole('dialog');
+  if (dialog) await user.click(within(dialog).getByRole('button', { name: action }));
+}
 
 // A host whose open thread has these comments after its opening one, and which settles replies.
 function hostWith(entries: CommentEntry[], fields: Partial<CommentThread> = {}) {
@@ -89,5 +101,33 @@ describe('Comment records', () => {
     render(<Harness host={hostWith([]).host} canComment={false} options={{ replyStart }} />);
     const readOnly = await within(margin()).findByRole('group', { name: 'Comment thread' });
     expect(within(readOnly).queryByRole('textbox', { name: 'Reply' })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-COMMENTS-2.32 keeps a deleted reply and a deleted thread as records, shown nowhere', async () => {
+    const user = userEvent.setup();
+    const { host } = hostWith([
+      { id: 'r1', author: 'ada', text: 'Still unsure.', createdAt: '2026-01-02T03:06:00Z' },
+    ]);
+    render(<Harness host={host} />);
+    await act(user, 'Still unsure.', 'Delete');
+    await waitFor(() =>
+      expect(within(margin()).queryByText('Still unsure.')).not.toBeInTheDocument(),
+    );
+    await act(user, 'Is blue right?', 'Delete');
+    await waitFor(() =>
+      expect(within(margin()).queryByText('Is blue right?')).not.toBeInTheDocument(),
+    );
+    const listed = await host.comments.list('doc');
+    const kept = listed.ok ? listed.value.find((each) => each.id === 'open') : undefined;
+    expect(kept).toMatchObject({ state: 'deleted', deletedBy: 'ada' });
+    expect(kept?.entries[1]).toMatchObject({ text: 'Still unsure.', deletedBy: 'ada' });
+    // The anchor stays in the document, marked deleted, and is no anchor of the editor's.
+    const mark = screen
+      .getByRole('textbox', { name: 'Report' })
+      .querySelector('mark[data-comment-id="open"]');
+    expect(mark).toHaveAttribute('data-comment-state', 'deleted');
+    expect(seen.state && listCommentAnchors(seen.state.doc).map((each) => each.thread)).toEqual([
+      'done',
+    ]);
   });
 });

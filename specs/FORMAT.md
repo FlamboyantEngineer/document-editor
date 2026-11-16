@@ -159,7 +159,7 @@ Verification: `src/model/format/markdown-appendix.test.ts`
 
 ### DOCE-FORMAT-4.7 - Comment threads
 
-The comment threads given as `threads` (a host's `CommentThread` is one) shall be listed after the text under a "Comments" heading, in the order of their first anchor in the document and threads with none, such as one about the whole document, last. Each shall name the text it is on, or the document, and whether it is resolved, with its comments in order, each by its author's name (`person`, or the id when it gives none) and date. A reply still being written or that failed shall not be listed, and a thread with no comment left is not listed.
+The comment threads given as `threads` (a host's `CommentThread` is one) shall be listed after the text under a "Comments" heading, in the order of their first anchor in the document and threads with none, such as one about the whole document, last. Each shall name the text it is on, or the document, and whether it is resolved, with its comments in order, each by its author's name (`person`, or the id when it gives none) and date. A reply still being written or that failed, a deleted reply and a deleted thread shall not be listed, and a thread with no comment left is not listed.
 
 Implementation: `src/model/format/markdown/appendix.ts`
 Verification: `src/model/format/markdown-appendix.test.ts`
@@ -224,7 +224,7 @@ Verification: `src/model/format/docx-regression.test.ts`
 
 ### DOCE-FORMAT-5.7 - Footnotes and comments in a word processing document
 
-Footnotes shall be numbered as the template numbers them, through the document or on each page. The comment threads the host passes (`comments.threads`) that the document anchors shall be written as comments around their text, one per entry with its author's name (`comments.authorName`) and date, the replies linked to the opening comment, and a resolved thread marked done; a thread the document does not anchor, or that is left out with its text, is not written.
+Footnotes shall be numbered as the template numbers them, through the document or on each page. The comment threads the host passes (`comments.threads`) that the document anchors shall be written as comments around their text, one per entry with its author's name (`comments.authorName`) and date, the replies linked to the opening comment, and a resolved thread marked done; a thread the document does not anchor, or that is left out with its text, a deleted thread and a deleted reply are not written.
 
 Implementation: `src/model/format/docx/comments.ts`, `src/model/format/docx/notes.ts`
 Verification: `src/model/format/docx/comments.test.ts`, `src/model/format/docx-regression.test.ts`
@@ -369,7 +369,7 @@ Verification: `src/document/stored-template.test.ts`, `e2e/automation-lab.spec.t
 
 ### DOCE-FORMAT-9.6 - Thread anchors
 
-`threadAnchors(file)` shall list the comment threads a stored document's text is anchored to, in the order they start, one per thread: its state (`resolved` when its comment anchor says so, else `open`), the stored marks that tie it to the text (`comment`, `insertion`, `deletion`, `formatChange`), its text, each run once, joined by spaces, and the ids of the elements holding its runs.
+`threadAnchors(file)` shall list the comment threads a stored document's text is anchored to, in the order they start, one per thread: its state (`resolved` or `deleted` when its comment anchor says so, else `open`), the stored marks that tie it to the text (`comment`, `insertion`, `deletion`, `formatChange`), its text, each run once, joined by spaces, and the ids of the elements holding its runs.
 
 Implementation: `src/document/stored-elements.ts`, `src/document/stored-walk.ts`
 Verification: `src/document/stored-elements.test.ts`, `e2e/automation-lab.spec.ts`
@@ -404,7 +404,7 @@ Verification: `src/document/stored-contributors.test.ts`
 
 ### DOCE-FORMAT-9.11 - Thread changes
 
-`updateStoredThreads(file, { schema, changes })` shall mark each named thread's comment anchor open or resolved, or remove it and leave its text, as the editor does (`setCommentState`, `removeCommentAnchor`), and give the document with its template pin and the threads whose anchor changed, in the order given. A suggestion the thread discusses shall stay as it is. When no anchor changes, it shall give the document back as it was.
+`updateStoredThreads(file, { schema, changes })` shall mark each named thread's comment anchor open, resolved or deleted, or remove it and leave its text, as the editor does (`setCommentState`, `removeCommentAnchor`), and give the document with its template pin and the threads whose anchor changed, in the order given. A suggestion the thread discusses shall stay as it is. When no anchor changes, it shall give the document back as it was.
 
 Implementation: `src/document/stored-threads.ts`, `src/engine/comments.ts`
 Verification: `src/document/stored-threads.test.ts`

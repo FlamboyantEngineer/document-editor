@@ -21,6 +21,16 @@ interface ThreadList {
 }
 
 /**
+ * A thread as the cards show it: a deleted thread not at all, and a thread without its deleted
+ * replies, which the store keeps as a record of them.
+ */
+function shownThread(thread: CommentThread): CommentThread | null {
+  if (thread.state === 'deleted') return null;
+  const entries = thread.entries.filter((entry) => entry.deletedAt === undefined);
+  return entries.length === thread.entries.length ? thread : { ...thread, entries };
+}
+
+/**
  * The threads of `listed`, except those `kept` names, which stay as they are in `current`: the
  * threads the reader changed after the listing was asked for, which it may not show yet.
  */
@@ -30,7 +40,10 @@ function mergeListed(
   kept: ReadonlySet<string>,
 ): Threads {
   const next = new Map<string, CommentThread>();
-  for (const thread of listed) if (!kept.has(thread.id)) next.set(thread.id, thread);
+  for (const thread of listed) {
+    const shown = kept.has(thread.id) ? null : shownThread(thread);
+    if (shown) next.set(thread.id, shown);
+  }
   for (const id of kept) {
     const thread = current.get(id);
     if (thread) next.set(id, thread);
@@ -89,7 +102,8 @@ export function useThreadList(
     if (thread === undefined) return;
     setThreads((current) => {
       const next = new Map(current);
-      if (thread) next.set(threadId, thread);
+      const shown = thread && shownThread(thread);
+      if (shown) next.set(threadId, shown);
       else next.delete(threadId);
       return next;
     });

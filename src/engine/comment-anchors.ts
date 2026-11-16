@@ -20,6 +20,7 @@ import {
   type CommentAnchor,
   type CommentRange,
   type CommentState,
+  commentStateOf,
   compareAnchors,
   listCommentAnchors,
 } from './comments.js';
@@ -36,8 +37,11 @@ type AnchorIndex = ReadonlyMap<string, readonly IndexedRange[]>;
 // How many text blocks a change may touch before the index is built again from the document.
 const rescanLimit = 64;
 
+// A deleted thread's mark is a record of it, not an anchor.
 const isAnchorMark = (mark: Mark) =>
-  mark.type.name === 'comment_highlight' && typeof mark.attrs.commentId === 'string';
+  mark.type.name === 'comment_highlight' &&
+  typeof mark.attrs.commentId === 'string' &&
+  commentStateOf(mark) !== 'deleted';
 
 // Adds the stretches a text block's anchor marks cover to the index, joining runs that continue.
 function scanBlock(index: Map<string, IndexedRange[]>, block: ProseMirrorNode, start: number) {
@@ -52,8 +56,7 @@ function scanBlock(index: Map<string, IndexedRange[]>, block: ProseMirrorNode, s
       const text = child.text ?? '';
       if (last?.to === from) ranges[ranges.length - 1] = { ...last, to, text: last.text + text };
       else {
-        const state = mark.attrs.commentState === 'resolved' ? 'resolved' : 'open';
-        ranges.push({ from, to, text, state });
+        ranges.push({ from, to, text, state: commentStateOf(mark) });
       }
       index.set(thread, ranges);
     }

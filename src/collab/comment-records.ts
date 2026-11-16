@@ -19,8 +19,8 @@ import type {
 export type ThreadFieldKind = 'state' | 'decision' | 'quote' | 'target' | 'change';
 
 /**
- * The attributes of the `comments` type, by kind: a thread, a field of it set since, the mark of a
- * removed thread, one of its comments, a reaction.
+ * The attributes of the `comments` type, by kind: a thread, a field of it set since, who deleted a
+ * thread and when, one of its comments, a reaction.
  */
 export type RecordKey =
   | readonly ['thread' | ThreadFieldKind | 'removed', string]
@@ -133,7 +133,8 @@ function threadOf(id: string, value: unknown): CommentThread | null {
 
 /** The comment a record under a comment's key holds; null for a value that is not such a record. */
 export function entryOf(id: string, value: unknown): CommentEntry | null {
-  const { author, text, createdAt, editedAt, agent, meta } = fieldsOf(value) ?? {};
+  const { author, text, createdAt, editedAt, agent, meta, deletedBy, deletedAt } =
+    fieldsOf(value) ?? {};
   if (typeof author !== 'string' || typeof text !== 'string' || typeof createdAt !== 'string')
     return null;
   return plain<CommentEntry>({
@@ -144,6 +145,8 @@ export function entryOf(id: string, value: unknown): CommentEntry | null {
     editedAt: textOf(editedAt),
     agent: textOf(agent),
     meta: fieldsOf(meta) ?? undefined,
+    deletedBy: textOf(deletedBy),
+    deletedAt: textOf(deletedAt),
   });
 }
 
@@ -211,19 +214,25 @@ function recordsOf(type: Y.Type): Stored[] {
   return records;
 }
 
-// The threads by id, each as its record has it with the fields set since; a removed thread is
-// left out even when a record of it was written again, as by a change made while it was removed.
+// The threads by id, each as its record has it with the fields set since; a deleted thread, which
+// a removal record marks, is deleted by whom and when it says, whatever its fields say.
 function threadsOf(records: readonly Stored[]): Map<string, CommentThread> {
-  const removed = new Set(records.flatMap(([key]) => (key[0] === 'removed' ? [key[1]] : [])));
   const threads = new Map<string, CommentThread>();
   for (const [key, value] of records) {
-    const thread = key[0] === 'thread' && !removed.has(key[1]) ? threadOf(key[1], value) : null;
+    const thread = key[0] === 'thread' ? threadOf(key[1], value) : null;
     if (thread) threads.set(thread.id, thread);
   }
   for (const [[kind, id], value] of records) {
     const thread = threads.get(id);
     const fields = fieldsOf(value);
     if (thread && fields && isFieldKind(kind)) fieldReaders[kind](thread, fields);
+  }
+  for (const [[kind, id], value] of records) {
+    const thread = kind === 'removed' ? threads.get(id) : undefined;
+    if (!thread) continue;
+    const { by, at } = fieldsOf(value) ?? {};
+    Object.assign(thread, { state: 'deleted', resolvedBy: undefined, resolvedAt: undefined });
+    Object.assign(thread, { deletedBy: textOf(by), deletedAt: textOf(at) });
   }
   return threads;
 }
@@ -242,7 +251,20 @@ function entriesOf(records: readonly Stored[]): Map<string, Map<string, CommentE
 
 /** Every thread the `comments` type holds, comments oldest first. */
 export function readRoomThreads(type: Y.Type): CommentThread[] {
-  const records = recordsOf(type);
+  return threadsFrom(recordsOf(type));
+}
+
+/** Every thread records by attribute name hold, as `readRoomThreads` reads them. */
+export function readRecordThreads(records: ReadonlyMap<string, unknown>): CommentThread[] {
+  return threadsFrom(
+    [...records].flatMap(([name, value]) => {
+      const key = parseKey(name);
+      return key ? [[key, value] as const] : [];
+    }),
+  );
+}
+
+function threadsFrom(records: readonly Stored[]): CommentThread[] {
   const threads = threadsOf(records);
   const entries = entriesOf(records);
   for (const [key] of records) {

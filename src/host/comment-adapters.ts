@@ -25,6 +25,12 @@ export interface CommentEntry {
   agent?: string | undefined;
   /** What the host keeps with it, such as review details; the editor keeps it as it is. */
   meta?: CommentMeta | undefined;
+  /**
+   * Who deleted it and when, for a deleted reply the store keeps as a record of it; the editor
+   * shows it nowhere.
+   */
+  deletedBy?: string | undefined;
+  deletedAt?: string | undefined;
 }
 
 /** Plain values a host keeps with a thread or a comment, which the editor never reads. */
@@ -68,7 +74,11 @@ export interface CommentDecision {
 export interface CommentThread {
   /** The thread's id, which the document's anchor names. The editor chooses it. */
   id: string;
-  state: 'open' | 'resolved';
+  /**
+   * Open, resolved, or deleted: a deleted thread is kept as a record of it, with its anchor, and
+   * the editor shows it nowhere.
+   */
+  state: CommentThreadState | 'deleted';
   /** The text the thread was started on. */
   quote: string;
   /** The suggestion the thread discusses, when it does. */
@@ -87,6 +97,9 @@ export interface CommentThread {
   /** Who resolved it and when, while it is resolved. */
   resolvedBy?: string | undefined;
   resolvedAt?: string | undefined;
+  /** Who deleted it and when, once it is deleted. */
+  deletedBy?: string | undefined;
+  deletedAt?: string | undefined;
   /** What its suggestion does, for a thread that discusses one. */
   change?: CommentChange | null | undefined;
   /** How its suggestion was decided, once it was. */
@@ -100,6 +113,9 @@ export interface CommentThread {
   /** What the host keeps with it; the editor keeps it as it is. */
   meta?: CommentMeta | undefined;
 }
+
+/** The states a reader moves a thread between. */
+export type CommentThreadState = 'open' | 'resolved';
 
 /** A thread to start: its id, what it quotes, its opening comment, and its suggestion. */
 export interface NewCommentThread {
@@ -134,15 +150,19 @@ export interface CommentStoreAdapter {
   setState(
     documentId: string,
     threadId: string,
-    state: CommentThread['state'],
+    state: CommentThreadState,
   ): Promise<HostResult<CommentThread>>;
+  /**
+   * Deletes a thread: keeps it, deleted by the reader and now, with its comments, and changes it no
+   * more. The editor keeps its anchor too, marked deleted.
+   */
   remove(documentId: string, threadId: string): Promise<HostResult<null>>;
   /** Changes the text of the reader's own comment. */
   edit?(
     documentId: string,
     change: { threadId: string; entryId: string; text: string },
   ): Promise<HostResult<CommentThread>>;
-  /** Deletes the reader's own reply. */
+  /** Deletes the reader's own reply: keeps it, deleted by the reader and now, shown nowhere. */
   removeEntry?(
     documentId: string,
     entry: { threadId: string; entryId: string },

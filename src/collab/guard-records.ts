@@ -21,7 +21,18 @@ const recordFields: Readonly<Record<string, readonly string[]>> = {
     'agent',
     'meta',
   ],
-  entry: ['id', 'author', 'text', 'createdAt', 'editedAt', 'agent', 'meta'],
+  entry: [
+    'id',
+    'author',
+    'text',
+    'createdAt',
+    'editedAt',
+    'agent',
+    'meta',
+    'deletedBy',
+    'deletedAt',
+  ],
+  removed: ['by', 'at'],
   state: ['state', 'by', 'at'],
   decision: ['decision', 'suggestion', 'by', 'at', 'dependsOn'],
   quote: ['value', 'at'],
@@ -96,7 +107,13 @@ function hasRecordIdentity(key: RecordKey, value: unknown): boolean {
   return true;
 }
 
-/** Rejects dangling records and tombstones that hide records left underneath them. */
+/** Who deleted a thread and when, as its removal record says. */
+function isRemoval(value: unknown): boolean {
+  const { by, at } = fieldsOf(value);
+  return hasOnly(value, ['by', 'at']) && typeof by === 'string' && typeof at === 'string';
+}
+
+/** Rejects dangling records and removals of threads that are not there. */
 export function hasConsistentRecords(records: ReadonlyMap<string, unknown>): boolean {
   for (const [name, value] of records) {
     const key = parseKey(name);
@@ -105,11 +122,7 @@ export function hasConsistentRecords(records: ReadonlyMap<string, unknown>): boo
     if (!hasRecordIdentity(key, value)) return false;
     const allowed = recordFields[kind];
     if (allowed && !hasOnly(value, allowed)) return false;
-    if (kind === 'removed') {
-      if (value !== true) return false;
-      continue;
-    }
-    if (records.has(JSON.stringify(['removed', thread]))) return false;
+    if (kind === 'removed' && !isRemoval(value)) return false;
     if (!records.has(JSON.stringify(['thread', thread]))) return false;
     if (kind === 'reaction' && key[2] && !records.has(JSON.stringify(['entry', thread, key[2]])))
       return false;

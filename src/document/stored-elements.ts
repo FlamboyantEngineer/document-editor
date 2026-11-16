@@ -61,8 +61,8 @@ export type ThreadMarkType = 'comment' | 'insertion' | 'deletion' | 'formatChang
 /** The text a comment thread is anchored to in a stored document. */
 export interface StoredThreadAnchor {
   readonly thread: string;
-  /** The comment's state, `open` unless its anchor says `resolved`. */
-  readonly state: 'open' | 'resolved';
+  /** The comment's state, `open` unless its anchor says `resolved` or `deleted`. */
+  readonly state: 'open' | 'resolved' | 'deleted';
   /** The marks that tie it to the text: a comment's anchor, or the suggestions it discusses. */
   readonly marks: readonly ThreadMarkType[];
   /** The anchored text, its runs joined by spaces. */
@@ -136,7 +136,7 @@ export function threadAnchors(file: DocumentFile): StoredThreadAnchor[] {
   const found = new Map<
     string,
     {
-      state: 'open' | 'resolved';
+      state: StoredThreadAnchor['state'];
       marks: Set<ThreadMarkType>;
       runs: Map<string, string>;
       ids: Set<string>;
@@ -154,7 +154,8 @@ export function threadAnchors(file: DocumentFile): StoredThreadAnchor[] {
       runs: new Map(),
       ids: new Set(),
     };
-    if (type === 'comment' && mark.attrs?.state === 'resolved') entry.state = 'resolved';
+    const state = mark.attrs?.state;
+    if (type === 'comment' && (state === 'resolved' || state === 'deleted')) entry.state = state;
     entry.marks.add(type);
     // A comment and a suggestion of one thread on the same text quote it once.
     if (!entry.runs.has(path)) entry.runs.set(path, text);

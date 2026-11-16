@@ -10,6 +10,7 @@ import { listSuggestions } from '../../engine/index.js';
 import type {
   CommentStoreAdapter,
   CommentThread,
+  CommentThreadState,
   IdentityAdapter,
   NewCommentThread,
 } from '../../host/index.js';
@@ -36,7 +37,7 @@ export interface CommentThreads {
   create(thread: NewCommentThread): Promise<CommentThread>;
   /** Posts a reply; a failure shows as the thread's activity, with Retry, and resolves `null`. */
   reply(threadId: string, text: string): Promise<CommentThread | null>;
-  setState(threadId: string, state: CommentThread['state']): Promise<CommentThread>;
+  setState(threadId: string, state: CommentThreadState): Promise<CommentThread>;
   remove(threadId: string): Promise<void>;
   /** Changes the reader's own comment, while the store can. */
   edit: ((change: EntryChange & { text: string }) => Promise<CommentThread>) | null;

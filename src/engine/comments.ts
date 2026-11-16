@@ -7,8 +7,17 @@ import type { Command, EditorState, Transaction } from 'prosemirror-state';
 import { addMarkInOrder } from '../model/index.js';
 import { createElementId } from './element-ids.js';
 
-/** Whether a comment thread is open or resolved. */
-export type CommentState = 'open' | 'resolved';
+/**
+ * Whether a comment thread is open, resolved or deleted. A deleted thread's anchor stays in the
+ * document as a record of it, and is no anchor of the editor's: none of its readers lists it.
+ */
+export type CommentState = 'open' | 'resolved' | 'deleted';
+
+/** The state a comment anchor's mark gives: open unless it says resolved or deleted. */
+export function commentStateOf(mark: Mark): CommentState {
+  const state: unknown = mark.attrs.commentState;
+  return state === 'resolved' || state === 'deleted' ? state : 'open';
+}
 
 /** A range of the document, by its positions. */
 export interface CommentRange {
@@ -46,12 +55,9 @@ function extendAnchor(
   { node, pos }: { readonly node: ProseMirrorNode; readonly pos: number },
 ) {
   const thread: unknown = mark.attrs.commentId;
-  if (typeof thread !== 'string') return;
-  const entry = found.get(thread) ?? {
-    thread,
-    state: mark.attrs.commentState === 'resolved' ? 'resolved' : 'open',
-    ranges: [],
-  };
+  const state = commentStateOf(mark);
+  if (typeof thread !== 'string' || state === 'deleted') return;
+  const entry = found.get(thread) ?? { thread, state, ranges: [] };
   const last = entry.ranges.at(-1);
   const text = node.text ?? '';
   if (last?.to === pos) {
@@ -169,7 +175,10 @@ function eachMark(
   return found;
 }
 
-/** Marks a thread's anchor open or resolved; a stylesheet usually hides a resolved anchor. */
+/**
+ * Marks a thread's anchor open, resolved or deleted; a stylesheet usually hides a resolved anchor,
+ * and a deleted one is no anchor of the editor's any more.
+ */
 export function setCommentState(thread: string, next: CommentState): Command {
   return (state, dispatch) => {
     const type = anchorType(state.schema);

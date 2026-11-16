@@ -158,15 +158,15 @@ function Reactions({
   );
 }
 
-// What the reader may do with a comment of a thread: edit their own, and delete their own reply,
-// or their own thread from its opening comment.
+// What the reader may do with a comment of a thread: edit their own, and delete their own last
+// reply, or their own thread from its opening comment; a moderator, anyone's.
 function entryActions(
   thread: StoredThread,
   { entry, index }: { entry: CommentEntry; index: number },
   { context, onRemove }: { context: CardContext; onRemove?: (() => Promise<void>) | undefined },
 ) {
   const may = resolveThreadPermissions(thread, context);
-  const own = may.own(entry);
+  const own = may.mayChange(entry);
   const { edit, removeEntry } = context.comments;
   const removeReply = removeEntry
     ? () => removeEntry({ threadId: thread.id, entryId: entry.id })

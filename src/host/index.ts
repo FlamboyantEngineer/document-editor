@@ -71,6 +71,7 @@ export type {
   CommentTarget,
   CommentTargetRange,
   CommentThread,
+  CommentThreadState,
   NewCommentThread,
 } from './comment-adapters.js';
 export type {
