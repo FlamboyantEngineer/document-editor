@@ -107,6 +107,15 @@ function initialState(): EditorState {
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
+// A blank document in the same editor: one empty paragraph, the state's plugins kept.
+function blankState(current: EditorState): EditorState {
+  const file = { formatVersion: 1 as const, sections: [{ name: null, content: [] }] };
+  return EditorState.create({
+    doc: readDocumentFile(file, current.schema).doc,
+    plugins: current.plugins,
+  });
+}
+
 // The host's arrangement of the status bar: the mode moved to the end, and the document's state.
 const HOST_STATUS_BAR: DocumentStatusBarOptions = {
   arrange: (items) => [
@@ -183,6 +192,9 @@ function Lab() {
   return (
     <>
       <div className="lab-controls">
+        <button type="button" onClick={() => setState(blankState)}>
+          Blank document
+        </button>
         <fieldset>
           <legend>View</legend>
           {(['page', 'web'] as const).map((value) => (

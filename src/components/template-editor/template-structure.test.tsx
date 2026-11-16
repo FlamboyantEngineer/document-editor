@@ -100,6 +100,21 @@ describe('the scope', () => {
   );
 });
 
+describe('section flags', () => {
+  it(
+    "DOCE-TEMPLATE-EDITOR-1.3 shows the restart a section's own styles imply while it sets none",
+    () => {
+      const template: TemplateFile = {
+        ...TEMPLATE,
+        sections: [{ name: 'annex', styles: { heading1: { numbering: { format: 'A.' } } } }],
+      };
+      render(<TemplateEditor template={template} scope="annex" onChange={() => {}} />);
+      expect(screen.getAllByText('Inherited: true').length).toBeGreaterThan(0);
+    },
+    SLOW,
+  );
+});
+
 describe('section names', () => {
   it(
     'DOCE-TEMPLATE-EDITOR-2.3 commits a rename once, sanitised, and tells the host',
