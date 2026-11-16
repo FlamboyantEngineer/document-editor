@@ -13,6 +13,13 @@ export type {
 } from './document-session.js';
 export { createDocumentSession } from './document-session.js';
 export type { DraftOffer } from './drafts.js';
+export type {
+  LoadPhase,
+  LoadProgress,
+  LoadProgressSnapshot,
+  LoadWeights,
+} from './load-progress.js';
+export { createLoadProgress, DEFAULT_LOAD_WEIGHTS, LOAD_PHASES } from './load-progress.js';
 export type { DocumentMerge, MergeConflict, MergeInput } from './merge.js';
 export { mergeDocuments } from './merge.js';
 export type { MergeChoice } from './merge-conflicts.js';

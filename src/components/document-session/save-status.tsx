@@ -6,16 +6,22 @@ import { useUnsavedChanges } from '@flamboyantengineer/ui-components/unsaved-cha
 import { useEffect, useSyncExternalStore } from 'react';
 import type { TelemetryAdapter } from '../../host/adapters.js';
 import type { DocumentSession } from '../../session/document-session.js';
+import { LOAD_PHASES, type LoadPhase, type LoadProgress } from '../../session/load-progress.js';
 import type { SessionLoadPhase, SessionStatusStore } from '../../session/status.js';
 
-/** The phases a session goes through before its document is ready, with what each shows. */
-export type SessionLoadingLabels = Readonly<Record<'connecting' | 'loading' | 'syncing', string>>;
+/** What each phase of a load shows, and the estimate read out with a measured progress. */
+export interface SessionLoadingLabels extends Readonly<Record<LoadPhase, string>> {
+  /** The progress bar's text, such as `Estimated progress: 40%`. */
+  readonly estimatedProgress: (percent: number) => string;
+}
 
 /** The default text of each load phase. */
 export const DEFAULT_SESSION_LOADING_LABELS: SessionLoadingLabels = {
   connecting: 'Connecting',
   loading: 'Loading the document',
   syncing: 'Syncing changes',
+  layout: 'Laying out the pages',
+  estimatedProgress: (percent) => `Estimated progress: ${String(percent)}%`,
 };
 
 /** The names the session measures its load under, by phase, and the whole load to ready. */
@@ -45,17 +51,72 @@ export interface SessionLoadingProps {
   labels?: Partial<SessionLoadingLabels> | undefined;
   /** Milliseconds the load must last before the overlay shows, so a quick load never flashes it. */
   delay?: number | undefined;
+  /**
+   * The load's progress, which the session's phases move on and the editor ends with its first
+   * layout (its `loadProgress`). With it the overlay shows the estimate and the phase counter, and
+   * stays until the whole load is ready, so it goes over the editor rather than in its place.
+   */
+  progress?: LoadProgress | undefined;
 }
+
+// The session phases before the one a session is in, which are over once it reaches it.
+function phasesBefore(load: SessionLoadPhase): readonly LoadPhase[] {
+  if (load === 'ready') return ['connecting', 'loading', 'syncing'];
+  const at = LOAD_PHASES.indexOf(load as LoadPhase);
+  return at < 0 ? [] : LOAD_PHASES.slice(0, at);
+}
+
+// Moves the load's progress on as the session goes through its phases; a phase it never went
+// through, such as connecting to a stored document, is skipped.
+function useSessionProgress(status: SessionStatusStore, progress: LoadProgress | undefined) {
+  useEffect(() => {
+    if (!progress) return undefined;
+    const seen = new Set<string>();
+    const follow = ({ load }: { load: SessionLoadPhase }) => {
+      if (load === 'failed') return progress.fail();
+      for (const phase of phasesBefore(load)) {
+        if (seen.has(phase)) progress.complete(phase);
+        else progress.skip(phase);
+      }
+      seen.add(load);
+    };
+    follow(status.get());
+    return status.subscribe(follow);
+  }, [status, progress]);
+}
+
+const useProgress = (progress: LoadProgress | undefined) =>
+  useSyncExternalStore(
+    progress?.subscribe ?? noSubscription,
+    () => progress?.get() ?? null,
+    () => progress?.get() ?? null,
+  );
+
+const noSubscription = () => () => undefined;
 
 /**
  * The base library's loading overlay while the session opens its document, naming the phase it is
- * in; nothing once the document is ready or failed. A `DocumentSessionBoundary` fallback.
+ * in; nothing once the document is ready or failed. A `DocumentSessionBoundary` fallback, or, with
+ * `progress`, an overlay over the editor until its pages are first laid out.
  */
-export function SessionLoading({ session, labels, delay }: SessionLoadingProps) {
+export function SessionLoading({ session, labels, delay, progress }: SessionLoadingProps) {
   const { load } = useSessionStatus(session.status);
-  if (load === 'ready' || load === 'failed') return null;
+  useSessionProgress(session.status, progress);
+  const shown = useProgress(progress);
   const text = { ...DEFAULT_SESSION_LOADING_LABELS, ...labels };
-  return <LoadingOverlay hint={text[load]} delay={delay} />;
+  if (!shown) {
+    if (load === 'ready' || load === 'failed') return null;
+    return <LoadingOverlay hint={text[load]} delay={delay} />;
+  }
+  if (shown.status !== 'loading') return null;
+  return (
+    <LoadingOverlay
+      hint={shown.phase ? text[shown.phase] : undefined}
+      progress={{ value: shown.percent, valueLabel: text.estimatedProgress(shown.percent) }}
+      step={{ current: Math.min(shown.done + 1, shown.total), total: shown.total }}
+      delay={delay}
+    />
+  );
 }
 
 /**

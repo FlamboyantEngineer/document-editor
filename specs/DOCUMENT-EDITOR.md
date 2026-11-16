@@ -271,7 +271,7 @@ Verification: `src/components/document-editor/tools-entries.test.ts`, `src/compo
 
 ### DOCE-EDITOR-4.18 - Lead and placeholder
 
-`lead` shall be shown before the document (`de-document-editor__lead`), inside the scrolling frame while the editor has one, scrolling with the pages, such as the document's title. On pages, `placeholder` shall be shown before the document (`de-document-editor__placeholder`, a busy `status`, followed by `de-document-editor__body` for a stylesheet to hide) until the pages are laid out for the first time, settled or failed, and never again for later layouts; in the web layout it is not shown.
+`lead` shall be shown before the document (`de-document-editor__lead`), inside the scrolling frame while the editor has one, scrolling with the pages, such as the document's title. On pages, `placeholder` shall be shown before the document (`de-document-editor__placeholder`, a busy `status`, followed by `de-document-editor__body` for a stylesheet to hide) until the pages first settle, and never again for later layouts; when that first layout fails, the error of DOCE-EDITOR-4.27 stands in its place. In the web layout it is not shown.
 
 Implementation: `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/document-editor.spec.ts`
@@ -331,6 +331,13 @@ Verification: `src/components/document-editor/writing-decorations.test.tsx`
 
 Implementation: `src/components/document-editor/writing-decorations.ts`
 Verification: `src/components/document-editor/writing-decorations.test.tsx`
+
+### DOCE-EDITOR-4.27 - Blocking until the first layout
+
+On pages, the document (`de-document-editor__body`, the host's chrome inside it included) shall be `inert` and `aria-busy` until its pages first settle, so neither focus, the pointer nor assistive technology reaches pages still being laid out; later layouts leave it as it is, and the web layout never blocks it. When that first layout fails, such as a run of layouts that never stops moving the pages, the document shall stay covered and blocked, with the `layoutFailed` label shown before it in the base library's `InlineError` (`de-document-editor__layout-error`, an alert), and `onLayoutFailed` shall be called once; a later layout that settles shows the pages. Given `loadProgress` (DOCE-SESSION-9.8), the first settled layout completes its `layout` phase and makes the load ready, and a failed one fails it.
+
+Implementation: `src/components/document-editor/first-layout.tsx`, `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/document-editor.tsx`
+Verification: `src/components/document-editor/first-layout.test.tsx`, `src/components/document-editor/editor-surface.test.tsx`
 
 ## DOCE-EDITOR-5 - Status bar
 
@@ -694,6 +701,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`, `custom`                      | On a preview, or the text style field: the style it shows.                              |
 | `de-document-editor__lead`              | slot      |                                                                        | The host's lead before the document (DOCE-EDITOR-4.18).                                 |
 | `de-document-editor__placeholder`       | slot      |                                                                        | The placeholder until the pages are first laid out (DOCE-EDITOR-4.18).                  |
+| `de-document-editor__layout-error`      | slot      |                                                                        | The error in place of the pages when their first layout failed (DOCE-EDITOR-4.27).      |
 | `de-document-editor__overview`          | slot      |                                                                        | The scroll overview over the frame (DOCE-EDITOR-4.19).                                  |
 | `de-document-editor__selection-toolbar` | slot      |                                                                        | The toolbar over selected text, with `selectionToolbar` (DOCE-EDITOR-4.21).             |
 | `de-document-editor__slash-menu`        | slot      |                                                                        | The menu a typed `/` opens, with `slashMenu` (DOCE-EDITOR-4.22).                        |

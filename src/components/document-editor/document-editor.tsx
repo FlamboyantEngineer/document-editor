@@ -45,6 +45,7 @@ import {
   templateProperties,
 } from '../../model/index.js';
 import type { LayoutState, LayoutTrace, PageDebugParts } from '../../pagination/index.js';
+import type { LoadProgress } from '../../session/load-progress.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { type DocumentBanner, useReportedFonts } from './banners.js';
@@ -66,6 +67,7 @@ import { DEFAULT_EDITOR_LABELS, type DocumentEditorLabels } from './editor-label
 import type { DocumentOverviewOptions } from './editor-overview.js';
 import { EditorScope } from './editor-scope.js';
 import { EditorSurface } from './editor-surface.js';
+import { useFirstLayout } from './first-layout.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import { ObjectDialogs, useObjectDialog } from './object-dialogs.js';
 import { debugParts, rootData } from './root-data.js';
@@ -288,8 +290,16 @@ export interface DocumentEditorProps
   banners?: readonly DocumentBanner[] | undefined;
   /** The host's content before the document's pages, scrolling with them, such as its title. */
   lead?: ReactNode;
-  /** Shown before the document while the pages await their first layout, such as a skeleton. */
+  /**
+   * Shown before the document while the pages await their first layout, such as a skeleton; the
+   * document is busy and inert until then.
+   */
   placeholder?: ReactNode;
+  /**
+   * The load this editor ends (`createLoadProgress`, shown by `SessionLoading`): its first layout
+   * makes the load ready, or failed.
+   */
+  loadProgress?: LoadProgress | undefined;
   /**
    * Marks the changes, the search matches, the proofing issues and the elements the reader has not
    * read on a scroll overview beside the frame, while the editor scrolls the document.
@@ -346,7 +356,10 @@ function useEditorLayout(
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
-  return { progress, view, layoutState, missingFonts: reported.missing };
+  const firstLayout = useFirstLayout((props.layout ?? 'page') === 'page', layoutState, props);
+  // What the surface shows around the document: the fonts that did not load, and the cover.
+  const surface = { missingFonts: reported.missing, firstLayout };
+  return { progress, view, layoutState, surface };
 }
 
 /**
@@ -366,7 +379,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
   const { tap, ready } = useLayoutTap(props.telemetry, props.onLayoutReady);
   const engine = useEngineView(props.events, props, tap);
   const editorContext = useRef<EditorContext | null>(null);
-  const { progress, view, layoutState, missingFonts } = useEditorLayout(props, engine, {
+  const { progress, view, layoutState, surface } = useEditorLayout(props, engine, {
     measureIn,
     context: editorContext,
   });
@@ -401,6 +414,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
       commentRefs={refs}
       onDialog={editable ? openDialog : null}
       menuKeys={menuKeys}
+      isBlocked={surface.firstLayout !== 'shown'}
     />
   );
   return (
@@ -418,8 +432,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
           following={{ top, bottom }}
           root={root}
           openDialog={openDialog}
-          missingFonts={missingFonts}
-          layoutState={layoutState}
+          {...surface}
         >
           {body}
         </EditorSurface>

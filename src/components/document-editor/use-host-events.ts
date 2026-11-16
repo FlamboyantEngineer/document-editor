@@ -40,6 +40,11 @@ export interface DocumentEditorNotifications {
   readonly onReviewChange?: ((change: ReviewChange, tr: Transaction) => void) | undefined;
   /** The pages are laid out for the first time, or the web layout shows: the editor is ready. */
   readonly onLayoutReady?: (() => void) | undefined;
+  /**
+   * The pages could not be laid out for the first time: the document stays covered by the error
+   * the editor shows in its place.
+   */
+  readonly onLayoutFailed?: (() => void) | undefined;
   /** The document's suggestions changed: added, decided, edited or discussed. */
   readonly onSuggestionsChange?: ((suggestions: readonly Suggestion[]) => void) | undefined;
   /** The change bars a comparison draws changed, measured on their pages (`ChangeBar`). */
