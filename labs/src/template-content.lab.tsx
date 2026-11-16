@@ -33,6 +33,24 @@ const OWN: TemplateFile = {
   name: 'Lab template',
   parent: BASE_TEMPLATE_ID,
   header: { content: [{ type: 'paragraph', content: [text('Lab template')] }] },
+  // A borderless table in the footer, which shows a dashed guide while the template is edited.
+  footer: {
+    content: [
+      {
+        type: 'table',
+        attrs: { border: 'table-border-none', captionEnabled: false },
+        content: [
+          {
+            type: 'tableRow',
+            content: ['Document number', 'Issued'].map((value) => ({
+              type: 'tableCell',
+              content: [{ type: 'paragraph', content: [text(value)] }],
+            })),
+          },
+        ],
+      },
+    ],
+  },
   sections: [
     {
       name: 'summary',

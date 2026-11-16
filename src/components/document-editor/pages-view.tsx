@@ -8,7 +8,7 @@ import type { RichTextEngineEvents } from '@flamboyantengineer/ui-components/ric
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { type DirectEditorProps, EditorView } from 'prosemirror-view';
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { readDomSelection } from '../../utils/dom-selection.js';
+import { inputAfterFocusKeeper, readDomSelection } from '../../utils/dom-selection.js';
 import { type HostNodeViews, useHostNodeViews } from './host-node-views.js';
 import { insertTypedText } from './typed-text.js';
 import type { PagedEditor } from './use-paged-projection.js';
@@ -35,6 +35,7 @@ interface PagesViewProps {
 interface ViewTies {
   readonly dispatch: (this: EditorView, tr: Transaction) => void;
   readonly catchUp: (view: EditorView) => void;
+  readonly keepInput: ReturnType<typeof inputAfterFocusKeeper>;
 }
 
 // The view's props: the editor's, the document element's attributes over theirs, the host's node
@@ -44,7 +45,7 @@ interface ViewTies {
 function directProps(
   { viewProps, attributes }: Pick<PagesViewProps, 'viewProps' | 'attributes'>,
   nodeViews: DirectEditorProps['nodeViews'],
-  { dispatch, catchUp }: ViewTies,
+  { dispatch, catchUp, keepInput }: ViewTies,
 ): Omit<DirectEditorProps, 'state'> {
   const own = typeof viewProps.attributes === 'object' ? viewProps.attributes : {};
   const handlers = viewProps.handleDOMEvents;
@@ -54,6 +55,7 @@ function directProps(
     nodeViews: nodeViews ?? {},
     handleDOMEvents: {
       ...handlers,
+      ...keepInput(handlers),
       beforeinput(view, event) {
         catchUp(view);
         return handlers?.beforeinput?.(view, event) === true || insertTypedText(view, event);
@@ -93,6 +95,7 @@ export function PagesView(props: PagesViewProps) {
   }).current;
   const ties = useRef<ViewTies>({
     dispatch,
+    keepInput: inputAfterFocusKeeper(),
     catchUp(view) {
       // The selection the browser shows goes first, so drawing the latest state keeps it.
       readDomSelection(view);

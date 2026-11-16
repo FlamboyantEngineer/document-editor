@@ -1,4 +1,5 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
+import { addColumnAfter } from 'prosemirror-tables';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -104,6 +105,55 @@ describe('editing regions in place', () => {
         { type: 'paragraph', content: [{ type: 'text', text: 'Old', marks: [{ type: 'bold' }] }] },
       ],
     });
+    view.destroy();
+  });
+
+  it('DOCE-SECTIONS-5.4 edits a table in a header on every page, the root marked while editing', () => {
+    const cell = (value: string) => ({ type: 'tableCell', content: text(value) });
+    const table: StoredContent = [
+      {
+        type: 'table',
+        attrs: { border: 'table-border-none' },
+        content: [{ type: 'tableRow', content: [cell('Left'), cell('Right')] }],
+      },
+    ];
+    const template: TemplateFile = { formatVersion: 1, id: 't', header: { content: table } };
+    const changes: RegionChange[] = [];
+    let enabled = true;
+    const plugins = [
+      createRegionEditing({
+        enabled: () => enabled,
+        template: () => template,
+        onChange: (change) => changes.push(change),
+      }),
+      createDocumentSections({ template: () => template }),
+    ];
+    let state = EditorState.create({ doc: twoPages(), plugins });
+    state = state.apply(setPageRegions(state.tr, template, { editable: true }));
+    const view = new EditorView(document.createElement('div'), { state });
+    expect(view.dom).toHaveAttribute('data-template-editing', 'true');
+    // The caret in the first page's header, in its first cell's text.
+    let at = -1;
+    view.state.doc.descendants((node, pos) => {
+      if (at < 0 && node.isText && node.text === 'Left') at = pos + 4;
+      return at < 0;
+    });
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+    view.dispatch(view.state.tr.insertText(' side'));
+    addColumnAfter(view.state, view.dispatch);
+    const columns: number[] = [];
+    view.state.doc.descendants((node) => {
+      if (node.type.name === 'table_row') columns.push(node.childCount);
+      return true;
+    });
+    // Both pages' headers hold the table with the new column, and the template hears it.
+    expect(columns).toEqual([3, 3]);
+    const [written] = changes.at(-1)?.content ?? [];
+    expect(written?.attrs).toMatchObject({ border: 'table-border-none' });
+    expect(JSON.stringify(written)).toContain('Left side');
+    enabled = false;
+    view.updateState(view.state);
+    expect(view.dom).not.toHaveAttribute('data-template-editing');
     view.destroy();
   });
 });

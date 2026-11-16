@@ -506,6 +506,13 @@ The browser's caret and selection keys and clicks shall act on the whole documen
 Implementation: `src/engine/body-edge.ts`, `src/pagination/page-caret.ts`, `src/pagination/projection.ts`
 Verification: `src/engine/body-edge.test.ts`, `src/pagination/page-caret.test.ts`, `e2e/caret-keys.spec.ts`
 
+### DOCE-PAGINATION-7.22 - Input right after focus
+
+A click or key that comes right after the pages take focus shall keep its selection on a busy page: when the writer's input comes before the view's check, after focus, of the selection the browser shows, the view shall read the browser's selection first, so that the check does not draw the view's older selection back over it. A focus with no input after it keeps the view's selection, as before.
+
+Implementation: `src/utils/dom-selection.ts`, `src/components/document-editor/pages-view.tsx`
+Verification: `src/utils/dom-selection.test.ts`, `e2e/caret-keys.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers
