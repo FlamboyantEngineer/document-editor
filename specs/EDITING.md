@@ -13,7 +13,7 @@ Verification: `src/engine/document-editing.test.ts`, `src/engine/element-ids.tes
 
 ### DOCE-EDITING-1.2 - Authorship
 
-An element that gets an id because it was new or copied another's, as the second half of a split paragraph does, shall be attributed to the writer `author` names. An element that keeps its id keeps its author.
+An element that gets an id because it was new or copied another's, as the second half of a split paragraph does, shall be attributed to the writer `author` names. An element that keeps its id keeps its author, except the text blocks of a split (DOCE-EDITING-1.8).
 
 Implementation: `src/engine/element-ids.ts`
 Verification: `src/engine/document-editing.test.ts`
@@ -53,6 +53,13 @@ A host shall be able to build an element lifecycle of its own (states, stamping 
 Implementation: `src/model/schema/element-attributes.ts`, `src/engine/edit-lock.ts`
 Verification: `test/element-lifecycle.test.ts`
 
+### DOCE-EDITING-1.8 - Splits
+
+Who splits a text block and who wrote it shall be kept apart. When Enter splits a paragraph, a heading or a list item's paragraph that holds text, in a table cell too, both text blocks shall be attributed to the writer `author` names, and the text carried into either of them that has no writer of its own (a contributor mark, a suggested insertion or a reference) shall take a contributor mark naming the split block's writer, so the document's authorship (DOCE-COLLAB-3.1) still reads it as theirs; there is no such mark when the block had no writer or the splitter wrote it. The content half keeps its id and the other half gets a fresh one (DOCE-EDITING-2.3), and text typed right after the split is the typist's (DOCE-COLLAB-3.1). A writer who only split a block wrote none of its text, so they are no writer of the document.
+
+Implementation: `src/engine/split-authorship.ts`, `src/engine/element-ids.ts`, `src/engine/document-editing.ts`
+Verification: `src/engine/split-authorship.test.ts`, `src/engine/document-editing.test.ts`
+
 ## DOCE-EDITING-2 - Keys
 
 ### DOCE-EDITING-2.1 - Formatting and block types
@@ -71,10 +78,10 @@ Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-EDITING-2.3 - Enter
 
-Enter shall add a line in code, split a list item, add a paragraph after a selected block, lift an empty block out of its parent, or split the text block, replacing a selected range of text; a split paragraph's new half shall keep its level. A split at the start of a text block, or of a list item, shall keep the element's identity with its content and make the empty block before it the new element, with a fresh id by the writer (`keepIdentityWithContent`), so a referenced heading keeps its id; a block split by the pagination is left to it.
+Enter shall add a line in code, split a list item, add a paragraph after a selected block, such as a figure, a page break, a rule, a list of contents, a template block or linked code, wherever the block stands, with the caret in it and the block left as it was, lift an empty block out of its parent, or split the text block, in a table cell within the cell, replacing a selected range of text; a split paragraph's new half shall keep its level. A split at the start of a text block, or of a list item, shall keep the element's identity with its content and make the empty block before it the new element, with a fresh id by the writer (`keepIdentityWithContent`), so a referenced heading keeps its id; a block split by the pagination is left to it.
 
-Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`, `src/engine/split-identity.ts`
-Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`, `src/engine/split-identity.ts`, `src/engine/block-keys.ts`
+Verification: `src/engine/document-editing.test.ts`, `src/engine/block-keys.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-EDITING-2.4 - Across pages
 
@@ -101,8 +108,8 @@ Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
 
 At the start of a text block after an object, a table or an atom such as an equation or a figure, Backspace shall select the object instead of joining into it, and Delete at the end of a text block before one likewise; the next press deletes it. A gap cursor stands between objects where no text block is, in the pages' content too, and Enter there adds a paragraph. Mod-Space clears formatting.
 
-Implementation: `src/engine/document-editing.ts`
-Verification: `src/engine/document-editing.test.ts`
+Implementation: `src/engine/document-editing.ts`, `src/engine/block-keys.ts`
+Verification: `src/engine/document-editing.test.ts`, `src/engine/block-keys.test.ts`
 
 ### DOCE-EDITING-2.8 - Footnote entries
 
@@ -117,6 +124,13 @@ A command that adds a block (a table, a page break, an object or a script block)
 
 Implementation: `src/engine/block-place.ts`, `src/engine/tables.ts`, `src/engine/editing-commands.ts`
 Verification: `src/engine/block-place.test.ts`
+
+### DOCE-EDITING-2.10 - Backspace and Delete between blocks
+
+Backspace at the start of a text block shall join it into the text block before it, which keeps its type, with the caret at the join, and Delete at the end of a text block shall join the next one into it likewise. Backspace in an empty paragraph with no block before it, such as the first of a section, and Delete in an empty paragraph with a block after it, shall remove the paragraph and put the caret at the start of the next block. Neither shall join one table cell into another.
+
+Implementation: `src/engine/document-editing.ts`, `src/engine/block-keys.ts`
+Verification: `src/engine/block-keys.test.ts`
 
 ## DOCE-EDITING-3 - Installing editing
 
