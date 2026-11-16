@@ -10,6 +10,7 @@ import { SegmentedChoice } from '@flamboyantengineer/ui-components/segmented-cho
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import { type ReactNode, useState } from 'react';
+import { NUMBERING_OPTIONS } from './numbering-presets.js';
 import type { TemplateSetting } from './template-settings.js';
 
 /** What a row shows and changes. */
@@ -203,7 +204,6 @@ function FontControl({ value, onChange, fonts = [], common, placeholder }: Contr
 }
 
 function TextControl({ setting, value, onChange, common, placeholder }: ControlProps) {
-  const numbering = setting.kind.type === 'numbering';
   return (
     <TextField
       {...common}
@@ -211,8 +211,28 @@ function TextControl({ setting, value, onChange, common, placeholder }: ControlP
       // An own empty value shows empty, not the inherited value it replaces.
       placeholder={isUnset(value) ? placeholder : undefined}
       errorMessage={setting.check?.(value) ?? undefined}
-      // A numbering format keeps what it may hold; text is kept as typed, spaces too.
-      onChange={(text) => onChange(numbering ? cleanNumbering(text) : text)}
+      // Text is kept as typed, spaces too.
+      onChange={onChange}
+    />
+  );
+}
+
+// A numbering format, typed or picked from the formats offered with the numbers each gives; it
+// keeps what a format may hold.
+function NumberingControl({ setting, value, onChange, common, placeholder }: ControlProps) {
+  return (
+    <Combobox
+      aria-label={common.label}
+      size="sm"
+      isDisabled={common.isDisabled}
+      allowsCustomValue
+      menuTrigger="focus"
+      defaultItems={NUMBERING_OPTIONS}
+      inputValue={shown(value)}
+      placeholder={isUnset(value) ? placeholder : undefined}
+      description={common.help}
+      errorMessage={setting.check?.(value) ?? undefined}
+      onInputChange={(text) => onChange(cleanNumbering(text))}
     />
   );
 }
@@ -247,7 +267,7 @@ const CONTROLS = {
   font: FontControl,
   text: TextControl,
   length: LengthControl,
-  numbering: TextControl,
+  numbering: NumberingControl,
   // Four sides have a row of their own (`SidesRow`).
   sides: TextControl,
 } as const;

@@ -129,6 +129,31 @@ describe('TemplateEditor', () => {
     // A list replaces the parent's whole, so the template takes the inherited sections with it.
     expect(changes.at(-1)?.sections).toEqual([...inherited, { name: 'section_3' }]);
   }, 15_000);
+
+  it('DOCE-TEMPLATE-EDITOR-1.9 keeps a zero region height and shows inherited paragraph numbering', async () => {
+    const user = userEvent.setup();
+    const changes: TemplateFile[] = [];
+    const template: TemplateFile = { formatVersion: 1, id: 'child', parent: 'house' };
+    const resolved: TemplateFile = {
+      ...template,
+      header: { height: '12mm' },
+      styles: { paragraph: { numbering: { enabled: true, format: '1.' } } },
+    };
+    render(
+      <TemplateEditor
+        template={template}
+        resolved={resolved}
+        onChange={(next) => changes.push(next)}
+      />,
+    );
+    // The paragraph numbering the parent sets shows as inherited while the template sets none.
+    const [format] = screen.getAllByRole('combobox', { name: 'Format' });
+    expect(format).toHaveAttribute('placeholder', '1.');
+    // A zero height is a value of the template's own, not an unset one.
+    const height = screen.getByRole('textbox', { name: 'Header height' });
+    await user.type(height, '0pt');
+    expect(changes.at(-1)?.header).toEqual({ height: '0pt' });
+  }, 15_000);
 });
 
 describe('withListedSections', () => {

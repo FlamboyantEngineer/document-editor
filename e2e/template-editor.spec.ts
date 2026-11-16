@@ -229,11 +229,15 @@ test.describe('template editor lab', () => {
     await expect(bold).toHaveAttribute('aria-pressed', 'false');
     await bold.click();
     await expect(bold).toHaveAttribute('aria-pressed', 'mixed');
-    // A numbering format keeps only what numbers.
+    // A numbering format keeps only what numbers, and offers formats with the numbers they give.
     const heading = await card(page, 'Heading 1');
-    const numbering = heading.getByRole('textbox', { name: 'Numbering', exact: true });
+    const numbering = heading.getByRole('combobox', { name: 'Numbering', exact: true });
     await numbering.fill('Ab.1x');
+    await page.keyboard.press('Escape');
     await expect(numbering).toHaveValue('A.1');
+    await numbering.fill('');
+    await page.getByRole('option', { name: /^I\.\s*I\., II\., III\./ }).click();
+    await expect(numbering).toHaveValue('I.');
     await expect(heading.getByText('1, a, A, i or I for each level')).toBeVisible();
     // A heading has a line height of its own.
     await expect(heading.getByRole('textbox', { name: 'Line height' })).toHaveCount(1);
@@ -279,6 +283,27 @@ test.describe('template editor lab', () => {
     await expect.poll(() => content(page).locator('table').count()).toBeGreaterThan(1);
     await expect.poll(() => content(page).locator('pre').count()).toBeGreaterThan(1);
     await expect(content(page).locator('[data-section-name]')).not.toHaveCount(0);
+  });
+
+  test('DOCE-TEMPLATE-EDITOR-1.8 DOCE-TEMPLATES-8.2 spaces the preview by the template on its first load', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-editor');
+    await page.getByRole('button', { name: 'Preview the template' }).click();
+    const heading = content(page).locator('h2', { hasText: 'Heading 2' });
+    await expect(heading).toHaveCount(1);
+    const margins = (locator: ReturnType<typeof content>) =>
+      locator.evaluate((element) => {
+        const computed = getComputedStyle(element);
+        return [computed.marginTop, computed.marginBottom];
+      });
+    // The base template's spacing, in CSS pixels: a heading 2 at 14pt and 7pt, a paragraph at 0pt
+    // and 6pt, and a list at 0pt and 6pt.
+    expect(await margins(heading)).toEqual(['18.6667px', '9.33333px']);
+    expect(await margins(heading.locator('xpath=following-sibling::p[1]'))).toEqual(['0px', '8px']);
+    const list = content(page).locator('.pm-page-content > ul').first();
+    expect(await margins(list)).toEqual(['0px', '8px']);
   });
 
   test('DOCE-TEMPLATE-EDITOR-1.9 DOCE-TEMPLATE-EDITOR-1.10 DOCE-TEMPLATE-EDITOR-1.11 writes a whole template field by field', async ({
