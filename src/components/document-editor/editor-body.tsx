@@ -7,7 +7,11 @@ import {
   RichTextEngineHost,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { DecorationSet, type EditorView } from 'prosemirror-view';
-import { useMemo } from 'react';
+import {
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  useMemo,
+} from 'react';
 import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentComments } from '../document-comments/document-comments.js';
@@ -41,6 +45,21 @@ import {
   useProjectionEvents,
 } from './use-paged-projection.js';
 import { useWritingDecorations } from './writing-decorations.js';
+
+// The body's handlers: the held selection's, and the comments', which follow presses and clicks in
+// the document: a click back into the page puts a thread being started away, and one on commented
+// text goes to its thread.
+function useBodyHandlers(pointer: CommentRefs['commentPointerRef']) {
+  const { held, handlers } = useHeldSelection();
+  return {
+    held,
+    handlers: {
+      ...handlers,
+      onPointerDown: (event: ReactPointerEvent) => pointer.current?.down(event),
+      onClick: (event: ReactMouseEvent) => pointer.current?.click(event),
+    },
+  };
+}
 
 // The view's decorations while no writing helper draws.
 const noDecorations = () => DecorationSet.empty;
@@ -230,9 +249,9 @@ export function EditorBody({
   menuKeys,
   isBlocked,
 }: EditorBodyProps) {
-  const { startCommentRef, openThreadRef } = commentRefs;
+  const { startCommentRef, openThreadRef, commentPointerRef } = commentRefs;
   const { state, onStateChange, editable = true, suggesting = false } = props;
-  const { held, handlers: heldHandlers } = useHeldSelection();
+  const { held, handlers: bodyHandlers } = useBodyHandlers(commentPointerRef);
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog, menuKeys, held });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   const attributes = useContentAttributes(props);
@@ -269,7 +288,7 @@ export function EditorBody({
   return (
     <div
       {...hooks.slot('body')}
-      {...heldHandlers}
+      {...bodyHandlers}
       inert={isBlocked}
       aria-busy={isBlocked || undefined}
     >
@@ -282,6 +301,7 @@ export function EditorBody({
           suggestionPolicy={editorSuggestionPolicy(props)}
           startRef={startCommentRef}
           openRef={openThreadRef}
+          pointerRef={commentPointerRef}
           view={view}
           onReveal={() => panes?.reveal('comments', { focus: false })}
         >

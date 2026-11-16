@@ -91,6 +91,22 @@ function expand(node: ProseMirrorNode, schema: Schema, tokens: Tokens): ProseMir
   return node.type.validContent(content) ? node.copy(content) : node;
 }
 
+/**
+ * A template's stored content with each paragraph that is only a list token a stored list of
+ * contents of its kind, read without a schema; its other tokens stay text.
+ */
+export function storedContentsTokens(
+  content: StoredContent,
+  { contentsTokens = CONTENTS_TOKENS }: TemplateContentOptions = {},
+): StoredContent {
+  return content.map((node) => {
+    const [only] = node.type === 'paragraph' && node.content?.length === 1 ? node.content : [];
+    const key = (only?.type === 'text' && ONLY_TOKEN.exec((only.text ?? '').trim())?.[1]) || '';
+    const kind = Object.hasOwn(contentsTokens, key) ? contentsTokens[key] : undefined;
+    return kind ? { type: 'contents', attrs: { kind } } : node;
+  });
+}
+
 /** A template's stored content as a document holds it, its tokens live. */
 export function readTemplateContent(
   content: unknown,

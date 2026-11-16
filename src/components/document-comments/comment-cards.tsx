@@ -17,7 +17,7 @@ import { ChatBubblePlusGlyph } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import { ReactionBar } from '@flamboyantengineer/ui-components/reaction-bar';
 import { UserIdentity } from '@flamboyantengineer/ui-components/user-identity';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import type { CommentEntry, CommentThread as StoredThread } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { activityRows } from './comment-activity-rows.js';
@@ -26,6 +26,7 @@ import { useFocusOnMount } from './comment-mentions.js';
 import type { DocumentCommentsLabels } from './comments-labels.js';
 import { resolveThreadPermissions, type ThreadPermissionPolicy } from './thread-permissions.js';
 import type { CommentThreads } from './use-comment-threads.js';
+import { focusCard } from './use-open-cards.js';
 
 export { DEFAULT_COMMENTS_LABELS, type DocumentCommentsLabels } from './comments-labels.js';
 
@@ -233,8 +234,15 @@ export function ThreadCard({
   const { comments } = context;
   const may = resolveThreadPermissions(thread, context);
   const opened = context.opened?.threadId === thread.id ? context.opened : null;
+  const root = useRef<HTMLDivElement>(null);
+  // In the panel, a thread whose text the reader clicked is ready to answer.
+  const answer = context.scope === 'panel' && opened?.focus === 'reply' ? opened.sequence : null;
+  useEffect(() => {
+    if (answer !== null) focusCard(root.current, 'reply');
+  }, [answer]);
   return (
     <CommentThread
+      ref={root}
       mentions={context.mentions}
       quote={thread.quote}
       highlightedId={opened?.entryId ? entryElementId(context, opened.entryId) : undefined}

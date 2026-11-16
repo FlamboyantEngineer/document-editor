@@ -32,13 +32,16 @@ import {
 } from './comment-cards.js';
 import { useCommentControls } from './comment-controls.js';
 import type { CommentsAudience, CommentsFilter, ThreadFilter } from './comment-filters.js';
-import type { OpenComment, StartComment } from './comment-focus.js';
+import { type OpenComment, type StartComment, useCommentFocus } from './comment-focus.js';
 import { caretKey, listCommentItems } from './comment-items.js';
+import { useCommentPointer } from './comment-pointer-controls.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
-import { MarginCard, useStableCallbacks } from './margin-card.js';
+import type { CommentPointer } from './document-pointer.js';
+import { MarginCard, useCardPolicy, useStableCallbacks } from './margin-card.js';
 import type { ThreadPermissionPolicy } from './thread-permissions.js';
 import { useCardContext } from './use-card-context.js';
 import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
+import { useMarginOpening } from './use-open-cards.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
 
 export type {
@@ -49,6 +52,7 @@ export type {
 } from './comment-focus.js';
 export { EditorCommentThreads } from './comment-threads-provider.js';
 export { DocumentCommentsPanel } from './comments-panel.js';
+export type { CommentPointer } from './document-pointer.js';
 export type { ThreadPermissionPolicy, ThreadPermissions } from './thread-permissions.js';
 export { SharedCommentThreadsContext } from './use-comment-threads.js';
 
@@ -94,10 +98,12 @@ export interface DocumentCommentsOptions {
    */
   commentActions?: ((target: CommentActionTarget) => readonly MenuEntry[]) | undefined;
   /**
-   * Shows a card for each thread and suggestion (`cards`, the default), or a marker for each that
-   * opens its card (`markers`), which leaves the document more room.
+   * Shows a marker beside the text of each thread and suggestion, whose card opens only when the
+   * reader asks for it (`markers`, the default), or a card for each (`cards`).
    */
   presentation?: 'cards' | 'markers' | undefined;
+  /** The space between a page's end edge and the cards beside it, in pixels; 20 by default. */
+  cardGap?: number | undefined;
   /**
    * Where the threads show: in a margin beside the pages (`margin`, the default), or only in the
    * comments panel (`pane`), which then holds the thread being started too and leaves the document
@@ -130,6 +136,8 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   view?: EditorView | null | undefined;
   /** With pane placement, shows the pane holding the comments, for a thread started or opened. */
   onReveal?: (() => void) | undefined;
+  /** Receives what the comments do with pointer presses and clicks in the document. */
+  pointerRef?: RefObject<CommentPointer | null> | undefined;
   /** The document's content. */
   children: ReactNode;
 }
@@ -148,6 +156,7 @@ const NOTHING_MEASURED: Measured = { rects: new Map(), offsets: new Map() };
 function useAnchorRects(
   layer: HTMLElement | null,
   targets: ReadonlyMap<string, AnchorTarget>,
+  gap: number | undefined,
 ): Measured {
   const [measured, setMeasured] = useState<Measured>(NOTHING_MEASURED);
   const latest = useRef(targets);
@@ -165,7 +174,7 @@ function useAnchorRects(
     const measure = () => {
       view.cancelAnimationFrame(frame);
       frame = view.requestAnimationFrame(() => {
-        const { rects, offsets } = measureLayer(layer, latest.current);
+        const { rects, offsets } = measureLayer(layer, latest.current, gap);
         setMeasured((current) =>
           isSameMeasurement(current.rects, rects) && isSameOffsets(current.offsets, offsets)
             ? current
@@ -187,7 +196,7 @@ function useAnchorRects(
       observer?.disconnect();
       content.disconnect();
     };
-  }, [layer]);
+  }, [layer, gap]);
   return measured;
 }
 
@@ -209,6 +218,7 @@ export function DocumentComments(props: DocumentCommentsProps) {
 // The document alone, its threads shown in the comments panel, which the editor still reaches.
 function PaneComments(props: DocumentCommentsProps) {
   const comments = useProvidedCommentThreads(props);
+  const focus = useCommentFocus();
   const { onReveal } = props;
   const { run } = useCommentControls({
     ...props,
@@ -219,6 +229,15 @@ function PaneComments(props: DocumentCommentsProps) {
   });
   // The reader's suggestions get their threads wherever the threads are shown.
   useSuggestionThreads({ state: props.state, comments, run, options: props });
+  // Commented text, clicked, takes the reader to its thread in the pane, ready to answer.
+  useCommentPointer(props, {
+    run,
+    open: (anchor) => {
+      if (anchor.kind !== 'comment' || !comments.threads.has(anchor.id)) return;
+      focus.open({ threadId: anchor.id }, { focus: 'reply' });
+      onReveal?.();
+    },
+  });
   return props.children;
 }
 
@@ -239,18 +258,13 @@ function CommentsMargin(props: DocumentCommentsProps) {
     onStart: setActive,
   });
   useSuggestionThreads({ state, comments, run, options: props });
-  // A thread the reader is taken to becomes the active card.
-  const [lastOpened, setLastOpened] = useState(opened);
-  if (opened !== lastOpened) {
-    setLastOpened(opened);
-    if (opened) setActive(`comment:${opened.threadId}`);
-  }
   const items = useMemo(
     () => listCommentItems(state, { threads: comments.threads, canComment, filter }),
     [state, comments.threads, canComment, filter],
   );
+  const cards = useMarginOpening(props, { items, layer, opened, run, startThread, setActive });
   const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
-  const { rects, offsets } = useAnchorRects(layer, targets);
+  const { rects, offsets } = useAnchorRects(layer, targets, props.cardGap);
   const annotations = useMemo<Annotation[]>(
     () => items.map((item) => ({ id: item.key, rects: rects.get(item.key) ?? [] })),
     [items, rects],
@@ -263,20 +277,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
     if (caret !== null) setActive(caret);
   }
   const byKey = new Map(items.map((item) => [item.key, item]));
-  // Unattributed suggestions are their thread's writer's (DOCE-SUGGESTIONS-2.5).
-  // A new policy only when what it says or the threads change, the editor building a new one on
-  // each render, so the suggestion cards are drawn again only then.
-  const { me, canDecide, canWithdraw, decide } = props.suggestionPolicy;
-  const policy = useMemo(
-    () => ({
-      me,
-      canDecide,
-      canWithdraw,
-      decide,
-      threadAuthor: (thread: string) => comments.threads.get(thread)?.entries[0]?.author,
-    }),
-    [me, canDecide, canWithdraw, decide, comments.threads],
-  );
+  const policy = useCardPolicy(props.suggestionPolicy, comments.threads);
   const commands = useStableCallbacks({ run, startThread: () => startThread() });
   return (
     <AnnotationLayer
@@ -290,7 +291,9 @@ function CommentsMargin(props: DocumentCommentsProps) {
       <AnnotationMargin
         {...hooks.slot('margin')}
         aria-label={labels.comments}
-        presentation={props.presentation === 'markers' ? 'icons' : 'cards'}
+        presentation={cards.markers ? 'icons' : 'cards'}
+        openKeys={cards.openKeys}
+        onOpenChange={cards.onOpenChange}
         renderCard={(annotation, { isActive }) => {
           const item = byKey.get(String(annotation.id));
           return item ? (

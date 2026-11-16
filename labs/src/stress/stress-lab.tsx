@@ -229,7 +229,12 @@ function StressLab({ build, sizes, remote, threads }: StressLabOptions) {
         events={events}
         comments={
           review?.comments
-            ? { store: review.comments, documentId: 'scale', identity: review.identity }
+            ? {
+                store: review.comments,
+                documentId: 'scale',
+                identity: review.identity,
+                presentation: 'cards',
+              }
             : undefined
         }
       />

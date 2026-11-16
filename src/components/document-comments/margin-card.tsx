@@ -3,10 +3,12 @@
 // (DOCE-COMMENTS-3.7). The panel's cards are compared the same way.
 
 import { type CSSProperties, memo, useLayoutEffect, useMemo, useRef } from 'react';
-import type { Suggestion } from '../../engine/index.js';
+import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
+import type { CommentThread } from '../../host/index.js';
 import { useFocusHandOver } from './card-focus.js';
 import { hooks } from './comment-cards.js';
 import { type CardActions, type CommentItem, renderCommentCard } from './comment-items.js';
+import { cardElementId, focusReplyOnPress } from './use-open-cards.js';
 
 // Whether a suggestion reads the same on its card, wherever the document now has it.
 function isSameSuggestion(a: Suggestion, b: Suggestion): boolean {
@@ -72,6 +74,11 @@ export const MarginCard = memo(function MarginCard({ item, offset = 0, actions }
   return (
     <div
       ref={ref}
+      id={cardElementId(item.key)}
+      // Focused when its card opens from its text or a link; a press on the card itself, not one
+      // of its controls, focuses its reply box.
+      tabIndex={-1}
+      onClick={focusReplyOnPress}
       {...hooks.slot('card')}
       style={{ '--de-comment-offset': `${String(offset)}px` } as CSSProperties}
     >
@@ -79,6 +86,27 @@ export const MarginCard = memo(function MarginCard({ item, offset = 0, actions }
     </div>
   );
 }, isSameCard);
+
+/**
+ * The policy the suggestion cards decide by, its unattributed suggestions their thread's writer's
+ * (DOCE-SUGGESTIONS-2.5): a new one only when what it says or the threads change, the editor
+ * building a new one on each render, so the suggestion cards are drawn again only then.
+ */
+export function useCardPolicy(
+  { me, canDecide, canWithdraw, decide }: SuggestionPolicy,
+  threads: ReadonlyMap<string, CommentThread>,
+): SuggestionPolicy {
+  return useMemo(
+    () => ({
+      me,
+      canDecide,
+      canWithdraw,
+      decide,
+      threadAuthor: (thread: string) => threads.get(thread)?.entries[0]?.author,
+    }),
+    [me, canDecide, canWithdraw, decide, threads],
+  );
+}
 
 type CardCallbacks = Pick<CardActions, 'run' | 'startThread'>;
 

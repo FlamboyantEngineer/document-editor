@@ -240,6 +240,15 @@ test.describe('objects', () => {
     await page.keyboard.type('let x = 1;');
     await expect(content(page).locator('pre', { hasText: 'let x = 1;' })).toHaveCount(1);
     await toolbar(page).getByRole('button', { name: 'List of contents' }).click();
+    await expect(page.getByRole('menu').last().getByRole('menuitem')).toHaveText([
+      'Table of contents',
+      'List of figures',
+      'List of tables',
+      'List of equations',
+      'List of code',
+      'List of references',
+      'List of abbreviations',
+    ]);
     await item(page, 'List of figures').click();
     await expect(content(page).locator('[data-contents-type="figures"]')).toHaveCount(1);
   });

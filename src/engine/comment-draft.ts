@@ -8,6 +8,7 @@ import {
   type EditorState,
   Plugin,
   PluginKey,
+  TextSelection,
   type Transaction,
 } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
@@ -60,7 +61,10 @@ export function startCommentDraft(id: string): Command {
     const draft = draftOf(id, draftRanges(state));
     if (!draft || !state.schema.marks.comment_highlight) return false;
     const meta: DraftMeta = { start: draft };
-    dispatch?.(state.tr.setMeta(draftKey, meta));
+    // The draft draws the text it is on; the selection gives way to a caret at its end, so the
+    // same text offers a further thread once this one is kept.
+    const caret = TextSelection.create(state.doc, draft.to);
+    dispatch?.(state.tr.setMeta(draftKey, meta).setSelection(caret));
     return true;
   };
 }
