@@ -1207,8 +1207,8 @@ a.de-contents__entry {
   user-select: none;
 }
 
-/* A block with line bars places them from its own top. */
-.de-document-editor :has(> .de-change-lines) {
+/* A block with line bars places them from its own top: the change lines draw them in text blocks. */
+.de-document-editor :is(p, h1, h2, h3, h4, h5, h6, pre, div):has(> .de-change-lines) {
   position: relative;
 }
 
