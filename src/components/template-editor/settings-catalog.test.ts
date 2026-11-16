@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type SettingShape, TEMPLATE_SHAPE } from '../../model/index.js';
+import { CONTENTS_KINDS, contentsSettings } from './contents-catalog.js';
 import { TEMPLATE_SECTIONS } from './settings-catalog.js';
 import { styleKeys } from './style-rows.js';
 import type { TemplateSetting, TemplateSettingCard } from './template-settings.js';
@@ -80,12 +81,18 @@ const asShapePath = (path: string[]) =>
 
 describe('TEMPLATE_SECTIONS', () => {
   it('DOCE-TEMPLATE-EDITOR-1.9 has a row for every setting of the template format', () => {
+    // The contents section shows every list's settings or one kind's, and one level's at a time.
+    const contents = [null, ...CONTENTS_KINDS.map(([kind]) => kind)].flatMap((kind) =>
+      [0, 1, 2, 3, 4, 5].map((level) => contentsSettings(kind, level)),
+    );
     const rows = new Set([
       ...STYLE_ROWS,
-      ...TEMPLATE_SECTIONS.flatMap((section) => [
-        ...section.settings.flatMap((each) => settingPaths([...section.scope], each)),
-        ...(section.cards ?? []).flatMap((card) => cardPaths(section.scope, card)),
-      ]).map(asShapePath),
+      ...[...TEMPLATE_SECTIONS, ...contents]
+        .flatMap((section) => [
+          ...section.settings.flatMap((each) => settingPaths([...section.scope], each)),
+          ...(section.cards ?? []).flatMap((card) => cardPaths(section.scope, card)),
+        ])
+        .map(asShapePath),
     ]);
     const missing = shapePaths(TEMPLATE_SHAPE).filter(
       (path) => !ELSEWHERE.test(path) && !rows.has(path),

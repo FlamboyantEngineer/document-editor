@@ -54,11 +54,21 @@ export interface TemplateSetting {
 }
 
 /**
- * The rows of a style a card starts with: its font and size, its weight, slant and underline,
- * its alignment (with justified or not), colour, spacing, line height, and numbering.
+ * The rows of a style a card starts with: its font and size, or its size alone, its weight, slant
+ * and underline, or its weight and slant alone (`emphasis`), its alignment (with justified or not),
+ * colour, spacing, line height, and numbering.
  */
 export type StylePart =
-  'font' | 'face' | 'align' | 'justify' | 'colour' | 'spacing' | 'lineHeight' | 'numbering';
+  | 'font'
+  | 'size'
+  | 'face'
+  | 'emphasis'
+  | 'align'
+  | 'justify'
+  | 'colour'
+  | 'spacing'
+  | 'lineHeight'
+  | 'numbering';
 
 /** A card of settings in a section: a style's rows, then its own settings. */
 export interface TemplateSettingCard {

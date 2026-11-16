@@ -22,7 +22,7 @@ const TEMPLATE: TemplateFile = {
     ...BASE_TEMPLATE.styles,
     contents: {
       leader: { character: '.' },
-      kinds: { toc: { title: 'Outline', levels: [null, { leader: { character: '-' } }] } },
+      kinds: { toc: { customTitle: 'Outline', levels: [null, { leader: { character: '-' } }] } },
     },
   },
 };
@@ -57,7 +57,7 @@ describe('lists of contents under a template', () => {
     const view = render(TEMPLATE);
     expect(view.querySelector('.de-contents__title')?.textContent).toBe('Outline');
     const leaders = [...view.querySelectorAll('.de-contents__leader')].map((leader) =>
-      leader.textContent?.charAt(0),
+      (leader as HTMLElement).dataset.leader?.charAt(0),
     );
     expect(leaders).toEqual(['.', '-']);
   });
@@ -70,6 +70,32 @@ describe('lists of contents under a template', () => {
     expect(view.querySelector('.de-contents__title')?.textContent).toBe('Table of Contents');
     expect(view.querySelectorAll('.de-contents__entry')).toHaveLength(2);
     expect(view.querySelector('.de-contents__leader')).toBeNull();
+  });
+});
+
+describe('drawing a list', () => {
+  it("DOCE-CONTENTS-2.8 carries its kind's properties and each row its level's", () => {
+    const view = render({
+      ...TEMPLATE,
+      styles: {
+        ...TEMPLATE.styles,
+        contents: {
+          entry: { size: '11pt' },
+          kinds: { toc: { padding: { left: '4pt' }, levels: [{ weight: 700 }, { italic: true }] } },
+        },
+      },
+    });
+    const list = view.querySelector<HTMLElement>('.de-contents');
+    expect(list?.style.getPropertyValue('--doc-contents-padding-left')).toBe('4pt');
+    expect(list?.style.getPropertyValue('--doc-contents-entry-font-size')).toBe('11pt');
+    const [first, second] = view.querySelectorAll<HTMLElement>('.de-contents__entry');
+    expect(first?.style.getPropertyValue('--doc-contents-level-font-weight')).toBe('700');
+    expect(second?.style.getPropertyValue('--doc-contents-level-font-style')).toBe('italic');
+    expect(second?.style.getPropertyValue('--doc-contents-level-font-weight')).toBe('');
+    // The leader is drawn from its attribute: the row's text holds a space in its place.
+    const leader = first?.querySelector<HTMLElement>('.de-contents__leader');
+    expect(leader?.dataset.leader?.startsWith('...')).toBe(true);
+    expect(first?.textContent).toMatch(/^1\.Scope \d+$/);
   });
 });
 

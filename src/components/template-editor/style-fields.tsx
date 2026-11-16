@@ -78,6 +78,16 @@ export function Field({
   return <SettingControl {...props} />;
 }
 
+/** The size in points alone. */
+export function SizeRow({ scope }: { scope: StyleScope }) {
+  const { labels } = scope.context;
+  return (
+    <PropertyRow label={labels.size} unit="pt">
+      <Field scope={scope} name="size" label={labels.size} kind={{ type: 'points' }} />
+    </PropertyRow>
+  );
+}
+
 /** The font and its size in points, on one row. */
 export function FontRow({ scope, code }: { scope: StyleScope; code?: boolean | undefined }) {
   const { labels } = scope.context;
@@ -141,9 +151,12 @@ const asBold = (value: unknown) => (typeof value === 'number' ? value >= 600 : n
 export function FaceRow({
   scope,
   align,
+  underline = true,
 }: {
   scope: StyleScope;
   align: 'none' | 'plain' | 'justify';
+  /** Whether it offers underline beside bold and italic. */
+  underline?: boolean;
 }) {
   const { labels } = scope.context;
   const alignment = styleValue(scope, ['alignment']);
@@ -175,14 +188,16 @@ export function FaceRow({
           read={asFlag}
           write={(on) => on}
         />
-        <FaceToggle
-          scope={scope}
-          name="underline"
-          label={labels.underline}
-          icon={UnderlineGlyph}
-          read={asFlag}
-          write={(on) => on}
-        />
+        {underline ? (
+          <FaceToggle
+            scope={scope}
+            name="underline"
+            label={labels.underline}
+            icon={UnderlineGlyph}
+            read={asFlag}
+            write={(on) => on}
+          />
+        ) : null}
       </PropertyIconGroup>
       {align === 'none' ? null : (
         <SegmentedChoice
