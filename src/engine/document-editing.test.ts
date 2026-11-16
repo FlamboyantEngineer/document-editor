@@ -222,6 +222,33 @@ describe('document keys', () => {
     expect(items[0]?.child(0).attrs.dataId).not.toBe('0000000d');
   });
 
+  it('DOCE-EDITING-2.3 gives the blank paragraph a fresh id when Enter splits after a figure', () => {
+    const plugins = createDocumentEditing(documentSchema, { author: () => 'writer' });
+    const figure: StoredNode = {
+      type: 'figure',
+      attrs: { id: '0000001a', src: 'https://example.test/a.png', alt: 'A' },
+    };
+    const doc = read(figure, paragraph('Below the figure', { id: '0000001b' }));
+    let state = run(stateAt(doc, 'Below', plugins), key('Enter'));
+    const blocks = body(state).children;
+    expect(blocks.map((block) => block.type.name)).toEqual(['figure', 'paragraph', 'paragraph']);
+    const [, blank, original] = blocks;
+    expect(blank?.textContent).toBe('');
+    expect(String(blank?.attrs.dataId)).toMatch(ELEMENT_ID_PATTERN);
+    expect(original?.attrs.dataId).toBe('0000001b');
+    // No id is held twice.
+    const ids = blocks.map((block) => block.attrs.dataId as string);
+    expect(new Set(ids).size).toBe(3);
+    // Later edits reach the original element by its id.
+    let at = -1;
+    state.doc.descendants((node, pos) => {
+      if (node.attrs.dataId === '0000001b') at = pos + 1;
+    });
+    state = state.apply(state.tr.insertText('Still ', at));
+    const edited = body(state).children.find((block) => block.attrs.dataId === '0000001b');
+    expect(edited?.textContent).toBe('Still Below the figure');
+  });
+
   it('DOCE-EDITING-2.5 changes paragraph levels with Tab where the template numbers paragraphs', () => {
     const doc = read(paragraph('Alpha'));
     let state = run(
@@ -363,5 +390,24 @@ describe('the editing extension', () => {
     });
     expect(ids.every((id) => typeof id === 'string' && ELEMENT_ID_PATTERN.test(id))).toBe(true);
     expect(repairElementIds(repaired)).toBeNull();
+  });
+});
+
+describe('load trace', () => {
+  it('DOCE-EDITOR-6.32 measures how long each plugin group took to build, by its name', () => {
+    const measure = vi.fn();
+    const plugins = createDocumentEditing(documentSchema, { telemetry: { measure } });
+    expect(plugins.length).toBeGreaterThan(0);
+    const names = measure.mock.calls.map(([, , attributes]) => attributes.extension as string);
+    expect(names).toEqual(expect.arrayContaining(['element-ids', 'footnotes', 'tables']));
+    expect(new Set(names).size).toBe(names.length);
+    for (const [name, duration] of measure.mock.calls) {
+      expect(name).toBe('document-editor.extension-build');
+      expect(duration).toBeGreaterThanOrEqual(0);
+    }
+    // Without the adapter nothing is measured, and the same plugins are built.
+    expect(createDocumentEditing(documentSchema).map((plugin) => plugin.spec)).toHaveLength(
+      plugins.length,
+    );
   });
 });

@@ -418,7 +418,7 @@ Verification: `src/engine/shortcuts.test.ts`, `e2e/document-editor.spec.ts`
 `handleRef` shall receive the editor's handle: its view, focusing the document, putting the caret at an element's start and scrolling it into view (`scrollToElement`), selecting a range of an element's text (`select`), running a command, telling whether a command applies without running it (`can`) and whether a mark or node holds at the selection (`isActive`, DOCE-EDITING-8.1), applying a batch of automation edits (DOCE-AUTOMATION), and waiting for the pages to settle (`whenSettled`, `layoutStats`, DOCE-EDITOR-6.12). Each returns false, or null, when it cannot act.
 
 Implementation: `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`
-Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-store.test.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-store.test.tsx`, `src/components/document-editor/host-seams.test.tsx`
 
 ### DOCE-EDITOR-6.4 - Zoom
 
@@ -446,7 +446,7 @@ Verification: `e2e/document-editor.spec.ts`
 `onLayoutReady` shall be called once, when the editor first lays its pages out, or as soon as it shows the web layout.
 
 Implementation: `src/components/document-editor/use-host-events.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/host-seams.test.tsx`
 
 ### DOCE-EDITOR-6.8 - The browser's own checks
 
@@ -471,10 +471,10 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-6.11 - Change bars
 
-While the document is compared with an older version, `onChangeBarsChange` shall receive the change bars it draws whenever they change, once drawn: each changed block's, or, for a block whose text changed, each changed line's (DOCE-VERSIONS-2.4), kind of change, its page from 0, and its top and height from the page's top in unscaled CSS pixels (`ChangeBar`); none while nothing is compared.
+`onChangeBarsChange` shall receive the change bars the editor draws on its pages whenever they change, once drawn, so a host drawing beside the content can keep clear of them: while the document is compared with an older version, each changed block's, or, for a block whose text changed, each changed line's (DOCE-VERSIONS-2.4), kind of change; in the simple markup (DOCE-EDITOR-6.5), each block holding a suggestion, of the kind `suggestion`, one bar for each page the block shows on; each with its page from 0, and its top and height from the page's top in unscaled CSS pixels (`ChangeBar`). It receives none while nothing is compared and the markup is not simple.
 
-Implementation: `src/components/document-editor/use-change-notifications.ts`
-Verification: `e2e/versions.spec.ts`
+Implementation: `src/components/document-editor/use-change-notifications.ts`, `labs/src/host-panel.tsx`
+Verification: `e2e/versions.spec.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-6.12 - Layout state and whenSettled
 
@@ -499,7 +499,7 @@ Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
 
 ### DOCE-EDITOR-6.15 - View-only decorations
 
-A decoration drawn only for the person working in the editor (search matches, proofing issues, other people's selections and carets, an empty section's placeholder, an offered completion and the layout debugging) shall be made view-only (`viewOnlyInline`, `viewOnlyNode`, `viewOnlyWidget`), which puts the common hook `data-de-view-only` on the element it draws or decorates, naming, for an inline or node decoration, the attributes and classes it adds (classes as `.name`), which its spec records too. A snapshot shall take off what the hooks in the markup name and what the view's decorations record, so a decoration another state drew, as on a projection, comes off too. A snapshot shall leave out a view-only widget whole, take the recorded attributes, classes and the hook off every other element carrying it, unwrap an inline decoration's wrapper left with no attributes, and keep the decorations that are not view-only. It shall also leave out the editor root's data attributes that describe the view rather than the document (`data-suggesting`, `data-scrollable`, `data-layout-state`, `data-debug`, `data-debug-blocks`, `data-debug-measure`, `data-debug-source`, `data-formatting-marks`). Every other widget is content and shall stay, such as a variable's value or a comparison's deleted text (DOCE-EDITOR-6.17).
+A decoration drawn only for the person working in the editor (search matches, proofing issues, other people's selections and carets, an empty section's placeholder, an offered completion and the layout debugging) shall be made view-only (`viewOnlyInline`, `viewOnlyNode`, `viewOnlyWidget`), which puts the common hook `data-de-view-only` (`VIEW_ONLY_ATTRIBUTE`) on the element it draws or decorates, naming, for an inline or node decoration, the attributes and classes it adds (classes as `.name`), which its spec records too. A snapshot shall take off what the hooks in the markup name and what the view's decorations record, so a decoration another state drew, as on a projection, comes off too. A snapshot shall leave out a view-only widget whole, take the recorded attributes, classes and the hook off every other element carrying it, unwrap an inline decoration's wrapper left with no attributes, and keep the decorations that are not view-only. The helpers are exported, so a host's own plugin draws decorations a snapshot leaves out the same way, such as an `aria-describedby` that ties an element to the host's overlay. It shall also leave out the editor root's data attributes that describe the view rather than the document (`data-suggesting`, `data-scrollable`, `data-layout-state`, `data-debug`, `data-debug-blocks`, `data-debug-measure`, `data-debug-source`, `data-formatting-marks`). Every other widget is content and shall stay, such as a variable's value or a comparison's deleted text (DOCE-EDITOR-6.17).
 
 Implementation: `src/engine/print-view.ts`, `src/utils/view-only-decorations.ts`, `src/engine/search.ts`, `src/engine/proofing.ts`, `src/engine/presence.ts`, `src/engine/inline-completion.ts`, `src/engine/document-sections.ts`, `src/pagination/page-debug.ts`
 Verification: `src/engine/snapshot.test.ts`, `e2e/print.spec.ts`
@@ -534,7 +534,7 @@ Verification: `src/engine/snapshot.test.ts`, `src/engine/code-highlighting.test.
 
 ### DOCE-EDITOR-6.20 - The elements on screen
 
-`onVisibleElementsChange` shall tell the host the elements with an element id on screen (`VisibleElement`: `elementId` and its boxes in the window, one for each page it shows on), in document order and nested ones included, leaving out the marked text that also carries ids, each time the set of them changes as the reader scrolls, the document changes or it is laid out again, at most once a frame; the handle's `visibleElements()` measures them at once (`measureVisibleElements`). Elements count as on screen within the window the document's scrolling ancestors leave visible.
+`onVisibleElementsChange` shall tell the host the elements with an element id on screen (`VisibleElement`: `elementId`, its boxes in the window, one for each page it shows on, and the page of each box from 0), in document order and nested ones included, leaving out the marked text that also carries ids, each time the set of them changes as the reader scrolls, the document changes or it is laid out again, at most once a frame; the handle's `visibleElements()` measures them at once (`measureVisibleElements`). The handle's `visiblePages()` shall give the pages on screen, in order (`VisiblePage`: the page from 0, its sheet's box and its content's box in the window), so a host can draw in the margin beside the content; the web layout shows the document as one page, whose sheet and content are the view. Elements count as on screen within the window the document's scrolling ancestors leave visible.
 
 Implementation: `src/components/document-editor/visible-elements.ts`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/document-editor.tsx`, `labs/src/host-panel.tsx`
 Verification: `src/components/document-editor/visible-elements.test.ts`, `e2e/document-editor.spec.ts`
@@ -615,6 +615,13 @@ While the block borders show, hovering a block or a region of a page shall show 
 
 Implementation: `src/components/document-editor/debug-tooltip.tsx`, `labs/reference/document.css`
 Verification: `src/components/document-editor/debug-pane.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.32 - The load trace
+
+With the host's `telemetry` adapter, the editor shall trace how it opens: how long it took from its first render to mount its view of the document (`document-editor.mount.view`) and, in page layout, its pages (`document-editor.mount.pages`); and, when the adapter counts, each layout once under `document-editor.layout-pass` (`EDITOR_LAYOUT_PASS`) with what started it as `cause` (`open` for the layouts that open the document, `edit` for the first after a change of content, `reflow` for the layouts after that with no change between, as when the pages converge, fonts load or a block changes size) and its number among that cause's layouts as `pass`, from 1, so the number of `open` passes is the startup's. `createDocumentEditing` given the adapter (`telemetry`) shall measure how long building each of its plugin groups took (`document-editor.extension-build`, the group's name as `extension`). Timing the server's work is the host's.
+
+Implementation: `src/components/document-editor/use-editor-telemetry.ts`, `src/engine/document-editing.ts`, `labs/src/host-panel.tsx`
+Verification: `src/engine/document-editing.test.ts`, `e2e/document-editor.spec.ts`
 
 ## DOCE-EDITOR-7 - Banners
 

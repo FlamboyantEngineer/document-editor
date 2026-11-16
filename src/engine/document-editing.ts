@@ -20,6 +20,7 @@ import { keymap } from 'prosemirror-keymap';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
 import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { type Command, NodeSelection, type Plugin, type Transaction } from 'prosemirror-state';
+import type { TelemetryAdapter } from '../host/index.js';
 import {
   findTemplateSection,
   resolveFootnoteSettings,
@@ -95,7 +96,15 @@ export interface DocumentEditingOptions {
   trailingParagraph?: boolean | undefined;
   /** Refuses local changes that take the body past this many words or characters. */
   limit?: ContentLimit | undefined;
+  /**
+   * Measures how long building each group of plugins took, under `document-editor.extension-build`
+   * with the group's name as `extension`, for a host tracing how the editor opens.
+   */
+  telemetry?: Pick<TelemetryAdapter, 'measure'> | undefined;
 }
+
+// The name each plugin group's build is measured under (`EDITOR_MEASURES.extensionBuild`).
+const EXTENSION_BUILD_MEASURE = 'document-editor.extension-build';
 
 const NO_TEMPLATE = (): TemplateFile => ({ formatVersion: 1, id: 'none' });
 
@@ -344,8 +353,17 @@ export function createDocumentEditing(
   options: DocumentEditingOptions = {},
 ): Plugin[] {
   const { plugins = [] } = createDocumentEditingExtension<undefined>(options);
+  const measure = options.telemetry?.measure.bind(options.telemetry);
   return plugins
     .filter((entry) => entry.when?.(undefined) ?? true)
     .toSorted((a, b) => a.priority - b.priority)
-    .flatMap((entry) => entry.build(undefined, schema));
+    .flatMap((entry) => {
+      if (!measure) return entry.build(undefined, schema);
+      const started = globalThis.performance.now();
+      const built = entry.build(undefined, schema);
+      measure(EXTENSION_BUILD_MEASURE, globalThis.performance.now() - started, {
+        extension: entry.name,
+      });
+      return built;
+    });
 }

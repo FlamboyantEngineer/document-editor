@@ -1,5 +1,6 @@
 import type { EditorState } from 'prosemirror-state';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { repairElementIds } from '../engine/element-ids.js';
 import type { EditorHost, SavedState } from '../host/adapters.js';
 import { FULL_CAPABILITIES, READ_ONLY_CAPABILITIES } from '../host/capabilities.js';
 import { createMemoryHost } from '../host/memory-host.js';
@@ -47,6 +48,16 @@ const afterFirst = (state: EditorState) => {
 
 const typeText = (session: DocumentSession, text: string) =>
   session.update((state: EditorState) => state.apply(state.tr.insertText(text, afterFirst(state))));
+
+// The element id of the document's first paragraph.
+const paragraphId = (state: EditorState): unknown => {
+  let id: unknown = null;
+  state.doc.descendants((node) => {
+    if (node.type.name === 'paragraph' && id === null) id = node.attrs.dataId;
+    return id === null;
+  });
+  return id;
+};
 
 const storedText = async (host: EditorHost) => {
   const loaded = await host.documents.load('doc');
@@ -244,6 +255,40 @@ describe('store-mode saving', () => {
     typeText(session, 'Oh ');
     expect(session.hasUnsavedChanges()).toBe(true);
     expect(session.status.get()).toMatchObject({ save: 'dirty', dirty: true });
+  });
+
+  it('DOCE-SESSION-2.1 saves the repair of a stored document missing ids, once, so it opens with the same ids', async () => {
+    const host = hostWith({
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }],
+        },
+      ],
+    });
+    const save = vi.spyOn(host.documents, 'save');
+    const session = open(host);
+    await session.ready;
+    expect(session.hasUnsavedChanges()).toBe(false);
+    session.update((state) => {
+      const tr = repairElementIds(state);
+      return tr ? state.apply(tr) : state;
+    });
+    expect(session.status.get()).toMatchObject({ save: 'dirty', dirty: true });
+    await session.save();
+    expect(save).toHaveBeenCalledOnce();
+    expect(session.hasUnsavedChanges()).toBe(false);
+    const repaired = paragraphId(shown(session).state);
+    expect(repaired).toEqual(expect.any(String));
+    expect(await storedText(host)).toContain(repaired);
+    session.close();
+
+    const again = open(host);
+    await again.ready;
+    expect(paragraphId(shown(again).state)).toBe(repaired);
+    expect(again.hasUnsavedChanges()).toBe(false);
+    again.close();
   });
 
   it('DOCE-SESSION-2.2 saves against the revision it was edited from', async () => {

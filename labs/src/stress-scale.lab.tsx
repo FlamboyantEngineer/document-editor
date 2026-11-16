@@ -1,6 +1,6 @@
 // The document editor at the sizes the performance budgets name: one section of 5000 blocks, 25
-// sections of 200, 1600 blocks under a remote writer, documents of 5, 24, 40 and 300 pages, and
-// 300 pages beside 500 comment threads.
+// sections of 200, 1600 blocks under a remote writer, documents of 5, 18, 24, 40 and 300 pages,
+// and 300 pages beside 500 comment threads.
 
 import {
   reviewDocument,
@@ -23,6 +23,7 @@ const SCENARIOS = [
   { label: '25 sections of 200 blocks', build: () => sectionsDocument(25, 200) },
   { label: '1600 blocks', build: () => sectionsDocument(8, 200) },
   { label: 'About 300 pages, 500 comment threads', build: () => REVIEW.file },
+  { label: 'About 18 pages', build: () => singleSectionDocument(265) },
 ] as const;
 
 mountStressLab({

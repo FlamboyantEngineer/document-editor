@@ -117,6 +117,30 @@ export const BUDGETS = {
     target: '≤ 12000',
     meets: atMost(12000),
   },
+  loadCold18: {
+    bar: 'Workload load, 18 pages',
+    metric: 'whenSettled median, cold cache (ms)',
+    target: '≤ 2600',
+    meets: atMost(2600),
+  },
+  loadReload18: {
+    bar: 'Workload load, 18 pages',
+    metric: 'whenSettled median, reload (ms)',
+    target: '≤ 2200',
+    meets: atMost(2200),
+  },
+  loadCold40: {
+    bar: 'Workload load, 40 pages',
+    metric: 'whenSettled median, cold cache (ms)',
+    target: '≤ 4500',
+    meets: atMost(4500),
+  },
+  loadReload40: {
+    bar: 'Workload load, 40 pages',
+    metric: 'whenSettled median, reload (ms)',
+    target: '≤ 4000',
+    meets: atMost(4000),
+  },
 } as const satisfies Record<string, Budget>;
 
 // The scale lab's documents, by their place in its size picker.
@@ -129,6 +153,7 @@ export const SIZE = {
   sections25: 5,
   remote1600: 6,
   review300: 7,
+  pages18: 8,
 } as const;
 
 export const pages = (page: Page) => page.locator('.de-document-editor__content .pm-page');
@@ -142,6 +167,31 @@ export async function openScale(lab: LabFixture, page: Page, size: number) {
   });
   await waitForLab(page);
   expect(lab.errors).toEqual([]);
+}
+
+/**
+ * The time each of five loads of a scale document took to settle, from navigation: with the
+ * browser's cache cleared first (`cold`), or reloaded with it warm (`reload`).
+ */
+export async function workloadLoads(lab: LabFixture, page: Page, size: number) {
+  const settledAt = () =>
+    page.evaluate(() => Math.round(window.stressLab.firstSettledAt ?? Number.NaN));
+  const cdp = await page.context().newCDPSession(page);
+  const cold: number[] = [];
+  const reload: number[] = [];
+  for (let run = 0; run < 5; run += 1) {
+    await cdp.send('Network.clearBrowserCache');
+    await openScale(lab, page, size);
+    cold.push(await settledAt());
+  }
+  for (let run = 0; run < 5; run += 1) {
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
+      timeout: 120_000,
+    });
+    reload.push(await settledAt());
+  }
+  return { cold, reload };
 }
 
 const stats = (page: Page) =>
