@@ -543,6 +543,15 @@ div.de-host-view {
   font-weight: var(--doc-table-header-font-weight, 700);
 }
 
+/* Body rows take the template's odd and even backgrounds; header cells keep the header's. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content tr:nth-child(odd) > td {
+  background: var(--doc-table-row-odd-background);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-page-content tr:nth-child(even) > td {
+  background: var(--doc-table-row-even-background);
+}
+
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content td > p,
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content th > p {
   margin: 0;
@@ -655,6 +664,132 @@ div.de-host-view {
   content: var(--doc-code-counter-content, counter(codeblock)) ' - ';
 }
 
+/* A table caption's label and number in the label style, its text in the text style, each
+   falling back to the other and then to the paragraph's. */
+:where(.de-document-editor, .de-document-editor__measure) .doc-table-caption-line::before {
+  font-family: var(
+    --doc-table-caption-label-font-family,
+    var(--doc-table-caption-text-font-family, inherit)
+  );
+  font-size: var(
+    --doc-table-caption-label-font-size,
+    var(--doc-table-caption-text-font-size, inherit)
+  );
+  font-weight: var(
+    --doc-table-caption-label-font-weight,
+    var(--doc-table-caption-text-font-weight, inherit)
+  );
+  font-style: var(
+    --doc-table-caption-label-font-style,
+    var(--doc-table-caption-text-font-style, inherit)
+  );
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-table-caption-line
+  > .doc-caption-text {
+  font-family: var(
+    --doc-table-caption-text-font-family,
+    var(--doc-table-caption-label-font-family, inherit)
+  );
+  font-size: var(
+    --doc-table-caption-text-font-size,
+    var(--doc-table-caption-label-font-size, inherit)
+  );
+  font-weight: var(
+    --doc-table-caption-text-font-weight,
+    var(--doc-table-caption-label-font-weight, inherit)
+  );
+  font-style: var(
+    --doc-table-caption-text-font-style,
+    var(--doc-table-caption-label-font-style, inherit)
+  );
+}
+
+/* A figure caption's label and number in the label style, its text in the text style, each
+   falling back to the other and then to the paragraph's. */
+:where(.de-document-editor, .de-document-editor__measure) .doc-figure-caption-line::before {
+  font-family: var(
+    --doc-figure-caption-label-font-family,
+    var(--doc-figure-caption-text-font-family, inherit)
+  );
+  font-size: var(
+    --doc-figure-caption-label-font-size,
+    var(--doc-figure-caption-text-font-size, inherit)
+  );
+  font-weight: var(
+    --doc-figure-caption-label-font-weight,
+    var(--doc-figure-caption-text-font-weight, inherit)
+  );
+  font-style: var(
+    --doc-figure-caption-label-font-style,
+    var(--doc-figure-caption-text-font-style, inherit)
+  );
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-figure-caption-line
+  > .doc-caption-text {
+  font-family: var(
+    --doc-figure-caption-text-font-family,
+    var(--doc-figure-caption-label-font-family, inherit)
+  );
+  font-size: var(
+    --doc-figure-caption-text-font-size,
+    var(--doc-figure-caption-label-font-size, inherit)
+  );
+  font-weight: var(
+    --doc-figure-caption-text-font-weight,
+    var(--doc-figure-caption-label-font-weight, inherit)
+  );
+  font-style: var(
+    --doc-figure-caption-text-font-style,
+    var(--doc-figure-caption-label-font-style, inherit)
+  );
+}
+
+/* A code caption's label and number in the label style, its text in the text style, each
+   falling back to the other and then to the paragraph's. */
+:where(.de-document-editor, .de-document-editor__measure) .doc-code-caption-line::before {
+  font-family: var(
+    --doc-code-caption-label-font-family,
+    var(--doc-code-caption-text-font-family, inherit)
+  );
+  font-size: var(
+    --doc-code-caption-label-font-size,
+    var(--doc-code-caption-text-font-size, inherit)
+  );
+  font-weight: var(
+    --doc-code-caption-label-font-weight,
+    var(--doc-code-caption-text-font-weight, inherit)
+  );
+  font-style: var(
+    --doc-code-caption-label-font-style,
+    var(--doc-code-caption-text-font-style, inherit)
+  );
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .doc-code-caption-line
+  > .doc-caption-text {
+  font-family: var(
+    --doc-code-caption-text-font-family,
+    var(--doc-code-caption-label-font-family, inherit)
+  );
+  font-size: var(
+    --doc-code-caption-text-font-size,
+    var(--doc-code-caption-label-font-size, inherit)
+  );
+  font-weight: var(
+    --doc-code-caption-text-font-weight,
+    var(--doc-code-caption-label-font-weight, inherit)
+  );
+  font-style: var(
+    --doc-code-caption-text-font-style,
+    var(--doc-code-caption-label-font-style, inherit)
+  );
+}
+
 :where(.de-document-editor, .de-document-editor__measure)
   [data-caption-enabled='false']
   > .doc-caption-line,
@@ -680,9 +815,31 @@ div.de-host-view {
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-footnotes {
   border-top: var(--doc-footnote-separator-border, 1px solid);
   padding-top: var(--doc-footnote-spacing-to-content, 6px);
+  color: var(--doc-footnote-text-color, inherit);
   font-family: var(--doc-footnote-text-font-family, inherit);
   font-size: var(--doc-footnote-text-font-size, 10px);
+  font-style: var(--doc-footnote-text-font-style, normal);
+  font-weight: var(--doc-footnote-text-font-weight, inherit);
   line-height: var(--doc-footnote-text-line-height, 1.4);
+  text-align: var(--doc-footnote-text-align, left);
+}
+
+/* Entries stand the template's spacing apart; each number in the marker style, with its suffix. */
+:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry + .pm-footnote-entry {
+  margin-top: var(--doc-footnote-entry-spacing, 0);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry-number {
+  color: var(--doc-footnote-marker-color, inherit);
+  font-family: var(--doc-footnote-marker-font-family, inherit);
+  font-size: var(--doc-footnote-marker-font-size, inherit);
+  font-style: var(--doc-footnote-marker-font-style, normal);
+  font-weight: var(--doc-footnote-marker-font-weight, inherit);
+}
+
+:where(.de-document-editor, .de-document-editor__measure) .pm-footnote-entry-number::after {
+  content: var(--doc-footnote-numbering-suffix, '');
+  margin-inline-end: 0.25em;
 }
 
 /*
@@ -1083,6 +1240,24 @@ div.de-host-view {
   display: block;
   margin: 6px 0;
   text-align: center;
+}
+
+/* Each display equation in the content counts, and shows its number at the line's end. */
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .de-math[data-display='display'] {
+  position: relative;
+  counter-increment: equation;
+}
+
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  .de-math[data-display='display']::after {
+  content: var(--doc-equation-counter-content, '(' counter(equation) ')');
+  position: absolute;
+  inset-inline-end: 0;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .de-math[data-state='invalid'] {

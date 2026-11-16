@@ -114,6 +114,27 @@ describe('template sections', () => {
     ]);
   });
 
+  it("DOCE-SECTIONS-4.4 moves the template's sections into its order, the plain ones staying put", () => {
+    const doc = read(
+      { name: 'signatures', content: [paragraph('Signed')] },
+      { name: null, content: [paragraph('Body')] },
+      { name: 'appendix', content: [paragraph('More')] },
+      { name: 'cover', content: [paragraph('Cover text')] },
+    );
+    expect(templateSectionDrift(doc, TEMPLATE)).toEqual([
+      { kind: 'misplaced', name: 'appendix' },
+      { kind: 'misplaced', name: 'cover' },
+    ]);
+    const state = run(EditorState.create({ doc }), syncTemplateSections(TEMPLATE));
+    expect(outline(state.doc)).toEqual([
+      'cover:Cover text',
+      'appendix:More',
+      'signatures:Signed',
+      '-:Body',
+    ]);
+    expect(templateSectionDrift(state.doc, TEMPLATE)).toEqual([]);
+  });
+
   it('DOCE-SECTIONS-4.2 DOCE-EDITING-3.2 brings a locked section back in line as a system change outside the history', () => {
     const state = EditorState.create({
       doc: read(

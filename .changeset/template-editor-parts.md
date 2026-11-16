@@ -1,0 +1,5 @@
+---
+"@flamboyantengineer/document-editor": minor
+---
+
+The editor shows an "Add <section>" button on the pages for each insertable template section the document lacks (`labels.addSection`), offers a Title text style, and offers custom styles only while editing template content. A session that names a newer template version (`EditorSession.document`, `setTemplate`) gets a built-in banner that moves the document to it and brings its locked sections in line. Template fonts are waited for five seconds by default, or `fontTimeout`, and pages whose template fonts did not load are not shown: the first layout fails with `fontsFailed`. Template sections out of the template's order are drift (`misplaced`) that `syncTemplateSections` moves into place, and the toolbar Section menu adds a section where the template places it. Template ids take a letter, then letters, digits and underscores, and a copy's id ends in `_copy`. The reference stylesheet draws table row stripes, caption label and text styles, footnote styles and numbering suffix, and equation numbers.

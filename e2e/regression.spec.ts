@@ -863,4 +863,44 @@ test.describe('mixed geometry', () => {
     const annex = [...bySection.values()].find((labels) => labels[0]?.startsWith('A'));
     expect(annex?.[0]).toMatch(/^A/);
   });
+
+  test('DOCE-LABS-4.11 draws row stripes, caption styles and footnote markers from the template', async ({
+    page,
+  }) => {
+    await openDocument(page, 'long-mixed');
+    const content = page.locator('.de-document-editor__content');
+    const styles = await content.evaluate((root) => {
+      const read = (selector: string, pseudo?: string) => {
+        const element = root.querySelector(selector);
+        if (!element) return null;
+        const style = getComputedStyle(element, pseudo);
+        return {
+          background: style.backgroundColor,
+          content: style.content,
+          weight: style.fontWeight,
+          family: style.fontFamily,
+          odd: getComputedStyle(element).getPropertyValue('--doc-table-row-odd-background').trim(),
+          even: getComputedStyle(element)
+            .getPropertyValue('--doc-table-row-even-background')
+            .trim(),
+          marker: getComputedStyle(element)
+            .getPropertyValue('--doc-footnote-marker-font-weight')
+            .trim(),
+        };
+      };
+      return {
+        odd: read('.pm-page-content tr:nth-child(odd) > td'),
+        even: read('.pm-page-content tr:nth-child(even) > td'),
+        number: read('.pm-footnote-entry-number'),
+        suffix: read('.pm-footnote-entry-number', '::after'),
+        label: read('.doc-figure-caption-line', '::before'),
+        text: read('.doc-figure-caption-line > .doc-caption-text'),
+      };
+    });
+    expect(styles.odd?.odd || styles.odd?.even).toBeTruthy();
+    expect(styles.odd?.background).not.toBe(styles.even?.background);
+    expect(styles.number?.weight).toBe(styles.number?.marker || styles.number?.weight);
+    expect(styles.suffix?.content).not.toBe('none');
+    expect(styles.label?.family).toBe(styles.text?.family);
+  });
 });

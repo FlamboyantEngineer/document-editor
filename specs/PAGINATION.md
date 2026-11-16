@@ -231,10 +231,10 @@ Verification: `src/pagination/incremental-layout.test.ts`, `src/pagination/proje
 
 ### DOCE-PAGINATION-5.6 - Fonts
 
-When font faces load in the measuring view's document, every block shall measure again and the pages be laid out again (`remeasureOn`). Given what the measurements wait for (`PagedProjectionOptions.ready`), the pages shall be laid out meanwhile but stay pending until it settles, loaded or failed, and then measure every block again. The document editor's `fonts` adapter (DOCE-HOST-1.14) shall be asked to load the families the template names (`templateFontFamilies`, `loadTemplateFonts`) within `FONT_TIMEOUT` milliseconds, and the pages wait for it. After a delayed font loads, the pages shall hold their content.
+When font faces load in the measuring view's document, every block shall measure again and the pages be laid out again (`remeasureOn`). Given what the measurements wait for (`PagedProjectionOptions.ready`), the pages shall be laid out meanwhile but stay pending until it settles, loaded or failed, and then measure every block again. The document editor's `fonts` adapter (DOCE-HOST-1.14) shall be asked to load the families the template names (`templateFontFamilies`, `loadTemplateFonts`) within `FONT_TIMEOUT` milliseconds (five seconds), or the editor's `fontTimeout`, and the pages wait for it; the editor shows no pages without them (DOCE-EDITOR-4.29). After a delayed font loads, the pages shall hold their content.
 
 Implementation: `src/pagination/layout-triggers.ts`, `src/pagination/fonts.ts`, `src/pagination/projection.ts`, `src/components/document-editor/use-document-layout.ts`
-Verification: `src/pagination/layout-triggers.test.ts`, `src/pagination/fonts.test.ts`, `src/pagination/projection-view.test.ts`, `e2e/pagination.spec.ts`
+Verification: `src/pagination/layout-triggers.test.ts`, `src/pagination/fonts.test.ts`, `src/pagination/projection-view.test.ts`, `src/components/document-editor/banners.test.tsx`, `e2e/pagination.spec.ts`
 
 ### DOCE-PAGINATION-5.7 - Laying out at once
 
