@@ -13,6 +13,7 @@ import {
   Field,
   FontRow,
   LineHeightRow,
+  SizeRow,
   SpacingRow,
   type StyleScope,
   styleValue,
@@ -74,7 +75,9 @@ function NumberingRow({ scope }: { scope: StyleScope }) {
 // The keys each part of a style's rows sets.
 const PART_KEYS: Readonly<Record<StylePart, readonly string[]>> = {
   font: ['font', 'size'],
+  size: ['size'],
   face: ['weight', 'italic', 'underline'],
+  emphasis: ['weight', 'italic'],
   align: ['alignment'],
   justify: ['alignment'],
   colour: ['color'],
@@ -103,7 +106,9 @@ export function StyleRows({
   return (
     <>
       {has('font') ? <FontRow scope={scope} code={code} /> : null}
+      {has('size') ? <SizeRow scope={scope} /> : null}
       {has('face') ? <FaceRow scope={scope} align={align} /> : null}
+      {has('emphasis') ? <FaceRow scope={scope} align="none" underline={false} /> : null}
       {has('colour') ? <ColourRow scope={scope} /> : null}
       {has('spacing') ? <SpacingRow scope={scope} /> : null}
       {has('lineHeight') ? <LineHeightRow scope={scope} /> : null}

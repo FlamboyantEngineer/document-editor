@@ -235,6 +235,13 @@ Verification: `src/model/templates/template-preview.test.ts`
 Implementation: `src/engine/variable-tokens.ts`, `src/components/document-editor/use-host-events.ts`
 Verification: `src/engine/variable-tokens.test.ts`, `src/components/document-editor/document-editor.test.tsx`
 
+### DOCE-TEMPLATES-8.8 - The preview's samples
+
+The preview document (DOCE-TEMPLATES-8.2) shall also hold a bulleted and a numbered list of three items, each with two items under it and each of those with one under it, a captioned figure, a second footnote, a table and a code block long enough to continue on the next page (their continued captions and repeated header row), and a paragraph per kind of change; `templatePreviewPrevious(preview, text)` shall give the older version of a preview as shown, its other blocks and element ids the same, which the preview compared with (DOCE-VERSIONS-2.3) shows as an insertion, a deletion, a modification and a formatting change, each marked by its kind.
+
+Implementation: `src/model/templates/template-preview-samples.ts`, `src/model/templates/template-preview.ts`
+Verification: `src/model/templates/template-preview.test.ts`, `src/engine/version-compare.test.ts`
+
 ## DOCE-TEMPLATES-9 - Template blocks
 
 ### DOCE-TEMPLATES-9.1 - Rendering a template block
@@ -283,17 +290,17 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-TEMPLATES-10.4 - Lists of contents per kind
 
-A template's contents settings shall hold, beside the lists' fonts, padding and spacing, a `leader` (`{ character, spacing, gapBefore, gapAfter }`: the character, the space between its characters, and the space from the entry's text to the leader and from the leader to the page number), `levels` with their own indentation, spacing and leader, and `kinds`: each kind of list's own `title`, leader character and levels' leader characters, by the kind's key (`toc`, `figures` and the host's kinds). `resolveContentsList(contents, kind)` shall give a kind its title, or null, and its six levels, each with its leader character resolved from the least to the most specific of the lists' leader, their level's, the kind's and the kind's level's; an empty character shall draw no leader and none set shall draw `.`. A list of contents (DOCE-CONTENTS-2.1) shall show the template's title for its kind over the editor's label and draw each entry's leader with its level's character.
+A template's contents settings shall hold the lists' title and entry fonts, padding (left and right), spacing (top and bottom), a `leader` (`{ character, spacing, gapBefore, gapAfter, weight, italic }`: the character, the space between its characters, the space from the entry's text to the leader and from the leader to the page number, and its style), `levels` with their own size, weight, slant, indentation, spacing and leader, and `kinds`: each kind of list's own settings of the same shape, with its `customTitle`, by the kind's key (`toc`, `figures` and the host's kinds). `resolveContentsList(contents, kind)` shall resolve the kind's own settings over the lists', levels merging by index and property, and give the kind its custom title, or null, its title and entry fonts, padding and spacing, and its six levels, each with its leader over the list's leader; an empty character shall draw no leader and none set shall draw `.`. A list of contents (DOCE-CONTENTS-2.1) shall show the template's title for its kind over the editor's label and draw each entry's leader with its level's character.
 
 Implementation: `src/model/templates/template-settings.ts`, `src/model/format/template-format.ts`, `src/engine/contents.ts`
 Verification: `src/model/templates/template-settings.test.ts`, `src/engine/contents.test.ts`
 
-### DOCE-TEMPLATES-10.5 - Leaders and list numbers
+### DOCE-TEMPLATES-10.5 - Contents properties and list numbers
 
-`templateProperties` shall write the lists' leader character (`--doc-contents-leader`, an escaped string), spacing (`--doc-contents-leader-spacing`) and gaps (`--doc-contents-leader-gap-before`, `--doc-contents-leader-gap-after`), and each level's leader spacing and gaps it sets (`--doc-contents-level-<n>-leader-spacing`, `-leader-gap-before`, `-leader-gap-after`). A numbered list's counter content (`--doc-ol-counter-content`) shall print its `prefix`, its number in its format's first level, the level's separator and its `suffix`, each escaped.
+`contentsListProperties(list, fontStacks)` shall write a kind's resolved settings as the custom properties its list carries: the title's and entries' type (`--doc-contents-title-*`, `--doc-contents-entry-*`), padding (`--doc-contents-padding-left`, `-right`) and spacing (`--doc-contents-margin-top`, `-bottom`); and for each level, the properties its rows carry: its type (`--doc-contents-level-font-size`, `-font-weight`, `-font-style` and the entries' others), indentation, spacing (`--doc-contents-level-indentation`, `-margin-top`, `-margin-bottom`) and its leader's spacing, gaps and style (`--doc-contents-level-leader-spacing`, `-gap-before`, `-gap-after`, `-font-weight`, `-font-style`). A value not of its setting's kind shall be left out, as `templateProperties` leaves it out. A numbered list's counter content (`--doc-ol-counter-content`) shall print its `prefix`, its number in its format's first level, the level's separator and its `suffix`, each escaped.
 
-Implementation: `src/model/templates/template-text-properties.ts`
-Verification: `src/model/templates/template-properties.test.ts`
+Implementation: `src/model/templates/template-text-properties.ts`, `src/engine/contents.ts`
+Verification: `src/model/templates/template-settings.test.ts`, `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-10.6 - Extension records
 
@@ -329,6 +336,13 @@ An ordered list whose style sets no numbering format of its own shall be numbere
 
 Implementation: `src/model/templates/template-text-properties.ts`
 Verification: `src/model/templates/template-properties.test.ts`
+
+### DOCE-TEMPLATES-10.11 - Type for each kind and level
+
+Each kind of list shall have its own title and entry type, padding, spacing and leader over every list's, and each level its own size, weight and slant over the entries' type, so a table of contents can set heading 1 entries larger and bold; an explicit weight of 400 or an upright slant shall reset the emphasis a level would otherwise inherit. `BASE_TEMPLATE` shall indent each level 12pt past the one above it, so the levels of a table of contents show nested.
+
+Implementation: `src/model/templates/template-settings.ts`, `src/model/templates/base-template.ts`, `labs/reference/document.css`
+Verification: `src/model/templates/template-settings.test.ts`, `e2e/contents.spec.ts`
 
 ## DOCE-TEMPLATES-11 - Template pinning
 

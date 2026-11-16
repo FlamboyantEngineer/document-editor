@@ -175,34 +175,44 @@ export interface ContentsLeader {
   gapBefore?: Length | null;
   /** The space between the leader and the page number. */
   gapAfter?: Length | null;
+  /** The leader's style: a CSS font weight, such as `400` or `700`, and its slant. */
+  weight?: number | null;
+  italic?: boolean | null;
 }
 
-/** A list level's indentation, spacing and leader. */
+/** A list level's type, indentation, spacing and leader. */
 export interface ContentsLevelSettings {
+  /** The level's size and style, over the entries' (`weight` 400 and `italic` false reset them). */
+  size?: Length | null;
+  weight?: number | null;
+  italic?: boolean | null;
   indentation?: Length | null;
   spaceBefore?: Length | null;
   spaceAfter?: Length | null;
   leader?: ContentsLeader | null;
 }
 
+/** What every list of contents, or one kind of list, looks like. */
+export interface ContentsListSettings {
+  title?: FontSettings | null;
+  entry?: FontSettings | null;
+  /** The space left and right of the list. */
+  padding?: Sides<Length> | null;
+  /** The space above and below the list. */
+  spacing?: Sides<Length> | null;
+  leader?: ContentsLeader | null;
+  /** Each level's type, indentation, spacing and leader, merged by index when inherited. */
+  levels?: (ContentsLevelSettings | null)[] | null;
+}
+
 /** One kind of list's own settings, over the lists' settings. */
-export interface ContentsKindSettings {
-  /** The title the list shows. */
-  title?: string | null;
-  leader?: Pick<ContentsLeader, 'character'> | null;
-  /** Each level's own leader, merged by index over the lists' levels. */
-  levels?: ({ leader?: Pick<ContentsLeader, 'character'> | null } | null)[] | null;
+export interface ContentsKindSettings extends ContentsListSettings {
+  /** The title the list shows, in place of the editor's. */
+  customTitle?: string | null;
 }
 
 /** The settings of generated lists, such as a table of contents. */
-export interface ContentsSettings {
-  title?: FontSettings | null;
-  entry?: FontSettings | null;
-  padding?: Sides<Length> | null;
-  spacing?: Sides<Length> | null;
-  leader?: ContentsLeader | null;
-  /** Each level's indentation, spacing and leader, merged by index when inherited. */
-  levels?: (ContentsLevelSettings | null)[] | null;
+export interface ContentsSettings extends ContentsListSettings {
   /** Each kind of list's own settings, by its key (`toc`, `figures` and the host's kinds). */
   kinds?: Record<string, ContentsKindSettings | null> | null;
 }

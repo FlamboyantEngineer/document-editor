@@ -20,6 +20,8 @@ import {
   readDocumentFile,
   type TemplateFile,
   templatePreviewDocument,
+  templatePreviewPrevious,
+  writeDocumentFile,
 } from '../../src/model/index.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 
@@ -72,6 +74,11 @@ function previewState(template: TemplateFile) {
 
 function Preview({ preview }: { preview: TemplatePreview }) {
   const [state, setState] = useState(() => previewState(preview.template));
+  // The preview compared with its older version shows a change of each kind with its change bar.
+  const [compare] = useState(() => ({
+    previous: readDocumentFile(templatePreviewPrevious(writeDocumentFile(state.doc)), state.schema)
+      .doc,
+  }));
   useEffect(() => {
     current.template = preview.template;
   }, [preview.template]);
@@ -81,6 +88,7 @@ function Preview({ preview }: { preview: TemplatePreview }) {
       onStateChange={setState}
       template={preview.template}
       layout={preview.layout}
+      compare={compare}
       onRegionChange={preview.onRegionChange}
       editable={preview.onRegionChange !== undefined}
       scrollable

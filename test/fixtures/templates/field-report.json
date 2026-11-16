@@ -351,16 +351,23 @@
         "character": ".",
         "spacing": "2pt",
         "gapBefore": "3pt",
-        "gapAfter": "3pt"
+        "gapAfter": "3pt",
+        "weight": 400,
+        "italic": false
       },
       "levels": [
         {
+          "size": "12pt",
+          "weight": 700,
+          "italic": false,
           "indentation": "0pt",
           "spaceBefore": "6pt",
           "spaceAfter": "2pt",
           "leader": {
             "character": ".",
-            "spacing": "2pt"
+            "spacing": "2pt",
+            "weight": 700,
+            "italic": false
           }
         },
         {
@@ -382,23 +389,73 @@
       ],
       "kinds": {
         "toc": {
-          "title": "Contents"
+          "customTitle": "Contents",
+          "title": {
+            "font": "Georgia",
+            "size": "15pt",
+            "weight": 400,
+            "italic": true,
+            "underline": false,
+            "color": "#334155"
+          },
+          "entry": {
+            "font": "Georgia",
+            "size": "11pt",
+            "weight": 400,
+            "italic": true,
+            "underline": false,
+            "color": "#334155"
+          },
+          "padding": {
+            "top": "0pt",
+            "right": "4pt",
+            "bottom": "0pt",
+            "left": "4pt"
+          },
+          "spacing": {
+            "top": "4pt",
+            "right": "0pt",
+            "bottom": "8pt",
+            "left": "0pt"
+          },
+          "leader": {
+            "character": ".",
+            "spacing": "1pt",
+            "gapBefore": "2pt",
+            "gapAfter": "2pt",
+            "weight": 400,
+            "italic": false
+          },
+          "levels": [
+            {
+              "size": "12pt",
+              "weight": 700,
+              "italic": false,
+              "indentation": "0pt",
+              "spaceBefore": "4pt",
+              "spaceAfter": "0pt",
+              "leader": {
+                "character": ".",
+                "spacing": "1pt",
+                "gapBefore": "2pt",
+                "gapAfter": "2pt",
+                "weight": 700,
+                "italic": false
+              }
+            }
+          ]
         },
         "figures": {
-          "title": "Figures",
+          "customTitle": "Figures",
           "leader": {
             "character": "_"
           }
         },
         "tables": {
-          "title": "Tables",
-          "levels": [
-            {
-              "leader": {
-                "character": ""
-              }
-            }
-          ]
+          "customTitle": "Tables",
+          "leader": {
+            "character": ""
+          }
         }
       }
     },
@@ -611,7 +668,9 @@
       "label": "Findings",
       "required": true,
       "extensions": {
-        "review": { "stage": "draft" }
+        "review": {
+          "stage": "draft"
+        }
       },
       "content": [
         {

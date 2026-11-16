@@ -20,7 +20,7 @@ Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.3 - Sections and the parent
 
-The editor shall edit the whole document's settings or one template section's (`Settings of`, DOCE-TEMPLATE-EDITOR-2.1); a section's own rows set its name (DOCE-TEMPLATE-EDITOR-2.3), its label and whether every document has it, writers may edit it, add and remove it, and it restarts the numbering, and its page, header and footer, list, table, code and footnote settings, which show the document's values while it sets none; footnote numbering is the document's only (`documentOnly`), so a section never shows it. While the template has no list of sections of its own, the editor shall list the sections it inherits (those of `resolved`), and an added section, or the first change to an inherited one, shall write the whole inherited list into the template with it (`withListedSections`): a template's list replaces its parent's whole (DOCE-FORMAT-3.1), so a list of the changed section alone would drop the others. The root publishes `data-scope`. With `parentOptions`, the identity rows pick the template's parent among them, never the template itself (DOCE-TEMPLATE-EDITOR-2.5).
+The editor shall edit the whole document's settings or one template section's (`Settings of`, DOCE-TEMPLATE-EDITOR-2.1); a section's own rows set its name (DOCE-TEMPLATE-EDITOR-2.3), its label and whether every document has it, writers may edit it, add and remove it, and it restarts the numbering, an unset restart showing the restart the section's own heading or paragraph styles imply (`sectionRestartsNumbering`) and a change saving the explicit flag, and its page, header and footer, list, table, code and footnote settings, which show the document's values while it sets none; footnote numbering is the document's only (`documentOnly`), so a section never shows it. While the template has no list of sections of its own, the editor shall list the sections it inherits (those of `resolved`), and an added section, or the first change to an inherited one, shall write the whole inherited list into the template with it (`withListedSections`): a template's list replaces its parent's whole (DOCE-FORMAT-3.1), so a list of the changed section alone would drop the others. The root publishes `data-scope`. With `parentOptions`, the identity rows pick the template's parent among them, never the template itself (DOCE-TEMPLATE-EDITOR-2.5).
 
 Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/template-scope.tsx`
 Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`
@@ -90,6 +90,13 @@ A References section shall hold a card for each reference format key (`reference
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/setting-controls.tsx`
 Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`
+
+### DOCE-TEMPLATE-EDITOR-1.12 - Lists of contents
+
+The Contents section shall pick the list type it edits: all lists, or one of the seven kinds (`contentsSettings`, in the order the insert menu offers them). Each shall show its title's and entries' font, size, bold, italic and colour, its padding and spacing, and its leader (character, bold and italic, spacing, and the space before and after it, in points); a kind's own settings are written under its key in `kinds`, with a custom title, over every list's. Lists that show no page numbers, references and abbreviations, shall show no leader. For all lists and the table of contents, a heading level picker shall show one level's size, bold and italic, indentation, spacing and leader; an All levels row shall set every level's indentation, each one step past the level above it, or its space before or after, in points, only when edited, keeping what each level sets otherwise (`withAllLevels`). Bold and italic cycle inherited, on, off (an explicit normal, over what is inherited) and inherited again, and an emptied field inherits again.
+
+Implementation: `src/components/template-editor/contents-catalog.ts`, `src/components/template-editor/contents-section.tsx`, `src/components/template-editor/style-rows.tsx`
+Verification: `src/components/template-editor/contents-section.test.tsx`, `src/components/template-editor/settings-catalog.test.ts`
 
 ## DOCE-TEMPLATE-EDITOR-2 - The template's structure
 

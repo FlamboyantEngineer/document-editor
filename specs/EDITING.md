@@ -99,7 +99,7 @@ Verification: `src/engine/document-editing.test.ts`
 
 ### DOCE-EDITING-2.6 - Select All and page breaks
 
-`Mod-a` shall select the body of every page, from its first text block to its last, without the page chrome; a document without pages selects everything. `Mod-Alt-Enter` shall insert a page break at the caret in a text block on its own on the page, splitting it there, or before it with the caret at its start; elsewhere, such as in a list or a table, after the top-level block holding the selection, with the caret in the text block after it, which it adds when there is none. `Mod-z` shall undo, and `Mod-y` and `Mod-Shift-z` redo.
+`Mod-a` shall select the body of every page, from its first text block to its last, without the page chrome; with the selection in a header, footer or footnote area, that region's text alone; a document without pages selects everything. `Mod-Alt-Enter` shall insert a page break at the caret in a text block on its own on the page, splitting it there, or before it with the caret at its start; elsewhere, such as in a list or a table, after the top-level block holding the selection, with the caret in the text block after it, which it adds when there is none. `Mod-z` shall undo, and `Mod-y` and `Mod-Shift-z` redo.
 
 Implementation: `src/engine/document-editing.ts`, `src/engine/editing-commands.ts`
 Verification: `src/engine/document-editing.test.ts`, `e2e/editing.spec.ts`
