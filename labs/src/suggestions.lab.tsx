@@ -1,7 +1,8 @@
 // Shows suggestions (`suggestTransaction`, which the document editor applies while `suggesting`):
 // typed text kept as a suggested insertion, deleted text kept struck, and a split paragraph kept as
 // its halves, each attributed to the writer. The list beside the document reads the suggestions
-// (`listSuggestions`) and accepts or rejects them one by one or all at once.
+// (`listSuggestions`) and accepts or rejects them one by one or all at once. The table of contents
+// lists each heading as it reads now, without the text a suggestion deletes.
 
 import { type Command, EditorState } from 'prosemirror-state';
 import { useState } from 'react';
@@ -11,6 +12,7 @@ import {
   acceptAllSuggestions,
   acceptSuggestion,
   assignElementIds,
+  createContents,
   createDocumentEditing,
   listSuggestions,
   rejectAllSuggestions,
@@ -43,6 +45,7 @@ function initialState(): EditorState {
         {
           name: null,
           content: [
+            { type: 'contents' },
             heading(1, 'Scope'),
             line('The system shall report each fault within one second of detecting it.'),
             line('Reports go to the operator console and to the log.'),
@@ -71,7 +74,10 @@ function initialState(): EditorState {
   ).doc;
   const state = EditorState.create({
     doc,
-    plugins: createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
+    plugins: [
+      ...createDocumentEditing(schema, { template: () => TEMPLATE, author: () => 'lab' }),
+      createContents({ template: () => TEMPLATE }),
+    ],
   });
   const tr = state.tr;
   assignElementIds(tr, {});

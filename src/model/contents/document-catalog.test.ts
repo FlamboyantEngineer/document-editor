@@ -166,7 +166,7 @@ describe('document catalog', () => {
     expect(catalog.terms?.map((entry) => entry.text)).toEqual(['Ampere', 'Ohm', 'Volt']);
   });
 
-  it('DOCE-CONTENTS-1.5 lists each cited document once, in the order first cited', () => {
+  it('DOCE-CONTENTS-1.5 lists each cited document once, by its number', () => {
     const cite = (value: string, attrs: Record<string, unknown>): StoredNode => ({
       type: 'text',
       text: value,
@@ -222,8 +222,8 @@ describe('document catalog', () => {
     ).doc;
     const { references } = catalogDocument(cited, BASE_TEMPLATE);
     expect(references?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
-      'STD-2|Interface standard',
       'HB-1|Handbook',
+      'STD-2|Interface standard',
       '|Part list',
     ]);
     expect(cited.textBetween(references?.[0]?.pos ?? 0, (references?.[0]?.pos ?? 0) + 3)).toBe(
@@ -287,5 +287,111 @@ describe('document catalog', () => {
       headings: [2, 0, 0, 0, 0, 0],
       objects: { table: 1 },
     });
+  });
+
+  it('DOCE-CONTENTS-1.8 leaves out the front matter before the first table of contents', () => {
+    const cite = (number: string): StoredNode => ({
+      type: 'text',
+      text: number,
+      marks: [{ type: 'reference', attrs: { referenceType: 'external-document', number } }],
+    });
+    const abbreviation = (abbr: string, entry: string): StoredNode => ({
+      type: 'abbreviation',
+      attrs: { entry, abbreviation: abbr, expansion: `${abbr} expanded` },
+    });
+    const fronted = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              heading(1, 'Foreword'),
+              table('Revision record'),
+              {
+                type: 'paragraph',
+                content: [
+                  cite('STD-1'),
+                  text(' '),
+                  cite('STD-2'),
+                  text(' '),
+                  abbreviation('AC', 'ac'),
+                ],
+              },
+              { type: 'contents', attrs: { kind: 'toc' } },
+              heading(1, 'Scope'),
+              { ...table('Limits'), attrs: { caption: 'Limits', id: 'limits-table' } },
+              {
+                type: 'paragraph',
+                content: [
+                  cite('STD-3'),
+                  text(' '),
+                  cite('STD-1'),
+                  text(' '),
+                  abbreviation('AC', 'ac'),
+                ],
+              },
+              { type: 'paragraph', content: [abbreviation('AC', 'ac-2')] },
+              { type: 'mathBlock', content: [text('x^2')] },
+              { type: 'linkedCode', attrs: { url: 'https://example.com/src/main.c' } },
+              { type: 'contents', attrs: { kind: 'toc' } },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const catalog = catalogDocument(fronted, BASE_TEMPLATE);
+    // The foreword keeps its number too.
+    expect(brief(catalog.toc)).toEqual(['2.|Scope|1']);
+    expect(catalog.tables?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
+      'Table 2.1|Limits',
+    ]);
+    expect(catalog.tables?.[0]?.target).toBe('limits-table');
+    // A document cited before and after the list is listed at its first citation after it.
+    expect(catalog.references?.map((entry) => entry.number)).toEqual(['STD-1', 'STD-3']);
+    expect(catalog.references?.[0]?.pos).toBeGreaterThan(catalog.toc?.[0]?.pos ?? Infinity);
+    // Abbreviations count the whole document, one entry per glossary entry.
+    expect(catalog.abbreviations?.map((entry) => entry.identity)).toEqual(['ac', 'ac-2']);
+    expect(catalog.equations?.map(({ number, text: value }) => `${number}|${value}`)).toEqual([
+      '(Eq. 2.1.)|',
+    ]);
+    expect(catalog.codeBlocks?.[0]?.text).toBe('main.c');
+  });
+
+  it('DOCE-CONTENTS-1.1 lists a heading by its text without what a suggestion deletes', () => {
+    const suggested = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'heading',
+                attrs: { level: 1 },
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Old ',
+                    marks: [{ type: 'deletion', attrs: { id: 's1' } }],
+                  },
+                  {
+                    type: 'text',
+                    text: 'New ',
+                    marks: [{ type: 'insertion', attrs: { id: 's2' } }],
+                  },
+                  text('scope'),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    expect(catalogDocument(suggested, BASE_TEMPLATE).toc?.map((entry) => entry.text)).toEqual([
+      'New scope',
+    ]);
   });
 });

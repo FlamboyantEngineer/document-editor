@@ -6,24 +6,34 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import {
-  Decoration,
+  type Decoration,
   DecorationSet,
   type EditorView,
   type NodeViewConstructor,
 } from 'prosemirror-view';
 import {
   abbreviationTargetId,
-  catalogDocument,
   type CatalogEntry,
   type ContentsKind,
   contentsListProperties,
   DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
+  EXTERNAL_DOCUMENT_REFERENCE_TYPE,
   type FontStacks,
   resolveContentsList,
   type TemplateFile,
 } from '../model/index.js';
+import { type CitationHref, referencePrintHref } from '../model/schema/reference-mark.js';
 import { type PageMap, pageMap } from '../pagination/page-map.js';
+import {
+  type ContentsGroup,
+  type ContentsState,
+  decorate,
+  type InnerState,
+  type Kinds,
+  listGroups,
+  stateOf,
+} from './contents-listing.js';
 import { hasContents } from './contents-presence.js';
 import {
   type ContentsLabels,
@@ -34,6 +44,7 @@ import {
   rowsIn,
 } from './contents-view.js';
 
+export type { ContentsGroup } from './contents-listing.js';
 export type { ContentsLabels } from './contents-view.js';
 
 /** The labels each default list shows unless a host gives its own. */
@@ -45,7 +56,11 @@ export const CONTENTS_LABELS: Readonly<
   tables: { title: 'Table of Tables', empty: 'No tables found.' },
   codeBlocks: { title: 'Table of Code Blocks', empty: 'No code listings found.' },
   equations: { title: 'Table of Equations', empty: 'No equations found.' },
-  references: { title: 'References', empty: 'No references found.' },
+  references: {
+    title: 'References',
+    empty: 'No references found.',
+    groups: { [EXTERNAL_DOCUMENT_REFERENCE_TYPE]: 'Documents' },
+  },
   abbreviations: { title: 'Abbreviations', empty: 'No abbreviations found.' },
 };
 
@@ -65,79 +80,17 @@ export interface ContentsOptions {
   labels?: Readonly<Record<string, Partial<ContentsLabels>>> | undefined;
   /** The fonts the host serves itself, by the family name a template uses. */
   fontStacks?: FontStacks | undefined;
+  /**
+   * Where an entry that stands for a citation of another document opens, in a new tab; such an
+   * entry is plain text without it, or when it gives nothing (DOCE-CONTENTS-2.11).
+   */
+  citationHref?: CitationHref | undefined;
 }
 
-/** What a contents plugin keeps: the catalog, and the rows each list block shows. */
-export interface ContentsState {
-  readonly catalog: DocumentCatalog;
-  readonly decorations: DecorationSet;
-}
+export type { ContentsState } from './contents-listing.js';
 
 /** The catalog a contents plugin keeps; marks a transaction that draws the lists again. */
 export const contentsKey = new PluginKey<ContentsState>('contents');
-
-// The kinds a contents plugin lists, and the one a list block names.
-interface Kinds {
-  readonly all: Readonly<Record<string, ContentsKind>>;
-  readonly of: (node: ProseMirrorNode) => string;
-}
-
-// The entries a list block shows: those of its kind (after it, for a kind that lists only those),
-// down to its deepest level, in the range a split part holds.
-function rowsOf(
-  node: ProseMirrorNode,
-  pos: number,
-  { catalog, kinds }: { catalog: DocumentCatalog; kinds: Kinds },
-): ContentsRows {
-  const key = kinds.of(node);
-  const after = kinds.all[key]?.after === true;
-  const deepest = Number(node.attrs.minLevel) || 6;
-  const listed = (catalog[key] ?? []).filter(
-    (entry) => (!after || entry.pos > pos) && entry.level <= deepest,
-  );
-  const start = Number(node.attrs.entryStart) || 0;
-  const end = Number.isInteger(node.attrs.entryEnd) ? Number(node.attrs.entryEnd) : listed.length;
-  return {
-    entries: listed.slice(start, end),
-    empty: listed.length === 0,
-    showPage: kinds.all[key]?.showPage !== false,
-  };
-}
-
-function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog, kinds: Kinds): DecorationSet {
-  const decorations: Decoration[] = [];
-  doc.descendants((node, pos) => {
-    if (node.type.name === 'toc_block') {
-      decorations.push(
-        Decoration.node(
-          pos,
-          pos + node.nodeSize,
-          {},
-          { contents: rowsOf(node, pos, { catalog, kinds }) },
-        ),
-      );
-    }
-    return !node.isTextblock;
-  });
-  return DecorationSet.create(doc, decorations);
-}
-
-// The plugin state of a document, its catalog and rows made once read, and no rows to draw in a
-// document that holds no list, so a keystroke does not count the whole document (DOCE-CONTENTS-2.7).
-function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): ContentsState {
-  let catalog: DocumentCatalog | null = null;
-  let decorations: DecorationSet | null = null;
-  const catalogued = () => (catalog ??= catalogDocument(doc, template, kinds.all));
-  return {
-    get catalog() {
-      return catalogued();
-    },
-    get decorations() {
-      decorations ??= hasContents(doc) ? decorate(doc, catalogued(), kinds) : DecorationSet.empty;
-      return decorations;
-    },
-  };
-}
 
 // The rows a plugin state draws, each entry on the page the layout shows it on, once for each
 // state and layout: the catalog counts a section as one page, the layout knows where pages break.
@@ -148,13 +101,14 @@ function pagedDecorations(state: EditorState, value: ContentsState, kinds: Kinds
   const map = pageMap(state);
   const cached = onLayout.get(value);
   if (cached?.map === map) return cached.set;
+  const { listing } = value as InnerState;
   const catalog = Object.fromEntries(
-    Object.entries(value.catalog).map(([key, entries]) => [
+    Object.entries(listing.catalog).map(([key, entries]) => [
       key,
       entries.map((entry) => ({ ...entry, page: map.pageAt(entry.pos)?.number ?? entry.page })),
     ]),
   );
-  const set = decorate(state.doc, catalog, kinds);
+  const set = decorate(state.doc, { catalog, lists: listing.lists }, kinds);
   onLayout.set(value, { map, set });
   return set;
 }
@@ -188,6 +142,18 @@ export function contentsCatalog(state: EditorState): DocumentCatalog | null {
   return contentsKey.getState(state)?.catalog ?? null;
 }
 
+/**
+ * The groups the list of contents at a position may show (DOCE-CONTENTS-2.11), with their
+ * headings and whether it shows each; none for a kind that does not group or without a plugin.
+ */
+export function contentsGroupsAt(state: EditorState, pos: number): ContentsGroup[] {
+  const node = state.doc.nodeAt(pos);
+  const groups = (contentsKey.get(state)?.spec as { groups?: GroupsOf } | undefined)?.groups;
+  return node?.type.name === 'toc_block' && groups ? groups(state, node) : [];
+}
+
+type GroupsOf = (state: EditorState, node: ProseMirrorNode) => ContentsGroup[];
+
 /** The rows the list of contents at a position shows; none without a contents plugin. */
 export function contentsRowsAt(state: EditorState, pos: number): ContentsRows {
   const size = state.doc.nodeAt(pos)?.nodeSize ?? 0;
@@ -201,8 +167,11 @@ function drawingWith({
   kinds,
   labels = {},
   fontStacks,
+  citationHref,
 }: Omit<ContentsOptions, 'kinds'> & { kinds: Kinds }) {
   const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
+  const href = (cites: Readonly<Record<string, unknown>>) =>
+    citationHref ? referencePrintHref(cites, citationHref) : null;
   return (
     node: ProseMirrorNode,
     rows: ContentsRows,
@@ -221,6 +190,7 @@ function drawingWith({
       properties: contentsListProperties(list, fontStacks),
       showPage: kind?.showPage !== false,
       navigate,
+      href,
     };
   };
 }
@@ -235,16 +205,20 @@ export function createContents({
   kinds: added = {},
   labels = {},
   fontStacks,
+  citationHref,
 }: ContentsOptions): Plugin<ContentsState> {
   const all: Record<string, ContentsKind> = { ...DEFAULT_CONTENTS_KINDS, ...added };
+  const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
   const kinds: Kinds = {
     all,
     of: (node) => {
       const type: unknown = node.attrs.tocType;
       return typeof type === 'string' && Object.hasOwn(all, type) ? type : 'toc';
     },
+    groupTitle: (key, group) =>
+      labels[key]?.groups?.[group] ?? defaults[key]?.groups?.[group] ?? null,
   };
-  const drawingFor = drawingWith({ template, kinds, labels, fontStacks });
+  const drawingFor = drawingWith({ template, kinds, labels, fontStacks, citationHref });
   const view: NodeViewConstructor = (...[node, editor, , decorations]) => {
     const dom = document.createElement('div');
     dom.className = 'de-contents';
@@ -273,12 +247,23 @@ export function createContents({
       stopEvent: (event) => ['mousedown', 'click', 'keydown'].includes(event.type),
     };
   };
+  const counter = { builds: 0 };
   return new Plugin<ContentsState>({
     key: contentsKey,
+    groups: ((state, node) => {
+      const value = contentsKey.getState(state);
+      return value ? listGroups(value, node, kinds) : [];
+    }) satisfies GroupsOf,
     state: {
-      init: (_config, state) => stateOf(state.doc, template(), kinds),
-      apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(contentsKey) ? stateOf(tr.doc, template(), kinds) : value,
+      init: (_config, state) => stateOf({ doc: state.doc, template: template(), kinds, counter }),
+      apply: (tr, value) => {
+        if (tr.getMeta(contentsKey)) {
+          return stateOf({ doc: tr.doc, template: template(), kinds, counter });
+        }
+        if (!tr.docChanged) return value;
+        const from = { state: value as InnerState, tr };
+        return stateOf({ doc: tr.doc, template: template(), kinds, counter, from });
+      },
     },
     props: {
       decorations(state) {

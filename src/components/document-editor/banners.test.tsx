@@ -165,13 +165,52 @@ describe('DocumentBanners', () => {
     expect(screen.queryByRole('region', { name: 'Document notices' })).not.toBeInTheDocument();
   });
 
-  it('DOCE-EDITOR-7.6 offers a newer template version, moving to it and bringing locked sections in line', async () => {
+  it('DOCE-EDITOR-7.6 offers a newer template version, moving to it and bringing locked sections and references in line', async () => {
     const user = userEvent.setup();
     const status: SessionStatus = { load: 'ready', save: 'idle', error: null, dirty: false };
     const newer: TemplateFile = {
       ...TEMPLATE,
       sections: [{ name: 'cover', editable: false, content: [paragraph('New cover')] }],
+      references: { formats: { 'internal-heading': 'section {{ref.numbering}} {{ref.title}}' } },
     };
+    // A reference to a heading, as the older revision rendered it.
+    const cited: StoredNode[] = [
+      {
+        type: 'heading',
+        attrs: { id: 'a0000001', level: 1 },
+        content: [{ type: 'text', text: 'Scope' }],
+      },
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'See ' },
+          {
+            type: 'text',
+            text: 'Scope',
+            marks: [
+              {
+                type: 'reference',
+                attrs: { referenceType: 'internal-heading', target: 'a0000001' },
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const initial = () =>
+      EditorState.create({
+        doc: readDocumentFile(
+          {
+            formatVersion: 1,
+            sections: [
+              { name: 'cover', content: [paragraph('Cover text')] },
+              { name: null, content: cited },
+            ],
+          },
+          documentSchema,
+        ).doc,
+        plugins: createDocumentEditing(documentSchema),
+      });
     const setTemplate = vi.fn(() => Promise.resolve(true));
     const document = { pin: { id: 'article' }, templateUpdate: { revision: 'r2', sequence: 2 } };
     const session: EditorSession = {
@@ -181,7 +220,7 @@ describe('DocumentBanners', () => {
       setTemplate,
     };
     function Moving({ template }: { template: TemplateFile }) {
-      const [state, setState] = useState(() => stateWith('Cover text'));
+      const [state, setState] = useState(initial);
       return (
         <DocumentEditor
           state={state}
@@ -201,6 +240,7 @@ describe('DocumentBanners', () => {
     // The session moved the document: the editor is shown the newer template.
     rerender(<Moving template={newer} />);
     expect(await screen.findByText('New cover')).toBeInTheDocument();
+    expect(await screen.findByText('section 1. Scope')).toBeInTheDocument();
   });
 
   it('DOCE-PAGINATION-5.6 waits the host timeout for the template fonts, five seconds by default', async () => {

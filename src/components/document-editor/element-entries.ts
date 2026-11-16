@@ -30,13 +30,13 @@ import {
   revealElement,
   setAbbreviationDisplay,
   setCodeLanguage,
-  setContentsDepth,
   setLink,
   setObjectLayout,
   toggleCaption,
   unlinkAbbreviation,
   updateReference,
 } from '../../engine/index.js';
+import { contentsEntries } from './contents-entries.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { commandEntry } from './table-actions.js';
@@ -202,26 +202,6 @@ function figureEntries(view: EditorView, options: ElementEntriesOptions): MenuEn
   return table && 'objectLayout' in table.node.attrs ? [alignEntry(view, labels, table.node)] : [];
 }
 
-function contentsEntries(view: EditorView, { labels }: ElementEntriesOptions): MenuEntry[] {
-  const contents = around(view.state, ['toc_block']);
-  if (contents?.node.attrs.tocType !== 'toc') return [];
-  const depth = Number(contents.node.attrs.minLevel);
-  return [
-    {
-      id: 'contents-depth',
-      label: labels.contentsDepth,
-      items: [1, 2, 3, 4, 5, 6].map((level) => ({
-        ...commandEntry(
-          view,
-          { id: `depth-${String(level)}`, label: labels.depthLevel(level) },
-          setContentsDepth(level),
-        ),
-        isSelected: level === depth,
-      })),
-    },
-  ];
-}
-
 function linkEntries(view: EditorView, options: ElementEntriesOptions): MenuEntry[] {
   if (linkAt(view.state) === null) return [];
   const { labels } = options;
@@ -304,7 +284,7 @@ export function elementEntries(view: EditorView, options: ElementEntriesOptions)
     ...mathEntries(view, options),
     ...codeEntries(view, options),
     ...figureEntries(view, options),
-    ...contentsEntries(view, options),
+    ...contentsEntries(view, around(view.state, ['toc_block']), options.labels),
     ...captionEntries(view, options),
     ...linkEntries(view, options),
     ...referenceEntries(view, options),

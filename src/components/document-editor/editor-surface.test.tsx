@@ -101,7 +101,8 @@ describe('EditorSurface', () => {
     const error = await screen.findByText('The document cannot be shown: Serif Pro did not load.');
     expect(error.closest('.de-document-editor__layout-error')).toBeInTheDocument();
     expect(container.querySelector('.de-document-editor__body')).toHaveAttribute('inert');
-    expect(onLayoutFailed).toHaveBeenCalledOnce();
+    // The host hears of it from an effect after the error shows, which may come a render later.
+    await waitFor(() => expect(onLayoutFailed).toHaveBeenCalledOnce());
     expect(loadProgress.get().status).toBe('failed');
     expect(screen.queryByRole('region', { name: 'Document notices' })).not.toBeInTheDocument();
   });

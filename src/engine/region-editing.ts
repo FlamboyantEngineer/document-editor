@@ -145,9 +145,14 @@ function applyEdits(
   return edits.size === value.edits.size ? value : { edits, changed: [] };
 }
 
+/** The root's attributes while a template's regions or content are edited (`data-template-editing`). */
+export const templateEditingAttributes = (enabled: boolean): Record<string, string> =>
+  enabled ? { 'data-template-editing': 'true' } : {};
+
 /**
  * Lets the pages' headers and footers be edited in place while `enabled` holds: an edit shows in
- * the same region of every page of its section, and `onChange` hears the region's new content.
+ * the same region of every page of its section, and `onChange` hears the region's new content. The
+ * root is marked `data-template-editing` meanwhile.
  */
 export function createRegionEditing(options: RegionEditingOptions): Plugin<RegionEditingState> {
   return new Plugin<RegionEditingState>({
@@ -172,6 +177,8 @@ export function createRegionEditing(options: RegionEditingOptions): Plugin<Regio
         ? tr.setMeta(regionEditingKey, true).setMeta('addToHistory', false)
         : null;
     },
+    // The editor's root says a template is edited, so a borderless table can show a guide.
+    props: { attributes: () => templateEditingAttributes(options.enabled()) },
     view: () => ({
       update(view, previous) {
         const now = regionEditingKey.getState(view.state);

@@ -1,10 +1,13 @@
 // The editor's offer to move a document to a newer saved revision of its template: a banner while
 // the session names one, whose action moves the document to it and then brings the sections the
-// writer cannot edit in line with it, in one step for the reader.
+// writer cannot edit in line with it and renders its references again as the new revision formats
+// them, in one step for the reader.
 
 import { Button } from '@flamboyantengineer/ui-components/button';
+import type { Command } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { refreshReferences, updateReferences } from '../../engine/references.js';
 import { syncTemplateSections } from '../../engine/template-sync.js';
 import type { TemplateFile } from '../../model/index.js';
 import type { DocumentBanner } from './banners.js';
@@ -25,15 +28,29 @@ interface TemplateUpdateOptions {
   readonly labels: DocumentEditorLabels;
 }
 
+// Brings the sections in line with the template and formats the references by it, in one change:
+// the sections' change carries the references' when it is made, the references' alone otherwise.
+const moveTo =
+  (template: TemplateFile): Command =>
+  (state, dispatch) =>
+    syncTemplateSections(template)(
+      state,
+      dispatch &&
+        ((tr) => {
+          updateReferences(tr, template);
+          dispatch(tr);
+        }),
+    ) || refreshReferences(template)(state, dispatch);
+
 // Once the document has moved, the template it is shown with next is the new one: its sections
-// are brought in line with it then.
+// are brought in line with it then, and its references formatted by it.
 function useSyncOnNextTemplate(view: EditorView | null, template: TemplateFile) {
   const pending = useRef<TemplateFile | null>(null);
   useEffect(() => {
     const before = pending.current;
     if (!view || !before || before === template) return;
     pending.current = null;
-    runCommand(view, syncTemplateSections(template));
+    runCommand(view, moveTo(template));
   }, [view, template]);
   return (current: TemplateFile) => {
     pending.current = current;

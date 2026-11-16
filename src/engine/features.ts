@@ -23,6 +23,15 @@ export {
 } from './checklists.js';
 export type { ClipboardOptions, PasteFilter } from './clipboard.js';
 export { createClipboard } from './clipboard.js';
+export type { ContentsGroup, ContentsLabels, ContentsOptions, ContentsState } from './contents.js';
+export {
+  CONTENTS_LABELS,
+  contentsCatalog,
+  contentsGroupsAt,
+  contentsKey,
+  createContents,
+} from './contents.js';
+export { setContentsDepth, setContentsGroups } from './contents-commands.js';
 export {
   convertMath,
   insertCharacter,
@@ -32,7 +41,6 @@ export {
   insertMath,
   linkAt,
   setCodeLanguage,
-  setContentsDepth,
   setFigure,
   setLink,
   setLinkedCode,

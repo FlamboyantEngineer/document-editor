@@ -1,4 +1,4 @@
-import { EditorState } from 'prosemirror-state';
+import { EditorState, NodeSelection } from 'prosemirror-state';
 import { DecorationSet, EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
@@ -8,7 +8,8 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../model/index.js';
-import { contentsCatalog, contentsKey, createContents } from './contents.js';
+import { contentsCatalog, contentsGroupsAt, contentsKey, createContents } from './contents.js';
+import { setContentsGroups } from './contents-commands.js';
 
 const heading = (level: number, text: string): StoredNode => ({
   type: 'heading',
@@ -216,5 +217,198 @@ describe('contents on each keystroke', () => {
     ]);
     const listed = state.apply(state.tr.insert(scope - 1, documentSchema.node('toc_block')));
     expect(contentsKey.getState(listed)?.decorations.find()).toHaveLength(1);
+  });
+
+  it('DOCE-CONTENTS-2.9 counts the document again only for a change past a text edit', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            content: [
+              { type: 'contents' },
+              heading(1, 'Scope'),
+              { type: 'paragraph', content: [{ type: 'text', text: 'Body' }] },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let state = EditorState.create({
+      doc,
+      plugins: [createContents({ template: () => BASE_TEMPLATE })],
+    });
+    const builds = () => {
+      const value = contentsKey.getState(state);
+      expect(value?.decorations.find()).toHaveLength(1);
+      return value?.builds;
+    };
+    // Where the text of the first block of a type starts.
+    const at = (type: string) => {
+      let found = 0;
+      state.doc.descendants((node, pos) => {
+        if (!found && node.type.name === type) found = pos + 1;
+        return !found;
+      });
+      return found;
+    };
+    const first = builds();
+    for (const [index, letter] of [...'Wide '].entries()) {
+      state = state.apply(state.tr.insertText(letter, at('heading') + index));
+      state = state.apply(state.tr.insertText(letter, at('paragraph')));
+      expect(builds()).toBe(first);
+    }
+    expect(contentsCatalog(state)?.toc?.map((entry) => entry.text)).toEqual(['Wide Scope']);
+    state = state.apply(state.tr.split(at('paragraph') + 2));
+    expect(builds()).toBe((first ?? 0) + 1);
+  });
+});
+
+describe('two lists of one kind', () => {
+  it('DOCE-CONTENTS-2.6 gives an anchor to the first list’s row alone', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'paragraph', content: [abbreviation] },
+              { type: 'contents', attrs: { kind: 'abbreviations' } },
+              { type: 'contents', attrs: { kind: 'abbreviations' } },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const state = EditorState.create({
+      doc,
+      plugins: [createContents({ template: () => BASE_TEMPLATE })],
+    });
+    const view = new EditorView(document.body.appendChild(document.createElement('div')), {
+      state,
+    });
+    const entries = [...view.dom.querySelectorAll('.de-contents__entry')];
+    expect(entries.map((entry) => entry.id)).toEqual(['abbr-g1', '']);
+    view.destroy();
+  });
+});
+
+describe('a list of references', () => {
+  const baseline = (documentId: string) =>
+    JSON.stringify({
+      version: 1,
+      documentId,
+      numbering: documentId,
+      title: documentId,
+      revision: null,
+      revisionLabel: '',
+      target: null,
+      defaultLabel: documentId,
+    });
+  const cite = (value: string, attrs: Record<string, unknown>): StoredNode => ({
+    type: 'text',
+    text: value,
+    marks: [{ type: 'reference', attrs }],
+  });
+
+  function referencesView(options: { href?: boolean; filter?: string } = {}) {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'contents',
+                attrs: {
+                  kind: 'references',
+                  ...(options.filter ? { referenceFilter: options.filter } : {}),
+                },
+              },
+              {
+                type: 'paragraph',
+                content: [
+                  cite('the catalogue entry', {
+                    referenceType: 'catalogue-entry',
+                    number: 'C-1',
+                    title: 'Catalogued',
+                    target: 'c1',
+                  }),
+                  { type: 'text', text: ' and ' },
+                  cite('the handbook', {
+                    referenceType: 'external-document',
+                    number: 'HB-1',
+                    title: 'Handbook',
+                    target: 'd1',
+                    baseline: baseline('d1'),
+                  }),
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const state = EditorState.create({
+      doc,
+      plugins: [
+        createContents({
+          template: () => BASE_TEMPLATE,
+          labels: { references: { groups: { 'catalogue-entry': 'Catalogue' } } },
+          ...(options.href
+            ? { citationHref: ({ baseline: cited }) => `/documents/${cited.documentId}` }
+            : {}),
+        }),
+      ],
+    });
+    return new EditorView(document.body.appendChild(document.createElement('div')), { state });
+  }
+
+  const rows = (view: EditorView) =>
+    [...view.dom.querySelectorAll<HTMLElement>('.de-contents__entry')].map((row) =>
+      [row.tagName, row.textContent, row.getAttribute('href') ?? ''].join('|'),
+    );
+
+  it('DOCE-CONTENTS-2.11 lists each group under its heading, a cited document as a link', () => {
+    const view = referencesView({ href: true });
+    expect(rows(view)).toEqual([
+      'DIV|Documents|',
+      'A|HB-1 - Handbook|/documents/d1',
+      'DIV|Catalogue|',
+      'DIV|C-1 - Catalogued|',
+    ]);
+    const link = view.dom.querySelector('a.de-contents__entry');
+    expect(link).toHaveAttribute('target', '_blank');
+    // The link is what the keys reach; a heading and a citation the host links nowhere are text.
+    expect(view.dom.querySelectorAll('[data-choosable]')).toHaveLength(1);
+    expect(link).toHaveAttribute('tabindex', '0');
+    expect(view.dom.querySelector('.de-contents__group')).not.toHaveAttribute('role');
+    view.destroy();
+  });
+
+  it('DOCE-CONTENTS-2.11 shows only the groups its filter names, and plain text without links', () => {
+    const view = referencesView({ filter: 'catalogue-entry' });
+    expect(rows(view)).toEqual(['DIV|Catalogue|', 'DIV|C-1 - Catalogued|']);
+    let list = 0;
+    view.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'toc_block') list = pos;
+    });
+    expect(contentsGroupsAt(view.state, list)).toEqual([
+      { group: 'external-document', title: 'Documents', shown: false },
+      { group: 'catalogue-entry', title: 'Catalogue', shown: true },
+    ]);
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, list)));
+    setContentsGroups(
+      ['catalogue-entry', 'external-document'],
+      ['external-document', 'catalogue-entry'],
+    )(view.state, view.dispatch);
+    expect(view.state.doc.nodeAt(list)?.attrs.refFilter).toBeNull();
+    expect(rows(view)).toHaveLength(4);
+    view.destroy();
   });
 });

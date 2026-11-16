@@ -171,4 +171,21 @@ test.describe('suggestions lab', () => {
     await item.getByRole('button', { name: 'Reject' }).click();
     await expect(block(page, 'Reports go').locator('strong, [data-format-change]')).toHaveCount(0);
   });
+
+  test('DOCE-CONTENTS-1.1 lists a heading as it reads while suggesting', async ({ lab, page }) => {
+    await lab.open('suggestions');
+    const heading = content(page).locator('h1', { hasText: 'Scope' });
+    const box = await heading.evaluate((element) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.right + 2, y: rect.top + rect.height / 2 };
+    });
+    await clickAt(page, box);
+    for (const _ of 'Scope') await page.keyboard.press('Backspace');
+    await page.keyboard.type('Purpose');
+    await expect(heading.locator('del[data-au="Writer"]')).toHaveText('Scope');
+    const entry = content(page).locator('.de-contents__entry .de-contents__text');
+    await expect(entry).toHaveText('Purpose');
+  });
 });

@@ -166,6 +166,13 @@ The editor's toolbar shall work in the pages' headers and footers and in a templ
 Implementation: `src/engine/template-content-editing.ts`, `src/engine/region-editing.ts`, `labs/src/template-content.lab.tsx`
 Verification: `src/engine/template-content-editing.test.ts`, `src/engine/region-editing.test.ts`, `e2e/template-content.spec.ts`
 
+### DOCE-SECTIONS-5.4 - Tables in the regions while a template is edited
+
+A table in a page header or footer shall be edited as in the body while region editing is on: its cells take typed text and the table commands, such as adding a column, and the edit shows in the same region of every page of its section and is handed to `onChange`, the table's border setting kept. While region editing or template content editing is on, the editor's root shall be marked `data-template-editing`, so a stylesheet can show the cells of a borderless table (`table-border-none`), which draws no border, by a guide; the reference stylesheet draws a dashed one.
+
+Implementation: `src/engine/region-editing.ts`, `src/engine/template-content-editing.ts`, `labs/reference/document.css`, `labs/src/template-content.lab.tsx`
+Verification: `src/engine/region-editing.test.ts`, `e2e/template-content.spec.ts`
+
 ## Hooks
 
 | Hook                     | Kind      | Values                             | Description                                                              |
@@ -175,3 +182,4 @@ Verification: `src/engine/template-content-editing.test.ts`, `src/engine/region-
 | `de-section-insert`      | root      |                                    | The button that adds a template section the document lacks.              |
 | `data-section-name`      | attribute | section name                       | On an add-section button, the template section it adds.                  |
 | `data-template-part`     | attribute | `content`, `placeholder`, `sample` | On each section of a preview shown in parts while its content is edited. |
+| `data-template-editing`  | attribute | `true`                             | On the editor's root while a template's regions or content are edited.   |

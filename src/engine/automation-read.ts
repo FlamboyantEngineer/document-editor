@@ -5,7 +5,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   catalogDocument,
-  DEFAULT_CONTENTS_KINDS,
+  ELEMENT_KINDS,
   isSectionNode,
   type TemplateFile,
 } from '../model/index.js';
@@ -36,15 +36,11 @@ export interface DescribeOptions {
   readonly template?: TemplateFile | undefined;
 }
 
-// The lists of the catalog that number blocks; the others list marks and inline nodes.
-const { toc, figures, tables, codeBlocks, equations } = DEFAULT_CONTENTS_KINDS;
-const NUMBERED_KINDS = { toc, figures, tables, codeBlocks, equations };
-
 // The number of each numbered block, by where it starts.
 function numbersOf(doc: ProseMirrorNode, template: TemplateFile | undefined) {
   const numbers = new Map<number, string>();
   if (!template) return numbers;
-  for (const entries of Object.values(catalogDocument(doc, template, NUMBERED_KINDS))) {
+  for (const entries of Object.values(catalogDocument(doc, template, ELEMENT_KINDS))) {
     for (const entry of entries) if (entry.number) numbers.set(entry.pos, entry.number);
   }
   return numbers;

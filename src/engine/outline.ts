@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import {
   catalogDocument,
+  ELEMENT_KINDS,
   isStructuralHeading,
   regionKind,
   type TemplateFile,
@@ -43,7 +44,10 @@ export function documentOutline(
 ): OutlineEntry[] {
   const numbers = new Map(
     template
-      ? (catalogDocument(state.doc, template).toc ?? []).map((entry) => [entry.pos, entry.number])
+      ? (catalogDocument(state.doc, template, ELEMENT_KINDS).toc ?? []).map((entry) => [
+          entry.pos,
+          entry.number,
+        ])
       : [],
   );
   const found: Omit<OutlineEntry, 'active' | 'highlight'>[] = [];
