@@ -37,10 +37,10 @@
       ],
       "kinds": {
         "toc": {
-          "title": "Handbook contents"
+          "customTitle": "Handbook contents"
         },
         "equations": {
-          "title": "Equations"
+          "customTitle": "Equations"
         }
       }
     },

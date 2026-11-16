@@ -91,6 +91,13 @@ A References section shall hold a card for each reference format key (`reference
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/setting-controls.tsx`
 Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`
 
+### DOCE-TEMPLATE-EDITOR-1.12 - Lists of contents
+
+The Contents section shall pick the list type it edits: all lists, or one of the seven kinds (`contentsSettings`, in the order the insert menu offers them). Each shall show its title's and entries' font, size, bold, italic and colour, its padding and spacing, and its leader (character, bold and italic, spacing, and the space before and after it, in points); a kind's own settings are written under its key in `kinds`, with a custom title, over every list's. Lists that show no page numbers, references and abbreviations, shall show no leader. For all lists and the table of contents, a heading level picker shall show one level's size, bold and italic, indentation, spacing and leader; an All levels row shall set every level's indentation, each one step past the level above it, or its space before or after, in points, only when edited, keeping what each level sets otherwise (`withAllLevels`). Bold and italic cycle inherited, on, off (an explicit normal, over what is inherited) and inherited again, and an emptied field inherits again.
+
+Implementation: `src/components/template-editor/contents-catalog.ts`, `src/components/template-editor/contents-section.tsx`, `src/components/template-editor/style-rows.tsx`
+Verification: `src/components/template-editor/contents-section.test.tsx`, `src/components/template-editor/settings-catalog.test.ts`
+
 ## DOCE-TEMPLATE-EDITOR-2 - The template's structure
 
 ### DOCE-TEMPLATE-EDITOR-2.1 - The scope, by name

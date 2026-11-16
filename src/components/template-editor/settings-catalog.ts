@@ -7,6 +7,7 @@ import {
   referenceFormatError,
   referenceFormatKeys,
 } from '../../model/index.js';
+import { contentsSettings } from './contents-catalog.js';
 import { FONT_PARTS, OBJECT_SECTIONS, RUNNING_PARTS } from './object-settings.js';
 import {
   choice,
@@ -66,55 +67,6 @@ const PARAGRAPH_LEVELS: TemplateSettingCard[] = LEVELS.map((index) => ({
     setting('textIndent', 'Text indent', length),
   ],
 }));
-
-// The lists of contents a document has, by their kind.
-const CONTENTS_KINDS: [string, string][] = [
-  ['toc', 'Table of contents'],
-  ['figures', 'List of figures'],
-  ['tables', 'List of tables'],
-  ['codeBlocks', 'List of code'],
-  ['equations', 'List of equations'],
-  ['references', 'List of references'],
-  ['abbreviations', 'List of abbreviations'],
-];
-
-// A contents leader: the character that fills the line to the page number, its spacing, and its
-// gaps to the entry's text and to the page number.
-const leader = (path: string): TemplateSetting[] => [
-  setting(`${path}.character`, 'Leader', text),
-  setting(`${path}.spacing`, 'Leader spacing', length),
-  setting(`${path}.gapBefore`, 'Space before leader', length),
-  setting(`${path}.gapAfter`, 'Space after leader', length),
-];
-
-// The contents' cards: title and entries, each level, then each kind with its own leaders.
-const CONTENTS_CARDS: TemplateSettingCard[] = [
-  { id: 'title', title: 'Title', path: ['title'], style: FONT_PARTS },
-  { id: 'entry', title: 'Entries', path: ['entry'], style: FONT_PARTS },
-  ...LEVELS.map((index) => ({
-    id: `level-${String(index)}`,
-    title: levelName(index),
-    path: ['levels', String(index)],
-    settings: [
-      setting('indentation', 'Indentation', length),
-      setting('spaceBefore', 'Space before', length),
-      setting('spaceAfter', 'Space after', length),
-      ...leader('leader'),
-    ],
-  })),
-  ...CONTENTS_KINDS.map(([kind, title]) => ({
-    id: `kind-${kind}`,
-    title,
-    path: ['kinds', kind],
-    settings: [
-      setting('title', 'Title', text),
-      setting('leader.character', 'Leader', text),
-      ...LEVELS.map((index) =>
-        setting(`levels.${String(index)}.leader.character`, `${levelName(index)} leader`, text),
-      ),
-    ],
-  })),
-];
 
 // What a reference's target is called, by its kind.
 const TARGETS: Readonly<Record<string, string>> = {
@@ -239,18 +191,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
       { id: 'text', title: 'Text', path: ['text'], style: RUNNING_PARTS },
     ],
   },
-  {
-    id: 'contents',
-    title: 'Contents',
-    scope: ['styles', 'contents'],
-    documentOnly: true,
-    settings: [
-      ...leader('leader'),
-      setting('padding', 'Padding', { type: 'sides', unit: 'pt', side: 'padding' }),
-      setting('spacing', 'Spacing', { type: 'sides', unit: 'pt', side: 'spacing' }),
-    ],
-    cards: CONTENTS_CARDS,
-  },
+  contentsSettings(null),
   {
     id: 'references',
     title: 'References',

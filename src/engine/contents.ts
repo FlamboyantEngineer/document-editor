@@ -16,20 +16,25 @@ import {
   catalogDocument,
   type CatalogEntry,
   type ContentsKind,
+  contentsListProperties,
   DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
+  type FontStacks,
   resolveContentsList,
   type TemplateFile,
 } from '../model/index.js';
 import { type PageMap, pageMap } from '../pagination/page-map.js';
-import { chooseEntryWith } from './contents-keys.js';
 import { hasContents } from './contents-presence.js';
+import {
+  type ContentsLabels,
+  type ContentsRows,
+  copyRows,
+  draw,
+  type Drawing,
+  rowsIn,
+} from './contents-view.js';
 
-/** A list's title, and what it shows when it lists nothing. */
-export interface ContentsLabels {
-  title: string;
-  empty: string;
-}
+export type { ContentsLabels } from './contents-view.js';
 
 /** The labels each default list shows unless a host gives its own. */
 export const CONTENTS_LABELS: Readonly<
@@ -58,14 +63,8 @@ export interface ContentsOptions {
   kinds?: Readonly<Record<string, ContentsKind>> | undefined;
   /** Labels in place of the default ones, by kind. */
   labels?: Readonly<Record<string, Partial<ContentsLabels>>> | undefined;
-}
-
-/** A list of contents' rows, as its block's decoration hands them to its view. */
-interface ContentsRows {
-  readonly entries: readonly CatalogEntry[];
-  readonly empty: boolean;
-  /** Whether the entries show their page numbers. */
-  readonly showPage: boolean;
+  /** The fonts the host serves itself, by the family name a template uses. */
+  fontStacks?: FontStacks | undefined;
 }
 
 /** What a contents plugin keeps: the catalog, and the rows each list block shows. */
@@ -160,94 +159,6 @@ function pagedDecorations(state: EditorState, value: ContentsState, kinds: Kinds
   return set;
 }
 
-// A short hash naming the rows a list draws, so pagination measures it again when they change.
-function measureKey(node: ProseMirrorNode, { rows, labels, leaders, showPage }: Drawing): string {
-  const text = [
-    String(node.attrs.showTitle),
-    labels.title,
-    labels.empty,
-    leaders.map(String).join('|'),
-    String(showPage),
-    String(rows.empty),
-    ...rows.entries.map(
-      (entry) => `${String(entry.level)}|${entry.number}|${entry.text}|${String(entry.page)}`,
-    ),
-  ].join('\n');
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
-  }
-  return (hash >>> 0).toString(36);
-}
-
-function rowsIn(decorations: readonly Decoration[]): ContentsRows {
-  for (const decoration of decorations) {
-    const rows = (decoration.spec as { contents?: ContentsRows }).contents;
-    if (rows) return rows;
-  }
-  return { entries: [], empty: true, showPage: false };
-}
-
-function span(className: string, text: string): HTMLSpanElement {
-  const element = document.createElement('span');
-  element.className = className;
-  element.textContent = text;
-  return element;
-}
-
-interface Drawing {
-  readonly rows: ContentsRows;
-  readonly labels: ContentsLabels;
-  /** Each level's leader character, from level 1, or null for none. */
-  readonly leaders: readonly (string | null)[];
-  /** Whether the entries show their page numbers. */
-  readonly showPage: boolean;
-  /** Takes the reader to the entry at an index of the rows the list shows now. */
-  readonly navigate: (index: number) => void;
-}
-
-function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLElement {
-  const row = document.createElement('div');
-  row.className = 'de-contents__entry';
-  row.dataset.level = String(entry.level || 1);
-  row.setAttribute('role', 'link');
-  if (entry.anchor) row.id = entry.anchor;
-  if (entry.number) row.append(span('de-contents__number', entry.number));
-  row.append(span('de-contents__text', entry.text));
-  const character = drawing.leaders[(entry.level || 1) - 1] ?? null;
-  if (character !== null && drawing.showPage) {
-    const leader = span('de-contents__leader', character.repeat(200));
-    leader.setAttribute('aria-hidden', 'true');
-    row.append(leader);
-  }
-  if (drawing.showPage) row.append(span('de-contents__page', String(entry.page)));
-  chooseEntryWith(row, index === 0, () => drawing.navigate(index));
-  return row;
-}
-
-// Draws a list's rows, unless it already shows them.
-function draw(dom: HTMLElement, node: ProseMirrorNode, drawing: Drawing) {
-  const { rows } = drawing;
-  const key = measureKey(node, drawing);
-  if (dom.dataset.deMeasureKey === key) return;
-  const parts: HTMLElement[] = [];
-  if (node.attrs.showTitle !== false) {
-    const title = document.createElement('div');
-    title.className = 'de-contents__title';
-    title.textContent = drawing.labels.title;
-    parts.push(title);
-    if (rows.empty) {
-      const empty = document.createElement('div');
-      empty.className = 'de-contents__empty';
-      empty.textContent = drawing.labels.empty;
-      parts.push(empty);
-    }
-  }
-  parts.push(...rows.entries.map((entry, index) => drawEntry(entry, index, drawing)));
-  dom.replaceChildren(...parts);
-  dom.dataset.deMeasureKey = key;
-}
-
 /** Takes the reader to what an entry names, with the caret at its start. */
 function goTo(view: EditorView, entry: CatalogEntry) {
   const { doc } = view.state;
@@ -283,26 +194,16 @@ export function contentsRowsAt(state: EditorState, pos: number): ContentsRows {
   return rowsIn(contentsKey.getState(state)?.decorations.find(pos, pos + size) ?? []);
 }
 
-/**
- * Lists of contents drawn from the document under its template: a plugin that keeps the catalog
- * and draws each `toc_block` with its node view, in every view it runs in. After the template
- * changes, a host dispatches a transaction with `contentsKey` meta to draw them again.
- */
-export function createContents({
+// What a list block draws, by its kind: the kind's labels and title, its levels' leaders and
+// custom properties, from the template.
+function drawingWith({
   template,
-  kinds: added = {},
+  kinds,
   labels = {},
-}: ContentsOptions): Plugin<ContentsState> {
-  const all: Record<string, ContentsKind> = { ...DEFAULT_CONTENTS_KINDS, ...added };
-  const kinds: Kinds = {
-    all,
-    of: (node) => {
-      const type: unknown = node.attrs.tocType;
-      return typeof type === 'string' && Object.hasOwn(all, type) ? type : 'toc';
-    },
-  };
+  fontStacks,
+}: Omit<ContentsOptions, 'kinds'> & { kinds: Kinds }) {
   const defaults: Readonly<Record<string, ContentsLabels>> = CONTENTS_LABELS;
-  const drawingFor = (
+  return (
     node: ProseMirrorNode,
     rows: ContentsRows,
     navigate: (index: number) => void,
@@ -314,11 +215,36 @@ export function createContents({
     return {
       rows,
       labels: list.title ? { ...label, title: list.title } : label,
-      leaders: list.levels.map((level) => (kind?.leader === false ? null : level.leader)),
+      leaders: list.levels.map((level) =>
+        kind?.leader === false ? null : (level.leader?.character ?? null),
+      ),
+      properties: contentsListProperties(list, fontStacks),
       showPage: kind?.showPage !== false,
       navigate,
     };
   };
+}
+
+/**
+ * Lists of contents drawn from the document under its template: a plugin that keeps the catalog
+ * and draws each `toc_block` with its node view, in every view it runs in. After the template
+ * changes, a host dispatches a transaction with `contentsKey` meta to draw them again.
+ */
+export function createContents({
+  template,
+  kinds: added = {},
+  labels = {},
+  fontStacks,
+}: ContentsOptions): Plugin<ContentsState> {
+  const all: Record<string, ContentsKind> = { ...DEFAULT_CONTENTS_KINDS, ...added };
+  const kinds: Kinds = {
+    all,
+    of: (node) => {
+      const type: unknown = node.attrs.tocType;
+      return typeof type === 'string' && Object.hasOwn(all, type) ? type : 'toc';
+    },
+  };
+  const drawingFor = drawingWith({ template, kinds, labels, fontStacks });
   const view: NodeViewConstructor = (...[node, editor, , decorations]) => {
     const dom = document.createElement('div');
     dom.className = 'de-contents';
@@ -361,6 +287,7 @@ export function createContents({
       },
       nodeViews: { toc_block: view },
       handleClickOn: (...[editor, , node, , event]) => followAnchor(editor, node, event),
+      handleDOMEvents: { copy: copyRows },
     },
   });
 }

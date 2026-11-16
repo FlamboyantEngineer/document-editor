@@ -754,10 +754,12 @@ div.de-host-view {
 
 /*
  * Lists of contents: a title, then one row per entry with its number, its text, a leader and its
- * page, indented by its level. A split list's later parts show no title.
+ * page, indented by its level. A split list's later parts show no title. The list carries its
+ * kind's type, padding and spacing, and each row its level's, from the template.
  */
 .de-contents {
-  margin: 0 0 12px;
+  margin: var(--doc-contents-margin-top, 0) 0 var(--doc-contents-margin-bottom, 12px);
+  padding: 0 var(--doc-contents-padding-right, 0) 0 var(--doc-contents-padding-left, 0);
 }
 
 .de-contents__title {
@@ -765,7 +767,9 @@ div.de-host-view {
   color: var(--doc-contents-title-color, inherit);
   font-family: var(--doc-contents-title-font-family, inherit);
   font-size: var(--doc-contents-title-font-size, 16px);
+  font-style: var(--doc-contents-title-font-style, normal);
   font-weight: var(--doc-contents-title-font-weight, 700);
+  text-decoration: var(--doc-contents-title-text-decoration, none);
 }
 
 .de-contents__empty {
@@ -774,56 +778,97 @@ div.de-host-view {
 }
 
 .de-contents__entry {
+  --de-contents-default-indentation: 0;
+
   display: flex;
-  gap: 6px;
   align-items: baseline;
-  color: var(--doc-contents-entry-color, inherit);
-  font-family: var(--doc-contents-entry-font-family, var(--doc-paragraph-font-family, inherit));
-  font-size: var(--doc-contents-entry-font-size, var(--doc-paragraph-font-size, 12px));
-  font-weight: var(--doc-contents-entry-font-weight, 400);
+  margin: var(--doc-contents-level-margin-top, 0) 0 var(--doc-contents-level-margin-bottom, 0);
+  padding-left: var(--doc-contents-level-indentation, var(--de-contents-default-indentation));
+  color: var(--doc-contents-level-color, var(--doc-contents-entry-color, inherit));
+  font-family: var(
+    --doc-contents-level-font-family,
+    var(--doc-contents-entry-font-family, var(--doc-paragraph-font-family, inherit))
+  );
+  font-size: var(
+    --doc-contents-level-font-size,
+    var(--doc-contents-entry-font-size, var(--doc-paragraph-font-size, 12px))
+  );
+  font-style: var(--doc-contents-level-font-style, var(--doc-contents-entry-font-style, normal));
+  font-weight: var(--doc-contents-level-font-weight, var(--doc-contents-entry-font-weight, 400));
   line-height: 1.5;
   cursor: pointer;
 }
 
-.de-contents__entry[data-level='1'] {
-  margin: var(--doc-contents-level-1-margin-top, 0) 0 var(--doc-contents-level-1-margin-bottom, 0);
-  padding-left: var(--doc-contents-level-1-indentation, 0);
-}
-
 .de-contents__entry[data-level='2'] {
-  margin: var(--doc-contents-level-2-margin-top, 0) 0 var(--doc-contents-level-2-margin-bottom, 0);
-  padding-left: var(--doc-contents-level-2-indentation, 16px);
+  --de-contents-default-indentation: 16px;
 }
 
 .de-contents__entry[data-level='3'] {
-  margin: var(--doc-contents-level-3-margin-top, 0) 0 var(--doc-contents-level-3-margin-bottom, 0);
-  padding-left: var(--doc-contents-level-3-indentation, 32px);
+  --de-contents-default-indentation: 32px;
+}
+
+.de-contents__entry[data-level='4'] {
+  --de-contents-default-indentation: 48px;
+}
+
+.de-contents__entry[data-level='5'] {
+  --de-contents-default-indentation: 64px;
+}
+
+.de-contents__entry[data-level='6'] {
+  --de-contents-default-indentation: 80px;
 }
 
 .de-contents__entry:hover .de-contents__text {
   text-decoration: underline;
 }
 
-.de-contents__number,
+.de-contents__number {
+  flex: none;
+  margin-right: 6px;
+}
+
 .de-contents__page {
   flex: none;
+  align-self: flex-end;
 }
 
+/* A long entry wraps; its leader and page stay on its last line. */
 .de-contents__text {
-  overflow: hidden;
   min-width: 0;
   flex: 0 1 auto;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
+/*
+ * The leader fills the row up to the page number, ending flush against it and clipped on the
+ * text's side. It is drawn from its attribute, so copying a row leaves it out.
+ */
 .de-contents__leader {
+  display: flex;
   overflow: hidden;
-  margin-inline: var(--doc-contents-leader-gap-before, 0) var(--doc-contents-leader-gap-after, 0);
-  min-width: 16px;
+  min-width: 1ch;
   flex: 1 1 0;
+  align-self: flex-end;
+  justify-content: flex-end;
+  margin-inline: var(--doc-contents-level-leader-gap-before, 4px)
+    var(--doc-contents-level-leader-gap-after, 4px);
   color: #94a3b8;
+  font-style: var(--doc-contents-level-leader-font-style, inherit);
+  font-weight: var(--doc-contents-level-leader-font-weight, inherit);
+  letter-spacing: var(--doc-contents-level-leader-spacing, normal);
   white-space: nowrap;
+  user-select: none;
+}
+
+.de-contents__leader::before {
+  flex: none;
+  content: attr(data-leader);
+}
+
+/* A row without a page, such as a cited document's, has neither leader nor page to keep apart. */
+.de-contents__entry > .de-contents__text:last-child {
+  flex: 1 1 auto;
 }
 
 /* Suggestions: suggested insertions underlined, deletions struck, suggested blocks barred. */

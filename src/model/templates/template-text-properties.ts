@@ -3,7 +3,6 @@
 
 import type {
   ContentsLeader,
-  ContentsSettings,
   TableSettings,
   TemplateStyles,
   TextSettings,
@@ -20,6 +19,7 @@ import {
   cssWeight,
   TEXT_ALIGNMENTS,
 } from './template-property-values.js';
+import type { ResolvedContentsList } from './template-settings.js';
 
 /** Custom property names and values. */
 export type CustomProperties = Record<string, string>;
@@ -114,7 +114,8 @@ function tableProperties(properties: CustomProperties, table: TableSettings | nu
   set(properties, '--doc-table-row-even-background', cssColor(table.rows?.even));
 }
 
-// A leader's spacing between its characters and its gaps to the text and the page number.
+// A leader's spacing between its characters, its gaps to the text and the page number, and its
+// weight and slant.
 function leaderProperties(
   properties: CustomProperties,
   prefix: string,
@@ -123,26 +124,46 @@ function leaderProperties(
   set(properties, `${prefix}-spacing`, cssLength(leader?.spacing));
   set(properties, `${prefix}-gap-before`, cssLength(leader?.gapBefore));
   set(properties, `${prefix}-gap-after`, cssLength(leader?.gapAfter));
+  set(properties, `${prefix}-font-weight`, cssWeight(leader?.weight));
+  if (typeof leader?.italic === 'boolean') {
+    set(properties, `${prefix}-font-style`, leader.italic ? 'italic' : 'normal');
+  }
 }
 
-function contentsProperties(
-  properties: CustomProperties,
-  contents: ContentsSettings | null | undefined,
-  fontStacks: FontStacks | undefined,
-) {
-  if (!contents) return;
-  Object.assign(properties, textProperties('--doc-contents-title', contents.title, fontStacks));
-  Object.assign(properties, textProperties('--doc-contents-entry', contents.entry, fontStacks));
-  if (contents.leader?.character)
-    properties['--doc-contents-leader'] = quoted(contents.leader.character);
-  leaderProperties(properties, '--doc-contents-leader', contents.leader);
-  contents.levels?.forEach((level, index) => {
-    const prefix = `--doc-contents-level-${String(index + 1)}`;
-    set(properties, `${prefix}-indentation`, cssLength(level?.indentation));
-    set(properties, `${prefix}-margin-top`, cssLength(level?.spaceBefore));
-    set(properties, `${prefix}-margin-bottom`, cssLength(level?.spaceAfter));
-    leaderProperties(properties, `${prefix}-leader`, level?.leader);
+/** The custom properties of a list of contents, and of each of its levels' rows. */
+export interface ContentsListProperties {
+  /** Its title's and entries' type, its padding and spacing (`--doc-contents-*`). */
+  readonly list: CustomProperties;
+  /** Each level's type, indentation, spacing and leader (`--doc-contents-level-*`), from level 1. */
+  readonly levels: readonly CustomProperties[];
+}
+
+/**
+ * The custom properties a list of contents carries for one kind's resolved settings: the list its
+ * title's and entries' type, padding and spacing, each row its level's type, indentation, spacing
+ * and leader. Unset values are left out, so the stylesheet's fallback applies.
+ */
+export function contentsListProperties(
+  list: ResolvedContentsList,
+  fontStacks?: FontStacks,
+): ContentsListProperties {
+  const properties: CustomProperties = {
+    ...textProperties('--doc-contents-title', list.titleFont, fontStacks),
+    ...textProperties('--doc-contents-entry', list.entry, fontStacks),
+  };
+  set(properties, '--doc-contents-padding-left', cssLength(list.padding.left));
+  set(properties, '--doc-contents-padding-right', cssLength(list.padding.right));
+  set(properties, '--doc-contents-margin-top', cssLength(list.spacing.top));
+  set(properties, '--doc-contents-margin-bottom', cssLength(list.spacing.bottom));
+  const levels = list.levels.map((level) => {
+    const own = textProperties('--doc-contents-level', level.font, fontStacks);
+    set(own, '--doc-contents-level-indentation', cssLength(level.indentation));
+    set(own, '--doc-contents-level-margin-top', cssLength(level.spaceBefore));
+    set(own, '--doc-contents-level-margin-bottom', cssLength(level.spaceAfter));
+    leaderProperties(own, '--doc-contents-level-leader', level.leader);
+    return own;
   });
+  return { list: properties, levels };
 }
 
 /**
@@ -172,6 +193,5 @@ export function textStyleProperties(
   set(properties, '--doc-code-background', cssColor(styles?.codeBlock?.background));
   listProperties(properties, styles);
   tableProperties(properties, styles?.table);
-  contentsProperties(properties, styles?.contents, fontStacks);
   return properties;
 }

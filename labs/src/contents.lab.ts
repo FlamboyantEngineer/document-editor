@@ -1,7 +1,8 @@
 // Shows lists of contents: a table of contents and a table of tables, drawn live from the document
 // (`createContents`), numbered as the stylesheet numbers the headings and tables, with the page
 // each entry is on, and a list of quotations, a kind of list the lab configures for a node type
-// the defaults do not list. The table of contents is long enough to continue on the next page.
+// the defaults do not list. The table of contents is long enough to continue on the next page, its
+// levels nest down to level 6, each level in the type the template gives it, and a long entry wraps.
 // Inserting a chapter renumbers every entry after it; an entry takes the reader to what it names.
 
 import { EditorState } from 'prosemirror-state';
@@ -19,10 +20,45 @@ import {
 import { applyTemplate, bodyHeight, sampleDocument, text } from './lab-document.js';
 import { labMounts, showOnPages } from './lab-pages.js';
 
-const TEMPLATE = resolveTemplateFile(BASE_TEMPLATE, {
-  loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
-  baseTemplateId: BASE_TEMPLATE_ID,
-});
+// The base template, with a table of contents whose first level is larger and bold and whose
+// second is italic, and a list of tables with a dashed leader.
+const TEMPLATE = resolveTemplateFile(
+  {
+    formatVersion: 1,
+    id: 'contents-lab',
+    parent: BASE_TEMPLATE_ID,
+    styles: {
+      contents: {
+        kinds: {
+          toc: { levels: [{ size: '13pt', weight: 700 }, { italic: true }] },
+          tables: { leader: { character: '-' } },
+        },
+      },
+    },
+  },
+  {
+    loadTemplate: (id) => (id === BASE_TEMPLATE_ID ? BASE_TEMPLATE : null),
+    baseTemplateId: BASE_TEMPLATE_ID,
+  },
+);
+
+// Headings down to level 6 under the last chapter, and one too long for a row, which wraps.
+const DEEP: StoredNode[] = [
+  {
+    type: 'heading',
+    attrs: { level: 2 },
+    content: [
+      text(
+        'Archive retention of every record, report, log, release note, review minute, audit finding and change request kept after the hand-over, with who may read each one and for how long',
+      ),
+    ],
+  },
+  ...[3, 4, 5, 6].map((level): StoredNode => ({
+    type: 'heading',
+    attrs: { level },
+    content: [text(`Archive level ${String(level)}`)],
+  })),
+];
 
 const CHAPTERS = [
   'Scope',
@@ -83,7 +119,8 @@ function sample() {
       ? [block, quotation(`Quoted in chapter ${String(chapter)}.`)]
       : [block];
   });
-  section.content.unshift(contentsBlock('toc', 2), contentsBlock('tables'));
+  section.content.push(...DEEP);
+  section.content.unshift(contentsBlock('toc'), contentsBlock('tables'));
   section.content.push(contentsBlock('quotes'));
   return document;
 }
