@@ -72,6 +72,38 @@ export function setAbbreviationDisplay(display?: AbbreviationDisplay): Command {
   };
 }
 
+/** Makes the abbreviation selected cite another glossary entry, in the same form, and keeps it selected. */
+export function relinkAbbreviation(entry: AbbreviationEntry): Command {
+  return (state, dispatch) => {
+    const found = abbreviationAt(state);
+    if (!found || found.node.attrs.entryId === entry.id) return false;
+    if (dispatch) {
+      const tr = state.tr.setNodeMarkup(found.pos, undefined, {
+        ...found.node.attrs,
+        entryId: entry.id,
+        abbr: entry.abbreviation,
+        expansion: entry.expansion,
+      });
+      dispatch(tr.setSelection(NodeSelection.create(tr.doc, found.pos)));
+    }
+    return true;
+  };
+}
+
+/**
+ * The other glossary entries the document cites that read the same abbreviation as the one
+ * selected, ignoring case, which a duplicate may cite instead.
+ */
+export function abbreviationAlternatives(state: EditorState): AbbreviationEntry[] {
+  const found = abbreviationAt(state);
+  if (!found) return [];
+  const key = String(found.node.attrs.abbr).trim().toLowerCase();
+  return documentAbbreviations(state.doc).filter(
+    (entry) =>
+      entry.id !== found.node.attrs.entryId && entry.abbreviation.trim().toLowerCase() === key,
+  );
+}
+
 /** Turns the abbreviation selected into plain text, as it reads, keeping its marks. */
 export const unlinkAbbreviation: Command = (state, dispatch) => {
   const found = abbreviationAt(state);

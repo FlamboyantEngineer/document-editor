@@ -98,6 +98,8 @@ export interface DocumentEditorLabels
   /** Heads a proofing issue's suggestions when the proofer gives no message. */
   readonly proofingIssue: (kind: ProofingKind) => string;
   readonly noSuggestions: string;
+  /** Names the context menu's proofing submenu. */
+  readonly proofingMenu: string;
   /** Replaces every issue like the one at the caret with a suggestion. */
   /** The submenu replacing every issue like the one at the caret with one of its suggestions. */
   readonly replaceAll: string;
@@ -208,6 +210,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   readingMode: 'Reading',
   proofingIssue: (kind) => PROOFING_KINDS[kind],
   noSuggestions: 'No suggestions',
+  proofingMenu: 'Spelling',
   replaceAll: 'Replace all',
   ignoreIssue: 'Ignore',
   ignoreAll: 'Ignore all',
@@ -224,7 +227,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   replacedCount: (count) => `Replaced ${count} ${count === 1 ? 'match' : 'matches'}`,
   zoom: 'Zoom',
   proofingStatus: (issues, pending) => {
-    if (pending && issues === 0) return 'Checking…';
+    if (pending) return 'Checking…';
     if (issues === 0) return 'No issues';
     return `${count.format(issues)} ${issues === 1 ? 'issue' : 'issues'}`;
   },

@@ -1,5 +1,20 @@
 // The second half of the engine's exports, re-exported by its index.
 
+export type {
+  AbbreviationHealthOptions,
+  AbbreviationIssue,
+  AbbreviationIssueKind,
+  GlossaryAnswer,
+  ResolvedGlossaryEntry,
+} from './abbreviation-health.js';
+export {
+  abbreviationIssueAt,
+  abbreviationIssues,
+  createAbbreviationHealth,
+  hasAbbreviationHealth,
+  listAbbreviationIssues,
+  recordGlossaryEntries,
+} from './abbreviation-health.js';
 export { isActive } from './active.js';
 export type { ChangeLine, ChangeLineKind, ChangeLines } from './change-lines.js';
 export {
@@ -62,6 +77,7 @@ export {
   setPeers,
 } from './presence.js';
 export type {
+  ProofingDecision,
   ProofingIssueAt,
   ProofingOptions,
   ProofingState,
@@ -81,6 +97,7 @@ export {
   disableProofingRule,
   ignoreProofingIssue,
   ignoreProofingOnce,
+  listDocumentIssues,
   listProofingIssues,
   proofingIssueAt,
   proofingLanguages,
@@ -93,6 +110,7 @@ export {
 } from './proofing-commands.js';
 export type { TextSegment as ProofingSegment } from './proofing-text.js';
 export { segmentsOf } from './proofing-text.js';
+export { isTechnicalToken } from './proofing-tokens.js';
 export type { CitationKey, ReferenceStatus, ReferenceStatusOptions } from './reference-status.js';
 export {
   citationKey,

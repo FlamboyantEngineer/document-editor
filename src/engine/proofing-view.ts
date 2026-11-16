@@ -2,8 +2,9 @@
 // changes, one check at a time, with every proofer, in batches a proofer takes at once and long
 // blocks in segments. A check the document outran is aborted, and the next one starts from the new
 // text; results wait while a pointer button is down, so they never redraw a selection being made.
+// While the editor is not editable, or the host turns proofing off, nothing is checked.
 
-import type { PluginView } from 'prosemirror-state';
+import type { EditorState, PluginView } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { ProofingText } from '../host/proofing-adapters.js';
 import { readDomSelection } from '../utils/dom-selection.js';
@@ -96,6 +97,26 @@ function collect(
   return results;
 }
 
+// Whether a view's document is proofed now: it is editable, and the host has proofing on.
+const enabledIn = (view: EditorView, options: ProofingOptions) =>
+  view.editable && (options.isEnabled?.(view.state) ?? true);
+
+// Tells a view's state whether its document is proofed, once the view's update is over.
+function publishEnabled(view: EditorView, enabled: boolean) {
+  queueMicrotask(() => {
+    const proofing = proofingKey.getState(view.state);
+    if (view.isDestroyed || !proofing || proofing.enabled === enabled) return;
+    view.dispatch(view.state.tr.setMeta(proofingKey, { enabled }).setMeta('addToHistory', false));
+  });
+}
+
+// Whether a change of the view's state starts every text over, as a new language does.
+function startsOver(next: EditorView, previous: EditorState) {
+  const now = proofingKey.getState(next.state);
+  const before = proofingKey.getState(previous);
+  return Boolean(now && before && now.results.size === 0 && before.results.size > 0);
+}
+
 function statusOf(answers: readonly PromiseSettledResult<unknown>[]): ProofingStatus {
   const failed = answers.filter((answer) => answer.status === 'rejected').length;
   if (failed === 0) return 'ready';
@@ -108,6 +129,7 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
   const pointer = pointerOn(view);
   let timer: number | null = null;
   let running: AbortController | null = null;
+  let enabled = enabledIn(view, options);
 
   function clear() {
     if (timer !== null) owner?.clearTimeout(timer);
@@ -131,7 +153,7 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
 
   async function run() {
     const proofing = proofingKey.getState(view.state);
-    const batch = nextBatch(view, options);
+    const batch = enabled ? nextBatch(view, options) : [];
     if (!proofing || batch.length === 0 || running) return;
     const controller = new AbortController();
     running = controller;
@@ -158,24 +180,27 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
     schedule(0);
   }
 
-  // The first check waits as long as one after a change, so it does not slow the editor's start.
-  schedule(options.delay ?? 500);
+  // The first check waits for the host, or as long as one after a change, so it does not slow the
+  // editor's start.
+  const cancelFirst = options.scheduleFirstCheck?.(() => void run());
+  if (!cancelFirst) schedule(options.delay ?? 500);
+  if (!enabled) publishEnabled(view, enabled);
   return {
     update(next, previous) {
-      const now = proofingKey.getState(next.state);
-      const before = proofingKey.getState(previous);
-      if (now && before && now.results.size === 0 && before.results.size > 0) {
-        // Every text starts over, as after a new language.
-        restart(0);
-        return;
-      }
-      if (next.state.doc.eq(previous.doc)) return;
+      const was = enabled;
+      enabled = enabledIn(next, options);
+      if (proofingKey.getState(next.state)?.enabled !== enabled) publishEnabled(next, enabled);
+      // Turned off, a running check is dropped; turned on, and on a new start, every text not
+      // checked yet is checked now.
+      if (was !== enabled || startsOver(next, previous)) return restart(0);
+      if (!enabled || next.state.doc.eq(previous.doc)) return;
       // A collaborator's change waits for the running check rather than aborting it.
-      if (now?.remoteChange && running) return;
+      if (proofingKey.getState(next.state)?.remoteChange && running) return;
       restart(options.delay ?? 500);
     },
     destroy() {
       clear();
+      cancelFirst?.();
       running?.abort();
       pointer.destroy();
     },

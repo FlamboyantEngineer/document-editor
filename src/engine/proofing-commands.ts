@@ -1,10 +1,12 @@
 // The proofing commands: listing the issues the proofing plugin marks, correcting one or all like
 // it with a suggestion, ignoring one or its word everywhere, adding its word to the proofer's
 // dictionary, turning its rule off, picking the language, checking again, moving to the next and
-// revealing it.
+// revealing it. Abbreviations whose glossary entry needs the writer count and are visited with the
+// issues.
 
-import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
+import { type Command, type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { type AbbreviationIssue, listAbbreviationIssues } from './abbreviation-health.js';
 import {
   currentIssueKey,
   PROOFING_ISSUE_ATTR,
@@ -19,10 +21,14 @@ export function proofingState(state: EditorState): ProofingState | null {
   return proofingKey.getState(state) ?? null;
 }
 
+// Document order: by start, then end, then key, so issues over the same text stay apart.
+const inOrder = (left: ProofingIssueAt, right: ProofingIssueAt) =>
+  left.from - right.from || left.to - right.to || (left.key < right.key ? -1 : 1);
+
 /** The issues marked in the document, in document order. */
 export function listProofingIssues(state: EditorState): ProofingIssueAt[] {
   const proofing = proofingKey.getState(state);
-  if (!proofing) return [];
+  if (!proofing?.enabled) return [];
   return proofing.decorations
     .find()
     .map((decoration) => ({
@@ -31,7 +37,43 @@ export function listProofingIssues(state: EditorState): ProofingIssueAt[] {
       to: decoration.to,
     }))
     .filter((issue) => state.doc.textBetween(issue.from, issue.to) === issue.text)
-    .sort((left, right) => left.from - right.from);
+    .sort(inOrder);
+}
+
+// An abbreviation whose glossary entry needs the writer, as an issue of the document: of its own
+// category (`abbreviation-missing`, `-archived` or `-duplicate`), from no proofer, named by its
+// entry and which of that entry's abbreviations it is, so its key outlives changes around it.
+function abbreviationIssue(
+  state: EditorState,
+  { pos, issue, entryId }: AbbreviationIssue,
+  index: number,
+): ProofingIssueAt {
+  return {
+    from: pos,
+    to: pos + 1,
+    kind: 'style',
+    message: undefined,
+    suggestions: [],
+    rule: undefined,
+    category: `abbreviation-${issue}`,
+    source: -1,
+    text: state.doc.textBetween(pos, pos + 1),
+    key: `\u0000abbreviation:${entryId}:${String(index)}`,
+  };
+}
+
+/**
+ * The issues the status counts and the next issue visits, in document order: the proofing issues
+ * marked and the abbreviations whose glossary entry needs the writer.
+ */
+export function listDocumentIssues(state: EditorState): ProofingIssueAt[] {
+  const seen = new Map<string, number>();
+  const abbreviations = listAbbreviationIssues(state).map((each) => {
+    const index = seen.get(each.entryId) ?? 0;
+    seen.set(each.entryId, index + 1);
+    return abbreviationIssue(state, each, index);
+  });
+  return [...listProofingIssues(state), ...abbreviations].sort(inOrder);
 }
 
 /** The issue at a position, or null. */
@@ -100,16 +142,24 @@ export function ignoreProofingOnce(issue: ProofingIssueAt): Command {
     proofingMeta({ ignoreOnce: currentIssueKey(state, issue) })(state, dispatch);
 }
 
-/** Ignores an issue's word everywhere in the document, for as long as the editor is open. */
+/**
+ * Ignores an issue's word everywhere in the document, for as long as the editor is open, and tells
+ * the host (`onDecision`), which may keep it.
+ */
 export function ignoreProofingIssue(issue: ProofingIssueAt): Command {
-  return proofingMeta({ ignore: issue.text });
+  return (state, dispatch) => {
+    const proofing = proofingKey.getState(state);
+    if (!proofing) return false;
+    if (dispatch) proofing.onDecision?.({ kind: 'ignore', word: issue.text });
+    return proofingMeta({ ignore: issue.text })(state, dispatch);
+  };
 }
 
 /** Adds an issue's word to its proofer's dictionary, then ignores it everywhere. */
 export function addProofingWord(issue: ProofingIssueAt): Command {
   return (state, dispatch) => {
     const proofer = proofingKey.getState(state)?.proofers[issue.source];
-    if (!proofer?.addWord || issue.kind !== 'spelling') return false;
+    if (!proofer?.addWord) return false;
     if (dispatch) {
       void Promise.resolve(proofer.addWord(issue.text)).catch(() => undefined);
       return ignoreProofingIssue(issue)(state, dispatch);
@@ -128,6 +178,7 @@ export function disableProofingRule(issue: ProofingIssueAt): Command {
       if (proofer?.ignoreRule) {
         void Promise.resolve(proofer.ignoreRule(rule)).catch(() => undefined);
       }
+      proofingKey.getState(state)?.onDecision?.({ kind: 'disable-rule', rule });
       return proofingMeta({ disableRule: rule })(state, dispatch);
     }
     return true;
@@ -154,16 +205,44 @@ export function proofingLanguages(state: EditorState) {
   return [...seen.values()];
 }
 
-/** Selects the next issue after the selection, wrapping to the first. */
+// The issue after the last one visited, or, after none, or when it is gone, after the selection.
+function nextIssue(state: EditorState, issues: readonly ProofingIssueAt[]) {
+  const visited = proofingKey.getState(state)?.visited ?? null;
+  const at = visited ? issues.findIndex((issue) => issue.key === visited.key) : -1;
+  if (at >= 0) return issues[at + 1] ?? issues[0];
+  if (visited) return issues.find((issue) => issue.from > visited.from) ?? issues[0];
+  return issues.find((issue) => issue.from >= state.selection.to) ?? issues[0];
+}
+
+/**
+ * Selects the next issue (`listDocumentIssues`), wrapping to the first: the one after the issue
+ * visited last, so moving the caret does not lose the place, or after the selection before any.
+ * Issues over the same text are visited one by one.
+ */
 export const selectNextProofingIssue: Command = (state, dispatch) => {
-  const issues = listProofingIssues(state);
-  const next = issues.find((issue) => issue.from >= state.selection.to) ?? issues[0];
+  const next = nextIssue(state, listDocumentIssues(state));
   if (!next) return false;
-  dispatch?.(
-    state.tr.setSelection(TextSelection.create(state.doc, next.from, next.to)).scrollIntoView(),
-  );
+  if (dispatch) {
+    const selection =
+      next.source < 0
+        ? NodeSelection.create(state.doc, next.from)
+        : TextSelection.create(state.doc, next.from, next.to);
+    const tr = state.tr.setSelection(selection).scrollIntoView();
+    if (proofingKey.getState(state)) {
+      tr.setMeta(proofingKey, { visited: { key: next.key, from: next.from } });
+    }
+    dispatch(tr);
+  }
   return true;
 };
+
+// The element drawing an issue: its decoration, or the abbreviation itself.
+function issueElement(view: EditorView, issue: ProofingIssueAt): Element | null {
+  if (issue.source < 0) return view.nodeDOM(issue.from) as Element | null;
+  const { node } = view.domAtPos(issue.from + 1);
+  const element = node.nodeType === node.ELEMENT_NODE ? (node as Element) : node.parentElement;
+  return element?.closest(`[${PROOFING_ISSUE_ATTR}]`) ?? null;
+}
 
 /** An issue revealed at the selection, and where it stands among the issues, from 0. */
 export interface RevealedProofingIssue {
@@ -182,15 +261,17 @@ export const PROOFING_FLASH = 1200;
  */
 export function revealSelectedProofingIssue(view: EditorView): RevealedProofingIssue | null {
   const { state } = view;
-  const issues = listProofingIssues(state);
-  const index = issues.findIndex((issue) => issue.from === state.selection.from);
+  const issues = listDocumentIssues(state);
+  const { from, to } = state.selection;
+  const visited = proofingKey.getState(state)?.visited?.key;
+  const at = (issue: ProofingIssueAt) => issue.from === from && issue.to === to;
+  const index = Math.max(
+    issues.findIndex((issue) => at(issue) && issue.key === visited),
+    issues.findIndex(at),
+  );
   const issue = issues[index];
   if (!issue) return null;
-  const { node } = view.domAtPos(issue.from + 1);
-  const element = (
-    node.nodeType === node.ELEMENT_NODE ? (node as Element) : node.parentElement
-  )?.closest(`[${PROOFING_ISSUE_ATTR}]`);
-  element?.scrollIntoView?.({ block: 'center' });
+  issueElement(view, issue)?.scrollIntoView?.({ block: 'center' });
   // The flash is the issue's decoration, which the view draws, rather than an attribute set on
   // the drawn element, which the view would draw over.
   const flash = (key: string | null) =>
