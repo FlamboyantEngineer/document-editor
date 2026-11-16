@@ -99,6 +99,12 @@ export const BUDGETS = {
     target: '≤ 32',
     meets: atMost(32),
   },
+  latencyRemote300: {
+    bar: 'Remote typing',
+    metric: 'p95 remote keystroke to frame drawn, 300 pages (ms)',
+    target: '≤ 32',
+    meets: atMost(32),
+  },
   latencyReview300: {
     bar: 'Keystroke latency',
     metric: 'p95 input to paint, 300 pages beside 500 comment threads (ms)',
@@ -312,6 +318,29 @@ export async function keystrokeLatencies(page: Page, keys: number): Promise<numb
   await page.keyboard.type('x'.repeat(keys), { delay: 60 });
   await settle(page);
   return page.evaluate(() => (window as unknown as { keyLatencies: number[] }).keyLatencies);
+}
+
+/**
+ * The time each remote keystroke takes, from the change reaching the editor until the frame after
+ * it is drawn: one every 100 ms into the middle of the document, as a remote writer types. Remote
+ * changes repaint at once, with no fixed tick (DOCE-COLLAB-4.1).
+ */
+export async function remoteKeystrokeLatencies(page: Page, keys: number): Promise<number[]> {
+  const latencies = await page.evaluate(async (count) => {
+    const found: number[] = [];
+    for (let index = 0; index < count; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const arrived = performance.now();
+      window.stressLab.typeRemotely('x');
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => setTimeout(resolve, 0));
+      });
+      found.push(performance.now() - arrived);
+    }
+    return found;
+  }, keys);
+  await settle(page);
+  return latencies;
 }
 
 /** Enter in the middle of 25 sections of 200 blocks: layouts, regions drawn, sections reused. */
