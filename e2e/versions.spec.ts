@@ -96,6 +96,30 @@ test.describe('versions lab', () => {
     ).toHaveAttribute('data-diff-line', 'modification');
   });
 
+  test('DOCE-EDITOR-4.19 marks the change bars on the overview in their colours at half opacity', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('versions');
+    const painted = () =>
+      page
+        .locator('.de-document-editor__overview')
+        .evaluate((element) =>
+          [element, ...element.querySelectorAll('*')]
+            .map((each) => getComputedStyle(each).backgroundImage)
+            .join(' '),
+        );
+    // A frame shorter than the document, so its overview has a track to mark.
+    await page
+      .locator('.de-document-editor')
+      .evaluate((element) => element.style.setProperty('height', '400px'));
+    expect(await painted()).not.toContain('/ 0.5');
+    await compareWith(page, 'Version 1');
+    await page.getByLabel('Change bars').check();
+    // The inserted block's bar, green at half opacity.
+    await expect.poll(painted).toMatch(/0\.86\d* 0 \/ 0\.5/);
+  });
+
   test('DOCE-VERSIONS-2.4 keeps the bars of an indented block in the column of the others', async ({
     lab,
     page,
