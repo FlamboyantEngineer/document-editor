@@ -124,8 +124,15 @@
   color: var(--doc-paragraph-color, #111827);
 }
 
-.de-document-editor__content {
+/*
+ * The pages and the measuring view wrap text alike: runs of spaces kept, and a word longer than a
+ * line broken, as the browser breaks it in an editable view on its own, so a block measures at the
+ * height the pages draw it.
+ */
+.de-document-editor__content,
+.de-document-editor__measure {
   white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 /*

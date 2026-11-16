@@ -40,11 +40,16 @@ test.describe('counter budgets', () => {
     expectMeets(BUDGETS.sectionsReused, sectionsReused);
   });
 
-  test('DOCE-LABS-2.5 lays out a remote keystroke in 1600 blocks without relaying the document', async ({
+  test('DOCE-LABS-2.5 DOCE-PAGINATION-5.17 lays out a remote keystroke that starts a line in 1600 blocks without relaying the document', async ({
     lab,
     page,
   }) => {
-    const { sectionsRelaid, blocksMeasured } = await measureRemoteKeystrokes(lab, page);
+    const { inLineLayouts, newLineMissed, sectionsRelaid, blocksMeasured } =
+      await measureRemoteKeystrokes(lab, page);
+    // A keystroke inside a line keeps its block's height and needs no layout (DOCE-PAGINATION-5.17);
+    // one that starts a new line lays the pages out, and is the one the budgets count.
+    expect(inLineLayouts).toBe(0);
+    expect(newLineMissed).toBe(0);
     expectMeets(BUDGETS.remoteSectionsRelaid, sectionsRelaid);
     expectMeets(BUDGETS.remoteBlocksMeasured, blocksMeasured);
   });
