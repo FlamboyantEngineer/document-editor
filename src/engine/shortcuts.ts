@@ -38,6 +38,7 @@ export const DEFAULT_SHORTCUTS = {
   script: ['Mod-Alt-s'],
   reference: ['Mod-k'],
   comment: ['Mod-Alt-m'],
+  'copy-link': ['Mod-Shift-k'],
   find: ['Mod-f'],
   replace: ['Mod-h'],
   save: ['Mod-s'],

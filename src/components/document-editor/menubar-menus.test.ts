@@ -16,7 +16,6 @@ function zoomEntries(value: number, levels: readonly number[]) {
     view: null,
     groups: [],
     openFind: null,
-    layout: 'page',
     zoom: { value, onChange, levels },
   });
   const entries = menus.find((menu) => menu.id === 'view')?.entries ?? [];
@@ -34,6 +33,17 @@ describe('menubarMenus', () => {
     zoomIn.onAction?.();
     zoomOut.onAction?.();
     expect(onChange.mock.calls).toEqual([[150], [50]]);
+  });
+
+  it('DOCE-EDITOR-4.10 leaves the layouts out of View, which the status bar switches', () => {
+    const context = createEditorContext(null, EditorState.create({ schema: documentSchema }), {
+      editable: true,
+      labels: DEFAULT_EDITOR_LABELS,
+    });
+    const menus = menubarMenus(context, { view: null, groups: [], openFind: null, zoom: null });
+    const ids = menus.flatMap((menu) => menu.entries.map((entry) => entry.id));
+    expect(ids).not.toContain('layout-page');
+    expect(ids).not.toContain('layout-web');
   });
 
   it('DOCE-EDITOR-6.4 disables zooming past the first and last level', () => {
@@ -57,7 +67,6 @@ describe('menubarMenus', () => {
         view: null,
         groups: [],
         openFind: null,
-        layout: 'page',
         zoom: null,
       });
       const entry = (menu: string, id: string) =>

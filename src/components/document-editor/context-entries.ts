@@ -11,6 +11,7 @@ import {
   canStartComment,
   clearFormatting,
   decideWithPolicy,
+  type EditAddress,
   listSuggestions,
   objectBlockAt,
   shortcutLabel,
@@ -21,13 +22,19 @@ import {
 import type { ScriptRunnerAdapter } from '../../host/index.js';
 import { clipboardEntries } from './clipboard-entries.js';
 import type { ContextTarget } from './context-target.js';
+import { contentLinkAddress } from './copy-link.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { CODE_LANGUAGES, elementEntries } from './element-entries.js';
 import type { FigurePasteOptions } from './figure-paste.js';
 import { proofingEntries } from './proofing-entries.js';
 import { scriptEntries } from './script-entries.js';
-import { commandEntry, objectEntries, tableCellEntries } from './table-actions.js';
+import {
+  commandEntry,
+  objectEntries,
+  paragraphEntries,
+  tableCellEntries,
+} from './table-actions.js';
 
 /** What the context menu may offer. */
 export interface ContextEntriesOptions {
@@ -37,6 +44,8 @@ export interface ContextEntriesOptions {
   readonly suggestionPolicy: SuggestionPolicy;
   /** Starts a comment thread on the selected text, when the reader may comment. */
   readonly startComment: (() => void) | null;
+  /** Hands the host a link's address to the selection's content (`onCopyLink`). */
+  readonly copyLink?: ((address: EditAddress) => void) | null | undefined;
   /** Opens one of the editor's dialogs for the selection, while the editor has them. */
   readonly openDialog?: ((dialog: ObjectDialog) => void) | null | undefined;
   /** Whether the host resolves linked code. Defaults to false. */
@@ -82,7 +91,7 @@ function suggestionEntries(view: EditorView, { labels, suggestionPolicy }: Conte
 }
 
 function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuEntry[] {
-  const { labels, editable, startComment } = options;
+  const { labels, editable, startComment, copyLink } = options;
   const entries: MenuEntry[] = [];
   if (startComment) {
     entries.push({
@@ -91,6 +100,15 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
       shortcut: shortcutLabel(shortcutsOf(view.state), 'comment'),
       isDisabled: !canStartComment(view.state),
       onAction: startComment,
+    });
+  }
+  const address = copyLink ? contentLinkAddress(view.state) : null;
+  if (copyLink && address) {
+    entries.push({
+      id: 'copy-link',
+      label: labels.copyLink,
+      shortcut: shortcutLabel(shortcutsOf(view.state), 'copy-link'),
+      onAction: () => copyLink(address),
     });
   }
   if (editable) {
@@ -111,13 +129,17 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
 
 function objectGroups(view: EditorView, { labels, editable }: ContextEntriesOptions) {
   const object = editable ? objectBlockAt(view.state.selection) : null;
-  if (object === null) return { table: [], object: [] };
+  if (object === null) return { table: [], object: [], paragraphs: [] };
   const table = findTable(view.state.selection.$from);
   const tableGroup: MenuEntry[] =
     table?.pos === object
       ? [{ id: 'table', label: labels.table, items: tableCellEntries(view, labels) }]
       : [];
-  return { table: tableGroup, object: objectEntries(view, labels, object) };
+  return {
+    table: tableGroup,
+    object: objectEntries(view, labels, object),
+    paragraphs: paragraphEntries(view, labels),
+  };
 }
 
 /** A run of the context menu's entries between separators. */
@@ -135,6 +157,7 @@ export const CONTEXT_MENU_GROUPS = [
   'element',
   'table',
   'object',
+  'paragraphs',
 ] as const;
 
 /**
@@ -172,6 +195,7 @@ export function contextGroups(
     },
     { id: 'table', entries: objects.table },
     { id: 'object', entries: objects.object },
+    { id: 'paragraphs', entries: objects.paragraphs },
   ];
 }
 

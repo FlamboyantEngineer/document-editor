@@ -20,6 +20,7 @@ export type ContextKind =
   | 'code'
   | 'math'
   | 'contents'
+  | 'script'
   | 'footnote'
   | 'link'
   | 'reference'
@@ -53,6 +54,7 @@ const OBJECT_KINDS: Readonly<Record<string, ContextKind>> = {
   linked_code_block: 'code',
   math_display: 'math',
   toc_block: 'contents',
+  script_block: 'script',
 };
 
 const INLINE_KINDS: Readonly<Record<string, ContextKind>> = {
