@@ -488,6 +488,8 @@ test.describe('document editor lab', () => {
       element.scrollTop = 600;
     });
     await expect.poll(onScreen).toBeGreaterThan(5);
+    // The host learns where the first page's content ends, to draw in the margin beside it.
+    await expect(report).toContainText(/right margin [1-9]\d* px/);
   });
 
   test('DOCE-EDITOR-7.1 DOCE-EDITOR-7.4 shows the host banner once a press ends and dismisses it', async ({
@@ -725,6 +727,20 @@ test.describe('document editor lab', () => {
     await page.getByLabel('Markup').selectOption('original');
     await expect(inserted).toBeHidden();
     await expect(deleted).toBeVisible();
+  });
+
+  test('DOCE-EDITOR-6.11 tells the host the bars the simple markup draws', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const report = page.getByRole('status', { name: 'Host report' });
+    await page.getByRole('button', { name: 'Rewrite a phrase' }).click();
+    await expect(report).not.toContainText('change bars');
+    await page.getByLabel('Markup').selectOption('simple');
+    await expect(report).toContainText(/[1-9]\d* change bars/);
+    await page.getByLabel('Markup').selectOption('all');
+    await expect(report).not.toContainText('change bars');
   });
 
   test('DOCE-EDITOR-6.6 reports its first layout and what its layouts did to the host telemetry', async ({

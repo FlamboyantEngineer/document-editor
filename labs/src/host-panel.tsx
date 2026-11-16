@@ -1,6 +1,7 @@
 // The document editor lab's host panel: what the editor tells its host (focus, the selection, the
 // writer's changes, review-only changes once there are some, the blocks its layouts measured, the
-// elements on screen), a key of the host's own (Ctrl+S saves), and the editor's handle taking the
+// elements on screen and the margin beside the first page's content, the change bars the simple
+// markup draws), a key of the host's own (Ctrl+S saves), and the editor's handle taking the
 // reader to a heading.
 
 import type { Command } from 'prosemirror-state';
@@ -11,12 +12,13 @@ import {
   type DocumentEditorProps,
   EDITOR_COUNTS,
   EDITOR_MEASURES,
+  preloadEditorSurfaces,
 } from '../../src/components/index.js';
 import { describeBlocks } from '../../src/engine/index.js';
 import type { TelemetryAdapter } from '../../src/host/index.js';
 
-/** The lab's notifications and keys, and what they report. */
-export function useHostPanel() {
+/** The lab's notifications and keys, and what they report, reading the editor through `handle`. */
+export function useHostPanel(handle: RefObject<DocumentEditorHandle | null>) {
   const [focused, setFocused] = useState(false);
   const [changes, setChanges] = useState(0);
   const [caret, setCaret] = useState('');
@@ -27,6 +29,8 @@ export function useHostPanel() {
   const [reviews, setReviews] = useState(0);
   const [measured, setMeasured] = useState(0);
   const [onScreen, setOnScreen] = useState(0);
+  const [margin, setMargin] = useState<number | null>(null);
+  const [bars, setBars] = useState(0);
   const telemetry = useMemo<TelemetryAdapter>(
     () => ({
       measure: (name, duration) => {
@@ -39,7 +43,8 @@ export function useHostPanel() {
     [],
   );
   const notifications = useMemo<
-    DocumentEditorNotifications & Pick<DocumentEditorProps, 'onVisibleElementsChange'>
+    DocumentEditorNotifications &
+      Pick<DocumentEditorProps, 'onVisibleElementsChange' | 'onChangeBarsChange'>
   >(() => {
     const save: Command = () => {
       setSaved((count) => count + 1);
@@ -50,12 +55,22 @@ export function useHostPanel() {
       onContentChange: () => setChanges((count) => count + 1),
       onSelectionChange: (selection) => setCaret(selection.$head.parent.type.name),
       keymap: { 'Mod-s': save },
-      onLayoutReady: () => setReady(true),
+      onLayoutReady: () => {
+        setReady(true);
+        // As a host does, warm the dialogs that load on first use once the editor is ready.
+        void preloadEditorSurfaces();
+      },
       onSuggestionsChange: (list) => setSuggestions(list.length),
-      onVisibleElementsChange: (elements) => setOnScreen(elements.length),
+      onVisibleElementsChange: (elements) => {
+        setOnScreen(elements.length);
+        // Where a host would draw beside the content: the right margin of the first page shown.
+        const [first] = handle.current?.visiblePages() ?? [];
+        setMargin(first ? Math.round(first.sheet.right - first.content.right) : null);
+      },
+      onChangeBarsChange: (list) => setBars(list.length),
       onReviewChange: () => setReviews((count) => count + 1),
     };
-  }, []);
+  }, [handle]);
   return {
     notifications,
     telemetry,
@@ -70,6 +85,8 @@ export function useHostPanel() {
       reviews,
       measured,
       onScreen,
+      margin,
+      bars,
     },
   };
 }
@@ -103,6 +120,8 @@ export function HostPanel({
         {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions
         {report.reviews > 0 ? ` · ${String(report.reviews)} review changes` : ''} ·{' '}
         {report.measured} blocks measured · {report.onScreen} elements on screen
+        {report.margin === null ? '' : ` · right margin ${String(report.margin)} px`}
+        {report.bars > 0 ? ` · ${String(report.bars)} change bars` : ''}
       </output>
     </fieldset>
   );

@@ -8,11 +8,12 @@ import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popov
 import { lazy, Suspense, useState } from 'react';
 import { insertCharacter } from '../../engine/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
+import { SURFACE_LOADERS } from './lazy-surfaces.js';
 
 // The grid loads the first time the picker opens, so the editor's own code does not carry it
 // (DOCE-ENTRY-2.2).
 const CharacterGrid = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('@flamboyantengineer/ui-components/character-grid')).CharacterGrid,
+  default: (await SURFACE_LOADERS.symbols()).CharacterGrid,
 }));
 
 // The font of the text at the caret, which the symbols show in.

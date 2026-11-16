@@ -33,6 +33,7 @@ import {
 } from './dialog-parts.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { SURFACE_LOADERS } from './lazy-surfaces.js';
 
 /** What the editor's dialogs need beside the view. */
 interface ObjectDialogsProps {
@@ -65,19 +66,19 @@ const ignore = () => undefined;
 // picker, the reference finder), load the first time one opens, so the editor's own code does not
 // carry them (DOCE-ENTRY-2.2).
 const FigureDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./figure-dialog.js')).FigureDialog,
+  default: (await SURFACE_LOADERS.figure()).FigureDialog,
 }));
 const ReferenceDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./reference-dialog.js')).ReferenceDialog,
+  default: (await SURFACE_LOADERS.reference()).ReferenceDialog,
 }));
 const AbbreviationDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./abbreviation-dialog.js')).AbbreviationDialog,
+  default: (await SURFACE_LOADERS.abbreviation()).AbbreviationDialog,
 }));
 const ScriptDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./script-dialog.js')).ScriptDialog,
+  default: (await SURFACE_LOADERS.script()).ScriptDialog,
 }));
 const LinkedCodeDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await import('./linked-code-dialog.js')).LinkedCodeDialog,
+  default: (await SURFACE_LOADERS['linked-code']()).LinkedCodeDialog,
 }));
 
 /**

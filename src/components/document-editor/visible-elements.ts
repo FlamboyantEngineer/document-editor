@@ -12,6 +12,19 @@ export interface VisibleElement {
   readonly elementId: string;
   /** Its boxes in the window, one for each page it shows on, top to bottom. */
   readonly rects: readonly DOMRectReadOnly[];
+  /** The page each box is on, counted through the document from 0, in the order of `rects`. */
+  readonly pages: readonly number[];
+}
+
+/**
+ * A page on screen: its sheet and the box its content takes, in the window, so a host can draw in
+ * its margins beside the content. The web layout shows the document as one page, the view itself.
+ */
+export interface VisiblePage {
+  /** The page, counted through the document from 0. */
+  readonly page: number;
+  readonly sheet: DOMRectReadOnly;
+  readonly content: DOMRectReadOnly;
 }
 
 /** What the reader sees of the document. */
@@ -96,16 +109,31 @@ export function measureViewport(view: EditorView): DocumentViewport {
 export function measureVisibleElements(view: EditorView): readonly VisibleElement[] {
   const band = visibleBand(view);
   const pages = pagesOf(view);
-  const found = new Map<string, DOMRectReadOnly[]>();
+  const found = new Map<string, { rects: DOMRectReadOnly[]; pages: number[] }>();
   for (const { index } of pagesInBand(pages, band)) {
     for (const element of pages[index]?.querySelectorAll(ELEMENTS) ?? []) {
       const rect = element.getBoundingClientRect();
       if (rect.bottom <= band.top || rect.top >= band.bottom || rect.height === 0) continue;
       const id = element.getAttribute(DATA_ID_ATTR) ?? '';
-      found.set(id, [...(found.get(id) ?? []), rect]);
+      const entry = found.get(id) ?? { rects: [], pages: [] };
+      entry.rects.push(rect);
+      entry.pages.push(index);
+      found.set(id, entry);
     }
   }
-  return [...found].map(([elementId, rects]) => ({ elementId, rects }));
+  return [...found].map(([elementId, { rects, pages: on }]) => ({ elementId, rects, pages: on }));
+}
+
+/** The pages on screen, in order, each with its sheet and its content's box in the window. */
+export function measureVisiblePages(view: EditorView): readonly VisiblePage[] {
+  const pages = pagesOf(view);
+  return pagesInBand(pages, visibleBand(view)).flatMap(({ index }) => {
+    const sheet = pages[index];
+    if (!sheet) return [];
+    const content = sheet === view.dom ? sheet : sheet.querySelector('.pm-page-content');
+    const box = sheet.getBoundingClientRect();
+    return [{ page: index, sheet: box, content: content?.getBoundingClientRect() ?? box }];
+  });
 }
 
 // Calls `measure` once a frame while anything scrolls, the window resizes or the view's elements
