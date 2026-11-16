@@ -68,7 +68,7 @@ export type {
 export { TOOLBAR_GROUPS } from './toolbar-items.js';
 export type { ChangeBar } from './use-change-notifications.js';
 export type { DocumentComparison, DocumentLayout } from './use-document-layout.js';
-export { EDITOR_COUNTS, EDITOR_MEASURES } from './use-editor-telemetry.js';
+export { EDITOR_COUNTS, EDITOR_LAYOUT_PASS, EDITOR_MEASURES } from './use-editor-telemetry.js';
 export type { ContentChangeCause, DocumentEditorNotifications } from './use-host-events.js';
 export { contentChangeCause, isContentChange } from './use-host-events.js';
 export type { VisibleElement, VisiblePage } from './visible-elements.js';

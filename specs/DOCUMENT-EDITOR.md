@@ -616,6 +616,13 @@ While the block borders show, hovering a block or a region of a page shall show 
 Implementation: `src/components/document-editor/debug-tooltip.tsx`, `labs/reference/document.css`
 Verification: `src/components/document-editor/debug-pane.test.tsx`, `e2e/document-editor.spec.ts`
 
+### DOCE-EDITOR-6.32 - The load trace
+
+With the host's `telemetry` adapter, the editor shall trace how it opens: how long it took from its first render to mount its view of the document (`document-editor.mount.view`) and, in page layout, its pages (`document-editor.mount.pages`); and, when the adapter counts, each layout once under `document-editor.layout-pass` (`EDITOR_LAYOUT_PASS`) with what started it as `cause` (`open` for the layouts that open the document, `edit` for the first after a change of content, `reflow` for the layouts after that with no change between, as when the pages converge, fonts load or a block changes size) and its number among that cause's layouts as `pass`, from 1, so the number of `open` passes is the startup's. `createDocumentEditing` given the adapter (`telemetry`) shall measure how long building each of its plugin groups took (`document-editor.extension-build`, the group's name as `extension`). Timing the server's work is the host's.
+
+Implementation: `src/components/document-editor/use-editor-telemetry.ts`, `src/engine/document-editing.ts`, `labs/src/host-panel.tsx`
+Verification: `src/engine/document-editing.test.ts`, `e2e/document-editor.spec.ts`
+
 ## DOCE-EDITOR-7 - Banners
 
 ### DOCE-EDITOR-7.1 - The banner region

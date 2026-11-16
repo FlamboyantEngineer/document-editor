@@ -743,7 +743,7 @@ test.describe('document editor lab', () => {
     await expect(report).not.toContainText('change bars');
   });
 
-  test('DOCE-EDITOR-6.6 reports its first layout and what its layouts did to the host telemetry', async ({
+  test('DOCE-EDITOR-6.6 DOCE-EDITOR-6.32 reports its first layout and what its layouts did to the host telemetry', async ({
     lab,
     page,
   }) => {
@@ -751,6 +751,9 @@ test.describe('document editor lab', () => {
     const report = page.getByRole('status', { name: 'Host report' });
     await expect(report).toContainText(/first layout \d+ ms/);
     await expect(report).toContainText(/[1-9]\d* blocks measured/);
+    // The load trace: the pages' mount and the layouts that opened the document.
+    await expect(report).toContainText(/pages mounted in \d+ ms/);
+    await expect(report).toContainText(/opened in [1-9]\d* layouts/);
   });
 
   test('DOCE-EDITOR-6.12 publishes its layout state, pending after an edit until it settles', async ({

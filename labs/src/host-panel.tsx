@@ -1,8 +1,8 @@
 // The document editor lab's host panel: what the editor tells its host (focus, the selection, the
-// writer's changes, review-only changes once there are some, the blocks its layouts measured, the
-// elements on screen and the margin beside the first page's content, the change bars the simple
-// markup draws), a key of the host's own (Ctrl+S saves), and the editor's handle taking the
-// reader to a heading.
+// writer's changes, review-only changes once there are some, the time its pages took to mount, the
+// layouts that opened it, the blocks its layouts measured, the elements on screen and the margin
+// beside the first page's content, the change bars the simple markup draws), a key of the host's
+// own (Ctrl+S saves), and the editor's handle taking the reader to a heading.
 
 import type { Command } from 'prosemirror-state';
 import { type RefObject, useMemo, useState } from 'react';
@@ -11,6 +11,7 @@ import {
   type DocumentEditorNotifications,
   type DocumentEditorProps,
   EDITOR_COUNTS,
+  EDITOR_LAYOUT_PASS,
   EDITOR_MEASURES,
   preloadEditorSurfaces,
 } from '../../src/components/index.js';
@@ -24,6 +25,8 @@ export function useHostPanel(handle: RefObject<DocumentEditorHandle | null>) {
   const [caret, setCaret] = useState('');
   const [saved, setSaved] = useState(0);
   const [firstLayout, setFirstLayout] = useState<number | null>(null);
+  const [pagesMounted, setPagesMounted] = useState<number | null>(null);
+  const [openingPasses, setOpeningPasses] = useState(0);
   const [ready, setReady] = useState(false);
   const [suggestions, setSuggestions] = useState(0);
   const [reviews, setReviews] = useState(0);
@@ -35,9 +38,13 @@ export function useHostPanel(handle: RefObject<DocumentEditorHandle | null>) {
     () => ({
       measure: (name, duration) => {
         if (name === EDITOR_MEASURES.firstLayout) setFirstLayout(Math.round(duration));
+        if (name === EDITOR_MEASURES.mountPages) setPagesMounted(Math.round(duration));
       },
-      count: (name, value) => {
+      count: (name, value, attributes) => {
         if (name === EDITOR_COUNTS.blocksMeasured) setMeasured((total) => total + value);
+        if (name === EDITOR_LAYOUT_PASS && attributes?.cause === 'open') {
+          setOpeningPasses(Number(attributes.pass));
+        }
       },
     }),
     [],
@@ -80,6 +87,8 @@ export function useHostPanel(handle: RefObject<DocumentEditorHandle | null>) {
       caret,
       saved,
       firstLayout,
+      pagesMounted,
+      openingPasses,
       ready,
       suggestions,
       reviews,
@@ -117,6 +126,10 @@ export function HostPanel({
         {report.focused ? 'Focused' : 'Not focused'} · {report.changes} changes · caret in{' '}
         {report.caret || 'nothing'} · saved {report.saved} times · first layout{' '}
         {report.firstLayout === null ? '…' : `${String(report.firstLayout)} ms`}
+        {report.pagesMounted === null
+          ? ''
+          : ` · pages mounted in ${String(report.pagesMounted)} ms`}
+        {report.openingPasses > 0 ? ` · opened in ${String(report.openingPasses)} layouts` : ''}
         {report.ready ? ' · ready' : ''} · {report.suggestions} suggestions
         {report.reviews > 0 ? ` · ${String(report.reviews)} review changes` : ''} ·{' '}
         {report.measured} blocks measured · {report.onScreen} elements on screen

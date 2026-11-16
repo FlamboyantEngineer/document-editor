@@ -75,6 +75,7 @@ export {
   DEFAULT_SYMBOLS,
   DocumentEditor,
   EDITOR_COUNTS,
+  EDITOR_LAYOUT_PASS,
   EDITOR_MEASURES,
   EditorModal,
   inlineCompletionItem,

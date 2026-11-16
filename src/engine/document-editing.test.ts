@@ -365,3 +365,22 @@ describe('the editing extension', () => {
     expect(repairElementIds(repaired)).toBeNull();
   });
 });
+
+describe('load trace', () => {
+  it('DOCE-EDITOR-6.32 measures how long each plugin group took to build, by its name', () => {
+    const measure = vi.fn();
+    const plugins = createDocumentEditing(documentSchema, { telemetry: { measure } });
+    expect(plugins.length).toBeGreaterThan(0);
+    const names = measure.mock.calls.map(([, , attributes]) => attributes.extension as string);
+    expect(names).toEqual(expect.arrayContaining(['element-ids', 'footnotes', 'tables']));
+    expect(new Set(names).size).toBe(names.length);
+    for (const [name, duration] of measure.mock.calls) {
+      expect(name).toBe('document-editor.extension-build');
+      expect(duration).toBeGreaterThanOrEqual(0);
+    }
+    // Without the adapter nothing is measured, and the same plugins are built.
+    expect(createDocumentEditing(documentSchema).map((plugin) => plugin.spec)).toHaveLength(
+      plugins.length,
+    );
+  });
+});
