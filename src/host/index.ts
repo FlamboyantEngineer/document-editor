@@ -66,10 +66,12 @@ export type {
   CommentChange,
   CommentDecision,
   CommentEntry,
+  CommentMeta,
   CommentStoreAdapter,
   CommentTarget,
   CommentTargetRange,
   CommentThread,
+  CommentThreadState,
   NewCommentThread,
 } from './comment-adapters.js';
 export type {
