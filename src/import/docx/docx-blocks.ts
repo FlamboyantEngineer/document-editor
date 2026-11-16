@@ -1,12 +1,19 @@
 // The blocks of a body, cell, header, footer or comment: paragraphs read piece by piece, then put
 // together, as the stored format holds them: list items into nested lists, quote paragraphs into
-// one quote, a list paragraph into the list item before it, and a caption into the table, figure or
-// code block beside it. Content controls give the blocks
-// they hold; other block content the stored format has no place for is left out.
+// one quote, a list paragraph into the list item before it, and captions and tables of contents
+// resolved (`docx-captions.ts`). Content controls give the blocks they hold; other block content the
+// stored format has no place for is left out.
 
 import type { StoredNode } from '../../model/format/document-format.js';
-import { childElement, childElements, type XmlElement } from '../xml-read.js';
-import { type ParagraphReading, type Piece, readParagraph } from './docx-paragraph.js';
+import { childElement, childElements, childValue, type XmlElement } from '../xml-read.js';
+import {
+  type BlockReading,
+  dropContents,
+  type Entry,
+  isNode,
+  joinCaptions,
+} from './docx-captions.js';
+import { type Piece, readParagraph } from './docx-paragraph.js';
 import { readTable } from './docx-tables.js';
 
 interface OpenList {
@@ -18,19 +25,8 @@ interface OpenList {
 }
 
 interface Assembly {
-  readonly out: StoredNode[];
+  readonly out: Entry[];
   lists: OpenList[];
-  /** A caption waiting for the table or figure after it. */
-  caption: string | null;
-}
-
-const isCaptioned = (node: StoredNode | undefined) =>
-  (node?.type === 'table' || node?.type === 'figure' || node?.type === 'codeBlock') &&
-  typeof node.attrs?.caption !== 'string';
-
-function withCaption(node: StoredNode, caption: string): StoredNode {
-  const { captionEnabled: _, ...attrs } = node.attrs ?? {};
-  return { ...node, attrs: { ...attrs, caption } };
 }
 
 // A bulleted item whose text starts with a box character and a space, as the writer writes a
@@ -75,19 +71,7 @@ function placeItem(assembly: Assembly, piece: Extract<Piece, { kind: 'item' }>):
   assembly.lists = [...lists, { node, depth, ordered, list: numbering }];
 }
 
-function placeBlock(assembly: Assembly, node: StoredNode): void {
-  const { out } = assembly;
-  const caption = assembly.caption;
-  assembly.caption = null;
-  if (caption !== null && isCaptioned(node)) out.push(withCaption(node, caption));
-  else {
-    if (caption !== null)
-      out.push({ type: 'paragraph', content: [{ type: 'text', text: caption }] });
-    out.push(node);
-  }
-}
-
-function place(assembly: Assembly, piece: Piece): void {
+function place(assembly: Assembly, piece: Piece, reading: BlockReading): void {
   if (piece.kind === 'item') {
     placeItem(assembly, piece);
     return;
@@ -98,27 +82,54 @@ function place(assembly: Assembly, piece: Piece): void {
     return;
   }
   assembly.lists = [];
-  const { out } = assembly;
-  const last = out[out.length - 1];
-  if (piece.kind === 'caption') {
-    if (isCaptioned(last) && last && assembly.caption === null)
-      out[out.length - 1] = withCaption(last, piece.text);
-    else assembly.caption = piece.text;
-  } else if (piece.kind === 'quote' && last?.type === 'blockquote') {
-    out[out.length - 1] = { ...last, content: [...(last.content ?? []), piece.node] };
-  } else if (piece.kind === 'quote')
-    placeBlock(assembly, { type: 'blockquote', content: [piece.node] });
-  else placeBlock(assembly, piece.node);
+  if (piece.kind === 'caption' || piece.kind === 'contents') assembly.out.push(piece);
+  else if (piece.kind === 'quote') placeQuote(assembly.out, piece.node);
+  else {
+    assembly.out.push(piece.node);
+    const bookmarks = piece.kind === 'block' ? (piece.bookmarks ?? []) : [];
+    for (const name of bookmarks) reading.bookmarks.set(name, piece.node);
+  }
 }
 
+// A quote paragraph, in the quote just before it or a new one.
+function placeQuote(out: Entry[], paragraph: StoredNode): void {
+  const last = out[out.length - 1] ?? null;
+  if (isNode(last) && last.type === 'blockquote') {
+    out[out.length - 1] = { ...last, content: [...(last.content ?? []), paragraph] };
+  } else out.push({ type: 'blockquote', content: [paragraph] });
+}
+
+// A table's header cells without bold, in place, since the template's table style sets their weight.
+function dropHeaderBold(node: StoredNode, header = false): void {
+  const inHeader = header || node.type === 'tableHeader';
+  if (node.type === 'text' && inHeader && node.marks) {
+    node.marks = node.marks.filter((mark) => mark.type !== 'bold');
+    if (!node.marks.length) delete node.marks;
+  }
+  for (const child of node.content ?? []) dropHeaderBold(child, inHeader);
+}
+
+// Whether a content control is a table of contents Word built.
+const isContentsControl = (sdt: XmlElement) =>
+  /table of contents/i.test(
+    childValue(childElement(childElement(sdt, 'w:sdtPr'), 'w:docPartObj'), 'w:docPartGallery') ??
+      '',
+  );
+
 // The pieces one block-level element gives.
-function piecesOf(element: XmlElement, reading: ParagraphReading): Piece[] {
+function piecesOf(element: XmlElement, reading: BlockReading): Piece[] {
   switch (element.name) {
     case 'w:p':
       return readParagraph(element, reading);
-    case 'w:tbl':
-      return [{ kind: 'block', node: readTable(element, (tc) => readBlocks(tc, reading)) }];
+    case 'w:tbl': {
+      reading.warnings.add('table-style-applied');
+      const inTable = { ...reading, inTable: true };
+      const table = readTable(element, (tc) => readBlocks(tc, inTable));
+      dropHeaderBold(table);
+      return [{ kind: 'block', node: table }];
+    }
     case 'w:sdt':
+      if (isContentsControl(element)) return [{ kind: 'contents' }];
       return childElements(childElement(element, 'w:sdtContent')).flatMap((child) =>
         piecesOf(child, reading),
       );
@@ -135,21 +146,22 @@ function piecesOf(element: XmlElement, reading: ParagraphReading): Piece[] {
 }
 
 /** The blocks of a container's block-level children (DOCE-IMPORT-2.2). */
-export function readBlocks(container: XmlElement | null, reading: ParagraphReading): StoredNode[] {
+export function readBlocks(container: XmlElement | null, reading: BlockReading): StoredNode[] {
   return readBlockElements(childElements(container), reading);
 }
 
 /** The blocks of a run of block-level elements. */
 export function readBlockElements(
   elements: readonly XmlElement[],
-  reading: ParagraphReading,
+  reading: BlockReading,
 ): StoredNode[] {
-  const assembly: Assembly = { out: [], lists: [], caption: null };
+  const assembly: Assembly = { out: [], lists: [] };
   for (const element of elements) {
-    for (const piece of piecesOf(element, reading)) place(assembly, piece);
+    for (const piece of piecesOf(element, reading)) place(assembly, piece, reading);
   }
-  if (assembly.caption !== null) {
-    assembly.out.push({ type: 'paragraph', content: [{ type: 'text', text: assembly.caption }] });
-  }
-  return assembly.out;
+  dropContents(assembly.out, reading);
+  joinCaptions(assembly.out, reading);
+  return assembly.out.filter(isNode);
 }
+
+export type { BlockReading } from './docx-captions.js';

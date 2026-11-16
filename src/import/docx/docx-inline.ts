@@ -1,32 +1,34 @@
 // A paragraph's runs read into stored inline content: text with its bold, italic, underline,
 // strike, superscript, subscript and code marks, line and page breaks, tabs and symbols, links,
-// tracked insertions and deletions, comment ranges, footnotes, images, page fields and variables.
+// tracked insertions and deletions, comment ranges, footnotes, images, fields (`docx-fields.ts`)
+// and variables.
 // Formatting the stored format keeps in the template, such as fonts, sizes and colours, is left
 // out with a warning; so is the result of a field it has no node for, which stays as text.
 
 import type { StoredMark, StoredNode } from '../../model/format/document-format.js';
-import { safeHref } from '../../model/schema/dom-attributes.js';
 import type { ImportWarnings } from '../import-warnings.js';
 import { joinText, textNode, withMark } from '../stored-inline.js';
 import {
   childElement,
   childElements,
   childValue,
+  findElement,
   findElements,
   type XmlElement,
 } from '../xml-read.js';
-import { alternativeContent, readDrawing } from './docx-drawing.js';
+import { readDrawing } from './docx-drawing.js';
+import {
+  CAPTION_LABEL_MARK,
+  endField,
+  type Field,
+  fieldChar,
+  fieldMark,
+  inHiddenField,
+  linkMark,
+} from './docx-fields.js';
 import type { DocxNumbering } from './docx-numbering.js';
 import type { DocxPart } from './docx-package.js';
 import type { DocxStyles } from './docx-styles.js';
-
-/** A field being read: its instruction, and whether its result has started. */
-interface Field {
-  instruction: string;
-  result: boolean;
-  /** A `HYPERLINK` field's link, read once its result starts; null for none. */
-  link?: StoredMark | null;
-}
 
 /** What reading a part needs: the part, the document's styles and notes, and the state that runs on from one paragraph to the next. */
 export interface DocxReading {
@@ -40,15 +42,14 @@ export interface DocxReading {
   readonly commentMark: (id: string) => StoredMark | null;
   /** The suggestion mark of a tracked change (`w:ins`, `w:del`, `w:moveTo`, `w:moveFrom`). */
   readonly changeMark: (kind: 'insertion' | 'deletion', change: XmlElement) => StoredMark;
-  /** The comments whose ranges are open, and the fields being read, which may span paragraphs. */
-  readonly open: { comments: string[]; fields: Field[] };
+  /**
+   * The comments whose ranges are open, the fields being read, which may span paragraphs, and
+   * whether the paragraph being read is part of a table of contents.
+   */
+  readonly open: { comments: string[]; fields: Field[]; contents?: boolean };
+  /** Whether tracked changes and comments are kept as suggestions and comment marks. */
+  readonly keepsReview: boolean;
 }
-
-/** The page fields read as variables. */
-const PAGE_FIELDS: ReadonlyMap<string, string> = new Map([
-  ['PAGE', 'page.current'],
-  ['NUMPAGES', 'page.total'],
-]);
 
 const MONOSPACE =
   /^(courier( new)?|consolas|menlo|monaco|lucida console|source code pro|monospace)$/i;
@@ -91,62 +92,6 @@ function runMarks(rPr: XmlElement | null, reading: DocxReading): StoredMark[] {
   return marks;
 }
 
-// A field's name, the first word of its instruction, such as `PAGE` or `HYPERLINK`.
-const fieldName = (field: Field | undefined) =>
-  /^\s*(\S+)/.exec(field?.instruction ?? '')?.[1]?.toUpperCase() ?? '';
-
-// A link to an address the editor may hold, or null with a warning for one it may not, such as a
-// `javascript:` address.
-function linkMark(address: string, reading: DocxReading): StoredMark | null {
-  const href = safeHref(address);
-  if (href === null) reading.warnings.add('content-left-out', 'unsafe link');
-  return href === null ? null : { type: 'link', attrs: { href } };
-}
-
-// The address a `HYPERLINK` field's instruction names: its target, or `#<bookmark>` for `\l`.
-function fieldAddress(instruction: string): string | null {
-  const argument = String.raw`(?:"([^"]*)"|(\S+))`;
-  const target = new RegExp(String.raw`^\s*HYPERLINK\s+(?!\\)${argument}`, 'i').exec(instruction);
-  const bookmark = new RegExp(String.raw`\\l\s+${argument}`, 'i').exec(instruction);
-  const address = target?.[1] ?? target?.[2] ?? '';
-  const anchor = bookmark?.[1] ?? bookmark?.[2];
-  const href = anchor ? `${address}#${anchor}` : address;
-  return href || null;
-}
-
-// The link mark of a `HYPERLINK` field, once its instruction is complete; null for another field.
-function fieldLink(field: Field, reading: DocxReading): StoredMark | null {
-  if (field.link === undefined) {
-    const address = fieldName(field) === 'HYPERLINK' ? fieldAddress(field.instruction) : null;
-    field.link = address === null ? null : linkMark(address, reading);
-  }
-  return field.link;
-}
-
-// The nodes a field gives at its end: a page variable for a page field, else none.
-function endField(reading: DocxReading): StoredNode[] {
-  const field = reading.open.fields.pop();
-  const name = fieldName(field);
-  const key = PAGE_FIELDS.get(name);
-  if (key) return [{ type: 'variable', attrs: { key } }];
-  const linked = name === 'HYPERLINK' && field?.link;
-  if (name && !linked) reading.warnings.add('field-as-text', name);
-  return [];
-}
-
-// Whether text being read now is a page field's instruction or result, which is not kept.
-function inHiddenField(reading: DocxReading): boolean {
-  return reading.open.fields.some((field) => !field.result || PAGE_FIELDS.has(fieldName(field)));
-}
-
-function fieldChar(element: XmlElement, reading: DocxReading): StoredNode[] {
-  const kind = element.attrs['w:fldCharType'];
-  if (kind === 'begin') reading.open.fields.push({ instruction: '', result: false });
-  const field = reading.open.fields[reading.open.fields.length - 1];
-  if (kind === 'separate' && field) field.result = true;
-  return kind === 'end' ? endField(reading) : [];
-}
-
 const SYMBOLS: Readonly<Record<string, string>> = {
   'w:tab': '\t',
   'w:noBreakHyphen': '‑',
@@ -183,9 +128,20 @@ const noteReference: RunChildReader = (element, reading) => {
   return content ? [{ type: 'footnote', ...(content.length ? { content } : {}) }] : [];
 };
 
+// A drawing: its picture; else a text box's text, its paragraphs parted by line breaks; else a
+// placeholder naming what was left out, so the reader sees where it was.
 const drawing: RunChildReader = (element, reading) => {
-  const image = readDrawing(element, reading);
-  return image ? [image] : [];
+  const shown = readDrawing(element, reading);
+  if ('node' in shown) return [shown.node];
+  if (shown.kind === 'none') return [];
+  const box = findElement(element, 'w:txbxContent');
+  if (box) {
+    return childElements(box, 'w:p').flatMap((p, index) => [
+      ...(index > 0 ? [{ type: 'lineBreak' }] : []),
+      ...readInlineContent(p, reading),
+    ]);
+  }
+  return [textNode(`[${shown.kind}]`, [])];
 };
 
 const RUN_CHILDREN: ReadonlyMap<string, RunChildReader> = new Map(
@@ -205,12 +161,13 @@ const RUN_CHILDREN: ReadonlyMap<string, RunChildReader> = new Map(
     'w:endnoteReference': noteReference,
     'w:drawing': drawing,
     'w:pict': drawing,
-    'w:object': (_element, reading) => {
+    'w:object': (element, reading, marks) => {
+      // An embedded object shows its preview picture when it has one.
+      const preview = findElement(element, 'v:imagedata') ? drawing(element, reading, marks) : [];
       reading.warnings.add('content-left-out', 'embedded object');
-      return [];
+      return preview.length ? preview : [textNode('[embedded object]', [])];
     },
-    'mc:AlternateContent': (element, reading, marks) =>
-      readRunContent(alternativeContent(element), reading, marks),
+    'mc:AlternateContent': (element, reading, marks) => alternative(element, reading, marks),
     ...Object.fromEntries(
       Object.entries(SYMBOLS).map(([name, value]): [string, RunChildReader] => [
         name,
@@ -225,6 +182,17 @@ function runChild(element: XmlElement, reading: DocxReading, marks: StoredMark[]
   return RUN_CHILDREN.get(element.name)?.(element, reading, marks) ?? [];
 }
 
+// Alternative content: its first choice, or its fallback when the choice shows nothing but a
+// placeholder and the fallback has a picture, as a chart's or shape's fallback often does.
+function alternative(element: XmlElement, reading: DocxReading, marks: StoredMark[]): StoredNode[] {
+  const choice = readRunContent(childElement(element, 'mc:Choice'), reading, marks);
+  const fallback = childElement(element, 'mc:Fallback');
+  const placeholder = choice.length === 1 && /^\[.*\]$/.test(choice[0]?.text ?? '');
+  if ((choice.length && !placeholder) || !fallback) return choice;
+  const pictures = readRunContent(fallback, reading, marks).filter((node) => node.type === 'image');
+  return pictures.length ? pictures : choice;
+}
+
 function readRunContent(
   element: XmlElement | null,
   reading: DocxReading,
@@ -235,15 +203,17 @@ function readRunContent(
 
 // A run, in the marks around it, its own and the open comments'.
 function readRun(run: XmlElement, reading: DocxReading, around: StoredMark[]): StoredNode[] {
-  if (reading.styles.isCaptionLabel(childValue(childElement(run, 'w:rPr'), 'w:rStyle'))) return [];
   let marks = around;
+  if (reading.styles.isCaptionLabel(childValue(childElement(run, 'w:rPr'), 'w:rStyle'))) {
+    marks = withMark(marks, { type: CAPTION_LABEL_MARK, attrs: { label: '' } });
+  }
   for (const mark of runMarks(childElement(run, 'w:rPr'), reading)) marks = withMark(marks, mark);
   for (const id of reading.open.comments) {
     const mark = reading.commentMark(id);
     if (mark) marks = withMark(marks, mark);
   }
   for (const field of reading.open.fields) {
-    const link = field.result ? fieldLink(field, reading) : null;
+    const link = field.result ? fieldMark(field, reading) : null;
     if (link) marks = withMark(marks, link);
   }
   return readRunContent(run, reading, marks);
@@ -285,6 +255,24 @@ const CHANGES = new Map<string, 'insertion' | 'deletion'>([
   ['w:moveFrom', 'deletion'],
 ]);
 
+// A tracked change: a suggestion when the review is kept; else accepted, its insertion plain text
+// and its deletion gone.
+function trackedChange(
+  element: XmlElement,
+  change: 'insertion' | 'deletion',
+  { reading, marks }: { reading: DocxReading; marks: StoredMark[] },
+): StoredNode[] {
+  if (reading.keepsReview) {
+    return readInlineContent(
+      element,
+      reading,
+      withMark(marks, reading.changeMark(change, element)),
+    );
+  }
+  reading.warnings.add('review-left-out', 'tracked change');
+  return change === 'insertion' ? readInlineContent(element, reading, marks) : [];
+}
+
 // One child of a paragraph or of an inline container.
 function inlineChild(element: XmlElement, reading: DocxReading, marks: StoredMark[]): StoredNode[] {
   const { name } = element;
@@ -294,14 +282,9 @@ function inlineChild(element: XmlElement, reading: DocxReading, marks: StoredMar
     return readInlineContent(element, reading, link ? withMark(marks, link) : marks);
   }
   const change = CHANGES.get(name);
-  if (change) {
-    return readInlineContent(
-      element,
-      reading,
-      withMark(marks, reading.changeMark(change, element)),
-    );
-  }
-  if (name === 'w:commentRangeStart') reading.open.comments.push(element.attrs['w:id'] ?? '');
+  if (change) return trackedChange(element, change, { reading, marks });
+  if (name === 'w:commentRangeStart' && reading.keepsReview)
+    reading.open.comments.push(element.attrs['w:id'] ?? '');
   if (name === 'w:commentRangeEnd') {
     reading.open.comments = reading.open.comments.filter((id) => id !== element.attrs['w:id']);
   }

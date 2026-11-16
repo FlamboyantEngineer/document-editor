@@ -1,10 +1,11 @@
 // A drawing in a word processing document: a picture becomes an image with its alternative text
 // and size; a chart, diagram, shape or text box has no place in the stored format and is left out
-// with a warning. Legacy VML pictures (`w:pict`) are read the same way through their image data.
+// with a warning, its kind given so the caller keeps its text or shows a placeholder. Legacy VML
+// pictures (`w:pict`) are read the same way through their image data.
 
 import type { StoredNode } from '../../model/format/document-format.js';
 import type { ImportWarnings } from '../import-warnings.js';
-import { childElement, findElement, type XmlElement } from '../xml-read.js';
+import { findElement, type XmlElement } from '../xml-read.js';
 import type { DocxPart } from './docx-package.js';
 
 const EMU_PER_PIXEL = 9525;
@@ -33,27 +34,35 @@ function shownAs(element: XmlElement): Record<string, unknown> {
   return { ...(alt ? { alt } : {}), ...(width && height ? { width, height } : {}) };
 }
 
+/** What a drawing shows: an image, nothing at all, or content of a kind left out. */
+type DrawingRead =
+  | { readonly kind: 'image'; readonly node: StoredNode }
+  | { readonly kind: 'none' }
+  /** A chart, diagram, shape, text box or embedded object, by that name. */
+  | { readonly kind: string };
+
 /**
  * The image a drawing (`w:drawing`) or legacy picture (`w:pict`) shows, with its alternative text
- * and size in pixels; null, with a warning, for one that shows no embedded picture.
+ * and size in pixels; for one that shows no embedded picture, with a warning, `none` for an image
+ * left out or the kind of content left out.
  */
 export function readDrawing(
   element: XmlElement,
   { part, warnings }: { readonly part: DocxPart; readonly warnings: ImportWarnings },
-): StoredNode | null {
+): DrawingRead {
   const blip = findElement(element, 'a:blip') ?? findElement(element, 'v:imagedata');
   const id = blip?.attrs['r:embed'] ?? blip?.attrs['r:id'];
   if (!blip || !id) {
-    if (blip?.attrs['r:link']) warnings.add('image-left-out', 'linked image');
-    else warnings.add('content-left-out', drawingKind(element));
-    return null;
+    if (blip?.attrs['r:link']) {
+      warnings.add('image-left-out', 'linked image');
+      return { kind: 'none' };
+    }
+    const kind = drawingKind(element);
+    warnings.add('content-left-out', kind);
+    return { kind };
   }
   const image = part.images.get(id);
   // The package already warned about an image it could not take in.
-  if (!image) return null;
-  return { type: 'image', attrs: { src: image.src, ...shownAs(element) } };
+  if (!image) return { kind: 'none' };
+  return { kind: 'image', node: { type: 'image', attrs: { src: image.src, ...shownAs(element) } } };
 }
-
-/** The content an alternative-content element offers: its first choice, or its fallback. */
-export const alternativeContent = (element: XmlElement) =>
-  childElement(element, 'mc:Choice') ?? childElement(element, 'mc:Fallback');
