@@ -2,6 +2,9 @@ import type { AvatarIdentity } from '@flamboyantengineer/ui-components/avatar';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { ReactNode } from 'react';
 
+/** The most characters a revision's name may have. */
+export const REVISION_NAME_MAX_LENGTH = 255;
+
 /** A saved document or template revision, with any automatic revisions folded under it. */
 export interface RevisionItem {
   id: Key;

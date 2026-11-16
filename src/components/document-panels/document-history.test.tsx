@@ -76,6 +76,12 @@ function Host({
 
 const row = (name: RegExp) => screen.findByRole('row', { name });
 
+// Views a version through its row's actions, as a reader does by default.
+async function viewRow(user: ReturnType<typeof userEvent.setup>, element: HTMLElement) {
+  await user.click(within(element).getByRole('button', { name: 'Version actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'View version' }));
+}
+
 describe('DocumentHistory', () => {
   it('DOCE-VERSIONS-4.6 lists named versions with the automatic ones folded under them', async () => {
     const { host, versions } = await openHistory();
@@ -110,7 +116,7 @@ describe('DocumentHistory', () => {
       .getAllByRole('row', { name: new RegExp(time) })
       .find((each) => !within(each).queryByText('Current'));
     if (!older) throw new Error('no earlier automatic version');
-    await user.click(older);
+    await viewRow(user, older);
     expect(await screen.findByText(`Viewing ${time}`)).toBeVisible();
   });
 
@@ -128,7 +134,7 @@ describe('DocumentHistory', () => {
     const { versions } = await openHistory();
     render(<Host versions={versions} />);
     const user = userEvent.setup();
-    await user.click(await row(/Draft/));
+    await viewRow(user, await row(/Draft/));
     expect(await screen.findByText('Shown Two')).toBeVisible();
     expect(screen.getByText(/Viewing Draft/)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Final' }));
@@ -142,9 +148,22 @@ describe('DocumentHistory', () => {
     const { versions } = await openHistory();
     const unread = { ...versions, viewVersion: () => Promise.reject(new Error('Socket closed')) };
     render(<Host versions={unread} />);
-    await userEvent.setup().click(await row(/Draft/));
+    await viewRow(userEvent.setup(), await row(/Draft/));
     expect(await screen.findByText('Socket closed')).toBeVisible();
     expect(screen.getByText('Shown current')).toBeVisible();
+  });
+
+  it('DOCE-VERSIONS-5.1 views nothing on a picked row unless asked to, and at once with viewOnPick', async () => {
+    const { versions } = await openHistory();
+    const { unmount } = render(<Host versions={versions} />);
+    const user = userEvent.setup();
+    await user.click(await row(/Draft/));
+    expect(await row(/Draft/)).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Shown current')).toBeVisible();
+    unmount();
+    render(<Host versions={versions} viewOnPick />);
+    await user.click(await row(/Draft/));
+    expect(await screen.findByText('Shown Two')).toBeVisible();
   });
 
   it('DOCE-VERSIONS-5.2 compares two versions', async () => {

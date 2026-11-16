@@ -32,7 +32,7 @@ import { usePeople } from '../../utils/use-people.js';
 import type { DocumentCommentsOptions } from '../document-comments/document-comments.js';
 import { useSessionValue } from '../document-session/document-session.js';
 import { DEFAULT_HISTORY_LABELS, type DocumentHistoryLabels } from './history-labels.js';
-import { type RevisionItem, revisionTime } from './revision-item.js';
+import { REVISION_NAME_MAX_LENGTH, type RevisionItem, revisionTime } from './revision-item.js';
 import { RevisionList, useRevisionTimeFormat } from './revision-list.js';
 
 export interface DocumentHistoryProps<R> {
@@ -50,6 +50,11 @@ export interface DocumentHistoryProps<R> {
   /** Names the people who saved versions. */
   readonly identity?: IdentityAdapter | undefined;
   readonly labels?: Partial<DocumentHistoryLabels> | undefined;
+  /**
+   * Views a version as soon as the reader picks its row. By default picking a row only marks it,
+   * for comparing, and its actions offer to view it (`viewRevision`).
+   */
+  readonly viewOnPick?: boolean | undefined;
   readonly className?: string | undefined;
 }
 
@@ -170,7 +175,13 @@ function SaveVersion<R>({
           },
         }}
       >
-        <TextField label={labels.versionName} value={name} onChange={setName} autoFocus />
+        <TextField
+          label={labels.versionName}
+          value={name}
+          onChange={setName}
+          maxLength={REVISION_NAME_MAX_LENGTH}
+          autoFocus
+        />
       </Modal>
     </>
   );
@@ -185,15 +196,48 @@ function useReaderCapabilities<R>(
   return given ?? document?.capabilities ?? READ_ONLY_CAPABILITIES;
 }
 
+// The rows the reader picked and what picking does: views the version at once with `viewOnPick`,
+// or else only marks it for comparing, its row actions viewing it; two picked compare.
+function useVersionPicks<R>(options: {
+  viewOnPick: boolean;
+  current: string | null;
+  view: HistoricalView<R> | null;
+  show: (revision: string, compareWith?: string) => void;
+  leave: () => void;
+}) {
+  const { viewOnPick, current, show, leave } = options;
+  const [picked, setPicked] = useState<ReadonlySet<Key>>(new Set());
+  const open = (revision: string | undefined) => {
+    if (revision === undefined || revision === current) leave();
+    else show(revision);
+  };
+  return {
+    selectedKeys:
+      picked.size === 2 || (!viewOnPick && picked.size > 0) ? picked : viewKeys(options.view),
+    onSelectionChange: (keys: Set<Key>) => {
+      const [first, second] = [...keys].map(String);
+      setPicked(second === undefined && viewOnPick ? new Set() : keys);
+      if (second === undefined && viewOnPick) open(first);
+    },
+    onView: (key: Key) => {
+      setPicked(new Set());
+      open(String(key));
+    },
+    onCompare: ([older, newer]: [Key, Key]) => {
+      setPicked(new Set());
+      show(String(newer), String(older));
+    },
+  };
+}
+
 /** A document's versions, to save, name, view, compare and restore (DOCE-VERSIONS-4). */
 export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
-  const { versions, returnTo, onReturn } = props;
+  const { versions, returnTo, onReturn, viewOnPick = false } = props;
   const capabilities = useReaderCapabilities(versions, props.capabilities);
   const labels = { ...DEFAULT_HISTORY_LABELS, ...props.labels };
   const list = useSessionValue(versions.list);
   const view = useSessionValue(versions.view);
   const people = usePeople(props.identity, authorsOf(list.versions));
-  const [picked, setPicked] = useState<ReadonlySet<Key>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const current = list.versions[0]?.revision ?? null;
   // Only the reader's latest pick says why it could not be shown.
@@ -218,6 +262,7 @@ export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
     const back = versions.returnFromView();
     if (view) onReturn(back ?? returnTo);
   };
+  const pickProps = useVersionPicks({ viewOnPick, current, view, show, leave });
   if (!capabilities.history)
     return <Banner className={props.className} description={labels.noHistory} />;
   return (
@@ -229,21 +274,10 @@ export function DocumentHistory<R>(props: DocumentHistoryProps<R>) {
         aria-label={labels.history}
         versions={toRows(list.groups, { labels, people })}
         currentKey={current}
-        selectedKeys={picked.size === 2 ? picked : viewKeys(view)}
         isLoading={list.status === 'loading'}
         error={list.status === 'failed' ? (list.error?.message ?? list.error?.kind) : undefined}
         onRetry={() => void versions.refresh()}
-        onSelectionChange={(keys) => {
-          const [first, second] = [...keys].map(String);
-          setPicked(second === undefined ? new Set() : keys);
-          if (second !== undefined) return;
-          if (first === undefined || first === current) leave();
-          else show(first);
-        }}
-        onCompare={([older, newer]) => {
-          setPicked(new Set());
-          show(String(newer), String(older));
-        }}
+        {...pickProps}
         onRename={
           capabilities.saveVersion
             ? (key, label) => orThrow(versions.rename(String(key), label.trim() || null))

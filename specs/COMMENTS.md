@@ -169,7 +169,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `e2
 
 ### DOCE-COMMENTS-2.11 - The comments panel
 
-`DocumentCommentsPanel`, given the comment store, the document's id and the identity adapter, shall list the document's threads in one list (`de-comments-panel__list` in `de-comments-panel`, each card an item of the list), in the order the document anchors them and the threads it no longer anchors last, filtered to the open ones (the default), all of them or the reader's own (`filter`); each thread is answered, resolved or reopened and, by its author, deleted in place, and one the document anchors offers to show its text, putting the caret in its anchor.
+`DocumentCommentsPanel`, given the comment store, the document's id and the identity adapter, shall list the document's threads in one list (`de-comments-panel__list` in `de-comments-panel`, each card an item of the list), the threads on the whole document first (DOCE-COMMENTS-4.12), then in the order the document anchors them, and the threads it no longer anchors last, filtered to the open ones (the default), all of them or the reader's own (`filter`); each thread is answered, resolved or reopened and, by its author, deleted in place, and one the document anchors offers to show its text, putting the caret in its anchor.
 
 Implementation: `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/panel-card.tsx`
 Verification: `e2e/comments.spec.ts`, `src/components/document-comments/comments-panel.test.tsx`
@@ -267,10 +267,10 @@ Verification: `src/components/document-comments/comment-opening.test.tsx`
 
 ### DOCE-COMMENTS-2.25 - Selecting a thread to answer it
 
-Pressing a card itself, in the margin or the panel, rather than one of its controls, shall focus its reply box while it has one showing; a resolved or read-only thread keeps focus where it was. With the pane placement, a click on a thread's text shall make its card in the panel the active one and focus its reply box.
+Pressing a card itself, in the margin or the panel, rather than one of its controls, shall focus its reply box while it has one showing; a resolved or read-only thread keeps focus where it was. With the pane placement, a click on a thread's text shall make its card in the panel the active one and focus its reply box. Pressing a card of the panel itself shall also show its text in the document, putting the caret at it while focus stays in the panel.
 
 Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/comment-opening.test.tsx`, `src/components/document-comments/comment-focus.test.tsx`
+Verification: `src/components/document-comments/comment-opening.test.tsx`, `src/components/document-comments/comment-focus.test.tsx`, `src/components/document-comments/comment-pane.test.tsx`
 
 ### DOCE-COMMENTS-2.26 - Replies that failed for good
 
@@ -472,19 +472,26 @@ Given `commentActions(target)`, each comment's menu, in the margin and the panel
 Implementation: `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
+### DOCE-COMMENTS-4.12 - Comments on the whole document
+
+A reader who may comment shall get, in the comments panel, an icon-only action (`addDocumentComment`) that starts a thread on the whole document: the composer of its opening comment shows, focused, after the panel's threads on the whole document, with a close button and Cancel; posting stores the thread with `scope: 'document'`, no quote and no anchor, and lists it among them.
+
+Implementation: `src/components/document-comments/document-comment-draft.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/new-thread-cards.tsx`
+Verification: `src/components/document-comments/comment-pane.test.tsx`
+
 ## Hooks
 
-| Hook                             | Kind      | Values | Description                                                                               |
-| -------------------------------- | --------- | ------ | ----------------------------------------------------------------------------------------- |
-| `de-document-comments`           | root      |        | The annotation layer around the document and margin.                                      |
-| `de-document-comments__margin`   | slot      |        | The margin of cards.                                                                      |
-| `de-document-comments__card`     | slot      |        | A card, beside its anchor's page.                                                         |
-| `de-document-comments__change`   | slot      |        | The post a suggestion's card opens with.                                                  |
-| `de-document-comments__decision` | slot      |        | How a decided suggestion's thread was decided, with `data-decision` (`accept`, `reject`). |
-| `--de-comment-offset`            | property  |        | On a card: how far it moves across to sit beside its page.                                |
-| `de-comments-panel`              | root      |        | The comments panel.                                                                       |
-| `de-comments-panel__list`        | slot      |        | The list of the panel's cards.                                                            |
-| `de-comments-panel__thread`      | slot      |        | A thread of the panel, with `data-anchored`.                                              |
-| `de-comments-panel__suggestion`  | slot      |        | A suggestion of the panel, with `data-anchored`.                                          |
-| `data-comment-active`            | attribute | `true` | On the text of the anchor holding the caret.                                              |
-| `data-comment-placed`            | attribute | `true` | On an anchor placed by its thread's target, not stored.                                   |
+| Hook                             | Kind      | Values | Description                                                                                               |
+| -------------------------------- | --------- | ------ | --------------------------------------------------------------------------------------------------------- |
+| `de-document-comments`           | root      |        | The annotation layer around the document and margin.                                                      |
+| `de-document-comments__margin`   | slot      |        | The margin of cards.                                                                                      |
+| `de-document-comments__card`     | slot      |        | A card, beside its anchor's page.                                                                         |
+| `de-document-comments__change`   | slot      |        | The post a suggestion's card opens with.                                                                  |
+| `de-document-comments__decision` | slot      |        | How a decided suggestion's thread was decided, with `data-decision` (`accept`, `reject`).                 |
+| `--de-comment-offset`            | property  |        | On a card: how far it moves across to sit beside its page.                                                |
+| `de-comments-panel`              | root      |        | The comments panel.                                                                                       |
+| `de-comments-panel__list`        | slot      |        | The list of the panel's cards.                                                                            |
+| `de-comments-panel__thread`      | slot      |        | A thread of the panel, with `data-anchored`, and `data-draft` on one being started on the whole document. |
+| `de-comments-panel__suggestion`  | slot      |        | A suggestion of the panel, with `data-anchored`.                                                          |
+| `data-comment-active`            | attribute | `true` | On the text of the anchor holding the caret.                                                              |
+| `data-comment-placed`            | attribute | `true` | On an anchor placed by its thread's target, not stored.                                                   |

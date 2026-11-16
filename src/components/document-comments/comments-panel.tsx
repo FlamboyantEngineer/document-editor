@@ -18,6 +18,7 @@ import {
   startCommentDraft,
   type SuggestionPolicy,
 } from '../../engine/index.js';
+import type { CommentThread } from '../../host/index.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
 import type { AnchorTarget } from './anchor-rects.js';
 import { DEFAULT_COMMENTS_LABELS } from './comment-cards.js';
@@ -27,9 +28,14 @@ import { caretKey } from './comment-items.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import { hooks } from './comments-panel-hooks.js';
 import { usePanelLists } from './comments-panel-items.js';
+import {
+  AddDocumentComment,
+  DocumentDraftItem,
+  useDocumentDraft,
+} from './document-comment-draft.js';
 import type { DocumentCommentsOptions } from './document-comments.js';
 import { useStableCallbacks } from './margin-card.js';
-import { PanelCard, UnanchoredCard } from './panel-card.js';
+import { PanelCard, type ShowOptions, UnanchoredCard } from './panel-card.js';
 import { useCardContext } from './use-card-context.js';
 import {
   type CommentThreads,
@@ -63,13 +69,14 @@ function startOf(state: EditorState, target: AnchorTarget): number | null {
   return null;
 }
 
-// Puts the caret where an item's text starts and scrolls it into view.
-function showIn(view: EditorView, target: AnchorTarget) {
+// Puts the caret where an item's text starts and scrolls it into view, focusing the document
+// unless asked not to.
+function showIn(view: EditorView, target: AnchorTarget, { focus = true }: ShowOptions = {}) {
   const at = startOf(view.state, target);
   if (at === null) return;
   const selection = TextSelection.create(view.state.doc, at);
   view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
-  view.focus();
+  if (focus) view.focus();
 }
 
 /**
@@ -109,7 +116,10 @@ function usePanelCommands(view: EditorView | null) {
     run(startCommentDraft(createElementId()));
   };
   const onShow = useMemo(
-    () => (view ? (target: AnchorTarget) => showIn(view, target) : undefined),
+    () =>
+      view
+        ? (target: AnchorTarget, options?: ShowOptions) => showIn(view, target, options)
+        : undefined,
     [view],
   );
   return { ...useStableCallbacks({ run, startThread }), onShow };
@@ -180,6 +190,20 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const caret = state ? caretKey(items, state) : null;
   const { active, select } = usePanelActive(caret, opened);
   const policy = usePanelPolicy(props, context, comments);
+  const adding = useDocumentDraft();
+  // Comments on the whole document come first, then the document's text in reading order, then
+  // the threads it no longer anchors.
+  const onDocument = unanchored.filter((thread) => thread.scope === 'document');
+  const orphaned = unanchored.filter((thread) => thread.scope !== 'document');
+  const unanchoredCard = (thread: CommentThread) => (
+    <UnanchoredCard
+      key={thread.id}
+      thread={thread}
+      isActive={`comment:${thread.id}` === active}
+      context={card}
+      onSelect={select}
+    />
+  );
   return (
     <section {...hooks.root({ className: props.className })} aria-label={labels.commentsPanel}>
       <SegmentedChoice
@@ -192,9 +216,19 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
         value={filter}
         onChange={choose}
       />
+      {canComment ? <AddDocumentComment context={card} onPress={adding.start} /> : null}
       {count(filter) === 0 && items.length === 0 ? <p>{labels.noComments}</p> : null}
       {/* The list takes focus when its last card goes, the region around it naming it. */}
       <div {...hooks.slot('list')} role="list" tabIndex={-1}>
+        {onDocument.map(unanchoredCard)}
+        {adding.draft ? (
+          <DocumentDraftItem
+            key={adding.draft}
+            id={adding.draft}
+            context={card}
+            onClose={adding.close}
+          />
+        ) : null}
         {items.map((item) => (
           <PanelCard
             key={item.key}
@@ -204,15 +238,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
             onSelect={select}
           />
         ))}
-        {unanchored.map((thread) => (
-          <UnanchoredCard
-            key={thread.id}
-            thread={thread}
-            isActive={`comment:${thread.id}` === active}
-            context={card}
-            onSelect={select}
-          />
-        ))}
+        {orphaned.map(unanchoredCard)}
       </div>
     </section>
   );

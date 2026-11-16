@@ -13,6 +13,7 @@ import {
   openScale,
   pages,
   percentile,
+  remoteKeystrokeLatencies,
   SIZE,
   workloadLoads,
 } from './budgets.js';
@@ -128,6 +129,17 @@ test.describe('performance', () => {
     page,
   }) => {
     expectMeets(BUDGETS.latency40, await typingWork(lab, page, SIZE.pages40));
+  });
+
+  test('DOCE-LABS-2.3 draws each remote keystroke on 300 pages within its budget', async ({
+    lab,
+    page,
+  }) => {
+    await openScale(lab, page, SIZE.pages300);
+    expectMeets(
+      BUDGETS.latencyRemote300,
+      percentile(await remoteKeystrokeLatencies(page, 60), 0.95),
+    );
   });
 
   test('DOCE-LABS-2.3 answers keystrokes beside 500 threads', async ({ lab, page }) => {

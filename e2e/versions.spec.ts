@@ -28,7 +28,7 @@ test.describe('versions lab', () => {
   }) => {
     await lab.open('versions');
     await compareWith(page, 'Version 1');
-    await expect(page.getByLabel('Changes')).toHaveText('7 changes');
+    await expect(page.getByLabel('Changes')).toHaveText('8 changes');
     await expect(page.locator('.de-document-editor')).toHaveAttribute('data-comparing', 'markup');
     await expect(block(page, 'shall report each fault')).toHaveAttribute(
       'data-diff-change',
@@ -94,6 +94,28 @@ test.describe('versions lab', () => {
     await expect(
       block(page, 'within two seconds').locator('.de-change-lines__line'),
     ).toHaveAttribute('data-diff-line', 'modification');
+  });
+
+  test('DOCE-VERSIONS-2.4 keeps the bars of an indented block in the column of the others', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('versions');
+    await compareWith(page, 'Version 1');
+    await page.getByLabel('Change bars').check();
+    const item = content(page).locator('li p', { hasText: 'Faults go to the log' });
+    const left = (locator: ReturnType<Page['locator']>) =>
+      locator.evaluate((element) => element.getBoundingClientRect().left);
+    const itemBar = item.locator('.de-change-lines__line');
+    await expect(itemBar).toHaveAttribute('data-diff-line', 'insertion');
+    const topLevel = block(page, 'within two seconds').locator('.de-change-lines__line');
+    // The item sits indented, yet its bar shares the column of a top-level block's bars.
+    expect((await left(item)) - (await left(block(page, 'within two seconds')))).toBeGreaterThan(
+      10,
+    );
+    await expect
+      .poll(async () => Math.abs((await left(itemBar)) - (await left(topLevel))))
+      .toBeLessThan(0.5);
   });
 
   test('DOCE-VERSIONS-3.3 follows edits made while comparing', async ({ lab, page }) => {
@@ -167,7 +189,7 @@ test.describe('versions lab', () => {
     await expect(outside).not.toHaveAttribute('data-diff-change');
     expect(await outside.evaluate((element) => getComputedStyle(element).opacity)).toBe('0.45');
     await page.getByLabel('Compare within').selectOption('Whole document');
-    await expect(page.getByLabel('Changes')).toHaveText('7 changes');
+    await expect(page.getByLabel('Changes')).toHaveText('8 changes');
     await expect(content(page).locator('[data-diff-scope]')).toHaveCount(0);
   });
 });

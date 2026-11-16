@@ -16,11 +16,11 @@ export interface ZipLimits {
   readonly totalBytes: number;
 }
 
-/** The default limits: 5000 files, 64 MB in any one file and 256 MB in all. */
+/** The default limits: 10,000 files, 64 MiB in any one file and 100 MiB in all. */
 export const DEFAULT_ZIP_LIMITS: ZipLimits = Object.freeze({
-  files: 5000,
+  files: 10_000,
   fileBytes: 64 * 1024 * 1024,
-  totalBytes: 256 * 1024 * 1024,
+  totalBytes: 100 * 1024 * 1024,
 });
 
 /** An archive's files by path, each read when asked for. */

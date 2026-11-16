@@ -28,7 +28,15 @@ import { readDocumentFile } from '../../model/format/document-format-convert.js'
 import { writeZip } from '../../model/format/zip.js';
 import { createDocumentSchema } from '../../model/schema/document-schema.js';
 import { composeDocumentFile } from '../../model/templates/template-sections.js';
+import { importWarningGroup } from '../import-warnings.js';
 import { type DocxRead, readDocx } from './read-docx.js';
+
+const warning = (code: string, detail: string, count: number) => ({
+  code,
+  detail,
+  count,
+  group: importWarningGroup(code),
+});
 
 type Read = Extract<DocxRead, { ok: true }>;
 
@@ -149,8 +157,8 @@ describe('reading word processing documents', () => {
       para(text('unsafe')),
     ]);
     expect(result.warnings).toEqual([
-      { code: 'content-left-out', detail: 'unsafe link', count: 1 },
-      { code: 'field-as-text', detail: 'HYPERLINK', count: 1 },
+      warning('content-left-out', 'unsafe link', 1),
+      warning('field-as-text', 'HYPERLINK', 1),
     ]);
   });
 
@@ -160,9 +168,7 @@ describe('reading word processing documents', () => {
       links: { rIdBad: 'javascript:alert(1)' },
     });
     expect(blocks(result)).toEqual([para(text('bad'))]);
-    expect(result.warnings).toEqual([
-      { code: 'content-left-out', detail: 'unsafe link', count: 1 },
-    ]);
+    expect(result.warnings).toEqual([warning('content-left-out', 'unsafe link', 1)]);
   });
 
   it('DOCE-IMPORT-2.2 reads headings, the title, levels, custom styles, quotes and code', async () => {
@@ -182,8 +188,8 @@ describe('reading word processing documents', () => {
     ]);
     expect(result.warnings).toEqual(
       expect.arrayContaining([
-        { code: 'style-left-out', detail: 'aside', count: 1 },
-        { code: 'style-left-out', detail: 'Fancy', count: 1 },
+        warning('style-left-out', 'aside', 1),
+        warning('style-left-out', 'Fancy', 1),
       ]),
     );
   });
@@ -219,9 +225,9 @@ describe('reading word processing documents', () => {
     expect(math).toEqual({ type: 'mathBlock', attrs: { source: 'x=2' } });
     expect(result.warnings).toEqual(
       expect.arrayContaining([
-        { code: 'formatting-left-out', detail: 'colour', count: 1 },
-        { code: 'field-as-text', detail: 'DATE', count: 1 },
-        { code: 'equation-as-text', detail: '', count: 1 },
+        warning('formatting-left-out', 'colour', 1),
+        warning('field-as-text', 'DATE', 1),
+        warning('equation-as-text', '', 1),
       ]),
     );
   });
@@ -309,9 +315,9 @@ describe('reading word processing documents', () => {
       para(text('field')),
     ]);
     expect(result.warnings).toEqual([
-      { code: 'image-left-out', detail: 'word/media/picture.constructor', count: 1 },
-      { code: 'style-left-out', detail: 'constructor', count: 1 },
-      { code: 'field-as-text', detail: 'CONSTRUCTOR', count: 1 },
+      warning('image-left-out', 'word/media/picture.constructor', 1),
+      warning('style-left-out', 'constructor', 1),
+      warning('field-as-text', 'CONSTRUCTOR', 1),
     ]);
   });
 
@@ -498,6 +504,7 @@ describe('reading word processing documents', () => {
     let next = 0;
     const result = await read(COMMENTS, {
       newId: () => (next += 1).toString(16).padStart(8, '0'),
+      review: 'keep',
     });
     const [first, second, changes] = blocks(result);
     expect(first?.content?.[1]).toEqual({
@@ -549,7 +556,10 @@ describe('reading word processing documents', () => {
   });
 
   it('DOCE-IMPORT-2.7 gives the threads of two documents read different ids', async () => {
-    const [first, second] = await Promise.all([read(COMMENTS), read(COMMENTS)]);
+    const [first, second] = await Promise.all([
+      read(COMMENTS, { review: 'keep' }),
+      read(COMMENTS, { review: 'keep' }),
+    ]);
     const ids = (result: Read) => result.comments.map((thread) => thread.id);
     expect(ids(first)).toHaveLength(2);
     expect(ids(first).every((id) => /^comment-[a-f0-9]{8}$/.test(id))).toBe(true);
@@ -558,14 +568,17 @@ describe('reading word processing documents', () => {
 
   it('DOCE-IMPORT-2.7 gives tracked changes as suggestions with their authors, to accept or reject', async () => {
     const schema = createDocumentSchema();
-    const { file } = await read({
-      body: paragraph(
-        `${run('Keep ')}<w:ins w:id="1" w:author="Ann" w:date="2026-01-02T10:00:00Z">${run('new')}</w:ins>` +
-          `<w:del w:id="2" w:author="Ben"><w:r><w:delText>old</w:delText></w:r></w:del>` +
-          `<w:moveFrom w:id="3" w:author="Ann">${run(' here')}</w:moveFrom>` +
-          `<w:moveTo w:id="4" w:author="Ann">${run(' there')}</w:moveTo>`,
-      ),
-    });
+    const { file } = await read(
+      {
+        body: paragraph(
+          `${run('Keep ')}<w:ins w:id="1" w:author="Ann" w:date="2026-01-02T10:00:00Z">${run('new')}</w:ins>` +
+            `<w:del w:id="2" w:author="Ben"><w:r><w:delText>old</w:delText></w:r></w:del>` +
+            `<w:moveFrom w:id="3" w:author="Ann">${run(' here')}</w:moveFrom>` +
+            `<w:moveTo w:id="4" w:author="Ann">${run(' there')}</w:moveTo>`,
+        ),
+      },
+      { review: 'keep' },
+    );
     const doc = readDocumentFile(file, schema).doc;
     const suggestions = listSuggestions(doc);
     expect(
@@ -603,9 +616,11 @@ describe('reading word processing documents', () => {
       ['word/media/plot.png', 'image/png'],
     ]);
     expect(result.warnings).toEqual([
-      { code: 'image-left-out', detail: 'word/media/old.emf', count: 1 },
-      { code: 'image-left-out', detail: 'linked image', count: 1 },
-      { code: 'content-left-out', detail: 'chart', count: 1 },
+      warning('image-left-out', 'word/media/old.emf', 1),
+      warning('image-left-out', 'linked image', 1),
+      warning('content-left-out', 'chart', 1),
+      warning('caption-numbered', '', 1),
+      warning('section-layout-skipped', '', 1),
     ]);
     const hosted = await read(IMAGES, { imageSource: (image) => `asset:${image.path}` });
     expect(blocks(hosted)[1]?.attrs?.src).toBe('asset:word/media/plot.png');

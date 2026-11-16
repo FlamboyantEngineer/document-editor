@@ -114,6 +114,10 @@ export interface DocumentEditorLabels
   readonly proofingDegraded: string;
   /** Names the avatars of the other people in the document. */
   readonly presence: string;
+  /** What another person is doing, on their avatar and card: their activity, or idle or away. */
+  readonly presenceActivity: Readonly<
+    Record<'editing' | 'reviewing' | 'viewing' | 'idle' | 'away', string>
+  >;
   readonly find: string;
   /** Names the search pane's query box, apart from the find bar's. */
   readonly searchDocument: string;
@@ -217,6 +221,13 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   proofingUnavailable: 'Proofing unavailable',
   proofingDegraded: 'Proofing partly unavailable',
   presence: 'People in this document',
+  presenceActivity: {
+    editing: 'Editing',
+    reviewing: 'Reviewing',
+    viewing: 'Viewing',
+    idle: 'Idle',
+    away: 'Away',
+  },
   find: 'Find in document',
   searchDocument: 'Search the document',
   matchCase: 'Match case',

@@ -52,7 +52,8 @@ interface Open {
 }
 
 // The index after a construct that is not an element or text: a comment, a processing instruction,
-// a document type or CDATA (whose text goes to `into`).
+// or CDATA (whose text goes to `into`); a document type, which could declare entities or name
+// outside files, is refused.
 function skipSpecial(source: string, at: number, into: XmlNode[]): number {
   const ends: readonly (readonly [string, string])[] = [
     ['<!--', '-->'],
@@ -65,6 +66,7 @@ function skipSpecial(source: string, at: number, into: XmlNode[]): number {
     const close = source.indexOf(end, at + start.length);
     if (close === -1) throw importError('damaged', `An XML part has an unclosed ${start}.`);
     if (start === '<![CDATA[') into.push(source.slice(at + start.length, close));
+    if (start === '<!') throw importError('refused', 'An XML part declares a document type.');
     return close + end.length;
   }
   return -1;
@@ -72,7 +74,11 @@ function skipSpecial(source: string, at: number, into: XmlNode[]): number {
 
 // Reads the tag at `at` (just past its `<`'s construct checks) into the open elements, and gives
 // the index after it.
-function readTag(source: string, at: number, stack: Open[]): number {
+function readTag(
+  source: string,
+  at: number,
+  { stack, depth }: { stack: Open[]; depth: number },
+): number {
   const gt = source.indexOf('>', at);
   if (gt === -1) throw importError('damaged', 'An XML part has an unclosed tag.');
   const tag = source.slice(at + 1, gt);
@@ -89,11 +95,20 @@ function readTag(source: string, at: number, stack: Open[]): number {
   const element: Open = { name, attrs: attributesOf(body.slice(name.length)), children: [] };
   stack[stack.length - 1]?.children.push(element);
   if (!selfClosing) stack.push(element);
+  if (stack.length > depth + 1)
+    throw importError('too-large', `An XML part nests elements deeper than ${String(depth)}.`);
   return gt + 1;
 }
 
-/** An XML document's root element. Throws an `ImportError` for markup that is not well formed. */
-export function readXml(source: string): XmlElement {
+/** The deepest elements may nest by default. */
+const DEFAULT_XML_DEPTH = 256;
+
+/**
+ * An XML document's root element. Throws an `ImportError` for markup that is not well formed,
+ * elements nested deeper than `depth`, or a document type declaration, which could declare
+ * entities or name outside files.
+ */
+export function readXml(source: string, depth = DEFAULT_XML_DEPTH): XmlElement {
   const root: Open = { name: '', attrs: {}, children: [] };
   const stack: Open[] = [root];
   let at = 0;
@@ -107,7 +122,7 @@ export function readXml(source: string): XmlElement {
       continue;
     }
     const special = skipSpecial(source, at, top.children);
-    at = special === -1 ? readTag(source, at, stack) : special;
+    at = special === -1 ? readTag(source, at, { stack, depth }) : special;
   }
   const element = root.children.find((child): child is XmlElement => typeof child !== 'string');
   if (stack.length !== 1 || !element)

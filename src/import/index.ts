@@ -8,14 +8,26 @@ export type {
   ComposeDocumentOptions,
   CreateDocumentOptions,
 } from '../model/templates/template-sections.js';
-export { composeDocumentFile, createDocumentFile } from '../model/templates/template-sections.js';
+export {
+  composeDocumentFile,
+  createDocumentFile,
+  findAppendixSection,
+} from '../model/templates/template-sections.js';
+export type { DocxLimits } from './docx/docx-checks.js';
+export { DEFAULT_DOCX_LIMITS } from './docx/docx-checks.js';
 export type { ImportedImage } from './docx/docx-package.js';
+export type { DocxCounts } from './docx/docx-resolve.js';
 export type { ImportedPage } from './docx/docx-sections.js';
 export type { DocxRead, DocxReadOptions } from './docx/read-docx.js';
 export { readDocx } from './docx/read-docx.js';
 export type { ImportFailure } from './import-error.js';
-export type { ImportWarning, ImportWarningCode, ImportWarnings } from './import-warnings.js';
-export { createImportWarnings } from './import-warnings.js';
+export type {
+  ImportWarning,
+  ImportWarningCode,
+  ImportWarningGroup,
+  ImportWarnings,
+} from './import-warnings.js';
+export { createImportWarnings, importWarningGroup } from './import-warnings.js';
 export type { StoredContentTarget } from './select-content.js';
 export { selectStoredContent } from './select-content.js';
 export type { ZipLimits } from './zip-read.js';

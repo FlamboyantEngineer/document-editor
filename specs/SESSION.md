@@ -115,9 +115,9 @@ Verification: `src/session/room-session.test.ts`
 
 ### DOCE-SESSION-3.5 - The room's template
 
-`setTemplate(pin)` in room mode shall show the template and write the pin to the room's `meta` type, for a reader who edits; when another reader pins another template, the session shall show it.
+`setTemplate(pin)` in room mode shall show the template and, for a reader who edits, write the pin to the room's `meta` type together with the room's content moved to the template (the sections the template owns brought in line with it and the references formatted by it, `moveToTemplate`), in one change of the room, so no reader ever holds the new pin without the moved content or the moved content without the pin; when another reader pins another template, the session shall show it.
 
-Implementation: `src/session/room-session.ts`, `src/session/room-binding.ts`
+Implementation: `src/session/room-session.ts`, `src/session/room-binding.ts`, `src/engine/template-move.ts`
 Verification: `src/session/room-session.test.ts`
 
 ### DOCE-SESSION-3.6 - Closing a room session

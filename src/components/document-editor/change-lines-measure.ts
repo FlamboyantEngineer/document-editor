@@ -8,6 +8,9 @@ import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { useEffect } from 'react';
 import {
+  type ChangeInsets,
+  changeInsetsKeyOf,
+  changeInsetsOf,
   type ChangeLine,
   type ChangeLineKind,
   type ChangeLines,
@@ -19,6 +22,7 @@ import {
   versionChanges,
 } from '../../engine/index.js';
 import { findTemplateSection, sectionAt, type TemplateFile } from '../../model/index.js';
+import { measureChangeInsets } from './change-bar-insets.js';
 import type { DocumentMarkup } from './editor-context.js';
 
 interface Band {
@@ -210,7 +214,8 @@ function blocksToMeasure(view: EditorView, suggestions: boolean): Map<number, HT
 
 /**
  * Measures the changed lines of every block whose text changed and, with `suggestions`, of every
- * block holding a pending suggestion, by the block's position.
+ * block holding a pending suggestion, by the block's position, and where every barred block sits
+ * in its page's content.
  */
 function measureChangeLines(
   view: EditorView,
@@ -219,16 +224,22 @@ function measureChangeLines(
     readonly template?: TemplateFile | undefined;
     readonly suggestions: boolean;
   },
-): ChangeLines {
+): { lines: ChangeLines; insets: ChangeInsets } {
   const { scale, template, suggestions } = options;
   const lines = new Map<number, readonly ChangeLine[]>();
   const { doc } = view.state;
-  for (const [pos, block] of blocksToMeasure(view, suggestions)) {
+  const lined = blocksToMeasure(view, suggestions);
+  for (const [pos, block] of lined) {
     const shown = template ? shownChangesAt(template, doc.resolve(pos)) : SHOW_ALL;
     lines.set(pos, measureBlockLines(block, { scale, shown, suggestions }));
   }
-  return lines;
+  return { lines, insets: measureChangeInsets(view, { scale, lined }) };
 }
+
+const NOTHING = { lines: new Map(), insets: new Map() } as const;
+
+const drawnKeyOf = ({ lines, insets }: { lines: ChangeLines; insets: ChangeInsets }) =>
+  `${changeLinesKeyOf(lines)}#${changeInsetsKeyOf(insets)}`;
 
 /**
  * Measures the changed lines after each render while the document shows changes, or in the change
@@ -254,12 +265,13 @@ export function useChangeLines(
     if (!view || !owner || !drawsChangeLines(view.state)) return undefined;
     const frame = owner.requestAnimationFrame(() => {
       if (view.isDestroyed) return;
-      const lines =
+      const drawn =
         changes.length || suggestions
           ? measureChangeLines(view, { scale: zoom / 100, template, suggestions })
-          : new Map();
-      if (changeLinesKeyOf(lines) === changeLinesKeyOf(changeLinesOf(view.state))) return;
-      view.dispatch(setChangeLines(view.state.tr, lines));
+          : NOTHING;
+      const now = { lines: changeLinesOf(view.state), insets: changeInsetsOf(view.state) };
+      if (drawnKeyOf(drawn) === drawnKeyOf(now)) return;
+      view.dispatch(setChangeLines(view.state.tr, drawn.lines, drawn.insets));
     });
     return () => owner.cancelAnimationFrame(frame);
   }, [view, state, changes, zoom, template, suggestions]);

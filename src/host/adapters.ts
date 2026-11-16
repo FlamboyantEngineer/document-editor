@@ -107,6 +107,11 @@ export interface DocumentVersion extends SavedState {
   template?: TemplatePin | null | undefined;
   /** How many comment threads the document had when the version was saved, when the host keeps them. */
   threads?: number | undefined;
+  /**
+   * A line the host shows with the version, such as the document's workflow state and revision
+   * when it was saved ("Draft - 3").
+   */
+  detail?: string | undefined;
 }
 
 /** Content, resolved template and discussion captured together at one revision. */
