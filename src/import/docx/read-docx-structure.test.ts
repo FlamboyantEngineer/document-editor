@@ -21,6 +21,7 @@ const STYLES = [
   ['MyToc', 'My contents', 'TOC1'],
   ['TOCHeading', 'TOC Heading'],
   ['Deep', 'Deep outline', '', '<w:pPr><w:outlineLvl w:val="7"/></w:pPr>'],
+  ['AppendixHeading', 'heading 1 appendix', 'Heading1'],
 ]
   .map(
     ([id, name, basedOn, properties]) =>
@@ -343,5 +344,37 @@ describe('reading the structure of word processing documents', () => {
     expect(result.counts).toEqual({ headings: 2, tables: 1, images: 2, footnotes: 0 });
     expect(result.title).toBe('Report');
     expect(codes(result)).toEqual(['applied title-applied 1', 'applied table-style-applied 1']);
+  });
+
+  it('DOCE-IMPORT-2.15 moves the appendices into their own section, from the first appendix heading', async () => {
+    const body = (heading: string) => [
+      paragraph(run('Scope'), style('Heading1')),
+      paragraph(run('Text')),
+      paragraph('<w:r><w:br w:type="page"/></w:r>'),
+      blank,
+      heading,
+      paragraph(run('Details')),
+      paragraph(run('Annex B Extra'), style('Heading1')),
+    ];
+    const styled = await read(body(paragraph(run('Tools'), style('AppendixHeading'))), {
+      appendixSection: 'annexes',
+    });
+    expect(
+      styled.file.sections.map((section) => [section.name ?? null, section.content.map(textOf)]),
+    ).toEqual([
+      [null, ['Scope', 'Text']],
+      ['annexes', ['Tools', 'Details', 'Annex B Extra']],
+    ]);
+    expect(styled.pages).toHaveLength(2);
+    const labelled = await read(body(paragraph(run('Appendix A Tools'), style('Heading1'))), {
+      appendixSection: 'annexes',
+    });
+    expect(labelled.file.sections[1]?.content.map(textOf)).toEqual([
+      'Appendix A Tools',
+      'Details',
+      'Annex B Extra',
+    ]);
+    const kept = await read(body(paragraph(run('Appendix A Tools'), style('Heading1'))));
+    expect(kept.file.sections).toHaveLength(1);
   });
 });

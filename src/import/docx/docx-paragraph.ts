@@ -56,6 +56,8 @@ export interface ParagraphReading extends DocxReading {
   readonly textCaptions: boolean;
   /** Whether the paragraphs being read are in a table's cell. */
   readonly inTable?: boolean;
+  /** The headings in a style whose name or a parent's names an appendix or annex. */
+  readonly appendixHeadings?: Set<StoredNode>;
 }
 
 const plainText = (content: readonly StoredNode[]) =>
@@ -343,6 +345,7 @@ export function readParagraph(p: XmlElement, reading: ParagraphReading): Piece[]
   };
   const empty = content.length ? null : emptyPieces(pPr);
   if (empty) return empty;
+  const appendix = reading.styles.namesOf(styleId).some((name) => /appendix|annex/.test(name));
   const pieces: Piece[] = childElement(pPr, 'w:pageBreakBefore')
     ? [{ kind: 'block', node: { type: 'pageBreak' } }]
     : [];
@@ -353,5 +356,14 @@ export function readParagraph(p: XmlElement, reading: ParagraphReading): Piece[]
     else if (part.length || parts.length === 1 || (index > 0 && index < parts.length - 1))
       pieces.push(pieceOf(part, shape));
   });
+  if (appendix) markAppendix(pieces, reading);
   return pieces;
+}
+
+// Records the headings of an appendix style, where the reader may start a document's appendices.
+function markAppendix(pieces: readonly Piece[], reading: ParagraphReading): void {
+  for (const piece of pieces) {
+    if (piece.kind === 'block' && piece.node.type === 'heading')
+      reading.appendixHeadings?.add(piece.node);
+  }
 }

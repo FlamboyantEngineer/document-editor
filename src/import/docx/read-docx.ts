@@ -20,6 +20,7 @@ import {
 } from '../import-warnings.js';
 import { childElement, childElements, type XmlElement } from '../xml-read.js';
 import { readZip } from '../zip-read.js';
+import { splitAppendix } from './docx-appendix.js';
 import { type BlockReading, readBlockElements, readBlocks } from './docx-blocks.js';
 import {
   DEFAULT_DOCX_LIMITS,
@@ -68,6 +69,12 @@ export interface DocxReadOptions {
    * suggestions and comments as comment threads.
    */
   readonly review?: 'accept' | 'keep' | undefined;
+  /**
+   * The name of the section the document's appendices go in, from the first heading in an appendix
+   * or annex style, else the first top-level heading reading `Appendix` or `Annex` and a letter or
+   * number, to the end (`findAppendixSection` gives a template's); none keeps them in place.
+   */
+  readonly appendixSection?: string | undefined;
 }
 
 // A fresh random suggestion id, of the editor's element id form.
@@ -113,6 +120,7 @@ interface Shared {
   readonly keepsReview: boolean;
   readonly textCaptions: boolean;
   readonly bookmarks: Map<string, StoredNode>;
+  readonly appendixHeadings: Set<StoredNode>;
   notes: (kind: 'footnote' | 'endnote', id: string) => StoredNode[] | null;
 }
 
@@ -129,6 +137,7 @@ function readingFor(part: DocxPart, shared: Shared): BlockReading {
     keepsReview: shared.keepsReview,
     textCaptions: shared.textCaptions,
     bookmarks: shared.bookmarks,
+    appendixHeadings: shared.appendixHeadings,
     open: { comments: [], fields: [] },
   };
 }
@@ -289,6 +298,7 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
     keepsReview,
     textCaptions: options.textCaptions !== false,
     bookmarks: new Map(),
+    appendixHeadings: new Set(),
     notes: () => null,
   };
   if (!keepsReview) {
@@ -298,7 +308,12 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
   const footnotes = notesReader(await parts.related('footnotes'), shared);
   const endnotes = notesReader(await parts.related('endnotes'), shared);
   shared.notes = (kind, id) => (kind === 'footnote' ? footnotes(id) : endnotes(id));
-  const { sections, pages } = await readSections(shared);
+  const read = await readSections(shared);
+  const split = options.appendixSection
+    ? splitAppendix(read.sections, shared.appendixHeadings, options.appendixSection)
+    : null;
+  const sections = split?.sections ?? read.sections;
+  const pages = split ? split.from.map((index) => read.pages[index] ?? null) : read.pages;
   resolveReferences(sections, { bookmarks: shared.bookmarks, warnings, newId });
   const file: DocumentFile = { formatVersion: DOCUMENT_FORMAT_VERSION, sections };
   refuseLargeOutput(file, { ...DEFAULT_DOCX_LIMITS, ...options.limits });

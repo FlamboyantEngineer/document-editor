@@ -127,6 +127,13 @@ The reader shall refuse (`refused`) a package with macros: a part named `vbaProj
 Implementation: `src/import/docx/docx-checks.ts`, `src/import/xml-read.ts`, `src/import/docx/docx-package.ts`
 Verification: `src/import/docx/read-docx-limits.test.ts`, `src/import/xml-read.test.ts`
 
+### DOCE-IMPORT-2.15 - Appendices
+
+With `appendixSection`, the reader shall put the document's appendices in sections of that name: from the first heading in a style whose name, or a name of a style it is based on, holds `appendix` or `annex`, else from the first level-1 heading whose text starts with `Appendix` or `Annex` and a letter or number, to the end, the heading's text kept whole; the page breaks and empty paragraphs right before it shall be left out, and `pages` shall give the split section's page for both parts. Without it the appendices stay where they are.
+
+Implementation: `src/import/docx/docx-appendix.ts`, `src/import/docx/docx-paragraph.ts`
+Verification: `src/import/docx/read-docx-structure.test.ts`
+
 ## DOCE-IMPORT-3 - Composing documents
 
 ### DOCE-IMPORT-3.1 - New document from a template
@@ -134,7 +141,7 @@ Verification: `src/import/docx/read-docx-limits.test.ts`, `src/import/xml-read.t
 `createDocumentFile({ template, revision, newId, author, schema, contentsTokens })` shall give a stored document pinned to the template at `revision` (DOCE-TEMPLATES-11.1), with the template's required sections in order, each holding a copy of its template section's `content`: a locked section (`editable: false`) shall be stored locked with the template's content, and every element, a locked section's too, shall get a fresh id from `newId`, attributed to `author` (`assignStoredIds`), so comments and links can hold on to the template's fixed content. With `schema`, the template's content shall be read as `readTemplateContent` reads it (DOCE-TEMPLATES-8.1), its `{{key}}` tokens live variables and its list tokens lists of contents, with `contentsTokens` in place of the default list tokens; without one it is copied as it is, but for each top-level paragraph that is only a list token, which becomes a list of contents of its kind (`storedContentsTokens`). A template without sections shall give one empty section with no name.
 
 Implementation: `src/model/templates/template-sections.ts`
-Verification: `src/model/templates/template-sections.test.ts`
+Verification: `src/model/templates/template-sections.test.ts`, `src/model/templates/template-compose.test.ts`
 
 ### DOCE-IMPORT-3.2 - Composing into template sections
 
@@ -145,10 +152,10 @@ Verification: `src/model/templates/template-sections.test.ts`
 
 ### DOCE-IMPORT-3.3 - Fitted table widths
 
-When it composes a document, each table, at any depth, whose column widths are all set and add up to more than its section's pages' content width (the section's page size, orientation and margins over the template's) shall have every column shrunk in proportion to fit it (`fitStoredTables`, `scaleColumns`), whole pixels, never below the narrowest a column may be (`DEFAULT_TABLE_CELL_MIN_WIDTH`), a column already narrower keeping its width; each cell shall take the widths of the columns it spans. A table that fits, or one with a width unset, shall be left as it is.
+When it composes a document, each table, at any depth, whose column widths are all set and add up to more than its section's pages' content width (the section's page size, orientation and margins over the template's) shall have every column shrunk in proportion to fit it (`fitStoredTables`, `scaleColumns`), whole pixels, never below the narrowest a column may be (`DEFAULT_TABLE_CELL_MIN_WIDTH`), a column already narrower keeping its width; each cell shall take the widths of the columns it spans. A table that fits, or one with a width unset, shall be left as it is. With `tables: 'fill'`, each top-level table whose widths are all set shall instead fill that width exactly, its columns in proportion to their widths, whole pixels summing to it, the pixels rounding leaves going to the columns that lost most (`fillColumns`), narrower tables widening too; nested tables only shrink. `tableInset` pixels shall be kept clear of the width either way, such as for the page's and table's borders.
 
 Implementation: `src/model/layout/column-widths.ts`, `src/model/layout/stored-table-widths.ts`, `src/model/templates/template-sections.ts`
-Verification: `src/model/layout/column-widths.test.ts`, `src/model/layout/stored-table-widths.test.ts`, `src/model/templates/template-sections.test.ts`
+Verification: `src/model/layout/column-widths.test.ts`, `src/model/layout/stored-table-widths.test.ts`, `src/model/templates/template-sections.test.ts`, `src/model/templates/template-compose.test.ts`
 
 ### DOCE-IMPORT-3.4 - Part of a stored document
 
@@ -156,6 +163,20 @@ Verification: `src/model/layout/column-widths.test.ts`, `src/model/layout/stored
 
 Implementation: `src/import/select-content.ts`
 Verification: `src/import/select-content.test.ts`
+
+### DOCE-IMPORT-3.5 - A title already shown
+
+When a section of the composed document other than the one the content fills shows the document's title, through a title heading or a variable or `{{key}}` token of one of `titleVariables`, the content's own title heading shall be left out, and when it leads the content, past empty paragraphs and page breaks, those and the empty paragraphs and page breaks after it up to the first other block too, so no empty title page is left.
+
+Implementation: `src/model/templates/template-sections.ts`
+Verification: `src/model/templates/template-compose.test.ts`
+
+### DOCE-IMPORT-3.6 - Appendices
+
+`findAppendixSection(template, target)` shall give the name of the template's editable section named or labelled `Appendix`, in any case, unless it is `target` (the first editable section by default); null for none. Content composed with sections of that name fills it, created in template order (DOCE-IMPORT-3.2), its tables fitted to its own pages.
+
+Implementation: `src/model/templates/template-sections.ts`
+Verification: `src/model/templates/template-compose.test.ts`
 
 ## DOCE-IMPORT-4 - Markdown
 
