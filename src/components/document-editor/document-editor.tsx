@@ -55,6 +55,7 @@ import type { HostDialogProps } from './dialog-parts.js';
 import type { DocumentStatusBarOptions } from './document-status-bar.js';
 import { EditorBody } from './editor-body.js';
 import { useWheelZoom } from './editor-chrome.js';
+import type { EditorContentsOptions } from './editor-contents.js';
 import {
   DocumentEditorContext,
   type DocumentMarkup,
@@ -261,8 +262,16 @@ export interface DocumentEditorProps
   diagrams?: DiagramAdapter | undefined;
   /** Resolves the code linked code blocks show; without it the editor offers no linked code. */
   codeSource?: CodeSourceAdapter | undefined;
-  /** Finds citations of other documents, which the reference dialog then offers. */
+  /**
+   * Finds citations of other documents, which the reference dialog then offers; its `href` is
+   * where a list of references links each cited document.
+   */
   referenceSource?: ReferenceSourceAdapter | undefined;
+  /**
+   * The kinds of list and labels of the lists of contents the editor draws when the state holds no
+   * contents plugin of the host's own (DOCE-CONTENTS-2.12), read when the editor mounts.
+   */
+  contents?: EditorContentsOptions | undefined;
   /** The glossary abbreviations cite; without it the editor offers no abbreviations. */
   glossary?: GlossaryAdapter | undefined;
   /** Runs the script blocks: from their dialog and the context menu, and on opening for those that ask. */

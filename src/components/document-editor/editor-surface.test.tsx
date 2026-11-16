@@ -78,9 +78,12 @@ describe('EditorSurface', () => {
     expect(body).toHaveAttribute('inert');
     expect(loadProgress.get().status).toBe('loading');
     expect(body).toHaveAttribute('aria-busy', 'true');
-    await waitFor(() => expect(body).not.toHaveAttribute('inert'));
+    // The load is made ready by an effect after the commit that frees the body, so both are awaited.
+    await waitFor(() => {
+      expect(body).not.toHaveAttribute('inert');
+      expect(loadProgress.get()).toMatchObject({ status: 'ready', percent: 100 });
+    });
     expect(body).not.toHaveAttribute('aria-busy');
-    expect(loadProgress.get()).toMatchObject({ status: 'ready', percent: 100 });
     expect(container.firstElementChild).toHaveAttribute('data-layout-state', 'settled');
   });
 

@@ -19,18 +19,9 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createTemplateEditDefaults } from '../../engine/figure-defaults.js';
 import {
   type CompareSuggestions,
-  createAuthorship,
-  createChangeLines,
-  createDocumentSections,
-  createDynamicTemplates,
-  createRegionEditing,
-  createSearch,
-  createSectionFootnoteNumbers,
-  createTemplateContentEditing,
-  createVersionChanges,
+  contentsKey,
   documentSectionsKey,
   refreshDynamicTemplates,
   refreshVersionChanges,
@@ -38,22 +29,17 @@ import {
   sectionFootnoteNumbersKey,
   type VersionChangeDisplay,
 } from '../../engine/index.js';
-import type { FontsAdapter, VariablesAdapter } from '../../host/index.js';
+import type { FontsAdapter, ReferenceSourceAdapter, VariablesAdapter } from '../../host/index.js';
 import {
-  findTemplateSection,
   type FragmentRules,
   joinDocumentPages,
   type LayoutRules,
   resolveFootnoteSettings,
   type TemplateFile,
-  templatePageMetrics,
   type TemplatePartChange,
 } from '../../model/index.js';
 import {
   type CanonicalChange,
-  createListStarts,
-  createPageDebug,
-  createPageVariables,
   type LayoutState,
   pageDebugKey,
   type PageDebugParts,
@@ -61,6 +47,8 @@ import {
   type PaginationStats,
 } from '../../pagination/index.js';
 import type { DocumentEditorDebug } from './document-editor.js';
+import { type EditorContentsOptions, lackedPlugins } from './editor-contents.js';
+import { layoutOwnPlugins } from './layout-own-plugins.js';
 import {
   fragmentRulesOf,
   type LayoutRunner,
@@ -73,49 +61,6 @@ import type { PagedEditor } from './use-paged-projection.js';
 
 /** How a document is shown: on pages, or as one page per section that fills its surface. */
 export type DocumentLayout = 'page' | 'web';
-
-// The plugins the layout adds to the editor's own, reading the options as they are now.
-function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
-  return [
-    createPageDebug({
-      shown: () => latest.current.debug ?? {},
-      sheet: (section) => {
-        const { template } = latest.current;
-        const name = section.attrs.sectionName as string | null;
-        return templatePageMetrics(template, findTemplateSection(template, name));
-      },
-    }),
-    createListStarts(),
-    createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
-    createDynamicTemplates({ value: (key) => latest.current.variables?.value(key) }),
-    createSectionFootnoteNumbers({
-      enabled: () =>
-        latest.current.layout === 'web' &&
-        resolveFootnoteSettings(latest.current.template, null).numbering === 'page',
-    }),
-    createSearch(),
-    createSearch('pane'),
-    createAuthorship(),
-    createRegionEditing({
-      enabled: () => Boolean(latest.current.onRegionChange),
-      template: () => latest.current.template,
-      onChange: (change) => latest.current.onRegionChange?.(change),
-    }),
-    createTemplateContentEditing({
-      enabled: () => Boolean(latest.current.onTemplatePartChange),
-      onChange: (change) => latest.current.onTemplatePartChange?.(change),
-    }),
-    createDocumentSections({ template: () => latest.current.template }),
-    ...createTemplateEditDefaults(() => latest.current.template),
-    createChangeLines(),
-    createVersionChanges({
-      previous: () => latest.current.compare?.previous ?? null,
-      display: () => latest.current.compare?.display ?? 'markup',
-      suggestions: () => latest.current.compare?.suggestions ?? 'rejected',
-      scope: () => latest.current.compare?.scope ?? null,
-    }),
-  ];
-}
 
 // Editing the regions in place, or no longer, sets them again: editable or read-only.
 function useRegionsEditable(
@@ -198,6 +143,10 @@ export interface DocumentLayoutOptions {
   readonly onCanonical?: ((tr: Transaction, made: CanonicalChange) => void) | undefined;
   /** Told of each layout of the projection's pages. */
   readonly onLayout?: ((tr: Transaction) => void) | undefined;
+  /** The kinds of list and labels of the lists of contents the editor draws, when it draws them. */
+  readonly contents?: EditorContentsOptions | undefined;
+  /** Where a list of references links each cited document. */
+  readonly referenceSource?: ReferenceSourceAdapter | undefined;
 }
 
 /** An older version to show a document's changes from, as change bars or marked in place. */
@@ -218,6 +167,7 @@ const restyleSections = (state: EditorState) =>
     state.tr
       .setMeta(documentSectionsKey, true)
       .setMeta(sectionFootnoteNumbersKey, true)
+      .setMeta(contentsKey, true)
       .setMeta('addToHistory', false),
   );
 
@@ -279,7 +229,7 @@ function useLayoutPlugins(options: DocumentLayoutOptions, own: RefObject<readonl
     const layoutPlugins = own.current;
     if (layoutPlugins.every((plugin) => plugins.includes(plugin))) return;
     onStateChange((state) => {
-      const absent = layoutPlugins.filter((plugin) => !state.plugins.includes(plugin));
+      const absent = lackedPlugins(state, layoutPlugins);
       if (absent.length === 0) return state;
       return restyleSections(state.reconfigure({ plugins: [...state.plugins, ...absent] }));
     });
@@ -335,7 +285,9 @@ export function useDocumentLayout(
     ownPlugins.current = own;
     const { onStateChange } = latest.current;
     onStateChange((state) =>
-      restyleSections(state.reconfigure({ plugins: [...state.plugins, ...own] })),
+      restyleSections(
+        state.reconfigure({ plugins: [...state.plugins, ...lackedPlugins(state, own)] }),
+      ),
     );
     return () => {
       ownPlugins.current = [];

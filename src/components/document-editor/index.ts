@@ -28,6 +28,7 @@ export type { FindBarMode } from './document-find-bar.js';
 export type { DocumentStatusBarOptions, StatusBarItem } from './document-status-bar.js';
 export { ZOOM_LEVELS } from './document-status-bar.js';
 export { STATUS_BAR_ITEMS } from './document-status-bar.js';
+export type { EditorContentsOptions } from './editor-contents.js';
 export type { EditorContext, ObjectDialog } from './editor-context.js';
 export { useDocumentEditor } from './editor-context.js';
 export type { DocumentEditorHandle } from './editor-handle.js';

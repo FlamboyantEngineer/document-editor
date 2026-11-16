@@ -112,8 +112,13 @@ describe('new and composed documents', () => {
     ]);
     expect(contents?.type).not.toBe('paragraph');
     expect(JSON.stringify(file)).not.toContain('{{');
+    // Without a schema the variables stay text, and a list token is a list of contents still.
     const copied = createDocumentFile({ template, newId: counter() });
     expect(JSON.stringify(copied)).toContain('{{author}}');
+    expect(copied.sections[0]?.content[1]).toMatchObject({
+      type: 'contents',
+      attrs: { kind: 'figures' },
+    });
   });
 
   it('DOCE-IMPORT-3.1 gives a template without sections one empty section', () => {

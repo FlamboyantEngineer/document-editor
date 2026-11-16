@@ -86,3 +86,35 @@ describe('a list of references in the context menu', () => {
     view.destroy();
   });
 });
+
+describe('a table of contents in the context menu', () => {
+  it('DOCE-EDITOR-3.8 names its depth with the labels a host gives', () => {
+    const doc = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [{ type: 'contents' }] }] },
+      documentSchema,
+    ).doc;
+    let list = 0;
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'toc_block') list = pos;
+    });
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc, selection: NodeSelection.create(doc, list) }),
+    });
+    const node = view.state.doc.nodeAt(list);
+    const entries = contentsEntries(view, node ? { node, pos: list } : null, {
+      ...DEFAULT_EDITOR_LABELS,
+      contentsDepth: 'Lowest heading level',
+      depthLevel: (depth) => `Level ${String(depth)}`,
+    });
+    expect(entries[0]).toMatchObject({ label: 'Lowest heading level' });
+    expect(items(entries).map((item) => item.label)).toEqual([
+      'Level 1',
+      'Level 2',
+      'Level 3',
+      'Level 4',
+      'Level 5',
+      'Level 6',
+    ]);
+    view.destroy();
+  });
+});

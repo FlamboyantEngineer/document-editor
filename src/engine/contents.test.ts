@@ -412,3 +412,30 @@ describe('a list of references', () => {
     view.destroy();
   });
 });
+
+describe('labels a host gives', () => {
+  it('DOCE-CONTENTS-2.5 replaces a default list title and its empty text', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [{ name: null, content: [{ type: 'contents', attrs: { kind: 'references' } }] }],
+      },
+      documentSchema,
+    ).doc;
+    const state = EditorState.create({
+      doc,
+      plugins: [
+        createContents({
+          template: () => BASE_TEMPLATE,
+          labels: {
+            references: { title: 'Cited documents', empty: 'Nothing is cited.' },
+          },
+        }),
+      ],
+    });
+    const view = new EditorView(document.createElement('div'), { state });
+    expect(view.dom.querySelector('.de-contents__title')).toHaveTextContent('Cited documents');
+    expect(view.dom.querySelector('.de-contents__empty')).toHaveTextContent('Nothing is cited.');
+    view.destroy();
+  });
+});
