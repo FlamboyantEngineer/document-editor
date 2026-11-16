@@ -105,6 +105,19 @@ export const BUDGETS = {
     target: '≤ 32',
     meets: atMost(32),
   },
+  latencyCompare300: {
+    bar: 'Keystroke latency',
+    metric: 'p95 keystroke work, 300 pages compared with the document as opened (ms)',
+    target: '≤ 32',
+    meets: atMost(32),
+  },
+  latencyRemoteCompare300: {
+    bar: 'Remote typing',
+    metric:
+      'p95 remote keystroke to frame drawn, 300 pages compared with the document as opened (ms)',
+    target: '≤ 32',
+    meets: atMost(32),
+  },
   latencyReview300: {
     bar: 'Keystroke latency',
     metric: 'p95 input to paint, 300 pages beside 500 comment threads (ms)',
@@ -165,8 +178,13 @@ export const SIZE = {
 export const pages = (page: Page) => page.locator('.de-document-editor__content .pm-page');
 const blocks = (page: Page) => page.locator('.de-document-editor__content .pm-page-content > p');
 
-export async function openScale(lab: LabFixture, page: Page, size: number) {
-  await page.goto(`stress-scale.html?size=${String(size)}`);
+export async function openScale(
+  lab: LabFixture,
+  page: Page,
+  size: number,
+  { compare = false }: { compare?: boolean } = {},
+) {
+  await page.goto(`stress-scale.html?size=${String(size)}${compare ? '&compare' : ''}`);
   // The largest documents take longer than the usual wait to settle.
   await expect(page.locator('html')).toHaveAttribute('data-lab-ready', 'true', {
     timeout: 120_000,

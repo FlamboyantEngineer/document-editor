@@ -104,8 +104,13 @@ test.describe('performance', () => {
   });
 
   // The typing budgets are enforced, on each key's own work (`keystrokeWork`).
-  async function typingWork(lab: Parameters<typeof openScale>[0], page: Page, size: number) {
-    await openScale(lab, page, size);
+  async function typingWork(
+    lab: Parameters<typeof openScale>[0],
+    page: Page,
+    size: number,
+    compare = false,
+  ) {
+    await openScale(lab, page, size, { compare });
     await caretAtEnd(page, 3);
     return percentile(await keystrokeWork(page, 60), 0.95);
   }
@@ -138,6 +143,22 @@ test.describe('performance', () => {
     await openScale(lab, page, SIZE.pages300);
     expectMeets(
       BUDGETS.latencyRemote300,
+      percentile(await remoteKeystrokeLatencies(page, 60), 0.95),
+    );
+  });
+
+  test('DOCE-LABS-2.3 DOCE-VERSIONS-2.5 types on 300 pages within its budget while changes show', async ({
+    lab,
+    page,
+  }) => {
+    // Typing compares only the block typed in; its work is reported beside plain typing's budget.
+    const typing = await typingWork(lab, page, SIZE.pages300, true);
+    report(BUDGETS.latencyCompare300, typing);
+    expect(typing).toBeGreaterThan(0);
+    // A remote change compares the whole document, at once, within the remote typing budget.
+    await openScale(lab, page, SIZE.pages300, { compare: true });
+    expectMeets(
+      BUDGETS.latencyRemoteCompare300,
       percentile(await remoteKeystrokeLatencies(page, 60), 0.95),
     );
   });
