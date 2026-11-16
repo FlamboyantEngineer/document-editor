@@ -5,7 +5,6 @@
 import { Announcer } from '@flamboyantengineer/ui-components/announcer';
 import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import { type ReactNode, type RefObject, useState } from 'react';
-import type { LayoutState } from '../../pagination/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { DocumentBanners } from './banners.js';
 import { DebugPane, debugPaneView } from './debug-pane.js';
@@ -21,9 +20,10 @@ import {
 } from './editor-chrome.js';
 import type { ObjectDialog } from './editor-context.js';
 import { DocumentOverview, type DocumentOverviewOptions } from './editor-overview.js';
+import { type FirstLayout, FirstLayoutCover } from './first-layout.js';
 import { debugParts } from './root-data.js';
 
-const hooks = createHooks('document-editor', ['workspace', 'viewport', 'lead', 'placeholder']);
+const hooks = createHooks('document-editor', ['workspace', 'viewport', 'lead']);
 
 const NO_OVERVIEW_OPTIONS: DocumentOverviewOptions = {};
 
@@ -36,7 +36,8 @@ interface EditorSurfaceProps {
   readonly openDialog: (dialog: ObjectDialog) => void;
   /** The template's font families that did not load. */
   readonly missingFonts: readonly string[];
-  readonly layoutState: LayoutState;
+  /** Where the pages stand against their first layout. */
+  readonly firstLayout: FirstLayout;
   /** Where the pages are measured, in page layout; the debugging pane holds its element. */
   readonly measureIn: RefObject<HTMLDivElement | null> | null;
   /** The document with its handles. */
@@ -68,33 +69,27 @@ function Workspace({
   );
 }
 
-// Whether the pages have yet to be laid out for the first time; once they have, they stay shown
-// through every later layout.
-function useAwaitingFirstLayout(isPaged: boolean, layoutState: LayoutState): boolean {
-  const [laidOut, setLaidOut] = useState(false);
-  if (!laidOut && layoutState !== 'pending') setLaidOut(true);
-  return isPaged && !laidOut && layoutState === 'pending';
-}
-
-// The host's lead before the document, and its placeholder while the pages await their first
-// layout, before the document it stands in for.
+// The host's lead before the document, then its placeholder while the pages await their first
+// layout or the error when that layout failed, before the document they stand in for.
 function SurfaceContent({
   props,
-  isAwaiting,
+  firstLayout,
+  failedText,
   children,
 }: {
   props: DocumentEditorProps;
-  isAwaiting: boolean;
+  firstLayout: FirstLayout;
+  failedText: string;
   children: ReactNode;
 }) {
   return (
     <>
       {props.lead ? <div {...hooks.slot('lead')}>{props.lead}</div> : null}
-      {isAwaiting && props.placeholder ? (
-        <div {...hooks.slot('placeholder')} role="status" aria-busy="true">
-          {props.placeholder}
-        </div>
-      ) : null}
+      <FirstLayoutCover
+        firstLayout={firstLayout}
+        placeholder={props.placeholder}
+        failedText={failedText}
+      />
       {children}
     </>
   );
@@ -107,7 +102,7 @@ export function EditorSurface({
   root,
   openDialog,
   missingFonts,
-  layoutState,
+  firstLayout,
   measureIn,
   children,
 }: EditorSurfaceProps) {
@@ -122,10 +117,13 @@ export function EditorSurface({
       measureIn={measureIn}
     />
   );
-  const isAwaiting = useAwaitingFirstLayout((props.layout ?? 'page') === 'page', layoutState);
   const [region, setRegion] = useState<HTMLDivElement | null>(null);
   const content = (
-    <SurfaceContent props={props} isAwaiting={isAwaiting}>
+    <SurfaceContent
+      props={props}
+      firstLayout={firstLayout}
+      failedText={context.labels.layoutFailed}
+    >
       {children}
     </SurfaceContent>
   );

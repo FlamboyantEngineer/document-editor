@@ -4,8 +4,10 @@ import { expect, test } from './fixtures.js';
 const status = (page: Page) => page.getByLabel('Session status');
 const editor = (page: Page) => page.getByRole('textbox', { name: 'Sample document' });
 
-// Types at the end of the paragraph, placing the caret by clicking past its text.
+// Types at the end of the paragraph, placing the caret by clicking past its text, once the load is
+// over: the document is out of reach until its pages are first laid out (DOCE-EDITOR-4.27).
 async function typeAtEnd(page: Page, value: string) {
+  await expect(page.getByRole('progressbar')).toHaveCount(0);
   const paragraph = editor(page).locator('p', { hasText: 'report each fault' });
   const box = await paragraph.boundingBox();
   if (!box) throw new Error('The paragraph is not shown.');
@@ -102,7 +104,7 @@ test.describe('session status UI', () => {
     await expect(saveItem(page)).toContainText(/saved/i);
   });
 
-  test('DOCE-SESSION-9.4 DOCE-SESSION-9.5 shows load progress and measures the load', async ({
+  test('DOCE-SESSION-9.4 DOCE-SESSION-9.5 DOCE-SESSION-9.8 shows load progress and measures the load', async ({
     lab,
     page,
   }) => {
@@ -110,7 +112,12 @@ test.describe('session status UI', () => {
     await page.getByLabel('Latency').selectOption('1500');
     await page.getByRole('button', { name: 'Reopen' }).click();
     await expect(page.getByText('Loading the document')).toBeVisible();
+    await expect(page.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuetext',
+      /^Estimated progress: \d+%$/,
+    );
     await expect(editor(page)).toBeVisible();
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
     await expect(page.getByLabel('Load measures')).toHaveText(
       'document-session.loading, document-session.load',
     );
