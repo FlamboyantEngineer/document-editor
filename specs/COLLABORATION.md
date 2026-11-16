@@ -233,6 +233,13 @@ Verification: `src/collab/room-changes.test.ts`
 Implementation: `src/collab/room-change-guard.ts`
 Verification: `src/collab/room-change-guard.test.ts`
 
+### DOCE-COLLAB-6.8 - Seeding and exporting threads
+
+`writeRoomComments(doc, threads, { scope })` shall write stored comment threads into a room that holds none yet, in one transaction, so that `readRoomComments(doc, { scope })` and the room comment store list them as stored: who started each thread and when, its state, who resolved or deleted it and when, its target, change and decision, and its comments with their authors, dates, edits, deletions and reactions. It shall refuse a room that holds threads already and write nothing. A host seeds a room with `writeRoomDocument` and `writeRoomComments`, and stores what `readRoomDocument` and `readRoomComments` give back.
+
+Implementation: `src/collab/comment-seed.ts`
+Verification: `src/collab/comment-seed.test.ts`
+
 ## DOCE-COLLAB-7 - Embedded documents and server enforcement
 
 ### DOCE-COLLAB-7.1 - Independent fields in one room
