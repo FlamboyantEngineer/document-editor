@@ -308,6 +308,7 @@ function storedNodes(file: DocumentFile, type: string): StoredNode[] {
 
 const ALL_DOCUMENTS: readonly { name: RegressionDocumentName; pages: number }[] = [
   { name: 'blockquotes', pages: 2 },
+  { name: 'code-block-stress', pages: 4 },
   { name: 'code-blocks', pages: 3 },
   { name: 'empty-sections', pages: 3 },
   { name: 'footnote-heavy', pages: 4 },
@@ -619,6 +620,45 @@ test.describe('code block stress', () => {
       lines.push(...fragment.lines);
     }
     expect(lines.filter((line) => line.includes('reading = sensor.read'))).toHaveLength(150);
+  });
+
+  test('DOCE-LABS-4.5 DOCE-PAGINATION-3.3 splits long linked and authored code over pages', async ({
+    page,
+  }) => {
+    await openDocument(page, 'code-block-stress');
+    const pages = await pagesOf(page);
+    expectPagesHoldContent(pages);
+    // The pages each linked block shows on, by the order the document stores them in.
+    const linked = storedNodes(await storedOf(page), 'linkedCode').map((node) => node.attrs?.id);
+    const shownOn = await page
+      .locator('.de-document-editor__content .pm-page')
+      .evaluateAll((all) =>
+        all.map((each) =>
+          [...each.querySelectorAll('[data-id].linked-code-block')].map((block) =>
+            block.getAttribute('data-id'),
+          ),
+        ),
+      );
+    const pageCountOf = (id: unknown) => shownOn.filter((ids) => ids.includes(String(id))).length;
+    // One page; the whole file, the range from line 120 and the block after prose split.
+    expect(linked.map(pageCountOf).map((count) => count > 1)).toEqual([false, true, true, true]);
+    // The block after prose starts on a page that holds other content before it.
+    const mid = shownOn.findIndex((ids) => ids.includes(String(linked[3])));
+    expect(pages[mid]?.blocks.length ?? 0).toBeGreaterThan(1);
+    // The long authored blocks split, each fragment numbering its lines on from the last.
+    const authored = new Map<string, { lineStart: number; lines: string[] }[]>();
+    for (const fragment of pages.flatMap((each) => each.code)) {
+      if (fragment.id) authored.set(fragment.id, [...(authored.get(fragment.id) ?? []), fragment]);
+    }
+    const split = [...authored.values()].filter((fragments) => fragments.length > 1);
+    expect(split.length).toBe(2);
+    for (const fragments of split) {
+      let next = 1;
+      for (const fragment of fragments) {
+        expect(fragment.lineStart).toBe(next);
+        next += fragment.lines.length;
+      }
+    }
   });
 
   test('DOCE-LABS-4.5 DOCE-PAGINATION-4.4 splits a quoted code block longer than a page', async ({

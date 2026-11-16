@@ -10,6 +10,7 @@ import {
   type TemplateFile,
 } from '../../../src/model/index.js';
 import blockquotes from '../../../test/fixtures/documents/blockquotes.json' with { type: 'json' };
+import codeBlockStress from '../../../test/fixtures/documents/code-block-stress.json' with { type: 'json' };
 import codeBlocks from '../../../test/fixtures/documents/code-blocks.json' with { type: 'json' };
 import emptySections from '../../../test/fixtures/documents/empty-sections.json' with { type: 'json' };
 import footnoteHeavy from '../../../test/fixtures/documents/footnote-heavy.json' with { type: 'json' };
@@ -42,6 +43,7 @@ import regressionTables from '../../../test/fixtures/documents/templates/regress
 /** The regression documents the labs show, by their name in the set. */
 export const REGRESSION_DOCUMENTS = {
   blockquotes,
+  'code-block-stress': codeBlockStress,
   'code-blocks': codeBlocks,
   'empty-sections': emptySections,
   'footnote-heavy': footnoteHeavy,

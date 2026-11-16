@@ -177,7 +177,7 @@ Verification: `e2e/regression.spec.ts`
 
 ### DOCE-LABS-4.5 - Code
 
-A 150-line listing shall split at line breaks, each line on one page only, each fragment numbering its lines on from the last; a quoted code block longer than a page splits inside its quote.
+A 150-line listing shall split at line breaks, each line on one page only, each fragment numbering its lines on from the last; a quoted code block longer than a page splits inside its quote. The regression set's `code-block-stress` document shall hold linked code of one page, of a whole file, of a range starting at a three-digit line and of a range placed after prose so it splits mid-page, and short, long and long-row authored blocks; each long block splits with its fragments numbering on from its first line.
 
 Implementation: `labs/src/regression/regression-documents.ts`
 Verification: `e2e/regression.spec.ts`
