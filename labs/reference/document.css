@@ -1193,6 +1193,14 @@ a.de-contents__entry {
   background: var(--doc-change-bar-formatting-color, #dd00dd);
 }
 
+/* The web layout shows no bars for changes from an older version; a pending suggestion's bar in
+   the change bars markup stays, as it is the only sign of the suggestion there. */
+.de-document-editor[data-layout='web'] [data-diff-change]::after,
+.de-document-editor[data-layout='web'] [data-diff-deletion]::after,
+.de-document-editor[data-layout='web'] .de-change-lines__line:not([data-diff-line='suggestion']) {
+  display: none;
+}
+
 /* The holder of a block's line bars takes no room in its text. */
 .de-change-lines {
   user-select: none;

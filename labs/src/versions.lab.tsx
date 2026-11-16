@@ -201,6 +201,7 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
   const [display, setDisplay] = useState<VersionChangeDisplay>('markup');
   const [scope, setScope] = useState('');
   const [bars, setBars] = useState<readonly ChangeBar[]>([]);
+  const [web, setWeb] = useState(false);
   const previous = useComparedVersion(selected);
   const state = pair?.newer ?? edited;
   const shown = pair ? pair.older : previous;
@@ -239,6 +240,9 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
               ))}
             </select>
           </label>
+          <label>
+            <input type="checkbox" checked={web} onChange={() => setWeb(!web)} /> Web layout
+          </label>
           <output aria-label="Changes">
             {shown
               ? `${String(versionChanges(state).length)} changes`
@@ -263,6 +267,7 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
           editable={!pair}
           compare={shown ? { previous: shown, display, scope: scope ? [scope] : undefined } : null}
           onChangeBarsChange={setBars}
+          layout={web ? 'web' : 'page'}
           scrollable
           overview
           aria-label="Sample document"

@@ -76,6 +76,7 @@ function barColor(element: Element): string | null {
   const line = element.classList.contains('de-change-lines__line');
   const style = view.getComputedStyle(element, line ? null : '::after');
   if (!line && (style.content === 'none' || style.content === 'normal')) return null;
+  if (style.display === 'none') return null;
   const color = style.backgroundColor;
   if (!color || color === 'transparent' || color === 'rgba(0, 0, 0, 0)') return null;
   return `color-mix(in srgb, ${color} 50%, transparent)`;
