@@ -19,6 +19,8 @@ export interface ContentsRows {
   readonly empty: boolean;
   /** Whether the entries show their page numbers. */
   readonly showPage: boolean;
+  /** The text between an entry's number and its text, when it has both. */
+  readonly separator: string;
 }
 
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
@@ -33,9 +35,11 @@ function measureKey(
     leaders.map(String).join('|'),
     JSON.stringify(properties),
     String(showPage),
+    rows.separator,
     String(rows.empty),
     ...rows.entries.map(
-      (entry) => `${String(entry.level)}|${entry.number}|${entry.text}|${String(entry.page)}`,
+      (entry) =>
+        `${String(entry.level)}|${entry.number}|${entry.text}|${String(entry.page)}|${entry.anchor ?? ''}|${entry.target ?? ''}`,
     ),
   ].join('\n');
   let hash = 0x811c9dc5;
@@ -51,7 +55,7 @@ export function rowsIn(decorations: readonly Decoration[]): ContentsRows {
     const rows = (decoration.spec as { contents?: ContentsRows }).contents;
     if (rows) return rows;
   }
-  return { entries: [], empty: true, showPage: false };
+  return { entries: [], empty: true, showPage: false, separator: '' };
 }
 
 function span(className: string, text: string): HTMLSpanElement {
@@ -93,7 +97,12 @@ function drawEntry(entry: CatalogEntry, index: number, drawing: Drawing): HTMLEl
   row.setAttribute('role', 'link');
   setProperties(row, drawing.properties.levels[level - 1]);
   if (entry.anchor) row.id = entry.anchor;
+  // The element a printed row links to (DOCE-CONTENTS-2.10).
+  if (entry.target) row.dataset.target = entry.target;
   if (entry.number) row.append(span('de-contents__number', entry.number));
+  if (entry.number && entry.text && drawing.rows.separator) {
+    row.append(span('de-contents__separator', drawing.rows.separator));
+  }
   row.append(span('de-contents__text', entry.text));
   const character = drawing.leaders[level - 1] ?? null;
   if (character !== null && drawing.showPage) {
@@ -149,8 +158,12 @@ export function copyRows(view: EditorView, event: ClipboardEvent): boolean {
   const lines = [...view.dom.querySelectorAll('.de-contents__entry')]
     .filter((row) => range.intersectsNode(row))
     .map((row) =>
-      [...row.querySelectorAll('.de-contents__number, .de-contents__text, .de-contents__page')]
-        .map((part) => part.textContent)
+      [
+        ...row.querySelectorAll(
+          '.de-contents__number, .de-contents__separator, .de-contents__text, .de-contents__page',
+        ),
+      ]
+        .map((part) => part.textContent.trim())
         .filter(Boolean)
         .join(' '),
     );

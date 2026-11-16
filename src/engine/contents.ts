@@ -6,14 +6,13 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import {
-  Decoration,
+  type Decoration,
   DecorationSet,
   type EditorView,
   type NodeViewConstructor,
 } from 'prosemirror-view';
 import {
   abbreviationTargetId,
-  catalogDocument,
   type CatalogEntry,
   type ContentsKind,
   contentsListProperties,
@@ -24,6 +23,13 @@ import {
   type TemplateFile,
 } from '../model/index.js';
 import { type PageMap, pageMap } from '../pagination/page-map.js';
+import {
+  type ContentsState,
+  decorate,
+  type InnerState,
+  type Kinds,
+  stateOf,
+} from './contents-listing.js';
 import { hasContents } from './contents-presence.js';
 import {
   type ContentsLabels,
@@ -67,77 +73,10 @@ export interface ContentsOptions {
   fontStacks?: FontStacks | undefined;
 }
 
-/** What a contents plugin keeps: the catalog, and the rows each list block shows. */
-export interface ContentsState {
-  readonly catalog: DocumentCatalog;
-  readonly decorations: DecorationSet;
-}
+export type { ContentsState } from './contents-listing.js';
 
 /** The catalog a contents plugin keeps; marks a transaction that draws the lists again. */
 export const contentsKey = new PluginKey<ContentsState>('contents');
-
-// The kinds a contents plugin lists, and the one a list block names.
-interface Kinds {
-  readonly all: Readonly<Record<string, ContentsKind>>;
-  readonly of: (node: ProseMirrorNode) => string;
-}
-
-// The entries a list block shows: those of its kind (after it, for a kind that lists only those),
-// down to its deepest level, in the range a split part holds.
-function rowsOf(
-  node: ProseMirrorNode,
-  pos: number,
-  { catalog, kinds }: { catalog: DocumentCatalog; kinds: Kinds },
-): ContentsRows {
-  const key = kinds.of(node);
-  const after = kinds.all[key]?.after === true;
-  const deepest = Number(node.attrs.minLevel) || 6;
-  const listed = (catalog[key] ?? []).filter(
-    (entry) => (!after || entry.pos > pos) && entry.level <= deepest,
-  );
-  const start = Number(node.attrs.entryStart) || 0;
-  const end = Number.isInteger(node.attrs.entryEnd) ? Number(node.attrs.entryEnd) : listed.length;
-  return {
-    entries: listed.slice(start, end),
-    empty: listed.length === 0,
-    showPage: kinds.all[key]?.showPage !== false,
-  };
-}
-
-function decorate(doc: ProseMirrorNode, catalog: DocumentCatalog, kinds: Kinds): DecorationSet {
-  const decorations: Decoration[] = [];
-  doc.descendants((node, pos) => {
-    if (node.type.name === 'toc_block') {
-      decorations.push(
-        Decoration.node(
-          pos,
-          pos + node.nodeSize,
-          {},
-          { contents: rowsOf(node, pos, { catalog, kinds }) },
-        ),
-      );
-    }
-    return !node.isTextblock;
-  });
-  return DecorationSet.create(doc, decorations);
-}
-
-// The plugin state of a document, its catalog and rows made once read, and no rows to draw in a
-// document that holds no list, so a keystroke does not count the whole document (DOCE-CONTENTS-2.7).
-function stateOf(doc: ProseMirrorNode, template: TemplateFile, kinds: Kinds): ContentsState {
-  let catalog: DocumentCatalog | null = null;
-  let decorations: DecorationSet | null = null;
-  const catalogued = () => (catalog ??= catalogDocument(doc, template, kinds.all));
-  return {
-    get catalog() {
-      return catalogued();
-    },
-    get decorations() {
-      decorations ??= hasContents(doc) ? decorate(doc, catalogued(), kinds) : DecorationSet.empty;
-      return decorations;
-    },
-  };
-}
 
 // The rows a plugin state draws, each entry on the page the layout shows it on, once for each
 // state and layout: the catalog counts a section as one page, the layout knows where pages break.
@@ -148,13 +87,14 @@ function pagedDecorations(state: EditorState, value: ContentsState, kinds: Kinds
   const map = pageMap(state);
   const cached = onLayout.get(value);
   if (cached?.map === map) return cached.set;
+  const { listing } = value as InnerState;
   const catalog = Object.fromEntries(
-    Object.entries(value.catalog).map(([key, entries]) => [
+    Object.entries(listing.catalog).map(([key, entries]) => [
       key,
       entries.map((entry) => ({ ...entry, page: map.pageAt(entry.pos)?.number ?? entry.page })),
     ]),
   );
-  const set = decorate(state.doc, catalog, kinds);
+  const set = decorate(state.doc, { catalog, lists: listing.lists }, kinds);
   onLayout.set(value, { map, set });
   return set;
 }
@@ -273,12 +213,19 @@ export function createContents({
       stopEvent: (event) => ['mousedown', 'click', 'keydown'].includes(event.type),
     };
   };
+  const counter = { builds: 0 };
   return new Plugin<ContentsState>({
     key: contentsKey,
     state: {
-      init: (_config, state) => stateOf(state.doc, template(), kinds),
-      apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(contentsKey) ? stateOf(tr.doc, template(), kinds) : value,
+      init: (_config, state) => stateOf({ doc: state.doc, template: template(), kinds, counter }),
+      apply: (tr, value) => {
+        if (tr.getMeta(contentsKey)) {
+          return stateOf({ doc: tr.doc, template: template(), kinds, counter });
+        }
+        if (!tr.docChanged) return value;
+        const from = { state: value as InnerState, tr };
+        return stateOf({ doc: tr.doc, template: template(), kinds, counter, from });
+      },
     },
     props: {
       decorations(state) {

@@ -217,4 +217,80 @@ describe('contents on each keystroke', () => {
     const listed = state.apply(state.tr.insert(scope - 1, documentSchema.node('toc_block')));
     expect(contentsKey.getState(listed)?.decorations.find()).toHaveLength(1);
   });
+
+  it('DOCE-CONTENTS-2.9 counts the document again only for a change past a text edit', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            content: [
+              { type: 'contents' },
+              heading(1, 'Scope'),
+              { type: 'paragraph', content: [{ type: 'text', text: 'Body' }] },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    let state = EditorState.create({
+      doc,
+      plugins: [createContents({ template: () => BASE_TEMPLATE })],
+    });
+    const builds = () => {
+      const value = contentsKey.getState(state);
+      expect(value?.decorations.find()).toHaveLength(1);
+      return value?.builds;
+    };
+    // Where the text of the first block of a type starts.
+    const at = (type: string) => {
+      let found = 0;
+      state.doc.descendants((node, pos) => {
+        if (!found && node.type.name === type) found = pos + 1;
+        return !found;
+      });
+      return found;
+    };
+    const first = builds();
+    for (const [index, letter] of [...'Wide '].entries()) {
+      state = state.apply(state.tr.insertText(letter, at('heading') + index));
+      state = state.apply(state.tr.insertText(letter, at('paragraph')));
+      expect(builds()).toBe(first);
+    }
+    expect(contentsCatalog(state)?.toc?.map((entry) => entry.text)).toEqual(['Wide Scope']);
+    state = state.apply(state.tr.split(at('paragraph') + 2));
+    expect(builds()).toBe((first ?? 0) + 1);
+  });
+});
+
+describe('two lists of one kind', () => {
+  it('DOCE-CONTENTS-2.6 gives an anchor to the first list’s row alone', () => {
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              { type: 'paragraph', content: [abbreviation] },
+              { type: 'contents', attrs: { kind: 'abbreviations' } },
+              { type: 'contents', attrs: { kind: 'abbreviations' } },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const state = EditorState.create({
+      doc,
+      plugins: [createContents({ template: () => BASE_TEMPLATE })],
+    });
+    const view = new EditorView(document.body.appendChild(document.createElement('div')), {
+      state,
+    });
+    const entries = [...view.dom.querySelectorAll('.de-contents__entry')];
+    expect(entries.map((entry) => entry.id)).toEqual(['abbr-g1', '']);
+    view.destroy();
+  });
 });
