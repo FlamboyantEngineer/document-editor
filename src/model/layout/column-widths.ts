@@ -59,3 +59,25 @@ export function scaleColumns(widths: readonly number[], max: number): number[] {
     fixed = new Set([...fixed, ...next]);
   }
 }
+
+/**
+ * The column widths that fill a width exactly, each in proportion to its own width, in whole
+ * pixels, the pixels rounding leaves going to the columns that lost most to it; the widths
+ * `scaleColumns` gives when the width cannot hold every column at the narrowest a column may be.
+ */
+export function fillColumns(widths: readonly number[], available: number): number[] {
+  const width = Math.floor(available);
+  const total = sum(widths);
+  const floor = Math.min(DEFAULT_TABLE_CELL_MIN_WIDTH, ...widths);
+  if (total <= 0 || width < widths.length * floor) return scaleColumns(widths, width);
+  const exact = widths.map((each) => (each * width) / total);
+  const filled = exact.map((each) => Math.max(floor, Math.floor(each)));
+  const order = exact
+    .map((each, index) => ({ index, lost: each - Math.floor(each) }))
+    .sort((a, b) => b.lost - a.lost);
+  for (let left = width - sum(filled), at = 0; left > 0; left -= 1, at += 1) {
+    const index = order[at % order.length]?.index ?? 0;
+    filled[index] = (filled[index] ?? 0) + 1;
+  }
+  return sum(filled) > width ? scaleColumns(widths, width) : filled;
+}

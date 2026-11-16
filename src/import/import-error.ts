@@ -1,7 +1,10 @@
 // A file a reader could not read at all, as opposed to content it left out with a warning.
 
-/** Why a file could not be read at all: not of its format, damaged, or over a limit. */
-export type ImportFailure = 'unreadable' | 'damaged' | 'too-large';
+/**
+ * Why a file could not be read at all: not of its format, damaged, over a limit, or of a kind the
+ * reader refuses, such as a document with macros or XML entity declarations.
+ */
+export type ImportFailure = 'unreadable' | 'damaged' | 'too-large' | 'refused';
 
 /** The error a reader throws inside, which the reader's caller gets as a failed result. */
 interface ImportError extends Error {

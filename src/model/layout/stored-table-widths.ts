@@ -3,7 +3,7 @@
 // its own tables there (DOCE-TABLES-3.7).
 
 import type { StoredNode } from '../format/document-format.js';
-import { scaleColumns } from './column-widths.js';
+import { fillColumns, scaleColumns } from './column-widths.js';
 
 const spanOf = (cell: StoredNode) => Math.max(1, Number(cell.attrs?.colspan) || 1);
 
@@ -37,17 +37,23 @@ function withWidths(table: StoredNode, widths: readonly number[]): StoredNode {
 /**
  * Stored content whose tables, at any depth, are no wider than `max` pixels: a wider table's
  * columns shrink in proportion (`scaleColumns`). Content without such a table is returned as is.
+ * With `fill`, each top-level table's columns fill `max` exactly in proportion (`fillColumns`),
+ * narrower tables widening too; nested tables only shrink.
  */
-export function fitStoredTables(content: readonly StoredNode[], max: number): StoredNode[] {
+export function fitStoredTables(
+  content: readonly StoredNode[],
+  max: number,
+  fill = false,
+): StoredNode[] {
   return content.map((node) => {
     if (node.type === 'text' || !node.content) return node;
-    const children = fitStoredTables(node.content, max);
+    const children = fitStoredTables(node.content, max, fill && node.type !== 'table');
     const same = children.every((child, index) => child === node.content?.[index]);
     const inner = same ? node : { ...node, content: children };
     if (node.type !== 'table') return inner;
     const widths = widthsOf(inner);
     if (!widths) return inner;
-    const fitted = scaleColumns(widths, max);
+    const fitted = fill ? fillColumns(widths, max) : scaleColumns(widths, max);
     return fitted.every((width, index) => width === widths[index])
       ? inner
       : withWidths(inner, fitted);
