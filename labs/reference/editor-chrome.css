@@ -955,20 +955,12 @@
   visibility: hidden;
 }
 
-/* The scroll overview over the frame's track, in the overview layers' colours. */
+/* The overview the frame paints beside its native scrollbar, in the overview layers' colours. */
 .de-document-editor {
   --de-overview-search: #bf8700;
   --de-overview-proofing: #cf222e;
   --de-overview-changes: #0969da;
   --de-overview-unread: #8250df;
-}
-
-.de-document-editor__overview {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-end: 0;
-  width: 6px;
-  pointer-events: none;
 }
 
 /* The toolbar over selected text: the base library draws the popover; the editor keeps it compact. */

@@ -128,23 +128,22 @@ test.describe('versions lab', () => {
     page,
   }) => {
     await lab.open('versions');
+    // The overview the frame paints beside its scrollbar, as the region publishes it.
     const painted = () =>
       page
-        .locator('.de-document-editor__overview')
+        .locator('.de-document-editor .ui-scroll-region')
         .evaluate((element) =>
-          [element, ...element.querySelectorAll('*')]
-            .map((each) => getComputedStyle(each).backgroundImage)
-            .join(' '),
+          (element as HTMLElement).style.getPropertyValue('--ui-scroll-region-overview-image'),
         );
     // A frame shorter than the document, so its overview has a track to mark.
     await page
       .locator('.de-document-editor')
       .evaluate((element) => element.style.setProperty('height', '400px'));
-    expect(await painted()).not.toContain('/ 0.5');
+    expect(await painted()).not.toContain('50%');
     await compareWith(page, 'Version 1');
     await page.getByLabel('Change bars').check();
     // The inserted block's bar, green at half opacity.
-    await expect.poll(painted).toMatch(/0\.86\d* 0 \/ 0\.5/);
+    await expect.poll(painted).toContain('color-mix(in srgb, rgb(0, 221, 0) 50%, transparent)');
   });
 
   test('DOCE-VERSIONS-2.4 keeps the bars of an indented block in the column of the others', async ({
