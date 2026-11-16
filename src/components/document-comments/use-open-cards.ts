@@ -91,13 +91,17 @@ function useOpenCards({ items, markers, layer, startThread }: OpenCardsOptions) 
     }
     setOpen(keys);
   };
+  /** Focuses a card, or its reply box, once it is drawn. */
+  const focusOn = (key: string, target: FocusTarget) => {
+    focusing.current = { key, target };
+    setRequests((count) => count + 1);
+  };
   /** Opens a card, focusing it, or its reply box once it was open already. */
   const openCard = (key: string, focus: 'open' | 'reply') => {
     if (!markers) return;
     const wasOpen = openKeys.has(key);
     if (!wasOpen) setOpen((current) => new Set(current).add(key));
-    focusing.current = { key, target: wasOpen && focus === 'reply' ? 'reply' : 'card' };
-    setRequests((count) => count + 1);
+    focusOn(key, wasOpen && focus === 'reply' ? 'reply' : 'card');
   };
   // The card takes focus once it is drawn.
   useLayoutEffect(() => {
@@ -106,7 +110,7 @@ function useOpenCards({ items, markers, layer, startThread }: OpenCardsOptions) 
     const card = layer.ownerDocument.getElementById(cardElementId(request.key));
     if (focusCard(card, request.target)) focusing.current = null;
   });
-  return { openKeys, onOpenChange, openCard };
+  return { openKeys, onOpenChange, openCard, focusOn };
 }
 
 /** What the margin opens cards on: its items, its layer and the ways to the threads. */
