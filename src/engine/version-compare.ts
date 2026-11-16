@@ -14,7 +14,7 @@ import {
   readVersionBlock,
   type VersionBlockReading,
 } from './version-blocks.js';
-import { pairBlocksWithoutIds } from './version-pairing.js';
+import { pairUnmatchedBlocks } from './version-pairing.js';
 
 export type { CompareSuggestions } from './version-blocks.js';
 
@@ -329,7 +329,7 @@ export function compareWithOlder(older: OlderVersion, newer: ProseMirrorNode): V
   const { options } = older;
   const before = older.blocks;
   const after = collectVersionBlocks(newer, options.suggestions);
-  pairBlocksWithoutIds(before, after);
+  pairUnmatchedBlocks(before, after);
   const olderByKey = older.byKey;
   const newerByKey = new Map(after.map((block) => [block.key, block]));
   const kept = keptInOrder(

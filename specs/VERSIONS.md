@@ -53,9 +53,9 @@ A block both versions hold whose containers changed (wrapped in or taken out of 
 Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
 Verification: `src/engine/version-compare.test.ts`
 
-### DOCE-VERSIONS-1.8 - Blocks without ids
+### DOCE-VERSIONS-1.8 - Blocks without ids or with new ones
 
-A block without an element id that the older version does not hold alike shall be paired with the block without an id of the older version whose words it is likest, when at least half of their words are shared, and compared with it as one block. A block of the same kind shall win a tie, and each older block shall pair once.
+A block whose key (its element id) the older version does not hold shall be paired with a block of the older version whose key the newer one does not hold that has the same kind and text, whatever their ids, in order, so blocks whose ids were made again compare unchanged. Otherwise, a block without an element id that the older version does not hold alike shall be paired with the block without an id of the older version whose words it is likest, when at least half of their words are shared, and compared with it as one block. A block of the same kind shall win a tie, and each older block shall pair once.
 
 Implementation: `src/engine/version-pairing.ts`, `src/engine/version-compare.ts`
 Verification: `src/engine/version-compare.test.ts`
