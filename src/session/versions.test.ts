@@ -268,6 +268,8 @@ describe('createDocumentVersions', () => {
     );
     const first = versions.viewVersion('rev-1', { returnTo: 'edit' });
     const second = versions.viewVersion('rev-2', { returnTo: 'edit' });
+    // Each view first keeps what the live document has unsaved, then reads its version.
+    await vi.waitFor(() => expect(held).toHaveLength(2));
     held[1]?.();
     await second;
     held[0]?.();
@@ -277,6 +279,7 @@ describe('createDocumentVersions', () => {
     versions.returnFromView();
     const late = versions.viewVersion('rev-1', { returnTo: 'edit' });
     expect(versions.returnFromView()).toBeNull();
+    await vi.waitFor(() => expect(held).toHaveLength(3));
     held[2]?.();
     await late;
     expect(versions.view.get()).toBeNull();

@@ -168,6 +168,31 @@ function roomUpdate(run: RoomRun): DocumentSession['update'] {
   };
 }
 
+// Leaving the room while a historical version shows, and joining it again after (DOCE-SESSION-3.10).
+function createRoomPause(
+  run: RoomRun,
+  flush: () => Promise<boolean>,
+): Pick<DocumentSession, 'suspend' | 'resume'> {
+  let suspended = false;
+  return {
+    suspend: async () => {
+      if (suspended || run.signal.aborted) return;
+      suspended = true;
+      await flush();
+      // A resume that came while the changes were being kept wins: the room stays joined.
+      if (!suspended || run.signal.aborted) return;
+      leaveRoom(run);
+      run.stores.connection.set(CONNECTING);
+    },
+    resume: async () => {
+      if (!suspended || run.signal.aborted) return !run.signal.aborted;
+      suspended = false;
+      if (run.current.room) return true;
+      return loadRoom(run);
+    },
+  };
+}
+
 /** Opens a document in its shared room (DOCE-SESSION-3.2 to 3.6). */
 export function createRoomSession(options: DocumentSessionOptions): DocumentSession {
   const { host, documentId } = options;
@@ -208,6 +233,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
     granted: READ_ONLY_CAPABILITIES,
   };
   const room = () => run.current.room;
+  const pause = createRoomPause(run, flush);
   const close = () => {
     options.signal?.removeEventListener('abort', close);
     controller.abort();
@@ -241,6 +267,7 @@ export function createRoomSession(options: DocumentSessionOptions): DocumentSess
       await flush();
     },
     flush,
+    ...pause,
     hasUnsavedChanges: () => room()?.connection.state().hasUnconfirmedChanges ?? false,
     ...NO_DRAFT_OFFER,
     resolveConflict: (id, choice) => run.drafts.resolve(room(), id, choice),

@@ -225,10 +225,10 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 ### DOCE-VERSIONS-5.1 - Viewing a version
 
-`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own (only the version asked for last is shown, and none still being read when the reader returns), read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. The document's own state and saving shall go on unchanged.
+`viewVersion(revision, { returnTo })` shall show a version in place of the document: its content in an editor state of its own (only the version asked for last is shown, and none still being read when the reader returns), read with the template it pins at the revision it pins (D14). `historicalEditorProps` shall give the document editor that state, read-only, with that template, and `updateView` shall keep the view's state, such as its selection. Before it reads the version, `viewVersion` shall step the session away from the live document (`suspend`, DOCE-SESSION-3.10): in room mode it leaves the shared room, so the view can write nothing there and the reader's presence leaves it; `returnFromView`, a view that fails before it shows, and `restore` shall `resume` it, which reloads the document from the room and joins it again. In store mode the document's own state and saving go on unchanged.
 
 Implementation: `src/session/versions.ts`, `src/components/document-panels/document-history.tsx`
-Verification: `src/session/versions.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
+Verification: `src/session/versions.test.ts`, `src/session/room-session.test.ts`, `src/components/document-panels/document-history.test.tsx`, `e2e/history.spec.ts`
 
 ### DOCE-VERSIONS-5.2 - Comparing two versions
 
