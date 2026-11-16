@@ -2,7 +2,7 @@
 
 The front matter counts in lower-case Roman numerals.
 
-## Lists of contents
+## Chapters
 
 # Reading the numbers
 
@@ -630,3 +630,5 @@ $$
 3. Annex step 3
 4. Annex step 4
 5. Annex step 5
+
+# Lists of objects

@@ -123,7 +123,9 @@ const words = (text: string) => text.match(/[\p{L}\p{N}]+/gu) ?? [];
 // characters; a word is looked for after the one before it, and then anywhere, since a PDF reader
 // may take a table's cells or the page's regions in another order.
 function missingWords(page: readonly string[], sheet: string): string[] {
-  const run = words(sheet).join('');
+  // A PDF reader gives a math font's letters as mathematical letters (𝑎); compatibility
+  // normalisation reads them as the letters the page shows.
+  const run = words(sheet.normalize('NFKC')).join('');
   const missing: string[] = [];
   let from = 0;
   for (const word of page) {

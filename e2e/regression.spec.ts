@@ -932,7 +932,7 @@ test.describe('mixed geometry', () => {
       ),
     );
     const annex = headingsOf('annex');
-    expect(annex.map(({ label }) => label)).toEqual(['I- ', 'II- ']);
+    expect(annex.map(({ label }) => label)).toEqual(['I- ', 'II- ', 'III- ']);
   });
 
   test('DOCE-LABS-4.12 numbers Roman lists on from their starts, past 3,999 and over pages', async ({

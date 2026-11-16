@@ -226,7 +226,7 @@ Verification: `e2e/regression.spec.ts`
 
 ### DOCE-LABS-4.12 - Roman numbering
 
-The regression set's `roman-numbering-coverage` document shall number lower-case Roman front matter (`i.`, `i.i`), an upper-case Roman body on three levels (`I.`, `I.1`, `I.1.i`) and an annex that starts again (`I-`); its ordered lists, nested ones among them, shall number in their section's Roman style, each on from its start, at the subtractive edges (3, 8, 38, 48, 98, 398, 498, 898, 998, 3,998), past 3,999 (3,999, 7,998, 12,000) and over pages in a 240-item list; and its figures, tables, code blocks and equations, listed in the front matter, shall number from 1 under each chapter (`I-1`, `II-1`) and again in the annex (`I.i`).
+The regression set's `roman-numbering-coverage` document shall number lower-case Roman front matter (`i.`, `i.i`), an upper-case Roman body on three levels (`I.`, `I.1`, `I.1.i`) and an annex that starts again (`I-`, `II-`, `III-`); its ordered lists, nested ones among them, shall number in their section's Roman style, each on from its start, at the subtractive edges (3, 8, 38, 48, 98, 398, 498, 898, 998, 3,998), past 3,999 (3,999, 7,998, 12,000) and over pages in a 240-item list; its front matter shall list the chapters; and its figures, tables, code blocks and equations, listed on the annex's last page, shall number from 1 under each chapter (`I-1`, `II-1`) and again in the annex (`I.i`).
 
 Implementation: `labs/src/regression/regression-documents.ts`
 Verification: `e2e/regression.spec.ts`, `test/fixtures/documents/regression-set.test.ts`
