@@ -6,6 +6,8 @@ import { documentSchema } from '../../../test/document-markup.js';
 import { createProofing, listProofingIssues } from '../../engine/index.js';
 import { createWordListProofer } from '../../host/index.js';
 import { readDocumentFile } from '../../model/index.js';
+import { contextGroups } from './context-entries.js';
+import { resolveContextTarget } from './context-target.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { proofingEntries } from './proofing-entries.js';
 
@@ -14,14 +16,18 @@ afterEach(() => {
   for (const view of views.splice(0)) view.destroy();
 });
 
-async function proofedView(value: string) {
+const paragraphOf = (value: string) => ({
+  type: 'paragraph',
+  content: [{ type: 'text', text: value }],
+});
+
+async function proofedView(value: string, inTable = false) {
+  const cell = (cellText: string) => ({ type: 'tableCell', content: [paragraphOf(cellText)] });
+  const block = inTable
+    ? { type: 'table', content: [{ type: 'tableRow', content: [cell(value), cell('Fine')] }] }
+    : paragraphOf(value);
   const doc = readDocumentFile(
-    {
-      formatVersion: 1,
-      sections: [
-        { name: null, content: [{ type: 'paragraph', content: [{ type: 'text', text: value }] }] },
-      ],
-    },
+    { formatVersion: 1, sections: [{ name: null, content: [block] }] },
     documentSchema,
   ).doc;
   const proofer = createWordListProofer({
@@ -125,5 +131,20 @@ describe('proofing entries', () => {
     );
     expect(menu?.type !== 'section' && menu?.type !== 'separator' && menu?.label).toBe('Writing');
     expect(JSON.stringify(shape([menu as MenuEntry]))).toContain('Skip');
+  });
+
+  it('DOCE-PROOFING-3.2 leads a table cell menu with the Spelling submenu, keeping the table actions', async () => {
+    const view = await proofedView('A teh cell', true);
+    const [issue] = listProofingIssues(view.state);
+    const target = resolveContextTarget(view.state, (issue?.from ?? 0) + 1, true);
+    const groups = contextGroups(view, target, {
+      labels: DEFAULT_EDITOR_LABELS,
+      editable: true,
+      suggestionPolicy: { me: null, canDecide: true, canWithdraw: true },
+      startComment: null,
+    }).filter((group) => group.entries.length > 0);
+    expect(target.kind).toBe('table-cell');
+    expect(groups[0]?.id).toBe('proofing');
+    expect(groups.map((group) => group.id)).toContain('table');
   });
 });
