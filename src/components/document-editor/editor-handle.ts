@@ -39,7 +39,12 @@ import type {
 import type { EditorPanes, RevealPaneOptions } from '../document-panels/document-panels.js';
 import type { FindBarMode } from './document-find-bar.js';
 import type { LayoutProgress } from './use-document-layout.js';
-import { measureVisibleElements, type VisibleElement } from './visible-elements.js';
+import {
+  measureVisibleElements,
+  measureVisiblePages,
+  type VisibleElement,
+  type VisiblePage,
+} from './visible-elements.js';
 
 /** Where `openThread` takes the reader within a thread. */
 interface OpenThreadOptions {
@@ -125,6 +130,8 @@ export interface DocumentEditorHandle {
   layoutStats(): PaginationStats | null;
   /** The elements with an element id on screen now, with their boxes in the window. */
   visibleElements(): readonly VisibleElement[];
+  /** The pages on screen now, each with its sheet and its content's box in the window. */
+  visiblePages(): readonly VisiblePage[];
   /**
    * Shows a pane of the editor's side panels: selects it in the panel holding it, expands that
    * panel and, unless asked not to, moves focus into it; false when no panel holds it.
@@ -193,6 +200,36 @@ export function useCommentRefs(): CommentRefs {
 const hrefOf = (references: ReferenceSourceAdapter | undefined): CitationHref | undefined =>
   references?.href ? (citation) => references.href?.(citation) ?? null : undefined;
 
+// The handle's snapshots of the view as it shows now.
+function snapshotMethods(
+  view: EditorView | null,
+  {
+    template,
+    references,
+    layout,
+  }: {
+    template: TemplateFile;
+    references: ReferenceSourceAdapter | undefined;
+    layout: LayoutProgress;
+  },
+): Pick<DocumentEditorHandle, 'exportSnapshot' | 'exportSnapshotAsync' | 'snapshotOutline'> {
+  const citationHref = hrefOf(references);
+  return {
+    exportSnapshot: (options) =>
+      view ? documentSnapshot(view, { citationHref, ...options, template }) : null,
+    exportSnapshotAsync: async (options) =>
+      view
+        ? documentSnapshotWhenReady(view, {
+            citationHref,
+            ...options,
+            template,
+            whenSettled: layout.whenSettled,
+          })
+        : null,
+    snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
+  };
+}
+
 /** Gives the host a handle on the editor through its `handleRef`. */
 export function useEditorHandle(
   ref: Ref<DocumentEditorHandle> | undefined,
@@ -227,20 +264,7 @@ export function useEditorHandle(
         const opened = openThreadRef.current?.({ threadId, ...options }) ?? false;
         return placed || opened;
       },
-      exportSnapshot: (options) =>
-        view
-          ? documentSnapshot(view, { citationHref: hrefOf(references), ...options, template })
-          : null,
-      exportSnapshotAsync: async (options) =>
-        view
-          ? documentSnapshotWhenReady(view, {
-              citationHref: hrefOf(references),
-              ...options,
-              template,
-              whenSettled: layout.whenSettled,
-            })
-          : null,
-      snapshotOutline: () => (view ? snapshotOutline(view, template) : []),
+      ...snapshotMethods(view, { template, references, layout }),
       startComment: (options) => {
         const start = startCommentRef.current;
         start?.(options);
@@ -269,6 +293,7 @@ export function useEditorHandle(
       whenSettled: layout.whenSettled,
       layoutStats: layout.stats,
       visibleElements: () => (view ? measureVisibleElements(view) : []),
+      visiblePages: () => (view ? measureVisiblePages(view) : []),
       revealPane: (paneId, options) => panes.reveal(paneId, options),
     }),
     [view, startCommentRef, openThreadRef, template, layout, openFind, panes, references],

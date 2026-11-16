@@ -4,3 +4,4 @@ export * from './host/index.js';
 export * from './model/index.js';
 export * from './pagination/index.js';
 export * from './session/index.js';
+export * from './utils/view-only-decorations.js';

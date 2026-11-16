@@ -1,6 +1,6 @@
 // The notifications of what the document's review shows: its suggestions as they change, and the
-// change bars a comparison draws, measured on their pages, for a host that lists or draws them
-// itself, such as in an export.
+// change bars a comparison or the simple markup draws, measured on their pages, for a host that
+// lists or draws them itself, such as in an export.
 
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
@@ -14,6 +14,7 @@ import {
 } from '../../engine/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { useChangeLines } from './change-lines-measure.js';
+import type { DocumentMarkup } from './editor-context.js';
 import { type DocumentEditorNotifications, useSelectionNotification } from './use-host-events.js';
 
 /** A change bar: the kind of change beside a block, on a page, by its offset from the page top. */
@@ -51,10 +52,31 @@ function useSuggestionsNotification(
   }, [doc, onSuggestionsChange]);
 }
 
-// The change bars the view draws now: each changed block, on its page.
-function measureBars(view: EditorView, scale: number): ChangeBar[] {
-  const pages = [...view.dom.querySelectorAll('.pm-page')];
+// The bars the simple markup draws: one beside each block on a page holding a suggestion, of the
+// kind `suggestion`.
+function suggestionBars(pages: readonly Element[], scale: number): ChangeBar[] {
   const bars: ChangeBar[] = [];
+  pages.forEach((page, index) => {
+    const pageTop = page.getBoundingClientRect().top;
+    for (const block of page.querySelector('.pm-page-content')?.children ?? []) {
+      if (!block.querySelector('ins[data-id], del[data-id]')) continue;
+      const box = block.getBoundingClientRect();
+      bars.push({
+        kind: 'suggestion',
+        page: index,
+        top: (box.top - pageTop) / scale,
+        height: box.height / scale,
+      });
+    }
+  });
+  return bars;
+}
+
+// The change bars the view draws now: each block a comparison changed, on its page, and in the
+// simple markup each block holding a suggestion.
+function measureBars(view: EditorView, scale: number, markup: DocumentMarkup): ChangeBar[] {
+  const pages = [...view.dom.querySelectorAll('.pm-page')];
+  const bars: ChangeBar[] = markup === 'simple' ? suggestionBars(pages, scale) : [];
   for (const element of view.dom.querySelectorAll('[data-diff-change]')) {
     // Text marked inside a block is not a bar: only blocks carry the bars.
     if (element.parentElement?.closest('[data-diff-change]')) continue;
@@ -95,25 +117,27 @@ function useChangeBarsNotification(
   {
     onChangeBarsChange,
     zoom,
+    markup,
   }: {
     onChangeBarsChange: ((bars: readonly ChangeBar[]) => void) | undefined;
     zoom: number;
+    markup: DocumentMarkup;
   },
 ) {
   const last = useRef<string | null>(null);
-  const changes = versionChanges(state);
+  const drawn = versionChanges(state).length > 0 || markup === 'simple';
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner || !onChangeBarsChange) return undefined;
     const frame = owner.requestAnimationFrame(() => {
-      const bars = changes.length ? measureBars(view, zoom / 100) : [];
+      const bars = drawn ? measureBars(view, zoom / 100, markup) : [];
       const key = barsKey(bars);
       if (key === last.current) return;
       last.current = key;
       onChangeBarsChange(bars);
     });
     return () => owner.cancelAnimationFrame(frame);
-  }, [view, state, changes, onChangeBarsChange, zoom]);
+  }, [view, state, drawn, onChangeBarsChange, zoom, markup]);
 }
 
 // Shows who wrote what while the editor is asked to, once its own plugins are installed.
@@ -138,6 +162,7 @@ export function useReviewNotifications(
     readonly onSelectionChange?: DocumentEditorNotifications['onSelectionChange'];
     readonly authorship?: boolean | undefined;
     readonly template?: TemplateFile | undefined;
+    readonly markup?: DocumentMarkup | undefined;
   },
 ) {
   useAuthorship(view, props.state, props.authorship ?? false);
@@ -147,5 +172,6 @@ export function useReviewNotifications(
   useChangeBarsNotification(view, props.state, {
     onChangeBarsChange: props.onChangeBarsChange,
     zoom: props.zoom ?? 100,
+    markup: props.markup ?? 'all',
   });
 }

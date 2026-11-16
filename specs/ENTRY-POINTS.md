@@ -54,3 +54,10 @@ The editor shall load the surfaces few sessions open the first time one opens, n
 
 Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `scripts/check-bundle-size.mjs`
 Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/object-dialogs.test.tsx`
+
+### DOCE-ENTRY-2.3 - Warming the surfaces
+
+`preloadEditorSurfaces(names?)` shall load the surfaces of DOCE-ENTRY-2.2 that the editor loads on first use (`LazyEditorSurface`: `figure`, `reference`, `abbreviation`, `script`, `linked-code` and `symbols`), those named or all, so a host can warm them once the editor is ready, such as from its idle callback, and they open without a wait. It resolves once each has loaded or failed; a surface that failed loads again when it opens. The math renderer loads inside the base library and is not one of them.
+
+Implementation: `src/components/document-editor/lazy-surfaces.ts`, `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `labs/src/host-panel.tsx`
+Verification: `src/components/document-editor/lazy-surfaces.test.ts`

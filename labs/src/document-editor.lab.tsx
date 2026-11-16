@@ -172,7 +172,7 @@ function Lab() {
   const [banner, setBanner] = useState(false);
   const [view, setView] = useState<EditorView | null>(null);
   const handle = useRef<DocumentEditorHandle>(null);
-  const host = useHostPanel();
+  const host = useHostPanel(handle);
   const [collaborators, setCollaborators] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [markup, setMarkup] = useState<DocumentMarkup>('all');

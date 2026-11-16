@@ -2,6 +2,8 @@
 // at a time against the revision they were edited from, and automatic saves after a pause.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { EditorState } from 'prosemirror-state';
+import { assignElementIds } from '../engine/element-ids.js';
 import type { EditorHost, StoredDocument } from '../host/adapters.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { writeDocumentFile } from '../model/format/document-format-write.js';
@@ -17,6 +19,11 @@ interface StoreBaseline {
   key: string;
   /** Whether the stored document has no content. */
   empty: boolean;
+  /**
+   * Whether the stored document's element ids need repair: an element without a valid id of its
+   * own. Its repair is then a change to save, once, so every opening reads the same ids.
+   */
+  repairDue: boolean;
   revision: string;
   sequence: number;
   pin: TemplatePin | null;
@@ -29,6 +36,7 @@ export function storeBaseline(doc: ProseMirrorNode, stored: StoredDocument): Sto
   return {
     key: contentKey(doc),
     empty: isEmptyDocument(doc),
+    repairDue: needsIdRepair(doc),
     revision: stored.revision,
     sequence: stored.sequence,
     pin: stored.content.template ?? null,
@@ -51,6 +59,11 @@ interface StoreSavingContext {
    * host gives it; the session merges it in and `rebase`s.
    */
   onConflict: (current: StoredDocument | null) => Promise<void>;
+}
+
+/** Whether a document has an element without a valid id of its own, which a repair would give. */
+function needsIdRepair(doc: ProseMirrorNode): boolean {
+  return assignElementIds(EditorState.create({ doc }).tr, {});
 }
 
 /** Whether a document holds no content: no text and no object, only empty blocks. */
@@ -105,7 +118,10 @@ const patchStatus = ({ status }: StoreSavingContext, next: Partial<SessionStatus
 const changedSince = (
   baseline: StoreBaseline,
   { doc, pin }: { doc: ProseMirrorNode; pin: TemplatePin | null },
-) => !samePin(pin, baseline.pin) || contentKey(doc) !== baseline.key;
+) =>
+  !samePin(pin, baseline.pin) ||
+  contentKey(doc) !== baseline.key ||
+  (baseline.repairDue && !needsIdRepair(doc));
 
 // One save of what the document holds now; a change made meanwhile stays to save.
 async function saveOnce({ context, state, schedule }: Saver) {
@@ -133,6 +149,7 @@ async function saveOnce({ context, state, schedule }: Saver) {
   state.baseline = {
     key: storedContentKey(content.sections),
     empty: isEmptyDocument(doc),
+    repairDue: needsIdRepair(doc),
     revision: result.value.revision,
     sequence: result.value.sequence,
     pin,

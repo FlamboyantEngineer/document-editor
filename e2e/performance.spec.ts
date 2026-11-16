@@ -14,6 +14,7 @@ import {
   pages,
   percentile,
   SIZE,
+  workloadLoads,
 } from './budgets.js';
 import { expect, test } from './fixtures.js';
 
@@ -146,5 +147,18 @@ test.describe('performance', () => {
     report(BUDGETS.loadMedian, percentile(loads, 0.5));
     report(BUDGETS.loadP95, percentile(loads, 0.95));
     expect(loads).toHaveLength(5);
+  });
+
+  test('DOCE-LABS-2.3 loads the 18- and 40-page workloads, cold and reloaded', async ({
+    lab,
+    page,
+  }) => {
+    const small = await workloadLoads(lab, page, SIZE.pages18);
+    report(BUDGETS.loadCold18, percentile(small.cold, 0.5));
+    report(BUDGETS.loadReload18, percentile(small.reload, 0.5));
+    const large = await workloadLoads(lab, page, SIZE.pages40);
+    report(BUDGETS.loadCold40, percentile(large.cold, 0.5));
+    report(BUDGETS.loadReload40, percentile(large.reload, 0.5));
+    expect([...small.cold, ...small.reload, ...large.cold, ...large.reload]).toHaveLength(20);
   });
 });

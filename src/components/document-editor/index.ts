@@ -37,6 +37,8 @@ export type { DocumentOverviewOptions } from './editor-overview.js';
 export { OVERVIEW_LAYERS } from './editor-overview.js';
 export { useDocumentEditorState } from './editor-store.js';
 export { CODE_LANGUAGES } from './element-entries.js';
+export type { LazyEditorSurface } from './lazy-surfaces.js';
+export { preloadEditorSurfaces } from './lazy-surfaces.js';
 export type { MentionOptions } from './mention-menu.js';
 export type { DocumentMenu, DocumentMenubarOptions } from './menubar-menus.js';
 export { menubarMenus } from './menubar-menus.js';
@@ -66,7 +68,7 @@ export type {
 export { TOOLBAR_GROUPS } from './toolbar-items.js';
 export type { ChangeBar } from './use-change-notifications.js';
 export type { DocumentComparison, DocumentLayout } from './use-document-layout.js';
-export { EDITOR_COUNTS, EDITOR_MEASURES } from './use-editor-telemetry.js';
+export { EDITOR_COUNTS, EDITOR_LAYOUT_PASS, EDITOR_MEASURES } from './use-editor-telemetry.js';
 export type { ContentChangeCause, DocumentEditorNotifications } from './use-host-events.js';
 export { contentChangeCause, isContentChange } from './use-host-events.js';
-export type { VisibleElement } from './visible-elements.js';
+export type { VisibleElement, VisiblePage } from './visible-elements.js';

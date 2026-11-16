@@ -100,6 +100,44 @@ test.describe('editing lab', () => {
     await expect(page.locator('.lab-pages p', { hasText: /^After$/ })).toHaveCount(1);
   });
 
+  for (const [kind, keys] of [
+    ['ul', 'ControlOrMeta+Shift+8'],
+    ['ol', 'ControlOrMeta+Shift+7'],
+  ] as const) {
+    test(`DOCE-EDITING-2.2 types and deletes at once after Enter in a ${kind} list, again and again`, async ({
+      lab,
+      page,
+    }) => {
+      await lab.open('editing');
+      await caretIn(scopeConditions(page));
+      await page.keyboard.press('End');
+      await page.keyboard.press('Enter');
+      await page.keyboard.type('Item 0');
+      await page.keyboard.press(keys);
+      const list = page.locator(`.lab-pages ${kind}`, { hasText: 'Item 0' });
+      for (let item = 1; item <= 4; item += 1) {
+        // No wait between the keys: the text must land in the new item, never before it.
+        await page.keyboard.press('Enter');
+        await page.keyboard.type(`Item ${String(item)}`);
+        await page.keyboard.press('Enter');
+        await page.keyboard.press('Backspace');
+      }
+      await expect(list.locator('li')).toHaveCount(5);
+      await expect(list.locator('li')).toHaveText([
+        'Item 0',
+        'Item 1',
+        'Item 2',
+        'Item 3',
+        'Item 4',
+      ]);
+      // The pages show the document as it is: each item once, with its own id.
+      const ids = await list
+        .locator('li')
+        .evaluateAll((items) => items.map((item) => item.getAttribute('data-id')));
+      expect(new Set(ids).size).toBe(5);
+    });
+  }
+
   test('DOCE-EDITING-6.1 turns typed Markdown marks into a heading, a list and strong text', async ({
     lab,
     page,

@@ -78,7 +78,7 @@ import type { DocumentToolbarOptions } from './toolbar-items.js';
 import type { MenuKeys } from './trigger-menu.js';
 import { useReviewNotifications } from './use-change-notifications.js';
 import { useDispatchBody, useEngineView } from './use-editor-engine.js';
-import { useLayoutTap } from './use-editor-telemetry.js';
+import { useLayoutTap, useMountTelemetry } from './use-editor-telemetry.js';
 import {
   type DocumentEditorNotifications,
   useActiveProps,
@@ -360,6 +360,7 @@ function useEditorLayout(
     ),
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
+  useMountTelemetry(props.telemetry, engine.view, progress.paged?.projection ?? null);
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
   const firstLayout = useFirstLayout((props.layout ?? 'page') === 'page', layoutState, props);
   // What the surface shows around the document: the fonts that did not load, and the cover.
