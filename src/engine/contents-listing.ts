@@ -7,6 +7,7 @@ import { Decoration, DecorationSet } from 'prosemirror-view';
 import { deriveCatalog } from '../model/contents/catalog-derive.js';
 import {
   catalogDocument,
+  type CatalogEntry,
   type ContentsKind,
   type DocumentCatalog,
   type TemplateFile,
@@ -25,10 +26,76 @@ export interface ContentsState {
   readonly builds: number;
 }
 
-// The kinds a contents plugin lists, and the one a list block names.
+// The kinds a contents plugin lists, the one a list block names, and the heading a kind's list
+// shows over a group of its entries, or null for none.
 export interface Kinds {
   readonly all: Readonly<Record<string, ContentsKind>>;
   readonly of: (node: ProseMirrorNode) => string;
+  readonly groupTitle: (key: string, group: string) => string | null;
+}
+
+/** The groups a list block shows, from its stored filter; null for every group. */
+function shownGroups(node: ProseMirrorNode): ReadonlySet<string> | null {
+  const filter: unknown = node.attrs.refFilter;
+  if (typeof filter !== 'string' || !filter.trim()) return null;
+  return new Set(filter.split(',').map((group) => group.trim()));
+}
+
+/** A group a list may show: its name, its heading and whether the list shows it. */
+export interface ContentsGroup {
+  readonly group: string;
+  readonly title: string;
+  readonly shown: boolean;
+}
+
+/**
+ * The groups a list block's kind has: those it names, then those its entries are in, each with its
+ * heading, or its name for one without, and whether the block shows it; none for a kind that does
+ * not group its entries.
+ */
+export function listGroups(
+  state: { readonly catalog: DocumentCatalog },
+  node: ProseMirrorNode,
+  kinds: Kinds,
+): ContentsGroup[] {
+  const key = kinds.of(node);
+  const kind = kinds.all[key];
+  if (!kind?.group) return [];
+  const names = new Set([
+    ...(kind.groups ?? []),
+    ...(state.catalog[key] ?? []).map((entry) => entry.group ?? ''),
+  ]);
+  const shown = shownGroups(node);
+  return [...names].map((group) => ({
+    group,
+    title: kinds.groupTitle(key, group) ?? group,
+    shown: !shown || shown.has(group),
+  }));
+}
+
+// A kind's entries in the groups a list shows, each group under its heading, when it groups them.
+function grouped(
+  key: string,
+  entries: readonly CatalogEntry[],
+  { node, kinds }: { node: ProseMirrorNode; kinds: Kinds },
+): readonly CatalogEntry[] {
+  if (!kinds.all[key]?.group) return entries;
+  const shown = shownGroups(node);
+  const rows: CatalogEntry[] = [];
+  let current: string | null = null;
+  for (const entry of entries) {
+    const group = entry.group ?? '';
+    if (shown && !shown.has(group)) continue;
+    const title = group === current ? null : kinds.groupTitle(key, group);
+    current = group;
+    // A heading names a group, not a place: it is a row, so a split list counts it, but no entry.
+    if (title !== null) {
+      const { kind, pos, page } = entry;
+      rows.push({ kind, level: 0, number: '', text: title, pos, page, group, heading: true });
+    }
+    rows.push(entry);
+  }
+  return rows;
 }
 
 // The entries a list block shows: those of its kind down to its deepest level, in the range a
@@ -39,7 +106,11 @@ function rowsOf(
 ): ContentsRows {
   const key = kinds.of(node);
   const deepest = Number(node.attrs.minLevel) || 6;
-  const listed = (catalog[key] ?? []).filter((entry) => entry.level <= deepest);
+  const listed = grouped(
+    key,
+    (catalog[key] ?? []).filter((entry) => entry.level <= deepest),
+    { node, kinds },
+  );
   const start = Number(node.attrs.entryStart) || 0;
   const end = Number.isInteger(node.attrs.entryEnd) ? Number(node.attrs.entryEnd) : listed.length;
   return {

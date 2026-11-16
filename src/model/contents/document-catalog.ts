@@ -24,13 +24,14 @@ import {
   type ContentsKind,
   DEFAULT_CONTENTS_KINDS,
   type DocumentCatalog,
+  entryParts,
   headingLevel,
   nodeEntry,
 } from './contents-kinds.js';
 import { isStructuralHeading } from './structural-heading.js';
 
 export type { CatalogEntry, ContentsKind, DocumentCatalog } from './contents-kinds.js';
-export { DEFAULT_CONTENTS_KINDS, ELEMENT_KINDS } from './contents-kinds.js';
+export { compareOrder, DEFAULT_CONTENTS_KINDS, ELEMENT_KINDS } from './contents-kinds.js';
 export { isStructuralHeading } from './structural-heading.js';
 
 /** The node types each numbered object kind numbers. */
@@ -142,8 +143,7 @@ function listMarks(block: ProseMirrorNode, start: number, counting: Counting) {
         text: kind.text?.(open.node, open.mark) ?? open.text,
         pos: open.pos,
         page: counting.page,
-        ...(kind.anchor ? { anchor: kind.anchor(open.node, open.mark) } : {}),
-        ...(kind.identity ? { identity: kind.identity(open.node, open.mark) } : {}),
+        ...entryParts(kind, open.node, open.mark),
       });
     };
     block.forEach((child, offset) => {
@@ -264,7 +264,7 @@ function countSections(template: TemplateFile, counting: Counting) {
 }
 
 // Each kind's entries: after the first table of contents if it asks, then its first one of each
-// identity alone if it asks, in the order it asks.
+// identity alone if it asks, in the order it asks, group by group if it groups them.
 function arrangeEntries(
   catalog: DocumentCatalog,
   kinds: Readonly<Record<string, ContentsKind>>,
@@ -285,7 +285,19 @@ function arrangeEntries(
         });
       }
       if (kind?.sort) arranged.sort(kind.sort);
+      if (kind?.group) arranged.sort(byGroup(kind.groups ?? []));
       return [key, arranged];
     }),
   );
+}
+
+// Orders entries group by group, the groups a kind names first, in its order, then the others by
+// their names; an entry keeps its place in its group.
+function byGroup(groups: readonly string[]) {
+  const rank = (entry: CatalogEntry) => {
+    const index = groups.indexOf(entry.group ?? '');
+    return index < 0 ? groups.length : index;
+  };
+  return (a: CatalogEntry, b: CatalogEntry) =>
+    rank(a) - rank(b) || (a.group ?? '').localeCompare(b.group ?? '');
 }

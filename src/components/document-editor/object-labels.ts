@@ -92,6 +92,8 @@ export interface ObjectLabels {
   /** Names a kind of list of contents, such as `figures`. */
   readonly contentsKind: (kind: string) => string;
   readonly contentsDepth: string;
+  /** The submenu that chooses the groups a list of contents shows, such as kinds of document. */
+  readonly contentsGroups: string;
   /** Names a depth of a list of contents, such as `Headings 1 to 3`. */
   readonly depthLevel: (depth: number) => string;
   readonly symbol: string;
@@ -245,6 +247,7 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   contents: 'List of contents',
   contentsKind: (kind) => CONTENTS_KINDS[kind] ?? kind,
   contentsDepth: 'Depth',
+  contentsGroups: 'Reference types',
   depthLevel: (depth) => (depth === 1 ? 'Heading 1' : `Headings 1 to ${String(depth)}`),
   symbol: 'Symbol',
   insertAction: 'Insert',

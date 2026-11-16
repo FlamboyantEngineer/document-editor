@@ -20,7 +20,7 @@ Verification: `src/model/contents/document-catalog.test.ts`
 
 ### DOCE-CONTENTS-1.3 - Configured kinds
 
-A kind (`ContentsKind`) shall name the node types it lists, and the mark types (`marks`), each run of text carrying one being one entry at the run's start, and may choose which of them it lists (`include`), an entry's text (`text`, the node's caption or its text, or the run's text, by default), its level (`level`, a heading's level, or 0 for other nodes) a number for nodes the template does not number (`number`), and the text between an entry's number and its text (`separator`). An entry of a heading or a numbered object shall show the template's number. An entry of a node with an element id shall carry it (`target`). The parts a split node continues on shall not be listed again.
+A kind (`ContentsKind`) shall name the node types it lists, and the mark types (`marks`), each run of text carrying one being one entry at the run's start, and may choose which of them it lists (`include`), an entry's text (`text`, the node's caption or its text, or the run's text, by default), its level (`level`, a heading's level, or 0 for other nodes) a number for nodes the template does not number (`number`), the text between an entry's number and its text (`separator`), its group (`group`, with the order of the groups in `groups`), what it sorts by (`order`, compared with `compareOrder`), and the attributes of the citation it stands for (`cites`). An entry of a heading or a numbered object shall show the template's number. An entry of a node with an element id shall carry it (`target`). The parts a split node continues on shall not be listed again.
 
 Implementation: `src/model/contents/document-catalog.ts`
 Verification: `src/model/contents/document-catalog.test.ts`
@@ -34,7 +34,7 @@ Verification: `src/model/contents/document-catalog.test.ts`, `e2e/contents.spec.
 
 ### DOCE-CONTENTS-1.5 - References
 
-The default `references` kind shall list each document the document cites with an external reference (a `reference` mark whose type is not `internal-…`), once, in the order it is first cited after the document's first table of contents (DOCE-CONTENTS-1.8), so a document cited before and after it is listed at its first citation after it: the cited document's number as the entry's number and its title, or the catalogue entry's label, as its text, as the citation recorded them. A list of references shall show neither page numbers nor leaders.
+The default `references` kind shall list each document the document cites with an external reference (a `reference` mark whose type is not `internal-…`) after the document's first table of contents (DOCE-CONTENTS-1.8), once for each revision cited, at its first citation after it, so a document cited before and after it is listed once, with what the citation recorded of it (DOCE-CONTENTS-1.9). Its entries shall be grouped by reference type, `external-document` first and the others by name, and ordered in each group by publisher, number, revision and text, ignoring case and accents and comparing digits as numbers, those that recorded no number last. A list of references shall show neither page numbers nor leaders.
 
 Implementation: `src/model/contents/document-catalog.ts`
 Verification: `src/model/contents/document-catalog.test.ts`
@@ -59,6 +59,13 @@ A kind marked `after` shall list only what follows the document's first table of
 
 Implementation: `src/model/contents/document-catalog.ts`, `src/model/contents/contents-kinds.ts`
 Verification: `src/model/contents/document-catalog.test.ts`
+
+### DOCE-CONTENTS-1.9 - A cited document's entry
+
+A cited document's entry shall show its publisher, then its number with its revision, as its number, then `-`, then its title, or the catalogue entry's label; a number that ends in its revision shall not repeat it, nor shall the publisher show when the number starts with it. A work with authors shall show as a paper is cited: its authors, its revision in parentheses as its year, its title, its pages and its number, each ending in a full stop and left out when not recorded. A citation whose baseline holds the text the whole document formats it as (`bibliographyLabel`) shall show that text alone, and one that recorded none of its parts, the text it reads. Two citations are one entry when they cite the same reference type, target and revision (or pinned revision); without a target, the same number and text.
+
+Implementation: `src/model/contents/reference-entries.ts`, `src/model/contents/contents-kinds.ts`
+Verification: `src/model/contents/reference-entries.test.ts`, `e2e/contents.spec.ts`
 
 ## DOCE-CONTENTS-2 - Lists of contents
 
@@ -132,21 +139,30 @@ A row whose entry names an element with an element id shall carry it (`data-targ
 Implementation: `src/engine/contents-view.ts`, `src/engine/print-links.ts`
 Verification: `src/engine/print-links.test.ts`
 
+### DOCE-CONTENTS-2.11 - Groups and cited documents
+
+A list of a kind that groups its entries shall show them group by group in the kind's order, each group under a heading row (`de-contents__group`) with the title its labels give the group (`ContentsLabels.groups`; the default list of references titles `external-document`), a group without a title having none, and shall show only the groups its block's `refFilter` names, every group without one. A heading row is counted as a row when a list splits across pages, and names nothing to go to. `contentsGroupsAt(state, pos)` shall give the groups the list at a position may show, those its kind names and those its entries are in, with their titles and whether it shows each, and `setContentsGroups(groups, every)` shall set the groups the selected list shows, clearing the filter for none or for all. An entry that stands for a citation (`cites`) shall be a link to where the host's `citationHref` sends the citation, the `href` of its references adapter (DOCE-HOST-1.9),, opened in a new tab, or plain text that the keys do not reach when the host gives it no address; it never goes to the citation in the document.
+
+Implementation: `src/engine/contents-listing.ts`, `src/engine/contents-view.ts`, `src/engine/contents-keys.ts`, `src/engine/contents-commands.ts`, `src/engine/contents.ts`, `src/components/document-editor/contents-entries.ts`, `labs/src/contents.lab.ts`
+Verification: `src/engine/contents.test.ts`, `e2e/contents.spec.ts`
+
 ## Hooks
 
-| Hook                     | Kind      | Values                                                                               | Description                                          |
-| ------------------------ | --------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `de-contents`            | root      |                                                                                      | A list of contents.                                  |
-| `de-contents__title`     | slot      |                                                                                      | The list's title, on its first part only.            |
-| `de-contents__empty`     | slot      |                                                                                      | The text shown when there is nothing to list.        |
-| `de-contents__entry`     | slot      |                                                                                      | One entry, a link to what it names.                  |
-| `de-contents__number`    | slot      |                                                                                      | The number the entry's heading or object shows.      |
-| `de-contents__separator` | slot      |                                                                                      | The text between an object's number and its caption. |
-| `de-contents__text`      | slot      |                                                                                      | The entry's text.                                    |
-| `de-contents__leader`    | slot      |                                                                                      | The leader between the text and the page.            |
-| `data-leader`            | attribute |                                                                                      | The leader's characters, for the stylesheet.         |
-| `de-contents__page`      | slot      |                                                                                      | The page the entry is on.                            |
-| `data-contents-type`     | attribute | `toc`, `figures`, `tables`, `codeBlocks`, `equations`, `references`, `abbreviations` | The kind the list lists, or a configured kind.       |
-| `data-target`            | attribute |                                                                                      | The element id of what the entry names.              |
-| `data-level`             | state     |                                                                                      | An entry's heading level.                            |
-| `data-de-measure-key`    | state     |                                                                                      | What the list's rendering depends on.                |
+| Hook                     | Kind      | Values                                                                               | Description                                                                      |
+| ------------------------ | --------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `de-contents`            | root      |                                                                                      | A list of contents.                                                              |
+| `de-contents__title`     | slot      |                                                                                      | The list's title, on its first part only.                                        |
+| `de-contents__empty`     | slot      |                                                                                      | The text shown when there is nothing to list.                                    |
+| `de-contents__entry`     | slot      |                                                                                      | One entry, a link to what it names.                                              |
+| `de-contents__number`    | slot      |                                                                                      | The number the entry's heading or object shows.                                  |
+| `de-contents__separator` | slot      |                                                                                      | The text between an object's number and its caption.                             |
+| `de-contents__group`     | slot      |                                                                                      | A heading row over a group of entries.                                           |
+| `data-choosable`         | attribute |                                                                                      | A row the keys reach, which takes the reader to what it names or opens its link. |
+| `de-contents__text`      | slot      |                                                                                      | The entry's text.                                                                |
+| `de-contents__leader`    | slot      |                                                                                      | The leader between the text and the page.                                        |
+| `data-leader`            | attribute |                                                                                      | The leader's characters, for the stylesheet.                                     |
+| `de-contents__page`      | slot      |                                                                                      | The page the entry is on.                                                        |
+| `data-contents-type`     | attribute | `toc`, `figures`, `tables`, `codeBlocks`, `equations`, `references`, `abbreviations` | The kind the list lists, or a configured kind.                                   |
+| `data-target`            | attribute |                                                                                      | The element id of what the entry names.                                          |
+| `data-level`             | state     |                                                                                      | An entry's heading level.                                                        |
+| `data-de-measure-key`    | state     |                                                                                      | What the list's rendering depends on.                                            |
