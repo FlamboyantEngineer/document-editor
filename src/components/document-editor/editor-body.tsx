@@ -6,7 +6,7 @@ import {
   RichTextEngineContent,
   RichTextEngineHost,
 } from '@flamboyantengineer/ui-components/rich-text-editor';
-import type { EditorView } from 'prosemirror-view';
+import { DecorationSet, type EditorView } from 'prosemirror-view';
 import { useMemo } from 'react';
 import { matchesShortcut, type ShortcutId, shortcutsOf } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
@@ -19,6 +19,7 @@ import type { ObjectDialog } from './editor-context.js';
 import type { CommentRefs } from './editor-handle.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
+import { useHeldSelection } from './held-selection.js';
 import { ObjectEditors } from './object-editors.js';
 import { PagesView } from './pages-view.js';
 import { debugParts } from './root-data.js';
@@ -40,6 +41,9 @@ import {
   useProjectionEvents,
 } from './use-paged-projection.js';
 import { useWritingDecorations } from './writing-decorations.js';
+
+// The view's decorations while no writing helper draws.
+const noDecorations = () => DecorationSet.empty;
 
 // The body's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['body', 'content']);
@@ -94,19 +98,23 @@ function useBodyViewProps({
   startCommentRef,
   onDialog,
   menuKeys,
+  held,
 }: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs' | 'isBlocked'> & {
   startCommentRef: CommentRefs['startCommentRef'];
+  /** Focus is elsewhere on the page, so the editor draws the selection. */
+  held: boolean;
 }) {
   const { editable = true, assets, feedback, onCopyLink } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
-  const decorations = useWritingDecorations(props, labels.insertBlock);
+  const decorations = useWritingDecorations(props, labels.insertBlock, held);
   return useMemo(() => {
     const images = figurePasteOptions({ assets, feedback }, labels);
     return {
       ...(images ? figurePasteHandlers(images) : {}),
       editable: () => editable,
-      ...(decorations ? { decorations } : {}),
+      // Always given, so helpers turned off take their decorations off the pages too.
+      decorations: decorations ?? noDecorations,
       // The host's proofer checks the text; the browser's own spelling check stays off.
       attributes: { spellcheck: 'false' },
       handleKeyDown: (view: EditorView, event: KeyboardEvent) => {
@@ -224,7 +232,8 @@ export function EditorBody({
 }: EditorBodyProps) {
   const { startCommentRef, openThreadRef } = commentRefs;
   const { state, onStateChange, editable = true, suggesting = false } = props;
-  const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog, menuKeys });
+  const { held, handlers: heldHandlers } = useHeldSelection();
+  const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog, menuKeys, held });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   const attributes = useContentAttributes(props);
   useOpeningScripts(view, {
@@ -258,7 +267,12 @@ export function EditorBody({
     </RichTextEngineHost>
   );
   return (
-    <div {...hooks.slot('body')} inert={isBlocked} aria-busy={isBlocked || undefined}>
+    <div
+      {...hooks.slot('body')}
+      {...heldHandlers}
+      inert={isBlocked}
+      aria-busy={isBlocked || undefined}
+    >
       <SelectionFirst view={engine.view} state={engineProps.state} />
       {props.comments ? (
         <DocumentComments
