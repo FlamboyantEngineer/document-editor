@@ -105,3 +105,28 @@ describe('regression set', () => {
     },
   );
 });
+
+// A list's shape: for each item, the shape of the list nested in it, or 0 for none.
+type Shape = number | Shape[];
+const shapeOf = (list: StoredNode): Shape[] =>
+  (list.content ?? []).map((item) => {
+    const nested = item.content?.find((child) => child.type.endsWith('List'));
+    return nested ? shapeOf(nested) : 0;
+  });
+
+describe('list split stress', () => {
+  it('DOCE-LABS-4.3 holds the four ordered lists before its runways', () => {
+    const file = JSON.parse(
+      readFileSync(join(here, 'list-split-stress.json'), 'utf8'),
+    ) as DocumentFile;
+    const lists = (file.sections[0]?.content ?? []).filter((node) => node.type.endsWith('List'));
+    const [single, pairs, long, deep, ...runways] = lists;
+    const times = <T>(count: number, value: T) => Array.from({ length: count }, () => value);
+    expect(single && shapeOf(single)).toEqual(times(30, 0));
+    expect(pairs && shapeOf(pairs)).toEqual(times(30, [0, 0]));
+    expect(long && shapeOf(long)).toEqual(times(2, times(20, 0)));
+    expect(deep && shapeOf(deep)).toEqual(times(20, [[0], [0]]));
+    expect([single, pairs, long, deep].map((list) => list?.type)).toEqual(times(4, 'orderedList'));
+    expect(runways.map((list) => (list.content ?? []).length)).toEqual([60, 60]);
+  });
+});

@@ -15,6 +15,7 @@ import emptySections from '../../../test/fixtures/documents/empty-sections.json'
 import footnoteHeavy from '../../../test/fixtures/documents/footnote-heavy.json' with { type: 'json' };
 import footnotesInStructures from '../../../test/fixtures/documents/footnotes-in-structures.json' with { type: 'json' };
 import headingKeepWithNext from '../../../test/fixtures/documents/heading-keep-with-next.json' with { type: 'json' };
+import listSplitStress from '../../../test/fixtures/documents/list-split-stress.json' with { type: 'json' };
 import longBulletList from '../../../test/fixtures/documents/long-bullet-list-with-nesting.json' with { type: 'json' };
 import longMixed from '../../../test/fixtures/documents/long-mixed.json' with { type: 'json' };
 import longOrderedList from '../../../test/fixtures/documents/long-ordered-list.json' with { type: 'json' };
@@ -48,6 +49,7 @@ export const REGRESSION_DOCUMENTS = {
   'heading-keep-with-next': headingKeepWithNext,
   'long-bullet-list-with-nesting': longBulletList,
   'long-mixed': longMixed,
+  'list-split-stress': listSplitStress,
   'long-ordered-list': longOrderedList,
   'mixed-geometry': mixedGeometry,
   'mixed-geometry-repeated-sections': mixedGeometryRepeated,

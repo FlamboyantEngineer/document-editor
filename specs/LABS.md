@@ -163,10 +163,10 @@ Verification: `e2e/regression.spec.ts`
 
 ### DOCE-LABS-4.3 - Lists
 
-A long ordered list shall split between items, each item shown once and numbered on from page to page; a nested list and an item longer than a page split and show every stored item; and a split item's continuation draws no empty line where it opens.
+A long ordered list shall split between items, each item shown once and numbered on from page to page; a nested list and an item longer than a page split and show every stored item; and a split item's continuation draws no empty line where it opens. The regression set's `list-split-stress` document shall hold, before two sixty-item runways, four ordered lists: thirty items on one level, thirty items with two subitems each, two items with twenty subitems each, and twenty items with two subitems that hold one child each; it splits over pages and shows every item.
 
 Implementation: `labs/src/regression/regression-documents.ts`
-Verification: `e2e/regression.spec.ts`
+Verification: `e2e/regression.spec.ts`, `test/fixtures/documents/regression-set.test.ts`
 
 ### DOCE-LABS-4.4 - Tables
 

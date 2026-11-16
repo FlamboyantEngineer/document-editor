@@ -313,6 +313,7 @@ const ALL_DOCUMENTS: readonly { name: RegressionDocumentName; pages: number }[] 
   { name: 'footnote-heavy', pages: 4 },
   { name: 'footnotes-in-structures', pages: 1 },
   { name: 'heading-keep-with-next', pages: 4 },
+  { name: 'list-split-stress', pages: 12 },
   { name: 'long-bullet-list-with-nesting', pages: 2 },
   { name: 'long-mixed', pages: 20 },
   { name: 'long-ordered-list', pages: 3 },
@@ -518,7 +519,11 @@ test.describe('list split stress', () => {
     expect(numbers).toEqual(numbers.map((_, index) => index + 1));
   });
 
-  for (const name of ['long-bullet-list-with-nesting', 'oversized-blocks'] as const) {
+  for (const name of [
+    'long-bullet-list-with-nesting',
+    'oversized-blocks',
+    'list-split-stress',
+  ] as const) {
     test(`DOCE-LABS-4.3 DOCE-PAGINATION-4.2 splits the lists of ${name} and shows every item`, async ({
       page,
     }) => {
