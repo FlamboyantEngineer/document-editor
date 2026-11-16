@@ -1071,7 +1071,8 @@
   inset-inline-start: 0;
 }
 
-.de-document-editor[data-formatting-marks='true'] :has(> .de-placeholder)::after {
+.de-document-editor[data-formatting-marks='true']
+  :is(p, h1, h2, h3, h4, h5, h6):has(> .de-placeholder)::after {
   content: none;
 }
 

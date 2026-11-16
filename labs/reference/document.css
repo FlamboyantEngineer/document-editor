@@ -220,8 +220,7 @@ div.de-host-view {
 /* Blocks in a header or footer take no vertical margins; `:nth-child(n)` outweighs the text styles. */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :nth-child(n),
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :nth-child(n) {
-  margin-top: 0;
-  margin-bottom: 0;
+  margin-block: 0;
 }
 
 /* A region keeps the template's height at least, so the pages' text starts at the same place,
@@ -245,12 +244,14 @@ div.de-host-view {
   color: #475569;
 }
 
+/* A page's first block has no block-start margin and its last no block-end margin, in any
+   writing mode. */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :first-child {
-  margin-top: 0;
+  margin-block-start: 0;
 }
 
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :last-child {
-  margin-bottom: 0;
+  margin-block-end: 0;
 }
 
 /* Each text style's font, size, weight, slant, underline, colour, line height, alignment and spacing. */
@@ -827,6 +828,14 @@ div.de-host-view {
   table[data-split-part-index]:not([data-split-part-index='0'])
   .doc-caption-continued::after {
   content: var(--doc-table-caption-continued, '');
+}
+
+/* A later part of a split table repeats its caption only with its header rows: a part that opens
+   with a body row shows none. */
+:where(.de-document-editor, .de-document-editor__measure)
+  table[data-split-part-index]:not([data-split-part-index='0']):has(> tbody > tr:first-child > td)
+  > caption {
+  display: none;
 }
 
 :where(.de-document-editor, .de-document-editor__measure)

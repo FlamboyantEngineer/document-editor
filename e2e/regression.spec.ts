@@ -71,6 +71,8 @@ interface PageRead {
     headerRows: number;
     bodyRows: string[];
     caption: string | null;
+    /** Whether the stylesheet shows the caption on this part. */
+    captionShown: boolean;
   }[];
   readonly code: readonly { id: string | null; part: number; lineStart: number; lines: string[] }[];
   /** The footnote marks in the page's text and its footnote entries, with their numbers. */
@@ -222,6 +224,9 @@ function readPages(): PageRead[] {
           caption: table.querySelector(':scope > caption')
             ? text(table.querySelector(':scope > caption'))
             : null,
+          captionShown: [...table.querySelectorAll(':scope > caption')].some(
+            (caption) => getComputedStyle(caption).display !== 'none',
+          ),
         };
       }),
       code: [...(body?.querySelectorAll('pre') ?? [])].map((code) => ({
@@ -578,12 +583,17 @@ test.describe('table fragment stress', () => {
     });
   }
 
-  test('DOCE-LABS-4.4 DOCE-PAGINATION-4.5 repeats the caption on continuations without a repeated header', async ({
+  test('DOCE-LABS-4.4 DOCE-PAGINATION-4.5 repeats the caption only with a repeated header', async ({
     page,
   }) => {
-    const fragments = await tableFragments(page, 'table-long-single-header');
-    const captions = fragments.map(({ caption }) => caption);
-    expect(captions.every((caption) => caption !== null && caption.length > 0)).toBe(true);
+    const single = await tableFragments(page, 'table-long-single-header');
+    expect(single.length).toBeGreaterThan(1);
+    expect(single.map(({ captionShown }) => captionShown)).toEqual(
+      single.map((_, index) => index === 0),
+    );
+    const repeated = await tableFragments(page, 'table-long-repeated-header');
+    expect(repeated.length).toBeGreaterThan(1);
+    expect(repeated.every(({ captionShown, caption }) => captionShown && caption)).toBe(true);
   });
 
   test('DOCE-LABS-4.4 lays out both header modes, merged cells and rich cells', async ({

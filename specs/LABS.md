@@ -39,6 +39,13 @@ The settings shall be read and remembered as UIC-LABS-2.3 says, in the browser's
 Implementation: `labs/src/chrome/storage.ts`, `labs/src/chrome/mount.tsx`
 Verification: `e2e/labs.spec.ts`
 
+### DOCE-LABS-1.6 - Selectors that stay local
+
+The reference stylesheets shall never make `body`, `html`, `:root` or a compound with no type, class or attribute the subject of `:has()`, so a change inside the editor never makes the browser restyle the whole page.
+
+Implementation: `labs/reference/document.css`, `labs/reference/editor-chrome.css`
+Verification: `test/reference-stylesheet.test.ts`
+
 ## DOCE-LABS-2 - Stress labs
 
 ### DOCE-LABS-2.1 - Stress documents
@@ -86,7 +93,7 @@ Verification: `e2e/stress.spec.ts`, `e2e/performance.spec.ts`
 
 ### DOCE-LABS-2.5 - Counter budgets
 
-The budgets counted in layouts, sections, blocks and restyled elements rather than time do not depend on the machine, and `npm run test:labs` shall hold them on every pull request, measured as the harness measures them (`e2e/budgets.ts`): after an edit in the middle of 25 sections, at most four layouts and 24 template regions drawn again, and at least 23 sections reused per layout; a remote keystroke that starts a new line in 1600 blocks relays at most one section and measures at most five blocks, and one inside a line lays nothing out; at most three browser layouts per wheel event on 5 pages and on 40; and a keystroke on 40 pages restyles at most three times as many elements as on 5. A budget not met yet is an expected failure naming its gap in the port plan.
+The budgets counted in layouts, sections, blocks and restyled elements rather than time do not depend on the machine, and `npm run test:labs` shall hold them on every pull request, measured as the harness measures them (`e2e/budgets.ts`): after an edit in the middle of 25 sections, at most four layouts and 24 template regions drawn again, and at least 23 sections reused per layout; a remote keystroke that starts a new line in 1600 blocks relays at most one section and measures at most five blocks, and one inside a line lays nothing out; at most three browser layouts per wheel event on 5 pages and on 40; and a keystroke on 40 pages restyles at most three times as many elements as on 5; opening 24 pages settles in at most two layouts, measures each block once, and lays out nothing in the second after. A budget not met yet is an expected failure naming its gap in the port plan.
 
 Implementation: `e2e/budgets.ts`
 Verification: `e2e/budget-counters.performance.spec.ts`

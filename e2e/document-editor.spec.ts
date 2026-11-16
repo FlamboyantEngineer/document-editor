@@ -1006,6 +1006,32 @@ test.describe('document editor lab', () => {
     await expect(tip).toBeHidden();
   });
 
+  test("DOCE-EDITOR-6.31 DOCE-PAGINATION-7.4 outlines a page's footnote area and shows its sizes on hover", async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    await page.getByLabel('Block heights').check();
+    const paragraph = content(page).locator('p', { hasText: 'Each requirement' }).first();
+    await paragraph.scrollIntoViewIfNeeded();
+    await paragraph.click();
+    await page.keyboard.press('End');
+    await page.getByRole('button', { name: 'Footnote' }).click();
+    await page.keyboard.type('Measured at start-up.');
+    const area = content(page).locator('.pm-page > [data-debug-type]', {
+      has: page.locator('.pm-footnote-entry', { hasText: 'Measured at start-up.' }),
+    });
+    await expect(area).toHaveCount(1);
+    await expect(area).toHaveCSS('outline-style', 'dashed');
+    const type = (await area.getAttribute('data-debug-type')) ?? '';
+    expect(type).toMatch(/footnote/);
+    await area.hover({ position: { x: 4, y: 2 } });
+    const tip = page.getByRole('tooltip');
+    await expect(tip).toBeVisible();
+    await expect(tip).toContainText(type);
+    await expect(tip).toContainText(/\d+\.\d{3} × \d+\.\d{3}/);
+  });
+
   test('DOCE-EDITOR-6.29 DOCE-EDITOR-6.30 shows the measuring view and the markup in a resizable pane', async ({
     lab,
     page,

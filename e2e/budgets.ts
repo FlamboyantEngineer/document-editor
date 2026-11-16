@@ -63,6 +63,24 @@ export const BUDGETS = {
     target: '≤ 1',
     meets: atMost(1),
   },
+  startupLayouts: {
+    bar: 'Startup, 24 pages',
+    metric: 'layouts to first settle',
+    target: '≤ 2',
+    meets: atMost(2),
+  },
+  startupRemeasured: {
+    bar: 'Startup, 24 pages',
+    metric: 'blocks measured beyond one each',
+    target: '0',
+    meets: atMost(0),
+  },
+  startupAfterSettle: {
+    bar: 'Startup, 24 pages',
+    metric: 'layouts in the second after settling',
+    target: '0',
+    meets: atMost(0),
+  },
   remoteBlocksMeasured: {
     bar: 'Remote keystroke, 1600 blocks',
     metric: 'blocks measured',
@@ -374,6 +392,27 @@ export async function measureSectionsEdit(lab: LabFixture, page: Page) {
     layouts: change.layouts,
     regions,
     sectionsReused: Math.round((change.sectionsReused / Math.max(change.layouts, 1)) * 10) / 10,
+  };
+}
+
+/**
+ * The 24-page document's startup: its layouts and blocks measured when it first settles, against
+ * its blocks, and the layouts in the second after, which a pass that only renumbers would add.
+ */
+export async function measureStartup(lab: LabFixture, page: Page) {
+  await openScale(lab, page, SIZE.pages24);
+  const atReady = await stats(page);
+  const blocks = await page
+    .locator(
+      '.de-document-editor__content .pm-page-content > :is(:not([data-split-part-index]), [data-split-part-index="0"])',
+    )
+    .count();
+  await page.waitForTimeout(1000);
+  const settled = await stats(page);
+  return {
+    layouts: atReady.layouts,
+    remeasured: Math.max(0, atReady.blocksMeasured - blocks),
+    afterSettle: settled.layouts - atReady.layouts,
   };
 }
 
