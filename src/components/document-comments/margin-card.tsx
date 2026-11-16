@@ -55,6 +55,7 @@ export function isSameCardShown(previous: ShownCard, next: ShownCard): boolean {
     a.policy === b.policy &&
     a.run === b.run &&
     a.startThread === b.startThread &&
+    a.onStored === b.onStored &&
     isSameItem(previous.item, next.item)
   );
 }
@@ -108,7 +109,7 @@ export function useCardPolicy(
   );
 }
 
-type CardCallbacks = Pick<CardActions, 'run' | 'startThread'>;
+type CardCallbacks = Pick<CardActions, 'run' | 'startThread' | 'onStored'>;
 
 /**
  * The cards' commands, the same functions from one render to the next, each calling the latest
@@ -123,6 +124,7 @@ export function useStableCallbacks(callbacks: CardCallbacks): CardCallbacks {
     () => ({
       run: (command) => latest.current.run(command),
       startThread: () => latest.current.startThread(),
+      onStored: (key: string) => latest.current.onStored?.(key),
     }),
     [],
   );
