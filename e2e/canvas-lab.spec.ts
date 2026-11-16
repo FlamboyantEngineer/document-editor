@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { expectCanvasPixels } from './canvas-size.js';
 import { expect, test, waitForLab } from './fixtures.js';
 
 // Chromium 156 in the development image exposes the stable API behind this flag.
@@ -6,7 +7,7 @@ test.use({
   deviceScaleFactor: 1.25,
   launchOptions: {
     executablePath: process.env.CHROMIUM_PATH,
-    args: ['--enable-blink-features=CanvasDrawElement'],
+    args: ['--enable-blink-features=CanvasDrawElement', '--force-device-scale-factor=1.25'],
   },
 });
 
@@ -37,22 +38,7 @@ test('DOCE-LABS-3.8 switches rendering and fractional zoom without losing edits 
   await choose(page, 'Renderer', 'HTML-in-Canvas');
   await choose(page, 'Editor zoom', '125%');
   await expect(page).toHaveURL(/zoom=125/);
-  await expect(async () => {
-    const size = await page
-      .locator('.de-document-editor__canvas')
-      .first()
-      .evaluate((element) => {
-        const canvas = element as HTMLCanvasElement;
-        const rect = canvas.getBoundingClientRect();
-        return [
-          canvas.width,
-          canvas.height,
-          Math.ceil(rect.width * devicePixelRatio),
-          Math.ceil(rect.height * devicePixelRatio),
-        ];
-      });
-    expect(size.slice(0, 2)).toEqual(size.slice(2));
-  }).toPass();
+  await expectCanvasPixels(page.locator('.de-document-editor__canvas').first());
   expect(await pages.allTextContents()).toEqual(before);
   await page.getByRole('button', { name: 'Reset sample', exact: true }).click();
   await expect(heading).toHaveText('Canvas editing');

@@ -93,9 +93,9 @@ describe('HTML-in-Canvas pages', () => {
     const before = view.state.doc;
     const canvas = view.dom.querySelector('canvas');
     canvas?.dispatchEvent(new Event('paint'));
-    expect(canvas?.width).toBe(126);
+    expect(canvas?.width).toBe(125);
     expect(canvas?.height).toBe(251);
-    expect(draw).toHaveBeenCalledWith(canvas?.firstElementChild, 0, 0, 126, 251);
+    expect(draw).toHaveBeenCalledWith(canvas?.firstElementChild, 0, 0, 125, 251);
     expect(view.state.doc.eq(before)).toBe(true);
     view.destroy();
     draw.mockClear();

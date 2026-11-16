@@ -1,6 +1,7 @@
 import { DOMSerializer } from 'prosemirror-model';
 import type { NodeViewConstructor } from 'prosemirror-view';
 import { createHooks } from '../../utils/hooks.js';
+import { observeCanvasSize } from './canvas-page-size.js';
 
 /** How the editor paints its pages; HTML-in-Canvas falls back to DOM when unavailable. */
 export type DocumentRendering = 'dom' | 'html-canvas';
@@ -39,16 +40,7 @@ function drawingIn(owner: Document) {
 function watchPage(page: HTMLElement, canvas: DrawableCanvas, visible: (shown: boolean) => void) {
   const win = page.ownerDocument.defaultView;
   const repaint = () => canvas.requestPaint();
-  const observer = win?.ResizeObserver
-    ? new win.ResizeObserver(([entry]) => {
-        const size = entry?.borderBoxSize[0];
-        if (!size) return;
-        canvas.style.setProperty('--de-canvas-width', `${String(size.inlineSize)}px`);
-        canvas.style.setProperty('--de-canvas-height', `${String(size.blockSize)}px`);
-        repaint();
-      })
-    : null;
-  observer?.observe(page);
+  const size = observeCanvasSize(page, canvas, repaint);
   const intersection = win?.IntersectionObserver
     ? new win.IntersectionObserver(
         ([entry]) => {
@@ -67,11 +59,14 @@ function watchPage(page: HTMLElement, canvas: DrawableCanvas, visible: (shown: b
   };
   resolution?.addEventListener('change', changed);
   win?.addEventListener('resize', repaint);
-  return () => {
-    observer?.disconnect();
-    intersection?.disconnect();
-    resolution?.removeEventListener('change', changed);
-    win?.removeEventListener('resize', repaint);
+  return {
+    size: size.read,
+    disconnect() {
+      size.disconnect();
+      intersection?.disconnect();
+      resolution?.removeEventListener('change', changed);
+      win?.removeEventListener('resize', repaint);
+    },
   };
 }
 
@@ -106,7 +101,7 @@ function paintPage(page: HTMLElement, drawing: NonNullable<ReturnType<typeof dra
   wrapper.append(canvas);
   let stopped = false;
   let visible = true;
-  const unwatch = watchPage(page, canvas, (shown) => {
+  const watcher = watchPage(page, canvas, (shown) => {
     visible = shown;
     if (visible) canvas.requestPaint();
     else canvas.width = canvas.height = 0;
@@ -114,7 +109,7 @@ function paintPage(page: HTMLElement, drawing: NonNullable<ReturnType<typeof dra
   const fallback = () => {
     if (stopped) return;
     stopped = true;
-    unwatch();
+    watcher.disconnect();
     page.removeAttribute('drawable');
     canvas.replaceWith(page);
     canvas.width = canvas.height = 0;
@@ -125,10 +120,7 @@ function paintPage(page: HTMLElement, drawing: NonNullable<ReturnType<typeof dra
       fallback();
       return;
     }
-    const rect = canvas.getBoundingClientRect();
-    const dpr = win?.devicePixelRatio ?? 1;
-    const width = Math.ceil(rect.width * dpr);
-    const height = Math.ceil(rect.height * dpr);
+    const { width, height } = watcher.size();
     if (!width || !height) return;
     if (width > 16384 || height > 16384 || width * height > 67108864) {
       fallback();
@@ -153,7 +145,7 @@ function paintPage(page: HTMLElement, drawing: NonNullable<ReturnType<typeof dra
     dom: wrapper,
     destroy() {
       stopped = true;
-      unwatch();
+      watcher.disconnect();
       canvas.removeEventListener('paint', paint);
       canvas.removeEventListener('contextlost', fallback);
       win?.removeEventListener('beforeprint', fallback);

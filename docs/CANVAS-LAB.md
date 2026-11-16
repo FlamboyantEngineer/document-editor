@@ -26,8 +26,10 @@ rich content and paragraphs whose metrics fail validation still use DOM ranges.
 1. **Edit and compare.** Type, select across paragraphs, paste, use the formatting toolbar and undo.
    Switch renderers and confirm the text and page breaks remain the same.
 2. **Check fractional zoom.** Select 75%, 125% and 150% editor zoom. Diagnostics show the first
-   allocated canvas's displayed CSS size and backing size. Backing dimensions should equal
-   `ceil(displayed CSS dimension × DPR)`.
+   allocated canvas's displayed CSS size and backing size. Backing dimensions follow the browser's
+   exact device-pixel content box, including pixel snapping. They can differ by one pixel from
+   `ceil(displayed CSS dimension × DPR)`; always rounding up can blur text. Also resize the window
+   at 100% editor zoom and DPR 1: centered pages must stay sharp at both odd and even window widths.
 3. **Change actual DPR.** Move the browser between displays, change browser zoom, or use DevTools
    device emulation at DPR 1, 1.25 and 2. The lab reports the browser's real `devicePixelRatio`;
    the editor zoom control is a separate setting.
@@ -47,6 +49,10 @@ Choosing another sample or Reset sample discards edits to the current sample. Re
 and zoom are reflected in the URL, for example:
 
 <http://127.0.0.1:4183/canvas.html?rendering=html-canvas&scenario=long&zoom=125>
+
+Canvas and DOM font antialiasing can still differ by browser and OS, especially on a 1× display.
+Use DOM mode as the comparison for text quality. Matching the bitmap to physical pixels prevents
+an extra resampling step; it does not promise identical font rasterization on every platform.
 
 ## Automated checks
 

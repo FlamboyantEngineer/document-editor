@@ -1,10 +1,11 @@
+import { expectCanvasPixels } from './canvas-size.js';
 import { expect, test } from './fixtures.js';
 
 // The CI image may predate Chrome 157, where this API became enabled by default.
 test.use({
   launchOptions: {
     executablePath: process.env.CHROMIUM_PATH,
-    args: ['--enable-blink-features=CanvasDrawElement'],
+    args: ['--enable-blink-features=CanvasDrawElement', '--force-device-scale-factor=1'],
   },
 });
 
@@ -53,25 +54,18 @@ test.describe('native HTML-in-Canvas', () => {
           await page
             .locator('.de-document-editor')
             .evaluate((root, value) => root.style.setProperty('--de-zoom', String(value)), zoom);
-          await expect(async () => {
-            const size = await canvas.evaluate((element) => {
-              const canvas = element as HTMLCanvasElement;
-              const rect = canvas.getBoundingClientRect();
-              return {
-                width: canvas.width,
-                height: canvas.height,
-                expectedWidth: Math.ceil(rect.width * devicePixelRatio),
-                expectedHeight: Math.ceil(rect.height * devicePixelRatio),
-              };
-            });
-            expect(size.width).toBe(size.expectedWidth);
-            expect(size.height).toBe(size.expectedHeight);
-          }).toPass();
+          await expectCanvasPixels(canvas, dpr !== 1);
           expect(await pages.allTextContents()).toEqual(before);
         }
         await page
           .locator('.de-document-editor')
           .evaluate((root) => root.style.setProperty('--de-zoom', '1'));
+        // An odd/even viewport changes centered page snapping, even at 100% and DPR 1.
+        for (const width of [1499, 1500, 1499]) {
+          await page.setViewportSize({ width, height: 1200 });
+          await expectCanvasPixels(canvas, dpr !== 1);
+          expect(await pages.allTextContents()).toEqual(before);
+        }
         const heading = page.locator('.de-document-editor__content h1', { hasText: 'Timing' });
         await heading.click();
         await page.keyboard.press('End');
