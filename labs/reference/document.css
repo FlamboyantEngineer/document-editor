@@ -540,6 +540,25 @@ div.de-host-view {
   font-weight: var(--doc-table-header-font-weight, 700);
 }
 
+/* A table set borderless draws none; while a template is edited, a dashed guide shows its cells. */
+:where(.de-document-editor, .de-document-editor__measure)
+  table.table-border-none
+  > tbody
+  > tr
+  > :is(td, th) {
+  border: none;
+}
+
+:where(.de-document-editor)
+  [data-template-editing]
+  table.table-border-none
+  > tbody
+  > tr
+  > :is(td, th) {
+  outline: 1px dashed #94a3b8;
+  outline-offset: -1px;
+}
+
 /* Body rows take the template's odd and even backgrounds; header cells keep the header's. */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content tr:nth-child(odd) > td {
   background: var(--doc-table-row-odd-background);
