@@ -112,3 +112,10 @@ While the host gives a `glossary`, the toolbar's abbreviation button shall open 
 
 Implementation: `src/components/document-editor/abbreviation-dialog.tsx`, `src/components/document-editor/element-entries.ts`
 Verification: `e2e/references.spec.ts`
+
+### DOCE-REFERENCES-3.3 - Refreshing abbreviations on opening
+
+With `refreshAbbreviationsOnOpen` and a glossary, the document editor shall, once for each document it is given, however many views it makes of it, resolve the entries the document's abbreviations cite and bring those whose abbreviation or expansion the glossary has changed up to date (`refreshAbbreviations`), as one change marked `ABBREVIATION_CACHE_REFRESH_META` that undo does not take back, for a writer who edits directly. A document whose abbreviations are current, a reader who cannot edit, one who suggests, and an editor without the option write nothing on opening.
+
+Implementation: `src/components/document-editor/opening-abbreviations.ts`
+Verification: `src/components/document-editor/opening-abbreviations.test.tsx`
