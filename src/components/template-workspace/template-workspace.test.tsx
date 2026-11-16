@@ -133,7 +133,7 @@ describe('TemplateWorkspace', () => {
       await user.click(screen.getByRole('button', { name: 'Save as…' }));
       const dialog = await screen.findByRole('dialog', {}, LOADED);
       const id = within(dialog).getByRole('textbox', { name: 'Id' });
-      expect(id).toHaveValue('template-copy');
+      expect(id).toHaveValue('template_copy');
       expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveValue(
         'Copy of New template',
       );

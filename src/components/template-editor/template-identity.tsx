@@ -61,14 +61,17 @@ interface TemplateIdentityProps {
 }
 
 /**
- * A template id as a template writes one, letters, digits, underscores and hyphens, from what was
- * typed: other characters become hyphens. Empty when nothing is left.
+ * A template id as a template writes one, from what was typed: a letter, then up to 63 letters,
+ * digits and underscores. Other characters become underscores, and what comes before the first
+ * letter is left out. Empty when no letter is left.
  */
 export function templateIdOf(text: string): string {
   return text
     .trim()
-    .replace(/[^A-Za-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/[^A-Za-z0-9_]+/g, '_')
+    .replace(/^[^A-Za-z]+/, '')
+    .slice(0, 64)
+    .replace(/_+$/, '');
 }
 
 // The id while it may change, committed on Enter or on leaving the field.

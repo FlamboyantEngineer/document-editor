@@ -21,10 +21,10 @@ import {
   canInsertReference,
   insertCodeBlock,
   insertContents,
-  insertDocumentSection,
   insertFootnote,
   insertMath,
   insertScriptBlock,
+  insertTemplateSection,
   linkAt,
   scriptBlockAt,
   setFigure,
@@ -151,7 +151,8 @@ const contentsEntries = (context: EditorContext): MenuEntry[] =>
     entry(context, { id: kind, label: context.labels.contentsKind(kind) }, insertContents(kind)),
   );
 
-// The template sections a writer may add, each started after the caret's block.
+// The template sections a writer may add, each where the template places it, disabled once the
+// document has it.
 function sectionEntries(context: EditorContext, template: TemplateFile): MenuEntry[] {
   return (template.sections ?? [])
     .filter((section) => section.insertable === true)
@@ -159,7 +160,7 @@ function sectionEntries(context: EditorContext, template: TemplateFile): MenuEnt
       entry(
         context,
         { id: `section-${section.name}`, label: section.label || section.name },
-        insertDocumentSection(template, section.name),
+        insertTemplateSection(template, section.name),
       ),
     );
 }

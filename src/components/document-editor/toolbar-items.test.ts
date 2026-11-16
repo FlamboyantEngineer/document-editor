@@ -1,6 +1,9 @@
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
+import { DEFAULT_SHORTCUTS } from '../../engine/index.js';
+import { readDocumentFile } from '../../model/index.js';
+import { blockStyles } from './block-styles.js';
 import { createEditorContext } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
@@ -53,5 +56,39 @@ describe('disabled reasons', () => {
     const own = { ...item, isEnabled: () => false, disabledReason: () => 'Not yet' };
     expect(isItemEnabled(own, contextOf({ editable: true }))).toBe(false);
     expect(disabledReasonOf(own, contextOf({ editable: true }))).toBe('Not yet');
+  });
+});
+
+describe('text styles', () => {
+  it('DOCE-EDITOR-4.1 offers the Title style, a top-level heading marked as the document title', () => {
+    const styles = blockStyles(documentSchema, DEFAULT_EDITOR_LABELS, {
+      shortcuts: DEFAULT_SHORTCUTS,
+      customStyles: [],
+    });
+    expect(styles.map((style) => style.id).slice(0, 3)).toEqual([
+      'paragraph',
+      'title',
+      'heading-1',
+    ]);
+    const title = styles.find((style) => style.id === 'title');
+    let state = EditorState.create({
+      doc: readDocumentFile(
+        {
+          formatVersion: 1,
+          sections: [
+            { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Report' }] }] },
+          ],
+        },
+        documentSchema,
+      ).doc,
+    });
+    state = state.apply(state.tr.setSelection(TextSelection.atStart(state.doc)));
+    title?.command(state, (tr) => (state = state.apply(tr)));
+    let heading: { level: unknown; docTitle: unknown } | null = null;
+    state.doc.descendants((node) => {
+      if (node.type.name === 'heading')
+        heading = { level: node.attrs.level, docTitle: node.attrs.docTitle };
+    });
+    expect(heading).toEqual({ level: 1, docTitle: true });
   });
 });

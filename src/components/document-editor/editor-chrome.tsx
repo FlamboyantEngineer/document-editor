@@ -129,7 +129,8 @@ function useInsertFeatures(props: DocumentEditorProps): InsertFeatures {
       linkedCode,
       symbols,
       glossary,
-      customStyles: custom ? custom.split('\n') : [],
+      // Custom styles are for a template's own content; document authors keep to the built-in ones.
+      customStyles: custom && templateContent ? custom.split('\n') : [],
       template: props.template,
       scripts,
       references,

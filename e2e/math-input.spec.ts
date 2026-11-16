@@ -45,6 +45,24 @@ test.describe('math input', () => {
     await expect(content(page)).toBeFocused();
   });
 
+  test('DOCE-OBJECTS-1.10 numbers each display equation at its line end, as the template formats it', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', '$$');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('a+b');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    const displays = content(page).locator('.de-math[data-display="display"]');
+    await expect(displays.last()).toHaveAttribute('data-state', 'ready');
+    const number = await displays.last().evaluate((element) => {
+      const after = getComputedStyle(element, '::after');
+      const box = element.getBoundingClientRect();
+      return { content: after.content, position: after.position, width: box.width };
+    });
+    expect(number.content).toContain('counter(equation');
+    expect(number.position).toBe('absolute');
+  });
+
   test('DOCE-OBJECTS-1.8 edits math in place on a double click, and Escape leaves it', async ({
     page,
   }) => {

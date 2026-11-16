@@ -5,7 +5,8 @@
 import { SaveStatus } from '@flamboyantengineer/ui-components/save-status';
 import { type RefObject, useEffect, useSyncExternalStore } from 'react';
 import { matchesShortcut, type ShortcutTable } from '../../engine/index.js';
-import type { EditorCapabilities } from '../../host/index.js';
+import type { EditorCapabilities, SavedState } from '../../host/index.js';
+import type { TemplatePin } from '../../model/index.js';
 import type { SessionConnection } from '../../session/document-session.js';
 import type { SessionStatusStore } from '../../session/status.js';
 import type { ValueStore } from '../../session/value-store.js';
@@ -18,6 +19,19 @@ export interface EditorSession {
   readonly connection?: ValueStore<SessionConnection | null> | undefined;
   /** Saves now; the status reports the outcome, so a failure needs no handling here. */
   save(): Promise<void>;
+  /**
+   * The document's template pin and a newer saved revision of it, for the editor's offer to move
+   * the document to it (DOCE-EDITOR-7.4); left out, the editor offers nothing.
+   */
+  readonly document?: ValueStore<EditorSessionDocument | null> | undefined;
+  /** Moves the document to a template revision; true once it has. */
+  setTemplate?: ((pin: TemplatePin | null) => Promise<boolean>) | undefined;
+}
+
+/** What the editor reads of a session's document to offer a newer template revision. */
+export interface EditorSessionDocument {
+  readonly pin: TemplatePin | null;
+  readonly templateUpdate: SavedState | null;
 }
 
 // Asks the session to save. A failure shows in its status (`error`), which offers Retry.

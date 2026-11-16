@@ -20,7 +20,9 @@ import type { FontsAdapter } from '../../host/index.js';
 import { findTemplateSection, type TemplateFile } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import type { EditorSession } from './save-status-item.js';
 import { runCommand } from './table-actions.js';
+import { useTemplateUpdateBanner } from './template-update-banner.js';
 
 /** A banner the host shows above the document. */
 export interface DocumentBanner {
@@ -37,7 +39,7 @@ export interface DocumentBanner {
 }
 
 /** The editor's own banners, published as `data-banner`. */
-export const EDITOR_BANNERS = ['template-drift', 'fonts-missing'] as const;
+export const EDITOR_BANNERS = ['template-update', 'template-drift', 'fonts-missing'] as const;
 
 const hooks = createHooks('document-editor', ['banners']);
 
@@ -90,21 +92,24 @@ function useTemplateDrift(state: EditorState, template: TemplateFile, isEnabled:
 
 /**
  * The host's fonts, reporting the families the editor asked for that did not load, and the families
- * that did not.
+ * that did not; with `timeout`, each load waits that long instead of the editor's default.
  */
-export function useReportedFonts(fonts: FontsAdapter | undefined) {
+export function useReportedFonts(fonts: FontsAdapter | undefined, timeout?: number) {
   const [missing, setMissing] = useState<readonly string[]>([]);
   const reported = useMemo<FontsAdapter | undefined>(
     () =>
       fonts && {
         async load(families, options) {
-          const result = await fonts.load(families, options);
+          const result = await fonts.load(families, {
+            ...options,
+            timeout: timeout ?? options.timeout,
+          });
           const loaded = new Set(result.ok ? result.value : []);
           setMissing(families.filter((family) => !loaded.has(family)));
           return result;
         },
       },
-    [fonts],
+    [fonts, timeout],
   );
   return { fonts: reported, missing };
 }
@@ -120,6 +125,8 @@ interface DocumentBannersProps {
   readonly banners: readonly DocumentBanner[] | undefined;
   /** The template's font families that did not load. */
   readonly missingFonts: readonly string[];
+  /** The document's session, whose newer template revision the editor offers. */
+  readonly session?: EditorSession | undefined;
 }
 
 // The editor's own banners, until the reader dismisses each.
@@ -130,7 +137,8 @@ function useEditorBanners(props: DocumentBannersProps): DocumentBanner[] {
   const dismiss = (key: string) => () => setDismissed((current) => new Set([...current, key]));
   const driftKey = `template-drift:${JSON.stringify(drift)}`;
   const fontsKey = `fonts-missing:${missingFonts.join('\n')}`;
-  const own: DocumentBanner[] = [];
+  const update = useTemplateUpdateBanner(props);
+  const own: DocumentBanner[] = update ? [update] : [];
   if (drift.length > 0 && !dismissed.has(driftKey)) {
     own.push({
       id: 'template-drift',

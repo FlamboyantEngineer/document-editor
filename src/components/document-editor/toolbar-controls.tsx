@@ -30,15 +30,13 @@ import {
   insertPageBreak,
   insertTable,
   redoCommand,
-  setCustomStyle,
-  setTextblockType,
-  type ShortcutId,
   shortcutLabel,
   shortcutsOf,
   type ShortcutTable,
   undoCommand,
 } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { blockStyle, blockStyles } from './block-styles.js';
 import type { EditorContext } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { checklistItems, commandItem, listItems, markItems } from './format-items.js';
@@ -51,18 +49,7 @@ import type { ToolbarGroup } from './toolbar-items.js';
 // The toolbar's slots, in the editor's hooks.
 const hooks = createHooks('document-editor', ['block-style', 'style-preview']);
 
-const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
-
 const NO_CUSTOM_STYLES: readonly string[] = [];
-
-// The text style of the block holding the selection: `paragraph` or `heading-<level>`.
-function blockStyle(state: EditorState): string | null {
-  const { $from, $to } = state.selection;
-  if (!$from.sameParent($to)) return null;
-  const { type, attrs } = $from.parent;
-  if (type.name === 'paragraph') return 'paragraph';
-  return type.name === 'heading' ? `heading-${String(attrs.level)}` : null;
-}
 
 // The template properties a text style preview reads: the paragraph's and the headings'.
 function previewProperties(templateStyle: Readonly<Record<string, string>>): CSSProperties {
@@ -72,45 +59,6 @@ function previewProperties(templateStyle: Readonly<Record<string, string>>): CSS
 }
 
 const PREVIEW_PROPERTY = /^--doc-(paragraph|heading-[1-6])-/;
-
-/** The text styles the schema has, and the template's custom ones, each with the command that sets it. */
-export function blockStyles(
-  schema: Schema,
-  labels: DocumentEditorLabels,
-  {
-    shortcuts,
-    customStyles,
-  }: { readonly shortcuts: ShortcutTable; readonly customStyles: readonly string[] },
-) {
-  const { paragraph, heading } = schema.nodes;
-  // A built-in style sets the block's attributes afresh, taking it out of any custom style.
-  return [
-    ...(paragraph
-      ? [
-          {
-            id: 'paragraph',
-            label: labels.paragraph,
-            shortcut: shortcutLabel(shortcuts, 'paragraph'),
-            command: setTextblockType(paragraph),
-          },
-        ]
-      : []),
-    ...(heading
-      ? HEADING_LEVELS.map((level) => ({
-          id: `heading-${String(level)}`,
-          label: labels.heading(level),
-          shortcut: shortcutLabel(shortcuts, `heading-${String(level)}` as ShortcutId),
-          command: setTextblockType(heading, { level }),
-        }))
-      : []),
-    ...customStyles.map((name) => ({
-      id: `custom:${name}`,
-      label: name,
-      shortcut: undefined,
-      command: setCustomStyle(name),
-    })),
-  ];
-}
 
 // The text styles the field offers, the same while the schema, the labels and the styles are.
 function useBlockStyles(

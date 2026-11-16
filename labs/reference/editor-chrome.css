@@ -934,6 +934,22 @@
   display: none;
 }
 
+/* The button that adds a template section the document lacks sits centered under the pages of the
+   section before it. */
+.de-section-insert {
+  display: block;
+  margin: 12px auto 0;
+  padding: 4px 12px;
+  border: 1px dashed var(--ref-border, #d0d7de);
+  border-radius: 4px;
+  background: var(--ref-raised, #fff);
+  color: var(--ref-text-muted, #6e7781);
+  font: inherit;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 /* The mention menu takes the base library's completion list at a readable width. */
 .de-document-editor__mention-menu {
   min-width: 12rem;

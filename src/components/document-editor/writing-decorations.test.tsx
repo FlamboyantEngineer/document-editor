@@ -102,6 +102,38 @@ describe('the writing helpers in the editor', () => {
     expect(textbox.querySelectorAll('[data-caret-block]')).toHaveLength(1);
   });
 
+  it('DOCE-SECTIONS-3.5 adds a template section the document lacks from its button', async () => {
+    const template: TemplateFile = {
+      ...TEMPLATE,
+      sections: [
+        { name: 'appendix', label: 'Appendix', insertable: true },
+        { name: 'notes', insertable: true },
+      ],
+    };
+    const { user, view } = await setup([paragraph('Body')], { template });
+    const appendix = await screen.findByRole('button', { name: 'Add Appendix' });
+    expect(appendix).toHaveClass('de-section-insert');
+    expect(appendix).toHaveAttribute('data-section-name', 'appendix');
+    expect(screen.getByRole('button', { name: 'Add notes' })).toBeInTheDocument();
+    await user.click(appendix);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Add Appendix' })).not.toBeInTheDocument(),
+    );
+    const names: unknown[] = [];
+    view.state.doc.forEach((section) => names.push(section.attrs.sectionName));
+    expect(names).toEqual([null, 'appendix']);
+    expect(screen.getByRole('button', { name: 'Add notes' })).toBeInTheDocument();
+  });
+
+  it('DOCE-SECTIONS-3.5 shows no add-section buttons while suggesting', async () => {
+    const template: TemplateFile = {
+      ...TEMPLATE,
+      sections: [{ name: 'appendix', insertable: true }],
+    };
+    await setup([paragraph('Body')], { template, suggesting: true });
+    expect(screen.queryByRole('button', { name: 'Add appendix' })).not.toBeInTheDocument();
+  });
+
   it('DOCE-EDITOR-5.7 shows the words against the limit the editing keeps', async () => {
     await setup([paragraph('Three words here')], { statusBar: true }, { limit: { words: 5 } });
     expect(await screen.findByText('3 / 5 words')).toBeInTheDocument();
