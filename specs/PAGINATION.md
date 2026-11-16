@@ -85,14 +85,14 @@ Verification: `src/model/pagination/page-layout.test.ts`
 
 ### DOCE-PAGINATION-2.4 - Page breaks
 
-A page shall end after a page break, and before a block that starts a page (`breakBefore`), such as each fragment after a split's first.
+A page shall end after a page break, and before a block that starts a page (`breakBefore`), such as each fragment after a split's first. A page break is a marker only: it takes none of its page's height, and the reference stylesheet draws it over the page's content as a thin line that fades towards the page's edges with light centred lettering (`--de-page-break-label`), with no margins.
 
-Implementation: `src/model/pagination/page-layout.ts`
-Verification: `src/model/pagination/page-layout.test.ts`
+Implementation: `src/model/pagination/page-layout.ts`, `labs/reference/document.css`
+Verification: `src/model/pagination/page-layout.test.ts`, `e2e/editing.spec.ts`
 
 ### DOCE-PAGINATION-2.5 - Headings keep with what they head
 
-A heading shall move to the next page with the deeper headings directly under it and the block they head, when that block's type keeps with a heading (`keepsWithHeading`) and the group does not fit. A splittable block shall need only its lead to fit: the first fragment its own split (`LayoutRule.split`) places in the height left below the headings. So the split's limits decide, and a heading over a paragraph that cannot keep two lines on each side of a split, or over a table whose caption, header rows and first body row do not fit, moves with it. A document title shall rank above every heading level.
+A heading shall move to the next page with the deeper headings directly under it and the block they head, when that block's type keeps with a heading (`keepsWithHeading`) and the group does not fit. A splittable block shall need only its lead to fit: the first fragment its own split (`LayoutRule.split`) places in the height left below the headings. So the split's limits decide, and a heading over a paragraph that cannot keep two lines on each side of a split, or over a table whose caption, header rows and first body row do not fit, moves with it. A document title shall rank above every heading level. Every built-in block keeps with a heading, a block embed and a figure included, but a list item and a list of contents.
 
 Implementation: `src/model/pagination/page-layout.ts`
 Verification: `src/model/pagination/page-layout.test.ts`
@@ -231,14 +231,14 @@ Verification: `src/pagination/incremental-layout.test.ts`, `src/pagination/proje
 
 ### DOCE-PAGINATION-5.6 - Fonts
 
-When font faces load in the measuring view's document, every block shall measure again and the pages be laid out again (`remeasureOn`). Given what the measurements wait for (`PagedProjectionOptions.ready`), the pages shall be laid out meanwhile but stay pending until it settles, loaded or failed, and then measure every block again. The document editor's `fonts` adapter (DOCE-HOST-1.14) shall be asked to load the families the template names (`templateFontFamilies`, `loadTemplateFonts`) within `FONT_TIMEOUT` milliseconds (five seconds), or the editor's `fontTimeout`, and the pages wait for it; the editor shows no pages without them (DOCE-EDITOR-4.28). After a delayed font loads, the pages shall hold their content.
+When font faces load in the measuring view's document, every block shall measure again and the pages be laid out again (`remeasureOn`). Given what the measurements wait for (`PagedProjectionOptions.ready`), the pages shall be laid out meanwhile but stay pending until it settles, loaded or failed, and then measure every block again. The document editor's `fonts` adapter (DOCE-HOST-1.14) shall be asked to load the families the template names (`templateFontFamilies`, `loadTemplateFonts`) within `FONT_TIMEOUT` milliseconds (five seconds), or the editor's `fontTimeout`, and the pages wait for it; the editor shows no pages without them (DOCE-EDITOR-4.29). After a delayed font loads, the pages shall hold their content.
 
 Implementation: `src/pagination/layout-triggers.ts`, `src/pagination/fonts.ts`, `src/pagination/projection.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/pagination/layout-triggers.test.ts`, `src/pagination/fonts.test.ts`, `src/pagination/projection-view.test.ts`, `src/components/document-editor/banners.test.tsx`, `e2e/pagination.spec.ts`
 
 ### DOCE-PAGINATION-5.7 - Laying out at once
 
-Typing or deleting text inside one textblock shall wait for the writer to pause (DOCE-PAGINATION-7.10); any other change to the canonical document, such as Enter, a page break, a footnote, a deletion across blocks, a paste or a drop, shall lay the pages out on the next frame without waiting (`wantsLayoutNow`), and so shall a transaction marked with `layoutNow`. This holds for input on the pages, for what the canonical plugins append to it, and for a change the host shows with the transaction that made it (DOCE-PAGINATION-7.12).
+Typing or deleting text inside one textblock shall wait for the writer to pause (DOCE-PAGINATION-7.10), unless it changed its block's height (DOCE-PAGINATION-5.17); any other change to the canonical document, such as Enter, a page break, a footnote, a deletion across blocks, a paste or a drop, shall lay the pages out on the next frame without waiting (`wantsLayoutNow`), and so shall a transaction marked with `layoutNow`. This holds for input on the pages, for what the canonical plugins append to it, and for a change the host shows with the transaction that made it (DOCE-PAGINATION-7.12).
 
 Implementation: `src/pagination/layout-latency.ts`, `src/pagination/projection-session.ts`, `src/pagination/projection.ts`
 Verification: `src/pagination/layout-latency.test.ts`, `src/pagination/projection-view.test.ts`
@@ -306,6 +306,13 @@ A block the measured view draws as no element, such as one whose host node view 
 Implementation: `src/pagination/measure-blocks.ts`
 Verification: `src/pagination/measure-blocks.test.ts`
 
+### DOCE-PAGINATION-5.17 - Typing that changes a block's height
+
+After typing or deleting text inside one textblock, the pages shall read, on the next frame, the height the block holding the selection is drawn at on its page and compare it with the height the latest layout gave it (`PageMetric.blocks`). When it moved by more than half a pixel, as when a paragraph gains or loses a line, the pages shall be laid out on that frame, not once the writer pauses. When the writer pauses, the pages shall not be laid out at all when everything typed since the latest layout was text typed or deleted inside paragraphs that had text before and after it, none split across pages, each drawn at the height the layout gave it: they stay as they are, the next layout measures the changed blocks, and the layout state settles as after a layout. Any other change, a block that moved, a heading, an emptied or newly filled paragraph or a split one, lays them out as before. The probe reads one block and the list of pages, never the blocks of other pages, and reads frames from the window the pages mount in.
+
+Implementation: `src/pagination/typing-probe.ts`, `src/pagination/projection-session.ts`, `src/pagination/projection.ts`
+Verification: `src/pagination/projection-view.test.ts`, `e2e/pagination.spec.ts`
+
 ## DOCE-PAGINATION-6 - Projection
 
 ### DOCE-PAGINATION-6.1 - The whole document
@@ -354,7 +361,7 @@ Verification: `e2e/pagination.spec.ts`
 
 ### DOCE-PAGINATION-7.1 - Laying the pages out
 
-A projection (DOCE-PAGINATION-7.10) shall keep its pages laid out: its ghost, mounted in `measureIn`, renders the whole canonical document and follows it by the smallest replacement, so unchanged blocks keep their rendering and cached measurements; after each change, once the writer pauses for `settle` milliseconds (150 by default, and never more than four times as long after the first change; 0 for every change) and no pointer button is down on the pages, so a layout never lands in the middle of a drag (a press ends on a button's release, a drag's end or drop, or the window losing focus), then on the next frame and never during composition, the pages shall be laid out from it (`layoutDocument`) and the projection stepped onto them (DOCE-PAGINATION-6.3) in a transaction marked as a layout's (`isPaginationTransaction`) and kept out of the undo history. `refresh({ remeasure })` shall lay the pages out again, forgetting measurements and starting the ghost's plugins over after a width or style change or a change to a value a plugin shows. The ghost shall render with the `nodeViews` and `plugins` the pages render with, and the `ghostPlugins` beside them, so blocks and regions measure as they show. A projection made again, as when the host remounts the editor, gets a new ghost that measures everything again, and a layout due as a projection goes lays nothing out.
+A projection (DOCE-PAGINATION-7.10) shall keep its pages laid out: its ghost, mounted in `measureIn`, renders the whole canonical document and follows it by the smallest replacement, so unchanged blocks keep their rendering and cached measurements; after each change, once the writer pauses for `settle` milliseconds (150 by default, and never more than four times as long after the first change; 0 for every change) and no pointer button is down on the pages, so a layout never lands in the middle of a drag (a press ends on a button's release, a drag's end or drop, or the window losing focus), then on the next frame and never during composition, the pages shall be laid out from it (`layoutDocument`), unless typing kept its blocks at their heights (DOCE-PAGINATION-5.17) and the projection stepped onto them (DOCE-PAGINATION-6.3) in a transaction marked as a layout's (`isPaginationTransaction`) and kept out of the undo history. `refresh({ remeasure })` shall lay the pages out again, forgetting measurements and starting the ghost's plugins over after a width or style change or a change to a value a plugin shows. The ghost shall render with the `nodeViews` and `plugins` the pages render with, and the `ghostPlugins` beside them, so blocks and regions measure as they show. A projection made again, as when the host remounts the editor, gets a new ghost that measures everything again, and a layout due as a projection goes lays nothing out.
 
 Implementation: `src/pagination/projection.ts`, `src/pagination/projection-session.ts`, `src/pagination/projection-layout.ts`, `src/pagination/layout-document.ts`, `src/pagination/layout-triggers.ts`
 Verification: `e2e/pagination.spec.ts`, `e2e/document-editor.spec.ts`, `src/pagination/layout-triggers.test.ts`

@@ -339,7 +339,14 @@ On pages, the document (`de-document-editor__body`, the host's chrome inside it 
 Implementation: `src/components/document-editor/first-layout.tsx`, `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/first-layout.test.tsx`, `src/components/document-editor/editor-surface.test.tsx`
 
-### DOCE-EDITOR-4.28 - No pages without the template fonts
+### DOCE-EDITOR-4.28 - The selection held while focus is elsewhere
+
+When focus leaves the document for a text field elsewhere on the page (a text input, a text area or other editable text), such as a host panel's prompt, where the browser stops showing the document's selection, the editor shall keep drawing the document's selection as view-only decorations: the text a range covers marked `de-held-selection`, or the caret as a `de-held-caret` mark hidden from assistive technology; a selected object shows its own selection. A selection a command sets meanwhile is drawn in its place, and the marks go once focus comes back to the document. Focus going to a button or other control, which leaves the browser showing the selection, draws nothing. Actions that read the selection, such as starting a comment on it, still act on it.
+
+Implementation: `src/components/document-editor/held-selection.ts`, `src/components/document-editor/writing-decorations.ts`, `src/components/document-editor/editor-body.tsx`, `labs/src/agent-panel.tsx`
+Verification: `src/components/document-editor/held-selection.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-4.29 - No pages without the template fonts
 
 On pages, when the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, before the pages are first shown, the first layout shall fail (DOCE-EDITOR-4.27): the document stays covered and blocked, the `fontsFailed` label naming those families stands in place of `layoutFailed`, `onLayoutFailed` is called once and a given `loadProgress` fails. Fonts that load later, such as with another template, show the pages.
 
@@ -620,7 +627,7 @@ Verification: `src/components/document-editor/debug-pane.test.tsx`, `e2e/documen
 
 ### DOCE-EDITOR-7.1 - The banner region
 
-`banners` shall show the host's banners (`DocumentBanner`: `id`, `tone`, `title`, `description`, `actions`, `onDismiss`) between the chrome above the document and the document, each the base library's `Banner` carrying its `id` in `data-banner`, followed by the editor's own (`EDITOR_BANNERS`), in a region (`de-document-editor__banners`) named by the `banners` label; without banners the region is not rendered. A banner with `onDismiss` offers to dismiss it, and the base library's banner announces it politely, or at once for `danger`.
+`banners` shall show the host's banners (`DocumentBanner`: `id`, `tone`, `title`, `description`, `actions`, `onDismiss`) over the top of the document (DOCE-EDITOR-7.5), each the base library's `Banner` carrying its `id` in `data-banner`, followed by the editor's own (`EDITOR_BANNERS`), in a region (`de-document-editor__banners`) named by the `banners` label; without banners the region is not rendered. A banner with `onDismiss` offers to dismiss it, and the base library's banner announces it politely, or at once for `danger`.
 
 Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/banner-labels.ts`
 Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-editor.spec.ts`
@@ -634,7 +641,7 @@ Verification: `src/components/document-editor/banners.test.tsx`
 
 ### DOCE-EDITOR-7.3 - Fonts that did not load
 
-When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, after the pages were first shown (before, the pages are not shown, DOCE-EDITOR-4.28), the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing.
+When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, after the pages were first shown (before, the pages are not shown, DOCE-EDITOR-4.29), the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing.
 
 Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/banners.test.tsx`
@@ -646,7 +653,14 @@ Banners that come or go while the reader presses a pointer inside the editor, as
 Implementation: `src/components/document-editor/banners.tsx`
 Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-editor.spec.ts`
 
-### DOCE-EDITOR-7.5 - A newer template version
+### DOCE-EDITOR-7.5 - Banners float over the document
+
+The banner region shall be the first child of the document's column (`de-document-editor__center`), which holds the document, or its scrolling frame, between the panels beside it, so the banners float over the top of the document without spanning the panels. The region scrolls on its own (the base library's `ScrollRegion`, reachable by keyboard), so a stack of banners never pushes the document: banners coming or going move neither the panels, the pages nor the scroll position. The reference stylesheet lays the region over the column's top, at most half its height, with banner backgrounds at 90% opacity, and leaves the rest of the document reachable.
+
+Implementation: `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/banners.tsx`, `labs/reference/editor-chrome.css`
+Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-7.6 - A newer template version
 
 While the writer can edit and the editor's `session` names a newer saved revision of the document's template (`document`, its `pin` and `templateUpdate`, DOCE-SESSION-1.5), the editor shall show an `info` banner (`template-update`, `templateUpdated`) whose action (`updateTemplate`) moves the document to that revision (`setTemplate`) and, once the editor is shown the new template, brings the sections the writer cannot edit in line with it (`syncTemplateSections`), in one step for the reader. A session without them offers nothing.
 
@@ -685,96 +699,99 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 
 ## Hooks
 
-| Hook                                    | Kind      | Values                                                                 | Description                                                                             |
-| --------------------------------------- | --------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `de-document-editor__menubar`           | slot      |                                                                        | The menubar above the toolbar.                                                          |
-| `de-script-editor`                      | root      |                                                                        | The script editor in the script dialog.                                                 |
-| `de-script-editor__source`              | slot      |                                                                        | The script's code editor.                                                               |
-| `de-script-editor__aside`               | slot      |                                                                        | The preview and reference tabs.                                                         |
-| `de-script-editor__preview`             | slot      |                                                                        | The preview, with `data-status`.                                                        |
-| `de-script-editor__status`              | slot      |                                                                        | What the preview says while it shows no output.                                         |
-| `de-script-editor__reference`           | slot      |                                                                        | The names a script can use.                                                             |
-| `de-script-editor__entry`               | slot      |                                                                        | One name in the reference, with `data-kind`.                                            |
-| `de-document-editor`                    | root      |                                                                        | The editor, carrying the template's `--doc-*` values.                                   |
-| `de-document-editor__measure`           | slot      |                                                                        | The hidden slot the pages are measured in.                                              |
-| `de-document-editor__toolbar`           | slot      |                                                                        | The editor's toolbar, with `toolbar`.                                                   |
-| `de-document-editor__viewport`          | slot      |                                                                        | The frame that scrolls the document, with `scrollable`.                                 |
-| `de-document-side-panel`                | root      |                                                                        | A side panel beside the document (DOCE-EDITOR-4.11).                                    |
-| `de-document-side-panel__pane`          | slot      |                                                                        | A pane's content, with `data-pane`.                                                     |
-| `data-pane`                             | attribute |                                                                        | On a side panel's pane: its id.                                                         |
-| `de-document-editor__workspace`         | slot      |                                                                        | The document between the panels beside it, with `data-panels`.                          |
-| `data-panels`                           | attribute | `true`                                                                 | On the workspace: it holds a panel (DOCE-EDITOR-4.11).                                  |
-| `de-document-editor__body`              | slot      |                                                                        | The document with its table handles.                                                    |
-| `de-document-editor__toolbar-start`     | slot      |                                                                        | The host's controls before the toolbar's groups.                                        |
-| `de-document-editor__toolbar-end`       | slot      |                                                                        | The host's controls after the toolbar's groups.                                         |
-| `data-group`                            | attribute |                                                                        | On a toolbar group: its id.                                                             |
-| `data-item`                             | attribute |                                                                        | On a toolbar item: its id.                                                              |
-| `de-document-editor__find`              | slot      |                                                                        | The find bar, with `find` (DOCE-SEARCH-2.1).                                            |
-| `de-document-editor__block-style`       | slot      |                                                                        | The toolbar's text style field.                                                         |
-| `de-document-editor__style-preview`     | slot      |                                                                        | A text style's name in the list, in that style.                                         |
-| `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`, `custom`                      | On a preview, or the text style field: the style it shows.                              |
-| `de-document-editor__lead`              | slot      |                                                                        | The host's lead before the document (DOCE-EDITOR-4.18).                                 |
-| `de-document-editor__placeholder`       | slot      |                                                                        | The placeholder until the pages are first laid out (DOCE-EDITOR-4.18).                  |
-| `de-document-editor__layout-error`      | slot      |                                                                        | The error in place of the pages when their first layout failed (DOCE-EDITOR-4.27).      |
-| `de-document-editor__overview`          | slot      |                                                                        | The scroll overview over the frame (DOCE-EDITOR-4.19).                                  |
-| `de-document-editor__selection-toolbar` | slot      |                                                                        | The toolbar over selected text, with `selectionToolbar` (DOCE-EDITOR-4.21).             |
-| `de-document-editor__slash-menu`        | slot      |                                                                        | The menu a typed `/` opens, with `slashMenu` (DOCE-EDITOR-4.22).                        |
-| `de-document-editor__insert-block`      | slot      |                                                                        | The button before an empty line that opens the slash menu (DOCE-EDITOR-4.22).           |
-| `de-document-editor__mention-menu`      | slot      |                                                                        | The menu a typed `@` opens, with `mentions` (DOCE-EDITOR-4.23).                         |
-| `de-placeholder`                        | root      |                                                                        | A placeholder hint (DOCE-EDITOR-4.24).                                                  |
-| `data-placeholder-kind`                 | attribute | `document`, `line`                                                     | On a placeholder hint: where it shows.                                                  |
-| `de-formatting-space`                   | root      |                                                                        | A space, while formatting marks show (DOCE-EDITOR-4.25).                                |
-| `de-formatting-nbsp`                    | root      |                                                                        | A no-break space, while formatting marks show.                                          |
-| `data-caret-block`                      | attribute | `true`                                                                 | On the text block holding the caret (DOCE-EDITOR-4.26).                                 |
-| `de-document-editor__banners`           | slot      |                                                                        | The banner region above the document (DOCE-EDITOR-7.1).                                 |
-| `data-banner`                           | attribute | `EDITOR_BANNERS`, the host's ids                                       | On a banner: which it is.                                                               |
-| `de-document-editor__status-bar`        | slot      |                                                                        | The editor's status bar, with `statusBar`.                                              |
-| `de-document-editor__status-start`      | slot      |                                                                        | The items at the status bar's start.                                                    |
-| `de-document-editor__status-end`        | slot      |                                                                        | The items at the status bar's end, the layout switch and the zoom by default.           |
-| `de-document-editor__layout-toggle`     | slot      |                                                                        | The status bar's page and web view buttons.                                             |
-| `de-document-editor__status-item`       | slot      |                                                                        | An item of the status bar.                                                              |
-| `de-document-editor__proofing-status`   | slot      |                                                                        | The status bar's proofing status and its button (DOCE-PROOFING-3.1).                    |
-| `de-document-editor__proofing-language` | slot      |                                                                        | The status bar's proofing menu (DOCE-PROOFING-3.5).                                     |
-| `de-document-editor__presence`          | slot      |                                                                        | The status bar's avatars of the other people (DOCE-COLLAB-1.3).                         |
-| `data-pending`                          | state     | `true`                                                                 | On the proofing status: some text waits to be checked.                                  |
-| `data-issues`                           | state     | `true`                                                                 | On the proofing status: issues are marked.                                              |
-| `data-status`                           | attribute | `STATUS_BAR_ITEMS`, the host's ids; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer. |
-| `de-document-editor__content`           | slot      |                                                                        | The document.                                                                           |
-| `de-host-view`                          | root      |                                                                        | On the pages, the element a host's node view is drawn in (DOCE-EDITOR-1.8).             |
-| `de-host-view__content`                 | slot      |                                                                        | Inside a host's node view on the pages: the node's content.                             |
-| `de-document-editor__zoom`              | slot      |                                                                        | The status bar's zoom control, with `onZoomChange`.                                     |
-| `data-dialog`                           | attribute | `math`, `figure`, `link`, `linked-code`                                | On one of the editor's dialogs: what it edits.                                          |
-| `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                                   | How suggestions show.                                                                   |
-| `--de-zoom`                             | property  |                                                                        | The document's zoom, as a factor.                                                       |
-| `--de-list-start`                       | property  |                                                                        | On an ordered list starting past 1: the items before it (DOCE-PAGINATION-4.1).          |
-| `--de-script-editor-counters`           | property  |                                                                        | On the script preview once run: the counters its block is under (DOCE-OBJECTS-4.8).     |
-| `data-layout`                           | attribute | `page`, `web`                                                          | How the document is laid out.                                                           |
-| `data-mode`                             | state     | `authoring`, `reading`                                                 | Whether the writer can edit.                                                            |
-| `data-scrollable`                       | state     | `true`                                                                 | The editor scrolls the document itself.                                                 |
-| `data-formatting-marks`                 | state     | `true`                                                                 | Formatting marks show (DOCE-EDITOR-4.25).                                               |
-| `data-layout-state`                     | state     | `pending`, `settled`, `failed`                                         | Whether the pages are being laid out, are settled, or failed to settle.                 |
-| `data-debug`                            | state     | `true`                                                                 | The layout debugging shows what each page's blocks take.                                |
-| `data-debug-blocks`                     | state     | `true`                                                                 | The layout debugging shows each block's height.                                         |
-| `data-debug-measure`                    | state     | `true`                                                                 | The layout debugging shows the measuring view.                                          |
-| `data-debug-source`                     | state     | `true`                                                                 | The layout debugging shows the pages' markup.                                           |
-| `data-debug-used`                       | attribute |                                                                        | On a page while debugging: the height its blocks take, margins collapsed.               |
-| `data-debug-stacked`                    | attribute |                                                                        | On a page while debugging: the height its blocks take with every margin counted.        |
-| `data-debug-free`                       | attribute |                                                                        | On a page while debugging: the height left for blocks.                                  |
-| `data-debug-paper`                      | attribute |                                                                        | On a page while debugging: its sheet's width × height.                                  |
-| `data-debug-content`                    | attribute |                                                                        | On a page while debugging: its content's width × height, inside the margins.            |
-| `data-debug-header`                     | attribute |                                                                        | On a page while debugging: the room its header takes.                                   |
-| `data-debug-footer`                     | attribute |                                                                        | On a page while debugging: the room its footer takes.                                   |
-| `data-debug-dpr`                        | attribute |                                                                        | On a page while debugging: the device pixel ratio it is drawn at.                       |
-| `data-debug-type`                       | attribute |                                                                        | On a region or block while debugging: its node type.                                    |
-| `data-debug-height`                     | attribute |                                                                        | On a block while debugging: its measured height.                                        |
-| `data-debug-top`                        | attribute |                                                                        | On a block while debugging: where it starts below its page's content top.               |
-| `data-debug-overflow`                   | attribute | `true`                                                                 | On a block while debugging: it reaches below its page's room.                           |
-| `de-document-editor__debug`             | slot      |                                                                        | The debugging pane, which holds the measuring view (DOCE-EDITOR-6.29).                  |
-| `data-view`                             | attribute | `measure`, `source`                                                    | On the debugging pane: what it shows.                                                   |
-| `--de-debug-width`                      | property  |                                                                        | On the debugging pane while it shows: its width.                                        |
-| `de-document-editor__debug-tip`         | slot      |                                                                        | A hovered block's debugging tooltip (DOCE-EDITOR-6.31).                                 |
-| `--de-debug-tip-x`                      | property  |                                                                        | On the debugging tooltip: its hovered block's right edge in the editor body.            |
-| `--de-debug-tip-y`                      | property  |                                                                        | On the debugging tooltip: its hovered block's top in the editor body.                   |
-| `data-de-view-only`                     | attribute | names, `widget`                                                        | On an element a view-only decoration draws or decorates; a snapshot leaves it out.      |
-| `data-print-sheet`                      | attribute |                                                                        | In a snapshot, on a section: the index of the sheet size it prints on.                  |
-| `data-print`                            | attribute | `true`                                                                 | On a snapshot's root: the snapshot prints, for a stylesheet's print overrides.          |
+| Hook                                    | Kind      | Values                                                                 | Description                                                                               |
+| --------------------------------------- | --------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `de-document-editor__menubar`           | slot      |                                                                        | The menubar above the toolbar.                                                            |
+| `de-script-editor`                      | root      |                                                                        | The script editor in the script dialog.                                                   |
+| `de-script-editor__source`              | slot      |                                                                        | The script's code editor.                                                                 |
+| `de-script-editor__aside`               | slot      |                                                                        | The preview and reference tabs.                                                           |
+| `de-script-editor__preview`             | slot      |                                                                        | The preview, with `data-status`.                                                          |
+| `de-script-editor__status`              | slot      |                                                                        | What the preview says while it shows no output.                                           |
+| `de-script-editor__reference`           | slot      |                                                                        | The names a script can use.                                                               |
+| `de-script-editor__entry`               | slot      |                                                                        | One name in the reference, with `data-kind`.                                              |
+| `de-document-editor`                    | root      |                                                                        | The editor, carrying the template's `--doc-*` values.                                     |
+| `de-document-editor__measure`           | slot      |                                                                        | The hidden slot the pages are measured in.                                                |
+| `de-document-editor__toolbar`           | slot      |                                                                        | The editor's toolbar, with `toolbar`.                                                     |
+| `de-document-editor__viewport`          | slot      |                                                                        | The frame that scrolls the document, with `scrollable`.                                   |
+| `de-document-side-panel`                | root      |                                                                        | A side panel beside the document (DOCE-EDITOR-4.11).                                      |
+| `de-document-side-panel__pane`          | slot      |                                                                        | A pane's content, with `data-pane`.                                                       |
+| `data-pane`                             | attribute |                                                                        | On a side panel's pane: its id.                                                           |
+| `de-document-editor__workspace`         | slot      |                                                                        | The document between the panels beside it, with `data-panels`.                            |
+| `data-panels`                           | attribute | `true`                                                                 | On the workspace: it holds a panel (DOCE-EDITOR-4.11).                                    |
+| `de-document-editor__body`              | slot      |                                                                        | The document with its table handles.                                                      |
+| `de-document-editor__toolbar-start`     | slot      |                                                                        | The host's controls before the toolbar's groups.                                          |
+| `de-document-editor__toolbar-end`       | slot      |                                                                        | The host's controls after the toolbar's groups.                                           |
+| `data-group`                            | attribute |                                                                        | On a toolbar group: its id.                                                               |
+| `data-item`                             | attribute |                                                                        | On a toolbar item: its id.                                                                |
+| `de-document-editor__find`              | slot      |                                                                        | The find bar, with `find` (DOCE-SEARCH-2.1).                                              |
+| `de-document-editor__block-style`       | slot      |                                                                        | The toolbar's text style field.                                                           |
+| `de-document-editor__style-preview`     | slot      |                                                                        | A text style's name in the list, in that style.                                           |
+| `data-block-style`                      | attribute | `paragraph`, `heading-1` to `heading-6`, `custom`                      | On a preview, or the text style field: the style it shows.                                |
+| `de-document-editor__lead`              | slot      |                                                                        | The host's lead before the document (DOCE-EDITOR-4.18).                                   |
+| `de-document-editor__placeholder`       | slot      |                                                                        | The placeholder until the pages are first laid out (DOCE-EDITOR-4.18).                    |
+| `de-document-editor__layout-error`      | slot      |                                                                        | The error in place of the pages when their first layout failed (DOCE-EDITOR-4.27).        |
+| `de-document-editor__overview`          | slot      |                                                                        | The scroll overview over the frame (DOCE-EDITOR-4.19).                                    |
+| `de-document-editor__selection-toolbar` | slot      |                                                                        | The toolbar over selected text, with `selectionToolbar` (DOCE-EDITOR-4.21).               |
+| `de-document-editor__slash-menu`        | slot      |                                                                        | The menu a typed `/` opens, with `slashMenu` (DOCE-EDITOR-4.22).                          |
+| `de-document-editor__insert-block`      | slot      |                                                                        | The button before an empty line that opens the slash menu (DOCE-EDITOR-4.22).             |
+| `de-document-editor__mention-menu`      | slot      |                                                                        | The menu a typed `@` opens, with `mentions` (DOCE-EDITOR-4.23).                           |
+| `de-placeholder`                        | root      |                                                                        | A placeholder hint (DOCE-EDITOR-4.24).                                                    |
+| `de-held-selection`                     | root      |                                                                        | The text a selection held while focus is elsewhere covers (DOCE-EDITOR-4.28).             |
+| `de-held-caret`                         | root      |                                                                        | The caret held while focus is elsewhere (DOCE-EDITOR-4.28).                               |
+| `data-placeholder-kind`                 | attribute | `document`, `line`                                                     | On a placeholder hint: where it shows.                                                    |
+| `de-formatting-space`                   | root      |                                                                        | A space, while formatting marks show (DOCE-EDITOR-4.25).                                  |
+| `de-formatting-nbsp`                    | root      |                                                                        | A no-break space, while formatting marks show.                                            |
+| `data-caret-block`                      | attribute | `true`                                                                 | On the text block holding the caret (DOCE-EDITOR-4.26).                                   |
+| `de-document-editor__banners`           | slot      |                                                                        | The banner region over the document (DOCE-EDITOR-7.1, 7.5).                               |
+| `de-document-editor__center`            | slot      |                                                                        | The document's column between the panels, which the banners float over (DOCE-EDITOR-7.5). |
+| `data-banner`                           | attribute | `EDITOR_BANNERS`, the host's ids                                       | On a banner: which it is.                                                                 |
+| `de-document-editor__status-bar`        | slot      |                                                                        | The editor's status bar, with `statusBar`.                                                |
+| `de-document-editor__status-start`      | slot      |                                                                        | The items at the status bar's start.                                                      |
+| `de-document-editor__status-end`        | slot      |                                                                        | The items at the status bar's end, the layout switch and the zoom by default.             |
+| `de-document-editor__layout-toggle`     | slot      |                                                                        | The status bar's page and web view buttons.                                               |
+| `de-document-editor__status-item`       | slot      |                                                                        | An item of the status bar.                                                                |
+| `de-document-editor__proofing-status`   | slot      |                                                                        | The status bar's proofing status and its button (DOCE-PROOFING-3.1).                      |
+| `de-document-editor__proofing-language` | slot      |                                                                        | The status bar's proofing menu (DOCE-PROOFING-3.5).                                       |
+| `de-document-editor__presence`          | slot      |                                                                        | The status bar's avatars of the other people (DOCE-COLLAB-1.3).                           |
+| `data-pending`                          | state     | `true`                                                                 | On the proofing status: some text waits to be checked.                                    |
+| `data-issues`                           | state     | `true`                                                                 | On the proofing status: issues are marked.                                                |
+| `data-status`                           | attribute | `STATUS_BAR_ITEMS`, the host's ids; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer.   |
+| `de-document-editor__content`           | slot      |                                                                        | The document.                                                                             |
+| `de-host-view`                          | root      |                                                                        | On the pages, the element a host's node view is drawn in (DOCE-EDITOR-1.8).               |
+| `de-host-view__content`                 | slot      |                                                                        | Inside a host's node view on the pages: the node's content.                               |
+| `de-document-editor__zoom`              | slot      |                                                                        | The status bar's zoom control, with `onZoomChange`.                                       |
+| `data-dialog`                           | attribute | `math`, `figure`, `link`, `linked-code`                                | On one of the editor's dialogs: what it edits.                                            |
+| `data-markup`                           | attribute | `all`, `simple`, `final`, `original`                                   | How suggestions show.                                                                     |
+| `--de-zoom`                             | property  |                                                                        | The document's zoom, as a factor.                                                         |
+| `--de-list-start`                       | property  |                                                                        | On an ordered list starting past 1: the items before it (DOCE-PAGINATION-4.1).            |
+| `--de-script-editor-counters`           | property  |                                                                        | On the script preview once run: the counters its block is under (DOCE-OBJECTS-4.8).       |
+| `data-layout`                           | attribute | `page`, `web`                                                          | How the document is laid out.                                                             |
+| `data-mode`                             | state     | `authoring`, `reading`                                                 | Whether the writer can edit.                                                              |
+| `data-scrollable`                       | state     | `true`                                                                 | The editor scrolls the document itself.                                                   |
+| `data-formatting-marks`                 | state     | `true`                                                                 | Formatting marks show (DOCE-EDITOR-4.25).                                                 |
+| `data-layout-state`                     | state     | `pending`, `settled`, `failed`                                         | Whether the pages are being laid out, are settled, or failed to settle.                   |
+| `data-debug`                            | state     | `true`                                                                 | The layout debugging shows what each page's blocks take.                                  |
+| `data-debug-blocks`                     | state     | `true`                                                                 | The layout debugging shows each block's height.                                           |
+| `data-debug-measure`                    | state     | `true`                                                                 | The layout debugging shows the measuring view.                                            |
+| `data-debug-source`                     | state     | `true`                                                                 | The layout debugging shows the pages' markup.                                             |
+| `data-debug-used`                       | attribute |                                                                        | On a page while debugging: the height its blocks take, margins collapsed.                 |
+| `data-debug-stacked`                    | attribute |                                                                        | On a page while debugging: the height its blocks take with every margin counted.          |
+| `data-debug-free`                       | attribute |                                                                        | On a page while debugging: the height left for blocks.                                    |
+| `data-debug-paper`                      | attribute |                                                                        | On a page while debugging: its sheet's width × height.                                    |
+| `data-debug-content`                    | attribute |                                                                        | On a page while debugging: its content's width × height, inside the margins.              |
+| `data-debug-header`                     | attribute |                                                                        | On a page while debugging: the room its header takes.                                     |
+| `data-debug-footer`                     | attribute |                                                                        | On a page while debugging: the room its footer takes.                                     |
+| `data-debug-dpr`                        | attribute |                                                                        | On a page while debugging: the device pixel ratio it is drawn at.                         |
+| `data-debug-type`                       | attribute |                                                                        | On a region or block while debugging: its node type.                                      |
+| `data-debug-height`                     | attribute |                                                                        | On a block while debugging: its measured height.                                          |
+| `data-debug-top`                        | attribute |                                                                        | On a block while debugging: where it starts below its page's content top.                 |
+| `data-debug-overflow`                   | attribute | `true`                                                                 | On a block while debugging: it reaches below its page's room.                             |
+| `de-document-editor__debug`             | slot      |                                                                        | The debugging pane, which holds the measuring view (DOCE-EDITOR-6.29).                    |
+| `data-view`                             | attribute | `measure`, `source`                                                    | On the debugging pane: what it shows.                                                     |
+| `--de-debug-width`                      | property  |                                                                        | On the debugging pane while it shows: its width.                                          |
+| `de-document-editor__debug-tip`         | slot      |                                                                        | A hovered block's debugging tooltip (DOCE-EDITOR-6.31).                                   |
+| `--de-debug-tip-x`                      | property  |                                                                        | On the debugging tooltip: its hovered block's right edge in the editor body.              |
+| `--de-debug-tip-y`                      | property  |                                                                        | On the debugging tooltip: its hovered block's top in the editor body.                     |
+| `data-de-view-only`                     | attribute | names, `widget`                                                        | On an element a view-only decoration draws or decorates; a snapshot leaves it out.        |
+| `data-print-sheet`                      | attribute |                                                                        | In a snapshot, on a section: the index of the sheet size it prints on.                    |
+| `data-print`                            | attribute | `true`                                                                 | On a snapshot's root: the snapshot prints, for a stylesheet's print overrides.            |

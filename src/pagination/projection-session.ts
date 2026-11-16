@@ -12,16 +12,13 @@ import { readDomSelection } from '../utils/dom-selection.js';
 import { caretPlace, rememberCaret } from './caret.js';
 import type { holdCellSelection } from './cell-drag.js';
 import type { MeasuringView } from './ghost-view.js';
-import type { LayoutMemory } from './layout-document.js';
 import { wantsLayoutNow } from './layout-latency.js';
 import { markLayout } from './layout-marks.js';
-import type { createLayoutReadiness } from './layout-readiness.js';
+import type { LayoutPace } from './layout-pace.js';
 import { traceLayout, writeTrace } from './layout-trace.js';
 import { frameIn, type settleEdits } from './layout-triggers.js';
-import type { DrawChecks } from './layout-validation.js';
 import type { MeasureCache } from './measure-cache.js';
 import { showOnPages } from './page-map.js';
-import type { createPaginationCounter } from './pagination-stats.js';
 import type { PagedProjectionOptions } from './projection.js';
 import {
   copyMeta,
@@ -33,6 +30,7 @@ import { layOutProjection } from './projection-layout.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { mirrorChange } from './projection-mirror.js';
 import { canonicalSelection, selectionAcrossBreak } from './selection-mirror.js';
+import type { TypingProbe } from './typing-probe.js';
 
 /** Marks the transactions the projection takes: a layout's, or a canonical change mirrored. */
 const PROJECTION_META = 'projection-view';
@@ -40,24 +38,6 @@ const PROJECTION_META = 'projection-view';
 // How many layouts in a row may move the pages with no change in between before the layout counts
 // as not converging (DOCE-PAGINATION-7.6).
 const LAYOUT_PASSES = 8;
-
-/** How the layouts are going: what they did, whether the pages settled, and what is due. */
-interface LayoutPace {
-  readonly counter: ReturnType<typeof createPaginationCounter>;
-  readonly readiness: ReturnType<typeof createLayoutReadiness>;
-  /** Whether a change came, or the host asked for a layout, since the latest layout. */
-  changed: boolean;
-  /** The layouts in a row that moved the pages with no change in between. */
-  passes: number;
-  /** Whether the ghost's plugins start over at the next layout. */
-  restart: boolean;
-  /** What the latest layout found, which the next starts from (`LayoutMemory`). */
-  readonly memory: LayoutMemory;
-  /** Whether the pages still wait for what they measure with, such as the template's fonts. */
-  readonly ready: { waiting(): boolean };
-  /** What is checked once a layout is drawn: pages drawn taller than they are (`checkDraws`). */
-  readonly draws: DrawChecks;
-}
 
 /** A projection's two states, the map between them, and what it counts. */
 export interface Session {
@@ -68,6 +48,7 @@ export interface Session {
   readonly counts: { refused: number; relaid: number };
   readonly ghost: MeasuringView;
   readonly edits: ReturnType<typeof settleEdits>;
+  readonly probe: TypingProbe;
   readonly pace: LayoutPace;
   canonical: EditorState;
   projection: EditorState;
@@ -276,13 +257,27 @@ export function layout(session: Session): void {
   session.map = laidOut.map;
   session.shown = session.canonical.doc;
   if (laidOut.tr.docChanged && view) rememberCaret(laidOut.tr.doc, caretPlace(view));
+  session.probe.laidOut(laidOut.metrics);
   const stats = pace.counter.stats();
   take(session, markLayout(laidOut.tr, { metrics: laidOut.metrics, stats }));
   traced(() => ({ layouts: stats.layouts, pages: laidOut.metrics.length }));
-  pace.readiness.laidOut(
-    () => session.cancelLayout === null && !session.edits.waiting() && !pace.ready.waiting(),
-  );
+  pace.readiness.laidOut(() => isIdle(session));
   session.options.onLayout?.(laidOut.tr);
+}
+
+// Whether no layout is due: none scheduled, no edit waiting and nothing the pages wait for.
+function isIdle(session: Session): boolean {
+  return session.cancelLayout === null && !session.edits.waiting() && !session.pace.ready.waiting();
+}
+
+/**
+ * The writer paused: lays the pages out, unless typing left every block it reached at the height
+ * the latest layout gave it (DOCE-PAGINATION-5.17), and the pages stay as they are.
+ */
+export function settleTyping(session: Session): void {
+  if (!session.probe.unchanged()) return requestLayout(session);
+  writeTrace(session.options.trace, 'skip', () => ({ reason: 'same-height' }));
+  session.pace.readiness.laidOut(() => isIdle(session));
 }
 
 /** How a canonical change is shown on the pages. */
@@ -325,14 +320,15 @@ export function showCanonical(session: Session, tr: Transform | null, how: Showi
   take(session, how.scroll ? mirrored.tr.scrollIntoView() : mirrored.tr);
   writeTrace(session.options.trace, 'mirror');
   if (!changed) return;
-  afterChange(session, how.now);
+  afterChange(session, how.now, mirrored.tr);
 }
 
 // A change shown on the pages: laid out on the next frame when `now`, or once the writer pauses.
-function afterChange(session: Session, now: boolean): void {
+function afterChange(session: Session, now: boolean, tr: Transaction): void {
   markChanged(session);
   if (now) return requestLayout(session);
   writeTrace(session.options.trace, 'settle');
+  session.probe.request(tr);
   session.edits.request();
 }
 
@@ -391,7 +387,7 @@ function routeInput(session: Session, tr: Transaction): void {
     const appended = made[0] === routed.canonical ? made.slice(1) : null;
     return showCanonical(session, appended && chain(session.shown, appended), how);
   }
-  afterChange(session, how.now);
+  afterChange(session, how.now, routed.projection);
 }
 
 /**

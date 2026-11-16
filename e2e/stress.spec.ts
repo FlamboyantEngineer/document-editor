@@ -1,5 +1,4 @@
 import type { Page } from '@playwright/test';
-import type { StressProbe } from '../labs/src/stress/stress-probe.js';
 import { expect, test } from './fixtures.js';
 
 const pages = (page: Page) => page.locator('.de-document-editor__content .pm-page');
@@ -57,7 +56,7 @@ test.describe('stress labs', () => {
     expect(await overflowing(page)).toEqual([]);
   });
 
-  test('DOCE-LABS-2.4 shows the scale documents and a remote writer typing', async ({
+  test('DOCE-LABS-2.4 DOCE-PAGINATION-5.17 shows the scale documents and a remote writer typing', async ({
     lab,
     page,
   }) => {
@@ -65,19 +64,14 @@ test.describe('stress labs', () => {
     const count = await pages(page).count();
     expect(count).toBeGreaterThanOrEqual(5);
     expect(await overflowing(page)).toEqual([]);
-    const before = await page.evaluate(() => {
-      const probe = (window as unknown as { stressLab: StressProbe }).stressLab;
-      return probe.layoutStats()?.layouts ?? 0;
-    });
+    // The writer's letters reach the pages; a layout follows only once they move a block's height.
+    const letters = () =>
+      page
+        .locator('.de-document-editor__content')
+        .evaluate((content) => (content.textContent ?? '').split('x').length);
+    const before = await letters();
     await page.getByLabel('Remote typist').check();
-    await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const probe = (window as unknown as { stressLab: StressProbe }).stressLab;
-          return probe.layoutStats()?.layouts ?? 0;
-        }),
-      )
-      .toBeGreaterThan(before);
+    await expect.poll(letters).toBeGreaterThan(before + 3);
     await page.getByLabel('Remote typist').uncheck();
     await expect(page.locator('.de-document-editor')).toHaveAttribute(
       'data-layout-state',

@@ -113,6 +113,9 @@ export function AgentPanel({ view }: { view: EditorView | null }) {
           onChange={(event) => setMode(event.currentTarget.checked ? 'suggest' : 'direct')}
         />{' '}
         Agent suggests
+      </label>{' '}
+      <label>
+        Prompt <input type="text" name="agent-prompt" />
       </label>
       <button type="button" onClick={rewrite}>
         Rewrite a phrase

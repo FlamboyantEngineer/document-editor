@@ -84,7 +84,7 @@ describe('EditorSurface', () => {
     expect(container.firstElementChild).toHaveAttribute('data-layout-state', 'settled');
   });
 
-  it('DOCE-EDITOR-4.28 DOCE-SESSION-9.8 shows no pages without the template fonts, failing the load', async () => {
+  it('DOCE-EDITOR-4.29 DOCE-SESSION-9.8 shows no pages without the template fonts, failing the load', async () => {
     const loadProgress = createLoadProgress();
     const onLayoutFailed = vi.fn();
     const fonts: FontsAdapter = {

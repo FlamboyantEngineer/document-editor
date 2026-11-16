@@ -70,10 +70,10 @@ Verification: `e2e/stress.spec.ts`
 | Typing beside comment threads  | p95 from a key's press to the frame after it is drawn, on 300 pages beside 500 open comment threads                            | ≤ 32 ms                           |
 | Load, 24 pages                 | `whenSettled` time from navigation over five loads: median, p95                                                                | ≤ 6 s; ≤ 12 s                     |
 
-One budget waits for its phase: a text-only change walking no untouched section, which a unit test will check.
+A text-only change shall walk no section it does not change, through every editing plugin: a plugin that follows changes reads only the nodes they reached (`changedNodes`), and paragraph numbering keeps its numbers, moved with the change, when typing leaves every paragraph with or without its numbering content. A unit test fails on any walk of an untouched section's children, descendants or a range of them.
 
-Implementation: `e2e/budgets.ts`, `e2e/performance.spec.ts`, `labs/src/stress/stress-probe.ts`, `playwright.config.ts`, `package.json`
-Verification: `e2e/performance.spec.ts`
+Implementation: `e2e/budgets.ts`, `e2e/performance.spec.ts`, `labs/src/stress/stress-probe.ts`, `playwright.config.ts`, `package.json`, `src/utils/changed-ranges.ts`, `src/engine/paragraph-numbering.ts`, `src/engine/scripts.ts`, `src/engine/table-width.ts`
+Verification: `e2e/performance.spec.ts`, `src/engine/text-change-locality.test.ts`, `src/engine/paragraph-numbering.test.ts`
 
 ### DOCE-LABS-2.4 - Scale lab
 
