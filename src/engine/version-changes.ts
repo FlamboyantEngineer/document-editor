@@ -189,7 +189,7 @@ function withBlockCompared(
   const block = { from: pos, to: pos + (doc.nodeAt(pos)?.nodeSize ?? 0) };
   const decorations = value.decorations.remove(shownBlockChange(value.decorations, block)).add(
     doc,
-    visible.flatMap((each) => blockChangeDecorations(each, value.display)),
+    visible.flatMap((each) => blockChangeDecorations(each, { display: value.display, doc })),
   );
   return { ...value, changes, decorations };
 }

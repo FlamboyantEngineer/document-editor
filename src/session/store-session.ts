@@ -169,6 +169,19 @@ function commitState(
   if (state.doc !== shown.state.doc) saving?.changed(state.doc, shown.pin);
 }
 
+// A stored document has no live connection to leave: stepping away keeps what is unsaved
+// (DOCE-SESSION-3.10).
+const storePause = (
+  session: () => DocumentSession,
+  signal: AbortSignal,
+): Pick<DocumentSession, 'suspend' | 'resume'> => ({
+  suspend: () =>
+    session()
+      .flush()
+      .then(() => undefined),
+  resume: () => Promise.resolve(!signal.aborted),
+});
+
 /** Opens a document from the host's document store (DOCE-SESSION-1, DOCE-SESSION-2). */
 export function createStoreSession(options: DocumentSessionOptions): DocumentSession {
   const { host, documentId } = options;
@@ -247,6 +260,7 @@ export function createStoreSession(options: DocumentSessionOptions): DocumentSes
     ...drafts.members,
     save: () => saving?.save() ?? Promise.resolve(),
     flush: () => saving?.flush() ?? Promise.resolve(true),
+    ...storePause(() => session, controller.signal),
     resolveConflict: (id, choice) => Promise.resolve(refresh.resolve(id, choice)),
     hasUnsavedChanges: () => saving?.hasUnsavedChanges() ?? false,
     close,

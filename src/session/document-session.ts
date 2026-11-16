@@ -123,6 +123,17 @@ export interface DocumentSession {
   /** Keeps the document's changes now, and resolves once they are kept or failed. */
   save(): Promise<void>;
   /**
+   * Steps away from the live document, as a historical view does: keeps what is unsaved, then in
+   * room mode leaves the shared room, so no binding, presence or pending write is left there. The
+   * document stays as it was until `resume`.
+   */
+  suspend(): Promise<void>;
+  /**
+   * Comes back after `suspend`: in room mode reloads the document from its shared room and joins
+   * it again; resolves false when that fails. Does nothing when the session is not suspended.
+   */
+  resume(): Promise<boolean>;
+  /**
    * Keeps what is unsaved as an automatic save does, before the page goes away; resolves true
    * once nothing is left unsaved.
    */

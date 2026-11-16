@@ -10,6 +10,7 @@ import { FULL_CAPABILITIES } from '../host/capabilities.js';
 import { createMemoryHost, type MemoryHostOptions } from '../host/memory-host.js';
 import type { DocumentFile } from '../model/format/document-format.js';
 import { createDocumentSession, type DocumentSession } from './document-session.js';
+import { createDocumentVersions } from './versions.js';
 
 const DOCUMENT: DocumentFile = {
   formatVersion: 1,
@@ -323,6 +324,51 @@ describe('createDocumentSession in room mode', () => {
     expect(connection.unconfirmedUpdate()).toBeNull();
     connection.close();
     expect(room.sockets.at(-1)?.closedByClient).toBe(true);
+  });
+
+  it('DOCE-SESSION-3.10 DOCE-VERSIONS-5.1 leaves the room while a version shows and joins it again on return', async () => {
+    const room = roomsFor();
+    const stored = { documents: [{ id: 'doc', content: DOCUMENT }] };
+    const ada = openAs('ada', stored);
+    const grace = openAs('grace');
+    await Promise.all([ada.ready, grace.ready]);
+    const adaView = mount(ada);
+    const graceView = mount(grace);
+    adaView.dispatch(adaView.state.tr.setSelection(TextSelection.create(adaView.state.doc, 3)));
+    await vi.waitFor(() =>
+      expect(listPeers(graceView.state).map((peer) => peer.id)).toContain('ada'),
+    );
+    // A change not yet confirmed is kept before the room is left.
+    adaView.dispatch(adaView.state.tr.insertText('Well, ', 1));
+    const versions = createDocumentVersions<string>({
+      host: createMemoryHost({ person: { id: 'ada', name: 'ada' }, ...stored }),
+      session: ada,
+    });
+    await versions.refresh();
+
+    expect((await versions.viewVersion('rev-1', { returnTo: 'back' })).ok).toBe(true);
+    const left = room.providerOf('ada');
+    expect(left?.getState().status).toBe('disconnected');
+    await vi.waitFor(() => expect(textOf(graceView.state)).toBe('Well, Hello'));
+    await vi.waitFor(() =>
+      expect(listPeers(graceView.state).map((peer) => peer.id)).not.toContain('ada'),
+    );
+    // While the version shows, nothing reaches the reader's document from the room.
+    graceView.dispatch(graceView.state.tr.insertText('!', graceView.state.doc.content.size - 1));
+    await vi.waitFor(() => expect(textOf(graceView.state)).toBe('Well, Hello!'));
+    expect(textOf(shown(ada).state)).toBe('Well, Hello');
+    expect(ada.hasUnsavedChanges()).toBe(false);
+
+    expect(versions.returnFromView()).toBe('back');
+    await vi.waitFor(() => expect(textOf(shown(ada).state)).toBe('Well, Hello!'));
+    expect(room.providerOf('ada')).not.toBe(left);
+    expect(ada.status.get().load).toBe('ready');
+    const rejoined = mount(ada);
+    rejoined.dispatch(rejoined.state.tr.setSelection(TextSelection.create(rejoined.state.doc, 4)));
+    await vi.waitFor(() =>
+      expect(listPeers(graceView.state).find((peer) => peer.id === 'ada')?.head).toBe(4),
+    );
+    versions.close();
   });
 
   it('DOCE-SESSION-3.6 ends its connection when it closes', async () => {
