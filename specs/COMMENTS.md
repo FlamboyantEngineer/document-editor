@@ -120,10 +120,10 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `sr
 
 ### DOCE-COMMENTS-2.4 - Suggestion cards
 
-A suggestion's card (the base library's `Card`) shall show its writer, named by the host's identity whether or not they wrote a comment, and as someone, never by an id, until then, what it does (Add, Delete, Replace or splitting the paragraph) and the text it deletes and adds (`InlineTextDiff`). A reader who may edit, and is not suggesting, shall get Accept and Reject, which decide the suggestion and resolve its thread. The active card shall offer to start the suggestion's thread, which is stored with the suggestion's id and named on its marks.
+A suggestion's card (the base library's `CommentThread`, named Suggestion) shall open with a post (`de-document-comments__change`) that shows its writer, named by the host's identity whether or not they wrote a comment, and as someone, never by an id, until then, with the time its thread started, what it does (Add, Delete, Replace or splitting the paragraph), the text it deletes and adds (`InlineTextDiff`), and the reactions to its thread as a whole, which the reader toggles (`react` without a comment); the thread's comments follow as replies. A reader who may edit, and is not suggesting, shall get Accept and Reject as icon buttons in the card's header, which decide the suggestion and resolve its thread. The card's header menu holds the host's `threadActions` for the suggestion, also before it has a thread (DOCE-COMMENTS-2.33). The active card shall offer to start the suggestion's thread with a reply, which is stored with the suggestion's id and named on its marks.
 
-Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/comment-cards.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`
+Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/suggestion-card.tsx`, `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-card-headers.test.tsx`
 
 ### DOCE-COMMENTS-2.5 - Readers who may not comment
 
@@ -321,6 +321,27 @@ Deleting a thread shall keep it as a record, with its comments, in the `deleted`
 Implementation: `src/host/comment-adapters.ts`, `src/host/memory-comments.ts`, `src/collab/comment-store.ts`, `src/collab/comment-records.ts`, `src/collab/guard-comments.ts`, `src/collab/guard-records.ts`, `src/components/document-comments/comment-thread-list.ts`, `src/components/document-comments/comment-items.tsx`, `src/engine/comments.ts`, `src/engine/comment-anchors.ts`, `src/model/format/markdown/appendix.ts`, `src/model/format/docx/comments.ts`
 Verification: `src/components/document-comments/comment-records.test.tsx`, `src/collab/comment-store.test.ts`, `src/collab/room-change-guard-security.test.ts`, `src/host/memory-host.test.ts`, `src/model/format/markdown-appendix.test.ts`, `src/model/format/docx/comments.test.ts`
 
+### DOCE-COMMENTS-2.33 - Card headers
+
+A thread's card, in the margin and the panel, shall offer Resolve as an icon button in its header, and, while the thread is resolved, Reopen as an entry of the header menu rather than a button. The opening comment's Edit and Delete, then the host's actions for it (DOCE-COMMENTS-4.11), shall be entries of that header menu, the comment drawing no menu of its own; replies show indented under it. Given `threadActions(target)`, the header menu of each thread's and each suggestion's card shall end with the host's entries for the thread, or for the suggestion while it has no thread (`ThreadActionTarget`), such as copying a link; the menu shows also while the thread is resolved or the reader may not comment. A thread being started shall have a close button in its header, which puts it away as Cancel does. Delete asks for confirmation first, unless `confirmsDelete` is false.
+
+Implementation: `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`, `src/components/document-comments/use-card-context.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/comment-card-headers.test.tsx`, `src/components/document-comments/document-comments.test.tsx`
+
+### DOCE-COMMENTS-2.34 - The reply box on the selected card
+
+A card's reply box shall show only while the card is the active one, staying mounted with its draft otherwise; a click on a card, or keyboard focus moving into it, makes it the active one, in the margin and the panel, until the caret moves. The box starts one row high, its buttons showing while it has focus or a draft, and shows the `replyPlaceholder` label as its hint. The button posting a thread's opening comment shall say `submitComment`, apart from the `comment` label of the offer to start one.
+
+Implementation: `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/comments-labels.ts`
+Verification: `src/components/document-comments/comment-card-headers.test.tsx`
+
+### DOCE-COMMENTS-2.35 - Decided suggestions' threads
+
+The card of a thread whose suggestion was decided (`decision`) shall say in its header whether it was accepted or rejected (`de-document-comments__decision`, with `data-decision`), and shall offer no Reopen.
+
+Implementation: `src/components/document-comments/comment-cards.tsx`
+Verification: `src/components/document-comments/comment-card-headers.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text
@@ -446,22 +467,24 @@ Verification: `src/components/document-comments/comment-mentions.test.tsx`
 
 ### DOCE-COMMENTS-4.11 - The host's comment actions
 
-Given `commentActions(target)`, each comment's menu, in the margin and the panel, shall offer the host's actions for it before Edit and Delete, as the base library's menu entries; the opening comment's (`index` 0) stand for the whole thread.
+Given `commentActions(target)`, each comment's menu, in the margin and the panel, shall offer the host's actions for it, as the base library's menu entries after its Edit and Delete: a reply's in its own menu, and the opening comment's (`index` 0), which stand for the whole thread, in the thread's header menu (DOCE-COMMENTS-2.33).
 
 Implementation: `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/document-comments.test.tsx`
 
 ## Hooks
 
-| Hook                            | Kind      | Values | Description                                                |
-| ------------------------------- | --------- | ------ | ---------------------------------------------------------- |
-| `de-document-comments`          | root      |        | The annotation layer around the document and margin.       |
-| `de-document-comments__margin`  | slot      |        | The margin of cards.                                       |
-| `de-document-comments__card`    | slot      |        | A card, beside its anchor's page.                          |
-| `--de-comment-offset`           | property  |        | On a card: how far it moves across to sit beside its page. |
-| `de-comments-panel`             | root      |        | The comments panel.                                        |
-| `de-comments-panel__list`       | slot      |        | The list of the panel's cards.                             |
-| `de-comments-panel__thread`     | slot      |        | A thread of the panel, with `data-anchored`.               |
-| `de-comments-panel__suggestion` | slot      |        | A suggestion of the panel, with `data-anchored`.           |
-| `data-comment-active`           | attribute | `true` | On the text of the anchor holding the caret.               |
-| `data-comment-placed`           | attribute | `true` | On an anchor placed by its thread's target, not stored.    |
+| Hook                             | Kind      | Values | Description                                                                               |
+| -------------------------------- | --------- | ------ | ----------------------------------------------------------------------------------------- |
+| `de-document-comments`           | root      |        | The annotation layer around the document and margin.                                      |
+| `de-document-comments__margin`   | slot      |        | The margin of cards.                                                                      |
+| `de-document-comments__card`     | slot      |        | A card, beside its anchor's page.                                                         |
+| `de-document-comments__change`   | slot      |        | The post a suggestion's card opens with.                                                  |
+| `de-document-comments__decision` | slot      |        | How a decided suggestion's thread was decided, with `data-decision` (`accept`, `reject`). |
+| `--de-comment-offset`            | property  |        | On a card: how far it moves across to sit beside its page.                                |
+| `de-comments-panel`              | root      |        | The comments panel.                                                                       |
+| `de-comments-panel__list`        | slot      |        | The list of the panel's cards.                                                            |
+| `de-comments-panel__thread`      | slot      |        | A thread of the panel, with `data-anchored`.                                              |
+| `de-comments-panel__suggestion`  | slot      |        | A suggestion of the panel, with `data-anchored`.                                          |
+| `data-comment-active`            | attribute | `true` | On the text of the anchor holding the caret.                                              |
+| `data-comment-placed`            | attribute | `true` | On an anchor placed by its thread's target, not stored.                                   |

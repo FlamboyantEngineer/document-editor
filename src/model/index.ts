@@ -252,6 +252,7 @@ export type {
 export {
   composeDocumentFile,
   createDocumentFile,
+  findAppendixSection,
   findTemplateSection,
   requiredTemplateSections,
 } from './templates/template-sections.js';

@@ -1,7 +1,8 @@
 // A word processing document (`.docx`) read into a stored document without the DOM or a converter
 // (DOCE-IMPORT-2): its archive inflated, its XML parts parsed, and its body, sections, headers and
 // footers, footnotes, comments and images read by the mapping the library's writer uses, with a
-// warning for each kind of content left out.
+// warning for each kind of content left out. Once every block is read, cross-references are pointed
+// at the blocks their bookmarks mark and typed heading numbers are taken off.
 
 import type { CommentThread } from '../../host/comment-adapters.js';
 import {
@@ -18,9 +19,18 @@ import {
   type ImportWarnings,
 } from '../import-warnings.js';
 import { childElement, childElements, type XmlElement } from '../xml-read.js';
-import { DEFAULT_ZIP_LIMITS, readZip, type ZipLimits } from '../zip-read.js';
-import { readBlockElements, readBlocks } from './docx-blocks.js';
+import { readZip } from '../zip-read.js';
+import { splitAppendix } from './docx-appendix.js';
+import { type BlockReading, readBlockElements, readBlocks } from './docx-blocks.js';
+import {
+  DEFAULT_DOCX_LIMITS,
+  type DocxLimits,
+  refuseLargeOutput,
+  refuseMacros,
+  refuseNonStandardPart,
+} from './docx-checks.js';
 import { type DocxComments, readComments } from './docx-comments.js';
+import { stripHeadingNumbers } from './docx-heading-numbers.js';
 import { readInlineContent } from './docx-inline.js';
 import { readNumbering } from './docx-numbering.js';
 import {
@@ -31,7 +41,7 @@ import {
   openPackage,
   relationshipKind,
 } from './docx-package.js';
-import type { ParagraphReading } from './docx-paragraph.js';
+import { type DocxCounts, readSummary, resolveReferences } from './docx-resolve.js';
 import { type ImportedPage, readSectionPage, sectionRegionIds } from './docx-sections.js';
 import { readStyles } from './docx-styles.js';
 
@@ -41,13 +51,30 @@ export interface DocxReadOptions {
   readonly template?: Pick<TemplateFile, 'styles'> | undefined;
   /** The `src` an embedded image is given, such as a host's upload placeholder; a `data:` URL by default. */
   readonly imageSource?: ((image: Omit<ImportedImage, 'src'>) => string) | undefined;
-  /** How much the archive may hold; `DEFAULT_ZIP_LIMITS` by default. */
-  readonly limits?: Partial<ZipLimits> | undefined;
+  /** How much the document may hold; `DEFAULT_DOCX_LIMITS` by default. */
+  readonly limits?: Partial<DocxLimits> | undefined;
   /**
    * Makes the id of each tracked change's suggestion and of each comment (`comment-<id>`); eight
    * random hexadecimal digits by default.
    */
   readonly newId?: (() => string) | undefined;
+  /**
+   * Whether a plain paragraph beside a figure or table whose text starts with a caption label, such
+   * as `Figure 2. ` or `Table A-1: `, is its caption; true by default. Word's own captions always are.
+   */
+  readonly textCaptions?: boolean | undefined;
+  /**
+   * What becomes of the document's review history: `accept` (the default) keeps its text with
+   * tracked changes accepted and leaves its comments out; `keep` reads tracked changes as
+   * suggestions and comments as comment threads.
+   */
+  readonly review?: 'accept' | 'keep' | undefined;
+  /**
+   * The name of the section the document's appendices go in, from the first heading in an appendix
+   * or annex style, else the first top-level heading reading `Appendix` or `Annex` and a letter or
+   * number, to the end (`findAppendixSection` gives a template's); none keeps them in place.
+   */
+  readonly appendixSection?: string | undefined;
 }
 
 // A fresh random suggestion id, of the editor's element id form.
@@ -68,6 +95,10 @@ export type DocxRead =
       readonly images: ImportedImage[];
       /** Each section's page, in section order; null where the document sets none. */
       readonly pages: (ImportedPage | null)[];
+      /** The text of the document's title paragraph, such as for the new document's name; null for none. */
+      readonly title: string | null;
+      /** How many headings, tables, images and footnotes the document holds. */
+      readonly counts: DocxCounts;
     }
   | { readonly ok: false; readonly failure: ImportFailure; readonly message: string };
 
@@ -85,11 +116,15 @@ interface Shared {
   readonly numbering: ReturnType<typeof readNumbering>;
   readonly comments: DocxComments;
   readonly keepsStyle: (key: string) => boolean;
-  readonly changeMark: ParagraphReading['changeMark'];
+  readonly changeMark: BlockReading['changeMark'];
+  readonly keepsReview: boolean;
+  readonly textCaptions: boolean;
+  readonly bookmarks: Map<string, StoredNode>;
+  readonly appendixHeadings: Set<StoredNode>;
   notes: (kind: 'footnote' | 'endnote', id: string) => StoredNode[] | null;
 }
 
-function readingFor(part: DocxPart, shared: Shared): ParagraphReading {
+function readingFor(part: DocxPart, shared: Shared): BlockReading {
   return {
     part,
     styles: shared.styles,
@@ -99,6 +134,10 @@ function readingFor(part: DocxPart, shared: Shared): ParagraphReading {
     commentMark: shared.comments.markOf,
     changeMark: shared.changeMark,
     keepsStyle: shared.keepsStyle,
+    keepsReview: shared.keepsReview,
+    textCaptions: shared.textCaptions,
+    bookmarks: shared.bookmarks,
+    appendixHeadings: shared.appendixHeadings,
     open: { comments: [], fields: [] },
   };
 }
@@ -128,15 +167,19 @@ async function openParts(
   options: DocxReadOptions,
   warnings: ImportWarnings,
 ): Promise<Parts> {
-  const archive = readZip(bytes, { ...DEFAULT_ZIP_LIMITS, ...options.limits });
-  const pkg = openPackage(archive, warnings, { imageSource: options.imageSource });
+  const limits = { ...DEFAULT_DOCX_LIMITS, ...options.limits };
+  const archive = readZip(bytes, limits);
+  await refuseMacros(archive);
+  const pkg = openPackage(archive, warnings, { imageSource: options.imageSource, limits });
   const main = await pkg.part(await mainDocumentPath(archive));
   if (!main) throw importError('damaged', 'The document part is missing.');
   const related = async (kind: string) => {
     const relationship = [...main.relationships.values()].find(
       (each) => relationshipKind(each.type) === kind,
     );
-    return relationship && !relationship.external ? pkg.part(relationship.target) : null;
+    if (!relationship || relationship.external) return null;
+    refuseNonStandardPart(kind, relationship.target);
+    return pkg.part(relationship.target);
   };
   return { package: pkg, main, related };
 }
@@ -196,6 +239,8 @@ async function readSections(
     childElement(shared.parts.main.root, 'w:body'),
   ).entries()) {
     const ids = sectionRegionIds(sectPr);
+    if (ids.header) shared.warnings.add('header-footer-skipped', 'header');
+    if (ids.footer) shared.warnings.add('header-footer-skipped', 'footer');
     regions = {
       header: ids.header ? await regionContent(ids.header, shared) : regions.header,
       footer: ids.footer ? await regionContent(ids.footer, shared) : regions.footer,
@@ -205,9 +250,11 @@ async function readSections(
       ...(name ? { name } : {}),
       ...(regions.header ? { header: { content: regions.header } } : {}),
       ...(regions.footer ? { footer: { content: regions.footer } } : {}),
-      content: readBlockElements(elements, reading),
+      content: stripHeadingNumbers(readBlockElements(elements, reading), shared.warnings),
     });
-    pages.push(readSectionPage(sectPr));
+    const page = readSectionPage(sectPr);
+    if (page) shared.warnings.add('section-layout-skipped');
+    pages.push(page);
   }
   return { sections, pages };
 }
@@ -234,21 +281,42 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
   const root = async (kind: string) => (await parts.related(kind))?.root ?? null;
   const custom = options.template?.styles?.custom;
   const newId = options.newId ?? randomId;
+  const keepsReview = options.review === 'keep';
+  const commentsRoot = await root('comments');
   const shared: Shared = {
     parts,
     warnings,
     styles: readStyles(await root('styles')),
     numbering: readNumbering(await root('numbering')),
-    comments: readComments(await root('comments'), await root('commentsExtended'), newId),
+    comments: readComments(
+      keepsReview ? commentsRoot : null,
+      await root('commentsExtended'),
+      newId,
+    ),
     keepsStyle: (key) => !options.template || Object.hasOwn(custom ?? {}, key),
     changeMark: changeMarks(newId),
+    keepsReview,
+    textCaptions: options.textCaptions !== false,
+    bookmarks: new Map(),
+    appendixHeadings: new Set(),
     notes: () => null,
   };
+  if (!keepsReview) {
+    for (const _ of childElements(commentsRoot, 'w:comment'))
+      warnings.add('review-left-out', 'comment');
+  }
   const footnotes = notesReader(await parts.related('footnotes'), shared);
   const endnotes = notesReader(await parts.related('endnotes'), shared);
   shared.notes = (kind, id) => (kind === 'footnote' ? footnotes(id) : endnotes(id));
-  const { sections, pages } = await readSections(shared);
+  const read = await readSections(shared);
+  const split = options.appendixSection
+    ? splitAppendix(read.sections, shared.appendixHeadings, options.appendixSection)
+    : null;
+  const sections = split?.sections ?? read.sections;
+  const pages = split ? split.from.map((index) => read.pages[index] ?? null) : read.pages;
+  resolveReferences(sections, { bookmarks: shared.bookmarks, warnings, newId });
   const file: DocumentFile = { formatVersion: DOCUMENT_FORMAT_VERSION, sections };
+  refuseLargeOutput(file, { ...DEFAULT_DOCX_LIMITS, ...options.limits });
   return {
     ok: true,
     file,
@@ -256,6 +324,7 @@ async function readDocument(bytes: Uint8Array, options: DocxReadOptions): Promis
     comments: shared.comments.threads(file),
     images: parts.package.images,
     pages,
+    ...readSummary(sections),
   };
 }
 

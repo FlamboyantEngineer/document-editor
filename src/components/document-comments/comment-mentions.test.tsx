@@ -68,6 +68,8 @@ describe('Comment mentions', () => {
     expect(await within(margin).findByText('Reviewers')).toBeInTheDocument();
     expect(within(margin).queryByText(/<group:/)).not.toBeInTheDocument();
     const card = within(margin).getByRole('group', { name: 'Comment thread' });
+    // Selecting the card shows its reply box.
+    await user.click(within(card).getByText(/Over to/));
     await user.click(within(card).getByRole('textbox', { name: 'Reply' }));
     await user.keyboard('Ask @Hel');
     await user.click(await screen.findByRole('option', { name: /Helper/ }));

@@ -15,11 +15,18 @@ installEditorDom();
 
 const margin = () => screen.getByRole('list', { name: 'Comments' });
 
-// Chooses an action from a comment's menu, confirming a deletion.
+// Chooses an action from a comment's menu, the opening comment's being its thread's header menu,
+// confirming a deletion.
 async function act(user: ReturnType<typeof userEvent.setup>, text: string, action: string) {
   const comment = (await within(margin()).findByText(text)).closest('article');
-  if (!(comment instanceof HTMLElement)) throw new Error(`No comment says ${text}`);
-  await user.click(within(comment).getByRole('button', { name: /actions|more/i }));
+  const card = comment?.closest('[role="group"]');
+  if (!(comment instanceof HTMLElement) || !(card instanceof HTMLElement)) {
+    throw new Error(`No comment says ${text}`);
+  }
+  const menu =
+    within(comment).queryByRole('button', { name: /actions|more/i }) ??
+    within(card).getByRole('button', { name: 'More actions' });
+  await user.click(menu);
   await user.click(await screen.findByRole('menuitem', { name: action }));
   const dialog = screen.queryByRole('alertdialog') ?? screen.queryByRole('dialog');
   if (dialog) await user.click(within(dialog).getByRole('button', { name: action }));
@@ -91,16 +98,20 @@ describe('Comment records', () => {
   });
 
   it('DOCE-COMMENTS-2.29 starts a reply with the text the host gives, unless the reader may not reply', async () => {
+    const user = userEvent.setup();
     const { host } = hostWith([]);
     const replyStart = vi.fn((_thread: CommentThread, me: string) => `@helper for ${me} `);
     const { unmount } = render(<Harness host={host} options={{ replyStart }} />);
     const thread = await within(margin()).findByRole('group', { name: 'Comment thread' });
+    await user.click(within(thread).getByText('Is blue right?'));
     const box = within(thread).getByRole('textbox', { name: 'Reply' });
     await waitFor(() => expect(box).toHaveTextContent('@helper for ada'));
     unmount();
     render(<Harness host={hostWith([]).host} canComment={false} options={{ replyStart }} />);
     const readOnly = await within(margin()).findByRole('group', { name: 'Comment thread' });
-    expect(within(readOnly).queryByRole('textbox', { name: 'Reply' })).not.toBeInTheDocument();
+    expect(
+      within(readOnly).queryByRole('textbox', { name: 'Reply', hidden: true }),
+    ).not.toBeInTheDocument();
   });
 
   it('DOCE-COMMENTS-2.32 keeps a deleted reply and a deleted thread as records, shown nowhere', async () => {

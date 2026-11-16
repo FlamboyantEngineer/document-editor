@@ -30,6 +30,23 @@ export function findTemplateSection(
   return template.sections?.find((section) => section.name === name) ?? null;
 }
 
+/**
+ * The template's editable section a document's appendices go in: the one named or labelled
+ * `Appendix`, whatever its case, unless it is `target`, the section the rest of the content fills
+ * (the first editable one by default); null for none.
+ */
+export function findAppendixSection(
+  template: Pick<TemplateFile, 'sections'>,
+  target?: string | null,
+): string | null {
+  const editable = (template.sections ?? []).filter((section) => section.editable !== false);
+  const into = target ?? editable[0]?.name;
+  const appendix = editable.find((section) =>
+    [section.name, section.label].some((name) => name?.trim().toLowerCase() === 'appendix'),
+  );
+  return appendix && appendix.name !== into ? appendix.name : null;
+}
+
 /** The sections every document of the template has, in order. */
 export function requiredTemplateSections(
   template: Pick<TemplateFile, 'sections'>,
@@ -59,6 +76,19 @@ export interface CreateDocumentOptions extends TemplateContentOptions {
 export interface ComposeDocumentOptions extends CreateDocumentOptions {
   /** The editable template section that takes the content; the first editable one by default. */
   readonly section?: string | undefined;
+  /**
+   * The variables that show the document's title or name, such as a host's document name: when
+   * another section of the document shows one, or a title heading, the content's own title heading
+   * is left out, with the page breaks and empty paragraphs of a title page it leads.
+   */
+  readonly titleVariables?: readonly string[] | undefined;
+  /**
+   * How tables meet their section's content width: `fit` (the default) shrinks a wider table;
+   * `fill` sets each top-level table's columns to fill it exactly, in proportion.
+   */
+  readonly tables?: 'fit' | 'fill' | undefined;
+  /** Pixels a table keeps clear of the content width, such as for page and table borders; 0 by default. */
+  readonly tableInset?: number | undefined;
 }
 
 const isLocked = (section: { readonly editable?: boolean | null | undefined }) =>
@@ -91,6 +121,35 @@ function withIds(file: DocumentFile, options: CreateDocumentOptions): DocumentFi
 function contentWidth(template: TemplateFile, name: string | null | undefined): number {
   const { width, margins } = templatePageMetrics(template, findTemplateSection(template, name));
   return width - margins.left - margins.right;
+}
+
+// Whether stored content shows the document's title: a title heading, or a variable or `{{key}}`
+// token of one of the title variables.
+function showsTitle(sections: readonly StoredSection[], variables: readonly string[]): boolean {
+  const tokens = variables.map((key) => `{{${key}}}`);
+  const shows = (node: StoredNode): boolean =>
+    (node.type === 'heading' && node.attrs?.title === true) ||
+    (node.type === 'variable' && variables.includes(String(node.attrs?.key))) ||
+    (node.type === 'text' && tokens.some((token) => node.text?.includes(token) === true)) ||
+    (node.content ?? []).some(shows);
+  return sections.some((section) => section.content.some(shows));
+}
+
+const isEmptyBlock = (node: StoredNode) =>
+  node.type === 'pageBreak' ||
+  (node.type === 'paragraph' &&
+    (node.content ?? []).every((child) => child.type === 'text' && !child.text?.trim()));
+
+// Content without its title heading; when the title leads it, past empty paragraphs and page
+// breaks, those go too up to the first other block, so no empty title page is left.
+function withoutTitle(content: readonly StoredNode[]): StoredNode[] {
+  const at = content.findIndex((node) => node.type === 'heading' && node.attrs?.title === true);
+  if (at < 0) return [...content];
+  const leads = content.slice(0, at).every(isEmptyBlock);
+  if (!leads) return content.filter((_, index) => index !== at);
+  let end = at + 1;
+  while (end < content.length && isEmptyBlock(content[end] as StoredNode)) end += 1;
+  return content.slice(end);
 }
 
 /**
@@ -169,16 +228,24 @@ export function composeDocumentFile(
     into.content = [...(filled.has(into) ? into.content : []), ...cloneJson(section.content)];
     filled.add(into);
   }
-  if (target && rest.length) {
-    target.content = [...(filled.has(target) ? target.content : []), ...rest];
-  } else if (rest.length) sections.push({ content: rest });
-  const fitted = sections.map((section) =>
-    isLocked(section)
-      ? section
-      : {
-          ...section,
-          content: fitStoredTables(section.content, contentWidth(template, section.name)),
-        },
+  const shown = showsTitle(
+    sections.filter((section) => section !== target),
+    options.titleVariables ?? [],
   );
-  return withIds({ ...created, sections: fitted }, options);
+  const kept = shown ? withoutTitle(rest) : rest;
+  if (target && kept.length) {
+    target.content = [...(filled.has(target) ? target.content : []), ...kept];
+  } else if (kept.length) sections.push({ content: kept });
+  return withIds({ ...created, sections: sections.map((each) => fitted(each, options)) }, options);
+}
+
+// A section with its tables fitted to its pages' content width, less the inset; a locked one as
+// the template has it.
+function fitted(section: StoredSection, options: ComposeDocumentOptions): StoredSection {
+  if (isLocked(section)) return section;
+  const width = contentWidth(options.template, section.name) - (options.tableInset ?? 0);
+  return {
+    ...section,
+    content: fitStoredTables(section.content, width, options.tables === 'fill'),
+  };
 }

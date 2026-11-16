@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_TABLE_CELL_MIN_WIDTH, fitColumns, scaleColumns } from './column-widths.js';
+import {
+  DEFAULT_TABLE_CELL_MIN_WIDTH,
+  fillColumns,
+  fitColumns,
+  scaleColumns,
+} from './column-widths.js';
 
 describe('column widths', () => {
   it('DOCE-TABLES-3.7 narrows the columns that grew, the widest first', () => {
@@ -20,5 +25,11 @@ describe('column widths', () => {
     expect(fitted[1]).toBe(fitted[2]);
     expect(fitted.reduce((sum, width) => sum + width, 0)).toBeLessThanOrEqual(400);
     expect(scaleColumns([10, 500], 100)).toEqual([10, 90]);
+  });
+
+  it('DOCE-IMPORT-3.3 fills a width exactly, in proportion and in whole pixels', () => {
+    expect(fillColumns([100, 300], 600)).toEqual([150, 450]);
+    expect(fillColumns([1, 1, 1], 100.7)).toEqual([34, 33, 33]);
+    expect(fillColumns([100, 300], 50)).toEqual(scaleColumns([100, 300], 50));
   });
 });
