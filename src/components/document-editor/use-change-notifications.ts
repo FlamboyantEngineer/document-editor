@@ -52,57 +52,47 @@ function useSuggestionsNotification(
   }, [doc, onSuggestionsChange]);
 }
 
-// The bars the simple markup draws: one beside each block on a page holding a suggestion, of the
-// kind `suggestion`.
-function suggestionBars(pages: readonly Element[], scale: number): ChangeBar[] {
-  const bars: ChangeBar[] = [];
-  pages.forEach((page, index) => {
-    const pageTop = page.getBoundingClientRect().top;
-    for (const block of page.querySelector('.pm-page-content')?.children ?? []) {
-      if (!block.querySelector('ins[data-id], del[data-id]')) continue;
-      const box = block.getBoundingClientRect();
-      bars.push({
-        kind: 'suggestion',
-        page: index,
-        top: (box.top - pageTop) / scale,
-        height: box.height / scale,
-      });
-    }
-  });
-  return bars;
+// Where a bar of `element` sits: its page and its top from the page's top, unscaled.
+function placeOf(element: Element, pages: readonly Element[], scale: number) {
+  const page = element.closest('.pm-page');
+  const index = page ? pages.indexOf(page) : -1;
+  if (!page || index < 0) return null;
+  const top = (element.getBoundingClientRect().top - page.getBoundingClientRect().top) / scale;
+  return { page: index, top };
 }
 
-// The change bars the view draws now: each block a comparison changed, on its page, and in the
-// simple markup each block holding a suggestion.
-function measureBars(view: EditorView, scale: number, markup: DocumentMarkup): ChangeBar[] {
+// The change bars the view draws now: a bar for each measured line (each line a comparison changed
+// and, in the simple markup, each line holding a suggestion, of the kind `suggestion`), and one
+// for each other block a comparison changed, on its page.
+function measureBars(view: EditorView, scale: number): ChangeBar[] {
   const pages = [...view.dom.querySelectorAll('.pm-page')];
-  const bars: ChangeBar[] = markup === 'simple' ? suggestionBars(pages, scale) : [];
-  for (const element of view.dom.querySelectorAll('[data-diff-change]')) {
-    // Text marked inside a block is not a bar: only blocks carry the bars.
-    if (element.parentElement?.closest('[data-diff-change]')) continue;
-    const page = element.closest('.pm-page');
-    const index = page ? pages.indexOf(page) : -1;
-    if (!page || index < 0) continue;
-    const box = element.getBoundingClientRect();
-    const top = (box.top - page.getBoundingClientRect().top) / scale;
-    // A block whose text changed has a bar beside each line that changed.
-    const lines = element.hasAttribute('data-diff-lines')
-      ? changeLinesOf(view.state).get(view.posAtDOM(element, 0) - 1)
-      : undefined;
-    if (lines) {
-      for (const line of lines) {
-        bars.push({ kind: line.kind, page: index, top: top + line.top, height: line.height });
-      }
-      continue;
+  const bars: ChangeBar[] = [];
+  for (const [pos, lines] of changeLinesOf(view.state)) {
+    const block = view.nodeDOM(pos);
+    const placed = block?.nodeType === 1 ? placeOf(block as Element, pages, scale) : null;
+    if (!placed) continue;
+    for (const line of lines) {
+      bars.push({
+        kind: line.kind,
+        page: placed.page,
+        top: placed.top + line.top,
+        height: line.height,
+      });
     }
+  }
+  for (const element of view.dom.querySelectorAll('[data-diff-change]')) {
+    // Text marked inside a block is not a bar, and a block whose text changed has its lines'.
+    if (element.parentElement?.closest('[data-diff-change]')) continue;
+    if (element.hasAttribute('data-diff-lines')) continue;
+    const placed = placeOf(element, pages, scale);
+    if (!placed) continue;
     bars.push({
       kind: element.getAttribute('data-diff-change') ?? '',
-      page: index,
-      top,
-      height: box.height / scale,
+      ...placed,
+      height: element.getBoundingClientRect().height / scale,
     });
   }
-  return bars;
+  return bars.sort((one, other) => one.page - other.page || one.top - other.top);
 }
 
 const barsKey = (bars: readonly ChangeBar[]) =>
@@ -130,7 +120,7 @@ function useChangeBarsNotification(
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner || !onChangeBarsChange) return undefined;
     const frame = owner.requestAnimationFrame(() => {
-      const bars = drawn ? measureBars(view, zoom / 100, markup) : [];
+      const bars = drawn ? measureBars(view, zoom / 100) : [];
       const key = barsKey(bars);
       if (key === last.current) return;
       last.current = key;
@@ -168,7 +158,11 @@ export function useReviewNotifications(
   useAuthorship(view, props.state, props.authorship ?? false);
   useSelectionNotification(props.state, props.onSelectionChange);
   useSuggestionsNotification(props.state, props.onSuggestionsChange);
-  useChangeLines(view, props.state, { zoom: props.zoom ?? 100, template: props.template });
+  useChangeLines(view, props.state, {
+    zoom: props.zoom ?? 100,
+    template: props.template,
+    markup: props.markup ?? 'all',
+  });
   useChangeBarsNotification(view, props.state, {
     onChangeBarsChange: props.onChangeBarsChange,
     zoom: props.zoom ?? 100,

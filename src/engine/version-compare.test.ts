@@ -120,6 +120,50 @@ describe('comparing versions', () => {
     expect(accepted).toMatchObject({ kind: 'modification', text: 'each', previousText: 'every' });
   });
 
+  it('DOCE-VERSIONS-1.6 does not show suggested-deleted text a second time as deleted text', () => {
+    const deletion = { type: 'deletion', attrs: { id: 's1', author: 'w' } };
+    const keys = (older: StoredNode, newer: StoredNode) => {
+      const doc = read(newer);
+      const changes = compareVersions(read(older), doc, { suggestions: 'accepted' });
+      return versionChangeDecorations(doc, changes, 'markup')
+        .find()
+        .map((decoration) => String((decoration.spec as { key?: string }).key ?? ''));
+    };
+    // Struck text alone: its line keeps a deletion bar, with no deleted text beside the struck.
+    const struck = keys(paragraph('a0000001', 'Keep every word'), {
+      type: 'paragraph',
+      attrs: { id: 'a0000001' },
+      content: [
+        { type: 'text', text: 'Keep ' },
+        { type: 'text', text: 'every ', marks: [deletion] },
+        { type: 'text', text: 'word' },
+      ],
+    });
+    expect(struck.filter((key) => key.startsWith('del-'))).toEqual([
+      expect.stringMatching(/^del-markup-false-\d+-every $/),
+    ]);
+    // Struck text replaced by a suggested insertion: the struck word is not repeated either.
+    const replaced = keys(paragraph('a0000001', 'every'), {
+      type: 'paragraph',
+      attrs: { id: 'a0000001' },
+      content: [
+        { type: 'text', text: 'every', marks: [deletion] },
+        {
+          type: 'text',
+          text: 'each',
+          marks: [{ type: 'insertion', attrs: { id: 's1', author: 'w' } }],
+        },
+      ],
+    });
+    expect(replaced.filter((key) => key.endsWith('-every'))).toEqual([]);
+    // Text deleted outright, with no suggestion, still shows as deleted text.
+    const plain = keys(
+      paragraph('a0000001', 'Keep every word'),
+      paragraph('a0000001', 'Keep word'),
+    );
+    expect(plain).toContainEqual(expect.stringMatching(/^del-markup-true-\d+-every $/));
+  });
+
   it('DOCE-VERSIONS-1.5 compares a changed block word by word', () => {
     expect(diffText('The log keeps every report.', 'The log keeps each report!')).toEqual([
       { kind: 'kept', text: 'The log keeps ' },

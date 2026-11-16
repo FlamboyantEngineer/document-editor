@@ -436,10 +436,10 @@ Verification: `src/components/document-editor/menubar-menus.test.ts`, `src/compo
 
 ### DOCE-EDITOR-6.5 - Showing suggestions
 
-`markup` shall choose how suggestions show, published as `data-markup`: `all` their markup (the default), `simple` the document as if they were accepted with a bar beside each changed block, `final` as if accepted, and `original` as if rejected. It changes only what shows; the suggestions stay to decide.
+`markup` shall choose how suggestions show, published as `data-markup`: `all` their markup (the default), `simple` the document as if they were accepted with a bar beside each line where suggested text shows, or where suggested-deleted text would be, on whichever page that line is (`de-change-lines__line` with `data-diff-line="suggestion"`, DOCE-VERSIONS-2.4), so a document opened with pending suggestions shows them barred whatever it is compared with, `final` as if accepted, and `original` as if rejected. It changes only what shows; the suggestions stay to decide.
 
-Implementation: `src/components/document-editor/document-editor.tsx`, `labs/reference/editor-chrome.css`
-Verification: `e2e/document-editor.spec.ts`
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/change-lines-measure.ts`, `labs/reference/editor-chrome.css`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/change-lines-measure.test.ts`
 
 ### DOCE-EDITOR-6.6 - Telemetry
 
@@ -478,7 +478,7 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-EDITOR-6.11 - Change bars
 
-`onChangeBarsChange` shall receive the change bars the editor draws on its pages whenever they change, once drawn, so a host drawing beside the content can keep clear of them: while the document is compared with an older version, each changed block's, or, for a block whose text changed, each changed line's (DOCE-VERSIONS-2.4), kind of change; in the simple markup (DOCE-EDITOR-6.5), each block holding a suggestion, of the kind `suggestion`, one bar for each page the block shows on; each with its page from 0, and its top and height from the page's top in unscaled CSS pixels (`ChangeBar`). It receives none while nothing is compared and the markup is not simple.
+`onChangeBarsChange` shall receive the change bars the editor draws on its pages whenever they change, once drawn, so a host drawing beside the content can keep clear of them: while the document is compared with an older version, each changed block's, or, for a block whose text changed, each changed line's (DOCE-VERSIONS-2.4), kind of change; in the simple markup (DOCE-EDITOR-6.5), each line holding a suggestion, of the kind `suggestion` unless a comparison's stronger change is on the same line; each with its page from 0, and its top and height from the page's top in unscaled CSS pixels (`ChangeBar`). It receives none while nothing is compared and the markup is not simple.
 
 Implementation: `src/components/document-editor/use-change-notifications.ts`, `labs/src/host-panel.tsx`
 Verification: `e2e/versions.spec.ts`, `e2e/document-editor.spec.ts`

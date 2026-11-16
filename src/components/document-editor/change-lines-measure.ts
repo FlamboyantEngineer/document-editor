@@ -19,17 +19,21 @@ import {
   versionChanges,
 } from '../../engine/index.js';
 import { findTemplateSection, sectionAt, type TemplateFile } from '../../model/index.js';
+import type { DocumentMarkup } from './editor-context.js';
 
 interface Band {
   top: number;
   bottom: number;
 }
 
+// A pending suggestion's text, which the change bars markup bars on each line it is on.
+const SUGGESTED = 'ins[data-id], del[data-id]';
+
 // The lines' own drawing is not part of the block's lines.
 const isDrawn = (node: Node) => Boolean(node.parentElement?.closest('.de-change-lines'));
 
 // The boxes of the block's text and of the words marked in it, as the view lays them out.
-function textBoxes(block: HTMLElement): DOMRect[] {
+function textBoxes(block: HTMLElement, marks: string): DOMRect[] {
   const owner = block.ownerDocument;
   const boxes: DOMRect[] = [];
   const walker = owner.createTreeWalker(block, NodeFilter.SHOW_TEXT);
@@ -39,23 +43,29 @@ function textBoxes(block: HTMLElement): DOMRect[] {
     range.selectNodeContents(text);
     boxes.push(...range.getClientRects());
   }
-  for (const marked of block.querySelectorAll(MARKED)) {
+  for (const marked of block.querySelectorAll(marks)) {
     if (!isDrawn(marked)) boxes.push(...markedBoxes(marked));
   }
   return boxes.filter((box) => box.height > 0);
 }
 
-// A marked word's boxes, or, for where text was deleted, the place it marks.
+// A marked word's boxes, or, for where text was deleted or text that does not show, the place it
+// marks: the caret's place just before it.
 function markedBoxes(marked: Element): DOMRect[] {
   const boxes = [...marked.getClientRects()];
-  return boxes.length ? boxes : [marked.getBoundingClientRect()];
+  if (boxes.length) return boxes;
+  const range = marked.ownerDocument.createRange();
+  range.setStartBefore(marked);
+  range.collapse(true);
+  const place = range.getBoundingClientRect();
+  return [place.height > 0 ? place : marked.getBoundingClientRect()];
 }
 
 // The block's lines, top to bottom, each reaching halfway to the next so the bars meet.
-function lineBands(block: HTMLElement): Band[] {
+function lineBands(block: HTMLElement, marks: string): Band[] {
   const outer = block.getBoundingClientRect();
   const lines: Band[] = [];
-  for (const box of textBoxes(block).sort((one, other) => one.top - other.top)) {
+  for (const box of textBoxes(block, marks).sort((one, other) => one.top - other.top)) {
     const last = lines.at(-1);
     const overlap = last ? Math.min(last.bottom, box.bottom) - Math.max(last.top, box.top) : 0;
     if (last && overlap > Math.min(last.bottom - last.top, box.height) / 2) {
@@ -88,10 +98,13 @@ function bandOf(bands: readonly Band[], box: DOMRect): number {
 // What marks a line's change: a word marked by its kind, or a deleted block's text shown in it.
 const MARKED = '[data-diff-line], del[data-diff-block]';
 
-const kindOf = (marked: Element): ChangeLineKind =>
-  marked.hasAttribute('data-diff-block')
-    ? 'deletion'
-    : (marked.getAttribute('data-diff-line') as ChangeLineKind);
+// What marks a line in the change bars markup: a comparison's marks and pending suggestions.
+const MARKED_WITH_SUGGESTIONS = `${MARKED}, ${SUGGESTED}`;
+
+const kindOf = (marked: Element): ChangeLineKind => {
+  if (marked.hasAttribute('data-diff-block')) return 'deletion';
+  return (marked.getAttribute('data-diff-line') as ChangeLineKind | null) ?? 'suggestion';
+};
 
 // The change bar setting of each kind of line.
 const SETTINGS = {
@@ -115,6 +128,8 @@ export function shownChangesAt(template: TemplateFile, $pos: ResolvedPos): Shown
   const name = section ? (section.name ?? '') : null;
   const own = findTemplateSection(template, name)?.changeBars;
   return (kind) => {
+    // A pending suggestion is not a comparison's change: the template's settings leave it shown.
+    if (kind === 'suggestion') return true;
     const setting = SETTINGS[kind];
     const enabled = own?.[setting]?.enabled ?? template.changeBars?.[setting]?.enabled;
     return enabled !== false;
@@ -125,14 +140,14 @@ export function shownChangesAt(template: TemplateFile, $pos: ResolvedPos): Shown
 function lineKinds(
   block: HTMLElement,
   bands: readonly Band[],
-  shown: ShownChange,
+  { shown, marks }: { shown: ShownChange; marks: string },
 ): (ChangeLineKind | null)[] {
   const formatted = block.getAttribute('data-diff-lines') === 'formatting' && shown('formatting');
   const kinds: (ChangeLineKind | null)[] = bands.map(() => (formatted ? 'formatting' : null));
   const mark = (index: number, kind: ChangeLineKind) => {
     if (shown(kind)) kinds[index] = strongerChange(kinds[index] ?? null, kind);
   };
-  const marked = [...block.querySelectorAll(MARKED)].filter((element) => !isDrawn(element));
+  const marked = [...block.querySelectorAll(marks)].filter((element) => !isDrawn(element));
   for (const element of marked) {
     for (const box of markedBoxes(element)) mark(bandOf(bands, box), kindOf(element));
   }
@@ -150,10 +165,20 @@ function lineKinds(
  */
 export function measureBlockLines(
   block: HTMLElement,
-  { scale, shown = SHOW_ALL }: { readonly scale: number; readonly shown?: ShownChange | undefined },
+  {
+    scale,
+    shown = SHOW_ALL,
+    suggestions = false,
+  }: {
+    readonly scale: number;
+    readonly shown?: ShownChange | undefined;
+    /** Whether lines holding a pending suggestion's text are barred too, as change bars markup does. */
+    readonly suggestions?: boolean | undefined;
+  },
 ): ChangeLine[] {
-  const bands = lineBands(block);
-  const kinds = lineKinds(block, bands, shown);
+  const marks = suggestions ? MARKED_WITH_SUGGESTIONS : MARKED;
+  const bands = lineBands(block, marks);
+  const kinds = lineKinds(block, bands, { shown, marks });
   const top = block.getBoundingClientRect().top;
   return bands.flatMap((band, index) => {
     const kind = kinds[index];
@@ -162,40 +187,80 @@ export function measureBlockLines(
   });
 }
 
-/** Measures the changed lines of every block whose text changed, by the block's position. */
-function measureChangeLines(
-  view: EditorView,
-  { scale, template }: { readonly scale: number; readonly template?: TemplateFile | undefined },
-): ChangeLines {
-  const lines = new Map<number, readonly ChangeLine[]>();
+// The text blocks to measure: each whose text a comparison changed and, in the change bars
+// markup, each holding a pending suggestion's text, by position.
+function blocksToMeasure(view: EditorView, suggestions: boolean): Map<number, HTMLElement> {
+  const blocks = new Map<number, HTMLElement>();
   const { doc } = view.state;
   for (const block of view.dom.querySelectorAll<HTMLElement>('[data-diff-lines]')) {
     const pos = view.posAtDOM(block, 0) - 1;
-    if (!doc.nodeAt(pos)?.isTextblock) continue;
+    if (doc.nodeAt(pos)?.isTextblock) blocks.set(pos, block);
+  }
+  if (!suggestions) return blocks;
+  for (const marked of view.dom.querySelectorAll(SUGGESTED)) {
+    if (isDrawn(marked)) continue;
+    const $pos = doc.resolve(view.posAtDOM(marked, 0));
+    if (!$pos.parent.isTextblock || $pos.depth === 0) continue;
+    const pos = $pos.before();
+    const block = view.nodeDOM(pos);
+    if (!blocks.has(pos) && block?.nodeType === 1) blocks.set(pos, block as HTMLElement);
+  }
+  return blocks;
+}
+
+/**
+ * Measures the changed lines of every block whose text changed and, with `suggestions`, of every
+ * block holding a pending suggestion, by the block's position.
+ */
+function measureChangeLines(
+  view: EditorView,
+  options: {
+    readonly scale: number;
+    readonly template?: TemplateFile | undefined;
+    readonly suggestions: boolean;
+  },
+): ChangeLines {
+  const { scale, template, suggestions } = options;
+  const lines = new Map<number, readonly ChangeLine[]>();
+  const { doc } = view.state;
+  for (const [pos, block] of blocksToMeasure(view, suggestions)) {
     const shown = template ? shownChangesAt(template, doc.resolve(pos)) : SHOW_ALL;
-    lines.set(pos, measureBlockLines(block, { scale, shown }));
+    lines.set(pos, measureBlockLines(block, { scale, shown, suggestions }));
   }
   return lines;
 }
 
-/** Measures the changed lines after each render while the document shows changes, and draws them. */
+/**
+ * Measures the changed lines after each render while the document shows changes, or in the change
+ * bars markup (`simple`) pending suggestions, and draws them (DOCE-VERSIONS-2.4, DOCE-EDITOR-6.5).
+ */
 export function useChangeLines(
   view: EditorView | null,
   state: EditorState,
-  { zoom, template }: { readonly zoom: number; readonly template?: TemplateFile | undefined },
+  {
+    zoom,
+    template,
+    markup,
+  }: {
+    readonly zoom: number;
+    readonly template?: TemplateFile | undefined;
+    readonly markup: DocumentMarkup;
+  },
 ) {
   const changes = versionChanges(state);
+  const suggestions = markup === 'simple';
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner || !drawsChangeLines(view.state)) return undefined;
     const frame = owner.requestAnimationFrame(() => {
       if (view.isDestroyed) return;
-      const lines = changes.length
-        ? measureChangeLines(view, { scale: zoom / 100, template })
-        : new Map();
+      const lines =
+        changes.length || suggestions
+          ? measureChangeLines(view, { scale: zoom / 100, template, suggestions })
+          : new Map();
       if (changeLinesKeyOf(lines) === changeLinesKeyOf(changeLinesOf(view.state))) return;
       view.dispatch(setChangeLines(view.state.tr, lines));
     });
     return () => owner.cancelAnimationFrame(frame);
-  }, [view, state, changes, zoom, template]);
+  }, [view, state, changes, zoom, template, suggestions]);
 }

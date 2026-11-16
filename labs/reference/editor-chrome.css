@@ -492,8 +492,8 @@
 }
 
 /*
- * How suggestions show (`data-markup`): as if accepted, with a bar beside each changed block in
- * the simple markup, or as if rejected.
+ * How suggestions show (`data-markup`): as if accepted, with a bar beside each line a suggestion
+ * shows on in the simple markup, or as if rejected.
  */
 .de-document-editor:is([data-markup='simple'], [data-markup='final']) ins[data-id] {
   background: none;
@@ -512,8 +512,9 @@
   text-decoration: none;
 }
 
-.de-document-editor[data-markup='simple'] .pm-page-content > :has(ins[data-id], del[data-id]) {
-  box-shadow: -10px 0 0 -8px var(--ref-accent, #0969da);
+/* The simple markup bars each line a suggestion shows on (`data-diff-line='suggestion'`). */
+.de-document-editor[data-markup='simple'] .de-change-lines__line[data-diff-line='suggestion'] {
+  background: var(--ref-accent, #0969da);
 }
 
 /* The template editor's settings panel, which its host gives a width. */
