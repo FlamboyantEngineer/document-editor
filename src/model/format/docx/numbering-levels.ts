@@ -37,22 +37,39 @@ function wordFormat(token: string | undefined): string {
   return WORD_FORMATS[resolveCounterStyleToken(token ?? '1')] ?? 'decimal';
 }
 
+/** What a level prints besides its level numbers. */
+interface LevelText {
+  readonly prefix?: string | undefined;
+  readonly suffix?: string | undefined;
+  /** The Word level its first number is, from 1. */
+  readonly first?: number | undefined;
+  /** The heading number the level's numbers follow, as literal text (`ParagraphContext`). */
+  readonly context?: ParagraphContext | undefined;
+}
+
+// The heading number a level's numbers follow, and the format's separator after it when the
+// heading's own format has none. Word reads `%` in a level's text as a level number, so the literal
+// text leaves it out.
+function contextText(config: NumberingStyleConfig, context: ParagraphContext | undefined): string {
+  const text = context?.text.replace(/%/g, '') ?? '';
+  if (!text || context?.separated || !config.hasTrailingSeparator) return text;
+  return text + config.trailingSeparator;
+}
+
 /**
  * A level that prints `depth` level numbers, from level `first`, as the template's format writes
- * them, with its prefix and suffix; nothing when the format numbers fewer levels.
+ * them, after the heading number it follows and with its prefix and suffix; nothing when the format
+ * numbers fewer levels.
  */
 function numberedLevel(
   config: NumberingStyleConfig,
   depth: number,
-  {
-    prefix = '',
-    suffix = '',
-    first = 1,
-  }: { prefix?: string; suffix?: string; first?: number } = {},
+  { prefix = '', suffix = '', first = 1, context }: LevelText = {},
 ): WordLevel {
   if (config.levels.length < depth || depth < 1) return NONE;
   const shown = config.levels.slice(0, depth);
-  let text = shown
+  let text = contextText(config, context);
+  text += shown
     .map((level, index) => `%${String(first + index)}${index < depth - 1 ? level.separator : ''}`)
     .join('');
   if (config.hasTrailingSeparator) text += config.trailingSeparator;
@@ -70,17 +87,31 @@ export function headingLevels(styles: TemplateStyles): WordLevel[] {
   );
 }
 
-/** Each paragraph level's numbering, levels 1 to 6, indented where the level says. */
-export function paragraphLevels(styles: TemplateStyles): WordLevel[] {
+/** The heading the paragraphs follow: its level, and its number with its own separator or not. */
+export interface ParagraphContext {
+  readonly depth: number;
+  readonly text: string;
+  readonly separated: boolean;
+}
+
+/**
+ * Each paragraph level's numbering, levels 1 to 6, indented where the level says: at the level of
+ * its displayed depth under the heading it follows, after that heading's number, as the editor
+ * numbers it.
+ */
+export function paragraphLevels(
+  styles: TemplateStyles,
+  context: ParagraphContext = { depth: 0, text: '', separated: false },
+): WordLevel[] {
   const config = resolveParagraphNumberingConfig(styles.paragraph);
   return [1, 2, 3, 4, 5, 6].map((level) => {
-    const style = resolveParagraphLevelStyle(config, level);
+    const style = resolveParagraphLevelStyle(config, level, context.depth);
     const format = style.styleConfig;
     // A format with fewer levels than the paragraph's prints the paragraph's own last levels.
     const depth = Math.min(level, format?.levels.length ?? 0);
     const numbered =
       format && depth
-        ? numberedLevel(format, depth, { ...config, first: level - depth + 1 })
+        ? numberedLevel(format, depth, { ...config, first: level - depth + 1, context })
         : NONE;
     const left = toTwips(style.textIndent);
     const start = toTwips(style.numberIndent) ?? 0;

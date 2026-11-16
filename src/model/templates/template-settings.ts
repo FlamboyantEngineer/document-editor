@@ -70,10 +70,11 @@ export function extensionRecord(
 
 function missingPaths(reference: unknown, value: unknown, path: string): string[] {
   if (value === null || value === undefined) return [path];
+  // A list's settings are its own entries': one shorter than the reference misses none past its end.
   if (Array.isArray(reference) && Array.isArray(value)) {
-    return reference.flatMap((entry, index) =>
-      missingPaths(entry, value[index], `${path}[${String(index)}]`),
-    );
+    return reference
+      .slice(0, value.length)
+      .flatMap((entry, index) => missingPaths(entry, value[index], `${path}[${String(index)}]`));
   }
   if (!isRecord(reference) || !isRecord(value)) return [];
   return Object.entries(reference).flatMap(([key, entry]) =>

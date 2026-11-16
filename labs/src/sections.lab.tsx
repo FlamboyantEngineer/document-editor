@@ -41,6 +41,9 @@ const SECTIONED: TemplateFile = {
       styles: {
         heading1: { numbering: { format: 'A.' } },
         heading2: { numbering: { format: 'A.1.' } },
+        // The appendix numbers its paragraphs after the heading they are under, each label in a
+        // gutter of its own width.
+        paragraph: { numbering: { enabled: true, format: '1.', levels: [] } },
       },
       header: { content: [{ type: 'paragraph', content: [text('Appendix')] }] },
       content: [{ type: 'paragraph', content: [text('Appendix text.')] }],

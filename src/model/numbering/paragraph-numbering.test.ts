@@ -5,6 +5,7 @@ import {
   hasParagraphNumberingContent,
   hasParagraphNumberingText,
   paragraphNumberingIndentationStyle,
+  paragraphNumberWidth,
   parseNumberingStyle,
   resolveParagraphLevelStyle,
 } from '../index.js';
@@ -50,15 +51,25 @@ describe('paragraph numbering', () => {
     expect(numbered('<p></p>')).toBe(false);
   });
 
-  it('DOCE-NUMBERING-3.4 indents a numbered paragraph by its level', () => {
-    expect(paragraphNumberingIndentationStyle({ styleConfig: null }, 1)).toBe('');
-    expect(paragraphNumberingIndentationStyle({ styleConfig: null }, 3)).toBe(
-      '--doc-paragraph-indentation: 40pt;',
+  it('DOCE-NUMBERING-3.4 places the number and text of a numbered paragraph', () => {
+    const place = (level: number, label = '1.') => ({ level, label });
+    const indentation = 'var(--doc-paragraph-indentation, 0pt)';
+    expect(paragraphNumberingIndentationStyle({ styleConfig: null }, place(1))).toBe(
+      `--doc-paragraph-number-indent: calc(${indentation} + 0pt); --doc-paragraph-text-indent: calc(${indentation} + 0pt + 3ch);`,
     );
     expect(
       paragraphNumberingIndentationStyle(
+        { styleConfig: null, numberIndent: '4mm' },
+        place(3, '1.2.3.'),
+      ),
+    ).toBe(
+      `--doc-paragraph-indentation: 40pt; --doc-paragraph-number-indent: calc(${indentation} + 4mm); --doc-paragraph-text-indent: calc(${indentation} + 4mm + 7ch);`,
+    );
+    // A text position overrides the gutter; the number then starts at its own position.
+    expect(
+      paragraphNumberingIndentationStyle(
         { styleConfig: null, numberIndent: '4px', textIndent: '2em' },
-        3,
+        place(3),
       ),
     ).toBe(
       '--doc-paragraph-indentation: 40pt; --doc-paragraph-number-indent: 4px; --doc-paragraph-text-indent: 2em;',
@@ -67,8 +78,16 @@ describe('paragraph numbering', () => {
     expect(
       paragraphNumberingIndentationStyle(
         { styleConfig: null, numberIndent: '4px; position: fixed', textIndent: '2em' },
-        1,
+        place(1),
       ),
-    ).toBe('--doc-paragraph-text-indent: 2em;');
+    ).toBe('--doc-paragraph-number-indent: 0pt; --doc-paragraph-text-indent: 2em;');
+  });
+
+  it('DOCE-NUMBERING-3.5 reserves room for a longer label, wider letters taking more', () => {
+    expect(paragraphNumberWidth('1.')).toBe('3ch');
+    expect(paragraphNumberWidth('10.')).toBe('4ch');
+    expect(paragraphNumberWidth('IV.')).toBe('4.8ch');
+    expect(paragraphNumberWidth('MW.')).toBe('5.6ch');
+    expect(paragraphNumberWidth('§ 1.2.1.')).toBe('9.6ch');
   });
 });

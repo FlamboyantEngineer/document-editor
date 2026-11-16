@@ -12,6 +12,7 @@ import {
 import { createCustomStyles } from './custom-styles.js';
 import { createDocumentSections } from './document-sections.js';
 import { createDynamicTemplates } from './dynamic-templates.js';
+import { createParagraphNumbering } from './paragraph-numbering.js';
 import { createVersionChanges, versionChanges } from './version-changes.js';
 
 // The keystroke hot path: plugins whose state follows the whole document skip walking it for a
@@ -54,6 +55,12 @@ const positionOf = (doc: Node, value: string) => {
   return found;
 };
 
+// The template with its paragraphs numbered.
+const NUMBERED: TemplateFile = {
+  ...TEMPLATE,
+  styles: { ...TEMPLATE.styles, paragraph: { numbering: { format: '1.', enabled: true } } },
+};
+
 // The second paragraph in the custom style.
 const DOC = EditorState.create({ doc: READ }).apply(
   EditorState.create({ doc: READ }).tr.setNodeAttribute(
@@ -67,6 +74,7 @@ const PLUGINS = (): Plugin[] => [
   createCustomStyles({ template: () => TEMPLATE }),
   createDocumentSections({ template: () => TEMPLATE }),
   createDynamicTemplates(),
+  createParagraphNumbering({ template: () => NUMBERED }),
 ];
 
 // Counts the walks over the document and its sections while a change applies.
@@ -88,7 +96,7 @@ afterEach(() => {
 });
 
 describe('keystroke hot path', () => {
-  it('DOCE-EDITING-3.4 types text without walking the document for custom styles, sections and template blocks', () => {
+  it('DOCE-EDITING-3.4 DOCE-NUMBERING-6.6 types text without walking the document for custom styles, sections, template blocks and paragraph numbers', () => {
     const state = EditorState.create({ doc: DOC, plugins: PLUGINS() });
     const at = positionOf(DOC, 'Noted') + 2;
     const { next, count } = walksDuring(state, (from) =>

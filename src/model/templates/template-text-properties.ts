@@ -4,7 +4,6 @@
 import type {
   ContentsLeader,
   ContentsSettings,
-  ListSettings,
   TableSettings,
   TemplateStyles,
   TextSettings,
@@ -77,14 +76,17 @@ function bulletStyle(bullet: string | null | undefined): string | null {
   return isBulletKeyword(bullet) ? bullet : quoted(`${bullet} `);
 }
 
-function listProperties(properties: CustomProperties, list: ListSettings | null | undefined) {
+// A list without a numbering format of its own numbers like heading 1, else `1.`.
+function listProperties(properties: CustomProperties, styles: TemplateStyles | null | undefined) {
+  const list = styles?.list;
   if (!list) return;
   set(properties, '--doc-list-margin-top', cssLength(list.spaceBefore));
   set(properties, '--doc-list-margin-bottom', cssLength(list.spaceAfter));
   set(properties, '--doc-list-indentation', cssLength(list.indentation));
   set(properties, '--doc-ul-list-style-type', bulletStyle(list.bullet));
-  if (!list.format && !list.prefix && !list.suffix) return;
-  const level = parseNumberingStyle(list.format || '1.').levels[0] ?? {
+  const format = list.format || styles.heading1?.numbering?.format?.trim();
+  if (!format && !list.prefix && !list.suffix) return;
+  const level = parseNumberingStyle(format || '1.').levels[0] ?? {
     token: '1',
     separator: '.',
   };
@@ -168,7 +170,7 @@ export function textStyleProperties(
   }
   set(properties, '--doc-paragraph-indentation', cssLength(styles?.paragraph?.indentation));
   set(properties, '--doc-code-background', cssColor(styles?.codeBlock?.background));
-  listProperties(properties, styles?.list);
+  listProperties(properties, styles);
   tableProperties(properties, styles?.table);
   contentsProperties(properties, styles?.contents, fontStacks);
   return properties;
