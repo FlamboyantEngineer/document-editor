@@ -35,6 +35,11 @@ test.describe('history lab', () => {
     await lab.open('history');
     await page.getByLabel('Markup').selectOption('final');
     await row(page, /First draft/).click();
+    await expect(page.getByLabel('Showing')).toHaveText('The document');
+    await row(page, /First draft/)
+      .getByRole('button', { name: /actions/i })
+      .click();
+    await page.getByRole('menuitem', { name: 'View version' }).click();
     await expect(page.getByLabel('Showing')).toHaveText('rev-2');
     await expect(page.getByLabel('Template shown')).toHaveText('report');
     await expect(page.getByText('Viewing First draft')).toBeVisible();

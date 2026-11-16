@@ -189,7 +189,7 @@ Verification: `src/session/versions.test.ts`, `src/components/document-panels/do
 
 `rename(revision, label)` shall name a version, or take its name away with null, and list the versions again.
 
-The pane shall edit the name in a modal. Saving trims it; an empty name removes it. A pending save holds the draft, and a failure keeps that draft with its error for retry.
+The pane shall edit the name in a modal. Saving trims it; an empty name removes it. A name holds at most 255 characters (`REVISION_NAME_MAX_LENGTH`), in the rename dialog and when saving a version. A pending save holds the draft, and a failure keeps that draft with its error for retry.
 
 Implementation: `src/components/document-panels/revision-actions.ts`, `src/components/document-panels/revision-dialog.tsx`, `src/session/versions.ts`
 Verification: `src/components/document-panels/revision-list.test.tsx`, `src/session/versions.test.ts`
@@ -207,7 +207,7 @@ Verification: `src/components/document-panels/revision-list.test.tsx`, `src/sess
 
 ### DOCE-VERSIONS-4.6 - The history pane
 
-`DocumentHistory` shall show the versions through the editor-owned `RevisionList`, built from `ListView`, `Attribution`, filters and modal revision actions, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it and the template and comment threads it keeps when the host lists them. Picking a version shall view it (DOCE-VERSIONS-5.1), picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
+`DocumentHistory` shall show the versions through the editor-owned `RevisionList`, built from `ListView`, `Attribution`, filters and modal revision actions, grouped (DOCE-VERSIONS-4.2), the current one marked, each with who saved it, the host's `detail` (such as a draft number) first in its summary, and the template and comment threads it keeps when the host lists them. Picking a version shall mark its row, and its row action "View version" shall view it (DOCE-VERSIONS-5.1); with `viewOnPick` picking a version shall view it at once. Picking the current one or none shall return, and comparing two shall view the newer compared with the older (DOCE-VERSIONS-5.2); a version that could not be shown, refused or not read at all, says why above the list. It shall offer to save and name versions only to a reader who may save versions, to restore one only to a reader who may edit, and the history only to a reader who may open it.
 
 Named-only and author filters shall retain their choices while groups expand or fold. When the filters hide every version, the list shall say that no version matches rather than that there are none; when the versions could not be listed, it shall show only the error and its retry. An unnamed version shall be titled by when it was saved, in the base library provider's locale and time zone (a calendar day as that day), so a server render and its hydration agree, and an unreadable time by the provider's `unknownTime` text. All revision action, grouping and filter text belongs to the document or template labels. The list shall emit the `de-revision-list` hooks (Hooks).
 
@@ -290,5 +290,5 @@ Verification: `src/session/version-snapshot.test.ts`, `src/session/version-templ
 | `de-revision-list__current` | slot      |                                                                     | The current version's badge.                                    |
 | `de-revision-list__meta`    | slot      |                                                                     | Who saved a version and when, and its summary.                  |
 | `de-revision-list__summary` | slot      |                                                                     | What a version keeps beside its content.                        |
-| `de-revision-list__actions` | slot      |                                                                     | A version's rename and restore menu.                            |
+| `de-revision-list__actions` | slot      |                                                                     | A version's view, rename and restore menu.                      |
 | `de-revision-list__dialog`  | slot      |                                                                     | A rename or restore dialog, with `data-action`.                 |

@@ -41,6 +41,7 @@ export const DEFAULT_HISTORY_LABELS: DocumentHistoryLabels = {
   versionTitle: (version, savedTime) => version.label ?? savedTime,
   versionSummary: (version) => {
     const parts = [
+      version.detail?.trim() || null,
       version.template ? `Template ${version.template.id}` : null,
       version.threads === undefined ? null : plural(version.threads, 'comment thread'),
     ].filter((part) => part !== null);
