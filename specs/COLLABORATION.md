@@ -69,6 +69,13 @@ A change a plugin appends to one the sync plugin applies from the shared documen
 Implementation: `src/collab/sync-binding.ts`
 Verification: `src/collab/sync.test.ts`
 
+### DOCE-COLLAB-2.3 - Held during a gesture
+
+While the reader is in the middle of a gesture on the content of the view the sync plugin binds, an input method composition (from `compositionstart` until the view has ended it), a pointer press (from a `pointerdown` in the content to the next `pointerup` or `pointercancel` anywhere) or a drag (from `dragstart` to `dragend` or `drop`), the changes from the shared document shall wait instead of reaching the editor, so text never moves under the composition or the pointer; they shall reach it at once, in one transaction, when the last gesture ends (`holdDuringGestures`). A gesture whose end never comes holds for 10 seconds at most. Undo from the editor's own undo manager and an explicit `flush()` are not held. A view without a page, as on a server, holds nothing.
+
+Implementation: `src/collab/gesture-hold.ts`, `src/collab/sync.ts`, `src/collab/sync-binding.ts`
+Verification: `src/collab/gesture-hold.test.ts`
+
 ## DOCE-COLLAB-3 - Authorship
 
 ### DOCE-COLLAB-3.1 - Who wrote what

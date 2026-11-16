@@ -37,6 +37,8 @@ export interface BindingSource {
   readonly derivedOrigin: object;
   readonly isRemoteOrigin: (origin: unknown) => boolean;
   readonly schedule: (run: () => void) => void;
+  /** Whether the reader's gesture holds the scheduled changes back (`holdDuringGestures`). */
+  readonly held?: (() => boolean) | undefined;
   /** Records the change on a transaction the binding applies. */
   readonly tag: (tr: Transaction, change: CollabChange) => void;
   /** The local steps since a document, as the plugin's state records them. */
@@ -205,10 +207,11 @@ export function bindView(view: EditorView, source: BindingSource): Binding {
     send(view.state.doc, local ? origin : derivedOrigin);
   };
 
+  // A scheduled flush waits while the reader's gesture holds it: the gesture's end flushes.
   const later = () => {
     if (scheduled) return;
     scheduled = true;
-    source.schedule(flush);
+    source.schedule(() => (source.held?.() ? undefined : flush()));
   };
 
   const observer = (event: Y.YEvent<never>, transaction: Y.Transaction) => {
