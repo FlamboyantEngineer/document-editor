@@ -54,6 +54,8 @@ export interface VersionChangesOptions {
   display?: (() => VersionChangeDisplay) | undefined;
   /** How the versions' suggestions count. Defaults to rejected. */
   suggestions?: (() => CompareSuggestions) | undefined;
+  /** Whether a change only in what the document generates counts. Defaults to false. */
+  generated?: (() => boolean) | undefined;
   /**
    * The element ids the comparison covers: a heading covers its headed section. Null or empty
    * covers the whole document.
@@ -109,6 +111,7 @@ function askedBy(
   return {
     previous: previous === 'opened' ? opened : previous,
     suggestions: options.suggestions?.() ?? 'rejected',
+    generated: options.generated?.() ?? false,
     display: options.display?.() ?? 'markup',
     scope: ids.length ? resolveVersionScope(doc, ids) : null,
   };
@@ -118,17 +121,22 @@ function compute(
   options: VersionChangesOptions,
   { doc, opened, older: read }: Pick<VersionChangesState, 'opened' | 'older'> & Shown,
 ): VersionChangesState {
-  const { previous, suggestions, display, scope } = askedBy(options, { doc, opened });
+  const { previous, suggestions, generated, display, scope } = askedBy(options, { doc, opened });
   const outside = scope ? outsideScopeDecorations(doc, scope) : [];
   // The older version is read again only when another is asked for, or its suggestions count
   // otherwise.
-  const kept = read?.doc === previous && read.options.suggestions === suggestions ? read : null;
+  const kept =
+    read?.doc === previous &&
+    read.options.suggestions === suggestions &&
+    Boolean(read.options.generated) === generated
+      ? read
+      : null;
   // A document equal to the older version, as one just opened is, needs no comparison.
   if (!previous || previous === doc || previous.eq(doc)) {
     const decorations = DecorationSet.create(doc, outside);
     return { opened, older: kept, display, scope, changes: [], decorations };
   }
-  const older = kept ?? readOlderVersion(previous, { suggestions });
+  const older = kept ?? readOlderVersion(previous, { suggestions, generated });
   const all = compareWithOlder(older, doc);
   const changes = scope ? all.filter((change) => isInVersionScope(change, scope)) : all;
   const decorations = versionChangeDecorations(doc, changes, display).add(doc, outside);
