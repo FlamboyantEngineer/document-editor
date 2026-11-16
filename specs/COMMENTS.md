@@ -281,7 +281,7 @@ Verification: `src/components/document-comments/comment-records.test.tsx`
 
 ### DOCE-COMMENTS-2.27 - Comments an assistant wrote
 
-A thread and a comment may name the assistant that wrote them (`agent`) and carry the host's own plain values (`meta`), which the editor keeps as they are, the room store too. A comment's element, and a thread's, shall carry the assistant as `data-agent`, for the host to mark it.
+A thread and a comment may name the assistant that wrote them (`agent`) and carry the host's own plain values (`meta`), which the editor keeps as they are, the room store too; the room's write guard accepts them only from a writer the host grants `labelAgents`. A comment's element, and a thread's, shall carry the assistant as `data-agent`, for the host to mark it.
 
 Implementation: `src/host/comment-adapters.ts`, `src/collab/comment-records.ts`, `src/collab/guard-records.ts`, `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/comment-records.test.tsx`, `src/collab/comment-store.test.ts`, `src/collab/room-change-guard-security.test.ts`

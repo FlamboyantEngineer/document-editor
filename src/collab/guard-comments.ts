@@ -17,6 +17,11 @@ export interface GuardPermissions extends Pick<
   manageComments?: boolean | undefined;
   /** Trusted restore/import may preserve foreign proposal attribution. */
   manageProposals?: boolean | undefined;
+  /**
+   * Host-granted exception for naming the assistant that wrote a thread or comment (`agent`) and
+   * keeping the host's `meta` on it, as a host's assistant writing in the reader's name does.
+   */
+  labelAgents?: boolean | undefined;
 }
 
 interface CommentGuardOptions {
@@ -33,6 +38,14 @@ function ownsThread(thread: string, options: CommentGuardOptions): boolean {
   const record =
     options.before.get(nameOf('thread', thread)) ?? options.after.get(nameOf('thread', thread));
   return options.permissions.manageComments === true || fields(record).author === options.actor;
+}
+
+// Whether a record keeps the assistant and the host's meta it had: only a writer the host lets
+// label records (`labelAgents`) sets or changes them.
+function keepsLabels(previous: unknown, next: unknown, options: CommentGuardOptions): boolean {
+  if (options.permissions.labelAgents === true) return true;
+  const [was, now] = [fields(previous), fields(next)];
+  return equal(was.agent, now.agent) && equal(was.meta, now.meta);
 }
 
 // Whether a thread is deleted: a removal record says who deleted it and when.
@@ -75,6 +88,7 @@ function checkEntry(
   const previous = entryOf(key[2], before.get(name));
   const current = entryOf(key[2], after.get(name));
   if (!current || !after.has(nameOf('thread', key[1])) || isDeleted(after, key[1])) return false;
+  if (!keepsLabels(before.get(name), after.get(name), options)) return false;
   if (!previous) return current.author === actor && current.deletedAt === undefined;
   const thread = threadBefore(key[1], options);
   const moderates = permissions.manageComments === true;
@@ -98,6 +112,7 @@ function checkThread(key: RecordKey, options: CommentGuardOptions): boolean {
   if (isDeleted(before, key[1]) || isDeleted(after, key[1])) return false;
   return (
     fields(next).author === actor &&
+    keepsLabels(undefined, next, options) &&
     typeof fields(next).createdAt === 'string' &&
     typeof fields(next).quote === 'string' &&
     isInitialThread(next)
@@ -125,13 +140,21 @@ function checkReaction(
   key: readonly ['reaction', string, string, string, string],
   options: CommentGuardOptions,
 ): boolean {
-  const { after, actor } = options;
+  const { before, after, actor } = options;
   const next = after.get(JSON.stringify(key));
   if (!after.has(nameOf('thread', key[1])) || isDeleted(after, key[1])) return false;
-  // The reactions to a deleted comment go with it, whoever takes them.
-  const entry = after.get(JSON.stringify(['entry', key[1], key[2]]));
-  if (key[2] && (entry === undefined || fields(entry).deletedAt !== undefined))
-    return next === undefined;
+  // The reactions to a deleted comment go with it, as whoever deletes it takes them; one to a
+  // comment that is not there is only ever taken away.
+  const entryName = JSON.stringify(['entry', key[1], key[2]]);
+  const entry = after.get(entryName);
+  if (key[2] && entry === undefined) return next === undefined;
+  if (key[2] && fields(entry).deletedAt !== undefined)
+    return (
+      next === undefined &&
+      (key[4] === actor ||
+        (fields(entry).deletedBy === actor &&
+          fields(before.get(entryName)).deletedAt === undefined))
+    );
   return key[4] === actor && (next === true || next === undefined);
 }
 
