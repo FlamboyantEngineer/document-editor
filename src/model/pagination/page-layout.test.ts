@@ -113,6 +113,11 @@ describe('page layout', () => {
     ]);
   });
 
+  it('DOCE-PAGINATION-2.5 moves a heading with the block embed it heads', () => {
+    const blocks = [paragraph(60), heading(1), block('embed', 40)];
+    expect(heights(layoutPages(blocks, { pageHeight: 102 }))).toEqual([[60], [20, 40]]);
+  });
+
   it('DOCE-PAGINATION-2.5 moves a heading with a three-line paragraph that cannot split under it', () => {
     const text = documentSchema.text('w00 w01 w02 w03 w04 w05');
     const short = {

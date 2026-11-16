@@ -9,6 +9,8 @@ describe('template CSS values', () => {
     expect(lengthToCssPx('72pt')).toBe('96px');
     expect(lengthToCssPx('10mm')).toBe(`${String(10 * MM_TO_CSS_PX)}px`);
     expect(lengthToCssPx('1cm')).toBe(`${String(10 * MM_TO_CSS_PX)}px`);
+    expect(lengthToCssPx('1pc')).toBe('16px');
+    expect(lengthToCssPx('4Q')).toBe(`${String(MM_TO_CSS_PX)}px`);
     expect(lengthToCssPx(' 12px ')).toBe('12px');
     expect(lengthToCssPx('-3px')).toBe('0px');
     expect(lengthToCssPx('2em')).toBeNull();

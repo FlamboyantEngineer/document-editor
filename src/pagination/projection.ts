@@ -58,12 +58,14 @@ import {
   runCommand,
   send,
   type Session,
+  settleTyping,
   showCanonical,
   shownBy,
   showsNewerSelection,
   take,
 } from './projection-session.js';
 import { cellSelectionDecorations } from './selection-mirror.js';
+import { createTypingProbe } from './typing-probe.js';
 
 /** A canonical transaction as the projection applied it: the state it was applied to, and made. */
 export interface CanonicalChange {
@@ -286,7 +288,13 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
     cells: holdCellSelection(),
     counts: { refused: 0, relaid: 0 },
     ghost,
-    edits: settleEdits(options, () => requestLayout(session())),
+    edits: settleEdits(options, () => settleTyping(session())),
+    probe: createTypingProbe(options.measureIn, {
+      view: () => session().view,
+      scale: options.scale,
+      moved: () => requestLayout(session()),
+      schedule: options.schedule,
+    }),
     pace: {
       counter: createPaginationCounter(cache),
       readiness: createLayoutReadiness({ schedule, onChange: options.onLayoutStateChange }),
@@ -380,6 +388,7 @@ export function createPagedProjection(options: PagedProjectionOptions): PagedPro
       live.cancelLayout?.();
       live.edits.cancel();
       live.pace.readiness.destroy();
+      live.probe.stop();
       live.ghost.destroy();
     },
   };

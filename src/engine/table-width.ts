@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Mapping } from 'prosemirror-transform';
 import { fitColumns } from '../model/layout/column-widths.js';
+import { changedNodes } from '../utils/changed-ranges.js';
 import { isRemoteTransaction } from './transaction-kind.js';
 
 export { fitColumns };
@@ -64,7 +65,7 @@ export function createTableWidth({
       // Where each table was before the changes, to tell the columns that grew.
       const back = new Mapping(transactions.flatMap((each) => each.mapping.maps)).invert();
       const tr = after.tr;
-      after.doc.descendants((node, pos) => {
+      changedNodes(after.doc, transactions, (node, pos) => {
         if (node.type.spec.tableRole !== 'table') return !node.isTextblock;
         const max = maxWidth(
           (after.doc.resolve(pos).node(1).attrs.sectionName as string | null) ?? null,

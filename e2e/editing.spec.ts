@@ -250,15 +250,23 @@ test.describe('editing lab', () => {
     await expect(pageBreak).toHaveCount(0);
   });
 
-  test('DOCE-EDITING-2.6 starts a new page after the block, and selects only the body', async ({
+  test('DOCE-EDITING-2.6 DOCE-PAGINATION-2.4 starts a new page after the block, taking no height, and selects only the body', async ({
     lab,
     page,
   }) => {
     await lab.open('editing');
     await caretIn(scopeConditions(page));
     await page.keyboard.press('ControlOrMeta+Alt+Enter');
-    await expect(page.locator('.lab-pages hr[data-page-break]')).toHaveCount(1);
+    const pageBreak = page.locator('.lab-pages hr[data-page-break]');
+    await expect(pageBreak).toHaveCount(1);
     await expect(endsPage(page)).toHaveAttribute('data-page-break', 'manual');
+    // A marker only: the break takes none of the page's height.
+    expect(
+      await pageBreak.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return [element.getBoundingClientRect().height, style.marginTop, style.marginBottom];
+      }),
+    ).toEqual([0, '0px', '0px']);
     await page.keyboard.press('ControlOrMeta+a');
     const selected = await page.evaluate(() => window.getSelection()?.toString() ?? '');
     expect(selected.startsWith('Scope')).toBe(true);

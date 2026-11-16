@@ -112,6 +112,7 @@ export function createLayoutRules({
     ordered_list: LIST,
     list_item: { split: splitListItem },
     figure: KEEPS_WITH_HEADING,
+    embed: KEEPS_WITH_HEADING,
     math_display: KEEPS_WITH_HEADING,
     table: { keepsWithHeading: true, split: splitTableWith(repeatTableHeader) },
     code_block: CODE,
