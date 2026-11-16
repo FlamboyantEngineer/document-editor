@@ -39,11 +39,13 @@ import {
 } from '../../engine/index.js';
 import type { FontsAdapter, VariablesAdapter } from '../../host/index.js';
 import {
+  findTemplateSection,
   type FragmentRules,
   joinDocumentPages,
   type LayoutRules,
   resolveFootnoteSettings,
   type TemplateFile,
+  templatePageMetrics,
   type TemplatePartChange,
 } from '../../model/index.js';
 import {
@@ -57,6 +59,7 @@ import {
   pageVariablesKey,
   type PaginationStats,
 } from '../../pagination/index.js';
+import type { DocumentEditorDebug } from './document-editor.js';
 import {
   fragmentRulesOf,
   type LayoutRunner,
@@ -73,7 +76,14 @@ export type DocumentLayout = 'page' | 'web';
 // The plugins the layout adds to the editor's own, reading the options as they are now.
 function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plugin[] {
   return [
-    createPageDebug({ shown: () => latest.current.debug ?? {} }),
+    createPageDebug({
+      shown: () => latest.current.debug ?? {},
+      sheet: (section) => {
+        const { template } = latest.current;
+        const name = section.attrs.sectionName as string | null;
+        return templatePageMetrics(template, findTemplateSection(template, name));
+      },
+    }),
     createListStarts(),
     createPageVariables({ value: (key) => latest.current.variables?.value(key) }),
     createDynamicTemplates({ value: (key) => latest.current.variables?.value(key) }),
@@ -153,8 +163,8 @@ export interface DocumentLayoutOptions {
   readonly onStateChange: (update: RichTextStateUpdate) => void;
   /** The older version the document is compared with, and how its changes show. */
   readonly compare: DocumentComparison | null;
-  /** Shows the pages' layout for debugging (DOCE-PAGINATION-7.4). */
-  readonly debug?: PageDebugParts | undefined;
+  /** Shows the pages' layout for debugging (DOCE-PAGINATION-7.4), and takes its trace. */
+  readonly debug?: DocumentEditorDebug | undefined;
   /** Tells of each change of the layout state; the web layout is always settled. */
   readonly onLayoutStateChange?: ((state: LayoutState) => void) | undefined;
   /**

@@ -354,10 +354,10 @@ Verification: `e2e/pagination.spec.ts`
 
 ### DOCE-PAGINATION-7.4 - Layout debugging
 
-Each layout shall keep what each page's blocks take of the height it has for them, and each block's own height (`pageMetrics(state)`, `PageMetric`, from `layoutDocument`'s `onPage`), until the next change. `createPageDebug({ shown })` shall show the parts `shown` names (`PageDebugParts`): with `pages`, each page carries the height its blocks take and the height left (`data-debug-used`, `data-debug-free`); with `blocks`, each block on a page carries its measured height (`data-debug-height`). The document editor's `debug` shows them (DOCE-EDITOR-6.13).
+Each layout shall keep, until the next change, how each page was filled (`pageMetrics(state)`, `PageMetric`, from `layoutDocument`'s `onPage`): the height it has for its blocks, what they take with facing margins collapsed (`used`) and with every margin counted (`stacked`), the room its header, footer and footnote area take, and each block's height and where it starts below the content's top (`tops`). `createPageDebug({ shown, sheet })` shall show the parts `shown` names (`PageDebugParts`), every length with three decimals (`debugLength`): with `pages`, each page carries its sheet's and its content's width and height when `sheet` gives its section's sheet (`PageDebugSheet`), its header's and footer's room, what its blocks take, collapsed and stacked, the height left and the device pixel ratio of the window it is drawn in (`data-debug-paper`, `data-debug-content`, `data-debug-header`, `data-debug-footer`, `data-debug-used`, `data-debug-stacked`, `data-debug-free`, `data-debug-dpr`); with `blocks`, each region of a page and each block on it carries its node type (`data-debug-type`), and each block its measured height and top (`data-debug-height`, `data-debug-top`), and `data-debug-overflow` when it reaches below the page's room. The document editor's `debug` shows them (DOCE-EDITOR-6.13).
 
 Implementation: `src/pagination/layout-marks.ts`, `src/pagination/layout-document.ts`, `src/pagination/page-debug.ts`, `src/components/document-editor/use-document-layout.ts`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `src/pagination/page-debug.test.ts`, `e2e/document-editor.spec.ts`
 
 ### DOCE-PAGINATION-7.5 - Stats
 
@@ -463,6 +463,13 @@ Text typed on the pages shall be offered to the canonical plugins (DOCE-PAGINATI
 
 Implementation: `src/pagination/canonical-plugins.ts`, `src/pagination/projection-session.ts`, `src/pagination/page-variables.ts`, `src/components/document-editor/use-paged-projection.ts`
 Verification: `src/pagination/projection-view.test.ts`, `src/pagination/page-variables.test.ts`, `src/components/document-editor/document-editor.test.tsx`
+
+### DOCE-PAGINATION-7.20 - The layout's trace
+
+Given `trace` (`LayoutTraceSink`), a projection shall write a line for each event while the sink gives where it goes (`LayoutTrace`), and write nothing, nor make its values, while it gives none. A `render` line tells of what draws the pages: a layout (`layout`, with the layouts so far, the pages and how long it took), a canonical change mirrored onto the pages (`mirror`) and a change refused and drawn again (`refuse`); a `trace` line of scheduling: a layout asked for (`layout.request`), an edit left to settle (`settle`), a layout skipped during composition (`layout.skip`) and one that fails because layouts did not converge (`layout.fail`). Each line is the event followed by its values as `key=value` pairs under short keys (`traceLine`), a number that is not whole with three decimals. The document editor's `debug.trace` receives it (DOCE-EDITOR-6.13).
+
+Implementation: `src/pagination/layout-trace.ts`, `src/pagination/projection-session.ts`, `src/components/document-editor/start-paging.ts`
+Verification: `src/pagination/layout-trace.test.ts`
 
 ## DOCE-PAGINATION-8 - Page headers and footers
 

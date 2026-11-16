@@ -10,7 +10,7 @@
 
 import { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -35,6 +35,7 @@ import {
   readDocumentFile,
   resolveTemplateFile,
 } from '../../src/model/index.js';
+import type { LayoutTrace } from '../../src/pagination/index.js';
 import { AgentPanel } from './agent-panel.js';
 import { startCollaborators } from './collaborators.js';
 import { HOST_CONTEXT_MENU, isLockedParagraph } from './host-context-menu.js';
@@ -122,7 +123,15 @@ const DEBUG_PARTS = [
   { part: 'pages', label: 'Layout debugging' },
   { part: 'blocks', label: 'Block heights' },
   { part: 'measure', label: 'Measuring view' },
+  { part: 'source', label: 'Page source' },
 ] as const;
+
+// The layout's trace as a host would print it, its latest lines in the lab's trace output.
+function writeLabTrace(output: HTMLElement | null, { kind, line }: LayoutTrace) {
+  if (!output) return;
+  const lines = [...(output.textContent ?? '').split('\n').filter(Boolean), `[${kind}] ${line}`];
+  output.textContent = lines.slice(-12).join('\n');
+}
 
 // The people the lab's mentions find, as a host's mentions adapter would.
 const LAB_PEOPLE = [
@@ -145,6 +154,13 @@ function Lab() {
   const [toolbar, setToolbar] = useState(true);
   const [scrollable, setScrollable] = useState(true);
   const [debug, setDebug] = useState<DocumentEditorDebug>({});
+  const [tracing, setTracing] = useState(false);
+  const traceOutput = useRef<HTMLPreElement>(null);
+  const shownDebug = useMemo<DocumentEditorDebug>(
+    () =>
+      tracing ? { ...debug, trace: (entry) => writeLabTrace(traceOutput.current, entry) } : debug,
+    [debug, tracing],
+  );
   const [statusBar, setStatusBar] = useState(true);
   const [selectionToolbar, setSelectionToolbar] = useState(false);
   const [slashMenu, setSlashMenu] = useState(false);
@@ -269,6 +285,15 @@ function Lab() {
           <label>
             <input
               type="checkbox"
+              name="debug-trace"
+              checked={tracing}
+              onChange={(event) => setTracing(event.currentTarget.checked)}
+            />{' '}
+            Layout trace
+          </label>
+          <label>
+            <input
+              type="checkbox"
               name="status-bar"
               checked={statusBar}
               onChange={(event) => setStatusBar(event.currentTarget.checked)}
@@ -334,7 +359,8 @@ function Lab() {
         placeholderText={slashMenu ? { emptyLine: 'Type / to insert a block' } : undefined}
         formattingMarks={formattingMarks}
         caretBlock={caretBlock}
-        debug={debug}
+        debug={shownDebug}
+        onDebugChange={setDebug}
         statusBar={statusBar && (hostItems ? HOST_STATUS_BAR : true)}
         lead={hostItems ? <p className="lab-lead">Sample document · draft</p> : undefined}
         placeholder={<p>Laying out the pages…</p>}
@@ -367,6 +393,7 @@ function Lab() {
           onMounted: setView,
         }}
       />
+      {tracing ? <pre ref={traceOutput} className="lab-trace" aria-label="Layout trace" /> : null}
     </>
   );
 }
