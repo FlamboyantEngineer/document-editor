@@ -55,7 +55,7 @@ test.describe('template workspace lab', () => {
     await lab.open('template-workspace');
     await toolbar(page).getByRole('button', { name: 'Save as…' }).click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByRole('textbox', { name: 'Id' })).toHaveValue('report-copy');
+    await expect(dialog.getByRole('textbox', { name: 'Id' })).toHaveValue('report_copy');
     await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(dialog).toBeHidden();
     await expect(nameField(page)).toHaveValue('Copy of Report');

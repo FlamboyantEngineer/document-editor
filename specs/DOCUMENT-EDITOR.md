@@ -152,10 +152,10 @@ Verification: `src/components/document-editor/copy-link.test.ts`, `src/component
 
 ### DOCE-EDITOR-4.1 - Toolbar
 
-`toolbar` shall show the editor's toolbar (`de-document-editor__toolbar`, a toolbar named by the `toolbar` label) above the document: undo and redo, the text style of the selected blocks (paragraph or heading 1 to 6), bold, italic, underline, strikethrough, code, superscript and subscript, a link (DOCE-EDITOR-4.5), bulleted and numbered lists, a table of the size picked in a grid (`insertTable`), a page break, and the objects of DOCE-EDITOR-4.5, each control an icon named by its label. The text style field (`de-document-editor__block-style`) names each style in the style it sets (`de-document-editor__style-preview`, with `data-block-style`), reading the template's `--doc-paragraph-*` and `--doc-heading-<level>-*` properties, which each preview carries since the list opens outside the editor, but not its size; the field itself publishes the style at the selection (`data-block-style`, `custom` for a custom style), so the closed field shows it in its look too; each built-in style lists its shortcut (Ctrl+Shift+0 for the paragraph, Ctrl+Shift+1 to 6 for the headings), as the menubar's Format menu does. Formats and lists are pressed while they hold for the selection, a pressed list lifts its items out, every control is disabled while its command cannot run or the document is read, and a pointer press keeps focus in the document.
+`toolbar` shall show the editor's toolbar (`de-document-editor__toolbar`, a toolbar named by the `toolbar` label) above the document: undo and redo, the text style of the selected blocks (paragraph, the document title (`titleStyle`, a level 1 heading marked as the title and drawn in the template's title style) or heading 1 to 6), bold, italic, underline, strikethrough, code, superscript and subscript, a link (DOCE-EDITOR-4.5), bulleted and numbered lists, a table of the size picked in a grid (`insertTable`), a page break, and the objects of DOCE-EDITOR-4.5, each control an icon named by its label. The text style field (`de-document-editor__block-style`) names each style in the style it sets (`de-document-editor__style-preview`, with `data-block-style`), reading the template's `--doc-paragraph-*` and `--doc-heading-<level>-*` properties, which each preview carries since the list opens outside the editor, but not its size; the field itself publishes the style at the selection (`data-block-style`, `custom` for a custom style), so the closed field shows it in its look too; each built-in style lists its shortcut (Ctrl+Shift+0 for the paragraph, Ctrl+Shift+1 to 6 for the headings), as the menubar's Format menu does. Formats and lists are pressed while they hold for the selection, a pressed list lifts its items out, every control is disabled while its command cannot run or the document is read, and a pointer press keeps focus in the document.
 
 Implementation: `src/components/document-editor/document-toolbar.tsx`, `src/components/document-editor/document-editor.tsx`
-Verification: `e2e/document-editor.spec.ts`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/toolbar-items.test.ts`
 
 ### DOCE-EDITOR-4.2 - Scrolling frame
 
@@ -194,7 +194,7 @@ Verification: `src/components/document-editor/figure-paste.test.ts`, `src/compon
 
 ### DOCE-EDITOR-4.7 - Adding sections
 
-While the template has sections a writer may add (`insertable`), the toolbar's insert group shall offer them in a Section menu, by label, each started after the caret's block (`insertDocumentSection`, DOCE-SECTIONS-2.1).
+While the template has sections a writer may add (`insertable`), the toolbar's insert group shall offer them in a Section menu, by label, each added where the template places it (`insertTemplateSection`, DOCE-SECTIONS-2.5), and disabled once the document has it.
 
 Implementation: `src/components/document-editor/insert-controls.tsx`
 Verification: `e2e/sections.spec.ts`
@@ -338,6 +338,13 @@ On pages, the document (`de-document-editor__body`, the host's chrome inside it 
 
 Implementation: `src/components/document-editor/first-layout.tsx`, `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/editor-body.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/first-layout.test.tsx`, `src/components/document-editor/editor-surface.test.tsx`
+
+### DOCE-EDITOR-4.28 - No pages without the template fonts
+
+On pages, when the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, before the pages are first shown, the first layout shall fail (DOCE-EDITOR-4.27): the document stays covered and blocked, the `fontsFailed` label naming those families stands in place of `layoutFailed`, `onLayoutFailed` is called once and a given `loadProgress` fails. Fonts that load later, such as with another template, show the pages.
+
+Implementation: `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-surface.tsx`, `src/components/document-editor/banner-labels.ts`
+Verification: `src/components/document-editor/editor-surface.test.tsx`
 
 ## DOCE-EDITOR-5 - Status bar
 
@@ -627,7 +634,7 @@ Verification: `src/components/document-editor/banners.test.tsx`
 
 ### DOCE-EDITOR-7.3 - Fonts that did not load
 
-When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing.
+When the host's `fonts` adapter settles without some of the families the template names (DOCE-PAGINATION-5.6), failed or timed out, after the pages were first shown (before, the pages are not shown, DOCE-EDITOR-4.28), the editor shall show a `warning` banner (`fonts-missing`, `fontsMissing`) naming them and saying the pages show a fallback font. Dismissed, it stays hidden until other families are missing.
 
 Implementation: `src/components/document-editor/banners.tsx`, `src/components/document-editor/document-editor.tsx`
 Verification: `src/components/document-editor/banners.test.tsx`
@@ -638,6 +645,13 @@ Banners that come or go while the reader presses a pointer inside the editor, as
 
 Implementation: `src/components/document-editor/banners.tsx`
 Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-7.5 - A newer template version
+
+While the writer can edit and the editor's `session` names a newer saved revision of the document's template (`document`, its `pin` and `templateUpdate`, DOCE-SESSION-1.5), the editor shall show an `info` banner (`template-update`, `templateUpdated`) whose action (`updateTemplate`) moves the document to that revision (`setTemplate`) and, once the editor is shown the new template, brings the sections the writer cannot edit in line with it (`syncTemplateSections`), in one step for the reader. A session without them offers nothing.
+
+Implementation: `src/components/document-editor/template-update-banner.tsx`, `src/components/document-editor/banners.tsx`, `src/components/document-editor/save-status-item.tsx`
+Verification: `src/components/document-editor/banners.test.tsx`
 
 ## DOCE-EDITOR-8 - Side panels
 

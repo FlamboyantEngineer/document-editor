@@ -69,6 +69,13 @@ Verification: `src/engine/math-input.test.ts`, `src/components/document-editor/o
 Implementation: `src/engine/figure-defaults.ts`, `src/components/document-editor/use-document-layout.ts`
 Verification: `src/engine/figure-defaults.test.ts`
 
+### DOCE-OBJECTS-1.10 - Equation numbers
+
+Each display equation in the pages' content shall count as an equation (the `equation` counter, restarted as the template says) and show its number, as the template's equation numbering formats it (`--doc-equation-counter-content`, `(` and the number and `)` without one), at its line's end, as lists of equations and references number it.
+
+Implementation: `labs/reference/document.css`, `src/engine/math-views.ts`
+Verification: `e2e/math-input.spec.ts`
+
 ## DOCE-OBJECTS-2 - Captions
 
 ### DOCE-OBJECTS-2.1 - A caption's text

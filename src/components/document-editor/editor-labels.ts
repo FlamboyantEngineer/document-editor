@@ -17,6 +17,8 @@ export interface DocumentEditorLabels
   readonly redo: string;
   readonly blockType: string;
   readonly paragraph: string;
+  /** The document title's text style, a top-level heading in the template's title style. */
+  readonly titleStyle: string;
   /** Names a heading level, such as `Heading 2`. */
   readonly heading: (level: number) => string;
   readonly bold: string;
@@ -38,6 +40,8 @@ export interface DocumentEditorLabels
   readonly noMatches: string;
   /** The button on an empty line that opens the slash menu. */
   readonly insertBlock: string;
+  /** The button on the pages that adds a template section the document lacks, given its name. */
+  readonly addSection: (name: string) => string;
   /** Names the menu `@` opens in the text. */
   readonly mentionMenu: string;
   /** Shown in the mention menu while the host finds nobody for what was typed. */
@@ -137,6 +141,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   redo: 'Redo',
   blockType: 'Text style',
   paragraph: 'Paragraph',
+  titleStyle: 'Title',
   heading: (level) => `Heading ${String(level)}`,
   bold: 'Bold',
   italic: 'Italic',
@@ -153,6 +158,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   slashMenu: 'Insert',
   noMatches: 'No matches',
   insertBlock: 'Insert block',
+  addSection: (name) => `Add ${name}`,
   mentionMenu: 'People',
   noPeople: 'No people found',
   cut: 'Cut',

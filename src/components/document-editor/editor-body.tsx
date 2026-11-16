@@ -100,7 +100,7 @@ function useBodyViewProps({
   const { editable = true, assets, feedback, onCopyLink } = props;
   const scripts = Boolean(props.scriptRunner);
   const host = useHostViewProps(props);
-  const decorations = useWritingDecorations(props, labels.insertBlock);
+  const decorations = useWritingDecorations(props, labels);
   return useMemo(() => {
     const images = figurePasteOptions({ assets, feedback }, labels);
     return {

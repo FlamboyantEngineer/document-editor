@@ -11,9 +11,10 @@ import type { EditorView } from 'prosemirror-view';
 import { useMemo } from 'react';
 import { insertTable, replaceTrigger, shortcutsOf, type TriggerMatch } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
+import { blockStyles } from './block-styles.js';
 import type { EditorContext } from './editor-context.js';
 import type { InsertFeatures } from './insert-controls.js';
-import { blockStyles, builtInToolbarGroups } from './toolbar-controls.js';
+import { builtInToolbarGroups } from './toolbar-controls.js';
 import { isItemEnabled, type ToolbarGroup, type ToolbarItem } from './toolbar-items.js';
 import { type MenuKeys, TriggerMenu, useTriggerMatch } from './trigger-menu.js';
 

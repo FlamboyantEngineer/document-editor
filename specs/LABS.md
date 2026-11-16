@@ -213,3 +213,10 @@ Each section shall lay out on pages of its template section's size and orientati
 
 Implementation: `labs/src/regression/regression-documents.ts`
 Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.11 - Template styles in the reference stylesheet
+
+The reference stylesheet shall draw what a template sets as properties: table body rows in the odd and even row backgrounds; each caption's label and number in the caption label style and its text in the text style, each falling back to the other and then to the paragraph's; footnote entries in the footnote text style (colour, weight, style and alignment), the template's entry spacing apart, each number in the marker style followed by the numbering suffix; and each display equation's number at its line's end (DOCE-OBJECTS-1.10).
+
+Implementation: `labs/reference/document.css`
+Verification: `e2e/regression.spec.ts`

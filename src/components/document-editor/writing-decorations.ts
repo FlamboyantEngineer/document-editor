@@ -9,8 +9,9 @@ import { Mapping, StepMap } from 'prosemirror-transform';
 import { type Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { useMemo } from 'react';
 import { documentCounts } from '../../engine/index.js';
-import { documentRegions } from '../../model/index.js';
+import { documentRegions, type TemplateFile } from '../../model/index.js';
 import { viewOnlyInline, viewOnlyNode, viewOnlyWidget } from '../../utils/view-only-decorations.js';
+import { type SectionInsertButtons, sectionInsertDecorations } from './section-insert-buttons.js';
 
 /** The hints the editor shows where there is no text yet. */
 export interface PlaceholderOptions {
@@ -25,6 +26,8 @@ interface WritingDecorationOptions {
   readonly placeholder?: PlaceholderOptions | undefined;
   /** The button before the empty line holding the caret that types the slash menu's `/`. */
   readonly insertButton?: { readonly label: string } | undefined;
+  /** The buttons on the pages that add the template sections the document lacks. */
+  readonly sectionButtons?: SectionInsertButtons | undefined;
   readonly formattingMarks?: boolean | undefined;
   readonly caretBlock?: boolean | undefined;
 }
@@ -182,13 +185,17 @@ function spaceDecorations() {
 export function writingDecorations(
   options: WritingDecorationOptions,
 ): ((state: EditorState) => DecorationSet) | null {
-  const { placeholder, insertButton, formattingMarks = false, caretBlock = false } = options;
-  if (!placeholder && !insertButton && !formattingMarks && !caretBlock) return null;
+  const { placeholder, insertButton, sectionButtons, formattingMarks = false } = options;
+  const { caretBlock = false } = options;
+  if (!placeholder && !insertButton && !sectionButtons && !formattingMarks && !caretBlock) {
+    return null;
+  }
   const spaces = formattingMarks ? spaceDecorations() : null;
   return (state) => {
     const base = spaces ? spaces(state.doc) : DecorationSet.empty;
     const extra = [
       ...(insertButton ? insertButtonDecorations(state, insertButton.label) : []),
+      ...(sectionButtons ? sectionInsertDecorations(state, sectionButtons) : []),
       ...(placeholder ? placeholderDecorations(state, placeholder) : []),
       ...(caretBlock ? caretBlockDecorations(state) : []),
     ];
@@ -204,22 +211,28 @@ export function useWritingDecorations(
     readonly caretBlock?: boolean | undefined;
     readonly slashMenu?: boolean | { readonly emptyLineButton?: boolean | undefined } | undefined;
     readonly editable?: boolean | undefined;
+    readonly suggesting?: boolean | undefined;
+    readonly template?: TemplateFile | undefined;
   },
-  insertLabel: string,
+  labels: { readonly insertBlock: string; readonly addSection: (name: string) => string },
 ) {
   const { placeholderText: placeholder, formattingMarks, caretBlock, editable = true } = props;
   const document = typeof placeholder === 'string' ? placeholder : placeholder?.document;
   const emptyLine = typeof placeholder === 'string' ? undefined : placeholder?.emptyLine;
   const insert =
     editable && typeof props.slashMenu === 'object' && props.slashMenu.emptyLineButton === true;
+  // Sections are added only while the writer edits the document, not while suggesting.
+  const template = editable && !props.suggesting ? props.template : undefined;
+  const { insertBlock, addSection } = labels;
   return useMemo(
     () =>
       writingDecorations({
         placeholder: document || emptyLine ? { document, emptyLine } : undefined,
-        insertButton: insert ? { label: insertLabel } : undefined,
+        insertButton: insert ? { label: insertBlock } : undefined,
+        sectionButtons: template ? { template, label: addSection } : undefined,
         formattingMarks,
         caretBlock,
       }),
-    [document, emptyLine, insert, insertLabel, formattingMarks, caretBlock],
+    [document, emptyLine, insert, insertBlock, template, addSection, formattingMarks, caretBlock],
   );
 }

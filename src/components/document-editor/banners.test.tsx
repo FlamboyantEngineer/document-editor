@@ -13,8 +13,11 @@ import {
   type StoredNode,
   type TemplateFile,
 } from '../../model/index.js';
+import { FONT_TIMEOUT } from '../../pagination/index.js';
+import type { SessionStatus } from '../../session/status.js';
 import { type DocumentBanner, EDITOR_BANNERS, useReportedFonts } from './banners.js';
 import { DocumentEditor } from './document-editor.js';
+import type { EditorSession } from './save-status-item.js';
 
 const paragraph = (value: string): StoredNode => ({
   type: 'paragraph',
@@ -135,6 +138,59 @@ describe('DocumentBanners', () => {
     // The check waits for the document to rest.
     await act(() => new Promise((resolve) => setTimeout(resolve, 600)));
     expect(screen.queryByRole('region', { name: 'Document notices' })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-7.5 offers a newer template version, moving to it and bringing locked sections in line', async () => {
+    const user = userEvent.setup();
+    const status: SessionStatus = { load: 'ready', save: 'idle', error: null, dirty: false };
+    const newer: TemplateFile = {
+      ...TEMPLATE,
+      sections: [{ name: 'cover', editable: false, content: [paragraph('New cover')] }],
+    };
+    const setTemplate = vi.fn(() => Promise.resolve(true));
+    const document = { pin: { id: 'article' }, templateUpdate: { revision: 'r2', sequence: 2 } };
+    const session: EditorSession = {
+      status: { get: () => status, subscribe: () => () => undefined },
+      save: () => Promise.resolve(),
+      document: { get: () => document, subscribe: () => () => undefined },
+      setTemplate,
+    };
+    function Moving({ template }: { template: TemplateFile }) {
+      const [state, setState] = useState(() => stateWith('Cover text'));
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={template}
+          layout="web"
+          session={session}
+          aria-label="Report"
+        />
+      );
+    }
+    const { rerender } = render(<Moving template={TEMPLATE} />);
+    const region = await screen.findByRole('region', { name: 'Document notices' });
+    expect(region.querySelector('[data-banner="template-update"]')).toBeInTheDocument();
+    await user.click(within(region).getByRole('button', { name: 'Use the newer version' }));
+    expect(setTemplate).toHaveBeenCalledWith({ id: 'article', revision: 'r2' });
+    // The session moved the document: the editor is shown the newer template.
+    rerender(<Moving template={newer} />);
+    expect(await screen.findByText('New cover')).toBeInTheDocument();
+  });
+
+  it('DOCE-PAGINATION-5.6 waits the host timeout for the template fonts, five seconds by default', async () => {
+    const asked: number[] = [];
+    const fonts: FontsAdapter = {
+      load: (families, { timeout }) => {
+        asked.push(timeout);
+        return Promise.resolve({ ok: true, value: [...families] });
+      },
+    };
+    const { result } = renderHook(() => useReportedFonts(fonts, 8000));
+    await act(() => result.current.fonts?.load(['Geist'], { timeout: FONT_TIMEOUT }));
+    const { result: plain } = renderHook(() => useReportedFonts(fonts));
+    await act(() => plain.current.fonts?.load(['Geist'], { timeout: FONT_TIMEOUT }));
+    expect(asked).toEqual([8000, 5000]);
   });
 
   it('DOCE-EDITOR-7.3 reports the template fonts that did not load', async () => {

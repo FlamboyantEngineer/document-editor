@@ -212,6 +212,8 @@ export interface DocumentEditorProps
    * pending until they load, fail or time out (DOCE-PAGINATION-5.6).
    */
   fonts?: FontsAdapter | undefined;
+  /** How long the pages wait for the template's fonts, in milliseconds; `FONT_TIMEOUT` by default. */
+  fontTimeout?: number | undefined;
   /**
    * The host's layout rules by node type, over the library's: how its blocks split and keep
    * together on pages. Other rules lay the pages out again; rules passed inline with the same
@@ -340,7 +342,7 @@ function useEditorLayout(
     events: engine.events,
   });
   const [layoutState, setLayoutState] = useState<LayoutState>('pending');
-  const reported = useReportedFonts(props.fonts);
+  const reported = useReportedFonts(props.fonts, props.fontTimeout);
   const progress = useDocumentLayout(measureIn, {
     ...props,
     fonts: reported.fonts,
@@ -356,7 +358,13 @@ function useEditorLayout(
   });
   const view = usePagedView(progress.paged, engine.view, { state, targetRef: paging.targetRef });
   useVisibleElementsFeed(view, props.onVisibleElementsChange);
-  const firstLayout = useFirstLayout((props.layout ?? 'page') === 'page', layoutState, props);
+  // Pages that wait for template fonts are not shown without them: their first layout fails.
+  const fontsFailed = reported.missing.length > 0;
+  const firstLayout = useFirstLayout(
+    (props.layout ?? 'page') === 'page',
+    fontsFailed ? 'failed' : layoutState,
+    props,
+  );
   // What the surface shows around the document: the fonts that did not load, and the cover.
   const surface = { missingFonts: reported.missing, firstLayout };
   return { progress, view, layoutState, surface };
