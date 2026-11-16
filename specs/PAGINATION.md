@@ -499,6 +499,13 @@ Given `trace` (`LayoutTraceSink`), a projection shall write a line for each even
 Implementation: `src/pagination/layout-trace.ts`, `src/pagination/projection-session.ts`, `src/components/document-editor/start-paging.ts`
 Verification: `src/pagination/layout-trace.test.ts`
 
+### DOCE-PAGINATION-7.21 - Caret keys and clicks across pages
+
+The browser's caret and selection keys and clicks shall act on the whole document across pages, in both layouts: arrows and Shift+arrows across a page boundary, Home and End on the line, Page Up and Page Down, word moves and word deletes, double, triple and Shift clicks; and a read document shall take none of them as an edit. Mod-Home and Mod-End (`createDocumentEditing`) shall put the caret at the document's first and last text, and Shift with them extend the selection there, past an object that holds no caret, such as a list of contents opening the document, and never into a page's header or footer. On pages, a press on the empty space of a page's content below its last block shall put the caret at the end of that page's last text, or extend the selection there with Shift; a page whose content is empty shall first get an empty paragraph, on the canonical state, while the editor is editable and the place is not locked.
+
+Implementation: `src/engine/body-edge.ts`, `src/pagination/page-caret.ts`, `src/pagination/projection.ts`
+Verification: `src/engine/body-edge.test.ts`, `src/pagination/page-caret.test.ts`, `e2e/caret-keys.spec.ts`
+
 ## DOCE-PAGINATION-8 - Page headers and footers
 
 ### DOCE-PAGINATION-8.1 - Room for headers and footers
