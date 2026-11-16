@@ -54,6 +54,13 @@ export interface DocumentCommentsLabels {
   noComments: string;
   /** Takes the reader to a thread's or a suggestion's text. */
   showInDocument: string;
+  /** Heads the panel's rows of the threads and suggestions shown beside the text. */
+  inDocument: string;
+  /** Names a thread's row, and a suggestion's, by who wrote it. */
+  threadRow: (name: string) => string;
+  suggestionRow: (name: string) => string;
+  /** Says the text a row's thread or suggestion is on. */
+  onText: (text: string) => string;
   /** Says the reader's reply is being posted. */
   posting: string;
   /** Says someone is writing a reply, or one is being written for the reader. */
@@ -108,6 +115,10 @@ export const DEFAULT_COMMENTS_LABELS: DocumentCommentsLabels = {
   filterMine: 'Mine',
   noComments: 'No comments.',
   showInDocument: 'Show in document',
+  inDocument: 'In the document',
+  threadRow: (name) => `Comment by ${name}`,
+  suggestionRow: (name) => `Suggestion by ${name}`,
+  onText: (text) => `on “${text}”`,
   posting: 'Posting your reply…',
   typing: (name) => `${name} is typing…`,
   replying: (name) => `${name} is replying…`,

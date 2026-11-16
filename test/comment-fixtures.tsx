@@ -136,6 +136,8 @@ export function Harness(props: {
           store={comments}
           documentId="doc"
           identity={identity}
+          // Full cards, unless a test asks for the rows of the threads the margin shows.
+          anchoredAs="cards"
           {...(typeof props.panel === 'object' ? props.panel : {})}
         />
       ) : null}
