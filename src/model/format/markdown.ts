@@ -1,11 +1,13 @@
 // A stored document as Markdown, with GitHub's tables, strikethrough and footnotes: its headings,
-// paragraphs, lists, quotes, code, math, tables and figures, its suggestions accepted or rejected,
+// paragraphs, lists, quotes, code, math, tables and figures, its lists of abbreviations as tables,
+// its suggestions accepted or rejected,
 // and its footnotes as numbered definitions at the end. Formats Markdown lacks, such as underline,
 // superscript and subscript, are written as HTML. A host may add a title and front matter before
 // the text, and its comment threads and a list of the suggestions after it.
 
 import type { DocumentFile } from './document-format.js';
 import type { SuggestionsMode } from './left-out.js';
+import { citedAbbreviations } from './markdown/abbreviations.js';
 import {
   type MarkdownThread,
   type PersonName,
@@ -41,12 +43,13 @@ export interface MarkdownOptions {
 
 /** A stored document as Markdown, its footnotes defined at the end. */
 export function writeMarkdown(file: DocumentFile, options: MarkdownOptions = {}): string {
+  const content = file.sections.flatMap((section) => section.content);
   const writing: Writing = {
     suggestions: options.suggestions ?? 'accepted',
     values: options.values ?? {},
     footnotes: [],
+    abbreviations: citedAbbreviations(content),
   };
-  const content = file.sections.flatMap((section) => section.content);
   const frontMatter = options.frontMatter ? frontMatterOf(options.frontMatter) : null;
   const title = options.title?.trim()
     ? `# ${escapeHeadingEnd(escapeText(options.title.trim()))}`
