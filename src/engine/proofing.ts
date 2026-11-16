@@ -104,6 +104,11 @@ export interface ProofingState {
   /** The rules the reader turned off. */
   readonly disabledRules: ReadonlySet<string>;
   readonly status: ProofingStatus;
+  /**
+   * Why a proofer did not answer the latest check, as it said (its error's `reason`, such as
+   * `timeout` or `not-configured`), or null.
+   */
+  readonly reason: string | null;
   readonly decorations: DecorationSet;
   /** Whether the latest change to the document came from elsewhere (`isRemote`). */
   readonly remoteChange: boolean;
@@ -126,6 +131,7 @@ export type ProofingMeta =
   | {
       readonly results: ReadonlyMap<string, readonly SourcedIssue[]>;
       readonly status: ProofingStatus;
+      readonly reason?: string | null | undefined;
     }
   | { readonly ignore: string }
   | { readonly ignoreOnce: string }
@@ -253,7 +259,7 @@ const adding = <T>(set: ReadonlySet<T>, value: T) => new Set([...set, value]);
 function applyMeta(meta: ProofingMeta, value: ProofingState, doc: ProseMirrorNode): ProofingState {
   if ('results' in meta) {
     const results = keepResults(doc, value.results, meta.results);
-    return decorate(doc, { ...value, results, status: meta.status });
+    return decorate(doc, { ...value, results, status: meta.status, reason: meta.reason ?? null });
   }
   if ('ignore' in meta) {
     return decorate(doc, { ...value, ignored: adding(value.ignored, meta.ignore) });
@@ -272,7 +278,7 @@ function applyMeta(meta: ProofingMeta, value: ProofingState, doc: ProseMirrorNod
   }
   // A new language, or a new check, starts every text over.
   const language = 'language' in meta ? meta.language : value.language;
-  return decorate(doc, { ...value, language, results: new Map(), status: 'ready' });
+  return decorate(doc, { ...value, language, results: new Map(), status: 'ready', reason: null });
 }
 
 // The issues' marks moved through a change, without those whose text it changed, which wait for
@@ -348,6 +354,7 @@ export function createProofing(options: ProofingOptions): Plugin<ProofingState> 
         results: new Map(),
         ignoredOnce: new Set(),
         status: 'ready',
+        reason: null,
         decorations: DecorationSet.empty,
         remoteChange: false,
         flash: null,

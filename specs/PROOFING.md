@@ -41,10 +41,10 @@ Verification: `src/engine/proofing.test.ts`, `src/engine/proofing-options.test.t
 
 ### DOCE-PROOFING-1.6 - Several proofers and their status
 
-`proofer` may be several proofers: each checks every batch, and their issues are marked together, each remembering its proofer. A proofer that fails marks nothing, and the state's `status` says whether all proofers answered the latest check (`ready`), some (`degraded`) or none (`unavailable`); its texts count as checked, and `recheckProofing` checks every text again. A change `isRemote` reports, such as a collaborator's, never aborts a running check.
+`proofer` may be several proofers: each checks every batch, and their issues are marked together, each remembering its proofer. A proofer that fails marks nothing, and the state's `status` says whether all proofers answered the latest check (`ready`), some (`degraded`) or none (`unavailable`), and its `reason` why one did not, as the proofer's error says (`reason`, such as `timeout` or `not-configured`); its texts count as checked, and `recheckProofing` checks every text again. A change `isRemote` reports, such as a collaborator's, never aborts a running check.
 
 Implementation: `src/engine/proofing.ts`, `src/engine/proofing-view.ts`, `src/engine/proofing-commands.ts`
-Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`
+Verification: `src/engine/proofing.test.ts`, `e2e/proofing.spec.ts`, `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-1.7 - Technical tokens
 

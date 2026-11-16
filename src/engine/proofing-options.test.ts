@@ -222,7 +222,7 @@ describe('proofing options', () => {
     expect(cancel).toHaveBeenCalledOnce();
   });
 
-  it('DOCE-PROOFING-1.2 checks nothing in a blank document and stays usable when a proofer fails', async () => {
+  it('DOCE-PROOFING-1.2 DOCE-PROOFING-1.6 checks nothing in a blank document and stays usable when a proofer fails', async () => {
     const { proofer, checks } = recordingProofer(() => []);
     viewOf(docOf(paragraph(text('   '))), { proofer });
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -231,6 +231,12 @@ describe('proofing options', () => {
     const broken: ProoferAdapter = { check: () => Promise.resolve({} as never) };
     const view = viewOf(docOf(paragraph(text('A teh report.'))), { proofer: broken });
     await vi.waitFor(() => expect(proofingKey.getState(view.state)?.status).toBe('unavailable'));
+    // A proofer saying why it did not answer, such as a timeout, is heard.
+    const late: ProoferAdapter = {
+      check: () => Promise.reject(Object.assign(new Error('Too slow.'), { reason: 'timeout' })),
+    };
+    const timed = viewOf(docOf(paragraph(text('A teh report.'))), { proofer: late });
+    await vi.waitFor(() => expect(proofingKey.getState(timed.state)?.reason).toBe('timeout'));
     view.dispatch(view.state.tr.insertText('!', view.state.selection.from));
     expect(view.dom).toHaveTextContent('!');
   });

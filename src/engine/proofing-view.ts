@@ -117,6 +117,13 @@ function startsOver(next: EditorView, previous: EditorState) {
   return Boolean(now && before && now.results.size === 0 && before.results.size > 0);
 }
 
+// Why the first proofer that failed did: its error's `reason`, when it gives one as text.
+function reasonOf(answers: readonly PromiseSettledResult<unknown>[]): string | null {
+  const failed = answers.find((answer) => answer.status === 'rejected');
+  const reason = (failed?.reason as { reason?: unknown } | undefined)?.reason;
+  return typeof reason === 'string' ? reason : null;
+}
+
 function statusOf(answers: readonly PromiseSettledResult<unknown>[]): ProofingStatus {
   const failed = answers.filter((answer) => answer.status === 'rejected').length;
   if (failed === 0) return 'ready';
@@ -174,7 +181,11 @@ export function proofingView(view: EditorView, options: ProofingOptions): Plugin
     if (running === controller) running = null;
     if (controller.signal.aborted || view.isDestroyed) return;
     readDomSelection(view);
-    const meta = { results: collect(batch, answers), status: statusOf(answers) };
+    const meta = {
+      results: collect(batch, answers),
+      status: statusOf(answers),
+      reason: reasonOf(answers),
+    };
     view.dispatch(view.state.tr.setMeta(proofingKey, meta).setMeta('addToHistory', false));
     // More text than one check takes is checked next.
     schedule(0);
