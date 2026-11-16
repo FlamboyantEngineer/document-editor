@@ -556,3 +556,10 @@ The reference stylesheet shall give a page's header and footer no padding and th
 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/page-regions.spec.ts`
+
+### DOCE-PAGINATION-8.7 - Typing in every page's header and footer
+
+Every page's copy of its section's header and footer shall take the writer's edits, as the copy the canonical document keeps does (the section's first page's header and its last page's footer): a place in any copy shall map to the same place in the kept copy, so typing, keys and commands there reach the canonical state, and every page then shows the edit. The caret shall stay in the copy the writer edits, through the edit and the layout after it.
+
+Implementation: `src/pagination/page-positions.ts`, `src/pagination/selection-mirror.ts`, `src/pagination/projection-layout.ts`
+Verification: `src/pagination/projection-view.test.ts`, `e2e/template-editor.spec.ts`
