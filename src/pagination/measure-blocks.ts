@@ -1,9 +1,8 @@
 // Measures laid-out blocks in an editor view for the page layout: each block's height and margins,
 // where a container's children or a list of contents' rows sit, and, lazily, the height and lines
 // of a text block's text between two offsets. It only reads layout, so measuring a section forces
-// one layout at most. A cache keeps each block's measurement while its node stays, moving it with
-// the node's position. A block whose rendering depends on more than its node, such as a list of
-// contents, says so with a measure key (`data-de-measure-key`), and a changed key measures it again.
+// one layout at most. A cache (measure-cache.ts) keeps each block's measurement while its node
+// stays.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
@@ -16,123 +15,33 @@ import type {
   TextMeasurement,
 } from '../model/index.js';
 import { childElement, elementOf } from './block-elements.js';
+import {
+  cachedBlock,
+  type DrawnBlock,
+  keepBlock,
+  margins,
+  type MeasureCache,
+  type Placement,
+  px,
+} from './measure-cache.js';
 
-/** Measured blocks kept by node, so a block that has not changed is not measured again. */
-export interface MeasureCache {
-  /** Forgets every measurement, as when the width or the styles change. */
-  clear(): void;
-}
-
-interface CacheEntry {
-  block: LayoutBlock;
-  readonly placement: Placement;
-  readonly key: string | undefined;
-  /** Whether its element was first or last among its siblings, which styles may zero margins at. */
-  edges: string;
-}
-
-/** What a cache has served since it was made: blocks found, blocks absent, and blocks measured. */
-interface MeasureCounts {
-  /** Blocks taken from the cache. */
-  hits: number;
-  /** Blocks the cache did not hold. */
-  misses: number;
-  /** Blocks measured in the view: those it did not hold, and those whose measure key changed. */
-  measured: number;
-}
-
-interface CacheStore {
-  entries: WeakMap<ProseMirrorNode, CacheEntry>;
-  readonly counts: MeasureCounts;
-}
-
-const cacheEntries = new WeakMap<MeasureCache, CacheStore>();
-
-/** A cache for measured blocks. */
-export function createMeasureCache(): MeasureCache {
-  const store: CacheStore = {
-    entries: new WeakMap<ProseMirrorNode, CacheEntry>(),
-    counts: { hits: 0, misses: 0, measured: 0 },
-  };
-  const cache: MeasureCache = {
-    clear: () => {
-      store.entries = new WeakMap();
-    },
-  };
-  cacheEntries.set(cache, store);
-  return cache;
-}
-
-/**
- * Forgets the measurement of the block of a page's content that holds a DOM node, such as an image
- * that loaded, so the next layout measures that block alone again. Returns whether one was held.
- */
-export function forgetMeasurement(cache: MeasureCache, view: EditorView, target: Node): boolean {
-  const store = cacheEntries.get(cache);
-  if (!store || !view.dom.contains(target)) return false;
-  let pos: number;
-  try {
-    pos = view.posAtDOM(target, 0);
-  } catch {
-    return false;
-  }
-  const $pos = view.state.doc.resolve(pos);
-  const holders = [
-    $pos.nodeAfter,
-    ...Array.from({ length: $pos.depth + 1 }, (_, d) => $pos.node(d)),
-  ];
-  let forgot = false;
-  for (const node of holders) if (node && store.entries.delete(node)) forgot = true;
-  return forgot;
-}
-
-/** What a cache has served so far; clearing it keeps the counts. */
-export function measureCacheCounts(cache: MeasureCache): Readonly<MeasureCounts> {
-  return { ...(cacheEntries.get(cache)?.counts ?? { hits: 0, misses: 0, measured: 0 }) };
-}
-
-/** The attribute a block's element names what else its rendering depends on with. */
-const MEASURE_KEY = 'deMeasureKey';
-
-// Whether an element is first or last among its siblings, where styles may zero its margins.
-function edgesOf(element: HTMLElement): string {
-  const first = element.previousElementSibling ? '' : 'first';
-  const last = element.nextElementSibling ? '' : 'last';
-  return `${first}|${last}`;
-}
-
-function margins(element: HTMLElement) {
-  const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  return { marginTop: px(style?.marginTop ?? ''), marginBottom: px(style?.marginBottom ?? '') };
-}
-
-// The measurement a cache keeps for a node rendered as it was, moved to the node's position now.
-// A block that became or stopped being the first or last of its siblings reads its margins again,
-// since styles zero the margins at a page's edges.
-function cachedBlock(
-  cache: MeasureCache | undefined,
-  node: ProseMirrorNode,
-  at: { readonly pos: number; readonly element: HTMLElement },
-) {
-  const store = cache ? cacheEntries.get(cache) : undefined;
-  if (!store) return undefined;
-  const entry = store.entries.get(node);
-  if (!entry) store.counts.misses += 1;
-  if (!entry || entry.key !== at.element.dataset[MEASURE_KEY]) return undefined;
-  store.counts.hits += 1;
-  entry.placement.pos = at.pos;
-  const edges = edgesOf(at.element);
-  if (edges !== entry.edges) {
-    entry.edges = edges;
-    entry.block = { ...entry.block, ...margins(at.element) };
-  }
-  return entry.block;
-}
-
-// An image still loading measures provisionally: its block is not kept, so the next layout, which
-// its load asks for, measures it again.
+// Whether a block measures provisionally: an image in it still loads and its box is not fixed by
+// its size attributes or an aspect ratio, so its load may change the block's height. A lazy image
+// loads at once, since the measuring view sits out of sight, where a lazy image never loads.
 function isProvisional(element: HTMLElement): boolean {
-  return [...element.querySelectorAll('img')].some((image) => !image.complete);
+  let provisional = false;
+  for (const image of element.querySelectorAll('img')) {
+    if (image.complete) continue;
+    if (image.getAttribute('loading') === 'lazy') image.setAttribute('loading', 'eager');
+    if (!hasFixedBox(image)) provisional = true;
+  }
+  return provisional;
+}
+
+function hasFixedBox(image: HTMLImageElement): boolean {
+  if (image.getAttribute('width') && image.getAttribute('height')) return true;
+  const ratio = image.ownerDocument.defaultView?.getComputedStyle(image).aspectRatio ?? '';
+  return ratio.includes('/') || Boolean(image.style.aspectRatio) || Boolean(image.style.height);
 }
 
 /** How blocks are measured. */
@@ -143,11 +52,6 @@ export interface MeasureOptions {
   cache?: MeasureCache | undefined;
   /** Layout rules whose `measure` measures their node type in place of the built-in measuring. */
   rules?: LayoutRules | undefined;
-}
-
-// Where a measured block is now; its lazy measurements read positions through it.
-interface Placement {
-  pos: number;
 }
 
 const CONTAINER_TYPES = new Set([
@@ -167,11 +71,6 @@ interface Measuring {
   readonly scale: number;
   readonly placement: Placement;
   readonly rules: LayoutRules | undefined;
-}
-
-function px(value: string): number {
-  const number = Number.parseFloat(value);
-  return Number.isFinite(number) ? number : 0;
 }
 
 // The distinct lines a range's boxes sit on.
@@ -321,29 +220,20 @@ function measureContent(measuring: Measuring, placed: Placed): unknown {
 }
 
 // A block drawn as an element, measured or taken from the cache.
-function measureDrawn(
-  view: EditorView,
-  { node, pos, element }: { node: ProseMirrorNode; pos: number; element: HTMLElement },
-  options: MeasureOptions,
-): LayoutBlock {
-  const cached = cachedBlock(options.cache, node, { pos, element });
+function measureDrawn(view: EditorView, at: DrawnBlock, options: MeasureOptions): LayoutBlock {
+  const cached = cachedBlock(options.cache, at);
   if (cached) return cached;
+  const { node, pos, element } = at;
   const scale = options.scale && options.scale > 0 ? options.scale : 1;
   const measuring = { view, scale, placement: { pos }, rules: options.rules };
+  const provisional = isProvisional(element);
   const block: LayoutBlock = {
     node,
     height: element.getBoundingClientRect().height / scale,
     ...margins(element),
     measurement: measureContent(measuring, { node, relative: 0 }),
   };
-  const store = options.cache ? cacheEntries.get(options.cache) : undefined;
-  if (store) {
-    store.counts.measured += 1;
-    if (isProvisional(element)) return block;
-    const key = element.dataset[MEASURE_KEY];
-    const edges = edgesOf(element);
-    store.entries.set(node, { block, placement: measuring.placement, key, edges });
-  }
+  keepBlock(options.cache, at, { block, placement: measuring.placement, scale, provisional });
   return block;
 }
 
@@ -358,8 +248,23 @@ export function measureChildBlocks(
   let element: HTMLElement | null = null;
   parent?.forEach((node, offset) => {
     const at = pos + 1 + offset;
-    element = childElement(view, element, { node, pos: at });
-    if (element) blocks.push(measureDrawn(view, { node, pos: at, element }, options));
+    const drawn = childElement(view, element, { node, pos: at });
+    if (drawn) blocks.push(measureDrawn(view, { node, pos: at, element: drawn }, options));
+    else blocks.push(undrawnBlock(view, { node, pos }));
+    element = drawn ?? element;
   });
   return blocks;
+}
+
+// The height a block drawn as no element takes, such as one whose host node view renders none,
+// when its parent's line height says none.
+const UNDRAWN_HEIGHT = 24;
+
+// A block drawn as no element: one line of its parent's text, so it is never left out of the pages.
+function undrawnBlock(view: EditorView, { node, pos }: { node: ProseMirrorNode; pos: number }) {
+  const parent = elementOf(view, pos);
+  const lineHeight = parent
+    ? px(parent.ownerDocument.defaultView?.getComputedStyle(parent).lineHeight ?? '')
+    : 0;
+  return { node, height: lineHeight || UNDRAWN_HEIGHT, marginTop: 0, marginBottom: 0 };
 }

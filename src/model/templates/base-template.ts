@@ -113,7 +113,7 @@ export const BASE_TEMPLATE: Readonly<TemplateFile> = Object.freeze<TemplateFile>
       entry: { weight: 400 },
       padding: { left: '0pt', right: '0pt' },
       spacing: { top: '0pt', bottom: '0pt' },
-      leader: { character: '.' },
+      leader: { character: '.', gapBefore: '3pt', gapAfter: '3pt' },
       levels: LEVEL_INDENTS.map(() => CONTENTS_LEVEL),
     },
   },

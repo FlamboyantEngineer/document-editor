@@ -1,3 +1,4 @@
+import { history, undo } from 'prosemirror-history';
 import type { Node } from 'prosemirror-model';
 import { type Command, EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
@@ -9,6 +10,7 @@ import {
   writeDocumentFile,
 } from '../model/index.js';
 import {
+  createEmptySectionRemoval,
   insertTemplateSection,
   removeEmptyTemplateSections,
   templateSectionInsertPoints,
@@ -106,6 +108,39 @@ describe('template-ordered sections', () => {
     expect(cleaned && run(cleaned, removeEmptyTemplateSections(TEMPLATE))).toBeNull();
     const only = stateOf(read({ name: 'summary', content: [paragraph()] }));
     expect(run(only, removeEmptyTemplateSections(TEMPLATE))).toBeNull();
+  });
+
+  it('DOCE-SECTIONS-2.7 takes out an insertable section the writer empties, in the same undo step', () => {
+    const doc = read(
+      { name: 'body', content: [paragraph('Body')] },
+      { name: 'appendix', content: [paragraph('Gone')] },
+    );
+    const plugins = [history(), createEmptySectionRemoval({ template: () => TEMPLATE })];
+    const state = EditorState.create({ doc, plugins });
+    let gone = -1;
+    doc.descendants((node, pos) => {
+      if (node.isText && node.text === 'Gone') gone = pos;
+    });
+    const after = state.apply(state.tr.delete(gone, gone + 4));
+    expect(outline(after.doc)).toEqual(['body:Body']);
+    let restored = after;
+    undo(after, (tr) => (restored = after.apply(tr)));
+    expect(outline(restored.doc)).toEqual(['body:Body', 'appendix:Gone']);
+    // A section added empty stays, as does one another writer empties.
+    const added = EditorState.create({
+      doc: read({ name: 'body', content: [paragraph('Body')] }),
+      plugins,
+    });
+    const inserted = run(added, insertTemplateSection(TEMPLATE, 'appendix'));
+    expect(inserted && outline(inserted.doc)).toEqual(['body:Body', 'appendix:']);
+    const remote = EditorState.create({
+      doc,
+      plugins: [createEmptySectionRemoval({ template: () => TEMPLATE, isRemote: () => true })],
+    });
+    expect(outline(remote.apply(remote.tr.delete(gone, gone + 4)).doc)).toEqual([
+      'body:Body',
+      'appendix:',
+    ]);
   });
 
   it('DOCE-SECTIONS-2.6 lists the insert points of the insertable sections a document lacks', () => {

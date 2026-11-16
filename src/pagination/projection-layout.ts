@@ -15,7 +15,7 @@ import {
   type SectionPageHeight,
   type SectionReport,
 } from './layout-document.js';
-import type { MeasureCache } from './measure-blocks.js';
+import type { MeasureCache } from './measure-cache.js';
 import { createProjectionMap, type ProjectionMap } from './projection-map.js';
 import { projectionSelection } from './selection-mirror.js';
 

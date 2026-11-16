@@ -627,7 +627,7 @@ Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-e
 
 ### DOCE-EDITOR-7.2 - Out of step with the template
 
-While the writer can edit, once the document has rested for half a second the editor shall check it against its template (`templateSectionDrift`, DOCE-SECTIONS-4.2) and, when sections drifted, show a `warning` banner (`template-drift`, `templateDrift`) naming each section and how it drifted, with an action that brings them back in line (`syncTemplateSections`, `updateFromTemplate`). Dismissed, it stays hidden until the drift changes.
+While the writer can edit and is not suggesting, once the document has rested for half a second the editor shall check it against its template (`templateSectionDrift`, DOCE-SECTIONS-4.2) and, when sections drifted, show a `warning` banner (`template-drift`, `templateDrift`) naming each section by its template label, or its name without one (`templateDriftDetail(drift, nameOf)`), and how it drifted, with an action that brings them back in line (`syncTemplateSections`, `updateFromTemplate`). Dismissed, it stays hidden until the drift changes.
 
 Implementation: `src/components/document-editor/banners.tsx`
 Verification: `src/components/document-editor/banners.test.tsx`

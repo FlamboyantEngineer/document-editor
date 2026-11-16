@@ -4,6 +4,7 @@
 import type { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { type ReferenceTarget, referenceTargets } from '../engine/reference-targets.js';
+import { refreshReferences } from '../engine/references.js';
 import { syncTemplateSections } from '../engine/template-sync.js';
 import {
   type DocumentFile,
@@ -76,7 +77,8 @@ export function validateRequiredSections(
  * A stored document moved to a template, pinned at a revision: its sections brought in line with
  * the template as the editor does (`syncTemplateSections`), so a section the writer cannot edit
  * takes the template's content, a section of a name the template does not have becomes a plain
- * section, and a missing required section is added. Content the schema cannot read is kept as it
+ * section, and a missing required section is added, and its internal references rendered again
+ * as the template formats them (`refreshReferences`). Content the schema cannot read is kept as it
  * was stored.
  */
 export function replaceTemplate(
@@ -84,9 +86,11 @@ export function replaceTemplate(
   { schema, template, revision = null }: ReplaceTemplateOptions,
 ): DocumentFile {
   let state = EditorState.create({ doc: readDocumentFile(file, schema, { unknown: 'keep' }).doc });
-  syncTemplateSections(template)(state, (tr) => {
-    state = state.apply(tr);
-  });
+  for (const command of [syncTemplateSections(template), refreshReferences(template)]) {
+    command(state, (tr) => {
+      state = state.apply(tr);
+    });
+  }
   const pin = revision === null ? { id: template.id } : { id: template.id, revision };
   return writeDocumentFile(state.doc, { template: pin });
 }

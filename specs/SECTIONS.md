@@ -69,6 +69,13 @@ Verification: `src/engine/section-insertion.test.ts`
 Implementation: `src/engine/section-insertion.ts`
 Verification: `src/engine/section-insertion.test.ts`
 
+### DOCE-SECTIONS-2.7 - Emptied sections
+
+`createEmptySectionRemoval({ template, isRemote })`, which the document editor installs, shall take out each insertable section (DOCE-SECTIONS-2.5) that the writer's change leaves holding nothing, one empty text block, in the same undo step as that change, keeping at least one section. A section added empty, and a change from another writer (`isRemote`), shall be left as they are.
+
+Implementation: `src/engine/section-insertion.ts`, `src/engine/figure-defaults.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/engine/section-insertion.test.ts`
+
 ## DOCE-SECTIONS-3 - Sections in the editor
 
 ### DOCE-SECTIONS-3.1 - Pages of a section's scope
@@ -103,24 +110,24 @@ Verification: `e2e/sections.spec.ts`
 
 ### DOCE-SECTIONS-4.1 - Drift
 
-`templateSectionDrift(doc, template)` shall list how a document's sections drifted from its template: each required section it lacks (`missing`), each section of a name the template does not have (`unexpected`), and each section the writer cannot edit whose content is not the template's (`stale`), with the template's tokens read as `readTemplateContent` reads them (`contentsTokens`). Content shall be compared node by node by type, attributes, marks and text, leaving out what is the document's own: each element's identity attributes (DOCE-SCHEMA-2.1) and each script block's output and when it ran, so a script is compared by its script and settings alone.
+`templateSectionDrift(doc, template)` shall list how a document's sections drifted from its template: each required section it lacks (`missing`), each section of a name the template does not have (`unexpected`), and each section the writer cannot edit whose content is not the template's (`stale`), with the template's tokens read as `readTemplateContent` reads them (`contentsTokens`). Content shall be compared node by node by type, attributes, marks and text, leaving out what is the document's own: each element's identity attributes (DOCE-SCHEMA-2.1) and each script block's output and what its run recorded beside it (when it ran, where the output came from and the signatures it carries), so a script is compared by its script and settings alone.
 
 Implementation: `src/engine/template-sync.ts`
 Verification: `src/engine/template-sync.test.ts`
 
 ### DOCE-SECTIONS-4.2 - Bringing sections back in line
 
-`syncTemplateSections(template, options)` shall give each stale section the template's content again, each of its script blocks keeping the output and run time of the section's script block of the same script, in order, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it and the plain sections up to the next section the template places after it, with its starting content; it is refused when nothing drifted. The change shall be a system change (`markSystemChange`, DOCE-EDITING-3.2) outside the undo history, so the edit lock on the sections it brings back (DOCE-SECTIONS-4.3) and suggest mode let it pass.
+`syncTemplateSections(template, options)` shall give each stale section the template's content again, each of its script blocks keeping the output and run record of the section's script block of the same script, in order, make each unexpected section a plain one, keeping its content, and add each missing required section after the sections the template places before it and the plain sections up to the next section the template places after it, with its starting content, giving each element it brings without an id one (DOCE-EDITING-1.1); it is refused when nothing drifted. The change shall be a system change (`markSystemChange`, DOCE-EDITING-3.2) outside the undo history, so the edit lock on the sections it brings back (DOCE-SECTIONS-4.3) and suggest mode let it pass.
 
 Implementation: `src/engine/template-sync.ts`, `src/engine/document-sections.ts`
 Verification: `src/engine/template-sync.test.ts`
 
 ### DOCE-SECTIONS-4.3 - Sections the writer cannot edit
 
-`lockedTemplateSections(template)` shall lock every position of a section the template, or the section itself, does not let the writer edit, for an edit lock (`createEditLock`); `anyLock(...locks)` holds where any lock given holds, so a host keeps its own locks beside it.
+`lockedTemplateSections(template)` shall lock every position of a section the writer cannot edit, for an edit lock (`createEditLock`): a section the template has follows the template as it is now, whatever the section stored when it was made, and any other section follows its own setting. `createDocumentSections` shall drop, outside the undo history, the stored lock of each section of the template's that the template now lets the writer edit. `anyLock(...locks)` holds where any lock given holds, so a host keeps its own locks beside it.
 
-Implementation: `src/engine/template-sync.ts`
-Verification: `src/engine/template-sync.test.ts`
+Implementation: `src/engine/template-sync.ts`, `src/engine/document-sections.ts`
+Verification: `src/engine/template-sync.test.ts`, `src/engine/document-sections.test.ts`
 
 ## DOCE-SECTIONS-5 - Headers and footers in place
 

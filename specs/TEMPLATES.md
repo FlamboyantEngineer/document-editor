@@ -41,6 +41,20 @@ Verification: `src/model/templates/template-scopes.test.ts`
 Implementation: `src/model/templates/template-scopes.ts`
 Verification: `src/model/templates/template-scopes.test.ts`
 
+### DOCE-TEMPLATES-2.4 - A default for every setting
+
+`BASE_TEMPLATE` shall set every setting of the template format (`TEMPLATE_SHAPE`) apart from sections, extensions and a reviewed list of settings left unset on purpose, each because it follows another setting or is a template's own choice; a test shall hold the list to the format, so a new setting gets a default or a reviewed reason. Its contents leader shall keep 3pt before and after the leader.
+
+Implementation: `src/model/templates/base-template.ts`
+Verification: `test/fixtures/templates/template-fixtures.test.ts`
+
+### DOCE-TEMPLATES-2.5 - Page region height
+
+`templateProperties` shall write the height a scope's page header or footer fixes (`height`, from the region the section uses, DOCE-FORMAT-3.4), in CSS pixels, as `--doc-page-header-height` and `--doc-page-footer-height`, an explicit zero included, and leave it out when none is set. The reference stylesheet shall keep a region at least that tall, so the pages' text starts at the same place on every page and the pages lay out with the room it takes.
+
+Implementation: `src/model/templates/template-scopes.ts`, `src/model/templates/template-properties.ts`, `labs/reference/document.css`
+Verification: `src/model/templates/template-scopes.test.ts`
+
 ## DOCE-TEMPLATES-3 - Footnotes and captions
 
 ### DOCE-TEMPLATES-3.1 - Footnote settings
@@ -91,7 +105,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.2 - Style properties
 
-`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies. The properties are joined into `style` attributes and a style element, and a template a host loads may not have been validated, so a value that is not of its setting's kind, as validation knows it (DOCE-FORMAT-2.2: a length, a hex color, a font weight, a line height, an alignment), shall be left out too, and text that is not such a value never reaches a style.
+`templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies. The properties are joined into `style` attributes and a style element, and a template a host loads may not have been validated, so a value that is not of its setting's kind, as validation knows it (DOCE-FORMAT-2.2: a length, a color, a font weight, a line height, an alignment), shall be left out too, and text that is not such a value never reaches a style.
 
 Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`, `src/model/templates/template-property-values.ts`
 Verification: `src/model/templates/template-properties.test.ts`
@@ -133,7 +147,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 
 ### DOCE-TEMPLATES-5.8 - Change bar properties
 
-`templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind and left out when it is not a hex color, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
+`templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind and left out when it is not a color, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
 
 Implementation: `src/model/templates/template-properties.ts`
 Verification: `src/model/templates/template-properties.test.ts`
@@ -213,6 +227,13 @@ Verification: `src/engine/template-variables.test.ts`, `src/components/document-
 
 Implementation: `src/model/templates/template-preview.ts`
 Verification: `src/model/templates/template-preview.test.ts`
+
+### DOCE-TEMPLATES-8.7 - Token text on open
+
+`repairVariableTokens(state)` shall give the change that turns each `{{key}}` token a document holds as text into a live variable of that key, wherever its block may hold one and outside code, as typing it does (DOCE-TEMPLATES-8.3), out of the undo history and marked `VARIABLE_TOKENS_REPAIR`, and null when the document holds none. With `repairIds`, the document editor shall run it on the document it opens with, before repairing its element ids (DOCE-EDITING-1.4), and `contentChangeCause` counts it as a repair.
+
+Implementation: `src/engine/variable-tokens.ts`, `src/components/document-editor/use-host-events.ts`
+Verification: `src/engine/variable-tokens.test.ts`, `src/components/document-editor/document-editor.test.tsx`
 
 ## DOCE-TEMPLATES-9 - Template blocks
 

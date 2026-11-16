@@ -17,7 +17,7 @@ import {
   templateSectionDrift,
 } from '../../engine/template-sync.js';
 import type { FontsAdapter } from '../../host/index.js';
-import type { TemplateFile } from '../../model/index.js';
+import { findTemplateSection, type TemplateFile } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { runCommand } from './table-actions.js';
@@ -136,7 +136,10 @@ function useEditorBanners(props: DocumentBannersProps): DocumentBanner[] {
       id: 'template-drift',
       tone: 'warning',
       title: labels.templateDrift,
-      description: labels.templateDriftDetail(drift),
+      description: labels.templateDriftDetail(
+        drift,
+        (name) => findTemplateSection(template, name)?.label || name,
+      ),
       actions: (
         <Button
           size="sm"

@@ -62,6 +62,13 @@ The math views shall write math as it is typed: typing the closing dollar of `$`
 Implementation: `src/engine/math-input.ts`, `src/engine/math-views.ts`, `src/components/document-editor/object-editors.tsx`, `labs/reference/editor-chrome.css`
 Verification: `src/engine/math-input.test.ts`, `src/components/document-editor/object-editors.test.tsx`, `e2e/math-input.spec.ts`
 
+### DOCE-OBJECTS-1.9 - New figures at the template's width
+
+`createFigureDefaults({ template, isRemote })`, which the document editor installs, shall give each figure the writer's change brings in, inserted, pasted or uploaded, without a width or height of its own, its section's default figure width (`styles.figure.defaultWidth`, a section's over the template's), in pixels and in the same undo step. Figures with a size, and a change from another writer (`isRemote`), shall be left as they are.
+
+Implementation: `src/engine/figure-defaults.ts`, `src/components/document-editor/use-document-layout.ts`
+Verification: `src/engine/figure-defaults.test.ts`
+
 ## DOCE-OBJECTS-2 - Captions
 
 ### DOCE-OBJECTS-2.1 - A caption's text

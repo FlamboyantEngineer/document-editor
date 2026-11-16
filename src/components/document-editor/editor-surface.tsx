@@ -113,7 +113,8 @@ function EditorBanners({
       view={view}
       state={context.state}
       template={props.template}
-      editable={context.editable}
+      // A suggesting writer cannot bring the template's sections back, so no drift shows.
+      editable={context.editable && !(props.suggesting ?? false)}
       labels={context.labels}
       banners={props.banners}
       missingFonts={missingFonts}
