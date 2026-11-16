@@ -8,6 +8,7 @@ import {
   bulletLevels,
   headingLevels,
   numberLevels,
+  type ParagraphContext,
   paragraphLevels,
   type WordLevel,
   writeLevel,
@@ -58,20 +59,26 @@ interface NumberStart {
   readonly start?: number | undefined;
   /** The level that starts from `start`, from 0. */
   readonly startLevel?: number | undefined;
+  /** Levels that replace the definition's, by their place. */
+  readonly replaced?: readonly WordLevel[] | undefined;
 }
 
 /** Records a number for a definition, starting its levels again, and returns its id. */
 function addNumber(
   numbering: WordNumbering,
   definition: number,
-  { levels = 0, start = 1, startLevel = 0 }: NumberStart = {},
+  { levels = 0, start = 1, startLevel = 0, replaced = [] }: NumberStart = {},
 ): number {
   const id = numbering.numbers.length + 1;
-  const overrides = Array.from(
-    { length: levels },
-    (_, level) =>
-      `<w:lvlOverride w:ilvl="${String(level)}"><w:startOverride w:val="${String(level === startLevel ? start : 1)}"/></w:lvlOverride>`,
-  ).join('');
+  const overrides = Array.from({ length: levels }, (_, level) => {
+    const own = replaced[level];
+    return [
+      `<w:lvlOverride w:ilvl="${String(level)}">`,
+      `<w:startOverride w:val="${String(level === startLevel ? start : 1)}"/>`,
+      own ? writeLevel(own, level) : '',
+      '</w:lvlOverride>',
+    ].join('');
+  }).join('');
   numbering.numbers.push(
     `<w:num w:numId="${String(id)}"><w:abstractNumId w:val="${String(definition)}"/>${overrides}</w:num>`,
   );
@@ -96,9 +103,17 @@ export function addNumberingScope(
   };
 }
 
-/** Starts the scope's paragraphs counting from 1 again, as after a heading. */
-export function restartParagraphs(numbering: WordNumbering, scope: NumberingScope): void {
-  scope.paragraphs = addNumber(numbering, scope.paragraphDefinition, { levels: 6 });
+/**
+ * Starts the scope's paragraphs counting from 1 again, as after a heading, numbered under it when
+ * its styles and the heading are given.
+ */
+export function restartParagraphs(
+  numbering: WordNumbering,
+  scope: NumberingScope,
+  under?: { styles: TemplateStyles; context: ParagraphContext },
+): void {
+  const replaced = under ? paragraphLevels(under.styles, under.context) : [];
+  scope.paragraphs = addNumber(numbering, scope.paragraphDefinition, { levels: 6, replaced });
 }
 
 /** A numbered list's own number, its level counting from its first item's number. */

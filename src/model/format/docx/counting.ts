@@ -2,7 +2,7 @@
 // of the document's structure, and the objects the template numbers, each scope by its own styles,
 // restarting where a section restarts numbering. Captions and equations show these numbers.
 
-import { objectNumberText } from '../../numbering/numbering-text.js';
+import { headingNumberText, objectNumberText } from '../../numbering/numbering-text.js';
 import {
   NUMBERED_OBJECT_KINDS,
   type NumberedObjectKind,
@@ -65,14 +65,28 @@ export function startSectionCounting(
   };
 }
 
-/** Counts a heading of the document's structure at a level, from 1. */
-export function countHeading(counting: Counting, level: number): void {
-  counting.headings[level - 1] = (counting.headings[level - 1] ?? 0) + 1;
-  counting.headings.fill(0, level);
-  for (const kind of NUMBERED_OBJECT_KINDS) {
-    if (counting.objectNumbering[kind].restartLevel === level) counting.objects[kind] = 0;
+/**
+ * Counts a heading of the document's structure at a level, from 1, or only starts the paragraphs
+ * after it counting again for an unnumbered one; the paragraphs after it show its number first.
+ */
+export function countHeading(counting: Counting, level: number, numbered = true): void {
+  let text = '';
+  if (numbered) {
+    counting.headings[level - 1] = (counting.headings[level - 1] ?? 0) + 1;
+    counting.headings.fill(0, level);
+    for (const kind of NUMBERED_OBJECT_KINDS) {
+      if (counting.objectNumbering[kind].restartLevel === level) counting.objects[kind] = 0;
+    }
+    const heading = counting.headingNumbering[level - 1];
+    if (heading) text = headingNumberText(heading.config, counting.headings.slice(0, level));
   }
-  restartParagraphs(counting.numbering, counting.numbers);
+  const separated = Boolean(
+    numbered && counting.headingNumbering[level - 1]?.config.hasTrailingSeparator,
+  );
+  restartParagraphs(counting.numbering, counting.numbers, {
+    styles: counting.styles,
+    context: { depth: level, text, separated },
+  });
 }
 
 /**

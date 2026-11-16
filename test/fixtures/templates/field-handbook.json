@@ -8,8 +8,14 @@
       "numbering": {
         "enabled": false,
         "levels": [
-          null,
           {
+            "format": "1.",
+            "numberIndent": "0pt",
+            "textIndent": "24pt"
+          },
+          {
+            "format": "1.a)",
+            "numberIndent": "12pt",
             "textIndent": "48pt"
           }
         ]

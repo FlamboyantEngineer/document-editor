@@ -6,7 +6,7 @@ import { hasParagraphNumberingText } from '../../numbering/paragraph-numbering.j
 import type { StoredNode } from '../document-format.js';
 import { countHeading } from './counting.js';
 import { inlines } from './inline.js';
-import { numberingProperties, restartParagraphs } from './numbering.js';
+import { numberingProperties } from './numbering.js';
 import { customStyleId, paragraphLevelStyleId } from './styles.js';
 import { escapeXml } from './word-xml.js';
 import type { Writing } from './writing.js';
@@ -69,7 +69,7 @@ export function writeHeading(node: StoredNode, writing: Writing): string {
   } else if (writing.structural) {
     // An unnumbered heading takes no number and moves no heading or object counter, but the
     // paragraphs after it count from 1 again, as after any heading.
-    restartParagraphs(writing.counting.numbering, writing.counting.numbers);
+    countHeading(writing.counting, level, false);
   }
   if (custom) {
     const outline = `<w:outlineLvl w:val="${String(level - 1)}"/>`;

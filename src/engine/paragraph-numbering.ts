@@ -1,20 +1,25 @@
 // Numbered paragraphs: where a template numbers paragraphs, each top-level paragraph of the body
 // with text takes the next number at its level, counted through the document and its pages, and
 // shown before it (`data-paragraph-number`) with its level's indentation, in every view it runs in.
-// The counters start again under each heading, and where a section restarts numbering.
+// The counters start again under each heading, whose number the paragraphs show before their own,
+// and where a section restarts numbering.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
+import { ReplaceStep } from 'prosemirror-transform';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import {
   advanceParagraphCounters,
   findTemplateSection,
   formatCounterValue,
   hasParagraphNumberingContent,
+  headingNumberText,
   normalizeParagraphLevel,
   type NumberingAffixes,
   type NumberingStyleConfig,
   paragraphNumberingIndentationStyle,
+  type ResolvedNumbering,
+  resolveHeadingNumbering,
   resolveParagraphLevelStyle,
   resolveParagraphNumberingConfig,
   sectionRestartsNumbering,
@@ -22,21 +27,36 @@ import {
   templateScopeStyles,
 } from '../model/index.js';
 import { documentSectionsKey } from './document-sections.js';
+import { isInlineTextOnly } from './transaction-kind.js';
+
+/** What a paragraph's number shows besides its own counters. */
+interface ParagraphNumberOptions extends NumberingAffixes {
+  /**
+   * The number of the heading the paragraph is under, with the heading's trailing separator when
+   * its format has one; the paragraph's counters follow it.
+   */
+  context?: string | undefined;
+  /** Whether the context ends in the heading's own trailing separator. */
+  contextSeparated?: boolean | undefined;
+}
 
 /**
- * A paragraph's number, without the space after it: each of its counters in its level's format
- * character, joined by the levels' separators, with the format's trailing separator and the
- * style's prefix and suffix.
+ * A paragraph's number, without the space after it: the heading number it is under, if any, then
+ * each of its counters in its level's format character, joined by the levels' separators, with the
+ * format's trailing separator and the style's prefix and suffix.
  */
 export function paragraphNumberText(
   styleConfig: NumberingStyleConfig,
   parts: readonly number[],
-  { prefix = '', suffix = '' }: NumberingAffixes = {},
+  { prefix = '', suffix = '', context = '', contextSeparated = false }: ParagraphNumberOptions = {},
 ): string {
   const { levels } = styleConfig;
   const last = levels[levels.length - 1];
   if (!last) return '';
-  let text = '';
+  let text = context;
+  // A heading number without a separator of its own takes the paragraph format's.
+  if (context && !contextSeparated && styleConfig.hasTrailingSeparator)
+    text += styleConfig.trailingSeparator;
   parts.forEach((value, index) => {
     const level = levels[index] ?? last;
     text += formatCounterValue(value, level.token);
@@ -55,51 +75,90 @@ export interface NumberedParagraph {
   readonly style: string;
 }
 
-// The counters of a scope of numbering, and the heading level the paragraphs are under.
+// The counters of a scope of numbering: the headings', the paragraphs' and the heading the
+// paragraphs are under, with the number it shows.
 interface Counting {
+  headings: number[];
   counters: number[];
   headingDepth: number;
+  context: { text: string; separated: boolean };
 }
 
-// The paragraph numbering of a page section's scope; null where its template numbers none.
+const freshCounting = (): Counting => ({
+  headings: [0, 0, 0, 0, 0, 0],
+  counters: [],
+  headingDepth: 0,
+  context: { text: '', separated: false },
+});
+
+// The paragraph and heading numbering of a page section's scope; paragraphs null where its
+// template numbers none.
 function sectionNumbering(template: TemplateFile, section: ProseMirrorNode) {
   const scope = findTemplateSection(template, section.attrs.sectionName as string | null);
-  const config = resolveParagraphNumberingConfig(templateScopeStyles(template, scope).paragraph);
+  const styles = templateScopeStyles(template, scope);
+  const config = resolveParagraphNumberingConfig(styles.paragraph);
   const numbers = (config.styleConfig?.levels.length ?? 0) > 0;
-  return { config: numbers ? config : null, restarts: sectionRestartsNumbering(scope) };
+  return {
+    config: numbers ? config : null,
+    headings: resolveHeadingNumbering(styles),
+    restarts: sectionRestartsNumbering(scope),
+  };
+}
+
+// Counts a heading, as the stylesheet counts it, and makes its number the paragraphs' context. An
+// unnumbered heading starts the paragraphs' counters again but gives them no number to follow.
+function countHeading(
+  node: ProseMirrorNode,
+  counting: Counting,
+  headings: readonly ResolvedNumbering[],
+) {
+  const level = Math.min(6, Math.max(1, Number(node.attrs.level) || 1));
+  counting.counters = [];
+  counting.headingDepth = level;
+  counting.context = { text: '', separated: false };
+  if (node.attrs.numbered === false) return;
+  counting.headings[level - 1] = (counting.headings[level - 1] ?? 0) + 1;
+  counting.headings.fill(0, level);
+  const numbering = headings[level - 1];
+  if (!numbering) return;
+  const text = headingNumberText(numbering.config, counting.headings.slice(0, level));
+  counting.context = { text, separated: numbering.config.hasTrailingSeparator };
 }
 
 /**
  * Every numbered paragraph of a document, in order: the top-level paragraphs of the body, with
- * text, in sections whose template numbers paragraphs.
+ * text, in sections whose template numbers paragraphs, each after the number of the heading it is
+ * under.
  */
 export function numberedParagraphs(
   doc: ProseMirrorNode,
   template: TemplateFile,
 ): NumberedParagraph[] {
   const found: NumberedParagraph[] = [];
-  const counting: Counting = { counters: [], headingDepth: 0 };
+  let counting = freshCounting();
   doc.forEach((section, sectionOffset) => {
     if (section.type.name !== 'page_section') return;
-    const { config, restarts } = sectionNumbering(template, section);
-    if (restarts) Object.assign(counting, { counters: [], headingDepth: 0 });
+    const { config, headings, restarts } = sectionNumbering(template, section);
+    if (restarts) counting = freshCounting();
     section.descendants((node, offset) => {
       const name = node.type.name;
       if (name === 'page' || name === 'page_content') return true;
-      if (name === 'heading' && !node.attrs.docTitle) {
-        counting.counters = [];
-        counting.headingDepth = Number(node.attrs.level) || 1;
-      }
+      if (name === 'heading' && !node.attrs.docTitle) countHeading(node, counting, headings);
       if (name !== 'paragraph' || !config) return false;
       if (!hasParagraphNumberingContent(node)) return false;
       const level = normalizeParagraphLevel(node.attrs.paragraphLevel);
       const levelStyle = resolveParagraphLevelStyle(config, level, counting.headingDepth);
       const parts = advanceParagraphCounters(counting.counters, level);
+      const { context } = counting;
       const text = levelStyle.styleConfig
-        ? paragraphNumberText(levelStyle.styleConfig, parts, config)
+        ? paragraphNumberText(levelStyle.styleConfig, parts, {
+            ...config,
+            context: context.text,
+            contextSeparated: context.separated,
+          })
         : '';
       if (text) {
-        const style = paragraphNumberingIndentationStyle(levelStyle, level);
+        const style = paragraphNumberingIndentationStyle(levelStyle, { level, label: text });
         found.push({ pos: sectionOffset + 1 + offset, level, text, style });
       }
       return false;
@@ -121,6 +180,22 @@ function decorate(doc: ProseMirrorNode, template: TemplateFile): DecorationSet {
   return DecorationSet.create(doc, decorations);
 }
 
+/**
+ * Whether a change only types or deletes text and leaves every block it types in earning a number
+ * as before (DOCE-NUMBERING-3.3): the numbers stay, so the plugin skips its walk over the document.
+ */
+function keepsNumbering(tr: Transaction): boolean {
+  if (!isInlineTextOnly(tr)) return false;
+  return tr.steps.every((step, index) => {
+    const before = tr.docs[index];
+    const after = tr.docs[index + 1] ?? tr.doc;
+    if (!before || !(step instanceof ReplaceStep)) return false;
+    const block = before.resolve(step.from).parent;
+    const typed = after.resolve(step.getMap().map(step.from)).parent;
+    return hasParagraphNumberingContent(block) === hasParagraphNumberingContent(typed);
+  });
+}
+
 /** Marks a transaction that numbers the paragraphs again, as after the template changed. */
 export const paragraphNumberingKey = new PluginKey<DecorationSet>('paragraph-numbering');
 
@@ -132,7 +207,8 @@ export interface ParagraphNumberingOptions {
 /**
  * Numbers the paragraphs where the template numbers them (`numberedParagraphs`), in every view it
  * runs in, so the pages measure the numbers too; again after a change of the document, or of the
- * template, which restyles the sections.
+ * template, which restyles the sections. Typing that leaves every block earning a number as before
+ * keeps the numbers (`keepsNumbering`).
  */
 export function createParagraphNumbering({
   template,
@@ -141,10 +217,12 @@ export function createParagraphNumbering({
     key: paragraphNumberingKey,
     state: {
       init: (_config, state) => decorate(state.doc, template()),
-      apply: (tr, value) =>
-        tr.docChanged || tr.getMeta(paragraphNumberingKey) || tr.getMeta(documentSectionsKey)
-          ? decorate(tr.doc, template())
-          : value,
+      apply: (tr, value) => {
+        if (tr.getMeta(paragraphNumberingKey) || tr.getMeta(documentSectionsKey))
+          return decorate(tr.doc, template());
+        if (!tr.docChanged) return value;
+        return keepsNumbering(tr) ? value.map(tr.mapping, tr.doc) : decorate(tr.doc, template());
+      },
     },
     props: { decorations: (state) => paragraphNumberingKey.getState(state) ?? null },
   });

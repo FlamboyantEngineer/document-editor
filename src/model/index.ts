@@ -60,12 +60,13 @@ export {
   ROMAN_COUNTER_STYLE_CSS,
 } from './numbering/numbering-format.js';
 export * from './numbering/numbering-text.js';
-export type { ParagraphLevelStyle } from './numbering/paragraph-numbering.js';
+export type { ParagraphLevelStyle, ParagraphNumberPlace } from './numbering/paragraph-numbering.js';
 export {
   advanceParagraphCounters,
   hasParagraphNumberingContent,
   hasParagraphNumberingText,
   paragraphNumberingIndentationStyle,
+  paragraphNumberWidth,
   resolveParagraphLevelStyle,
 } from './numbering/paragraph-numbering.js';
 export * from './pagination/container-split.js';

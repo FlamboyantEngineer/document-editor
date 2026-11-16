@@ -5,6 +5,7 @@ import {
   type TemplateFile,
   templatePageMetrics,
   templateProperties,
+  type TemplateStyles,
 } from '../index.js';
 
 const A4_WIDTH = (210 * 96) / 25.4;
@@ -284,5 +285,17 @@ describe('template properties', () => {
     expect(prefixOnly['--doc-ol-counter-content']).toBe(
       '"#" counter(ordered-list, decimal) "." " "',
     );
+  });
+
+  it('DOCE-TEMPLATES-10.10 numbers a list without a format of its own like heading 1', () => {
+    const ordered = (styles: TemplateStyles) =>
+      templateProperties({ formatVersion: 1, id: 'lists', styles })['--doc-ol-counter-content'];
+    expect(ordered({ list: { bullet: 'disc' }, heading1: { numbering: { format: 'A.' } } })).toBe(
+      'counter(ordered-list, upper-alpha) "." " "',
+    );
+    expect(ordered({ list: { format: 'i)' }, heading1: { numbering: { format: 'A.' } } })).toBe(
+      'counter(ordered-list, de-lower-roman) ")" " "',
+    );
+    expect(ordered({ list: { bullet: 'disc' } })).toBeUndefined();
   });
 });

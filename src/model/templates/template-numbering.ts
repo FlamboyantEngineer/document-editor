@@ -49,13 +49,32 @@ export function resolveHeadingNumbering(styles: TemplateStyles): ResolvedNumberi
   );
 }
 
+/** The label an object's number shows when its numbering sets no prefix. */
+export const DEFAULT_OBJECT_LABELS: Readonly<Record<NumberedObjectKind, string>> = {
+  figure: 'Figure ',
+  table: 'Table ',
+  codeBlock: 'Code Block ',
+  equation: 'Eq. ',
+};
+
+// An object's numbering: a format it leaves unset counts the objects one by one, and a prefix it
+// leaves unset is its kind's label. An empty format, or `enabled: false`, numbers nothing.
+function objectResolved(
+  numbering: NumberingSettings | null | undefined,
+  kind: NumberedObjectKind,
+): ResolvedNumbering {
+  const format = numbering?.format ?? '1';
+  const own = resolved({ ...numbering, format });
+  return { ...own, prefix: numbering?.prefix ?? DEFAULT_OBJECT_LABELS[kind] };
+}
+
 // An equation's number sits inside its wrapper, so a prefix or suffix that repeats it drops it.
 function equationNumbering(styles: TemplateStyles): ResolvedNumbering {
   const equation = styles.equation;
   const wrapper = equation?.wrapper ?? '()';
   const open = wrapper.slice(0, 1);
   const close = wrapper.length > 1 ? wrapper.slice(-1) : '';
-  const { config, prefix, suffix } = resolved(equation?.numbering);
+  const { config, prefix, suffix } = objectResolved(equation?.numbering, 'equation');
   const inner = {
     prefix: open && prefix.startsWith(open) ? prefix.slice(1) : prefix,
     suffix: close && suffix.endsWith(close) ? suffix.slice(0, -1) : suffix,
@@ -63,13 +82,16 @@ function equationNumbering(styles: TemplateStyles): ResolvedNumbering {
   return { config, prefix: open + inner.prefix, suffix: inner.suffix + close };
 }
 
-/** An object kind's numbering. */
+/**
+ * An object kind's numbering: one by one with its kind's label (`DEFAULT_OBJECT_LABELS`) for what
+ * its numbering leaves unset.
+ */
 export function resolveObjectNumbering(
   styles: TemplateStyles,
   kind: NumberedObjectKind,
 ): ObjectNumbering {
   const numbering =
-    kind === 'equation' ? equationNumbering(styles) : resolved(styles[kind]?.numbering);
+    kind === 'equation' ? equationNumbering(styles) : objectResolved(styles[kind]?.numbering, kind);
   const depth = Math.max(0, numbering.config.levels.length - 1);
   return { ...numbering, restartLevel: depth >= 1 && depth <= 6 ? depth : null };
 }
