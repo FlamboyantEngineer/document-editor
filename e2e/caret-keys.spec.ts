@@ -62,11 +62,10 @@ test.describe('caret keys across pages', () => {
     expect((await blocks(page, last).last().textContent())?.endsWith('Qz')).toBe(true);
     // Shift extends the selection from where it stands to the first text.
     await page.keyboard.press('ControlOrMeta+Shift+Home');
+    await expect.poll(async () => (await selection(page)).selected).toMatch(/Qa[\s\S]*Qz/);
     const all = await selection(page);
     expect(all.anchor.page).toBe(last);
     expect(all.focus.page).toBe(0);
-    expect(all.selected).toContain('Qa');
-    expect(all.selected).toContain('Qz');
   });
 
   test('DOCE-PAGINATION-7.21 selects across a page boundary with Shift+ArrowUp and Shift+click', async ({
@@ -79,9 +78,9 @@ test.describe('caret keys across pages', () => {
     await clickInto(page, into, 'first', 2);
     await page.keyboard.press('Home');
     await page.keyboard.press('Shift+ArrowUp');
+    await expect.poll(async () => (await selection(page)).focus.page).toBe(into - 1);
     const up = await selection(page);
     expect(up.anchor.page).toBe(into);
-    expect(up.focus.page).toBe(into - 1);
     expect(up.selected.length).toBeGreaterThan(0);
     // Shift+click from one page to the next selects everything between.
     const from = blocks(page, 0).filter({ hasText: 'Each requirement' }).last();
@@ -93,9 +92,9 @@ test.describe('caret keys across pages', () => {
     await page.keyboard.down('Shift');
     await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 8);
     await page.keyboard.up('Shift');
+    await expect.poll(async () => (await selection(page)).focus.page).toBe(1);
     const clicked = await selection(page);
     expect(clicked.anchor.page).toBe(0);
-    expect(clicked.focus.page).toBe(1);
     expect(clicked.selected.length).toBeGreaterThan(20);
   });
 
@@ -118,8 +117,7 @@ test.describe('caret keys across pages', () => {
     expect(text.startsWith('[')).toBe(false);
     expect(text.indexOf('[')).toBeLessThan(text.indexOf(']'));
     await page.keyboard.press('PageDown');
-    const down = await selection(page);
-    expect(down.focus.page).toBeGreaterThanOrEqual(1);
+    await expect.poll(async () => (await selection(page)).focus.page).toBeGreaterThanOrEqual(1);
     await page.keyboard.press('ControlOrMeta+Home');
     await page.keyboard.type('alpha beta gamma');
     await page.keyboard.press('ControlOrMeta+Backspace');
@@ -143,11 +141,12 @@ test.describe('caret keys across pages', () => {
     const box = await paragraph.boundingBox();
     if (!box) throw new Error('The paragraph is not shown.');
     await page.mouse.dblclick(box.x + 40, box.y + 8);
-    expect((await selection(page)).selected).toBe('requirement');
+    await expect.poll(async () => (await selection(page)).selected).toBe('requirement');
     // A pause, so the triple click starts a click sequence of its own.
     await page.waitForTimeout(800);
     await page.mouse.click(box.x + 40, box.y + 8, { clickCount: 3 });
-    expect((await selection(page)).selected.trim()).toBe((await paragraph.textContent())?.trim());
+    const whole = (await paragraph.textContent())?.trim();
+    await expect.poll(async () => (await selection(page)).selected.trim()).toBe(whole);
     await page.keyboard.type('Replaced');
     // The shorter paragraph may move to the page before.
     await expect
@@ -175,8 +174,7 @@ test.describe('caret keys across pages', () => {
     await page.mouse.click(box.x + 2, box.y + 8);
     await page.keyboard.press('Home');
     await page.keyboard.press('Shift+ArrowRight');
-    const one = await selection(page);
-    expect(one.selected).toBe('E');
+    await expect.poll(async () => (await selection(page)).selected).toBe('E');
     await page.keyboard.press('Delete');
     await expect(paragraph).toHaveText(/^ach requirement/);
     await page.keyboard.press('Delete');
@@ -250,7 +248,7 @@ test.describe('caret keys across pages', () => {
     await paragraph.click();
     await page.keyboard.press('ControlOrMeta+End');
     await page.keyboard.press('ControlOrMeta+Shift+Home');
-    expect((await selection(page)).selected.length).toBeGreaterThan(1000);
+    await expect.poll(async () => (await selection(page)).selected.length).toBeGreaterThan(1000);
     await page.keyboard.press('ControlOrMeta+Home');
     await page.keyboard.type('Qw');
     await expect(content(page).locator('h1, p').first()).toHaveText(/^Qw/);
@@ -270,7 +268,7 @@ test.describe('caret keys across pages', () => {
     await page.keyboard.down('Shift');
     await page.mouse.click((box?.x ?? 0) + 40, (box?.y ?? 0) + 8);
     await page.keyboard.up('Shift');
-    expect((await selection(page)).selected.length).toBeGreaterThan(20);
+    await expect.poll(async () => (await selection(page)).selected.length).toBeGreaterThan(20);
     for (const key of ['Delete', 'Backspace', 'Enter', 'ControlOrMeta+Home', 'PageDown', 'x']) {
       await page.keyboard.press(key);
     }
