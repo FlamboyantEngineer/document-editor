@@ -16,7 +16,7 @@ import type {
 } from '../src/components/template-editor/template-settings.js';
 
 type FieldKind =
-  'text' | 'points' | 'number' | 'color' | 'font' | 'check' | 'toggle' | 'segment' | 'select';
+  'text' | 'points' | 'number' | 'color' | 'combobox' | 'check' | 'toggle' | 'segment' | 'select';
 
 /** One setting to set: where its field is, what kind it is, and the value. */
 export interface SettingStep {
@@ -63,7 +63,7 @@ const SIDES: Readonly<Record<string, string>> = {
 // The field of a style's part, by its key below the style.
 function styleField(key: string, value: unknown): Field | null {
   const fields: Readonly<Record<string, Field>> = {
-    font: { label: 'Font', kind: 'font', value },
+    font: { label: 'Font', kind: 'combobox', value },
     size: { label: 'Size', kind: 'points', value },
     weight: { label: 'Bold', kind: 'toggle', value: Number(value) >= 600 },
     italic: { label: 'Italic', kind: 'toggle', value },
@@ -76,7 +76,7 @@ function styleField(key: string, value: unknown): Field | null {
     indentation: { label: 'Indentation', kind: 'text', value },
     'numbering.enabled': { label: 'Numbered', kind: 'check', value },
     'numbering.prefix': { label: 'Before the number', kind: 'text', value },
-    'numbering.format': { label: 'Numbering', kind: 'text', value },
+    'numbering.format': { label: 'Numbering', kind: 'combobox', value },
     'numbering.suffix': { label: 'After the number', kind: 'text', value },
   };
   return fields[key] ?? null;
@@ -97,8 +97,10 @@ function settingField(setting: TemplateSetting, value: unknown): Field {
     case 'number':
     case 'points':
     case 'color':
-    case 'font':
       return { label: setting.label, kind: kind.type, value };
+    case 'font':
+    case 'numbering':
+      return { label: setting.label, kind: 'combobox', value };
     default:
       return { label: setting.label, kind: 'text', value };
   }
@@ -298,8 +300,15 @@ export async function setField(scope: Locator, step: SettingStep): Promise<void>
       );
     case 'color':
       return typeIn(scope.getByRole('textbox', { name: label, exact: true }), String(value));
-    case 'font': {
-      await scope.getByRole('combobox', { name: label, exact: true }).fill(String(value));
+    case 'combobox': {
+      const field = scope.getByRole('combobox', { name: label, exact: true });
+      // An empty value is typed and taken back, so the template has its own empty value. The
+      // list a typed text opens is closed each time, since it hides the rest of the panel.
+      if (value === '') {
+        await field.fill('1');
+        await page.keyboard.press('Escape');
+      }
+      await field.fill(String(value));
       await page.keyboard.press('Escape');
       return;
     }
