@@ -669,7 +669,7 @@ Verification: `src/components/document-editor/banners.test.tsx`, `e2e/document-e
 
 ### DOCE-EDITOR-7.6 - A newer template version
 
-While the writer can edit and the editor's `session` names a newer saved revision of the document's template (`document`, its `pin` and `templateUpdate`, DOCE-SESSION-1.5), the editor shall show an `info` banner (`template-update`, `templateUpdated`) whose action (`updateTemplate`) moves the document to that revision (`setTemplate`) and, once the editor is shown the new template, brings the sections the writer cannot edit in line with it (`syncTemplateSections`), in one step for the reader. A session without them offers nothing.
+While the writer can edit and the editor's `session` names a newer saved revision of the document's template (`document`, its `pin` and `templateUpdate`, DOCE-SESSION-1.5), the editor shall show an `info` banner (`template-update`, `templateUpdated`) whose action (`updateTemplate`) moves the document to that revision (`setTemplate`) and, once the editor is shown the new template, brings the sections the writer cannot edit in line with it (`syncTemplateSections`) and renders its internal references again as the new revision formats them (`refreshReferences`), in one step for the reader. In a shared room these changes reach the other writers as the mover's edits, once. A session without them offers nothing.
 
 Implementation: `src/components/document-editor/template-update-banner.tsx`, `src/components/document-editor/banners.tsx`, `src/components/document-editor/save-status-item.tsx`
 Verification: `src/components/document-editor/banners.test.tsx`

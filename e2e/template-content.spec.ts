@@ -74,6 +74,26 @@ test.describe('template content lab', () => {
       .toContain('"key":"document.name"');
   });
 
+  test('DOCE-SECTIONS-5.4 shows the cells of a borderless footer table by a dashed guide while editing', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-content');
+    await expect(
+      page.locator('.de-document-editor [data-template-editing="true"]').first(),
+    ).toBeAttached();
+    const footers = content(page).locator('.pm-page-footer');
+    await expect(footers.first()).toHaveAttribute('contenteditable', 'true');
+    const cell = footers.first().locator('td', { hasText: 'Issued' });
+    // No border, and a dashed guide while the template is edited.
+    expect(
+      await cell.evaluate((element) => {
+        const computed = getComputedStyle(element);
+        return [computed.borderTopStyle, computed.outlineStyle];
+      }),
+    ).toEqual(['none', 'dashed']);
+  });
+
   test('DOCE-SECTIONS-5.3 runs the toolbar inside headers and template content', async ({
     lab,
     page,
