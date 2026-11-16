@@ -38,15 +38,9 @@ import {
 } from './layout-document.js';
 import { createLayoutReadiness, type LayoutState } from './layout-readiness.js';
 import type { LayoutTraceSink } from './layout-trace.js';
-import {
-  awaitReady,
-  forgetRemeasured,
-  frameIn,
-  remeasureOn,
-  settleEdits,
-} from './layout-triggers.js';
+import { awaitReady, followMeasuring, frameIn, settleEdits } from './layout-triggers.js';
 import { checkDrawnPages, checkDraws } from './layout-validation.js';
-import { createMeasureCache } from './measure-blocks.js';
+import { createMeasureCache } from './measure-cache.js';
 import { pageChromeDecorations } from './page-chrome.js';
 import { createPaginationCounter, type PaginationStats } from './pagination-stats.js';
 import { canonicalCellAt, projectionKeys } from './projection-input.js';
@@ -320,9 +314,10 @@ function startSession(options: PagedProjectionOptions, session: () => Session): 
 
 // What the projection's measuring asks: measure the blocks that changed size again, and lay out.
 function remeasureGhost(live: Session): () => void {
-  return remeasureOn(live.options.measureIn, (change) => {
-    forgetRemeasured(live.cache, live.ghost.view, change);
-    requestLayout(live);
+  return followMeasuring(live.options.measureIn, {
+    cache: live.cache,
+    view: () => live.ghost.view,
+    request: () => requestLayout(live),
   });
 }
 

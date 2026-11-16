@@ -2,13 +2,14 @@
 // pause, and reloads from the store. The controls slow the store down, fail the next save, have
 // another writer save or change a block, which the session merges or asks about, turn automatic
 // saves off, hide the page, reopen the session and leave it, which the unsaved-changes guard
-// confirms. The editor's status bar shows the save status, with Retry.
+// confirms. The load shows its measured progress until the pages are first laid out, and the
+// editor's status bar shows the save status, with Retry.
 
 import {
   UnsavedChangesGuard,
   useUnsavedChangesGuard,
 } from '@flamboyantengineer/ui-components/unsaved-changes-guard';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DocumentEditor,
@@ -22,7 +23,7 @@ import {
 } from '../../src/components/index.js';
 import { createMemoryHost, type MemoryHost } from '../../src/host/index.js';
 import type { DocumentFile, StoredNode } from '../../src/model/index.js';
-import type { DocumentSession } from '../../src/session/index.js';
+import { createLoadProgress, type DocumentSession } from '../../src/session/index.js';
 import { heading, text } from './lab-document.js';
 import { markReadyWhenSettled } from './lab-ready.js';
 
@@ -182,19 +183,29 @@ function OpenDocument(props: Omit<ControlsProps, 'session'>) {
     mode: 'store',
     autosaveDelay: props.autosave ? 800 : NEVER,
   });
+  // Each opening has its own load; one given up, as the lab reopens, never moves the next.
+  const [progress] = useState(() => createLoadProgress());
+  useEffect(() => () => progress.cancel(), [progress]);
   if (!session) return null;
   return (
     <>
       <Controls session={session} {...props} />
       <MergeConflicts session={session} />
+      <SessionLoading session={session} progress={progress} />
       <DocumentSessionBoundary
         session={session}
-        fallback={<SessionLoading session={session} />}
         renderError={(error) => (
           <p role="alert">{`The document did not open: ${error?.kind ?? 'unknown'}`}</p>
         )}
       >
-        {(props) => <DocumentEditor {...props} statusBar aria-label="Sample document" />}
+        {(props) => (
+          <DocumentEditor
+            {...props}
+            loadProgress={progress}
+            statusBar
+            aria-label="Sample document"
+          />
+        )}
       </DocumentSessionBoundary>
     </>
   );

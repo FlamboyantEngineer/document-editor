@@ -15,7 +15,8 @@ import {
   layoutSectionIncrementally,
   type SectionLayout,
 } from './incremental-layout.js';
-import { type MeasureCache, measureCacheCounts, measureChildBlocks } from './measure-blocks.js';
+import { measureChildBlocks } from './measure-blocks.js';
+import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
 import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 
 /**

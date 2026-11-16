@@ -59,6 +59,8 @@ interface EditorBodyProps {
   commentRefs: CommentRefs;
   /** The open typed menus' keys, which the document's keys ask first. */
   menuKeys: MenuKeys;
+  /** The pages await or failed their first layout: the document is busy and out of reach. */
+  isBlocked: boolean;
 }
 
 // The editor's own keys beside the document's, by their ids in the shortcut table, while each can
@@ -92,7 +94,7 @@ function useBodyViewProps({
   startCommentRef,
   onDialog,
   menuKeys,
-}: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs'> & {
+}: Omit<EditorBodyProps, 'engine' | 'view' | 'paged' | 'commentRefs' | 'isBlocked'> & {
   startCommentRef: CommentRefs['startCommentRef'];
 }) {
   const { editable = true, assets, feedback, onCopyLink } = props;
@@ -218,6 +220,7 @@ export function EditorBody({
   commentRefs,
   onDialog,
   menuKeys,
+  isBlocked,
 }: EditorBodyProps) {
   const { startCommentRef, openThreadRef } = commentRefs;
   const { state, onStateChange, editable = true, suggesting = false } = props;
@@ -255,7 +258,7 @@ export function EditorBody({
     </RichTextEngineHost>
   );
   return (
-    <div {...hooks.slot('body')}>
+    <div {...hooks.slot('body')} inert={isBlocked} aria-busy={isBlocked || undefined}>
       <SelectionFirst view={engine.view} state={engineProps.state} />
       {props.comments ? (
         <DocumentComments

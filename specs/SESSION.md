@@ -302,7 +302,7 @@ Verification: `src/components/document-editor/save-status-item.test.tsx`
 
 ### DOCE-SESSION-9.4 - Load progress
 
-`SessionLoading` shall show the base library's `LoadingOverlay` while the session opens its document, naming the phase it is in (`connecting`, `loading` or `syncing`, by `DEFAULT_SESSION_LOADING_LABELS` or the host's `labels`), after the host's `delay` when given, and nothing once the document is ready or failed. It is meant as a `DocumentSessionBoundary` fallback.
+`SessionLoading` shall show the base library's `LoadingOverlay` while the session opens its document, naming the phase it is in (`connecting`, `loading` or `syncing`, by `DEFAULT_SESSION_LOADING_LABELS` or the host's `labels`), after the host's `delay` when given, and nothing once the document is ready or failed. It is meant as a `DocumentSessionBoundary` fallback; given `progress`, it follows DOCE-SESSION-9.8 instead.
 
 Implementation: `src/components/document-session/save-status.tsx`
 Verification: `src/components/document-session/save-status.test.tsx`, `e2e/session.spec.ts`
@@ -327,6 +327,13 @@ With a `session` in room mode, the editor's status bar shall show where the room
 
 Implementation: `src/components/document-editor/save-status-item.tsx`, `src/components/document-editor/document-status-bar.tsx`
 Verification: `src/components/document-editor/save-status-item.test.tsx`, `e2e/session-room.spec.ts`
+
+### DOCE-SESSION-9.8 - Measured load progress
+
+`createLoadProgress(weights)` shall keep a load's progress over its phases in order, `connecting`, `loading`, `syncing` and `layout`, each with a fixed weight (`DEFAULT_LOAD_WEIGHTS`, which the host calibrates): a phase's weight is credited once, when it is completed or skipped, in any order, so the estimate (`percent`, a whole number) only grows, holds while a phase stalls and stays at most 99% until `ready()` makes it 100%. The snapshot gives the status (`loading`, `ready`, `failed` or `cancelled`), the first phase still to do, and the phases done of all; once a load is failed or cancelled, nothing changes it, so a load given up for another never moves the new one's progress. Nothing in it waits or moves on its own. Given that `progress`, `SessionLoading` shall complete each session phase as the session moves past it and skip those it never went through (such as connecting, in store mode), fail with a failed load, and show the overlay with the estimate as its bar (`value`, read out by the `estimatedProgress` label, by default `Estimated progress: N%`), the phase still to do as its hint (`layout` by default `Laying out the pages`) and the phases as its counter, until the load is ready, failed or cancelled; the editor given the same `loadProgress` makes it ready with its first settled layout (DOCE-EDITOR-4.27), so the overlay goes over the editor rather than in its place.
+
+Implementation: `src/session/load-progress.ts`, `src/components/document-session/save-status.tsx`, `src/components/document-editor/first-layout.tsx`, `labs/src/session.lab.tsx`
+Verification: `src/session/load-progress.test.ts`, `src/components/document-session/save-status.test.tsx`, `src/components/document-editor/editor-surface.test.tsx`, `e2e/session.spec.ts`
 
 ## Hooks
 

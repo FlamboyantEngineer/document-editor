@@ -80,6 +80,8 @@ export interface DocumentEditorLabels
   readonly statusBar: string;
   /** Names the frame that scrolls the document. */
   readonly viewport: string;
+  /** Shown in place of the pages when they could not be laid out for the first time. */
+  readonly layoutFailed: string;
   /** The page holding the caret, such as `Page 2 of 9`. */
   readonly pageStatus: (page: number, pages: number) => string;
   /** The document's words, or the selection's among them: `1,204 words`, `12 of 1,204 words`. */
@@ -188,6 +190,7 @@ export const DEFAULT_EDITOR_LABELS: DocumentEditorLabels = {
   columnHandle: (column) => `Column ${String(column)}`,
   statusBar: 'Document status',
   viewport: 'Document view',
+  layoutFailed: 'The pages could not be laid out.',
   pageStatus: (page, pages) => `Page ${count.format(page)} of ${count.format(pages)}`,
   wordStatus: (words, selected) => {
     const total = `${count.format(words)} ${words === 1 ? 'word' : 'words'}`;

@@ -7,6 +7,7 @@ import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
+import { createLoadProgress } from '../../session/load-progress.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
 import { OVERVIEW_LAYERS, overviewLayers } from './editor-overview.js';
 
@@ -65,7 +66,21 @@ describe('EditorSurface', () => {
     expect(placeholder).toHaveAttribute('aria-busy', 'true');
     expect(placeholder?.nextElementSibling).toHaveClass('de-document-editor__body');
     await waitFor(() => expect(screen.queryByText('Laying out pages')).not.toBeInTheDocument());
+    expect(container.querySelector('.de-document-editor__body')).not.toHaveAttribute('inert');
     expect(screen.getByRole('heading', { name: 'Quarterly report' })).toBeInTheDocument();
+  });
+
+  it('DOCE-EDITOR-4.27 DOCE-SESSION-9.8 keeps the document busy and out of reach until its pages first settle, then makes the load ready', async () => {
+    const loadProgress = createLoadProgress();
+    const { container } = render(<Harness loadProgress={loadProgress} />);
+    const body = container.querySelector('.de-document-editor__body');
+    expect(body).toHaveAttribute('inert');
+    expect(loadProgress.get().status).toBe('loading');
+    expect(body).toHaveAttribute('aria-busy', 'true');
+    await waitFor(() => expect(body).not.toHaveAttribute('inert'));
+    expect(body).not.toHaveAttribute('aria-busy');
+    expect(loadProgress.get()).toMatchObject({ status: 'ready', percent: 100 });
+    expect(container.firstElementChild).toHaveAttribute('data-layout-state', 'settled');
   });
 
   it('DOCE-EDITOR-4.18 shows no placeholder in the web layout', () => {

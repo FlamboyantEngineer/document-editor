@@ -143,6 +143,13 @@ A list item shall carry `checked`, `null` for a plain item and `true` or `false`
 Implementation: `src/model/schema/core-nodes.ts`, `src/model/format/document-format.ts`
 Verification: `src/engine/checklists.test.ts`
 
+### DOCE-SCHEMA-3.13 - The size an inline SVG figure states
+
+A figure image without a stored width or height whose address is an inline SVG (`data:image/svg+xml`, URL-encoded or base64) shall be written with the width and height its root states, in pixels, or, for a missing side, by its view box's ratio, or the view box itself (`svgIntrinsicSize`), so it is drawn and measured at its size before it loads. The size shall not be stored: the figure reads back without one. A diagram and a figure with a stored size are written as before.
+
+Implementation: `src/model/schema/svg-size.ts`, `src/model/schema/figure-nodes.ts`
+Verification: `src/model/schema/svg-size.test.ts`
+
 ## DOCE-SCHEMA-4 - References
 
 ### DOCE-SCHEMA-4.1 - Format keys
