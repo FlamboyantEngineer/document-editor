@@ -8,7 +8,6 @@ import type {
 import {
   baseKeymap,
   chainCommands,
-  createParagraphNear,
   deleteSelection,
   joinBackward,
   joinForward,
@@ -27,6 +26,7 @@ import {
   type TemplateFile,
   templatePageMetrics,
 } from '../model/index.js';
+import { addParagraphNear, deleteEmptyParagraph } from './block-keys.js';
 import { createChecklists, splitChecklistItem } from './checklists.js';
 import { createClipboard, type PasteFilter } from './clipboard.js';
 import { createCommentAnchors } from './comment-anchors.js';
@@ -53,6 +53,7 @@ import {
   type ShortcutOverrides,
   type ShortcutTable,
 } from './shortcuts.js';
+import { noteSplitSource } from './split-authorship.js';
 import { keepIdentityWithContent } from './split-identity.js';
 import { createTableWidth } from './table-width.js';
 import { createTableEditing } from './tables.js';
@@ -157,7 +158,9 @@ const atFootnoteEdge =
 // Enter over a selected inline node removes it; a selected range of text is left to the split,
 // which replaces it (DOCE-EDITING-2.3).
 const deleteSelectedNode: Command = (state, dispatch) =>
-  state.selection instanceof NodeSelection && deleteSelection(state, dispatch);
+  state.selection instanceof NodeSelection &&
+  state.selection.node.isInline &&
+  deleteSelection(state, dispatch);
 
 /**
  * A document's own keys, ahead of ProseMirror's base keymap: the shortcut table's document actions
@@ -178,11 +181,11 @@ export function documentKeys(
       chainCommands(
         inFootnoteEntry,
         newlineInCode,
-        listKey(splitChecklistItem),
-        createParagraphNear,
+        noteSplitSource(listKey(splitChecklistItem)),
+        addParagraphNear,
         deleteSelectedNode,
         liftEmptyBlock,
-        splitBlockKeepingLevel,
+        noteSplitSource(splitBlockKeepingLevel),
       ),
     ),
     Backspace: chainCommands(
@@ -191,8 +194,15 @@ export function documentKeys(
       deleteEmptyListItem,
       selectAtom(-1),
       joinBackward,
+      deleteEmptyParagraph(-1),
     ),
-    Delete: chainCommands(deleteSelection, atFootnoteEdge(1), selectAtom(1), joinForward),
+    Delete: chainCommands(
+      deleteSelection,
+      atFootnoteEdge(1),
+      deleteEmptyParagraph(1),
+      selectAtom(1),
+      joinForward,
+    ),
     Tab: always(chainCommands(listKey(sinkListItem), changeParagraphLevel(1, template))),
     'Shift-Tab': always(chainCommands(listKey(liftListItem), changeParagraphLevel(-1, template))),
   };

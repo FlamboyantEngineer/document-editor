@@ -9,6 +9,7 @@ import { AddMarkStep, RemoveMarkStep, ReplaceStep, type Step } from 'prosemirror
 import { isStructureNode, regionKind } from '../model/index.js';
 import { clearIdentityAttrs } from '../model/schema/element-attributes.js';
 import { markContributors } from './provenance.js';
+import { attributeSplits } from './split-authorship.js';
 
 /** What an element id looks like: eight lower-case hexadecimal digits. */
 export const ELEMENT_ID_PATTERN = /^[a-f0-9]{8}$/;
@@ -126,10 +127,12 @@ export function createElementIds({
     key: elementIdsKey,
     appendTransaction(transactions, _before, after) {
       const tr = after.tr;
+      const writer = author();
       const marked = markContributors(tr, transactions, { contributor, isRemote: remote });
+      const split = attributeSplits(tr, transactions.filter(isLocalEdit), writer);
       const edits = transactions.filter(isLocalEdit);
-      if (edits.every((each) => each.steps.every(isTextStep))) return marked ? tr : null;
-      return assignElementIds(tr, { author: author(), newId }) || marked ? tr : null;
+      if (edits.every((each) => each.steps.every(isTextStep))) return marked || split ? tr : null;
+      return assignElementIds(tr, { author: writer, newId }) || marked || split ? tr : null;
     },
   });
 }
