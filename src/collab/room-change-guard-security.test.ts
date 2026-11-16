@@ -286,6 +286,37 @@ describe('DOCE-COLLAB-7.2 authoritative document guard', () => {
       await room.close();
     }
   });
+
+  it('DOCE-COMMENTS-2.27 accepts the assistant and meta of a thread and refuses malformed meta', async () => {
+    const room = await setup();
+    try {
+      const comments = createRoomCommentStore({
+        doc: room.doc,
+        identity: createMemoryHost({ person: { id: 'writer', name: 'Writer' } }).identity,
+        createId: () => 'entry',
+      });
+      await comments.create('guard', {
+        id: 'thread',
+        quote: 'Original',
+        text: 'Discussion',
+        agent: 'helper',
+        meta: { review: 'pending' },
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBeNull();
+      room.doc.get('comments').setAttr(JSON.stringify(['entry', 'thread', 'second']), {
+        id: 'second',
+        author: 'writer',
+        text: 'More',
+        createdAt: '2026-01-01',
+        meta: 'not a record',
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+    } finally {
+      await room.close();
+    }
+  });
 });
 
 const attackCases: readonly [string, (doc: Y.Doc) => void][] = [
