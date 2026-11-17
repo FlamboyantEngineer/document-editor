@@ -135,6 +135,11 @@ export {
   repairElementIds,
 } from './element-ids.js';
 export { clearCopiedIdentity } from './element-ids.js';
+export {
+  inEmbeddedTable,
+  isPresentationStep,
+  keepEmbeddedPresentation,
+} from './embed-presentation.js';
 export type { EmbedStatus, EmbedStatusOptions } from './embed-status.js';
 export {
   applyEmbedUpdate,

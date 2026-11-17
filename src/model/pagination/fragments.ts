@@ -293,6 +293,7 @@ export const FRAGMENT_RULES: FragmentRules = Object.freeze({
   table: { whole: PART, join: joinTables },
   blockquote: { whole: PART, join: joinContainers },
   script_block: { whole: PART, join: joinContainers },
+  embed: { whole: PART, join: joinContainers },
   layout_section: { whole: PART, join: joinLayoutSections },
   bullet_list: { whole: PART, join: joinContainers },
   ordered_list: { whole: PART, join: joinContainers },

@@ -15,6 +15,7 @@ import type {
 } from '../host/index.js';
 import { isEmbed, readStoredContent } from '../model/index.js';
 import type { PasteFilter } from './clipboard.js';
+import { keepEmbeddedPresentation } from './embed-presentation.js';
 import { type EmbedAt, embedAt, embedsKey, listEmbeds, unwrapPastedEmbeds } from './embeds.js';
 import {
   createHostStatus,
@@ -107,7 +108,8 @@ function readLoaded(loaded: EmbedContent, schema: Schema): Fragment | null {
 /**
  * Puts the content the host loaded in the embed starting at `pos`, recording its state and name,
  * as one change the writer can undo. The content's elements take ids made from the embed's id and
- * their place, so an element keeps its id across updates. Refused when `pos` holds no embed of the
+ * their place, so an element keeps its id across updates, and its tables keep the presentation
+ * the writer gave them (`keepEmbeddedPresentation`). Refused when `pos` holds no embed of the
  * same content, when the embed already shows it, or when the document cannot read the content.
  */
 export function applyEmbedUpdate(pos: number, loaded: EmbedContent): Command {
@@ -116,7 +118,8 @@ export function applyEmbedUpdate(pos: number, loaded: EmbedContent): Command {
     const read = readLoaded(loaded, state.schema);
     if (!node || !isEmbed(node) || !read) return false;
     const id = node.attrs.dataId as unknown;
-    const content = typeof id === 'string' && id ? identifyOutput(id, read) : read;
+    const identified = typeof id === 'string' && id ? identifyOutput(id, read) : read;
+    const content = keepEmbeddedPresentation(node.content, identified);
     const attrs = { ...node.attrs, snapshot: loaded.snapshot, label: loaded.label };
     const same = sameContent(node.content, content);
     if (same && node.attrs.snapshot === attrs.snapshot && node.attrs.label === attrs.label)

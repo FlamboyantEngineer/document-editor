@@ -23,6 +23,7 @@ import {
   useState,
 } from 'react';
 import {
+  inEmbeddedTable,
   isPositionLocked,
   selectTableLine,
   type TableAxis,
@@ -187,10 +188,11 @@ export function TableHandles({ view, state, labels }: TableHandlesProps) {
   const { isOpen } = useMenuControllerState(controller);
   const heldRef = useRef(false);
   const [hovered, setTarget] = useTableTarget({ view, layer, heldRef });
-  // A locked table shows no handles: its rows and columns cannot move.
+  // A locked table, or one an embed holds, shows no handles: its rows and columns cannot move.
   const target = useMemo(() => {
     const found = hovered && resolveTarget(state.doc, hovered);
-    return found && !isPositionLocked(state, found.table + 1) ? found : null;
+    if (!found || isPositionLocked(state, found.table + 1)) return null;
+    return inEmbeddedTable(state.doc.resolve(found.table + 1)) ? null : found;
   }, [hovered, state]);
   const table = target ? state.doc.nodeAt(target.table) : null;
   const geometry = useTableGeometry(view, { layer, target, table });

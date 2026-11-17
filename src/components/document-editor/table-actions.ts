@@ -31,6 +31,7 @@ import {
   deleteObject,
   distributeColumns,
   distributeRows,
+  inEmbeddedTable,
   insertParagraphBesideObject,
   insertTableLines,
   moveTableLine,
@@ -197,17 +198,11 @@ function alignmentEntries(view: EditorView, labels: DocumentEditorLabels): MenuE
   );
 }
 
-/**
- * The table entries of the context menu in a table cell, at the top level in this order: insert a
- * row, insert a column, delete, merge, split, header, distribute rows and columns, align the
- * table (`alignTable`, the host's object alignment entry) and align the cells.
- */
-export function tableCellEntries(
-  view: EditorView,
+// The entries changing a table's rows and columns: inserting, deleting, merging and splitting.
+function structureEntries(
+  item: (command: Command, entry: EntryOf) => MenuItemEntry,
   labels: DocumentEditorLabels,
-  alignTable: readonly MenuEntry[] = [],
 ): MenuEntry[] {
-  const item = (command: Command, entry: EntryOf) => commandEntry(view, entry, command);
   const danger = 'danger' as const;
   return [
     {
@@ -251,6 +246,26 @@ export function tableCellEntries(
         item(splitTableCell('row'), { id: 'split-rows', label: labels.splitCellRows }),
       ],
     },
+  ];
+}
+
+/**
+ * The table entries of the context menu in a table cell, at the top level in this order: insert a
+ * row, insert a column, delete, merge, split, header, distribute rows and columns, align the
+ * table (`alignTable`, the host's object alignment entry) and align the cells.
+ */
+export function tableCellEntries(
+  view: EditorView,
+  labels: DocumentEditorLabels,
+  alignTable: readonly MenuEntry[] = [],
+): MenuEntry[] {
+  const item = (command: Command, entry: EntryOf) => commandEntry(view, entry, command);
+  // The rows and columns of a table an embed holds are the host's: no entry changes them.
+  const structure = inEmbeddedTable(view.state.selection.$from)
+    ? []
+    : structureEntries(item, labels);
+  return [
+    ...structure,
     {
       id: 'table-header',
       label: labels.header,

@@ -233,26 +233,27 @@ describe('copying a link to the content', () => {
 });
 
 // A document of one table, the caret in its first body cell.
-function tableState() {
+// A table, or one an embed holds, with the caret in a body cell.
+function tableState(embedded = false) {
   const cell = (text: string) => ({
     type: 'tableCell',
     content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
   });
+  const table = {
+    type: 'table',
+    content: [
+      { type: 'tableRow', content: [cell('Part'), cell('Count')] },
+      { type: 'tableRow', content: [cell('Pump'), cell('2')] },
+    ],
+  };
+  const attrs = { id: 'e0000001', kind: 'data-set', source: 'set-7', label: 'Set 7' };
   const { doc } = readDocumentFile(
     {
       formatVersion: 1,
       sections: [
         {
           name: null,
-          content: [
-            {
-              type: 'table',
-              content: [
-                { type: 'tableRow', content: [cell('Part'), cell('Count')] },
-                { type: 'tableRow', content: [cell('Pump'), cell('2')] },
-              ],
-            },
-          ],
+          content: [embedded ? { type: 'embed', attrs, content: [table] } : table],
         },
       ],
     },
@@ -288,6 +289,27 @@ describe('the table entries', () => {
       'Align cells',
       'Add paragraph before',
       'Add paragraph after',
+    ]);
+  });
+
+  it('DOCE-EMBEDS-2.3 leaves out the entries changing rows and columns in a table an embed holds', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={tableState(true)} />);
+    const menu = await openMenu(user);
+    const names = within(menu)
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent);
+    const start = names.indexOf('Header');
+    expect(start).toBeGreaterThan(-1);
+    expect(names).not.toContain('Insert row');
+    expect(names).not.toContain('Merge cells');
+    expect(names).not.toContain('Split cell');
+    expect(names.slice(start, start + 5)).toEqual([
+      'Header',
+      'Distribute rows',
+      'Distribute columns',
+      'Align',
+      'Align cells',
     ]);
   });
 });
