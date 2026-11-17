@@ -20,7 +20,7 @@ Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
 
 ### DOCE-REFERENCES-1.3 - Following the target
 
-After each change, `createReferences({ template })` shall bring every internal reference up to date, out of the undo history (`updateReferences`): its text as its target reads now, or, when the target is gone, marked broken with its text kept. A click on an internal reference in a read document, or a Ctrl or Cmd click in an edited one, takes the reader to its target (`revealElement`).
+After each change, `createReferences({ template })` shall bring every internal reference up to date, out of the undo history (`updateReferences`): its text as its target reads now, or, when the target is gone, marked broken with its text kept, telling the host the targets whose references became broken (`onBroken`). A click on an internal reference, in a read document or an edited one, with or without Ctrl or Cmd, takes the reader to its target, scrolling the target's element, a figure's, table's or code block's caption included, smoothly to the start of the view (`revealElement`; a stylesheet's `scroll-margin-top` keeps it just below the view's top); a Shift or Alt click, which extends or adjusts the selection, does not.
 
 Implementation: `src/engine/references.ts`, `src/engine/reveal.ts`
 Verification: `src/engine/references.test.ts`, `e2e/references.spec.ts`
@@ -34,14 +34,14 @@ Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-1.5 - Citations as they are now
 
-`createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, a new request aborting the one in flight, and mark a reference whose document or target is gone `unavailable` and one whose document's revision, number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`); `updateReference` takes the update of the reference at the selection, recording the citation as it is now and reading as its label. The context menu offers it. Typing walks no reference: a change that only types or deletes text moves the marks, unless it inserts text carrying an external reference, as a paste may, which marks it as the host resolved it.
+`createReferenceStatus({ source, delay })` shall resolve the document's external citations through the host's reference source a moment after each change (500 milliseconds by default), each citation once, a new request aborting the one in flight, and mark a reference whose document or target cannot be found `unavailable`, one whose document the reader can read but no longer holds its target `broken`, and one whose document's revision, as named or as a snapshot of it (`revisionId`), number or title, or its target's, changed since it was cited `update` (`data-reference-status`, `referenceStatusAt`), each with a hint the pointer and assistive technology read (`title`, `REFERENCE_STATUS_HINTS`, `hints`), and tell the host each broken citation once (`onBroken`). The marks are derived: they change no text, mark, history or saved state. `updateReference(template)` takes the update of the reference at the selection, and of that run of text only, recording the citation as it is now and reading as the template formats it (`referenceUpdateText`, DOCE-REFERENCES-1.10), rewriting only the text that changes. The context menu offers it through a dialog that shows what the reference reads now and what it will read, and changes nothing until it is confirmed. Typing walks no reference: a change that only types or deletes text moves the marks, unless it inserts text carrying an external reference, as a paste may, which marks it as the host resolved it.
 
 Implementation: `src/engine/reference-status.ts`, `src/engine/host-status.ts`, `src/components/document-editor/element-entries.ts`
 Verification: `src/engine/references.test.ts`
 
 ### DOCE-REFERENCES-1.6 - Where references go
 
-A reference shall go in body text only (`isReferencePlace`): a paragraph, also in a list, a body cell, a quote or a layout column, or a footnote. A heading, a header cell, code, a script's output and a page header or footer take none. `updateReferences` shall leave a reference outside body text as it reads, so a heading that cites itself never grows. `repairPastedReferences(slice, state)`, a paste filter for the clipboard, shall take the references off pasted text that lands where none may go, keeping the text; pasted internal references then read as the template formats them, or broken without their target.
+A reference shall go in body text only (`isReferencePlace`): a paragraph, also in a list, a body cell, a quote or a layout column, or a footnote. A heading, a header cell, code, a script's output and a page header or footer take none. `updateReferences` shall leave a reference outside body text as it reads, so a heading that cites itself never grows. `repairPastedReferences(slice, state)`, a paste filter for the clipboard, shall take the references off pasted text that lands where none may go, keeping the text; pasted internal references then read as the template formats them, or broken without their target. After the writer's own changes that move text into another block (changing a block's type, wrapping or splitting it), `createReferences` shall take the references off text that now lies where none may go, keeping the text (`repairMovedReferences`); a reference that already lay there is left. The toolbar's reference menu, Mod-K and the dialog ask the same question (`canInsertReference`): a new reference goes only where one may go, and a reference already in the text may be changed wherever it is; Mod-K does nothing elsewhere.
 
 Implementation: `src/engine/reference-places.ts`, `src/engine/references.ts`
 Verification: `src/engine/reference-places.test.ts`, `src/engine/references.test.ts`
@@ -62,7 +62,7 @@ Verification: `src/engine/reference-places.test.ts`
 
 ### DOCE-REFERENCES-1.9 - Citations out of reach and asked again
 
-A reference whose citation the host resolves as `no-access` (DOCE-HOST-1.9) shall be marked `no-access`, and takes no update. `refreshReferenceStatus` shall forget how the host resolved every citation and ask it again at once, also when nothing was resolved before, as when the host knows its documents changed. `updateReference` shall cite the target as the host names it now (`targetId`), so a citation whose target moved follows it.
+A reference whose citation the host resolves as `no-access` (DOCE-HOST-1.9) shall be marked `no-access`, and takes no update. `refreshReferenceStatus` shall ask the host again for every citation, also when nothing was resolved before, as when the host knows its documents changed, keeping each reference's status until the host answers, and keeping it when the host fails. `updateReference` shall cite the target as the host names it now (`targetId`), so a citation whose target moved follows it.
 
 Implementation: `src/engine/reference-status.ts`
 Verification: `src/engine/references.test.ts`
@@ -88,6 +88,13 @@ Verification: `src/host/memory-host.test.ts`, `e2e/references.spec.ts`
 Implementation: `src/components/document-editor/insert-controls.tsx`, `src/components/document-editor/element-entries.ts`
 Verification: `e2e/references.spec.ts`
 
+### DOCE-REFERENCES-1.13 - Unbreakable citation identifiers
+
+The document editor shall mark the parts of each citation of another document that identify what it cites, its document's number, its revision label and its target's number, wherever its text reads them, each as one part (`data-reference-identifier`, `createReferenceIdentifiers`), so a stylesheet keeps each whole on one line (`white-space: nowrap`) while the citation's title may wrap. The marks move with the text and are made again only after a change that may change a reference.
+
+Implementation: `src/engine/reference-identifiers.ts`, `src/components/document-editor/layout-own-plugins.ts`
+Verification: `src/engine/reference-identifiers.test.ts`
+
 ## DOCE-REFERENCES-2 - Abbreviations
 
 ### DOCE-REFERENCES-2.1 - Inserting and switching
@@ -99,7 +106,7 @@ Verification: `src/engine/references.test.ts`, `src/engine/abbreviation-health.t
 
 ### DOCE-REFERENCES-2.2 - Refreshing from the glossary
 
-`refreshAbbreviations(entries)` shall bring the abbreviations of the entries given up to date with them, and `documentAbbreviations(doc)` give the entries the document cites, as they last read.
+`refreshAbbreviations(entries, asRead)` shall bring the abbreviations of the entries given up to date with them, leaving those that read as none of the readings `asRead` gives their entry, which changed while the glossary was asked; `documentAbbreviations(doc)` gives the entries the document cites, as they last read, and `abbreviationReadings(doc)` every reading of them.
 
 Implementation: `src/engine/abbreviations.ts`
 Verification: `src/engine/references.test.ts`
@@ -118,6 +125,13 @@ Verification: `src/engine/abbreviation-health.test.ts`, `src/engine/proofing-opt
 Implementation: `src/model/glossary.ts`
 Verification: `src/model/glossary.test.ts`
 
+### DOCE-REFERENCES-2.5 - Refreshing abbreviations a writer adds
+
+`createAbbreviationRefresh({ glossary, enabled })` shall, after each of the writer's own changes that puts in an abbreviation (inserting, pasting, undoing a deletion), resolve the entries those abbreviations cite through the glossary and bring the abbreviations whose entry reads otherwise now up to date (`refreshAbbreviations`), as one change marked `ABBREVIATION_CACHE_REFRESH_META` that undo does not take back and suggestion tracking leaves; an abbreviation that changed while the glossary was asked is left as it is. Remote, derived and system changes and its own refreshes ask nothing, nor does a writer who cannot edit or who suggests (`enabled`). The document editor installs it while the host gives a `glossary`, for a writer who edits directly.
+
+Implementation: `src/engine/abbreviation-refresh.ts`, `src/components/document-editor/layout-own-plugins.ts`
+Verification: `src/engine/abbreviation-refresh.test.ts`, `e2e/references.spec.ts`
+
 ## DOCE-REFERENCES-3 - In the editor
 
 ### DOCE-REFERENCES-3.1 - The reference dialog
@@ -129,10 +143,10 @@ Verification: `e2e/references.spec.ts`
 
 ### DOCE-REFERENCES-3.2 - The abbreviation dialog
 
-While the host gives a `glossary`, the toolbar's abbreviation button shall open the abbreviation dialog, which finds the glossary's entries, or adds one, prefilled from the selected text (`prefillAbbreviation`), and inserts its abbreviation. The context menu on an abbreviation switches its form and turns it into text.
+While the host gives a `glossary`, the toolbar's abbreviation button, and the context menu's `createAbbreviation` entry on text selected within one block where an abbreviation may go, shall open the abbreviation dialog. It finds the glossary's entries, or writes a new one prefilled from the selected text (`prefillAbbreviation`), and shows the host's notice on what the glossary may hold (`glossaryNotice`, none when empty). The writer picks whether the abbreviation reads in full or short (`abbreviationDisplay`, the selected abbreviation's form or full by default) and sees how it will read (`data-abbreviation-preview`). Its one primary action inserts the entry picked (`useGlossaryEntry`), or, with none picked, adds the entry written and inserts it (`addToGlossary`, unavailable while the abbreviation or expansion is blank). An entry written as the glossary already has it, ignoring case and outer spaces, is not added again: the dialog says so (`glossaryDuplicate`, `data-abbreviation-duplicate`) and its action inserts that entry; and when the glossary refuses a new entry as a `conflict` because another writer added it meanwhile, that entry is inserted. A failed search shows `glossarySearchFailed` (or the host's message) until a search succeeds; a failed add shows `glossaryFailed`. The context menu on an abbreviation offers to cite another entry through the dialog (`relinkAbbreviation`), its form and turning it into text, each with its glyph.
 
-Implementation: `src/components/document-editor/abbreviation-dialog.tsx`, `src/components/document-editor/element-entries.ts`
-Verification: `e2e/references.spec.ts`
+Implementation: `src/components/document-editor/abbreviation-dialog.tsx`, `src/components/document-editor/abbreviation-entries.ts`, `src/components/document-editor/context-entries.ts`
+Verification: `e2e/references.spec.ts`, `src/components/document-editor/abbreviation-entries.test.ts`
 
 ### DOCE-REFERENCES-3.3 - Refreshing abbreviations on opening
 
@@ -140,3 +154,10 @@ With `refreshAbbreviationsOnOpen` and a glossary, the document editor shall, onc
 
 Implementation: `src/components/document-editor/opening-abbreviations.ts`
 Verification: `src/components/document-editor/opening-abbreviations.test.tsx`
+
+### DOCE-REFERENCES-3.4 - An abbreviation's tooltip from the keyboard
+
+While the host gives a `glossary`, the abbreviation the keyboard is on, the one selected in the focused editor or the one a reader tabs to, shall show its tooltip, the abbreviation and its expansion as hovering shows them (`de-document-editor__abbreviation-tip`, `role="tooltip"`), below its left edge in the editor body (`--de-abbreviation-tip-x`, `--de-abbreviation-tip-y`). Moving off it or leaving the editor hides it.
+
+Implementation: `src/components/document-editor/abbreviation-tip.tsx`
+Verification: `e2e/references.spec.ts`

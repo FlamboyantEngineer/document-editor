@@ -87,10 +87,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-3.1 - Opening the menu
 
-A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell. The menu shall stay open once the button is released, on an object as on text. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it; scrolling the document does not, and the open menu moves with the content it opened on. `contextMenu={false}` leaves the browser's menu.
+A secondary click anywhere in the document shall open the editor's context menu (named by the `contextMenu` label) at the pointer instead of the browser's, first moving the selection to the clicked position, or selecting the clicked object, unless the click is inside the selection or a selected cell, or lands on an element the host keeps the selection for (`contextMenu.keepSelection(element)`, as for a link to a host record inside generated or embedded content), whose press moves no caret either. The menu shall stay open once the button is released, on an object as on text. Shift+F10 and the Context Menu key shall open it at the caret. Escape, an action or a press outside closes it; scrolling the document does not, and the open menu moves with the content it opened on. `contextMenu={false}` leaves the browser's menu.
 Once the menu closes, the document takes focus back when nothing else has it.
 Implementation: `src/components/document-editor/document-context-menu.tsx`, `src/components/document-editor/document-editor.tsx`, `src/components/document-editor/editor-body.tsx`
-Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`
+Verification: `e2e/document-editor.spec.ts`, `e2e/objects.spec.ts`, `src/components/document-editor/document-context-menu.test.tsx`
 
 ### DOCE-EDITOR-3.2 - Clipboard and formatting
 
@@ -806,6 +806,9 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-document-editor__debug-tip`         | slot      |                                                                        | A hovered block's debugging tooltip (DOCE-EDITOR-6.31).                                   |
 | `--de-debug-tip-x`                      | property  |                                                                        | On the debugging tooltip: its hovered block's right edge in the editor body.              |
 | `--de-debug-tip-y`                      | property  |                                                                        | On the debugging tooltip: its hovered block's top in the editor body.                     |
+| `de-document-editor__abbreviation-tip`  | slot      |                                                                        | The tooltip of the abbreviation the keyboard is on (DOCE-REFERENCES-3.4).                 |
+| `--de-abbreviation-tip-x`               | property  |                                                                        | On the abbreviation tooltip: its abbreviation's left edge in the editor body.             |
+| `--de-abbreviation-tip-y`               | property  |                                                                        | On the abbreviation tooltip: its abbreviation's bottom in the editor body.                |
 | `data-de-view-only`                     | attribute | names, `widget`                                                        | On an element a view-only decoration draws or decorates; a snapshot leaves it out.        |
 | `data-print-sheet`                      | attribute |                                                                        | In a snapshot, on a section: the index of the sheet size it prints on.                    |
 | `data-print`                            | attribute | `true`                                                                 | On a snapshot's root: the snapshot prints, for a stylesheet's print overrides.            |

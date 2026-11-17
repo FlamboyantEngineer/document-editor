@@ -1,0 +1,5 @@
+---
+'@flamboyantengineer/document-editor': minor
+---
+
+Reference status gains a `broken` state for a cited document that no longer holds its target; the reference source may answer `broken`, and the in-memory host does. Each status carries a hint (`title`, `REFERENCE_STATUS_HINTS`, `hints`), and `onBroken` tells the host of each broken citation once; `createReferences` takes `onBroken` for internal references whose target is gone. A new snapshot of the cited revision (`revisionId`) counts as an update. `refreshReferenceStatus` keeps each status until the host answers, and keeps it when the host fails. `updateReference(template)` now takes the template, reads as it formats the citation and rewrites only the text that changes; `referenceUpdateText` gives that text. The context menu's Update reference opens a dialog that shows what the reference reads now and what it will read, and applies nothing until confirmed. Templates that show a reference type as plain text set `--doc-reference-<key>-*` properties, which the reference stylesheet reads.

@@ -8,7 +8,7 @@ import { memo, type RefObject, useDeferredValue, useEffect, useMemo } from 'reac
 import { customStyleNames } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
-import { DocumentContextMenu } from './document-context-menu.js';
+import { contextFeatures, DocumentContextMenu } from './document-context-menu.js';
 import type { DocumentEditorProps } from './document-editor.js';
 import { DocumentFindBar, type FindBarMode, type FindRequest } from './document-find-bar.js';
 import { DocumentMenubar } from './document-menubar.js';
@@ -266,7 +266,7 @@ export function EditorContextMenu({
       startCommentRef={startCommentRef}
       copyLink={props.onCopyLink}
       openDialog={openDialog}
-      linkedCode={Boolean(props.codeSource)}
+      {...contextFeatures(props)}
       referenceKinds={props.referenceKinds}
       codeLanguages={props.codeLanguages}
       scriptRunner={props.scriptRunner}

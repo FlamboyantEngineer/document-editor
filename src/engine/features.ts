@@ -76,7 +76,9 @@ export type { CitationKey, ReferenceStatus, ReferenceStatusOptions } from './ref
 export {
   citationKey,
   createReferenceStatus,
+  REFERENCE_STATUS_HINTS,
   referenceStatusAt,
+  referenceUpdateText,
   resolveCitations,
   updateReference,
 } from './reference-status.js';

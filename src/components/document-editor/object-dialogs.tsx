@@ -5,7 +5,7 @@
 import { MathPreview } from '@flamboyantengineer/ui-components/math-preview';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { EditorView } from 'prosemirror-view';
-import { type ComponentType, lazy, Suspense, useCallback, useState } from 'react';
+import { type ComponentType, Suspense, useCallback, useState } from 'react';
 import {
   captionedAt,
   insertMath,
@@ -18,6 +18,7 @@ import type {
   AssetAdapter,
   CodeSourceAdapter,
   DiagramAdapter,
+  FeedbackAdapter,
   GlossaryAdapter,
   ReferenceSourceAdapter,
   ScriptRunnerAdapter,
@@ -33,6 +34,7 @@ import {
 } from './dialog-parts.js';
 import type { ObjectDialog } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
+import { DialogLoadFailed, lazyDialog } from './lazy-dialog.js';
 import { SURFACE_LOADERS } from './lazy-surfaces.js';
 
 /** What the editor's dialogs need beside the view. */
@@ -58,6 +60,8 @@ interface ObjectDialogsProps {
   /** The host's own dialogs by name, which `openDialog({ kind: 'host', name })` opens. */
   readonly dialogs?: Readonly<Record<string, ComponentType<HostDialogProps>>> | undefined;
   readonly onClose: () => void;
+  /** Tells the writer a dialog could not open. */
+  readonly feedback?: FeedbackAdapter | undefined;
 }
 
 const ignore = () => undefined;
@@ -65,21 +69,24 @@ const ignore = () => undefined;
 // The dialogs few sessions open, with the controls only they use (the code editor, the asset
 // picker, the reference finder), load the first time one opens, so the editor's own code does not
 // carry them (DOCE-ENTRY-2.2).
-const FigureDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await SURFACE_LOADERS.figure()).FigureDialog,
-}));
-const ReferenceDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await SURFACE_LOADERS.reference()).ReferenceDialog,
-}));
-const AbbreviationDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await SURFACE_LOADERS.abbreviation()).AbbreviationDialog,
-}));
-const ScriptDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await SURFACE_LOADERS.script()).ScriptDialog,
-}));
-const LinkedCodeDialog = /* @__PURE__ */ lazy(async () => ({
-  default: (await SURFACE_LOADERS['linked-code']()).LinkedCodeDialog,
-}));
+const FigureDialog = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.figure()).FigureDialog,
+);
+const ReferenceDialog = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.reference()).ReferenceDialog,
+);
+const ReferenceUpdateDialog = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.reference()).ReferenceUpdateDialog,
+);
+const AbbreviationDialog = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.abbreviation()).AbbreviationDialog,
+);
+const ScriptDialog = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.script()).ScriptDialog,
+);
+const LinkedCodeDialog = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS['linked-code']()).LinkedCodeDialog,
+);
 
 /**
  * The dialog the editor shows, and the ways to open and close it. The dialogs change the document,
@@ -269,6 +276,8 @@ function OpenDialog({
           reference={dialog.reference}
         />
       );
+    case 'reference-update':
+      return <ReferenceUpdateDialog {...shared} template={hosted.template} />;
     case 'caption':
       return <CaptionDialog {...shared} />;
     case 'abbreviation':
@@ -284,9 +293,14 @@ export function ObjectDialogs({ dialog, view, ...props }: ObjectDialogsProps) {
   if (!dialog || !view) return null;
   // Nothing shows while a dialog loads: the menu that opened it has closed, and the dialog takes
   // focus once it renders.
+  // A dialog that fails to load closes, telling the writer, and loads again when it next opens.
+  const { feedback, labels } = props;
+  const failed = () => feedback?.notify({ tone: 'error', text: labels.dialogUnavailable });
   return (
-    <Suspense fallback={null}>
-      <OpenDialog {...props} dialog={dialog} view={view} />
-    </Suspense>
+    <DialogLoadFailed value={failed}>
+      <Suspense fallback={null}>
+        <OpenDialog {...props} dialog={dialog} view={view} />
+      </Suspense>
+    </DialogLoadFailed>
   );
 }

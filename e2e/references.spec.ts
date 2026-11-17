@@ -35,7 +35,11 @@ async function selectWords(page: Page, wanted: string) {
   }, wanted);
 }
 
-const reference = (page: Page) => content(page).locator('[data-reference="true"]');
+// The references the tests insert, apart from the lab's paragraph of citations.
+const reference = (page: Page) =>
+  content(page).locator('p', { hasNotText: 'Background is in' }).locator('[data-reference="true"]');
+const cited = (page: Page, text: string) =>
+  content(page).locator('[data-reference="true"]', { hasText: text });
 
 test.describe('references', () => {
   test.beforeEach(async ({ lab }) => {
@@ -77,6 +81,23 @@ test.describe('references', () => {
     await page.keyboard.press('End');
     await page.keyboard.type(' budget');
     await expect(reference(page)).toHaveText(/Timing budget$/);
+    // DOCE-REFERENCES-1.3: a plain click while editing takes the reader to the heading, at the top
+    // of the view.
+    await reference(page).click();
+    await expect(async () => {
+      const offset = await content(page)
+        .locator('h1', { hasText: 'Timing budget' })
+        .evaluate((heading) => {
+          let scroller = heading.parentElement;
+          while (scroller && scroller.scrollHeight <= scroller.clientHeight) {
+            scroller = scroller.parentElement;
+          }
+          const top = scroller?.getBoundingClientRect().top ?? 0;
+          return heading.getBoundingClientRect().top - Math.max(top, 0);
+        });
+      expect(offset).toBeGreaterThanOrEqual(0);
+      expect(offset).toBeLessThan(60);
+    }).toPass();
     // Editing opens the same dialog, titled as inserting, on its target.
     await reference(page).click({ button: 'right' });
     await item(page, 'Edit reference…').click();
@@ -184,6 +205,33 @@ test.describe('references', () => {
     await expect(dialog(page).getByRole('button', { name: /Revision/ })).toContainText('Rev B');
   });
 
+  test('DOCE-REFERENCES-1.5 marks citations the host resolved, and takes an update once confirmed', async ({
+    page,
+  }) => {
+    const thermal = cited(page, 'THM-200');
+    const gone = cited(page, 'Removed section');
+    await expect(
+      content(page).locator('[data-reference-status="update"]', { hasText: 'THM-200' }),
+    ).toHaveAttribute('title', 'The cited document has changed since it was cited');
+    await expect(
+      content(page).locator('[data-reference-status="broken"]', { hasText: 'Removed section' }),
+    ).toHaveCount(1);
+    await expect(page.getByRole('status', { name: 'Host feedback' })).toHaveText(
+      'A cited document no longer holds a target',
+    );
+    await expect(gone).toHaveCount(1);
+    await thermal.click({ button: 'right' });
+    await item(page, 'Update reference…').click();
+    await expect(dialog(page)).toHaveAccessibleName('Update reference');
+    await expect(dialog(page)).toContainText('THM-200 - Thermal notes');
+    await expect(dialog(page)).toContainText('THM-200 - Thermal design notes');
+    // Nothing changes until it is confirmed.
+    await expect(thermal).toHaveText('THM-200 - Thermal notes');
+    await dialog(page).getByRole('button', { name: 'Update' }).click();
+    await expect(thermal).toHaveText('THM-200 - Thermal design notes');
+    await expect(content(page).locator('[data-reference-status="update"]')).toHaveCount(0);
+  });
+
   test('DOCE-REFERENCES-3.2 DOCE-REFERENCES-2.1 adds a glossary entry from the selection and switches its form', async ({
     page,
   }) => {
@@ -210,5 +258,83 @@ test.describe('references', () => {
     await abbreviation.click({ button: 'right' });
     await item(page, 'Show short').click();
     await expect(abbreviation).toHaveAttribute('data-abbr-display', 'short');
+  });
+
+  test('DOCE-REFERENCES-3.2 DOCE-REFERENCES-3.4 makes selected words an abbreviation of the entry the glossary has', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Load the Ground support equipment');
+    await expect(async () => {
+      if (await dialog(page).isVisible()) await page.keyboard.press('Escape');
+      await selectWords(page, 'Ground support equipment');
+      await page.keyboard.press('Shift+F10');
+      await item(page, 'Create abbreviation…').click({ timeout: 2000 });
+      await expect(dialog(page).getByRole('textbox', { name: 'Expansion' })).toHaveValue(
+        'Ground support equipment',
+        { timeout: 2000 },
+      );
+    }).toPass();
+    // The host's notice shows, and the entry written is the glossary's own, so it is used.
+    await expect(dialog(page)).toContainText('Glossary entries are shared by every document.');
+    await dialog(page).getByRole('textbox', { name: 'Abbreviation' }).fill('gse');
+    await expect(dialog(page).locator('[data-abbreviation-duplicate]')).toContainText(
+      'GSE: Ground support equipment is already in the glossary.',
+    );
+    await expect(dialog(page).getByRole('button', { name: 'Add to glossary' })).toHaveCount(0);
+    // Short, as the preview reads.
+    await dialog(page).getByRole('radio', { name: 'Short' }).click();
+    await expect(dialog(page).locator('[data-abbreviation-preview]')).toContainText('GSE');
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    const abbreviation = content(page).locator('[data-abbreviation-ref="glossary-gse"]');
+    await expect(abbreviation).toHaveAttribute('data-abbr-display', 'short');
+    await expect(abbreviation).toHaveText('GSE');
+    // Reached from the keyboard, it shows its tooltip, and leaving it hides it.
+    const tip = page.locator('.de-document-editor__abbreviation-tip');
+    await page.keyboard.press('End');
+    await page.keyboard.press('ArrowLeft');
+    await expect(tip).toHaveText('GSE — Ground support equipment');
+    await page.keyboard.press('ArrowLeft');
+    await expect(tip).toHaveCount(0);
+    // Every abbreviation offers to cite another entry.
+    await abbreviation.click({ button: 'right' });
+    await expect(item(page, 'Cite another entry…')).toBeVisible();
+  });
+
+  test('DOCE-PAGINATION-7.23 types after a trailing inline atom, and joins a paragraph holding only one', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Load the GSE');
+    await expect(async () => {
+      if (await dialog(page).isVisible()) await page.keyboard.press('Escape');
+      await selectWords(page, 'GSE');
+      await toolbar(page).getByRole('button', { name: 'Abbreviation…' }).click();
+      await expect(dialog(page).getByRole('textbox', { name: 'Abbreviation' })).toHaveValue('GSE', {
+        timeout: 2000,
+      });
+    }).toPass();
+    await dialog(page).getByRole('combobox', { name: 'Glossary entry' }).fill('GSE');
+    await page.getByRole('option', { name: /GSE/ }).click();
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    const paragraph = content(page).locator('p', { hasText: 'Load the' });
+    const atoms = paragraph.locator('[data-abbreviation-ref]');
+    await expect(atoms).toHaveCount(1);
+    // The caret after the atom at the paragraph's end types after it.
+    await page.keyboard.press('End');
+    await page.keyboard.type(' now');
+    await expect(paragraph).toHaveText(/Ground support equipment \(GSE\) now$/);
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    // The atom moved to a paragraph of its own and joined back keeps the text and one atom.
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+    await expect(
+      content(page).locator('p', { hasText: /^Ground support equipment \(GSE\)$/ }),
+    ).toHaveCount(1);
+    await page.keyboard.press('Backspace');
+    await expect(paragraph).toHaveText(/^Load the Ground support equipment \(GSE\)$/);
+    await expect(atoms).toHaveCount(1);
   });
 });

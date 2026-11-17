@@ -291,7 +291,7 @@ describe('createMemoryHost', () => {
     expect(missing?.ok).toBe(false);
   });
 
-  it('DOCE-HOST-1.9 DOCE-HOST-3.7 searches, adds and resolves glossary entries and citations', async () => {
+  it('DOCE-HOST-1.9 DOCE-HOST-3.7 DOCE-REFERENCES-3.2 searches, adds and resolves glossary entries and citations', async () => {
     const host = createMemoryHost({
       now: () => new Date('2026-02-01T00:00:00Z'),
       citations: [
@@ -324,6 +324,12 @@ describe('createMemoryHost', () => {
     expect(found?.ok && found.value.map((entry) => entry.id)).toEqual([id]);
     const resolved = await host.glossary?.resolve([id, 'missing']);
     expect(resolved?.ok && resolved.value).toHaveLength(1);
+    // An entry that reads as one the glossary has is refused as a conflict (DOCE-REFERENCES-3.2).
+    const again = await host.glossary?.create({
+      abbreviation: 'gse',
+      expansion: 'ground support equipment',
+    });
+    expect(again).toMatchObject({ ok: false, error: { kind: 'conflict' } });
     const citations = await host.references?.search('power');
     expect(citations?.ok && citations.value.map((citation) => citation.label)).toEqual([
       'Power interface specification',
@@ -334,7 +340,7 @@ describe('createMemoryHost', () => {
     ]);
     expect(
       current?.ok &&
-        current.value.map((each) => (each && each !== 'no-access' ? each.numbering : null)),
+        current.value.map((each) => (typeof each === 'object' && each ? each.numbering : each)),
     ).toEqual(['SPEC-1', null]);
   });
 
@@ -375,8 +381,8 @@ describe('createMemoryHost', () => {
     ]);
     expect(
       resolved?.ok &&
-        resolved.value.map((each) => (each && each !== 'no-access' ? each.target : each)),
-    ).toEqual([heading, null]);
+        resolved.value.map((each) => (typeof each === 'object' && each ? each.target : each)),
+    ).toEqual([heading, 'broken']);
   });
 
   it('DOCE-HOST-1.10 DOCE-HOST-3.8 edits, deletes and reacts to comments, telling subscribers', async () => {
