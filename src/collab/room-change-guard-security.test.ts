@@ -1229,6 +1229,10 @@ describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footn
     const entryAt = listFootnotes(inserted.doc).get('n1')?.entry ?? 0;
     const renumbered = inserted.tr.setNodeAttribute(entryAt, 'footnoteNumber', 1);
     expect(allowed(before, { doc: renumbered.doc }, 'writer')).toBe(false);
+    // The writer's own suggested footnote takes no other number either.
+    const ownAt = listFootnotes(inserted.doc).get('n0')?.marker ?? 0;
+    const own = inserted.tr.setNodeAttribute(ownAt, 'footnoteNumber', 5);
+    expect(allowed(before, { doc: own.doc }, 'writer')).toBe(false);
   });
 
   it('lets only a writer who decides reject another writer’s suggested footnote', () => {

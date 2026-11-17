@@ -46,17 +46,21 @@ function numbered(doc: Node): { key: string; id: string | null; number: unknown 
 }
 
 /**
- * Whether every footnote number a change sets is one the editors' numbering gives: the footnote's
- * place through the document or within its section, or none for a footnote no marker cites.
+ * Whether every footnote number a change sets is the one a single numbering of the editors gives:
+ * the footnote's place through the document, or within its section, or none for a footnote no
+ * marker cites. Numbers the change leaves as they were are not read, since a writer's copy may not
+ * have numbered another's change yet.
  */
 export function hasFootnoteNumbering(before: Node, after: Node): boolean {
   const previous = new Map(numbered(before).map((part) => [part.key, part.number]));
-  const ranks = [numberingRanks(after, undefined), numberingRanks(after, 'section')];
-  return numbered(after).every(({ key, id, number }) => {
-    if (previous.has(key) && previous.get(key) === number) return true;
-    return ranks.some((rank) => {
+  const changed = numbered(after).filter(
+    ({ key, number }) => !previous.has(key) || previous.get(key) !== number,
+  );
+  if (changed.length === 0) return true;
+  return [numberingRanks(after, undefined), numberingRanks(after, 'section')].some((rank) =>
+    changed.every(({ id, number }) => {
       const at = id === null ? undefined : rank.get(id);
       return number === (at === undefined ? null : at + 1);
-    });
-  });
+    }),
+  );
 }
