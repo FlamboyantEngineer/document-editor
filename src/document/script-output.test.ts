@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDocumentSchema, readStoredContent } from '../model/index.js';
 import {
   buildScriptCode,
+  buildScriptEquation,
   buildScriptFigure,
   buildScriptHeading,
   buildScriptList,
@@ -85,5 +86,73 @@ describe('script output builders', () => {
     expect(nodes[1]?.attrs).toMatchObject({ src: 'https://example.com/a.png', alt: 'Chart' });
     expect(nodes[2]?.attrs.language).toBe('python');
     expect(nodes[2]?.textContent).toBe('x = 1');
+  });
+
+  it('DOCE-OBJECTS-4.5 writes struck text, links that open elsewhere, inline equations and host nodes', () => {
+    const parts = buildScriptText([
+      { text: 'gone', strike: true },
+      { text: 'Site', href: 'https://example.com', newTab: true },
+      { math: 'x^2' },
+      { type: 'mention', attrs: { person: 'p1', label: 'Ada' } },
+    ]);
+    const [paragraph] = readStoredContent([{ type: 'paragraph', content: parts }], schema);
+    const nodes: { name: string; marks: string[]; attrs: unknown }[] = [];
+    paragraph?.forEach((node) =>
+      nodes.push({
+        name: node.type.name,
+        marks: node.marks.map((mark) => mark.type.name),
+        attrs: node.marks.find((mark) => mark.type.name === 'link')?.attrs.target,
+      }),
+    );
+    expect(nodes).toEqual([
+      { name: 'text', marks: ['strike'], attrs: undefined },
+      { name: 'text', marks: ['link'], attrs: '_blank' },
+      { name: 'math_inline', marks: [], attrs: undefined },
+      { name: 'mention', marks: [], attrs: undefined },
+    ]);
+    const [equation] = readStoredContent([buildScriptEquation('\\frac{a}{b}')], schema);
+    expect([equation?.type.name, equation?.textContent]).toEqual(['math_display', '\\frac{a}{b}']);
+  });
+
+  it('DOCE-OBJECTS-4.5 sets a table out: fitted, stub, alignment, widths, rules, spans and cells of paragraphs', () => {
+    const content = [
+      buildScriptTable(
+        [
+          ['Name', 'Role', 'Signed'],
+          ['Ada', { paragraphs: ['Lead', { text: 'since May', italic: true }] }, 'Yes'],
+          [{ paragraphs: ['No reviewers'], colspan: 3, align: 'center' }],
+        ],
+        {
+          header: true,
+          stub: true,
+          align: [undefined, undefined, 'right'],
+          widths: [120, 200, 80],
+          rules: 'horizontal',
+          caption: 'Reviewers',
+        },
+      ),
+      buildScriptTable([['a']], { fit: 'natural', rules: 'none' }),
+    ];
+    const [table, natural] = readStoredContent(content, schema);
+    expect(table?.attrs).toMatchObject({
+      objectLayout: 'fit-page-width',
+      tableBorderClass: 'table-border-horizontal',
+      caption: 'Reviewers',
+    });
+    expect(natural?.attrs).toMatchObject({
+      objectLayout: null,
+      tableBorderClass: 'table-border-none',
+    });
+    const rows = [0, 1, 2].map((index) => table?.child(index));
+    expect(rows[0]?.child(1).attrs.colwidth).toEqual([200]);
+    expect(rows[1]?.child(0).type.name).toBe('table_header');
+    expect(rows[1]?.child(1).type.name).toBe('table_cell');
+    expect(rows[1]?.child(1).childCount).toBe(2);
+    expect(rows[1]?.child(2).attrs.textAlign).toBe('right');
+    expect(rows[2]?.child(0).attrs).toMatchObject({
+      colspan: 3,
+      colwidth: [120, 200, 80],
+      textAlign: 'center',
+    });
   });
 });

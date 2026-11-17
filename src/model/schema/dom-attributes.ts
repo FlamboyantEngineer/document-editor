@@ -21,9 +21,12 @@ export const CODE_CAPTION_TEXT_ATTR = 'data-code-caption-text';
 export const TABLE_CAPTION_TEXT_ATTR = 'data-caption-text';
 export const TABLE_BORDER_1PX_CLASS = 'table-border-1px';
 export const TABLE_BORDER_NONE_CLASS = 'table-border-none';
+/** Lines between rows, and above and below the table, but none between columns or at its sides. */
+export const TABLE_BORDER_HORIZONTAL_CLASS = 'table-border-horizontal';
 export const TABLE_BORDER_CLASSES: ReadonlySet<string> = new Set([
   TABLE_BORDER_1PX_CLASS,
   TABLE_BORDER_NONE_CLASS,
+  TABLE_BORDER_HORIZONTAL_CLASS,
 ]);
 
 // The schemes a link may name. Any other, such as `javascript:`, could run script in the page
