@@ -78,10 +78,10 @@ Verification: `e2e/contents.spec.ts`
 
 ### DOCE-CONTENTS-2.2 - Lists across pages
 
-`splitContents(block, fitting)` shall split a list after the last entry row that fits, so the part on the next page continues with the next entry and shows no title. A list's element shall name what its rendering depends on beyond its node with `data-de-measure-key`, and a changed key shall measure it again.
+`splitContents(block, fitting)` shall split a list after the last entry row that fits, so the part on the next page continues with the next entry and shows no title. Each part shall draw the entries it holds, from the first to the last, wherever the list stands in its section, including after other blocks, so the parts together draw each entry once. A list's element shall name what its rendering depends on beyond its node with `data-de-measure-key`, and a changed key shall measure it again.
 
-Implementation: `src/model/pagination/contents-split.ts`, `src/pagination/measure-blocks.ts`, `src/engine/contents.ts`
-Verification: `e2e/contents.spec.ts`
+Implementation: `src/model/pagination/contents-split.ts`, `src/pagination/measure-blocks.ts`, `src/engine/contents.ts`, `src/engine/contents-view.ts`, `src/pagination/canonical-decorations.ts`
+Verification: `e2e/contents.spec.ts`, `e2e/regression.spec.ts`, `src/engine/contents-view.test.ts`
 
 ### DOCE-CONTENTS-2.3 - Renumbering
 

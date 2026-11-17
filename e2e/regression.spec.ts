@@ -1052,6 +1052,30 @@ test.describe('mixed geometry', () => {
     expect(annex?.[0]).toMatch(/^A/);
   });
 
+  test('DOCE-CONTENTS-2.2 continues a long list that follows other blocks on the pages after it', async ({
+    page,
+  }) => {
+    await openDocument(page, 'roman-and-alpha-numbering');
+    const parts = await page
+      .locator('.de-document-editor__content .de-contents')
+      .evaluateAll((lists) =>
+        lists.map((list) => {
+          const content = list.closest('.pm-page-content')?.getBoundingClientRect();
+          return {
+            rows: list.querySelectorAll('.de-contents__entry').length,
+            overflow: content ? list.getBoundingClientRect().bottom - content.bottom : 0,
+          };
+        }),
+      );
+    const whole = await page
+      .locator('.de-document-editor__measure .de-contents .de-contents__entry')
+      .count();
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.every(({ rows }) => rows > 0)).toBe(true);
+    expect(parts.reduce((sum, { rows }) => sum + rows, 0)).toBe(whole);
+    for (const { overflow } of parts) expect(overflow).toBeLessThanOrEqual(1);
+  });
+
   test('DOCE-LABS-4.11 draws row stripes, caption styles and footnote markers from the template', async ({
     page,
   }) => {
