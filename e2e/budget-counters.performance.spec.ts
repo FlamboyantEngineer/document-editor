@@ -3,6 +3,7 @@ import {
   BUDGETS,
   measureRemoteKeystrokes,
   measureSectionsEdit,
+  measureStartup,
   measureStyleScope,
   measureWheel,
 } from './budgets.js';
@@ -38,6 +39,16 @@ test.describe('counter budgets', () => {
   }) => {
     const { sectionsReused } = await measureSectionsEdit(lab, page);
     expectMeets(BUDGETS.sectionsReused, sectionsReused);
+  });
+
+  test('DOCE-LABS-2.5 opens 24 pages in two layouts, measuring each block once and settling for good', async ({
+    lab,
+    page,
+  }) => {
+    const { layouts, remeasured, afterSettle } = await measureStartup(lab, page);
+    expectMeets(BUDGETS.startupLayouts, layouts);
+    expectMeets(BUDGETS.startupRemeasured, remeasured);
+    expectMeets(BUDGETS.startupAfterSettle, afterSettle);
   });
 
   test('DOCE-LABS-2.5 DOCE-PAGINATION-5.17 lays out a remote keystroke that starts a line in 1600 blocks without relaying the document', async ({
