@@ -121,4 +121,23 @@ describe('the template editor’s layout rows', () => {
     },
     SLOW,
   );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-1.1 keeps a size of any non-negative decimal',
+    async () => {
+      const user = userEvent.setup();
+      const written: TemplateFile[] = [];
+      render(<Host written={written} />);
+      await openSections(user, 'Text styles');
+      const [paragraph] = screen.getAllByRole('button', { name: /^Paragraph\b/ });
+      if (paragraph) await user.click(paragraph);
+      const size = screen.getByRole('textbox', { name: 'Size' });
+      await user.type(size, '10.25{Enter}');
+      expect(written.at(-1)?.styles?.paragraph?.size).toBe('10.25pt');
+      await user.clear(size);
+      await user.type(size, '500{Enter}');
+      expect(written.at(-1)?.styles?.paragraph?.size).toBe('500pt');
+    },
+    SLOW,
+  );
 });
