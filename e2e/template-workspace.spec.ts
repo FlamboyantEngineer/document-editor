@@ -216,4 +216,71 @@ test.describe('template workspace lab', () => {
     // The image went into the draft, which Save stores.
     await expect(saveButton(page)).toBeEnabled();
   });
+
+  test('DOCE-TEMPLATE-EDITOR-3.11 lays the properties out without overflow or overlap at 420 and 500 pixels', async ({
+    lab,
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await lab.open('template-workspace');
+    await showPane(page, 'Properties');
+    const settings = page.locator('.de-template-workspace__settings');
+    await expect(nameField(page)).toBeVisible();
+    // Every section open, so each row is laid out.
+    const closed = settings.locator(
+      '.ui-property-section__heading > button[aria-expanded="false"]',
+    );
+    while ((await closed.count()) > 0) await closed.first().click();
+    const separator = panel(page).getByRole('separator');
+    // At 300 pixels the base library's reference styles keep the margins strip and its unit on one
+    // line, a few pixels wider than the panel; that is the base library's to change.
+    for (const width of [420, 500]) {
+      // The panel sits at the end edge: dragging its edge left widens it.
+      const now = (await panel(page).boundingBox())?.width ?? 0;
+      const handle = await separator.boundingBox();
+      if (!handle) throw new Error('The panel has no resize handle');
+      const x = handle.x + handle.width / 2;
+      const y = handle.y + handle.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x - (width - now), y, { steps: 4 });
+      await page.mouse.up();
+      await expect
+        .poll(async () => Math.round((await panel(page).boundingBox())?.width ?? 0))
+        .toBeGreaterThanOrEqual(width - 2);
+      const problems = await settings.evaluate((root) => {
+        const found: string[] = [];
+        const box = root.getBoundingClientRect();
+        if (root.scrollWidth > root.clientWidth + 1) {
+          const wide = [...root.querySelectorAll<HTMLElement>('*')]
+            .filter((element) => element.getBoundingClientRect().right > box.right + 1)
+            .map(
+              (element) =>
+                `${element.closest('.ui-property-row')?.textContent?.slice(0, 40) ?? element.className}`,
+            );
+          found.push(`the settings scroll sideways: ${wide.slice(0, 3).join(', ')}`);
+        }
+        for (const row of root.querySelectorAll<HTMLElement>('.ui-property-row')) {
+          if (row.offsetParent === null) continue;
+          const name = row.textContent?.trim().slice(0, 40) ?? '';
+          const label = row.querySelector('.ui-property-row__label')?.getBoundingClientRect();
+          const control = row.querySelector('.ui-property-row__control')?.getBoundingClientRect();
+          if (control && control.right > box.right + 1) found.push(`${name}: control clipped`);
+          const overlaps =
+            label &&
+            control &&
+            label.width > 0 &&
+            control.width > 0 &&
+            label.right > control.left + 1 &&
+            control.right > label.left + 1 &&
+            label.bottom > control.top + 1 &&
+            control.bottom > label.top + 1;
+          if (overlaps) found.push(`${name}: label over its control`);
+        }
+        return found;
+      });
+      expect(problems, `at ${String(width)} pixels`).toEqual([]);
+    }
+  });
 });

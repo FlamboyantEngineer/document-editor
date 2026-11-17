@@ -88,10 +88,13 @@ interface PropertiesProps extends PartProps {
   readonly layout: DocumentLayout;
   readonly extensions?: TemplateEditorProps['extensions'];
   readonly fonts?: readonly string[] | undefined;
+  readonly referenceTypes?: TemplateEditorProps['referenceTypes'];
   /** Why the template cannot be saved, shown at its field. */
   readonly saveError: { id?: string; parent?: string };
   readonly idInputRef: Ref<HTMLInputElement>;
   readonly isNameReadOnly: boolean;
+  /** Whether the template inherits nothing, so it has no parent to pick. */
+  readonly isRoot: boolean;
 }
 
 /** The open template's settings for the scope shown, or a saved version's, read-only. */
@@ -119,9 +122,10 @@ export function WorkspaceProperties(props: PropertiesProps) {
         parentError={props.saveError.parent}
         isNameReadOnly={props.isNameReadOnly}
         isDisabled={viewing !== null}
-        parentOptions={parentOptionsOf(shown.id, workspace.templates)}
+        parentOptions={props.isRoot ? undefined : parentOptionsOf(shown.id, workspace.templates)}
         extensions={props.extensions}
         fonts={props.fonts}
+        referenceTypes={props.referenceTypes}
         layout={props.layout}
       />
     </div>

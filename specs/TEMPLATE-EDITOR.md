@@ -86,10 +86,10 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/cus
 
 ### DOCE-TEMPLATE-EDITOR-1.11 - References
 
-A References section shall hold a card for each reference format key (`referenceFormatKeys`), named by what it points to, with its format and whether the reference links to its target; a format that is not valid (`referenceFormatError`) shall show why on its field.
+A References section shall hold a Format card, with the format of each reference format key (`referenceFormatKeys`), named by what it points to, then a card (`Links to the target`) with whether each links to its target. The host's reference types besides other documents (`referenceTypes`, each with what its targets are in) add their keys. The first format says which tokens a format may use and that an empty one inherits; a format that is not valid (`referenceFormatError`) shall show why on its field.
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/setting-controls.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`, `src/components/template-editor/template-editor.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.12 - Lists of contents
 
@@ -195,7 +195,7 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`, `
 
 ### DOCE-TEMPLATE-EDITOR-3.6 - The preview and web-layout templates
 
-`renderPreview` shall draw the template shown, resolved with what it inherits, beside the side panel (`preview`, a region named by `preview`), with the scope of the tab shown and, while the template is editable, `onRegionChange`, which writes a header or footer edited on the preview's pages into the open template (`withRegionChange`), and `onTemplatePartChange`, which writes a section's starting content or placeholder edited in place (DOCE-SECTIONS-5.2) into it (`withTemplatePart`). Without `renderPreview` the workspace draws its own preview (DOCE-TEMPLATE-EDITOR-3.16). Whether a template is for pages or the web layout is the host's to say (`layoutOf`, pages by default), since the stored format does not hold it; the preview is told the layout and the root publishes it as `data-layout`, so a web-layout template previews as the web layout shows a document, and the template editor, given the layout (`layout`), shows no page size, orientation, header or footer rows for it (`pagesOnly`), keeping its margins, which inset the web layout's content.
+`renderPreview` shall draw the template shown, resolved with what it inherits, beside the side panel (`preview`, a region named by `preview`), with the scope of the tab shown and, while the template is editable, `onRegionChange`, which writes a header or footer edited on the preview's pages into the open template (`withRegionChange`), and `onTemplatePartChange`, which writes a section's starting content or placeholder edited in place (DOCE-SECTIONS-5.2) into it (`withTemplatePart`). Without `renderPreview` the workspace draws its own preview (DOCE-TEMPLATE-EDITOR-3.16). Whether a template is for pages or the web layout is the host's to say (`layoutOf`, pages by default), since the stored format does not hold it; the preview is told the layout and the root publishes it as `data-layout`, so a web-layout template previews as the web layout shows a document, and the template editor, given the layout (`layout`), shows no page size, orientation, header or footer rows for it (`pagesOnly`, DOCE-TEMPLATE-EDITOR-3.18), keeping its margins, which inset the web layout's content.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/template-rows.tsx`, `src/components/template-editor/settings-catalog.ts`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
@@ -226,7 +226,7 @@ Verification: `src/components/template-workspace/template-workspace-requests.tes
 The workspace shall show the template's scopes as tabs (`tabs`, named by `scopes`) in a band (`band`, a group named by `band`) with the toolbar at its end: the document's settings first (`documentTab`), which no action removes, then one tab per template section, inherited ones included, by its label, or its name without one. Selecting a tab shows that scope's properties and preview. The add button after the last tab appends a section with a new name (`freshSectionName`) and selects it, keeping focus, so it can add another. A section tab's menu renames it in place (its label when it has one, otherwise its name, as DOCE-TEMPLATE-EDITOR-2.3 writes one, a refused name saying why in the field), inserts a new section before or after it and selects it, and deletes it once a confirming alert dialog says what deleting does, then selects the document's tab. The template editor beside them shows no scope picker of its own (`showsScopePicker={false}`).
 
 Implementation: `src/components/template-workspace/template-section-tabs.tsx`, `src/components/template-workspace/template-workspace.tsx`, `src/components/template-editor/template-editor.tsx`
-Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.11 - Toolbar and side panel
 
@@ -276,6 +276,13 @@ Verification: `src/components/template-workspace/template-preview-editor.test.ts
 
 Implementation: `src/components/template-workspace/template-preview-editor.tsx`, `src/components/document-editor/template-image-button.tsx`, `src/components/document-editor/insert-controls.tsx`, `src/engine/template-images.ts`
 Verification: `src/components/template-workspace/template-preview-editor.test.tsx`, `src/engine/template-images.test.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.18 - Root and web-layout templates
+
+A template the host's `isRoot` names shall inherit nothing, not even the base template: the workspace resolves it as it is, previews it so, and shows no parent row for it. A template the host's `isNameReadOnly` names shall show its name read-only. Given the web layout (`layout`), the template editor shall leave out, besides the page size, orientation and the header and footer, the paragraph numbering, the footnotes, the references, the change bars and the contents (`pagesOnly`), and read and write the margins in pixels; on pages they stay in millimetres on an A or B size page and in inches otherwise.
+
+Implementation: `src/components/template-workspace/workspace-assembly.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/contents-catalog.ts`, `src/components/template-editor/margins-row.tsx`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`
 
 ## Hooks
 

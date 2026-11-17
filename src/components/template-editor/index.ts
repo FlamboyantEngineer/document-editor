@@ -1,4 +1,4 @@
-export { TEMPLATE_SECTIONS } from './settings-catalog.js';
+export { TEMPLATE_SECTIONS, type TemplateReferenceType } from './settings-catalog.js';
 export type { TemplateEditorLabels, TemplateEditorProps } from './template-editor.js';
 export {
   DEFAULT_TEMPLATE_EDITOR_LABELS,

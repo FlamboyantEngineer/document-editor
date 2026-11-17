@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { StoredContent, TemplateFile } from '../../model/index.js';
@@ -189,4 +189,39 @@ describe('withListedSections', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Size' })).toHaveValue('1.5em');
   });
+});
+
+describe('the references settings', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.11 sets the format, then the link, of each kind of reference, the host’s types included', async () => {
+    const user = userEvent.setup();
+    const changes: TemplateFile[] = [];
+    render(
+      <TemplateEditor
+        template={{ formatVersion: 1, id: 'report' }}
+        onChange={(next) => changes.push(next)}
+        referenceTypes={[{ type: 'catalog', label: 'the catalog' }]}
+      />,
+    );
+    expect(
+      screen.getByText(
+        'Uses {{ref.numbering}}, {{ref.title}}, {{ref.revision}}, {{doc.numbering}} and {{doc.title}}; left empty, it inherits',
+      ),
+    ).toBeInTheDocument();
+    const section = screen
+      .getByRole('button', { name: /^References/ })
+      .closest('.ui-property-section') as HTMLElement;
+    const openCard = async (name: RegExp) => {
+      await user.click(within(section).getByRole('button', { name }));
+    };
+    await openCard(/^Format/);
+    await user.click(screen.getByRole('textbox', { name: 'To figures in the catalog' }));
+    await user.paste('Item {{ref.numbering}}');
+    expect(changes.at(-1)?.references?.formats?.['catalog-figure']).toBe('Item {{ref.numbering}}');
+    expect(
+      screen.getByRole('textbox', { name: 'To figures in other documents' }),
+    ).toBeInTheDocument();
+    await openCard(/^Links to the target/);
+    await user.click(screen.getByRole('checkbox', { name: 'To the catalog' }));
+    expect(changes.at(-1)?.references?.links?.catalog).toBe(true);
+  }, 15_000);
 });

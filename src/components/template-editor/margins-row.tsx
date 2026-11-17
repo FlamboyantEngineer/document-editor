@@ -1,5 +1,5 @@
-// Four sides as one row, such as the page margins, in millimetres on an A or B size page and in
-// inches otherwise, or a contents list's padding, in points. Each side holds the scope's own value
+// Four sides as one row, such as the page margins, in millimetres on an A or B size page, in
+// inches on another page and in pixels for the web layout, or a contents list's padding, in points. Each side holds the scope's own value
 // and shows the one it inherits while it has none.
 
 import {
@@ -20,7 +20,7 @@ const MILLIMETRES: Readonly<Record<string, number>> = {
 };
 
 /** A length in the unit given, rounded to hundredths; null when it is not a length. */
-function lengthIn(value: unknown, unit: 'mm' | 'in' | 'pt'): number | null {
+function lengthIn(value: unknown, unit: 'mm' | 'in' | 'pt' | 'px'): number | null {
   const match = /^(\d+(?:\.\d+)?)(mm|cm|in|pt|px)$/.exec(String(value ?? '').trim());
   const factor = match ? MILLIMETRES[match[2] ?? ''] : undefined;
   if (!match || !factor) return null;
@@ -72,8 +72,8 @@ function SideInput({
 }
 
 /**
- * Four sides at a path of the rows' target: the page margins in the page's own unit, or a length
- * in points.
+ * Four sides at a path of the rows' target: the page margins in the page's own unit, or in pixels
+ * for the web layout, or a length in points.
  */
 export function SidesRow({
   context,
@@ -95,7 +95,8 @@ export function SidesRow({
     inherited: target.inherited ? settingAt(target.inherited, at) : undefined,
   });
   const size = read(['page', 'size']);
-  const unit = kind === 'pt' ? 'pt' : marginUnit(size.own ?? size.inherited);
+  const unit =
+    kind === 'pt' ? 'pt' : props.layout === 'web' ? 'px' : marginUnit(size.own ?? size.inherited);
   return (
     <FourSidePropertyStrip
       label={label}
