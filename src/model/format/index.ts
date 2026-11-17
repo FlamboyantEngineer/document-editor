@@ -29,7 +29,14 @@ export type {
 } from './docx.js';
 export { writeDocx } from './docx.js';
 export * from './format-upgrade.js';
-export { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
+export {
+  cleanWordHtml,
+  isWordHtml,
+  readHtml,
+  readHtmlContent,
+  writeHtml,
+  writeHtmlContent,
+} from './html.js';
 export type { SuggestionsMode } from './left-out.js';
 export { isLeftOut, keptContent } from './left-out.js';
 export type {

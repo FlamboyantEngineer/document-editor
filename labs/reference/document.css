@@ -1425,6 +1425,14 @@ a.de-contents__entry {
   translate: var(--de-comment-offset, 0px) 0;
 }
 
+/*
+ * DOCE-COMMENTS-3.5: with markers, each entry starts where its marker is placed beside its page,
+ * and the card it opens hangs from the marker's start rather than its end.
+ */
+.de-document-comments__margin > [role='listitem'] {
+  justify-items: start;
+}
+
 /* A suggestion's opening post: what it does above the text it changes. */
 .de-document-comments__change p {
   margin: 0 0 4px;
@@ -2175,4 +2183,19 @@ a.de-contents__entry {
   display: inline-block;
   min-width: calc(var(--doc-paragraph-text-indent, 0pt) - var(--doc-paragraph-number-indent, 0pt));
   text-indent: 0;
+}
+
+/*
+ * Paged documents: the pages and the comments margin are one pair centred in the stage, with
+ * equal space on either side. With markers and no card open the margin reserves no width, so the
+ * pages return to the centre and the markers sit beside the page in the space around it.
+ */
+.de-document-editor[data-layout='page'] .de-document-comments {
+  grid-template-columns: max-content minmax(200px, 280px);
+  justify-content: center;
+}
+
+.de-document-editor[data-layout='page'] .de-document-comments[data-cards-open='false'] {
+  grid-template-columns: max-content 0;
+  column-gap: 0;
 }

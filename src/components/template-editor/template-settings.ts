@@ -29,6 +29,8 @@ export type SettingKind =
       /** What one side is called, after its name, such as `margin` in `Top margin`. */
       readonly side: string;
     }
+  /** Fields on one row, each a setting below the strip's path with a short `letter` before it. */
+  | { readonly type: 'strip'; readonly cells: readonly TemplateSetting[] }
   | { readonly type: 'select'; readonly options: readonly { id: string; label: string }[] }
   /** A choice among a few, shown as segments. */
   | { readonly type: 'choice'; readonly options: readonly { id: string; label: string }[] };
@@ -43,6 +45,12 @@ export interface TemplateSetting {
   readonly kind: SettingKind;
   /** Words the settings filter also finds the setting by. */
   readonly keywords?: readonly string[];
+  /** Its label in a template section's settings, where it differs, such as what it inherits. */
+  readonly sectionLabel?: string;
+  /** The heading of the run of rows it is in, such as `Paper`, and in a template section's. */
+  readonly group?: { readonly document: string; readonly section: string };
+  /** In a strip, the short label before the field, such as `Before`. */
+  readonly letter?: string;
   /** A short caption under the field. */
   readonly hint?: string;
   /** What the field's hover text says while it has a value of its own, such as examples. */
@@ -82,6 +90,8 @@ export interface TemplateSettingCard {
   readonly style?: readonly StylePart[];
   /** Code takes its fonts from the editor's `codeFonts`. */
   readonly code?: boolean;
+  /** Whether its rows sit in the section under its title, rather than in a card that opens. */
+  readonly inline?: boolean;
   readonly settings?: readonly TemplateSetting[];
 }
 
@@ -184,6 +194,24 @@ export const affixSetting = (
 ): TemplateSetting => ({
   ...setting(path, label, { type: 'text' }),
   tip: side === 'prefix' ? NUMBER_PREFIX_TIP : NUMBER_SUFFIX_TIP,
+});
+
+/** Fields on one row, each a setting below the strip's path. */
+export const strip = (
+  path: string,
+  label: string,
+  cells: readonly TemplateSetting[],
+): TemplateSetting => ({
+  ...setting(path, label, { type: 'strip', cells }),
+  // A strip at its section's own path is named by its label.
+  ...(path ? {} : { id: label, path: [] }),
+  keywords: cells.map((cell) => cell.label),
+});
+
+/** A strip's cell: a setting with the short label before its field. */
+export const cell = (letter: string, each: TemplateSetting): TemplateSetting => ({
+  ...each,
+  letter,
 });
 
 /** The page sizes a template may name. */

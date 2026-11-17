@@ -73,19 +73,27 @@ export interface TemplatePreviewEditorProps {
   readonly 'aria-label'?: string | undefined;
 }
 
-// The preview document of a tab, with the editing that its lock allows.
-function previewState(template: TemplateFile, scope: string | null, read: () => TemplateFile) {
+// The preview document of a tab, with the editing that its lock allows, the lock following the
+// template shown and the template as written.
+function previewState(
+  template: TemplateFile,
+  scope: string | null,
+  read: () => readonly [TemplateFile, TemplateFile | undefined],
+) {
   const schema = createDocumentSchema();
   const file = templatePreviewDocument(template, undefined, { parts: true, scope });
-  const editable = () => withEditableSections(read());
+  const editable = () => withEditableSections(read()[0]);
   const state = EditorState.create({
     doc: readDocumentFile(file, schema).doc,
     plugins: [
-      createContents({ template: read }),
+      createContents({ template: () => read()[0] }),
       ...createDocumentEditing(schema, {
         template: editable,
         author: () => 'template',
-        isLocked: templatePreviewLockOf({ template, scope }),
+        isLocked: (doc, pos) => {
+          const [shown, own] = read();
+          return templatePreviewLockOf({ template: shown, scope, own })(doc, pos);
+        },
       }),
     ],
   });
@@ -94,12 +102,12 @@ function previewState(template: TemplateFile, scope: string | null, read: () => 
   return state.apply(tr.setMeta('addToHistory', false));
 }
 
-// The template the preview's plugins read, kept up with the one shown.
-function useLatestTemplate(template: TemplateFile) {
-  const latest = useRef(template);
+// The template the preview's plugins read, kept up with the one shown, and the one as written.
+function useLatestTemplate(template: TemplateFile, own: TemplateFile | undefined) {
+  const latest = useRef([template, own] as const);
   useLayoutEffect(() => {
-    latest.current = template;
-  }, [template]);
+    latest.current = [template, own];
+  }, [template, own]);
   return () => latest.current;
 }
 
@@ -115,7 +123,7 @@ export function TemplatePreviewEditor({
   ...rest
 }: TemplatePreviewEditorProps) {
   const { template, scope } = preview;
-  const read = useLatestTemplate(template);
+  const read = useLatestTemplate(template, preview.own);
   const [state, setState] = useState(() => previewState(template, scope, read));
   // Compared with its older version, the sample shows a change of each kind with its change bar.
   const [compare] = useState(() => ({

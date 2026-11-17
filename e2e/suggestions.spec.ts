@@ -104,6 +104,23 @@ test.describe('suggestions lab', () => {
     await expect(block(page, 'and to the log.')).toHaveText(' and to the log.');
   });
 
+  test('DOCE-SUGGESTIONS-3.2 rejects a split paragraph back into one', async ({ lab, page }) => {
+    await lab.open('suggestions');
+    await caretBefore(page, ' and to the log.');
+    await page.keyboard.press('Enter');
+    const kinds = content(page).locator('[data-suggestion-split-kind]');
+    await expect(kinds).toHaveCount(3);
+    await suggestions(page)
+      .getByRole('listitem')
+      .filter({ hasText: 'Writer' })
+      .getByRole('button', { name: 'Reject', exact: true })
+      .click();
+    await expect(kinds).toHaveCount(0);
+    await expect(block(page, 'and to the log.')).toHaveText(
+      'Reports go to the operator console and to the log.',
+    );
+  });
+
   test('DOCE-SUGGESTIONS-3.3 accepts and rejects suggestions from the list', async ({
     lab,
     page,

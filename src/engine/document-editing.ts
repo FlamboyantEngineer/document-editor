@@ -39,6 +39,7 @@ import {
 } from './editing-commands.js';
 import { createElementIds } from './element-ids.js';
 import { createFootnotes } from './footnotes.js';
+import { createHistoryReveal } from './history-reveal.js';
 import type { InvalidMathText } from './math-views.js';
 import { objectPlugins } from './object-plugins.js';
 import type { LineNumbers } from './object-views.js';
@@ -282,6 +283,8 @@ export function createDocumentEditingExtension<C = unknown>(
     name: 'document-editing',
     plugins: [
       { name: 'history', priority: 100, when: () => keepHistory, build: () => [history()] },
+      // Each undo's change comes into view, shared or not (DOCE-EDITING-2.11).
+      { name: 'history-reveal', priority: 101, build: () => [createHistoryReveal()] },
       {
         name: 'edit-lock',
         priority: 470,

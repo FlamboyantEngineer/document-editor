@@ -617,6 +617,26 @@
   font-size: 0.85em;
 }
 
+/* A strip of the template editor's fields shares its row, each field's short label above it. */
+.de-template-editor__strip {
+  display: flex;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+
+.de-template-editor__strip > .ui-property-strip-cell {
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+}
+
+.de-template-editor__strip > .ui-property-strip-cell * {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* The template workspace: a band of scope tabs with the toolbar at its end, the messages, then the
    tabs' panel, where the preview fills the room beside the side panel. */
 .de-template-workspace {

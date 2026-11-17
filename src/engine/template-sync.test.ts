@@ -11,6 +11,8 @@ import {
 } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
 import { createEditLock } from './edit-lock.js';
+import { listSuggestions } from './suggestion-decisions.js';
+import { suggestTransaction } from './suggestions.js';
 import {
   anyLock,
   lockedTemplateSections,
@@ -150,6 +152,26 @@ describe('template sections', () => {
     expect(isSystemChange(tr)).toBe(true);
     expect(tr.getMeta('addToHistory')).toBe(false);
     expect(outline(state.apply(tr).doc)).toEqual(['cover:Cover text', 'signatures:Signed']);
+  });
+
+  it('DOCE-SUGGESTIONS-1.5 brings sections back in line while the writer suggests, suggesting nothing', () => {
+    const state = EditorState.create({
+      doc: read(
+        { name: 'cover', content: [paragraph('Edited cover')] },
+        { name: 'signatures', content: [paragraph('Signed')] },
+      ),
+      plugins: createDocumentEditing(documentSchema, { template: () => TEMPLATE }),
+    });
+    const sent: Transaction[] = [];
+    syncTemplateSections(TEMPLATE)(state, (tr) => sent.push(tr));
+    const [tr] = sent;
+    if (!tr) throw new Error('No transaction');
+    // The editor rewrites the writer's changes as suggestions; this one it leaves as it is.
+    const suggested = suggestTransaction(tr, state, { author: 'reviewer' });
+    expect(suggested).toBe(tr);
+    const synced = state.apply(tr);
+    expect(listSuggestions(synced.doc)).toEqual([]);
+    expect(outline(synced.doc)).toEqual(['cover:Cover text', 'signatures:Signed']);
   });
 
   it('DOCE-SECTIONS-4.3 locks the sections the writer cannot edit', () => {

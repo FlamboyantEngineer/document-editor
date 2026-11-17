@@ -463,7 +463,7 @@ test.describe('comments lab', () => {
     page,
   }) => {
     await lab.open('comments');
-    await page.getByLabel('Suggesting').check();
+    await page.getByLabel('Suggesting', { exact: true }).check();
     await page.getByLabel('A thread for each suggestion').check();
     await content(page).getByText('The log keeps').click();
     await page.keyboard.press('End');
@@ -480,5 +480,90 @@ test.describe('comments lab', () => {
     const panel = page.getByRole('region', { name: 'All comments' });
     await panel.getByRole('radio', { name: /All/ }).check();
     await expect(page.getByRole('status', { name: 'Panel filter' })).toHaveText('all');
+  });
+
+  test('DOCE-COMMENTS-1.16 keeps a thread on text typed over its whole anchor', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    const anchor = content(page).locator('mark[data-comment-id]').first();
+    const thread = await anchor.getAttribute('data-comment-id');
+    const quote = (await anchor.textContent()) ?? '';
+    await selectText(page, quote);
+    await page.keyboard.type('Z');
+    await expect(content(page).locator(`mark[data-comment-id="${thread ?? ''}"]`)).toHaveText('Z');
+    await expect(card(page, 'Is one second measured')).toBeVisible();
+  });
+
+  test('DOCE-COMMENTS-3.6 changes no block’s height or lines with highlights or suggested text', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await expect(content(page).locator('mark[data-comment-id]').first()).toBeVisible();
+    const changed = await content(page).evaluate((root) => {
+      const blocks = [...root.querySelectorAll<HTMLElement>('p, li, h1, h2, h3')].filter((block) =>
+        block.querySelector('mark[data-comment-id], ins, del'),
+      );
+      const lines = (element: HTMLElement) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+      };
+      const differences = blocks.map((block) => {
+        // The same block with its highlights and suggestion marks taken off, laid out beside it.
+        const plain = block.cloneNode(true) as HTMLElement;
+        for (const mark of plain.querySelectorAll('mark, ins, del'))
+          mark.replaceWith(...mark.childNodes);
+        block.after(plain);
+        const same =
+          plain.getBoundingClientRect().height === block.getBoundingClientRect().height &&
+          lines(plain) === lines(block);
+        plain.remove();
+        return same;
+      });
+      return { blocks: blocks.length, changed: differences.filter((same) => !same).length };
+    });
+    expect(changed.blocks).toBeGreaterThan(1);
+    expect(changed.changed).toBe(0);
+  });
+
+  test('DOCE-COMMENTS-4.4 keeps a mention’s card beside it while the stage scrolls, with no idle scrollbars', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    const thread = card(page, 'Is one second measured');
+    await thread.getByText('Is one second measured').click();
+    await thread.getByRole('textbox', { name: 'Reply' }).click();
+    await page.keyboard.type('Ask @Gra');
+    await page.getByRole('option', { name: /Grace Hopper/ }).click();
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    const mention = thread
+      .getByRole('article')
+      .last()
+      .getByRole('button', { name: 'Grace Hopper' });
+    await expect(mention).toBeVisible();
+    // No part of the card scrolls while nothing overflows it.
+    const scrolling = await thread.evaluate(
+      (element) =>
+        [element, ...element.querySelectorAll<HTMLElement>('*')].filter((each) => {
+          const style = getComputedStyle(each);
+          return (
+            /auto|scroll/.test(style.overflowY + style.overflowX) &&
+            (each.scrollHeight > each.clientHeight + 1 || each.scrollWidth > each.clientWidth + 1)
+          );
+        }).length,
+    );
+    expect(scrolling).toBe(0);
+    await mention.click();
+    const dialog = page.getByRole('dialog', { name: 'Grace Hopper' });
+    await expect(dialog).toBeVisible();
+    const offset = async () => (await top(dialog)) - (await top(mention));
+    const before = await offset();
+    await page.mouse.wheel(0, 120);
+    await expect.poll(async () => Math.abs((await offset()) - before)).toBeLessThan(2);
+    await expect(page.getByRole('dialog', { name: 'Grace Hopper' })).toHaveCount(1);
   });
 });

@@ -1,6 +1,7 @@
-// A card of a section of the template editor: its style's rows, then its settings.
+// A card of a section of the template editor: its style's rows, then its settings, in a card that
+// opens or under a heading in the section.
 
-import { PropertyCard } from '@flamboyantengineer/ui-components/property-panel';
+import { PropertyCard, PropertyGroup } from '@flamboyantengineer/ui-components/property-panel';
 import { memo } from 'react';
 import { isSameRows } from './same-rows.js';
 import { rows } from './setting-row.js';
@@ -33,14 +34,20 @@ export const SettingCard = memo(
     const isOverridden = keys.some(
       (key) => settingAt(context.target.own, [...path, ...key]) !== undefined,
     );
+    const content = (
+      <>
+        {card.style ? <StyleRows scope={style} parts={card.style} code={card.code} /> : null}
+        {rows(context, path, card.settings ?? [])}
+      </>
+    );
+    if (card.inline) return <PropertyGroup heading={card.title}>{content}</PropertyGroup>;
     return (
       <PropertyCard
         name={card.title}
         summary={card.style?.includes('font') ? styleSummary(style) : undefined}
         isOverridden={isOverridden}
       >
-        {card.style ? <StyleRows scope={style} parts={card.style} code={card.code} /> : null}
-        {rows(context, path, card.settings ?? [])}
+        {content}
       </PropertyCard>
     );
   },

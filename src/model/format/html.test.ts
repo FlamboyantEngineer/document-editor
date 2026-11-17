@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { writeDocumentFile } from './document-format-write.js';
-import { cleanWordHtml, isWordHtml, readHtml, readHtmlContent, writeHtml } from './html.js';
+import {
+  cleanWordHtml,
+  isWordHtml,
+  readHtml,
+  readHtmlContent,
+  writeHtml,
+  writeHtmlContent,
+} from './html.js';
 
 const WORD = [
   '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><style>p.MsoNormal{margin:0}</style></head><body>',
@@ -98,5 +105,30 @@ describe('HTML interchange', () => {
       { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Scope' }] },
     ]);
     expect(readHtmlContent('', documentSchema, document)).toEqual([]);
+  });
+
+  it('DOCE-FORMAT-6.3 writes stored content as HTML that reads back the same', () => {
+    const content = readHtmlContent(
+      '<p>Page <span data-template-variable="page.current"></span> <em>draft</em></p><h2>Scope</h2>',
+      documentSchema,
+      document,
+    );
+    const html = writeHtmlContent(content, documentSchema, document);
+    expect(html).toContain('<em>draft</em>');
+    expect(html).toContain('data-template-variable="page.current"');
+    expect(readHtmlContent(html, documentSchema, document)).toEqual(content);
+    expect(writeHtmlContent([], documentSchema, document)).toBe('');
+  });
+
+  it("DOCE-FORMAT-6.3 keeps only what the schema knows of a writer's markup", () => {
+    const content = readHtmlContent(
+      '<p onclick="window.hit=1" style="color:red">Kept<iframe src="x"></iframe></p><script>window.hit=1</script><object data="x"></object>',
+      documentSchema,
+      document,
+    );
+    expect(content).toEqual([{ type: 'paragraph', content: [{ type: 'text', text: 'Kept' }] }]);
+    expect(writeHtmlContent(content, documentSchema, document)).not.toMatch(
+      /onclick|script|iframe|object/,
+    );
   });
 });

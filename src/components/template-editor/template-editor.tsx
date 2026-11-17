@@ -11,6 +11,7 @@ import type { Ref } from 'react';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
+import { DEFAULT_REGION_SOURCE_LABELS, type RegionSourceLabels } from './region-source.js';
 import { TemplateDrafts, type TemplateDraftState } from './setting-drafts.js';
 import type { TemplateReferenceType } from './settings-catalog.js';
 import { templateEditorHooks as hooks } from './template-editor-hooks.js';
@@ -47,7 +48,7 @@ import {
 
 /** The template editor's own text. */
 export interface TemplateEditorLabels
-  extends TemplateScopeLabels, TemplateIdentityLabels, TemplateSettingsLabels {
+  extends TemplateScopeLabels, TemplateIdentityLabels, TemplateSettingsLabels, RegionSourceLabels {
   readonly panel: string;
   readonly filter: string;
   readonly textStyles: string;
@@ -93,6 +94,7 @@ export const DEFAULT_TEMPLATE_EDITOR_LABELS: TemplateEditorLabels = {
   ...DEFAULT_TEMPLATE_SETTINGS_LABELS,
   ...DEFAULT_TEMPLATE_IDENTITY_LABELS,
   ...DEFAULT_TEMPLATE_SCOPE_LABELS,
+  ...DEFAULT_REGION_SOURCE_LABELS,
   panel: 'Template settings',
   filter: 'Filter settings',
   textStyles: 'Text styles',

@@ -19,6 +19,7 @@ import type {
   CompletionContext,
 } from '../host/index.js';
 import { type Actor, automationActor, automationKey } from './automation.js';
+import { startsCommentDraft } from './comment-draft.js';
 import { completionGhost } from './completion-ghost.js';
 import { completionRequest, isCompletable, normalizeCompletion } from './completion-text.js';
 import { editLockKey, touchesLock } from './edit-lock.js';
@@ -191,11 +192,15 @@ function follow(tr: Transaction, pos: number): number | null {
   return tr.selection.empty && tr.selection.head === mapped ? mapped : null;
 }
 
+// The writer's own change, or a comment they start at the caret, which takes them from the text.
+const takesWriterAway = (tr: Transaction, before: EditorState): boolean =>
+  isOwn(tr, before) || startsCommentDraft(tr);
+
 function apply(tr: Transaction, value: CompletionState, before: EditorState): CompletionState {
   const meta = tr.getMeta(completionKey) as CompletionMeta | undefined;
   if (meta) return withMeta(value, meta);
   const busy = value.asking !== null || value.offer !== null;
-  if (isOwn(tr, before)) {
+  if (takesWriterAway(tr, before)) {
     return { ...value, own: value.own + 1, ...(busy ? { asking: null, offer: null } : {}) };
   }
   if (!busy || (!tr.docChanged && !tr.selectionSet)) return value;

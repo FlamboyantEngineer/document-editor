@@ -261,7 +261,7 @@ Verification: `src/model/format/html.test.ts`, `src/engine/clipboard.test.ts`, `
 
 ### DOCE-FORMAT-6.3 - HTML content for regions and sections
 
-`readHtmlContent(html, schema, document)` shall read HTML, such as a template header's or a section's content a host keeps as markup, as stored content: its blocks as the schema reads them, inline text in paragraphs, word processor markup cleaned, from an inert document so nothing in it runs or loads. Variables stay variables, and `{{key}}` tokens stay text for the template's content to read (DOCE-TEMPLATES-8.1).
+`readHtmlContent(html, schema, document)` shall read HTML, such as a template header's or a section's content a host keeps as markup, as stored content: its blocks as the schema reads them, inline text in paragraphs, word processor markup cleaned, from an inert document so nothing in it runs or loads. Variables stay variables, and `{{key}}` tokens stay text for the template's content to read (DOCE-TEMPLATES-8.1). Only what the schema reads survives: scripts, event attributes, styles and elements it does not know are dropped. `writeHtmlContent(content, schema, document)` shall write stored content as the HTML its blocks write, which `readHtmlContent` reads back the same.
 
 Implementation: `src/model/format/html.ts`
 Verification: `src/model/format/html.test.ts`

@@ -19,6 +19,7 @@ const keysOf = (plugins: readonly Plugin[]) =>
 
 const EDITING_KEYS = [
   'history',
+  'history-reveal',
   'element-ids',
   'footnotes',
   'comment-draft',
@@ -55,9 +56,10 @@ describe('plugin order', () => {
   });
 
   it('DOCE-FORMAT-7.3 places the template plugins before table editing', () => {
-    const [first, ...rest] = EDITING_KEYS;
+    const [first, reveal, ...rest] = EDITING_KEYS;
     expect(keysOf(createDocumentEditing(documentSchema, { template: () => TEMPLATE }))).toEqual([
       first,
+      reveal,
       'edit-lock',
       ...rest,
       'custom-styles',

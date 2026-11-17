@@ -4,7 +4,9 @@
 // toolbar and menus run it through `undoCommand` and `redoCommand` when the state's history is off.
 
 import * as Y from '@y/y';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import type { Node } from 'prosemirror-model';
+import { type Command, Plugin, PluginKey, Selection, type Transaction } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { provideUndoCommands } from '../engine/undo-commands.js';
 import { getCollabSync } from './sync.js';
 
@@ -18,6 +20,33 @@ export interface CollabUndoOptions {
 }
 
 const collabUndoKey = new PluginKey('collab-undo');
+
+// The caret put at the end of what an undo or a redo changed in the view's document, which was
+// `before`, so the change comes into view (DOCE-EDITING-2.11); the sync plugin keeps the caret
+// where it was.
+function caretAtChange(view: EditorView, before: Node, dispatch: (tr: Transaction) => void) {
+  const { state } = view;
+  const start = before.content.findDiffStart(state.doc.content);
+  const end = before.content.findDiffEnd(state.doc.content);
+  if (start === null || !end) return;
+  // Where the text either side repeats, the end found runs back past the start; it is moved on.
+  const at = end.b + Math.max(0, start - Math.min(end.a, end.b));
+  dispatch(state.tr.setSelection(Selection.near(state.doc.resolve(at), -1)));
+}
+
+// The manager's undo or redo, with the caret at what it changed.
+function stepping(manager: () => Y.UndoManager | null, direction: 'undo' | 'redo'): Command {
+  return (_state, dispatch, view) => {
+    const own = manager();
+    if (!own || !(direction === 'undo' ? own.canUndo() : own.canRedo())) return false;
+    if (!dispatch) return true;
+    const before = view?.state.doc;
+    // The sync plugin applies the step to the editor at once, as its own transaction.
+    own[direction]();
+    if (view && before) caretAtChange(view, before, dispatch);
+    return true;
+  };
+}
 
 /**
  * The undo and redo of the editor's own changes in the shared document that the state's sync
@@ -65,16 +94,7 @@ export function createCollabUndo({ captureTimeout = 500 }: CollabUndoOptions = {
     },
   });
   return provideUndoCommands(plugin, {
-    undo: (_state, dispatch) => {
-      if (!manager?.canUndo()) return false;
-      // The sync plugin applies the undo to the editor at once, as its own transaction.
-      if (dispatch) manager.undo();
-      return true;
-    },
-    redo: (_state, dispatch) => {
-      if (!manager?.canRedo()) return false;
-      if (dispatch) manager.redo();
-      return true;
-    },
+    undo: stepping(() => manager, 'undo'),
+    redo: stepping(() => manager, 'redo'),
   });
 }

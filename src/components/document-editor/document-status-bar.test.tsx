@@ -7,7 +7,7 @@ import { installEditorDom } from '../../../test/editor-dom.js';
 import { createDocumentEditing } from '../../engine/index.js';
 import { readDocumentFile, type TemplateFile } from '../../model/index.js';
 import { DocumentEditor, type DocumentEditorProps } from './document-editor.js';
-import { STATUS_BAR_ITEMS } from './document-status-bar.js';
+import { STATUS_BAR_ITEMS, ZOOM_LEVELS } from './document-status-bar.js';
 import { DocumentModeStatus, DocumentWordStatus } from './status-items.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
@@ -119,5 +119,44 @@ describe('DocumentStatusBar', () => {
     expect(onZoomChange).toHaveBeenCalledTimes(1);
     fireEvent.wheel(document, { deltaY: 100, metaKey: true });
     expect(onZoomChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('DOCE-EDITOR-6.4 steps through five zoom levels by default, from half size to one and a half', () => {
+    expect(ZOOM_LEVELS).toEqual([50, 75, 100, 125, 150]);
+  });
+
+  it('DOCE-EDITOR-6.4 shows no zoom and leaves Ctrl+wheel to the browser without onZoomChange', () => {
+    const { container } = render(<Harness statusBar />);
+    expect(itemsAt(container, 'end')).not.toContain('zoom');
+    expect(container.querySelector('.de-document-editor__zoom')).toBeNull();
+    const wheel = new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, cancelable: true });
+    screen.getByRole('textbox', { name: 'Report' }).dispatchEvent(wheel);
+    expect(wheel.defaultPrevented).toBe(false);
+  });
+
+  it("DOCE-EDITOR-5.1 says the words in the host's wording", () => {
+    render(
+      <Harness
+        statusBar
+        labels={{
+          wordStatus: (words, selected) =>
+            `Words: ${words} (${selected === null ? 'No Selection' : `Selection: ${selected}`})`,
+        }}
+      />,
+    );
+    const bar = screen.getByRole('group', { name: 'Document status' });
+    expect(bar).toHaveTextContent('Words: 3 (No Selection)');
+  });
+
+  it("DOCE-EDITOR-5.1 says the page in the host's wording", async () => {
+    render(
+      <Harness
+        statusBar
+        layout="page"
+        labels={{ pageStatus: (page, pages) => `Page ${page} / ${pages}` }}
+      />,
+    );
+    const bar = screen.getByRole('group', { name: 'Document status' });
+    await vi.waitFor(() => expect(bar).toHaveTextContent('Page 1 / 1'));
   });
 });

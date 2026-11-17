@@ -78,4 +78,30 @@ describe('the lock of a workspace preview tab', () => {
     expect(templatePreviewLock(doc, sample ?? 0)).toBe(true);
     expect(lock(doc, sample ?? 0)).toBe(true);
   });
+
+  it('DOCE-TEMPLATE-EDITOR-3.16 locks a header that takes its parent’s, the document’s or the parent template’s', () => {
+    const all = preview('body');
+    const [body] = inside(all, 'Document header');
+    expect(body).toBeDefined();
+    // The body section takes the document's header, which the document writes.
+    expect(templatePreviewLockOf({ template: TEMPLATE, scope: 'body' })(all, body ?? 0)).toBe(
+      false,
+    );
+    // The document's header set to take the parent template's.
+    const own: TemplateFile = { ...TEMPLATE, header: { inherit: true } };
+    expect(templatePreviewLockOf({ template: TEMPLATE, scope: 'body', own })(all, body ?? 0)).toBe(
+      true,
+    );
+    // The section set to take the document's.
+    const inheriting: TemplateFile = {
+      ...TEMPLATE,
+      sections: [
+        ...(TEMPLATE.sections ?? []).filter((section) => section.name !== 'body'),
+        { name: 'body', header: { inherit: true } },
+      ],
+    };
+    expect(templatePreviewLockOf({ template: inheriting, scope: 'body' })(all, body ?? 0)).toBe(
+      true,
+    );
+  });
 });

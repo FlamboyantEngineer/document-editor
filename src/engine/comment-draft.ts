@@ -51,6 +51,12 @@ export function commentDraft(state: EditorState): CommentDraft | null {
   return draftKey.getState(state) ?? null;
 }
 
+/** Whether a change starts a comment draft. */
+export function startsCommentDraft(tr: Transaction): boolean {
+  const meta = tr.getMeta(draftKey) as DraftMeta | undefined;
+  return meta !== undefined && 'start' in meta;
+}
+
 /** Whether a comment may start at the selection: on selected text, or the caret's text block. */
 export const canStartComment = (state: EditorState): boolean =>
   Boolean(state.schema.marks.comment_highlight) && draftRanges(state).length > 0;

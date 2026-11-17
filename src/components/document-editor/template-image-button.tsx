@@ -9,7 +9,9 @@ import { lazy, Suspense } from 'react';
 import { insertTemplateImage } from '../../engine/index.js';
 import type { AssetAdapter } from '../../host/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
+import type { InsertFeatures } from './insert-controls.js';
 import { usePopoverCommand } from './popover-command.js';
+import type { ToolbarItem } from './toolbar-items.js';
 
 // The picker loads the first time the popover opens (DOCE-ENTRY-2.2).
 const TemplateImagePicker = /* @__PURE__ */ lazy(async () => ({
@@ -20,7 +22,7 @@ const TemplateImagePicker = /* @__PURE__ */ lazy(async () => ({
 const PROBE = insertTemplateImage({ id: 'probe', name: '', mediaType: '' });
 
 /** The button and the popover of the host's images it opens. */
-export function TemplateImageButton({
+function TemplateImageButton({
   context,
   search,
 }: {
@@ -43,7 +45,7 @@ export function TemplateImageButton({
         isDisabled={isDisabled}
         focusableWhenDisabled={reason !== undefined}
       />
-      <Popover placement="bottom start" aria-label={label}>
+      <Popover placement="bottom start" aria-label={label} isNonModal>
         <Suspense fallback={null}>
           <TemplateImagePicker
             label={label}
@@ -55,4 +57,15 @@ export function TemplateImageButton({
       </Popover>
     </PopoverTrigger>
   );
+}
+
+/** The button that places one of the host's images, while a template's own content is edited. */
+export function imageAssetItem({ imageSearch, templateContent }: InsertFeatures): ToolbarItem {
+  return {
+    kind: 'custom',
+    id: 'image-asset',
+    isVisible: () => Boolean(templateContent && imageSearch),
+    render: (context) =>
+      imageSearch ? <TemplateImageButton context={context} search={imageSearch} /> : null,
+  };
 }

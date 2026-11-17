@@ -16,6 +16,7 @@ const contextOf = (options: Partial<EditorContextOptions> = {}) =>
 
 type Entry = {
   id: unknown;
+  icon?: unknown;
   label?: string;
   isSelected?: boolean;
   isDisabled?: boolean;
@@ -48,11 +49,23 @@ describe('the editor context', () => {
 });
 
 describe('the mode and markup controls', () => {
-  it('DOCE-EDITOR-4.12 offers every mode, the current one selected, the unavailable ones with why', () => {
+  it('DOCE-EDITOR-4.12 offers editing, suggesting and reading, each with its icon, and commenting only when listed', () => {
+    const entries = modeEntries(contextOf(), { onModeChange: vi.fn() }) as Entry[];
+    expect(entries.map((entry) => entry.label)).toEqual(['Editing', 'Suggesting', 'Reading']);
+    expect(entries.every((entry) => entry.icon)).toBe(true);
+    // The current mode is listed though the host lists it not.
+    const commenting = contextOf({ editable: false, commenting: true });
+    expect((modeEntries(commenting, {}) as Entry[]).map((entry) => entry.label)).toContain(
+      'Commenting',
+    );
+  });
+
+  it('DOCE-EDITOR-4.12 offers the modes listed, the current one selected, the unavailable ones with why', () => {
     const onModeChange = vi.fn();
     const entries = modeEntries(contextOf({ suggesting: true }), {
       onModeChange,
       modeReasons: { edit: 'Only suggestions here', suggest: 'Ignored for the current mode' },
+      modes: ['edit', 'suggest', 'comment', 'read'],
     }) as Entry[];
     expect(entries.map((entry) => entry.label)).toEqual([
       'Editing',

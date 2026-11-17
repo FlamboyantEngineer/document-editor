@@ -50,7 +50,16 @@ const LISTS = [
 export function isMarkActive(state: EditorState, type: MarkType): boolean {
   const { empty, from, to, $from } = state.selection;
   if (empty) return Boolean(type.isInSet(state.storedMarks ?? $from.marks()));
-  return state.doc.rangeHasMark(from, to, type);
+  // A range is in a format only when all of its text is.
+  let text = false;
+  let every = true;
+  state.doc.nodesBetween(from, to, (node) => {
+    if (!every || !node.isText) return every;
+    text = true;
+    every = Boolean(type.isInSet(node.marks));
+    return false;
+  });
+  return text && every;
 }
 
 // Whether the innermost list holding the selection is of a type.

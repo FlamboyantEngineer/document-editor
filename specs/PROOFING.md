@@ -129,7 +129,7 @@ Verification: `src/engine/proofing-options.test.ts`
 
 ### DOCE-PROOFING-3.1 - Status
 
-While the document is proofed, or its abbreviations checked (DOCE-REFERENCES-2.3), and proofing is not off (DOCE-PROOFING-1.8), the status bar (DOCE-EDITOR-5.1) shall show the proofing status (`de-document-editor__proofing-status`, the `proofingStatus` label): checking while text waits to be checked, then no issues, or how many, counting the abbreviations whose glossary entry needs the writer (`listDocumentIssues`); pressing it selects the next issue and keeps focus in the document. It publishes `data-pending` while text waits to be checked and `data-issues` while issues are marked.
+While the document is proofed, or its abbreviations checked (DOCE-REFERENCES-2.3), and proofing is not off (DOCE-PROOFING-1.8), the status bar (DOCE-EDITOR-5.1) shall show the proofing status (`de-document-editor__proofing-status`, the `proofingStatus` label): checking while text waits to be checked, then no issues, or how many, counting the abbreviations whose glossary entry needs the writer (`listDocumentIssues`), a count already known staying beside checking (`2 issues · Checking…`) and beside a notice that the proofers do not answer (`proofingUnavailable`, `proofingDegraded`); pressing it selects the next issue and keeps focus in the document (`nextIssue`), and with no issue it is disabled but stays focusable, its tooltip saying so (`noIssue`). It publishes `data-checking` while text waits to be checked and `data-issues` while issues are marked.
 
 Implementation: `src/components/document-editor/status-items.tsx`, `labs/reference/editor-chrome.css`, `src/engine/proofing-commands.ts`
 Verification: `e2e/proofing.spec.ts`, `src/components/document-editor/proofing-status.test.tsx`
