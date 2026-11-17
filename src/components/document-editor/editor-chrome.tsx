@@ -134,6 +134,7 @@ function useInsertFeatures(props: DocumentEditorProps): InsertFeatures {
       template: props.template,
       scripts,
       references,
+      referenceKinds: props.referenceKinds,
       diagrams,
       variables,
       templateContent,
@@ -146,6 +147,7 @@ function useInsertFeatures(props: DocumentEditorProps): InsertFeatures {
       props.template,
       scripts,
       references,
+      props.referenceKinds,
       diagrams,
       variables,
       templateContent,
@@ -265,6 +267,7 @@ export function EditorContextMenu({
       copyLink={props.onCopyLink}
       openDialog={openDialog}
       linkedCode={Boolean(props.codeSource)}
+      referenceKinds={props.referenceKinds}
       codeLanguages={props.codeLanguages}
       scriptRunner={props.scriptRunner}
       suggesting={editable && (props.suggesting ?? false)}

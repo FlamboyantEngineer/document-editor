@@ -51,7 +51,22 @@ test.describe('references', () => {
     await expect(dialog(page).getByRole('button', { name: /Target type/ })).toContainText(
       'Heading',
     );
+    await expect(dialog(page)).toHaveAccessibleName('Reference in this document');
     const picker = dialog(page).getByRole('combobox', { name: 'Target' });
+    // Insert waits for a target, and a target of another kind is cleared.
+    await expect(dialog(page).getByRole('button', { name: 'Insert' })).toBeDisabled();
+    await picker.fill('Power');
+    await page.getByRole('option', { name: /^\d+\.\s*Power$/ }).click();
+    await dialog(page)
+      .getByRole('button', { name: /Target type/ })
+      .click();
+    await page.getByRole('option', { name: 'Table' }).click();
+    await expect(picker).toHaveValue('');
+    await expect(dialog(page).getByRole('button', { name: 'Insert' })).toBeDisabled();
+    await dialog(page)
+      .getByRole('button', { name: /Target type/ })
+      .click();
+    await page.getByRole('option', { name: 'Heading' }).click();
     await picker.fill('Timing');
     await page.getByRole('option', { name: /^\d+\.\s*Timing$/ }).click();
     await dialog(page).getByRole('button', { name: 'Insert' }).click();
@@ -62,6 +77,15 @@ test.describe('references', () => {
     await page.keyboard.press('End');
     await page.keyboard.type(' budget');
     await expect(reference(page)).toHaveText(/Timing budget$/);
+    // Editing opens the same dialog, titled as inserting, on its target.
+    await reference(page).click({ button: 'right' });
+    await item(page, 'Edit reference…').click();
+    await expect(dialog(page)).toHaveAccessibleName('Reference in this document');
+    await expect(dialog(page).getByRole('combobox', { name: 'Target' })).toHaveValue(
+      /Timing budget$/,
+    );
+    await expect(dialog(page).getByRole('button', { name: 'Apply' })).toBeVisible();
+    await page.keyboard.press('Escape');
     // The menu removes it, keeping its text.
     await reference(page).click({ button: 'right' });
     await item(page, 'Remove reference').click();
@@ -69,15 +93,95 @@ test.describe('references', () => {
     await expect(content(page).locator('p', { hasText: /See .*Timing budget/ })).toHaveCount(1);
   });
 
-  test('DOCE-REFERENCES-3.1 cites another document the host finds', async ({ page }) => {
+  test('DOCE-REFERENCES-3.1 DOCE-REFERENCES-1.10 cites another document the host finds', async ({
+    page,
+  }) => {
     await newParagraph(page, 'Power', 'As in ');
     await toolbar(page).getByRole('button', { name: 'Reference' }).click();
     await item(page, 'Reference to another document…').click();
+    await expect(dialog(page)).toHaveAccessibleName('Reference to another document');
+    await expect(page.locator('[data-reference="external"]')).toBeVisible();
     await dialog(page).getByRole('combobox', { name: 'Document' }).fill('power');
-    await page.getByRole('option', { name: 'PWR-100 Power interface specification' }).click();
+    // The host's description shows on the row.
+    await expect(
+      page.getByRole('option', { name: /PWR-100 Power interface specification/ }),
+    ).toContainText('Rev B');
+    await page.getByRole('option', { name: /PWR-100 Power interface specification/ }).click();
     await dialog(page).getByRole('button', { name: 'Insert' }).click();
-    await expect(reference(page)).toHaveText('PWR-100');
+    await expect(reference(page)).toHaveText('PWR-100 - Power interface specification');
     await expect(reference(page)).toHaveAttribute('data-ref-type', 'external-document');
+  });
+
+  test('DOCE-REFERENCES-3.1 DOCE-REFERENCES-1.11 cites a heading of another document with its revision, and edits it filled in', async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'As in ');
+    await toolbar(page).getByRole('button', { name: 'Reference' }).click();
+    await item(page, 'Reference to another document…').click();
+    const insert = dialog(page).getByRole('button', { name: 'Insert' });
+    await dialog(page).getByRole('combobox', { name: 'Document' }).fill('power');
+    await page.getByRole('option', { name: /PWR-100/ }).click();
+    // A target type asks for a target of that type before Insert.
+    await dialog(page)
+      .getByRole('button', { name: /Target type/ })
+      .click();
+    await page.getByRole('option', { name: 'Heading' }).click();
+    await expect(insert).toBeDisabled();
+    await dialog(page).getByRole('combobox', { name: 'Target' }).fill('Supply');
+    await page.getByRole('option', { name: '2. Supply rails' }).click();
+    await dialog(page).getByText('Include revision').click();
+    await insert.click();
+    await expect(reference(page)).toHaveText(
+      'PWR-100 - Power interface specification Rev B § 2. Supply rails',
+    );
+    await expect(reference(page)).toHaveAttribute('data-include-revision', 'true');
+    // Editing opens the same dialog, titled as inserting, with the citation filled in.
+    await reference(page).click({ button: 'right' });
+    await item(page, 'Edit reference…').click();
+    await expect(dialog(page)).toHaveAccessibleName('Reference to another document');
+    await expect(dialog(page).getByRole('combobox', { name: 'Document' })).toHaveValue(
+      'PWR-100 - Power interface specification',
+    );
+    await expect(dialog(page).getByRole('combobox', { name: 'Target' })).toHaveValue(
+      '2. Supply rails',
+    );
+    await expect(dialog(page).getByRole('checkbox', { name: 'Include revision' })).toBeChecked();
+    // Another type clears the target; the whole document needs none.
+    await dialog(page)
+      .getByRole('button', { name: /Target type/ })
+      .click();
+    await page.getByRole('option', { name: 'Whole document' }).click();
+    await dialog(page).getByText('Include revision').click();
+    await dialog(page).getByRole('button', { name: 'Apply' }).click();
+    await expect(reference(page)).toHaveText('PWR-100 - Power interface specification');
+  });
+
+  test("DOCE-REFERENCES-1.12 offers the host's own reference type and edits it in the host's dialog", async ({
+    page,
+  }) => {
+    await newParagraph(page, 'Power', 'Per ');
+    await toolbar(page).getByRole('button', { name: 'Reference' }).click();
+    // The editor's entries, then the host's.
+    await expect(page.getByRole('menu').last().getByRole('menuitem')).toHaveText([
+      /Reference in this document/,
+      'Reference to another document…',
+      'Catalogue entry…',
+    ]);
+    await item(page, 'Catalogue entry…').click();
+    await dialog(page).getByRole('button', { name: /Entry/ }).click();
+    await page.getByRole('option', { name: 'STD-12 Connector practice' }).click();
+    await dialog(page)
+      .getByRole('button', { name: /Revision/ })
+      .click();
+    await page.getByRole('option', { name: 'Rev B' }).click();
+    await dialog(page).getByRole('button', { name: 'Insert' }).click();
+    await expect(reference(page)).toHaveText('STD-12 Rev B');
+    await expect(reference(page)).toHaveAttribute('data-library-revision-id', 'std-12@B');
+    // Editing opens the host's dialog, keeping the pinned revision.
+    await reference(page).click({ button: 'right' });
+    await item(page, 'Edit reference…').click();
+    await expect(page.locator('[data-dialog="catalogue-reference"]')).toBeVisible();
+    await expect(dialog(page).getByRole('button', { name: /Revision/ })).toContainText('Rev B');
   });
 
   test('DOCE-REFERENCES-3.2 DOCE-REFERENCES-2.1 adds a glossary entry from the selection and switches its form', async ({

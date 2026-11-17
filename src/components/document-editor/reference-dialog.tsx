@@ -5,7 +5,7 @@
 import { Combobox } from '@flamboyantengineer/ui-components/combobox';
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import { SelectField } from '@flamboyantengineer/ui-components/select-field';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   insertReference,
   internalReferenceText,
@@ -14,9 +14,10 @@ import {
   type ReferenceSource,
   referenceTargets,
 } from '../../engine/index.js';
-import type { ExternalReference, ReferenceSourceAdapter } from '../../host/index.js';
+import type { ReferenceSourceAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { applying, type DialogProps, EditorModal, titleOf } from './dialog-parts.js';
+import { ExternalReferenceDialog } from './external-reference-dialog.js';
 
 /** The kinds of reference the reference menu offers. */
 type ReferenceDialogKind = 'internal' | 'external';
@@ -55,7 +56,7 @@ function InternalReferenceDialog({
       onClose={onClose}
       data-dialog="reference"
       data-reference="internal"
-      title={titleOf(current ? labels.editReference : labels.internalReference)}
+      title={titleOf(labels.internalReference)}
       primaryAction={applying(view, {
         label: current ? labels.applyAction : labels.insertAction,
         command: reference ? insertReference(reference) : () => false,
@@ -82,62 +83,8 @@ function InternalReferenceDialog({
           .filter((each) => each.kind === kind)
           .map(({ id, label }) => ({ id, label }))}
         value={targetId}
+        defaultInputValue={target?.label}
         onChange={setTargetId}
-      />
-    </EditorModal>
-  );
-}
-
-/** A reference to another document, found through the host's reference source. */
-function ExternalReferenceDialog({
-  view,
-  labels,
-  onClose,
-  source,
-}: DialogProps & { source: ReferenceSourceAdapter }) {
-  const [current] = useState(() => referenceAt(view.state));
-  const [citation, setCitation] = useState<{ id: string; reference: ExternalReference } | null>(
-    null,
-  );
-  // The citations the host found last, by the ids the picker lists them under.
-  const found = useRef(new Map<string, ExternalReference>());
-  const reference: ReferenceSource | null = citation
-    ? {
-        kind: 'external',
-        refType: citation.reference.refType,
-        baseline: citation.reference.baseline,
-        text: citation.reference.baseline.defaultLabel || citation.reference.label,
-      }
-    : null;
-  return (
-    <EditorModal
-      view={view}
-      onClose={onClose}
-      data-dialog="reference"
-      data-reference="external"
-      title={titleOf(current ? labels.editReference : labels.externalReference)}
-      primaryAction={applying(view, {
-        label: current ? labels.applyAction : labels.insertAction,
-        command: reference ? insertReference(reference) : () => false,
-      })}
-    >
-      <Combobox
-        label={labels.otherDocument}
-        autoFocus
-        value={citation?.id ?? null}
-        onChange={(id) => {
-          const picked = typeof id === 'string' ? found.current.get(id) : undefined;
-          setCitation(picked && typeof id === 'string' ? { id, reference: picked } : null);
-        }}
-        loadItems={async (query, signal) => {
-          const result = await source.search(query, signal);
-          if (!result.ok) return [];
-          return result.value.map((each, index) => {
-            const id = `${each.baseline.documentId}#${each.baseline.target?.id ?? ''}#${String(index)}`;
-            found.current.set(id, each);
-            return { id, label: each.label };
-          });
-        }}
       />
     </EditorModal>
   );
@@ -162,7 +109,7 @@ export function ReferenceDialog({
     return reference ?? (current && !internalTargetId(current.mark) ? 'external' : 'internal');
   });
   return kind === 'external' && source ? (
-    <ExternalReferenceDialog {...shared} source={source} />
+    <ExternalReferenceDialog {...shared} source={source} template={template} />
   ) : (
     <InternalReferenceDialog {...shared} template={template} />
   );
