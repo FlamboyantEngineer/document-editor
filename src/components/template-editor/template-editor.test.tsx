@@ -321,13 +321,15 @@ describe('a disabled template editor', () => {
         isDisabled
       />,
     );
-    await openSections(user);
+    await openSections(user, 'Page setup');
     expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Settings of$/ })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Add a section' })).toBeDisabled();
     expect(screen.getByRole('radio', { name: 'Landscape' })).toBeDisabled();
     const filter = screen.getByRole('searchbox');
-    await user.type(filter, 'orientation');
+    // Pasted at once, the panel filters once rather than on each keystroke.
+    await user.click(filter);
+    await user.paste('orientation');
     expect(filter).toHaveValue('orientation');
     expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Landscape' })).toBeDisabled();
