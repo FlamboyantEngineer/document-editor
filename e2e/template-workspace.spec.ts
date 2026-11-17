@@ -182,7 +182,7 @@ test.describe('template workspace lab', () => {
     await expect.poll(() => fontSizeOf(page, 'h1[data-doc-title]')).toBe(pixels(inherited));
   });
 
-  test('DOCE-TEMPLATE-EDITOR-1.9 DOCE-TEMPLATE-EDITOR-1.10 DOCE-TEMPLATE-EDITOR-1.11 DOCE-TEMPLATE-EDITOR-3.2 DOCE-TEMPLATE-EDITOR-3.13 DOCE-TEMPLATE-EDITOR-3.16 writes every field beside the preview, saves it, and reads it back without the samples', async ({
+  test('DOCE-TEMPLATE-EDITOR-1.9 DOCE-TEMPLATE-EDITOR-1.10 DOCE-TEMPLATE-EDITOR-1.11 DOCE-TEMPLATE-EDITOR-3.2 DOCE-TEMPLATE-EDITOR-3.16 writes every field beside the preview, saves it, and reads it back without the samples', async ({
     lab,
     page,
   }) => {
@@ -224,15 +224,14 @@ test.describe('template workspace lab', () => {
       .toBe(rgbOf(String(heading1?.color)));
     await saveButton(page).click();
     await expect(workspace(page)).not.toHaveAttribute('data-dirty', 'true');
-    // Opened again from the store, the template reads back as written, with none of the
-    // preview's samples in it.
+    // Opened again from the store, the template is stored as written, with none of the preview's
+    // samples in it.
     await pick(page, 'Letter');
     await expect(nameField(page)).toHaveValue('Letter');
     await pick(page, String(fixture.name));
     await expect(nameField(page)).toHaveValue(String(fixture.name));
-    await page.keyboard.press('Control+Alt+B');
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
-    const text = await json.inputValue();
+    await page.getByRole('button', { name: 'Show the stored template' }).click();
+    const text = (await page.getByLabel('Stored template').textContent()) ?? '';
     for (const sample of ['First item', 'Heading 2', 'Each requirement']) {
       expect(text).not.toContain(sample);
     }

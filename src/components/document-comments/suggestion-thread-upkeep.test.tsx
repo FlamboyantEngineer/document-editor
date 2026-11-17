@@ -3,8 +3,8 @@ import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Harness, host, seen, text, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
-import { listSuggestions } from '../../engine/index.js';
-import { createMemoryHost } from '../../host/index.js';
+import { listSuggestions, suggestTransaction } from '../../engine/index.js';
+import { type CommentStoreAdapter, createMemoryHost } from '../../host/index.js';
 import type { SessionStatus } from '../../session/status.js';
 import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
 
@@ -112,5 +112,50 @@ describe('Suggestion threads kept', () => {
     );
     await waitFor(() => expect(save).toHaveBeenCalled());
     expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(expect.any(String));
+  });
+
+  it('DOCE-COMMENTS-2.21 asks the store once for a burst of suggested typing, not once a character', async () => {
+    const store = storeWith([]);
+    const comments = store.comments as CommentStoreAdapter;
+    const calls: string[] = [];
+    const counted: CommentStoreAdapter = {
+      ...comments,
+      create: (documentId, thread) => {
+        calls.push('create');
+        return comments.create(documentId, thread);
+      },
+      update: (documentId, threadId, change) => {
+        calls.push('update');
+        if (!comments.update) throw new Error('The store should update threads.');
+        return comments.update(documentId, threadId, change);
+      },
+    };
+    const handle = createRef<DocumentEditorHandle>();
+    render(
+      <Harness
+        host={{ ...store, comments: counted }}
+        content={[text('Alpha')]}
+        handleRef={handle}
+        options={{ suggestionThreads: { delay: 100 } }}
+      />,
+    );
+    act(() => {
+      for (const character of 'burst') {
+        handle.current?.run((state, dispatch) => {
+          const at = state.selection.from;
+          const typed = suggestTransaction(state.tr.insertText(character, at), state, {
+            author: 'ada',
+          });
+          if (typed) dispatch?.(typed);
+          return true;
+        });
+      }
+    });
+    await waitFor(() => expect(calls).toContain('create'));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(calls).toEqual(['create']);
+    expect(seen.state && listSuggestions(seen.state.doc)).toEqual([
+      expect.objectContaining({ inserted: 'burst', thread: expect.any(String) }),
+    ]);
   });
 });

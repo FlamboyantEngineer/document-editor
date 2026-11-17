@@ -34,10 +34,10 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/tem
 
 ### DOCE-TEMPLATE-EDITOR-1.5 - The template as JSON
 
-`TemplateJsonEditor` shall edit a template as JSON in the base library's code editor, check the text as it is typed (`validateTemplateFile`), show its errors, or that the text is not JSON only when it cannot be parsed, and tell them to `onValidityChange`, and hand the template to `onChange` once focus leaves the editor (DOCE-TEMPLATE-EDITOR-2.7).
+Withdrawn. A template is written through its rows and edited in place on the preview (DOCE-TEMPLATE-EDITOR-1.9, DOCE-TEMPLATE-EDITOR-3.16); the library offers no JSON editor, and the package exports none.
 
-Implementation: `src/components/template-editor/template-json-editor.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`
+Implementation: `src/components/index.ts`
+Verification: `src/components/template-editor/template-editor.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.6 - Custom styles
 
@@ -152,10 +152,10 @@ Verification: `src/components/template-editor/template-structure.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-2.7 - Committing the JSON
 
-`TemplateJsonEditor` shall hand the template its text reads as to `onChange` once focus leaves the editor, and only when it is valid; an invalid text stays, with its errors. The keys the host locks (`lockedKeys`, by default `formatVersion` and `id`) keep the host's values, or stay out while its template has none, whatever the text says (`readTemplateText`); a text that cannot be parsed says it is not JSON, and one that can shows the template's own errors. The text follows a template changed elsewhere while it holds no edit of its own, and keeps an edit in progress.
+Withdrawn with DOCE-TEMPLATE-EDITOR-1.5.
 
-Implementation: `src/components/template-editor/template-json-editor.tsx`, `src/components/template-editor/template-json-text.ts`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-structure.test.tsx`, `src/components/template-editor/template-json-text.test.ts`
+Implementation: `src/components/index.ts`
+Verification: `src/components/template-editor/template-editor.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-2.8 - The preview follows the scope
 
@@ -252,10 +252,10 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 
 ### DOCE-TEMPLATE-EDITOR-3.13 - The JSON view
 
-With `debug`, Control+Alt+B in the workspace shall show the open template's JSON editor (`json`, a region named by `json`, DOCE-TEMPLATE-EDITOR-2.7) in place of the preview, and the preview again on the next press; the root publishes `data-view="json"` while it shows. Save is disabled while the text is not a valid template. A held key's repeats and a key pressed during a text composition do nothing, and without `debug` the keys do nothing.
+Withdrawn. The workspace shows no JSON in place of the preview: it has no `debug` view, and Control+Alt+B does nothing in it.
 
-Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/workspace-json.tsx`
-Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
+Implementation: `src/components/template-workspace/template-workspace.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-3.14 - The open dialog
 
@@ -297,7 +297,6 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`
 | Hook                                 | Kind      | Values                | Description                                              |
 | ------------------------------------ | --------- | --------------------- | -------------------------------------------------------- |
 | `de-template-editor`                 | root      |                       | The template editor's settings panel.                    |
-| `de-template-json-editor`            | root      |                       | The template's JSON editor.                              |
 | `data-scope`                         | attribute | `document`, `section` | On the template editor: whose settings it shows.         |
 | `de-template-editor__setting`        | slot      |                       | A setting's field, with its hover text.                  |
 | `de-template-editor__font-option`    | slot      |                       | A font's name in the font list, drawn in that font.      |
@@ -311,7 +310,6 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`
 | `de-template-workspace__main`        | slot      |                       | The scope tabs' panel.                                   |
 | `de-template-workspace__body`        | slot      |                       | The preview beside the side panel.                       |
 | `de-template-workspace__panel`       | slot      |                       | The side panel of properties and history.                |
-| `de-template-workspace__json`        | slot      |                       | The template's JSON, shown in place of the preview.      |
 | `de-template-workspace__open-dialog` | slot      |                       | The open dialog's search and tree.                       |
 | `de-template-workspace__settings`    | slot      |                       | The open template's settings.                            |
 | `de-template-workspace__preview`     | slot      |                       | The host's preview of the template shown.                |
@@ -320,4 +318,3 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`
 | `data-dirty`                         | attribute | `true`                | On the workspace: the open template has unsaved changes. |
 | `data-layout`                        | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.  |
 | `data-loading`                       | attribute | `true`                | On the workspace: a template it asked for is loading.    |
-| `data-view`                          | attribute | `json`                | On the workspace: the JSON view shows.                   |

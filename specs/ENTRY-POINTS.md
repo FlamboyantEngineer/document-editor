@@ -71,7 +71,7 @@ Verification: `src/components/document-editor/lazy-dialog.test.tsx`
 
 ### DOCE-ENTRY-2.5 - The template workspace's surfaces
 
-The template workspace shall load its own preview, with the document editor, its JSON view, with its code editor, and its open dialog's list of templates the first time each shows, not with the entry, so a host that draws its own preview never loads the editor; nothing shows while one loads. `npm run check:bundle-size` fails the workspace consumer whose initial code holds any of them.
+The template workspace shall load its own preview, with the document editor, and its open dialog's list of templates the first time each shows, not with the entry, so a host that draws its own preview never loads the editor; nothing shows while one loads. `npm run check:bundle-size` fails the workspace consumer whose initial code holds any of them.
 
 Implementation: `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/template-open-dialog.tsx`, `scripts/check-bundle-size.mjs`
 Verification: `test/bundle-budgets.test.ts`, `src/components/template-workspace/template-workspace-layout.test.tsx`, `src/components/template-workspace/template-preview-editor.test.tsx`

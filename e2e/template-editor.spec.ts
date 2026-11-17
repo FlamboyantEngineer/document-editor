@@ -42,6 +42,8 @@ async function typeInto(page: Page, block: Locator, text: string) {
     await expect(block).toHaveText(before + text.slice(0, index));
   }
 }
+// The template the editor holds, shown read only as JSON beside it.
+const templateJson = (page: Page) => page.getByLabel('Template JSON');
 const landscape = (page: Page) =>
   panel(page)
     .first()
@@ -118,9 +120,9 @@ test.describe('template editor lab', () => {
     const name = settings.getByRole('textbox', { name: 'Label' });
     await name.fill('Appendix');
     await landscape(page).click();
-    // DOCE-TEMPLATE-EDITOR-1.5: the JSON holds the section.
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
+    // The template holds the section.
+    await page.getByLabel('Show as JSON').check();
+    const json = templateJson(page);
     await expect(json).toContainText('"label": "Appendix"');
     await expect(json).toContainText('"orientation": "landscape"');
   });
@@ -137,49 +139,8 @@ test.describe('template editor lab', () => {
     await page.keyboard.type(' Programme review');
     // Every page of the section shows it, and the template holds it.
     await expect(headers.nth(1)).toContainText('Programme review');
-    await page.getByLabel('Edit as JSON').check();
-    await expect(page.getByRole('textbox', { name: 'Template JSON' })).toContainText(
-      'Programme review',
-    );
-  });
-
-  test('DOCE-TEMPLATE-EDITOR-1.5 DOCE-TEMPLATE-EDITOR-2.7 edits the template as JSON, committed once focus leaves', async ({
-    lab,
-    page,
-  }) => {
-    await openLab(lab, page);
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
-    // The id is locked: the text cannot change it.
-    await json.fill(
-      '{ "formatVersion": 1, "id": "other", "page": { "orientation": "landscape" } }',
-    );
-    const pageIsLandscape = () =>
-      content(page)
-        .locator('.pm-page')
-        .first()
-        .evaluate(
-          (element) =>
-            element.getBoundingClientRect().width > element.getBoundingClientRect().height,
-        );
-    expect(await pageIsLandscape()).toBe(false);
-    await json.blur();
-    await expect
-      .poll(() =>
-        content(page)
-          .locator('.pm-page')
-          .first()
-          .evaluate(
-            (element) =>
-              element.getBoundingClientRect().width > element.getBoundingClientRect().height,
-          ),
-      )
-      .toBe(true);
-    await expect(json).toContainText('"id": "lab-template"');
-    await json.fill('{ "formatVersion": 1, "id": "lab-template", ');
-    await expect(page.getByText('The text is not valid JSON.')).toBeVisible();
-    await json.blur();
-    await expect(json).toHaveValue('{ "formatVersion": 1, "id": "lab-template", ');
+    await page.getByLabel('Show as JSON').check();
+    await expect(templateJson(page)).toContainText('Programme review');
   });
 
   test('DOCE-TEMPLATE-EDITOR-1.6 DOCE-TEMPLATES-7.1 adds a custom style and applies it to a paragraph', async ({
@@ -371,22 +332,22 @@ test.describe('template editor lab', () => {
     await settings.getByRole('button', { name: 'Move the section earlier' }).click();
     // The scope stays on the moved section.
     await expect(name).toHaveValue('annex_b');
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
+    await page.getByLabel('Show as JSON').check();
+    const json = templateJson(page);
     await expect
       .poll(async () => {
-        const text = (await json.inputValue()) || '';
+        const text = (await json.textContent()) ?? '';
         return [...text.matchAll(/"name": "(annex_\w)"/g)].map((match) => match[1]);
       })
       .toEqual(['annex_b', 'annex_a']);
-    await page.getByLabel('Edit as JSON').uncheck();
+    await page.getByLabel('Show as JSON').uncheck();
     // Deleting asks first.
     await settings.getByRole('button', { name: 'Delete the section' }).click();
     const dialog = page.getByRole('alertdialog');
     await expect(dialog).toContainText('annex_b');
     await dialog.getByRole('button', { name: 'Delete the section' }).click();
     await expect(settings).toHaveAttribute('data-scope', 'document');
-    await page.getByLabel('Edit as JSON').check();
+    await page.getByLabel('Show as JSON').check();
     await expect(json).not.toContainText('annex_b');
     await expect(json).toContainText('annex_a');
   });
@@ -399,10 +360,8 @@ test.describe('template editor lab', () => {
     const folder = panel(page).first().getByRole('textbox', { name: 'Folder' });
     await folder.fill('Reports');
     await folder.press('Enter');
-    await page.getByLabel('Edit as JSON').check();
-    await expect(page.getByRole('textbox', { name: 'Template JSON' })).toContainText(
-      '"folder": "Reports"',
-    );
+    await page.getByLabel('Show as JSON').check();
+    await expect(templateJson(page)).toContainText('"folder": "Reports"');
   });
 
   test('DOCE-TEMPLATE-EDITOR-2.8 scrolls the preview to the section picked', async ({
@@ -424,18 +383,12 @@ test.describe('template editor lab', () => {
     await expect(content(page).locator('[data-section-name="section_1"]').first()).toBeInViewport();
   });
 
-  test('DOCE-LABS-3.1 DOCE-TEMPLATE-EDITOR-2.7 follows the host options and reports JSON validity', async ({
-    lab,
-    page,
-  }) => {
+  test('DOCE-LABS-3.1 follows the host options', async ({ lab, page }) => {
     await openLab(lab, page);
     await page.getByLabel('Parent fails to load').check();
     await expect(panel(page)).toContainText('The base template could not be loaded.');
-    await page.getByLabel('Edit as JSON').check();
-    await page.getByRole('textbox', { name: 'Template JSON' }).fill('{ "formatVersion": 1, ');
-    await expect(page.getByRole('status', { name: 'Template report' })).toContainText(
-      'JSON invalid',
-    );
+    await page.getByLabel('Disable the template editor').check();
+    await expect(panel(page).first().getByRole('textbox', { name: 'Name' })).toBeDisabled();
   });
 
   test('DOCE-SECTIONS-5.1 DOCE-PAGINATION-8.7 types in headers and footers, in a paragraph and a table cell, on the first and a later page', async ({
@@ -445,24 +398,7 @@ test.describe('template editor lab', () => {
     test.slow();
     await openLab(lab, page);
     // Each region holds a paragraph and a table of two cells.
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
-    const template = JSON.parse((await json.inputValue()) || '{}') as Record<string, unknown>;
-    const text = (value: string) => [
-      { type: 'paragraph', content: [{ type: 'text', text: value }] },
-    ];
-    const cell = { type: 'tableCell', content: [{ type: 'paragraph' }] };
-    const region = (name: string) => ({
-      content: [
-        ...text(name),
-        { type: 'table', content: [{ type: 'tableRow', content: [cell, cell] }] },
-      ],
-    });
-    await json.fill(
-      JSON.stringify({ ...template, header: region('Head'), footer: region('Foot') }),
-    );
-    await json.blur();
-    await page.getByLabel('Edit as JSON').uncheck();
+    await page.getByRole('button', { name: 'Put a table in the header and footer' }).click();
     await expect(regions(page, 'footer').first().locator('td')).toHaveCount(2);
     await expect(page.locator('.de-document-editor')).toHaveAttribute(
       'data-layout-state',

@@ -7,7 +7,6 @@ import type { StoredContent, TemplateFile } from '../../model/index.js';
 import { SettingControl } from './setting-controls.js';
 import { TEMPLATE_SECTIONS } from './settings-catalog.js';
 import { TemplateEditor, withRegionChange } from './template-editor.js';
-import { TemplateJsonEditor } from './template-json-editor.js';
 import { withListedSections } from './template-scope.js';
 import { type TemplateSetting, withSetting } from './template-settings.js';
 
@@ -78,26 +77,10 @@ describe('withRegionChange', () => {
   });
 });
 
-describe('TemplateJsonEditor', () => {
-  it('DOCE-TEMPLATE-EDITOR-1.5 shows the errors of a template that is JSON, not that it is not', async () => {
-    const user = userEvent.setup();
-    const changes: TemplateFile[] = [];
-    const validity: (readonly string[])[] = [];
-    render(
-      <TemplateJsonEditor
-        template={{ formatVersion: 1, id: 'plain' }}
-        onChange={(next) => changes.push(next)}
-        onValidityChange={(errors) => validity.push(errors)}
-      />,
-    );
-    const text = screen.getByRole('textbox');
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,"id":"plain","constructor":{"size":"A4"}}');
-    expect(validity.at(-1)).toEqual(['template.constructor is not a template setting']);
-    await user.clear(text);
-    await user.paste('{"formatVersion":1,');
-    expect(validity.at(-1)).toEqual(['The text is not valid JSON.']);
-    expect(changes).toEqual([]);
+describe('the package', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.5 DOCE-TEMPLATE-EDITOR-2.7 offers no JSON editor, these being withdrawn', async () => {
+    const components = await import('../index.js');
+    expect(Object.keys(components).filter((name) => /json/i.test(name))).toEqual([]);
   });
 });
 
