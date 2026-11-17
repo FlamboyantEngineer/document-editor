@@ -611,6 +611,12 @@
   font-family: var(--de-font-option), sans-serif;
 }
 
+/* The unit after a style's size, on its font row. */
+.de-template-editor__unit {
+  color: var(--ref-text-muted);
+  font-size: 0.85em;
+}
+
 /* The template's JSON editor fills the panel it is in. */
 .de-template-json-editor {
   display: flex;

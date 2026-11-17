@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { openSections } from '../../../test/property-sections.js';
 import type { TemplateFile } from '../../model/index.js';
 import { TemplateEditor, type TemplateEditorProps, templateIdOf } from './template-editor.js';
 import { TemplateJsonEditor } from './template-json-editor.js';
@@ -331,6 +332,7 @@ describe('extension slots', () => {
           }}
         />,
       );
+      await openSections(user);
       const folder = screen.getByRole('textbox', { name: 'Folder' });
       expect(folder).toHaveValue('Old');
       await user.clear(folder);

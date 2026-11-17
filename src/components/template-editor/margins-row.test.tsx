@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { openSections } from '../../../test/property-sections.js';
 import type { TemplateFile } from '../../model/index.js';
 import { TemplateEditor } from './template-editor.js';
 
@@ -15,6 +16,7 @@ describe('the margins', () => {
     const user = userEvent.setup();
     const changes: TemplateFile[] = [];
     render(<TemplateEditor template={LETTER} onChange={(next) => changes.push(next)} />);
+    await openSections(user);
     const top = screen.getByRole('textbox', { name: 'Top margin' });
     expect(top).toHaveValue('0.125');
     expect(screen.getByRole('textbox', { name: 'Right margin' })).toHaveValue('1');
@@ -36,6 +38,7 @@ describe('the margins', () => {
         onDraftsChange={(state) => validity.push(state)}
       />,
     );
+    await openSections(user);
     const bottom = screen.getByRole('textbox', { name: 'Bottom margin' });
     await user.type(bottom, '-1');
     expect(bottom).toHaveAttribute('aria-invalid', 'true');

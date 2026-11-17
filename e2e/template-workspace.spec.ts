@@ -3,8 +3,9 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures.js';
 import {
   closeCard,
+  offeredOnly,
   openCard,
-  sectionOf,
+  openSection,
   withoutEmptyText,
   writeFields,
 } from './template-settings-steps.js';
@@ -136,7 +137,7 @@ test.describe('template workspace lab', () => {
     test.setTimeout(180_000);
     await lab.open('template-workspace');
     await showPane(page, 'Properties');
-    const styles = sectionOf(settings(page), 'Text styles');
+    const styles = await openSection(settings(page), 'Text styles');
     // Each card's size shows on its block in the preview before anything is saved.
     for (const { card, block, points } of TEXT_STYLE_SIZES) {
       const opened = await openCard(styles, card);
@@ -188,12 +189,15 @@ test.describe('template workspace lab', () => {
     // About 350 fields, each typed, picked or pressed, the preview following each: about 5 minutes
     // here, 3 to 4 on a CI runner.
     test.setTimeout(900_000);
-    // An emptied field inherits, so a template written field by field holds no empty text.
-    const fixture = withoutEmptyText(
-      JSON.parse(
-        readFileSync(
-          new URL('../test/fixtures/templates/field-report.json', import.meta.url),
-          'utf8',
+    // An emptied field inherits, so a template written field by field holds no empty text, and
+    // none of the settings the editor offers no field for.
+    const fixture = offeredOnly(
+      withoutEmptyText(
+        JSON.parse(
+          readFileSync(
+            new URL('../test/fixtures/templates/field-report.json', import.meta.url),
+            'utf8',
+          ),
         ),
       ),
     ) as Record<string, Record<string, Record<string, unknown>>>;

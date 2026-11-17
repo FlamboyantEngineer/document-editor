@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { openSections } from '../../../test/property-sections.js';
 import { LOADED, nameField, saveButton, SLOW, storeOf } from '../../../test/template-workspace.js';
 import { TemplateWorkspace } from './template-workspace.js';
 
@@ -16,6 +17,7 @@ describe('TemplateWorkspace drafts', () => {
       render(<TemplateWorkspace store={store} defaultTemplateId="report" defaultPanelExpanded />);
       await nameField();
       const settings = screen.getByRole('region', { name: 'Document settings' });
+      await openSections(user, 'Page');
       const top = within(settings).getByRole('textbox', { name: 'Top margin' });
       await user.clear(top);
       await user.type(top, '1x');
