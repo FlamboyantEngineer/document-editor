@@ -206,6 +206,27 @@ function stepOf(path: readonly string[], value: unknown): SettingStep | null {
   return null;
 }
 
+// The settings the format holds that the editor offers no field for: the title's and headings'
+// own line height, a custom style's colour, and a footnote's numbering mode, text after the
+// number, colours, underline and text spacing.
+const NOT_OFFERED = [
+  /^styles\.(title|heading[1-6])\.lineHeight$/,
+  /^styles\.custom\.[^.]+\.color$/,
+  /^footnotes\.(numbering|suffix|separator\.color)$/,
+  /^footnotes\.(marker|text)\.(underline|color)$/,
+  /^footnotes\.text\.(spaceBefore|spaceAfter)$/,
+];
+
+/** A template without the settings the editor offers no field for, as one written in it is. */
+export function offeredOnly(template: unknown, path: readonly string[] = []): unknown {
+  if (template === null || typeof template !== 'object' || Array.isArray(template)) return template;
+  return Object.fromEntries(
+    Object.entries(template)
+      .filter(([key]) => !NOT_OFFERED.some((rule) => rule.test([...path, key].join('.'))))
+      .map(([key, child]) => [key, offeredOnly(child, [...path, key])]),
+  );
+}
+
 /** The steps that set each setting a template holds, below the keys left out. */
 export function settingSteps(template: unknown, leftOut: readonly string[]): SettingStep[] {
   const steps: SettingStep[] = [];
@@ -228,6 +249,20 @@ export const sectionOf = (panel: Locator, title: string) =>
   panel.locator('.ui-property-section').filter({
     has: panel.page().getByRole('button', { name: new RegExp(`^${title}\\b`) }),
   });
+
+/** Opens the editor's section by its title, if it is collapsed, and returns it. */
+export async function openSection(panel: Locator, title: string): Promise<Locator> {
+  const section = sectionOf(panel, title);
+  const trigger = section.locator('.ui-property-section__trigger');
+  if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+  return section;
+}
+
+/** Opens every collapsed section of the editor, as a person reading all of it does. */
+export async function openSections(panel: Locator): Promise<void> {
+  const collapsed = panel.locator('.ui-property-section__trigger[aria-expanded="false"]');
+  while ((await collapsed.count()) > 0) await collapsed.first().click();
+}
 
 /** A card of a section, by its name, which its summary follows. */
 export const cardOf = (section: Locator, name: string) =>
@@ -332,8 +367,20 @@ export async function setField(scope: Locator, step: SettingStep): Promise<void>
       return cycle(scope.getByRole('switch', { name: label, exact: true }), value, 'Space');
     case 'toggle':
       return cycle(scope.getByRole('button', { name: label, exact: true }), value);
-    case 'segment':
-      return scope.getByRole('radio', { name: label, exact: true }).click();
+    case 'segment': {
+      // Pressing the segment the row sets itself, such as a new style's own alignment, inherits
+      // again; an inherited one shows picked too, and pressing it sets it.
+      const segment = scope.getByRole('radio', { name: label, exact: true });
+      const isInherited = await segment.evaluate((element) =>
+        Boolean(
+          element.closest(
+            '.de-template-editor__setting[data-inherited], .ui-segmented-choice[data-inherited]',
+          ),
+        ),
+      );
+      if (isInherited || !(await segment.isChecked())) await segment.click();
+      return;
+    }
     case 'select': {
       await scope.getByRole('button', { name: new RegExp(`${step.label}$`) }).click();
       await page.getByRole('option', { name: String(value), exact: true }).click();
@@ -355,6 +402,7 @@ export async function writeFields(
 ): Promise<void> {
   const steps = settingSteps(template, [...leftOut, 'name', 'header.content', 'footer.content']);
   // A name is written on Enter.
+  await openSections(settings);
   const name = sectionOf(settings, 'Identity').getByRole('textbox', { name: 'Name' });
   await name.fill(String(template.name));
   await name.press('Enter');
@@ -362,9 +410,10 @@ export async function writeFields(
   const custom = Object.keys(
     (template.styles as { custom?: Record<string, unknown> }).custom ?? {},
   );
-  for (const [index, name] of custom.entries()) {
+  // A style added takes the first free name, `custom_style_1` once the one before is renamed.
+  for (const name of custom) {
     await styles.getByRole('button', { name: 'Add a style' }).click();
-    const added = await openCard(styles, `style_${String(index + 1)}`);
+    const added = await openCard(styles, 'custom_style_1');
     const field = added.getByRole('textbox', { name: 'Name' });
     await field.fill(name);
     await field.press('Enter');
@@ -379,7 +428,7 @@ export async function writeFields(
   for (const group of groups.values()) {
     const [first] = group;
     if (!first) continue;
-    const section = sectionOf(settings, first.section);
+    const section = await openSection(settings, first.section);
     await pickIn(section, first.picks);
     const scope = first.card ? await openCard(section, first.card) : section;
     for (const step of group) await setField(scope, step);

@@ -297,9 +297,9 @@ Verification: `src/model/format/template-format.test.ts`, `src/model/templates/t
 
 ### DOCE-TEMPLATES-10.3 - Custom style names
 
-A custom style's name shall start with a letter, then up to 15 letters, digits, underscores or hyphens (`CUSTOM_STYLE_NAME`). `validateTemplateFile` shall report each custom style of the template's or a section's styles named otherwise, and the template editor shall rename a style only to such a name.
+A custom style's name shall start with a letter, then up to 15 letters, digits, underscores or hyphens (`CUSTOM_STYLE_NAME`). `validateTemplateFile` shall report each custom style of the template's or a section's styles named otherwise. The template editor shall rename a style only to such a name without a hyphen (DOCE-TEMPLATE-EDITOR-1.10).
 
-Implementation: `src/model/format/template-format-validate.ts`, `src/components/template-editor/style-sections.tsx`
+Implementation: `src/model/format/template-format-validate.ts`, `src/components/template-editor/custom-style-names.ts`
 Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-TEMPLATES-10.4 - Lists of contents per kind

@@ -6,10 +6,11 @@ import { PropertySection } from '@flamboyantengineer/ui-components/property-pane
 import { Fragment, type ReactNode, useCallback, useLayoutEffect, useRef } from 'react';
 import type { TemplateFile } from '../../model/index.js';
 import { ContentsSection } from './contents-section.js';
+import { CustomStyleSection } from './custom-style-section.js';
 import { SettingCard } from './setting-card.js';
 import { rows } from './setting-row.js';
 import { referenceSection, TEMPLATE_SECTIONS } from './settings-catalog.js';
-import { CustomStyleSection, TextStyleSection } from './style-sections.js';
+import { HeadingNumberingSection, TextStyleSection } from './style-sections.js';
 import type { TemplateEditorLabels, TemplateEditorProps } from './template-editor.js';
 import { settingAt, type TemplateSettingSection } from './template-settings.js';
 
@@ -116,6 +117,7 @@ export function SettingSections({
       {section.id === 'page' ? (
         <>
           <TextStyleSection context={context} />
+          {inSection ? <HeadingNumberingSection context={context} /> : null}
           <CustomStyleSection context={context} />
         </>
       ) : null}
