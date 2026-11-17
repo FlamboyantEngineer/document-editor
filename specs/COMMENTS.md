@@ -363,6 +363,13 @@ With `suggestionThreads`, while the reader may edit and once the store has liste
 Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/comment-thread-list.ts`
 Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/suggestion-thread-upkeep.test.tsx`
 
+### DOCE-COMMENTS-2.37 - The active card when focus leaves
+
+With `clearsActiveOnBlur`, the margin shall make no card active once focus leaves it and its popups, so the active card's emphasis, and the layer's highlight of its text, go with it until a card is focused or the caret moves into an anchor again. Without it, the default, the active card stays active until another becomes active.
+
+Implementation: `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/active-card-blur.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

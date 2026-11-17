@@ -32,6 +32,11 @@ export interface MentionsAdapter {
   /** Splits stored text into text and mentions; the inverse of `serialize`. */
   parse?(text: string): readonly MentionTextRun[];
   /**
+   * Turns text pasted into a comment into text and mentions, such as a reserved name into its
+   * token; null, or left out, pastes it as plain text. Typed text never becomes a mention.
+   */
+  resolvePaste?(text: string): readonly MentionTextRun[] | null | undefined;
+  /**
    * Whether a group, or another target that stands for people, includes a person, so a thread
    * that mentions it counts as theirs.
    */
