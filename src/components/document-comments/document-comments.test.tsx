@@ -398,6 +398,36 @@ describe('DocumentComments', () => {
     expect(within(margin).getByText('Added')).toBeInTheDocument();
   });
 
+  it('DOCE-COMMENTS-2.18 rejects a deletion from its card: the text stays, unmarked, and the card and thread go', async () => {
+    const user = userEvent.setup();
+    const store = createMemoryHost({
+      person: { id: 'ada', name: 'Ada Lovelace' },
+      comments: { threads: { doc: [{ ...thread('cut', 'open', 'Why cut?'), suggestion: 's9' }] } },
+    });
+    render(
+      <Harness
+        host={store}
+        content={[
+          text('Alpha '),
+          text('gamma', [{ type: 'deletion', attrs: { id: 's9', author: 'ada', thread: 'cut' } }]),
+          text(' omega'),
+        ]}
+      />,
+    );
+    const margin = screen.getByRole('list', { name: 'Comments' });
+    const card = (await within(margin).findByText('Why cut?')).closest('[role="listitem"]');
+    if (!(card instanceof HTMLElement)) throw new Error('The suggestion should show.');
+    await user.click(within(card).getByRole('button', { name: 'Reject' }));
+    await waitFor(() => expect(within(margin).queryByText('Why cut?')).not.toBeInTheDocument());
+    expect(seen.state?.doc.textContent).toContain('Alpha gamma omega');
+    expect(seen.state && listSuggestions(seen.state.doc)).toEqual([]);
+    const listed = await store.comments?.list('doc');
+    expect(listed?.ok && listed.value[0]).toMatchObject({
+      state: 'resolved',
+      decision: { decision: 'reject', suggestion: 's9' },
+    });
+  });
+
   it('DOCE-COMMENTS-2.19 records a decision once on the thread of the suggestion in the store', async () => {
     const user = userEvent.setup();
     const store = host();
