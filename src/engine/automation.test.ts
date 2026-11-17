@@ -265,6 +265,53 @@ describe('automation', () => {
     expect(listCommentAnchors(next.doc).map((anchor) => anchor.text)).toEqual(['limit']);
   });
 
+  it('DOCE-AUTOMATION-1.6 anchors one thread on several ranges, overlapping another, and refuses one that does not resolve', () => {
+    const state = stateOf(
+      paragraph('a1a1a1a1', 'Check this limit.'),
+      paragraph('b2b2b2b2', 'And this one.'),
+    );
+    let ids = 0;
+    const newId = () => `f${String((ids += 1))}f5f5f5`.slice(0, 8);
+    const { state: next, result } = apply(
+      state,
+      [
+        { op: 'comment', at: { elementId: 'a1a1a1a1', from: 6, to: 16 }, text: 'First' },
+        {
+          op: 'comment',
+          at: [
+            { elementId: 'a1a1a1a1', from: 11, to: 16 },
+            { elementId: 'b2b2b2b2', from: 4, to: 8 },
+          ],
+          text: 'Both?',
+        },
+      ],
+      { ...AGENT, newId },
+    );
+    if (!result.ok) throw new Error('The batch should apply.');
+    const [, both] = result.threads;
+    expect(both).toMatchObject({ quote: 'limit this', text: 'Both?' });
+    expect(
+      listCommentAnchors(next.doc)
+        .filter((anchor) => anchor.thread === both?.id)
+        .map((anchor) => anchor.text),
+    ).toEqual(['limit this']);
+    const refused = applyEdits(
+      state,
+      [
+        {
+          op: 'comment',
+          at: [
+            { elementId: 'a1a1a1a1', from: 11, to: 16 },
+            { elementId: 'gone0000', from: 0, to: 2 },
+          ],
+          text: 'Lost',
+        },
+      ],
+      AGENT,
+    );
+    expect(refused).toMatchObject({ ok: false, error: { kind: 'not-found', index: 0 } });
+  });
+
   it('DOCE-AUTOMATION-1.7 refuses an edit at a locked position', () => {
     const doc = stateOf(paragraph('a1a1a1a1', 'Locked text')).doc;
     const state = EditorState.create({

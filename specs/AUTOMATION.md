@@ -41,7 +41,7 @@ Verification: `src/engine/automation.test.ts`, `e2e/automation.spec.ts`
 
 ### DOCE-AUTOMATION-1.6 - Comments
 
-A `comment` edit shall anchor a new thread to a range of an element's text (`anchorCommentRange`) and hand the thread back, with its id, the quoted text, the comment and the actor, for the host to store.
+A `comment` edit shall anchor a new thread to a range of an element's text, or to several ranges (`at` as a list) in one element or more, which may overlap other threads, as one thread with one mark per range (`anchorCommentRanges`), refused whole when a range does not resolve, and hand the thread back, with its id, the quoted text (the ranges' texts joined by spaces), the comment and the actor, for the host to store.
 
 Implementation: `src/engine/automation.ts`, `src/engine/comments.ts`
 Verification: `src/engine/automation.test.ts`

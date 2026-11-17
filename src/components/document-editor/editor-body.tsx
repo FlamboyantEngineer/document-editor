@@ -73,6 +73,11 @@ const noDecorations = () => DecorationSet.empty;
 const hooks = createHooks('document-editor', ['body', 'content']);
 
 /** What the editor body reads. */
+// Saves the session now, as when a suggestion names its new thread, so a reload keeps both; a
+// failure shows in the session's status.
+const saveNow = (session: DocumentEditorProps['session']) =>
+  session ? () => void session.save().catch(() => undefined) : undefined;
+
 interface EditorBodyProps {
   props: DocumentEditorProps;
   /** Opens one of the editor's dialogs, while the writer can edit. */
@@ -307,6 +312,7 @@ export function EditorBody({
           pointerRef={commentPointerRef}
           view={view}
           onReveal={() => panes?.reveal('comments', { focus: false })}
+          onSuggestionLinked={saveNow(props.session)}
         >
           {content}
         </DocumentComments>

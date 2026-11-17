@@ -34,7 +34,12 @@ export type AutomationEdit =
   | { readonly op: 'insertText'; readonly at: EditAddress; readonly text: string }
   | { readonly op: 'replaceText'; readonly at: EditAddress; readonly text: string }
   | { readonly op: 'deleteText'; readonly at: EditAddress }
-  | { readonly op: 'comment'; readonly at: EditAddress; readonly text: string }
+  | {
+      readonly op: 'comment';
+      /** The text the thread is on: one range, or several, in one element or more. */
+      readonly at: EditAddress | readonly EditAddress[];
+      readonly text: string;
+    }
   | {
       readonly op: 'insertBlocks';
       readonly before?: string | undefined;
@@ -194,7 +199,7 @@ function blocks(schema: Schema, content: readonly StoredNode[], actor: Actor) {
   return nodes.map((node) => authored(node, actor));
 }
 
-type TextEdit = Extract<AutomationEdit, { at: EditAddress }>;
+type TextEdit = Extract<AutomationEdit, { op: 'insertText' | 'replaceText' | 'deleteText' }>;
 
 // The empty range an insertion goes in: at its offset, or the end of the element's text.
 function insertionPoint(tr: Transaction, at: EditAddress): EditAddress {
@@ -204,18 +209,29 @@ function insertionPoint(tr: Transaction, at: EditAddress): EditAddress {
   return { ...at, from: end, to: end };
 }
 
+// Anchors a new thread on one range or several, each resolved as an edit's range is, refused
+// whole when any range does not resolve.
+function applyComment(batch: Batch, edit: Extract<AutomationEdit, { op: 'comment' }>) {
+  const { tr, options } = batch;
+  const found = [];
+  for (const at of Array.isArray(edit.at) ? edit.at : [edit.at]) {
+    const each = range(batch, at as EditAddress);
+    if (isRefusal(each)) return each;
+    found.push(each);
+  }
+  const id = (options.newId ?? createElementId)();
+  if (!anchorCommentRanges(tr, { thread: id, ranges: found }, { newId: options.newId })) {
+    return refuse('invalid', 'Nothing to comment on');
+  }
+  const quote = found.map((each) => each.text).join(' ');
+  batch.threads.push({ id, quote, text: edit.text, actor: options.actor });
+  return null;
+}
+
 function applyText(batch: Batch, edit: TextEdit): Refusal | null {
   const { tr, state, options } = batch;
   const found = range(batch, edit.op === 'insertText' ? insertionPoint(tr, edit.at) : edit.at);
   if (isRefusal(found)) return found;
-  if (edit.op === 'comment') {
-    const id = (options.newId ?? createElementId)();
-    if (!anchorCommentRanges(tr, { thread: id, ranges: [found] }, { newId: options.newId })) {
-      return refuse('invalid', 'Nothing to comment on');
-    }
-    batch.threads.push({ id, quote: found.text, text: edit.text, actor: options.actor });
-    return null;
-  }
   const owned = hostOwnedAt(tr, found.from);
   if (owned) return owned;
   if (edit.op === 'deleteText' || !edit.text) {
@@ -288,7 +304,8 @@ function changeBlock(batch: Batch, edit: BlockEdit): Refusal | null {
 function applyEdit(batch: Batch, edit: AutomationEdit): Refusal | null {
   const fromStep = batch.tr.steps.length;
   let refused: Refusal | null;
-  if ('at' in edit) refused = applyText(batch, edit);
+  if (edit.op === 'comment') refused = applyComment(batch, edit);
+  else if ('at' in edit) refused = applyText(batch, edit);
   else if (edit.op === 'insertBlocks') refused = insertBlocks(batch, edit);
   else refused = changeBlock(batch, edit);
   return refused ?? lockedSince(batch, fromStep);

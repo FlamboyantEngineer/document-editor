@@ -42,7 +42,7 @@ export function threadActions(
     documentId,
     change,
   }: { store: CommentStoreAdapter; documentId: string; change: ThreadChange },
-  state: Pick<CommentThreads, 'threads' | 'people' | 'error' | 'activity'>,
+  state: Pick<CommentThreads, 'threads' | 'listed' | 'people' | 'error' | 'activity'>,
 ): CommentThreads {
   const { edit, removeEntry, react, decide, update, setTyping } = store;
   // A reply keeps the id it was first asked with for each retry, so the store adds it once.
