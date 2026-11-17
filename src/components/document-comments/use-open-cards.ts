@@ -12,6 +12,7 @@ import type { OpenedComment } from './comment-focus.js';
 import type { CommentItem } from './comment-items.js';
 import { useCommentPointer } from './comment-pointer-controls.js';
 import type { ClickedAnchor } from './document-pointer.js';
+import { useRevealActiveCard } from './reveal-card.js';
 
 /** The element id of a margin card, by its item's key. */
 export const cardElementId = (key: string) => `de-comment-card-${key}`;
@@ -126,6 +127,8 @@ interface MarginOpening {
   readonly run: (command: Command) => void;
   readonly startThread: () => void;
   readonly setActive: (key: Key) => void;
+  /** The active card, which stays in view sideways. */
+  readonly active?: Key | null | undefined;
 }
 
 /**
@@ -137,8 +140,9 @@ export function useMarginOpening(
   props: { readonly presentation?: 'cards' | 'markers' | undefined } & Parameters<
     typeof useCommentPointer
   >[0],
-  { items, layer, opened, run, startThread, setActive }: MarginOpening,
+  { items, layer, opened, run, startThread, setActive, active = null }: MarginOpening,
 ) {
+  useRevealActiveCard(layer, active);
   const markers = (props.presentation ?? 'markers') === 'markers';
   const cards = useOpenCards({ items, markers, layer, startThread });
   const [lastOpened, setLastOpened] = useState(opened);

@@ -421,6 +421,13 @@ In the scale lab's document of about 300 pages beside 500 open threads, typing s
 Implementation: `src/components/document-comments/margin-card.tsx`, `src/components/document-comments/panel-card.tsx`, `src/components/document-comments/use-card-context.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-comments/comments-panel.tsx`, `src/components/document-comments/comments-panel-items.ts`, `src/components/document-comments/comment-filters.ts`, `labs/src/stress-scale.lab.tsx`, `labs/src/stress/scale-documents.ts`, `playwright.config.ts`
 Verification: `e2e/review-scale.performance.spec.ts`, `e2e/performance.spec.ts`, `src/components/document-comments/comments-panel.test.tsx`
 
+### DOCE-COMMENTS-3.8 - Cards shown sideways
+
+Where the stage is narrower than the pages with their margin, the margin shall scroll the nearest scroller along its inline axis, the page's own included, just enough to show the active card when it becomes active or opens, and again when that scroller is resized while it is active; it never scrolls up or down for it.
+
+Implementation: `src/components/document-comments/reveal-card.ts`, `src/components/document-comments/use-open-cards.ts`
+Verification: `e2e/comments.spec.ts`
+
 ## DOCE-COMMENTS-4 - Reviewing
 
 ### DOCE-COMMENTS-4.1 - Suggestions in the comments panel
