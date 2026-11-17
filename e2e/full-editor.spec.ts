@@ -183,14 +183,27 @@ test.describe('full editor lab', () => {
     page,
   }) => {
     await lab.open('full-editor');
-    // The script that runs on opening shows what it produced.
+    // Opening runs nothing: the block shows the output saved with the document.
     const blocks = content(page).locator('.script-block');
     const status = blocks.first();
-    await expect(status.locator('.script-output')).toContainText(/^Status: \d+ blocks\.$/);
+    await expect(status.locator('.script-output')).toHaveText('Status: saved with the document.');
+    // A block that produced nothing says so.
+    const chart = blocks.nth(1);
+    await expect(chart.locator('[data-script-message="empty"]')).toBeVisible();
     // The writer cannot edit the output.
     await status.locator('.script-output p').click();
     await page.keyboard.type('xyz');
     await expect(status).not.toContainText('xyz');
+    // Running every script puts the outputs in; the one that fails says why, on its block and in
+    // a banner, and keeps what it showed.
+    await status.locator('.script-output p').click({ button: 'right' });
+    await page.getByRole('menu').last().getByRole('menuitem', { name: 'Run all scripts' }).click();
+    await expect(status.locator('.script-output')).toContainText(/^Status: \d+ blocks\.$/);
+    await expect(chart.locator('[data-script-message="error"]')).toHaveText(
+      'Not a statement the lab knows: render.chart()',
+    );
+    await expect(page.locator('[data-banner="script-error"]')).toContainText('Script error:');
+    await expect(page.locator('[data-banner="scripts-running"]')).toHaveCount(0);
     // A script inserted from the toolbar runs at once.
     await content(page).locator('h1', { hasText: 'Timing' }).click();
     await page.getByRole('toolbar', { name: 'Formatting' }).locator('[data-item="script"]').click();

@@ -119,6 +119,42 @@ describe('document catalog', () => {
     ]);
   });
 
+  it('DOCE-CONTENTS-1.2 neither numbers nor lists a figure or code block whose caption is hidden', () => {
+    const figure = (caption: string, shown = true): StoredNode => ({
+      type: 'figure',
+      attrs: { src: 'a.png', caption, ...(shown ? {} : { captionEnabled: false }) },
+    });
+    const code = (caption: string, shown = true): StoredNode => ({
+      type: 'codeBlock',
+      attrs: { caption, ...(shown ? {} : { captionEnabled: false }) },
+      content: [text('x = 1')],
+    });
+    const objects = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              figure('First'),
+              figure('Hidden', false),
+              figure('Second'),
+              code('Listing', false),
+              code('Shown'),
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    const catalog = catalogDocument(objects, BASE_TEMPLATE);
+    expect(brief(catalog.figures)).toEqual(['Figure 1|First|1', 'Figure 2|Second|1']);
+    expect(brief(catalog.codeBlocks)).toEqual(['Code Block 1|Shown|1']);
+    expect(numberingCountersAt(objects, BASE_TEMPLATE, objects.content.size).objects).toMatchObject(
+      { figure: 2, codeBlock: 1 },
+    );
+  });
+
   it('DOCE-CONTENTS-1.3 lists any node type a configured kind names', () => {
     const quotes = readDocumentFile(
       {

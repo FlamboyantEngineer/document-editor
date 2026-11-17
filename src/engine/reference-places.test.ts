@@ -7,6 +7,7 @@ import {
   readDocumentFile,
   type StoredNode,
   type TemplateFile,
+  writeDocumentFile,
 } from '../model/index.js';
 import { isReferencePlace, repairPastedReferences } from './reference-places.js';
 import { touchesReferences } from './reference-updates.js';
@@ -186,5 +187,24 @@ describe('reference updates', () => {
       state = state.apply(tr);
     });
     expect(textOf(state)).toBe('Power|See Power.');
+  });
+
+  it('DOCE-REFERENCES-1.8 leaves a reference in a script block’s output as the script produced it', () => {
+    const cited = citing([paragraph('See .')]);
+    const [title, see] = writeDocumentFile(cited.doc).sections[0]?.content ?? [];
+    if (!title || !see) throw new Error('The document holds a heading and a paragraph');
+    let state = stateOf([title, see, { type: 'script', attrs: { source: 'x' }, content: [see] }]);
+    expect(textOf(state)).toBe('Power|See section 1. Power.|See section 1. Power.');
+    const changed = {
+      ...TEMPLATE,
+      references: { formats: { 'internal-heading': '{{ref.title}}' } },
+    };
+    refreshReferences(changed)(state, (tr) => {
+      state = state.apply(tr);
+    });
+    expect(textOf(state)).toBe('Power|See Power.|See section 1. Power.');
+    // Nor does the plugin's own update after an edit of the heading.
+    state = state.apply(state.tr.insertText('Supply ', posOf(state, 'Power')));
+    expect(textOf(state)).toBe('Supply Power|See section 1. Supply Power.|See section 1. Power.');
   });
 });

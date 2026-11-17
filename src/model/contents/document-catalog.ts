@@ -97,12 +97,12 @@ function countHeading(node: ProseMirrorNode, counting: Counting): string {
     : '';
 }
 
-// Counts an object the template numbers, as the stylesheet counts it (a table only with its
-// caption), and gives the number it shows, or null for a node the template does not number.
+// Counts an object the template numbers, as the stylesheet counts it (a table, figure or code block
+// only with its caption shown), and gives the number it shows, or null for a node the template does not number.
 function countObject(node: ProseMirrorNode, counting: Counting): string | null {
   const kind = OBJECT_TYPES[node.type.name];
   if (!kind) return null;
-  if (kind === 'table' && node.attrs.captionEnabled === false) return '';
+  if (node.attrs.captionEnabled === false) return '';
   counting.objects[kind] += 1;
   const numbering = counting.scope.objects[kind];
   if (!numbering.config.levels.length) return '';

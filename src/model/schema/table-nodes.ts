@@ -8,9 +8,7 @@ import { normalizeCaptionText } from './caption-text.js';
 import {
   DATA_ID_ATTR,
   type DomAttributes,
-  TABLE_BORDER_1PX_CLASS,
   TABLE_BORDER_CLASSES,
-  TABLE_BORDER_NONE_CLASS,
   TABLE_CAPTION_TEXT_ATTR,
 } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
@@ -58,9 +56,7 @@ function directCaption(dom: HTMLElement): Element | null {
 }
 
 function readBorderClass(dom: HTMLElement): string {
-  if (dom.classList.contains(TABLE_BORDER_NONE_CLASS)) return TABLE_BORDER_NONE_CLASS;
-  if (dom.classList.contains(TABLE_BORDER_1PX_CLASS)) return TABLE_BORDER_1PX_CLASS;
-  return '';
+  return [...TABLE_BORDER_CLASSES].find((name) => dom.classList.contains(name)) ?? '';
 }
 
 function readTableAttrs(dom: HTMLElement) {
