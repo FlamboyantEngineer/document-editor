@@ -90,6 +90,45 @@ test.describe('comment layout', () => {
     await expect(opened).toBeInViewport();
   });
 
+  test('DOCE-COMMENTS-3.5 sets each marker beside its page, and keeps it in view as the stage scrolls sideways', async ({
+    page,
+  }) => {
+    await page.getByLabel('Comment markers').check();
+    const marker = margin(page).locator('.ui-annotation-layer__marker').first();
+    // The marker's place against the page beside it, and against what the stage shows.
+    const where = () =>
+      marker.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        const stage = element.closest('.ui-scroll-region__viewport');
+        const shown = stage?.getBoundingClientRect();
+        const sheet = [...document.querySelectorAll('.pm-page')]
+          .map((each) => each.getBoundingClientRect())
+          .find((each) => each.top <= box.top && box.top <= each.bottom);
+        return {
+          gap: Math.round(box.left - (sheet?.right ?? 0)),
+          inside: !!shown && box.left >= shown.left && box.right <= shown.right,
+          room: (stage?.scrollWidth ?? 0) - (stage?.clientWidth ?? 0),
+        };
+      });
+    const stage = page.locator('.de-document-editor__viewport .ui-scroll-region__viewport');
+    const scrollTo = (left: number) =>
+      stage.evaluate((element, x) => {
+        element.scrollLeft = x;
+      }, left);
+    // With the side panels open the stage is narrower than the page: the marker stays in view.
+    await expect.poll(async () => (await where()).inside).toBe(true);
+    expect((await where()).room).toBeGreaterThan(0);
+    // Scrolled to the page's end edge, the marker sits beside it again, and still opens its card.
+    await scrollTo(10_000);
+    await expect.poll(async () => (await where()).gap).toBe(20);
+    expect((await where()).inside).toBe(true);
+    await scrollTo(0);
+    await expect.poll(async () => (await where()).gap).toBeLessThan(20);
+    expect((await where()).inside).toBe(true);
+    await marker.click();
+    await expect(margin(page).locator('.de-document-comments__card')).toBeVisible();
+  });
+
   test('DOCE-COMMENTS-2.23 keeps the markers with no markup', async ({ page }) => {
     await page.getByLabel('Comment markers').check();
     const markers = margin(page).locator(':scope > [role="listitem"]');
