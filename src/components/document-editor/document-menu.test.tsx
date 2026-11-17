@@ -1,7 +1,7 @@
 import { EditorState } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
-import { documentMenuItem } from './document-menu.js';
+import { documentMenuItem, saveItem } from './document-menu.js';
 import { createEditorContext } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import type { DocumentExports } from './use-document-exports.js';
@@ -46,5 +46,21 @@ describe('document menu', () => {
     expect(item.label).toBe('Actions');
     const [entry] = item.entries({ ...context, labels });
     expect(entry && 'label' in entry && entry.label).toBe('PDF file');
+  });
+
+  it('DOCE-EDITOR-4.30 adds a Save button with its key while the editor saves, disabled while reading', () => {
+    const save = vi.fn();
+    expect(saveItem(DEFAULT_EDITOR_LABELS, { save: undefined, shortcut: 'Ctrl+S' })).toEqual([]);
+    const [item] = saveItem(
+      { ...DEFAULT_EDITOR_LABELS, save: 'Save now' },
+      { save, shortcut: 'Ctrl+S' },
+    );
+    expect(item?.label).toBe('Save now');
+    expect(item?.shortcut).toBe('Ctrl+S');
+    expect(item?.icon).toBeTruthy();
+    item?.run(context);
+    expect(save).toHaveBeenCalledOnce();
+    expect(item?.isEnabled?.(context)).toBe(true);
+    expect(item?.isEnabled?.({ ...context, editable: false })).toBe(false);
   });
 });

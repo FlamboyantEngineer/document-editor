@@ -129,11 +129,12 @@ function TopChrome({
     () => ({ onModeChange, modeReasons, onMarkupChange, modes }),
     [onModeChange, modeReasons, onMarkupChange, modes],
   );
-  const { template, scriptRunner } = props;
-  const documentMenu = useMemo<DocumentMenuFeatures>(
-    () => ({ template, scriptRunner, exports }),
-    [template, scriptRunner, exports],
-  );
+  const { template, scriptRunner, session, onSave } = props;
+  const documentMenu = useMemo<DocumentMenuFeatures>(() => {
+    // The toolbar's Save does what the save key does (DOCE-SESSION-9.2).
+    const save = session ? () => void session.save().catch(() => undefined) : onSave;
+    return { template, scriptRunner, exports, save };
+  }, [template, scriptRunner, exports, session, onSave]);
   return (
     <>
       {props.menubar ? (

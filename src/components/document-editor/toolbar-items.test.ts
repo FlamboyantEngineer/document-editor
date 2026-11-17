@@ -28,6 +28,7 @@ describe('TOOLBAR_GROUPS', () => {
         scripts: true,
       },
       shell: { onModeChange: () => undefined, onMarkupChange: () => undefined },
+      documentMenu: { save: () => undefined },
     });
     const listed = Object.fromEntries(
       groups.map((group) => [group.id, group.items.map((item) => item.id)]),
