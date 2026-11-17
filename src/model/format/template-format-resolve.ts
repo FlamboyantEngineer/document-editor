@@ -85,15 +85,32 @@ export function withInheritedHeadingFormats(
   return filled;
 }
 
+// A template's reference formats without the blank ones, which inherit the parent's format rather
+// than clear it.
+function withoutBlankFormats(template: TemplateFile): TemplateFile['references'] {
+  const { references } = template;
+  const formats = references?.formats;
+  if (!references || !formats) return references;
+  const kept = Object.entries(formats).filter(
+    ([, format]) => typeof format !== 'string' || format.trim() !== '',
+  );
+  return { ...references, formats: Object.fromEntries(kept) };
+}
+
 /**
- * A template over its parent, into a copy. A setting that is absent or null takes the parent's,
+ * A template over its parent, into a copy. A setting that is absent or null takes the parent's, as
+ * does a reference format left blank,
  * objects merge setting by setting, a list replaces the parent's list whole except a list of
  * contents levels, which merges level by level, a header or footer that asks to inherit takes the
  * parent's, and any other value is the template's own. A heading level the template leaves without
  * a numbering format first takes the nearest higher level's it sets (`withInheritedHeadingFormats`).
  */
 export function mergeTemplateFiles(parent: TemplateFile | null, child: TemplateFile): TemplateFile {
-  const own = { ...child, styles: withInheritedHeadingFormats(child.styles) };
+  const own = {
+    ...child,
+    styles: withInheritedHeadingFormats(child.styles),
+    references: withoutBlankFormats(child),
+  };
   const merged = mergeValue(parent, own, '') as TemplateFile;
   merged.id = child.id;
   merged.parent = child.parent ?? null;

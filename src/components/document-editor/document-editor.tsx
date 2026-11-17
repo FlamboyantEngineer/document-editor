@@ -60,6 +60,7 @@ import {
   DocumentEditorContext,
   type DocumentMarkup,
   type EditorContext,
+  type ReferenceKind,
   useLatestContext,
   useShownContext,
 } from './editor-context.js';
@@ -267,6 +268,11 @@ export interface DocumentEditorProps
    * where a list of references links each cited document.
    */
   referenceSource?: ReferenceSourceAdapter | undefined;
+  /**
+   * The host's own reference types, which the reference menu offers after the editor's, each
+   * inserted and edited through one of the host's `dialogs`.
+   */
+  referenceKinds?: readonly ReferenceKind[] | undefined;
   /**
    * The kinds of list and labels of the lists of contents the editor draws when the state holds no
    * contents plugin of the host's own (DOCE-CONTENTS-2.12), read when the editor mounts.

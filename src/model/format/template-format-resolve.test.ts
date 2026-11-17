@@ -51,6 +51,25 @@ describe('template inheritance', () => {
     expect(merged.page).not.toBe(BASE.page);
   });
 
+  it('DOCE-FORMAT-3.1 leaves a blank reference format to the parent', () => {
+    const parent = template('base', {
+      references: {
+        formats: { 'internal-heading': 'see {{ref.numbering}}', 'internal-table': 'T' },
+      },
+    });
+    const child = template('child', {
+      parent: 'base',
+      references: {
+        formats: { 'internal-heading': '  ', 'internal-table': 'Table {{ref.numbering}}' },
+      },
+    });
+    expect(mergeTemplateFiles(parent, child).references?.formats).toEqual({
+      'internal-heading': 'see {{ref.numbering}}',
+      'internal-table': 'Table {{ref.numbering}}',
+    });
+    expect(mergeTemplateFiles(null, template('alone')).references).toBeUndefined();
+  });
+
   it('DOCE-FORMAT-3.2 resolves the chain a template inherits, ending at the base template', async () => {
     const store = new Map<string, TemplateFile>([
       ['base', BASE],

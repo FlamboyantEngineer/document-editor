@@ -1,7 +1,7 @@
 import type { DocumentFile, StoredContent } from '../model/format/document-format.js';
 import type { TemplateFile, TemplatePin } from '../model/format/template-format.js';
 import type { GlossaryEntry } from '../model/glossary.js';
-import type { ReferenceBaseline } from '../model/reference-format.js';
+import type { ReferenceBaseline, ReferenceTargetBaseline } from '../model/reference-format.js';
 import type { ScriptProvenance, ScriptSignature } from '../model/schema/script-nodes.js';
 import type { AssetAdapter, DiagramAdapter } from './asset-adapters.js';
 import type { EditorCapabilities } from './capabilities.js';
@@ -334,6 +334,10 @@ export interface ExternalReference {
   baseline: ReferenceBaseline;
   /** How a picker names it. */
   label: string;
+  /** More on it, on a second line of the picker's row. */
+  description?: string | undefined;
+  /** The address of an image that stands for it on the picker's row, such as its kind's icon. */
+  icon?: string | undefined;
 }
 
 /** Where references to other documents come from. */
@@ -349,6 +353,14 @@ export interface ReferenceSourceAdapter {
     citations: readonly { documentId: string; targetId: string | null }[],
     signal?: AbortSignal,
   ): Promise<HostResult<(ReferenceBaseline | null | 'no-access')[]>>;
+  /**
+   * The targets a reference may cite in a document, by the document's id: its headings, figures,
+   * tables, code blocks and equations, in reading order, each as a citation records it.
+   */
+  targets?(
+    documentId: string,
+    signal?: AbortSignal,
+  ): Promise<HostResult<ReferenceTargetBaseline[]>>;
   /**
    * The address a printed citation links to, such as the cited document in the host; null leaves
    * it unlinked. Called while a snapshot is made, so it answers at once.

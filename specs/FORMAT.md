@@ -80,7 +80,7 @@ Verification: `src/model/format/template-format.test.ts`
 
 ### DOCE-FORMAT-3.1 - One inheritance rule
 
-`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, paragraph numbering levels included, except a list of contents levels, which merges level by level by its place, so a null level takes the parent's, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own. The merged template shall keep its own `id` and `parent`.
+`mergeTemplateFiles(parent, child)` shall merge a template over its parent into a copy: a setting that is absent or null takes the parent's value, objects merge setting by setting, a list replaces the parent's list whole, paragraph numbering levels included, except a list of contents levels, which merges level by level by its place, so a null level takes the parent's, a header or footer with `inherit: true` takes the parent's, and any other value, an empty string included, is the template's own, except a reference format left blank, which takes the parent's format. The merged template shall keep its own `id` and `parent`.
 
 Implementation: `src/model/format/template-format-resolve.ts`
 Verification: `src/model/format/template-format-resolve.test.ts`, `src/model/templates/template-settings.test.ts`

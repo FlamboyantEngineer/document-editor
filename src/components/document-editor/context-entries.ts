@@ -23,7 +23,7 @@ import type { ScriptRunnerAdapter } from '../../host/index.js';
 import { clipboardEntries } from './clipboard-entries.js';
 import type { ContextTarget } from './context-target.js';
 import { contentLinkAddress } from './copy-link.js';
-import type { ObjectDialog } from './editor-context.js';
+import type { ObjectDialog, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { CODE_LANGUAGES, elementEntries } from './element-entries.js';
 import type { FigurePasteOptions } from './figure-paste.js';
@@ -50,6 +50,8 @@ export interface ContextEntriesOptions {
   readonly openDialog?: ((dialog: ObjectDialog) => void) | null | undefined;
   /** Whether the host resolves linked code. Defaults to false. */
   readonly linkedCode?: boolean | undefined;
+  /** The host's own reference types, whose references its dialogs edit. */
+  readonly referenceKinds?: readonly ReferenceKind[] | undefined;
   /** The languages a code block's language menu offers. */
   readonly codeLanguages?: readonly string[] | undefined;
   /** Runs the script blocks, which the menu then offers to edit and run. */
@@ -189,6 +191,7 @@ export function contextGroups(
             labels: options.labels,
             openDialog: options.openDialog ?? null,
             linkedCode: options.linkedCode ?? false,
+            referenceKinds: options.referenceKinds ?? [],
             codeLanguages: options.codeLanguages ?? CODE_LANGUAGES,
           }).concat(scriptEntries(view, { ...options, openDialog: options.openDialog ?? null }))
         : [],

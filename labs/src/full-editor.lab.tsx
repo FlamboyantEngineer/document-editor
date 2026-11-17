@@ -44,6 +44,13 @@ import { hostMenubar } from './host-menubar.js';
 import { HostPanel, useHostPanel } from './host-panel.js';
 import { labPanels, RevealPanes } from './host-panes.js';
 import { HOST_TOOLBAR } from './host-toolbar.js';
+import {
+  CATALOGUE_TYPE,
+  CITATION_DIALOGS,
+  CITATION_TARGETS,
+  CITATIONS,
+  REFERENCE_KINDS,
+} from './lab-citations.js';
 import { chapter, heading, sampleDocument, text } from './lab-document.js';
 import { labAssets, labDiagrams } from './lab-figures.js';
 import { markReadyWhenSettled } from './lab-ready.js';
@@ -99,7 +106,7 @@ const CODE = {
   ].join('\n'),
 };
 
-// The glossary abbreviations cite, and a citation of another document the host finds.
+// The glossary abbreviations cite.
 const GLOSSARY = [
   {
     id: 'glossary-gse',
@@ -112,23 +119,6 @@ const GLOSSARY = [
   },
 ];
 
-const CITATIONS = [
-  {
-    refType: 'external-document',
-    label: 'PWR-100 Power interface specification',
-    baseline: {
-      version: 1 as const,
-      documentId: 'pwr-100',
-      numbering: 'PWR-100',
-      title: 'Power interface specification',
-      revision: null,
-      revisionLabel: '',
-      target: null,
-      defaultLabel: 'PWR-100',
-    },
-  },
-];
-
 const HOST = createMemoryHost({
   scripts: runLabScript,
   scriptVocabulary: LAB_SCRIPT_VOCABULARY,
@@ -136,6 +126,7 @@ const HOST = createMemoryHost({
   code: CODE,
   glossary: GLOSSARY,
   citations: CITATIONS,
+  citationTargets: CITATION_TARGETS,
   person: { id: 'ada', name: 'Ada Lovelace' },
   people: [{ id: 'grace', name: 'Grace Hopper' }],
   comments: {
@@ -197,7 +188,10 @@ const PROOFERS = [
 function initialState(): EditorState {
   // Uploaded figures show from the in-memory host's assets.
   const schema = createDocumentSchema({
-    schema: { assetPreviewUrl: (id: string) => ASSETS?.resolveUrl(id) ?? '' },
+    schema: {
+      assetPreviewUrl: (id: string) => ASSETS?.resolveUrl(id) ?? '',
+      referenceTypes: [CATALOGUE_TYPE],
+    },
   });
   const file = sampleDocument(['Scope', 'Interfaces', 'Timing', 'Power']);
   const content = file.sections[0]?.content ?? [];
@@ -323,6 +317,9 @@ const TOOLBAR = {
   items: [...(HOST_TOOLBAR.items ?? []), NOTE_ITEM, inlineCompletionItem()],
   overflow: 'scroll' as const,
 };
+
+// The host's dialogs: its note and its catalogue references.
+const DIALOGS = { ...HOST_DIALOGS, ...CITATION_DIALOGS };
 
 // Why the writer may not edit, while the lab restricts editing.
 const RESTRICTED = { edit: 'The host lets this writer only suggest' };
@@ -463,7 +460,8 @@ function Lab() {
         markup={markup}
         onMarkupChange={setMarkup}
         toolbar={TOOLBAR}
-        dialogs={HOST_DIALOGS}
+        dialogs={DIALOGS}
+        referenceKinds={REFERENCE_KINDS}
         menubar={menubar}
         exports={exports}
         contextMenu={HOST_CONTEXT_MENU}
