@@ -67,6 +67,28 @@ test.describe('comments lab', () => {
     await expect(thread.getByRole('textbox', { name: 'Reply' })).toBeFocused();
   });
 
+  test('DOCE-COMMENTS-3.8 scrolls a card opened at a narrow width into view sideways, and again on resize', async ({
+    lab,
+    page,
+  }) => {
+    await page.setViewportSize({ width: 700, height: 800 });
+    await lab.open('comments');
+    await page.getByLabel('Markers, cards on request').check();
+    await content(page).locator('mark[data-comment-id]').first().click();
+    const opened = page.locator('.de-document-comments__card').first();
+    await expect(opened).toBeFocused();
+    const shown = async () => {
+      const box = await opened.boundingBox();
+      const width = await page.evaluate(() => document.documentElement.clientWidth);
+      return box !== null && box.x >= 0 && box.x + box.width <= width + 1;
+    };
+    await expect.poll(shown).toBe(true);
+    // Only sideways: the page did not scroll up or down for it.
+    expect(await page.evaluate(() => window.scrollX)).toBeGreaterThan(0);
+    await page.setViewportSize({ width: 620, height: 800 });
+    await expect.poll(shown).toBe(true);
+  });
+
   test('DOCE-COMMENTS-2.24 puts a thread being started away on a click in the page', async ({
     lab,
     page,

@@ -186,6 +186,15 @@ function useThreadUpkeep(
   useTargetWriteBack({ state: props.state, comments, editable });
 }
 
+// The caret moving into another card's text makes that card active.
+function useCaretActive(caret: string | null, setActive: (key: Key) => void) {
+  const [lastCaret, setLastCaret] = useState(caret);
+  if (caret !== lastCaret) {
+    setLastCaret(caret);
+    if (caret !== null) setActive(caret);
+  }
+}
+
 interface Measured {
   /** Each anchor's rectangles. */
   readonly rects: ReadonlyMap<string, readonly AnnotationRect[]>;
@@ -306,20 +315,22 @@ function CommentsMargin(props: DocumentCommentsProps) {
     () => listCommentItems(state, { threads: comments.threads, canComment, filter }),
     [state, comments.threads, canComment, filter],
   );
-  const cards = useMarginOpening(props, { items, layer, opened, run, startThread, setActive });
+  const cards = useMarginOpening(props, {
+    items,
+    layer,
+    opened,
+    run,
+    startThread,
+    setActive,
+    active,
+  });
   const targets = useMemo(() => new Map(items.map((item) => [item.key, item.target])), [items]);
   const { rects, offsets } = useAnchorRects(layer, targets, props.cardGap);
   const annotations = useMemo<Annotation[]>(
     () => items.map((item) => ({ id: item.key, rects: rects.get(item.key) ?? [] })),
     [items, rects],
   );
-  const caret = caretKey(items, state);
-  // The caret moving into another card's text makes that card active.
-  const [lastCaret, setLastCaret] = useState(caret);
-  if (caret !== lastCaret) {
-    setLastCaret(caret);
-    if (caret !== null) setActive(caret);
-  }
+  useCaretActive(caretKey(items, state), setActive);
   const byKey = new Map(items.map((item) => [item.key, item]));
   const policy = useCardPolicy(props.suggestionPolicy, comments.threads);
   const commands = useStableCallbacks({
