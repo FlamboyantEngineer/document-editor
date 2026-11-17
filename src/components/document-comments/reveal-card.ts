@@ -42,7 +42,8 @@ function revealInline(element: HTMLElement): void {
 export function useRevealActiveCard(layer: HTMLElement | null, active: Key | null): void {
   useEffect(() => {
     const document = layer?.ownerDocument;
-    if (!document || active === null) return undefined;
+    // The offer to comment on a selection follows the selection: it never scrolls the stage.
+    if (!document || active === null || active === 'draft') return undefined;
     const reveal = () => {
       const card = document.getElementById(cardElementId(String(active)));
       if (card) revealInline(card);

@@ -423,7 +423,7 @@ Verification: `e2e/review-scale.performance.spec.ts`, `e2e/performance.spec.ts`,
 
 ### DOCE-COMMENTS-3.8 - Cards shown sideways
 
-Where the stage is narrower than the pages with their margin, the margin shall scroll the nearest scroller along its inline axis, the page's own included, just enough to show the active card when it becomes active or opens, and again when that scroller is resized while it is active; it never scrolls up or down for it.
+Where the stage is narrower than the pages with their margin, the margin shall scroll the nearest scroller along its inline axis, the page's own included, just enough to show the active card when it becomes active or opens, and again when that scroller is resized while it is active; it never scrolls up or down for it. The offer to comment on selected text is not a card shown this way: selecting text, as a double click does, never scrolls the stage.
 
 Implementation: `src/components/document-comments/reveal-card.ts`, `src/components/document-comments/use-open-cards.ts`
 Verification: `e2e/comments.spec.ts`
