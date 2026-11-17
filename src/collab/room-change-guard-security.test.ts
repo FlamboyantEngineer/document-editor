@@ -6,11 +6,26 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
-import { EditorState } from 'prosemirror-state';
+import { type Command, EditorState } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
 import { documentSchema as schema } from '../../test/document-markup.js';
-import { decideSuggestions, listSuggestions } from '../engine/suggestion-decisions.js';
+import {
+  caretAt,
+  footnoteParts,
+  footnoteState,
+  note,
+  paragraph,
+  runCommand,
+  text,
+} from '../../test/footnote-fixtures.js';
+import { insertFootnote, listFootnotes } from '../engine/footnotes.js';
+import {
+  acceptAllSuggestions,
+  decideSuggestions,
+  listSuggestions,
+  rejectAllSuggestions,
+} from '../engine/suggestion-decisions.js';
 import { suggestTransaction } from '../engine/suggestions.js';
 import { createMemoryHost } from '../host/index.js';
 import type { DocumentFile } from '../model/index.js';
@@ -41,6 +56,16 @@ const file = (text: string): DocumentFile => ({
   ],
 });
 const permissions = { edit: false, suggest: true, comment: true, decide: false };
+
+// Where a new entry goes in the first footnote area: at its end.
+function footnoteAreaPos(state: EditorState): number {
+  let at = -1;
+  state.doc.descendants((node, pos) => {
+    if (at < 0 && node.type.name === 'page_footnotes') at = pos + node.nodeSize - 1;
+    return at < 0;
+  });
+  return at;
+}
 
 async function setup(
   options: {
@@ -1118,4 +1143,89 @@ it('DOCE-COMMENTS-2.32 refuses taking another person’s reaction from a comment
   } finally {
     await room.close();
   }
+});
+
+describe('DOCE-COLLAB-6.6 DOCE-COLLAB-7.2 DOCE-SUGGESTIONS-1.5 a suggested footnote in a guarded room', () => {
+  const suggestOnly = { edit: false, suggest: true, comment: true, decide: false };
+  const decider = { edit: false, suggest: true, comment: true, decide: true };
+  const start = () =>
+    caretAt(footnoteState([paragraph(text('Before after.'), note('n1', 'Old'))]), 'after', -1);
+  // Runs a command as the writer suggesting it.
+  const suggestAs = (state: EditorState, command: Command, author = 'writer') => {
+    let next = state;
+    command(state, (tr) => {
+      const id = author === 'writer' ? 's0000001' : 's0000002';
+      const rewritten = suggestTransaction(tr, state, { author, newId: () => id });
+      if (!rewritten) throw new Error('The change was not suggested.');
+      next = state.apply(rewritten);
+    });
+    return next;
+  };
+  const typeText: (value: string) => Command = (value) => (state, dispatch) => {
+    dispatch?.(state.tr.insertText(value));
+    return true;
+  };
+  const allowed = (
+    before: EditorState,
+    after: { doc: EditorState['doc'] },
+    actor: string,
+    granted = suggestOnly,
+  ) => checkDocumentChange({ before: before.doc, after: after.doc, actor, permissions: granted });
+  const suggested = () => suggestAs(start(), insertFootnote({ newId: () => 'n0' }));
+
+  it('admits a writer’s own suggested footnote, its entry and the text suggested in it, and its withdrawal', () => {
+    const before = start();
+    const inserted = suggested();
+    expect(allowed(before, inserted, 'writer')).toBe(true);
+    const typed = suggestAs(inserted, typeText('New'));
+    expect(allowed(inserted, typed, 'writer')).toBe(true);
+    const withdrawn = runCommand(typed, rejectAllSuggestions);
+    expect(footnoteParts(withdrawn)).toEqual(['marker:n1', 'entry:n1:Old']);
+    expect(allowed(typed, withdrawn, 'writer')).toBe(true);
+  });
+
+  it('refuses a footnote inserted without the suggestion mark, or under another writer’s id', () => {
+    const before = start();
+    const plain = runCommand(before, insertFootnote({ newId: () => 'n0' }));
+    expect(allowed(before, plain, 'writer')).toBe(false);
+    const forged = suggestAs(before, insertFootnote({ newId: () => 'n0' }), 'owner');
+    expect(allowed(before, forged, 'writer')).toBe(false);
+  });
+
+  it('refuses text written in a suggested footnote’s entry without suggesting it, by its writer or another', () => {
+    const inserted = suggested();
+    const written = inserted.apply(inserted.tr.insertText('Unmarked'));
+    expect(allowed(inserted, written, 'writer')).toBe(false);
+    const other = suggestAs(inserted, typeText('Mine'), 'mallory');
+    expect(allowed(inserted, other, 'mallory')).toBe(true);
+    expect(allowed(inserted, inserted.apply(inserted.tr.insertText('X')), 'mallory')).toBe(false);
+  });
+
+  it('refuses an entry with no suggested marker, a second entry for a footnote, and an entry taken without its marker', () => {
+    const before = start();
+    const area = footnoteAreaPos(before);
+    const entryType = schema.nodes.footnote_entry;
+    if (!entryType) throw new Error('No footnote entries.');
+    const entry = (id: string) => entryType.create({ footnoteId: id });
+    // Built as transactions and not applied, so the footnote plugin does not repair them.
+    expect(allowed(before, before.tr.insert(area, entry('orphan')), 'writer')).toBe(false);
+    expect(allowed(before, before.tr.insert(area, entry('n1')), 'writer')).toBe(false);
+    const inserted = suggested();
+    const twice = inserted.tr.insert(footnoteAreaPos(inserted), entry('n0'));
+    expect(allowed(inserted, twice, 'writer')).toBe(false);
+    const entryAt = listFootnotes(inserted.doc).get('n0')?.entry ?? 0;
+    const node = inserted.doc.nodeAt(entryAt);
+    const taken = inserted.tr.delete(entryAt, entryAt + (node?.nodeSize ?? 0));
+    expect(allowed(inserted, taken, 'writer')).toBe(false);
+  });
+
+  it('lets only a writer who decides reject another writer’s suggested footnote', () => {
+    const inserted = suggested();
+    const rejected = runCommand(inserted, rejectAllSuggestions);
+    expect(allowed(inserted, rejected, 'mallory')).toBe(false);
+    expect(allowed(inserted, rejected, 'mallory', decider)).toBe(true);
+    const accepted = runCommand(inserted, acceptAllSuggestions);
+    expect(allowed(inserted, accepted, 'mallory')).toBe(false);
+    expect(allowed(inserted, accepted, 'mallory', decider)).toBe(true);
+  });
 });

@@ -3,6 +3,7 @@ import { EditorState } from 'prosemirror-state';
 import { decideSuggestions, listSuggestions } from '../engine/suggestion-decisions.js';
 import { canChangeGuardAttributes, canInsertGuardNode } from './guard-attributes.js';
 import type { GuardPermissions } from './guard-comments.js';
+import { citedFootnotes, settleRejectedFootnotes } from './guard-footnotes.js';
 import { canChangeGuardMarks } from './guard-marks.js';
 import { readGuardProposals } from './guard-proposals.js';
 import { readContentChange } from './room-change-walk.js';
@@ -24,7 +25,9 @@ function original(node: Node, actor?: string | null): Node {
             .filter((suggestion) => actor !== null && suggestion.author === actor)
             .map((suggestion) => suggestion.id),
         );
+  const cited = citedFootnotes(tr);
   decideSuggestions(tr, 'reject', { ids });
+  settleRejectedFootnotes(tr, cited);
   const highlight = node.type.schema.marks.comment_highlight;
   if (highlight) tr.removeMark(0, tr.doc.content.size, highlight);
   return tr.doc;
