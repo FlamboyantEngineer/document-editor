@@ -1,22 +1,29 @@
 // Column widths dragged by the cell borders. Dragging the border between two columns trades width
 // between them, so the table keeps its width; dragging the last column's right border widens or
 // narrows the table, never past the content the table sits in. A table fitted to the page width
-// leaves the fit when one of its columns is resized, at the widths it was laid out at.
+// keeps the fit when a border between two columns moves, which changes only their proportions, and
+// leaves it, at the widths it was laid out at, when its outer width changes.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import { type Command, type EditorState, Plugin, PluginKey } from 'prosemirror-state';
+import {
+  type Command,
+  type EditorState,
+  Plugin,
+  PluginKey,
+  type Transaction,
+} from 'prosemirror-state';
 import { cellAround, TableMap } from 'prosemirror-tables';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import {
+  type BorderState as ResizeState,
+  forgetBorderOnScroll,
+  isCellLocked,
+  NO_BORDER,
+} from './table-border-hover.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
 
 // How close to a cell's side border the pointer picks the border, in pixels.
 const HANDLE_WIDTH = 5;
-
-/** The cell whose right border the pointer is on, or -1, and whether it is being dragged. */
-interface ResizeState {
-  readonly handle: number;
-  readonly dragging: boolean;
-}
 
 const resizeKey = new PluginKey<ResizeState>('table-column-resize');
 
@@ -102,6 +109,13 @@ function laidOutWidths(view: EditorView, at: ReturnType<typeof tableOfCell>): nu
   });
 }
 
+/** The widths the columns of the table at a position before it are laid out at, in pixels. */
+export function laidOutColumnWidths(view: EditorView, table: number): number[] | null {
+  const node = view.state.doc.nodeAt(table);
+  if (node?.type.spec.tableRole !== 'table') return null;
+  return laidOutWidths(view, { table: node, pos: table, map: TableMap.get(node), column: 0 });
+}
+
 // The width of the content box the table sits in, or no limit when it cannot be told.
 function roomFor(table: Element | null): number {
   const parent = table?.parentElement;
@@ -139,11 +153,39 @@ function wholeTable(doc: ProseMirrorNode, pos: number, id: unknown) {
   return found;
 }
 
+/** Writes column widths on each cell of the table at `table` in a transaction's document. */
+export function writeColumnWidths(tr: Transaction, table: number, widths: readonly number[]): void {
+  const node = tr.doc.nodeAt(table);
+  if (!node || TableMap.get(node).width !== widths.length) return;
+  node.forEach((row, rowOffset) => {
+    let column = 0;
+    row.forEach((cell, cellOffset) => {
+      const span = Number(cell.attrs.colspan) || 1;
+      const colwidth = widths.slice(column, column + span);
+      column += span;
+      tr.setNodeMarkup(table + 2 + rowOffset + cellOffset, undefined, { ...cell.attrs, colwidth });
+    });
+  });
+}
+
+/** How setting column widths treats a table fitted to the page width. */
+interface ColumnWidthOptions {
+  /**
+   * Whether a fitted table stays fitted, as when only the proportions of its columns change; by
+   * default it leaves the fit and is aligned left.
+   */
+  readonly keepFit?: boolean | undefined;
+}
+
 /**
- * Sets the column widths of the table at `table`, on each of its cells, and ends its fit to the
- * page width, aligning it left; on the whole table when the pages split it.
+ * Sets the column widths of the table at `table`, on each of its cells, and, unless `keepFit`,
+ * ends its fit to the page width, aligning it left; on the whole table when the pages split it.
  */
-export function setColumnWidths(table: number, widths: readonly number[]): Command {
+export function setColumnWidths(
+  table: number,
+  widths: readonly number[],
+  { keepFit = false }: ColumnWidthOptions = {},
+): Command {
   return (state, dispatch, view) => {
     const node = state.doc.nodeAt(table);
     if (node?.type.spec.tableRole !== 'table') return false;
@@ -153,21 +195,10 @@ export function setColumnWidths(table: number, widths: readonly number[]): Comma
       // Widths for another number of columns would leave cells without one.
       if (!found || TableMap.get(found.node).width !== widths.length) return false;
       const tr = inner.tr;
-      if (found.node.attrs.objectLayout === 'fit-page-width') {
+      if (!keepFit && found.node.attrs.objectLayout === 'fit-page-width') {
         tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, objectLayout: 'left' });
       }
-      found.node.forEach((row, rowOffset) => {
-        let column = 0;
-        row.forEach((cell, cellOffset) => {
-          const span = Number(cell.attrs.colspan) || 1;
-          const colwidth = widths.slice(column, column + span);
-          column += span;
-          tr.setNodeMarkup(found.pos + 2 + rowOffset + cellOffset, undefined, {
-            ...cell.attrs,
-            colwidth,
-          });
-        });
-      });
+      writeColumnWidths(tr, found.pos, widths);
       done?.(tr);
       return true;
     };
@@ -192,7 +223,7 @@ function shownStyles(table: HTMLElement) {
 // none once the cell is gone.
 function endDrag(view: EditorView): number {
   const handle = resizeKey.getState(view.state)?.handle ?? -1;
-  view.dispatch(view.state.tr.setMeta(resizeKey, { handle: -1, dragging: false }));
+  view.dispatch(view.state.tr.setMeta(resizeKey, NO_BORDER));
   return handle < 0 ? -1 : tableOfCell(view.state, handle).pos;
 }
 
@@ -203,6 +234,8 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
   if (!dom) return;
   const start = laidOutWidths(view, at);
   const resize = { column: at.column, max: roomFor(dom) };
+  // Only the last column's border changes the table's outer width.
+  const keepFit = at.column < at.map.width - 1;
   const restore = shownStyles(dom);
   const owner = view.dom.ownerDocument;
   const widthsAt = (x: number) => resizeColumns(start, { ...resize, by: x - event.clientX });
@@ -215,7 +248,7 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
     const kept =
       table >= 0 &&
       Math.abs(up.clientX - event.clientX) >= 1 &&
-      setColumnWidths(table, widthsAt(up.clientX))(view.state, view.dispatch, view);
+      setColumnWidths(table, widthsAt(up.clientX), { keepFit })(view.state, view.dispatch, view);
     // A drag that kept nothing has the document draw nothing again: put back what it showed.
     if (!kept) restore();
   };
@@ -251,18 +284,17 @@ export function createColumnResize(): Plugin<ResizeState> {
   return new Plugin<ResizeState>({
     key: resizeKey,
     state: {
-      init: () => ({ handle: -1, dragging: false }),
+      init: () => NO_BORDER,
       apply(tr, value) {
         const meta = tr.getMeta(resizeKey) as ResizeState | undefined;
         if (meta) return meta;
         if (value.handle < 0 || !tr.docChanged) return value;
         const handle = tr.mapping.map(value.handle, -1);
         const role = tr.doc.nodeAt(handle)?.type.spec.tableRole;
-        return role === 'cell' || role === 'header_cell'
-          ? { ...value, handle }
-          : { handle: -1, dragging: false };
+        return role === 'cell' || role === 'header_cell' ? { ...value, handle } : NO_BORDER;
       },
     },
+    view: forgetBorderOnScroll(resizeKey),
     props: {
       attributes: (state): Record<string, string> =>
         (resizeKey.getState(state)?.handle ?? -1) >= 0 ? { class: 'resize-cursor' } : {},
@@ -274,7 +306,8 @@ export function createColumnResize(): Plugin<ResizeState> {
         mousemove(view, event) {
           const current = resizeKey.getState(view.state);
           if (!view.editable || !current || current.dragging) return false;
-          const handle = borderAt(view, event);
+          const found = borderAt(view, event);
+          const handle = found >= 0 && !isCellLocked(view.state, found) ? found : -1;
           if (handle !== current.handle) {
             view.dispatch(view.state.tr.setMeta(resizeKey, { handle, dragging: false }));
           }
@@ -283,7 +316,7 @@ export function createColumnResize(): Plugin<ResizeState> {
         mouseleave(view) {
           const current = resizeKey.getState(view.state);
           if (current && current.handle >= 0 && !current.dragging) {
-            view.dispatch(view.state.tr.setMeta(resizeKey, { handle: -1, dragging: false }));
+            view.dispatch(view.state.tr.setMeta(resizeKey, NO_BORDER));
           }
           return false;
         },

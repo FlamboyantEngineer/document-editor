@@ -261,6 +261,7 @@ export type { ReadySnapshotOptions, ResolveImageAsync } from './snapshot-ready.j
 export { documentSnapshotWhenReady } from './snapshot-ready.js';
 export { distributeRows } from './table-format.js';
 export { toggleHeaderLines } from './table-headers.js';
+export { selectCellContent, selectWholeTable } from './table-pointer.js';
 export { splitTableCell } from './table-split.js';
 export type { TableEditingOptions } from './tables.js';
 export {

@@ -3,7 +3,7 @@
 // columns leading.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { Command, EditorState, Transaction } from 'prosemirror-state';
+import type { Command, EditorState, Selection, Transaction } from 'prosemirror-state';
 import {
   addColumn,
   addRow,
@@ -177,6 +177,15 @@ export const distributeRows: Command = (state, dispatch, view) => {
   return setRowsHeight(height)(state, dispatch, view);
 };
 
+// The cells selected before stay selected, and only those: a selection of a whole row or column
+// would otherwise grow over the rows or columns inserted beside it.
+function keepCellsSelected(tr: Transaction, before: Selection): void {
+  if (!(before instanceof CellSelection)) return;
+  const anchor = tr.mapping.map(before.$anchorCell.pos, 1);
+  const head = tr.mapping.map(before.$headCell.pos, 1);
+  tr.setSelection(new CellSelection(tr.doc.resolve(anchor), tr.doc.resolve(head)));
+}
+
 /**
  * Inserts rows above or below the selection, or columns before or after it, as many as the
  * selection spans, keeping the headers: a row or column inserted before a header one is a header,
@@ -209,6 +218,7 @@ export function insertTableLines(axis: TableAxis, side: 'before' | 'after'): Com
       const key = headerKey(axis);
       const grown = at < headers[key] ? { ...headers, [key]: headers[key] + count } : headers;
       applyHeaders(tr, { pos: tablePos, headers: grown }, { axis, from: at, to: at + count });
+      keepCellsSelected(tr, state.selection);
       dispatch(tr.scrollIntoView());
     }
     return true;
