@@ -30,6 +30,11 @@ export interface TemplatePreview {
    */
   readonly onRegionChange?: ((change: RegionChange) => void) | undefined;
   /**
+   * The open template as written, before it is resolved: a header or footer it sets to take its
+   * parent's is locked on the preview (`templatePreviewLockOf`).
+   */
+  readonly own?: TemplateFile | undefined;
+  /**
    * Writes a section's starting content or placeholder edited in place on a preview shown in parts
    * into the open template (`withTemplatePart`); absent while a saved version is shown.
    */
