@@ -43,6 +43,37 @@ export { setContentsDepth, setContentsGroups } from './contents-commands.js';
 export { pinFigureSnapshot, setFigureSize, setObjectLayout } from './figure-commands.js';
 export { laidOutFigureSize } from './figure-measure.js';
 export {
+  inEmbeddedTable,
+  isPresentationStep,
+  keepEmbeddedPresentation,
+} from './embed-presentation.js';
+export type { EmbedStatus, EmbedStatusOptions, EmbedUpdateOptions } from './embed-status.js';
+export {
+  applyEmbedUpdate,
+  createEmbedStatus,
+  embedSourceKey,
+  embedStatus,
+  embedStatusAt,
+  pasteEmbedsOfKinds,
+  refreshEmbedStatus,
+  resolveEmbeds,
+  setEmbedPinned,
+  updateEmbed,
+} from './embed-status.js';
+export type { EmbedAt, EmbedOptions } from './embeds.js';
+export {
+  createEmbedNode,
+  createEmbeds,
+  embedAt,
+  embeddedText,
+  embedsKey,
+  insertEmbed,
+  isAnyEmbed,
+  listEmbeds,
+  touchesEmbed,
+  unwrapPastedEmbeds,
+} from './embeds.js';
+export {
   convertMath,
   insertCharacter,
   insertCodeBlock,

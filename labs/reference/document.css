@@ -576,6 +576,16 @@ div.de-host-view {
   outline-offset: -1px;
 }
 
+/* A table ruled horizontally draws the lines between its rows and above and below it, no others. */
+:where(.de-document-editor, .de-document-editor__measure)
+  table.table-border-horizontal
+  > tbody
+  > tr
+  > :is(td, th) {
+  border-left: none;
+  border-right: none;
+}
+
 /* A table set to the one pixel grid draws one pixel lines in the template's border colour. */
 :where(.de-document-editor, .de-document-editor__measure)
   table.table-border-1px
@@ -676,13 +686,19 @@ div.de-host-view {
   counter-increment: none;
 }
 
-:where(.de-document-editor, .de-document-editor__measure) .pm-page-content figure {
+:where(.de-document-editor, .de-document-editor__measure)
+  .pm-page-content
+  figure:not([data-caption-enabled='false']) {
   counter-increment: figure;
 }
 
 :where(.de-document-editor, .de-document-editor__measure)
   .pm-page-content
-  pre:not([data-code-block-continued='true'], [data-code-block-continued='true'] > pre) {
+  pre:not(
+    [data-code-block-continued='true'],
+    [data-code-block-continued='true'] > pre,
+    [data-caption-enabled='false']
+  ) {
   counter-increment: codeblock;
 }
 
@@ -1694,9 +1710,30 @@ a.de-contents__entry {
   opacity: 0.7;
 }
 
+/* An inline embed takes the text style around it, underlined as the host's. */
+.de-embed-inline {
+  text-decoration: underline dotted #94a3b8;
+  text-underline-offset: 2px;
+}
+
+.de-embed-inline[data-embed-status='update'] {
+  text-decoration-color: #b45309;
+}
+
+.de-embed-inline[data-embed-status='unavailable'],
+.de-embed-inline[data-embed-status='no-access'] {
+  text-decoration-color: #b91c1c;
+  opacity: 0.7;
+}
+
 @media print {
   .de-embed {
     outline: none;
+    opacity: 1;
+  }
+
+  .de-embed-inline {
+    text-decoration: none;
     opacity: 1;
   }
 }

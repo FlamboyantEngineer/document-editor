@@ -22,6 +22,7 @@ export type {
   ReferenceSourceAdapter,
   ResolvedCode,
   SavedState,
+  ScriptCheckContext,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptRunOutput,
@@ -88,7 +89,11 @@ export type {
   ExportsAdapter,
   ExportSnapshotOptions,
 } from './export-adapters.js';
-export type { LinkedSpreadsheetCapture, LinkedSpreadsheetSource } from './linked-spreadsheet.js';
+export type {
+  LinkedSpreadsheetCapture,
+  LinkedSpreadsheetCell,
+  LinkedSpreadsheetSource,
+} from './linked-spreadsheet.js';
 export {
   createLinkedSpreadsheetAdapter,
   createLinkedSpreadsheetEmbed,

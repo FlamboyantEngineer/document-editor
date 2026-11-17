@@ -86,10 +86,10 @@ Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/cus
 
 ### DOCE-TEMPLATE-EDITOR-1.11 - References
 
-A References section shall hold a card for each reference format key (`referenceFormatKeys`), named by what it points to, with its format and whether the reference links to its target; a format that is not valid (`referenceFormatError`) shall show why on its field.
+A References section shall hold a Format card, with the format of each reference format key (`referenceFormatKeys`), named by what it points to, then a card (`Links to the target`) with whether each links to its target. The host's reference types besides other documents (`referenceTypes`, each with what its targets are in) add their keys. The first format says which tokens a format may use and that an empty one inherits; a format that is not valid (`referenceFormatError`) shall show why on its field.
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/setting-controls.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`, `src/components/template-editor/template-editor.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-1.12 - Lists of contents
 
@@ -137,7 +137,7 @@ Verification: `src/components/template-editor/template-structure.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-2.6 - The id before the first save
 
-While the host has never saved the template (`isNew`), the identity rows shall start with its id, committed on Enter or on leaving the field and written as a letter and then up to 63 letters, digits and underscores, other characters becoming underscores and what comes before the first letter left out (`templateIdOf`); an id with nothing left is refused, saying why. A saved template's id has no row.
+While the host has never saved the template (`isNew`), the identity rows shall start with its id, committed on Enter or on leaving the field and written as a letter and then up to 63 letters, digits and underscores, other characters becoming underscores and what comes before the first letter left out (`templateIdOf`); an id with nothing left is refused, saying why, and empties the template's id, so a host cannot save it until it has one. `idError` says under the field why the id cannot be saved, and `idInputRef` reaches its input, so a host can focus it. A saved template's id has no row.
 
 Implementation: `src/components/template-editor/template-identity.tsx`
 Verification: `src/components/template-editor/template-structure.test.tsx`
@@ -160,42 +160,42 @@ Verification: `e2e/template-editor.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.1 - Opening templates
 
-`TemplateWorkspace` (`de-template-workspace`) shall edit the templates of a host's template store (`store`, DOCE-HOST-1.24) one at a time: a toolbar (`toolbar`) picks a stored template (DOCE-TEMPLATE-EDITOR-3.8), opening it at its latest revision in the template editor (`settings`, DOCE-TEMPLATE-EDITOR-1) with the other stored templates as its parents, and tells the host which template is open (`onTemplateIdChange`) once it has loaded; a template that fails to load leaves the one open as it was and shows the store's message. `defaultTemplateId` opens one at first. What the template inherits is loaded through the store, the base template from the library when the store has none, and the editor shows it as the inherited values. The root publishes `data-dirty` while the open template has changes it has not saved.
+`TemplateWorkspace` (`de-template-workspace`) shall edit the templates of a host's template store (`store`, DOCE-HOST-1.24) one at a time: Open in the toolbar (`toolbar`) picks a stored template in a dialog (DOCE-TEMPLATE-EDITOR-3.14), opening it at its latest revision in the template editor (`settings`, DOCE-TEMPLATE-EDITOR-1) with the other stored templates as its parents, and tells the host which template is open (`onTemplateIdChange`) once it has loaded; a template that fails to load leaves the one open as it was and shows the store's message. `defaultTemplateId` opens one at first. What the template inherits is loaded through the store, the base template from the library when the store has none, and the editor shows it as the inherited values. The root publishes `data-dirty` while the open template has changes it has not saved, and `data-loading` with `aria-busy` while a template it asked for is loading, during which the scope tabs are disabled.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-workspace/template-requests.ts`, `labs/src/template-workspace.lab.tsx`, `labs/template-workspace.html`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.2 - Saving with a revision guard
 
-Save shall store the open template's changes on the revision it was opened or last saved at; a store that refuses the save as a conflict, because another save came between, leaves the changes and asks the reader to reload the template as stored now, dropping them, or to keep them, saving them over the stored revision. Another failure, including one to read the template as stored now, shows the store's message. Changes made while a save is on its way stay in the draft once it returns, unsaved, and the next save stores them on the revision it made.
+Save shall store the open template's changes on the revision it was opened or last saved at, and say for a moment (`SAVE_FEEDBACK_MS`) through its icon, its name and its tooltip that it saved (`saved`) or why it did not (`saveFailed`); a store that refuses the save as a conflict, because another save came between, leaves the changes and asks the reader to reload the template as stored now, dropping them, or to keep them, saving them over the stored revision. Another failure, including one to read the template as stored now, shows the store's message. Changes made while a save is on its way stay in the draft once it returns, unsaved, and the next save stores them on the revision it made.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `src/components/template-workspace/template-workspace-requests.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.3 - New templates and copies
 
-New template shall open an unsaved template with a free id (`template`, then `template-2` and on) and a name, whose id is a row until its first save (DOCE-TEMPLATE-EDITOR-2.6), which creates it in the store. Save as shall create a copy of the open template's settings, changes included, under an id and name the reader gives in a dialog, and open the copy; an id the store already has is refused, saying so while the id field holds that id.
+New template shall open a blank, unsaved template (`blankTemplate`): no id or name yet and one editable section of its own, which takes the document's header and footer. Its id is a row until its first save (DOCE-TEMPLATE-EDITOR-2.6), which creates it in the store; Save while it has no id saves nothing, shows the Properties pane, focuses the id field and says there that it needs one (`idNeeded`), and Save while its parent inherits from it says so under the parent field (`parentCycle`). Save as, on a saved template, shall create a copy of the open template's settings, changes included, under an id and name the reader gives in a dialog, with the host's own fields (`saveAsFields`), which draw and change the copy, such as its folder under `extensions`, and open the copy; an id the store already has is refused, saying so while the id field holds that id. The dialog cannot be dismissed while the copy is on its way.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-workspace/template-dialogs.tsx`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `src/components/template-workspace/template-workspace-requests.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.4 - Deleting a template
 
-Delete shall remove the open template from the store once the reader confirms in an alert dialog, leaving no template open; a store that refuses, such as for a template another inherits, shows why.
+Delete, which the toolbar offers after Save only when the host asks (`canDelete`), shall remove the open template from the store once the reader confirms in an alert dialog, leaving no template open; a store that refuses, such as for a template another inherits, shows why.
 
 Implementation: `src/components/template-workspace/template-dialogs.tsx`, `src/components/template-workspace/use-template-workspace.ts`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-3.5 - History and restoring
 
-With a store that lists versions, History shall show the open template's saved versions (`history`) on the editor's `RevisionList` composition, newest first and the current one marked. Selecting another version shows its settings read-only in the editor and the preview, with a banner naming it, which returns to the template or restores the version; restoring, from the banner or the history after its confirmation, saves the version's settings as the template's newest revision. While the template has unsaved changes, which the restore would drop, restoring first asks the reader to save, discard or stay (DOCE-TEMPLATE-EDITOR-3.7).
+With a store that lists versions, the History pane shall show the open template's saved versions (`history`) on the editor's `RevisionList` composition, newest first and the current one marked, each with who saved it (`personOf`, from the version's author id, the id as a name by default); before the first save it says the template has none yet (`noHistory`). A version row's View action shows its settings read-only in the editor and the preview, with a banner naming it, which returns to the template or restores the version, and tells the host the revision shown (`onRevisionChange`, null on the way back). Restoring, from the banner or the history after its confirmation, stages the version's settings as the open template's unsaved changes, and Save stores them as its newest revision. While the template has unsaved changes, which the restore would drop, restoring first asks the reader to save, discard or stay (DOCE-TEMPLATE-EDITOR-3.7).
 
 Implementation: `src/components/template-workspace/template-history.tsx`, `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `src/components/template-workspace/template-workspace-requests.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.6 - The preview and web-layout templates
 
-`renderPreview` shall draw the template shown, resolved with what it inherits, beside the settings (`preview`, a region named by `preview`), with the scope the settings show and, while the template is editable, `onRegionChange`, which writes a header or footer edited on the preview's pages into the open template (`withRegionChange`). Whether a template is for pages or the web layout is the host's to say (`layoutOf`, pages by default), since the stored format does not hold it; the preview is told the layout and the root publishes it as `data-layout`, so a web-layout template previews as the web layout shows a document, and the template editor, given the layout (`layout`), shows no page size, orientation, header or footer rows for it (`pagesOnly`), keeping its margins, which inset the web layout's content.
+`renderPreview` shall draw the template shown, resolved with what it inherits, beside the side panel (`preview`, a region named by `preview`), with the scope of the tab shown and, while the template is editable, `onRegionChange`, which writes a header or footer edited on the preview's pages into the open template (`withRegionChange`), and `onTemplatePartChange`, which writes a section's starting content or placeholder edited in place (DOCE-SECTIONS-5.2) into it (`withTemplatePart`). Without `renderPreview` the workspace draws its own preview (DOCE-TEMPLATE-EDITOR-3.16). Whether a template is for pages or the web layout is the host's to say (`layoutOf`, pages by default), since the stored format does not hold it; the preview is told the layout and the root publishes it as `data-layout`, so a web-layout template previews as the web layout shows a document, and the template editor, given the layout (`layout`), shows no page size, orientation, header or footer rows for it (`pagesOnly`, DOCE-TEMPLATE-EDITOR-3.18), keeping its margins, which inset the web layout's content.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/template-rows.tsx`, `src/components/template-editor/settings-catalog.ts`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
@@ -221,18 +221,90 @@ The workspace shall apply a store's answer only to the template it was asked for
 Implementation: `src/components/template-workspace/use-open-template.ts`, `src/components/template-workspace/use-template-workspace.ts`
 Verification: `src/components/template-workspace/template-workspace-requests.test.tsx`
 
+### DOCE-TEMPLATE-EDITOR-3.10 - Scope tabs
+
+The workspace shall show the template's scopes as tabs (`tabs`, named by `scopes`) in a band (`band`, a group named by `band`) with the toolbar at its end: the document's settings first (`documentTab`), which no action removes, then one tab per template section, inherited ones included, by its label, or its name without one. Selecting a tab shows that scope's properties and preview. The add button after the last tab appends a section with a new name (`freshSectionName`) and selects it, keeping focus, so it can add another. A section tab's menu renames it in place (its label when it has one, otherwise its name, as DOCE-TEMPLATE-EDITOR-2.3 writes one, a refused name saying why in the field), inserts a new section before or after it and selects it, and deletes it once a confirming alert dialog says what deleting does, then selects the document's tab. The template editor beside them shows no scope picker of its own (`showsScopePicker={false}`).
+
+Implementation: `src/components/template-workspace/template-section-tabs.tsx`, `src/components/template-workspace/template-workspace.tsx`, `src/components/template-editor/template-editor.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.11 - Toolbar and side panel
+
+The toolbar shall hold icon buttons, each named and with a tooltip, in this order: New template, Open, Save as and Save, then Delete when the host offers it. Below the band, in the tabs' panel (`main`), the preview of the tab shown sits beside a side panel at the end edge (`panel`, the base library's `DockPanel` named by `panel`) with a Properties pane and a History pane in that order, which stay mounted while hidden. Properties shows the scope's settings in a region named Document settings (`documentSettings`) for the document's tab and Section settings (`sectionSettings`) for a section's. The panel starts collapsed to its rail unless `defaultPanelExpanded`; it does not remember whether it was expanded, but remembers the pane last shown in the provider's storage under `panelPersistKey` (`de-template-workspace:pane` by default). It resizes between 260 and 520 pixels and shows its pane in a drawer in a frame narrower than 760 pixels.
+
+Implementation: `src/components/template-workspace/workspace-toolbar.tsx`, `src/components/template-workspace/workspace-layout.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/template-workspace.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.12 - The template and version a host names
+
+A host may hold the template open (`templateId`) and the version shown (`revision`), such as from its route, the workspace starting from them: a change of `templateId` opens that template, at `revision` when given, once unsaved changes are saved or discarded (DOCE-TEMPLATE-EDITOR-3.7), and staying calls `onTemplateIdChange` with the open template's id, so the host can put it back; a change of `revision` alone shows that version, or the template with null. New template tells the host that no stored template is open (null). `defaultRevision` shows a version at first.
+
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/use-template-workspace.ts`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
+
+### DOCE-TEMPLATE-EDITOR-3.13 - The JSON view
+
+With `debug`, Control+Alt+B in the workspace shall show the open template's JSON editor (`json`, a region named by `json`, DOCE-TEMPLATE-EDITOR-2.7) in place of the preview, and the preview again on the next press; the root publishes `data-view="json"` while it shows. Save is disabled while the text is not a valid template. A held key's repeats and a key pressed during a text composition do nothing, and without `debug` the keys do nothing.
+
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/workspace-json.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
+
+### DOCE-TEMPLATE-EDITOR-3.14 - The open dialog
+
+Open shall show a dialog (`open-dialog`, titled by `openTitle`) listing the stored templates on the base library's `Tree` (named by `templates`): the templates the host pins first (`catalog.pinned`, in its order), then each template in the folders the host places it in (`catalog.pathOf`, outermost first), folders before templates and each by name, with the icon the host gives a template (`catalog.iconOf`). A search field (`searchTemplates`) keeps the templates whose name, id or folder path holds every word typed, with their folders. Open is enabled once a template is selected and opens it; a double click or Enter on a template's row opens it too.
+
+Implementation: `src/components/template-workspace/template-open-dialog.tsx`, `src/components/template-workspace/template-open-list.tsx`, `src/components/template-workspace/workspace-toolbar.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.15 - A host's own layout
+
+`renderLayout` shall receive the workspace's parts (`TemplateWorkspaceParts`): the scope tabs, the toolbar, the messages, the preview, the properties and the history, and the tabs' panel (`panel`), which wraps what a layout shows below the tabs, so a host can place them in its own frame, such as its own side panel and header, in place of the workspace's layout.
+
+Implementation: `src/components/template-workspace/template-workspace-types.ts`, `src/components/template-workspace/template-workspace.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
+
+### DOCE-TEMPLATE-EDITOR-3.16 - The workspace's own preview
+
+Without `renderPreview`, the workspace shall preview the tab shown with `TemplatePreviewEditor`: a document editor over the template's preview document shown in parts (DOCE-TEMPLATES-8.6), on a section's tab only that section, its content and placeholder followed by the sample in the section's own settings (`scope`), on the document's tab the sample and then every section, drawn afresh for another template, tab, layout or version. Its headers, footers and the sections' content and placeholders shall be edited in place into the draft, with `templatePreviewLockOf({ template, scope })` as its editing lock: what `templatePreviewLock` locks, on the document's tab each header and footer a section sets itself rather than taking the document's, which that section's tab edits, and a table in a section's content or placeholder, whose cells and size stay as they are; a header's or footer's table stays editable (DOCE-SECTIONS-5.4). It previews the template's layout at 100%, switched in its status bar for the reader without changing the template, and is read-only, without its toolbar, while a saved version is shown. `assets` and `variables` reach its image button and variable menu.
+
+Implementation: `src/components/template-workspace/template-preview-editor.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/engine/template-preview-lock.ts`, `src/model/templates/template-preview.ts`
+Verification: `src/components/template-workspace/template-preview-editor.test.tsx`, `src/engine/template-preview-lock.test.ts`, `src/model/templates/template-preview.test.ts`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.17 - The preview's toolbar and status bar
+
+`TEMPLATE_PREVIEW_TOOLBAR`, as a document editor's `toolbar`, shall keep what a template's own content takes: undo and redo, the text style with the title before heading 1 (DOCE-EDITOR-4.1), the formats but the link, the bulleted and numbered lists, and a table, a page break, a variable, a script, a symbol and an image asset, leaving out references, footnotes, figures, code, math, contents, sections, abbreviations and the layout and mode controls. `TEMPLATE_PREVIEW_STATUS_BAR` shall keep the layout switch and the zoom, and `TEMPLATE_PREVIEW_ZOOM_LEVELS` be 50, 75, 100, 125 and 150%. The image asset item (`image-asset`, `insertImageAsset`) shall show while the template's own content is edited and the host's `assets` can search: it opens the host's images (an asset picker) and places the one chosen at the selection as a template image (`insertTemplateImage`, DOCE-SCHEMA-3.3), stored by its asset and snapshot and at its own size shrunk to fit 160 by 96 pixels, and it is disabled, saying why, where no image can go.
+
+Implementation: `src/components/template-workspace/template-preview-editor.tsx`, `src/components/document-editor/template-image-button.tsx`, `src/components/document-editor/insert-controls.tsx`, `src/engine/template-images.ts`
+Verification: `src/components/template-workspace/template-preview-editor.test.tsx`, `src/engine/template-images.test.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.18 - Root and web-layout templates
+
+A template the host's `isRoot` names shall inherit nothing, not even the base template: the workspace resolves it as it is, previews it so, and shows no parent row for it. A template the host's `isNameReadOnly` names shall show its name read-only. Given the web layout (`layout`), the template editor shall leave out, besides the page size, orientation and the header and footer, the paragraph numbering, the footnotes, the references, the change bars and the contents (`pagesOnly`), and read and write the margins in pixels; on pages they stay in millimetres on an A or B size page and in inches otherwise.
+
+Implementation: `src/components/template-workspace/workspace-assembly.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/use-template-workspace.ts`, `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/contents-catalog.ts`, `src/components/template-editor/margins-row.tsx`
+Verification: `src/components/template-workspace/template-workspace.test.tsx`
+
 ## Hooks
 
-| Hook                              | Kind      | Values                | Description                                                   |
-| --------------------------------- | --------- | --------------------- | ------------------------------------------------------------- |
-| `de-template-editor`              | root      |                       | The template editor's settings panel.                         |
-| `de-template-json-editor`         | root      |                       | The template's JSON editor.                                   |
-| `data-scope`                      | attribute | `document`, `section` | On the template editor: whose settings it shows.              |
-| `de-template-workspace`           | root      |                       | The template workspace.                                       |
-| `de-template-workspace__toolbar`  | slot      |                       | The workspace's toolbar: the picker and the template actions. |
-| `de-template-workspace__settings` | slot      |                       | The open template's settings.                                 |
-| `de-template-workspace__preview`  | slot      |                       | The host's preview of the template shown.                     |
-| `de-template-workspace__history`  | slot      |                       | The open template's saved versions.                           |
-| `de-template-picker`              | root      |                       | The template picker's field.                                  |
-| `data-dirty`                      | attribute | `true`                | On the workspace: the open template has unsaved changes.      |
-| `data-layout`                     | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.       |
+| Hook                                 | Kind      | Values                | Description                                              |
+| ------------------------------------ | --------- | --------------------- | -------------------------------------------------------- |
+| `de-template-editor`                 | root      |                       | The template editor's settings panel.                    |
+| `de-template-json-editor`            | root      |                       | The template's JSON editor.                              |
+| `data-scope`                         | attribute | `document`, `section` | On the template editor: whose settings it shows.         |
+| `de-template-workspace`              | root      |                       | The template workspace.                                  |
+| `de-template-workspace__band`        | slot      |                       | The band of scope tabs and the toolbar.                  |
+| `de-template-workspace__toolbar`     | slot      |                       | The workspace's toolbar of template actions.             |
+| `de-template-workspace__messages`    | slot      |                       | The workspace's banners.                                 |
+| `de-template-workspace__main`        | slot      |                       | The scope tabs' panel.                                   |
+| `de-template-workspace__body`        | slot      |                       | The preview beside the side panel.                       |
+| `de-template-workspace__panel`       | slot      |                       | The side panel of properties and history.                |
+| `de-template-workspace__json`        | slot      |                       | The template's JSON, shown in place of the preview.      |
+| `de-template-workspace__open-dialog` | slot      |                       | The open dialog's search and tree.                       |
+| `de-template-workspace__settings`    | slot      |                       | The open template's settings.                            |
+| `de-template-workspace__preview`     | slot      |                       | The host's preview of the template shown.                |
+| `de-template-workspace__history`     | slot      |                       | The open template's saved versions.                      |
+| `de-template-picker`                 | root      |                       | The template picker's field.                             |
+| `data-dirty`                         | attribute | `true`                | On the workspace: the open template has unsaved changes. |
+| `data-layout`                        | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.  |
+| `data-loading`                       | attribute | `true`                | On the workspace: a template it asked for is loading.    |
+| `data-view`                          | attribute | `json`                | On the workspace: the JSON view shows.                   |

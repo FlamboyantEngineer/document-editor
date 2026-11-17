@@ -183,6 +183,40 @@ describe('linked spreadsheet bridge', () => {
     expect(writeMarkup(restored)).toContain('&lt;script&gt;text&lt;/script&gt;');
     expect(restored.textBetween(0, restored.content.size)).toBe('<script>text</script>');
   });
+  it('DOCE-EMBEDS-1.3 keeps bold, italic and struck-through text and plain cell colors, nothing else', () => {
+    const captured = capture();
+    captured.table.rows = [
+      [
+        { text: 'Total', colspan: 1, rowspan: 1, bold: true, italic: true, strike: true },
+        {
+          text: 'Late',
+          colspan: 1,
+          rowspan: 1,
+          color: '#b00020',
+          background: 'red; position: fixed',
+          ...{ font: 'Comic', html: '<b>Late</b>' },
+        },
+      ],
+    ];
+    const table = createLinkedSpreadsheetEmbed(captured).content[0];
+    const [first, second] = table?.content?.[0]?.content ?? [];
+    expect(first?.content?.[0]?.content?.[0]).toEqual({
+      type: 'text',
+      text: 'Total',
+      marks: [{ type: 'italic' }, { type: 'bold' }, { type: 'strike' }],
+    });
+    expect(second?.attrs).toEqual({ color: '#b00020' });
+    expect(second?.content?.[0]?.content?.[0]).toEqual({ type: 'text', text: 'Late' });
+    const restored = readDocumentFile(
+      { formatVersion: 1, sections: [{ name: null, content: [table ?? { type: 'paragraph' }] }] },
+      documentSchema,
+    ).doc;
+    expect(writeDocumentFile(restored).sections[0]?.content[0]).toMatchObject(table ?? {});
+    const wrong = capture();
+    wrong.table.rows = [[{ text: 'a', colspan: 1, rowspan: 1, bold: 'yes' as unknown as boolean }]];
+    expect(() => createLinkedSpreadsheetEmbed(wrong)).toThrow(TypeError);
+  });
+
   it('DOCE-EMBEDS-1.3 respects the document schema span limit before emitting stored content', () => {
     const widest = capture();
     widest.table.rows = [[{ text: 'Boundary', colspan: MAX_SPAN, rowspan: 1 }]];

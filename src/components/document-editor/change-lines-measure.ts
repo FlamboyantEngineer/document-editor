@@ -6,7 +6,7 @@
 import type { ResolvedPos } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   type ChangeInsets,
   changeInsetsKeyOf,
@@ -241,9 +241,24 @@ const NOTHING = { lines: new Map(), insets: new Map() } as const;
 const drawnKeyOf = ({ lines, insets }: { lines: ChangeLines; insets: ChangeInsets }) =>
   `${changeLinesKeyOf(lines)}#${changeInsetsKeyOf(insets)}`;
 
+// A count that grows each time the view's box changes size, which reflows its lines: once laid out
+// at first, as a frame that was hidden shows, and as its width changes.
+function useLayoutCount(view: EditorView | null) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    const owner = view?.dom.ownerDocument.defaultView;
+    if (!view || typeof owner?.ResizeObserver !== 'function') return undefined;
+    const observer = new owner.ResizeObserver(() => setCount((value) => value + 1));
+    observer.observe(view.dom);
+    return () => observer.disconnect();
+  }, [view]);
+  return count;
+}
+
 /**
  * Measures the changed lines after each render while the document shows changes, or in the change
- * bars markup (`simple`) pending suggestions, and draws them (DOCE-VERSIONS-2.4, DOCE-EDITOR-6.5).
+ * bars markup (`simple`) pending suggestions, and draws them (DOCE-VERSIONS-2.4, DOCE-EDITOR-6.5),
+ * again whenever the view's box changes size.
  */
 export function useChangeLines(
   view: EditorView | null,
@@ -260,6 +275,7 @@ export function useChangeLines(
 ) {
   const changes = versionChanges(state);
   const suggestions = markup === 'simple';
+  const laidOut = useLayoutCount(view);
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
     if (!view || !owner || !drawsChangeLines(view.state)) return undefined;
@@ -274,5 +290,5 @@ export function useChangeLines(
       view.dispatch(setChangeLines(view.state.tr, drawn.lines, drawn.insets));
     });
     return () => owner.cancelAnimationFrame(frame);
-  }, [view, state, changes, zoom, template, suggestions]);
+  }, [view, state, changes, zoom, template, suggestions, laidOut]);
 }

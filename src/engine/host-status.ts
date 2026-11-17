@@ -1,7 +1,8 @@
 // What the embed and reference statuses share: a plugin that asks the host, a pause after each
 // change, about the things in the document it has not answered for yet, keeps the answers, and
-// redraws the marks it derives from them. A change that only types or deletes text moves the marks
-// instead of drawing them again, so typing never walks the whole document.
+// redraws the marks it derives from them. A change that only types or deletes text, or that a
+// status says touches nothing it marks, moves the marks instead of drawing them again and asks the
+// host nothing, so such changes never walk the whole document.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, Plugin, type PluginKey, type Transaction } from 'prosemirror-state';
@@ -20,6 +21,8 @@ export interface HostStatusState<Answer> {
   readonly decorations: DecorationSet;
   /** How many refreshes the host asked for: the view asks again at each. */
   readonly refreshes: number;
+  /** How many changes drew the marks again: the view asks after each. */
+  readonly draws: number;
 }
 
 /** How one status finds what to ask about, asks, and marks the document by the answers. */
@@ -38,6 +41,11 @@ interface HostStatusSpec<Item, Answer> {
    * pasted text carrying a mark the status reads. Without it, such a change only moves the marks.
    */
   addsMarked?: ((tr: Transaction) => boolean) | undefined;
+  /**
+   * Whether a change may change what the status asks about or marks. Without it, every change but
+   * one that only types or deletes text may.
+   */
+  touches?: ((tr: Transaction) => boolean) | undefined;
   /** Told each time the host answers, with the answers by key. */
   onAnswered?: ((answered: ReadonlyMap<string, Answer | null>) => void) | undefined;
 }
@@ -51,7 +59,9 @@ function apply<Item, Answer>(
 ): HostStatusState<Answer> {
   const meta = tr.getMeta(spec.key) as Meta<Answer> | undefined;
   if (!meta && !tr.docChanged) return value;
-  if (!meta && isInlineTextOnly(tr) && !spec.addsMarked?.(tr)) {
+  const moved =
+    (isInlineTextOnly(tr) && !spec.addsMarked?.(tr)) || (spec.touches && !spec.touches(tr));
+  if (!meta && moved) {
     return { ...value, decorations: value.decorations.map(tr.mapping, tr.doc) };
   }
   const refresh = meta === 'refresh';
@@ -62,7 +72,9 @@ function apply<Item, Answer>(
       ? new Set([...value.stale].filter((each) => !meta.has(each)))
       : value.stale;
   const refreshes = value.refreshes + (refresh ? 1 : 0);
-  return { resolved, stale, decorations: spec.decorate(tr.doc, resolved), refreshes };
+  const draws = value.draws + (tr.docChanged ? 1 : 0);
+  const decorations = spec.decorate(tr.doc, resolved);
+  return { resolved, stale, decorations, refreshes, draws };
 }
 
 // The answers a status still holds as current: those no refresh asks for again.
@@ -85,6 +97,7 @@ export function createHostStatus<Item, Answer>(
         stale: new Set(),
         decorations: spec.decorate(state.doc, new Map()),
         refreshes: 0,
+        draws: 0,
       }),
       apply: (tr, value) => apply(spec, tr, value),
     },
@@ -118,9 +131,10 @@ export function createHostStatus<Item, Answer>(
       schedule();
       return {
         update(current, previous) {
-          const refreshed =
-            key.getState(current.state)?.refreshes !== key.getState(previous)?.refreshes;
-          if (current.state.doc !== previous.doc || refreshed) schedule();
+          const now = key.getState(current.state);
+          const before = key.getState(previous);
+          // A change that only moved the marks adds nothing to ask about.
+          if (now?.refreshes !== before?.refreshes || now?.draws !== before?.draws) schedule();
         },
         destroy() {
           owner?.clearTimeout(timer);

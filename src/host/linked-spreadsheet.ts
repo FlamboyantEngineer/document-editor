@@ -8,6 +8,21 @@ export interface LinkedSpreadsheetSource {
   range: string;
 }
 
+/**
+ * A captured cell: its text and spans, and the look the document keeps of it: bold, italic and
+ * struck-through text, and plain CSS text and background colors.
+ */
+export interface LinkedSpreadsheetCell {
+  text: string;
+  colspan: number;
+  rowspan: number;
+  bold?: boolean | undefined;
+  italic?: boolean | undefined;
+  strike?: boolean | undefined;
+  color?: string | undefined;
+  background?: string | undefined;
+}
+
 /** The captured part of a linked spreadsheet insertion used by the document bridge. */
 export interface LinkedSpreadsheetCapture {
   kind: 'linked-spreadsheet';
@@ -27,7 +42,7 @@ export interface LinkedSpreadsheetCapture {
     schemaVersion: 1;
     sheetId: string;
     range: string;
-    rows: readonly (readonly { text: string; colspan: number; rowspan: number }[])[];
+    rows: readonly (readonly LinkedSpreadsheetCell[])[];
   };
 }
 

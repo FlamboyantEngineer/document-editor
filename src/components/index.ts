@@ -59,8 +59,19 @@ export type {
 } from './document-editor/index.js';
 export type { ConnectionStatusLabels, ConnectionStatusProps } from './document-editor/index.js';
 export type { LazyEditorSurface } from './document-editor/index.js';
+export type {
+  ScriptCheck,
+  ScriptEditorProps,
+  ScriptPreviewState,
+  ScriptPreviewViews,
+} from './document-editor/index.js';
 export { EDITOR_BANNERS } from './document-editor/index.js';
 export { preloadEditorSurfaces } from './document-editor/index.js';
+export {
+  SCRIPT_STANDARD_VOCABULARY,
+  ScriptEditor,
+  useScriptCheck,
+} from './document-editor/index.js';
 export {
   DocumentModeStatus,
   DocumentPageStatus,
@@ -168,6 +179,7 @@ export type {
   TemplateExtensionSlots,
   TemplateIdentityLabels,
   TemplateParentOption,
+  TemplateReferenceType,
   TemplateScope,
   TemplateScopeProps,
 } from './template-editor/index.js';
@@ -196,13 +208,21 @@ export {
   withSectionMoved,
 } from './template-editor/index.js';
 export type {
+  SaveAsFields,
+  TemplateCatalog,
   TemplatePickerProps,
   TemplatePreview,
+  TemplatePreviewEditorProps,
   TemplateWorkspaceLabels,
+  TemplateWorkspaceParts,
   TemplateWorkspaceProps,
 } from './template-workspace/index.js';
 export {
   DEFAULT_TEMPLATE_WORKSPACE_LABELS,
+  TEMPLATE_PREVIEW_STATUS_BAR,
+  TEMPLATE_PREVIEW_TOOLBAR,
+  TEMPLATE_PREVIEW_ZOOM_LEVELS,
   TemplatePicker,
+  TemplatePreviewEditor,
   TemplateWorkspace,
 } from './template-workspace/index.js';

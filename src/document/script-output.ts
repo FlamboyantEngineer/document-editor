@@ -1,5 +1,6 @@
 // Builders for what a script produces: stored blocks a host's script runner returns, so a script
-// writes headings, paragraphs, lists and tables without knowing the stored format's names.
+// writes headings, paragraphs, lists, tables, figures, code and equations, and their combinations,
+// without knowing the stored format's names.
 
 import type { StoredMark, StoredNode } from '../model/index.js';
 
@@ -8,37 +9,60 @@ export interface ScriptTextRun {
   text: string;
   bold?: boolean | undefined;
   italic?: boolean | undefined;
+  strike?: boolean | undefined;
   /** Set as code. */
   code?: boolean | undefined;
   /** The address the run links to. */
   href?: string | undefined;
+  /** Whether the link opens elsewhere, as a new tab, with no access back to the document. */
+  newTab?: boolean | undefined;
 }
 
-/** Text a script writes: plain text, a run with marks, or runs one after another. */
-export type ScriptText = string | ScriptTextRun | readonly (string | ScriptTextRun)[];
+/** An inline equation a script writes in its text, as LaTeX. */
+export interface ScriptMathRun {
+  math: string;
+}
+
+/**
+ * A part of a script's text: plain text, a run with marks, an inline equation, or an inline node
+ * the host builds in the stored format, such as a reference to one of its records or a signature.
+ */
+export type ScriptInline = string | ScriptTextRun | ScriptMathRun | StoredNode;
+
+/** Text a script writes: one part, or parts one after another. */
+export type ScriptText = ScriptInline | readonly ScriptInline[];
 
 // The stored marks of a run, in the order the stored format writes them.
 function runMarks(run: ScriptTextRun): StoredMark[] {
   const marks: StoredMark[] = [];
   if (run.bold) marks.push({ type: 'bold' });
   if (run.italic) marks.push({ type: 'italic' });
+  if (run.strike) marks.push({ type: 'strike' });
   if (run.code) marks.push({ type: 'code' });
-  if (run.href) marks.push({ type: 'link', attrs: { href: run.href } });
+  if (run.href) {
+    const attrs = { href: run.href, ...(run.newTab ? { target: '_blank' } : {}) };
+    marks.push({ type: 'link', attrs });
+  }
   return marks;
 }
 
-const isRunList = (text: ScriptText): text is readonly (string | ScriptTextRun)[] =>
-  Array.isArray(text);
+const isList = (text: ScriptText): text is readonly ScriptInline[] => Array.isArray(text);
+
+// The stored node of one part, or none for an empty one.
+function inlineNode(part: ScriptInline): StoredNode | null {
+  if (typeof part === 'string') return part ? { type: 'text', text: part } : null;
+  if ('math' in part) {
+    return { type: 'math', ...(part.math ? { attrs: { source: part.math } } : {}) };
+  }
+  if ('type' in part) return part;
+  if (!part.text) return null;
+  const marks = runMarks(part);
+  return { type: 'text', text: part.text, ...(marks.length ? { marks } : {}) };
+}
 
 /** The stored inline content of a script's text; empty runs are left out. */
 export function buildScriptText(text: ScriptText): StoredNode[] {
-  const runs = isRunList(text) ? text : [text];
-  return runs.flatMap((run): StoredNode[] => {
-    const value = typeof run === 'string' ? { text: run } : run;
-    if (!value.text) return [];
-    const marks = runMarks(value);
-    return [{ type: 'text', text: value.text, ...(marks.length ? { marks } : {}) }];
-  });
+  return (isList(text) ? text : [text]).flatMap((part) => inlineNode(part) ?? []);
 }
 
 /** A paragraph holding the text. */
@@ -95,25 +119,116 @@ function captionAttrs(caption: ScriptCaption): Record<string, unknown> {
 
 const withAttrs = (attrs: Record<string, unknown>) => (Object.keys(attrs).length ? { attrs } : {});
 
+/** How a table's lines are drawn: every line, the lines between rows only, or none. */
+export type ScriptTableRules = 'all' | 'horizontal' | 'none';
+
+/** How a cell's text is aligned across it. */
+export type ScriptCellAlign = 'left' | 'center' | 'right';
+
+/** A table cell of one or more paragraphs, such as a line and the line under it, as it spans. */
+export interface ScriptCell {
+  readonly paragraphs: readonly ScriptText[];
+  /** The columns it spans, 1 by default. */
+  readonly colspan?: number | undefined;
+  readonly align?: ScriptCellAlign | undefined;
+}
+
+/** A table cell a script writes: its text, in one paragraph, or a `ScriptCell`. */
+export type ScriptTableCell = ScriptText | ScriptCell;
+
+/** How a script's table is set out. */
+export interface ScriptTableOptions {
+  /** The first row is a header row. */
+  readonly header?: boolean | undefined;
+  /** The first cell of each row is a header cell, naming the row. */
+  readonly stub?: boolean | undefined;
+  /** Each column's alignment, by column; a cell's own wins. */
+  readonly align?: readonly (ScriptCellAlign | undefined)[] | undefined;
+  /** Each column's width in pixels, by column, kept as the columns' proportions. */
+  readonly widths?: readonly (number | undefined)[] | undefined;
+  /** The lines drawn; the template's own when left out. */
+  readonly rules?: ScriptTableRules | undefined;
+  /** Fitted to the content width (`fit`, the default) or at its columns' widths (`natural`). */
+  readonly fit?: 'fit' | 'natural' | undefined;
+  readonly caption?: ScriptCaption;
+}
+
+// The stored border class of a table's rules.
+const RULES: Readonly<Record<ScriptTableRules, string>> = {
+  all: 'table-border-1px',
+  horizontal: 'table-border-horizontal',
+  none: 'table-border-none',
+};
+
+const isCell = (cell: ScriptTableCell): cell is ScriptCell =>
+  typeof cell === 'object' && 'paragraphs' in cell;
+
+// The stored attributes of the cell starting at a column, and the columns it spans.
+function cellAttrs(
+  { colspan, align }: { colspan: number; align: ScriptCellAlign | undefined },
+  { column, widths }: { column: number; widths: ScriptTableOptions['widths'] },
+): Record<string, unknown> {
+  const spanned = widths?.slice(column, column + colspan) ?? [];
+  const known = spanned.length === colspan && spanned.every((width) => (width ?? 0) > 0);
+  return {
+    ...(colspan > 1 ? { colspan } : {}),
+    ...(align && align !== 'left' ? { align } : {}),
+    ...(known ? { colwidth: spanned.map((width) => Math.round(width ?? 0)) } : {}),
+  };
+}
+
+// A row's cells, each a header cell in a header row or as the row's stub.
+function tableRow(
+  cells: readonly ScriptTableCell[],
+  { header, options }: { header: boolean; options: ScriptTableOptions },
+): StoredNode {
+  let column = 0;
+  const content = cells.map((cell, index): StoredNode => {
+    const {
+      paragraphs,
+      colspan: span = 1,
+      align: own,
+    } = isCell(cell) ? cell : { paragraphs: [cell] };
+    const colspan = Math.max(1, Math.round(span) || 1);
+    const align = own ?? options.align?.[column];
+    const attrs = cellAttrs({ colspan, align }, { column, widths: options.widths });
+    column += colspan;
+    return {
+      type: header || (options.stub && index === 0) ? 'tableHeader' : 'tableCell',
+      ...withAttrs(attrs),
+      content: paragraphs.map(buildScriptParagraph),
+    };
+  });
+  return { type: 'tableRow', content };
+}
+
 /**
- * A table with a row for each list of cells, its first row a header row when `header`, and its
- * caption (`ScriptCaption`).
+ * A table with a row for each list of cells (`ScriptTableCell`), set out as the options say
+ * (`ScriptTableOptions`): fitted to the content width by default, its columns keeping their
+ * proportions, with its caption (`ScriptCaption`).
  */
 export function buildScriptTable(
-  rows: readonly (readonly ScriptText[])[],
-  { header = false, caption }: { header?: boolean | undefined; caption?: ScriptCaption } = {},
+  rows: readonly (readonly ScriptTableCell[])[],
+  options: ScriptTableOptions = {},
 ): StoredNode {
+  const { header = false, rules, fit = 'fit', caption } = options;
+  const attrs = {
+    ...(fit === 'fit' ? { layout: 'fit-page-width' } : {}),
+    ...(rules ? { border: RULES[rules] } : {}),
+    ...captionAttrs(caption),
+  };
   return {
     type: 'table',
-    ...withAttrs(captionAttrs(caption)),
-    content: rows.map((cells, index) => ({
-      type: 'tableRow',
-      content: cells.map((cell) => ({
-        type: header && index === 0 ? 'tableHeader' : 'tableCell',
-        content: [buildScriptParagraph(cell)],
-      })),
-    })),
+    ...withAttrs(attrs),
+    content: rows.map((cells, index) =>
+      tableRow(cells, { header: header && index === 0, options }),
+    ),
   };
+}
+
+/** A display equation, as LaTeX. */
+export function buildScriptEquation(latex: string): StoredNode {
+  return { type: 'mathBlock', ...(latex ? { attrs: { source: latex } } : {}) };
 }
 
 /** A figure a script shows: an image by its address, and its caption. */

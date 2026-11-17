@@ -8,6 +8,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import {
+  type DocumentSection,
   documentSections,
   regionAt,
   type TemplatePartChange,
@@ -35,13 +36,23 @@ export function editsTemplateContent(state: EditorState): boolean {
 /**
  * The lock of a preview shown in parts, for an edit lock (`isLocked` of `createDocumentEditing`):
  * the writer may change a template section's content and placeholder and the pages' headers and
- * footers, and nothing of the sample around them.
+ * footers, and nothing of the sample around them, a section's own sample shown alone included.
  */
 export function templatePreviewLock(doc: ProseMirrorNode, pos: number): boolean {
   const region = regionAt(doc.resolve(pos));
   if (!region) return true;
   if (region.kind === 'header' || region.kind === 'footer') return false;
-  return region.kind !== 'content' || region.section.name === null;
+  return region.kind !== 'content' || !isPartSection(doc, region.section);
+}
+
+// Whether a section of a preview shown in parts holds a part: it is one of the first two sections
+// of its name. A third holds the sample of a section shown alone.
+function isPartSection(doc: ProseMirrorNode, section: DocumentSection) {
+  if (section.name === null) return false;
+  const before = documentSections(doc)
+    .slice(0, section.index)
+    .filter((each) => each.name === section.name);
+  return before.length < 2;
 }
 
 // The names of a document's sections in order, which a writer's change keeps.

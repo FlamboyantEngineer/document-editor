@@ -85,6 +85,7 @@ export const TOOLBAR_GROUPS = {
     'section',
     'variable',
     'symbol',
+    'image-asset',
   ],
   layout: ['layout'],
   mode: ['presence', 'mode', 'markup'],

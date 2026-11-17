@@ -12,7 +12,7 @@
     <script src="build/boot.js"></script>
     <meta
       name="description"
-      content="The template workspace over an in-memory template store: open, save, conflicts, copies, history and restore, with the template previewed beside its settings."
+      content="The template workspace over an in-memory template store: scope tabs, the open dialog with folders, save, conflicts, copies, history and restore, with the workspace's own preview of the tab shown, its image button and its status bar, beside the side panel."
     />
     <title>Template workspace · Labs</title>
     <script type="module" src="build/chrome.js"></script>
@@ -23,9 +23,11 @@
     <main id="lab-root" class="lab-fill">
       <h1>Template workspace</h1>
       <p>
-        Pick a template, change it and save it. Save elsewhere stands for another writer saving the
+        Open a template from its folder, edit its document and section tabs, and save it. The side
+        panel holds the Properties and History. Save elsewhere stands for another writer saving the
         same template, so your next save asks you to reload or keep your changes. The Article
-        template is for the web layout.
+        template is for the web layout: it inherits nothing, keeps its name, and has its margins in
+        pixels. Control+Alt+B shows the template as JSON.
       </p>
       <div id="lab-editor" class="lab-editor"></div>
     </main>

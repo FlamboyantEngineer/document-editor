@@ -35,11 +35,13 @@ import {
   shortcutsOf,
   type ShortcutTable,
 } from '../../engine/index.js';
+import type { AssetAdapter } from '../../host/index.js';
 import { DEFAULT_CONTENTS_KINDS, type TemplateFile } from '../../model/index.js';
 import type { EditorContext, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { isMarkActive } from './format-items.js';
 import { SymbolButton } from './symbol-button.js';
+import { TemplateImageButton } from './template-image-button.js';
 import type { ToolbarButtonItem, ToolbarItem } from './toolbar-items.js';
 import { type VariableFeatures, variableItem } from './variable-menu.js';
 
@@ -63,6 +65,8 @@ export interface InsertFeatures extends VariableFeatures {
   readonly scripts?: boolean | undefined;
   /** Whether the host draws diagrams, which the figure menu then offers beside images. */
   readonly diagrams?: boolean | undefined;
+  /** The host's image search, which places an image in a template's own content. */
+  readonly imageSearch?: AssetAdapter['search'] | undefined;
 }
 
 // Whether a command can run, while the writer can edit there.
@@ -311,5 +315,17 @@ export function insertItems(
       id: 'symbol',
       render: (context) => <SymbolButton context={context} symbols={features.symbols} />,
     },
+    imageAssetItem(features),
   ];
+}
+
+// The button that places one of the host's images, while a template's own content is edited.
+function imageAssetItem({ imageSearch, templateContent }: InsertFeatures): ToolbarItem {
+  return {
+    kind: 'custom',
+    id: 'image-asset',
+    isVisible: () => Boolean(templateContent && imageSearch),
+    render: (context) =>
+      imageSearch ? <TemplateImageButton context={context} search={imageSearch} /> : null,
+  };
 }

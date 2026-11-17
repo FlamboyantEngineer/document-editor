@@ -3,10 +3,11 @@
 // equation, each custom style and a paragraph per kind of change, then each of the template's
 // sections with the content it starts with. It is for viewing a template and is never stored. Shown
 // in parts, each template section is two sections, its starting content and its placeholder, which
-// a template editor edits in place and writes back into the template.
+// a template editor edits in place and writes back into the template; one section shown alone has
+// its two parts and then the sample in its own settings.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
-import type { DocumentFile, StoredContent } from '../format/document-format.js';
+import type { DocumentFile } from '../format/document-format.js';
 import type { TemplateFile, TemplateSection } from '../format/template-format.js';
 import {
   type DocumentRegion,
@@ -14,6 +15,7 @@ import {
   documentSections,
   sectionRegions,
 } from '../schema/document-structure.js';
+import type { TemplatePart } from './template-parts.js';
 import {
   DEFAULT_TEMPLATE_PREVIEW_TEXT,
   heading,
@@ -28,9 +30,6 @@ export {
   type TemplatePreviewText,
 } from './template-preview-samples.js';
 
-/** What a section of a preview shown in parts holds of its template section. */
-export type TemplatePart = 'content' | 'placeholder';
-
 /** How a preview document is made. */
 export interface TemplatePreviewOptions {
   /**
@@ -38,6 +37,12 @@ export interface TemplatePreviewOptions {
    * placeholder, each an empty paragraph while the template has none, to edit them in place.
    */
   readonly parts?: boolean | undefined;
+  /**
+   * With `parts`, the template section the preview shows alone, by name: its two parts, then the
+   * sample in that section, which its third section of the name holds. Absent or null, the sample
+   * comes first, as the document's, then every section.
+   */
+  readonly scope?: string | null | undefined;
 }
 
 /** A section of a preview shown in parts: its template section's content or placeholder. */
@@ -46,13 +51,6 @@ export interface TemplatePartSection {
   readonly part: TemplatePart;
   /** The section's content region, which holds the part. */
   readonly content: DocumentRegion;
-}
-
-/** A part of a template section edited in place, with its new content. */
-export interface TemplatePartChange {
-  readonly section: string;
-  readonly part: TemplatePart;
-  readonly content: StoredContent;
 }
 
 const CONTENT = new Set(['content'] as const);
@@ -86,9 +84,13 @@ export function templatePreviewDocument(
   options: TemplatePreviewOptions = {},
 ): DocumentFile {
   const main = previewMain(template, words);
+  const file = { formatVersion: 1 as const, template: { id: template.id } };
+  const shown = options.parts
+    ? template.sections?.find((each) => each.name === options.scope)
+    : undefined;
+  if (shown) return { ...file, sections: [...parts(shown), { name: shown.name, content: main }] };
   return {
-    formatVersion: 1,
-    template: { id: template.id },
+    ...file,
     sections: [
       { name: null, content: main },
       ...(template.sections ?? []).flatMap((scope) =>
@@ -136,41 +138,3 @@ export function templatePartSections(doc: ProseMirrorNode): TemplatePartSection[
 }
 
 // Whether content is nothing but one empty paragraph.
-const isEmpty = (content: StoredContent) =>
-  content.length === 0 ||
-  (content.length === 1 && content[0]?.type === 'paragraph' && !content[0].content?.length);
-
-/**
- * A template with a part of a section edited in place written into it: the section's starting
- * content or placeholder, left out when it is one empty paragraph. A template inheriting its
- * sections takes the resolved ones as its own first, since a list of sections replaces its parent's.
- */
-export function withTemplatePart(
-  template: TemplateFile,
-  change: TemplatePartChange,
-  resolved: TemplateFile = template,
-): TemplateFile {
-  const sections = template.sections ?? resolved.sections ?? [];
-  if (!sections.some((section) => section.name === change.section)) return template;
-  return {
-    ...template,
-    sections: sections.map((section) => {
-      if (section.name !== change.section) return section;
-      const { [change.part]: _replaced, ...rest } = section;
-      return isEmpty(change.content) ? rest : { ...rest, [change.part]: change.content };
-    }),
-  };
-}
-
-/**
- * A template whose sections all let the writer edit them, for the editing plugins and the editor
- * over a preview shown in parts, so a section the template locks in documents is edited in place
- * there; its styles are the template's.
- */
-export function withEditableSections(template: TemplateFile): TemplateFile {
-  if (!template.sections?.some((section) => section.editable === false)) return template;
-  return {
-    ...template,
-    sections: template.sections.map(({ editable: _editable, ...section }) => section),
-  };
-}

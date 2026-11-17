@@ -1,7 +1,7 @@
 // The full editor lab's scripts: a small language a host might offer, one statement a line.
-// `render.paragraph(text)` and `render.heading(text, level)` produce blocks, where the text is a
-// quoted string whose `${document.blocks}` and `${document.title}` read the document. Anything
-// else is a problem the check reports, by its line.
+// `render.paragraph(text)`, `render.heading(text, level)` and `render.equation(latex)` produce
+// blocks, where the text is a quoted string whose `${document.blocks}` and `${document.title}`
+// read the document. Anything else is a problem the check reports, by its line.
 
 import type { ScriptDiagnostic, ScriptVocabularyEntry } from '../../src/host/index.js';
 import type { DocumentFile, StoredContent } from '../../src/model/index.js';
@@ -33,6 +33,12 @@ export const LAB_SCRIPT_VOCABULARY: readonly ScriptVocabularyEntry[] = [
     kind: 'function',
     signature: 'render.heading(text, level)',
     description: 'Adds a heading of the text at a level from 1 to 6.',
+  },
+  {
+    name: 'render.equation',
+    kind: 'function',
+    signature: 'render.equation(latex)',
+    description: 'Adds a displayed equation of the LaTeX.',
   },
   {
     name: 'summary',
@@ -74,7 +80,11 @@ function statement(line: string, document: DocumentFile | null): Statement {
   if (!code || code.startsWith('//')) return { ok: true, node: null };
   const paragraph = /^render\.paragraph\((.*)\)$/.exec(code);
   const heading = /^render\.heading\((.*),\s*([1-6])\)$/.exec(code);
-  const argument = quoted((paragraph ?? heading)?.[1] ?? '', document);
+  const equation = /^render\.equation\((.*)\)$/.exec(code);
+  const argument = quoted((paragraph ?? heading ?? equation)?.[1] ?? '', document);
+  if (equation && argument !== null) {
+    return { ok: true, node: { type: 'mathBlock', attrs: { source: argument } } };
+  }
   if (paragraph && argument !== null) {
     return { ok: true, node: { type: 'paragraph', content: text(argument) } };
   }

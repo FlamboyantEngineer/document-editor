@@ -50,9 +50,9 @@ Verification: `test/bundle-budgets.test.ts`
 
 ### DOCE-ENTRY-2.2 - Surfaces loaded on first use
 
-The editor shall load the surfaces few sessions open the first time one opens, not with the entry: the figure, reference, abbreviation, script and linked code dialogs, with the asset picker and file upload only the figure dialog uses, the symbol picker's character grid, KaTeX and the shared-room code. Nothing shows while a surface loads, and it takes focus as it would have had it been loaded. `npm run check:bundle-size` fails an editor consumer whose initial code holds any of them.
+The editor shall load the surfaces few sessions open the first time one opens, not with the entry: the figure, reference, abbreviation, script and linked code dialogs, with the asset picker and file upload only the figure dialog uses, the image asset button's picker (DOCE-TEMPLATE-EDITOR-3.17), the symbol picker's character grid, KaTeX and the shared-room code. Nothing shows while a surface loads, and it takes focus as it would have had it been loaded. `npm run check:bundle-size` fails an editor consumer whose initial code holds any of them.
 
-Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `scripts/check-bundle-size.mjs`
+Implementation: `src/components/document-editor/object-dialogs.tsx`, `src/components/document-editor/symbol-button.tsx`, `src/components/document-editor/template-image-button.tsx`, `scripts/check-bundle-size.mjs`
 Verification: `test/bundle-budgets.test.ts`, `src/components/document-editor/object-dialogs.test.tsx`
 
 ### DOCE-ENTRY-2.3 - Warming the surfaces
@@ -68,3 +68,10 @@ A dialog of DOCE-ENTRY-2.2 whose code fails to load, as a dropped connection may
 
 Implementation: `src/components/document-editor/lazy-dialog.tsx`, `src/components/document-editor/object-dialogs.tsx`
 Verification: `src/components/document-editor/lazy-dialog.test.tsx`
+
+### DOCE-ENTRY-2.5 - The template workspace's surfaces
+
+The template workspace shall load its own preview, with the document editor, its JSON view, with its code editor, and its open dialog's list of templates the first time each shows, not with the entry, so a host that draws its own preview never loads the editor; nothing shows while one loads. `npm run check:bundle-size` fails the workspace consumer whose initial code holds any of them.
+
+Implementation: `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/template-open-dialog.tsx`, `scripts/check-bundle-size.mjs`
+Verification: `test/bundle-budgets.test.ts`, `src/components/template-workspace/template-workspace-layout.test.tsx`, `src/components/template-workspace/template-preview-editor.test.tsx`

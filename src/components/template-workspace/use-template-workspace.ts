@@ -1,54 +1,48 @@
 // The template workspace's state: the stored templates, the one open with its draft, a version
-// shown in its place, and the requests that open, save, copy, remove and restore templates through
-// the host's template store. A save names the revision the draft was edited from; one the store
-// refuses as a conflict leaves the draft for the reader to reload or keep.
+// shown in its place, whether a template is loading, and the requests that open, save, copy,
+// remove and restore templates through the host's template store (`workspace-requests.ts`).
 
 import { useEffect, useRef, useState } from 'react';
 import type {
-  HostResult,
-  SavedState,
   TemplateStoreAdapter,
   TemplateSummary,
   TemplateVersion,
 } from '../../host/adapters.js';
-import { mergeTemplateFiles, type TemplateFile } from '../../model/index.js';
 import {
-  freeTemplateId,
-  isChanged,
-  isFailure,
-  loadInherited,
-  valueOf,
-} from './template-requests.js';
-import { type OpenTemplateActions, useOpenTemplate } from './use-open-template.js';
+  hasTemplateParentCycle,
+  mergeTemplateFiles,
+  type TemplateFile,
+} from '../../model/index.js';
+import { freshSectionName } from '../template-editor/template-editor.js';
+import { isChanged, loadInherited } from './template-requests.js';
+import { useOpenTemplate } from './use-open-template.js';
+import {
+  clear,
+  type ViewedVersion,
+  type WorkspaceCore,
+  type WorkspaceProblem,
+  workspaceRequests,
+} from './workspace-requests.js';
 
-/** A saved version shown read-only in place of the template being edited. */
-interface ViewedVersion {
-  readonly version: TemplateVersion;
-  readonly template: TemplateFile;
-}
-
-/** Why the last request failed: the store's message, or an id another template has. */
-export type WorkspaceProblem =
-  { kind: 'failed'; message: string } | { kind: 'id-taken'; id: string };
+export type { WorkspaceProblem } from './workspace-requests.js';
 
 /** What the workspace's hook needs. */
 interface TemplateWorkspaceOptions {
   readonly store: TemplateStoreAdapter;
+  /** The template open at first, by id. */
   readonly defaultTemplateId?: string | null | undefined;
+  /** The saved version of it shown at first, by revision. */
+  readonly defaultRevision?: string | null | undefined;
   readonly onTemplateIdChange?: ((templateId: string | null) => void) | undefined;
+  readonly onRevisionChange?: ((revision: string | null) => void) | undefined;
+  /** Whether a template inherits nothing, not even the base template, such as a web-layout one. */
+  readonly isRoot?: ((template: TemplateFile) => boolean) | undefined;
 }
 
-// What the workspace shows and how it changes it.
-interface WorkspaceCore {
-  store: TemplateStoreAdapter;
-  opened: OpenTemplateActions;
-  setViewing: (viewing: ViewedVersion | null) => void;
-  setConflict: (conflict: boolean) => void;
-  setProblem: (problem: WorkspaceProblem | null) => void;
-  /** Opens a stored template, or none; again for the same id, it drops the draft. */
-  request: (templateId: string | null, options?: { announce?: boolean }) => void;
-  relist: () => void;
-  onTemplateIdChange?: ((templateId: string | null) => void) | undefined;
+/** How a template is asked for: shown at a saved version, and whether the host hears of it. */
+interface TemplateRequest {
+  readonly announce?: boolean | undefined;
+  readonly revision?: string | null | undefined;
 }
 
 // The stored templates, listed again after each change to them.
@@ -67,241 +61,158 @@ function useTemplateList(store: TemplateStoreAdapter) {
   return { templates, relist: () => setListed((count) => count + 1) };
 }
 
-// What the template shown inherits, loaded again when its parent changes.
-function useInherited(store: TemplateStoreAdapter, shown: TemplateFile | null) {
+// What the template shown inherits, loaded again when its parent changes; a root inherits nothing.
+function useInherited(store: TemplateStoreAdapter, shown: TemplateFile | null, isRoot: boolean) {
   const [inherited, setInherited] = useState<{ key: string; template: TemplateFile | null }>();
   const id = shown?.id ?? null;
   const parent = shown?.parent ?? null;
-  const key = `${id ?? ''}\n${parent ?? ''}`;
+  const key = `${id ?? ''}\n${parent ?? ''}\n${String(isRoot)}`;
   useEffect(() => {
     if (id === null) return;
     let current = true;
-    void loadInherited(store, { formatVersion: 1, id, parent }).then((template) => {
+    const load = isRoot
+      ? Promise.resolve(null)
+      : loadInherited(store, { formatVersion: 1, id, parent });
+    void load.then((template) => {
       if (current) setInherited({ key, template });
     });
     return () => {
       current = false;
     };
-  }, [store, key, id, parent]);
+  }, [store, key, id, parent, isRoot]);
   return inherited?.key === key ? inherited.template : null;
 }
 
-// Clears what the workspace said about the template before.
-function clear(core: Pick<WorkspaceCore, 'setViewing' | 'setConflict' | 'setProblem'>) {
-  core.setViewing(null);
-  core.setConflict(false);
-  core.setProblem(null);
+// The saved version of a template at a revision, as the store lists it.
+async function versionAt(store: TemplateStoreAdapter, id: string, revision: string) {
+  const listed = await store.versions?.(id);
+  return listed?.ok ? listed.value.find((version) => version.revision === revision) : undefined;
 }
 
-// Loads the template each request names and opens it with a fresh draft; a template that fails to
-// load leaves the one open as it is. The host is told of a template the reader opened.
-function useRequestedTemplate(core: Omit<WorkspaceCore, 'request'>, initial: string | null) {
-  const [requested, setRequested] = useState({ id: initial, count: 0, announce: false });
-  const { store, opened, setViewing, setConflict, setProblem, onTemplateIdChange } = core;
-  const announced = useRef(onTemplateIdChange);
+type RequestCore = Omit<WorkspaceCore, 'request'> & { setLoading: (loading: boolean) => void };
+
+// Loads the template each request names and opens it with a fresh draft, at a saved version when
+// asked; a template that fails to load leaves the one open as it is. The host is told of a template
+// the reader opened.
+function useRequestedTemplate(
+  core: RequestCore,
+  initial: { id: string | null; revision: string | null },
+) {
+  const [requested, setRequested] = useState({ ...initial, count: 0, announce: false });
+  const latest = useRef(core);
   useEffect(() => {
-    announced.current = onTemplateIdChange;
+    latest.current = core;
   });
+  const { store, opened } = core;
   useEffect(() => {
-    const { id, announce } = requested;
+    const { id, announce, revision } = requested;
     if (id === null) return;
+    const now = latest.current;
     const isCurrent = opened.tag();
-    void store.load(id).then((result) => {
+    now.setLoading(true);
+    void store.load(id).then(async (result) => {
       if (!isCurrent()) return;
+      now.setLoading(false);
       if (!result.ok) {
-        setProblem({ kind: 'failed', message: result.error.message ?? result.error.kind });
+        now.setProblem({ kind: 'failed', message: result.error.message ?? result.error.kind });
         return;
       }
-      const { template, revision, sequence } = result.value;
-      opened.replace({ saved: { revision, sequence }, stored: template, draft: template });
-      clear({ setViewing, setConflict, setProblem });
-      if (announce) announced.current?.(id);
+      const { template, revision: latestRevision, sequence } = result.value;
+      opened.replace({
+        saved: { revision: latestRevision, sequence },
+        stored: template,
+        draft: template,
+      });
+      clear(now);
+      if (announce) now.onTemplateIdChange?.(id);
+      const version = revision ? await versionAt(store, id, revision) : undefined;
+      if (version && opened.current()?.draft.id === id)
+        await workspaceRequests({ ...now, request: () => undefined }).view(version);
     });
-  }, [store, requested, opened, setViewing, setConflict, setProblem]);
-  return (id: string | null, options: { announce?: boolean } = {}) => {
+  }, [store, requested, opened]);
+  return (id: string | null, options: TemplateRequest = {}) => {
     if (id === null) {
+      core.setLoading(false);
       opened.replace(null);
-      if (options.announce) onTemplateIdChange?.(null);
+      if (options.announce) core.onTemplateIdChange?.(null);
     }
     setRequested((previous) => ({
       id,
+      revision: options.revision ?? null,
       count: previous.count + 1,
       announce: options.announce ?? false,
     }));
   };
 }
 
-// Puts a saved state under the template it saved and lists the templates again. A change made
-// while the save was on its way stays in the draft, unsaved; the answer to a save of a template no
-// longer open only lists them.
-function settle(core: WorkspaceCore, saved: Saved, isCurrent: () => boolean) {
-  core.relist();
-  if (!isCurrent()) return;
-  const { state, stored, before } = saved;
-  core.opened.update(
-    (open) => open && { saved: state, stored, draft: open.draft === before ? stored : open.draft },
-  );
-  clear(core);
+/** A new template's settings: no id or name yet, and one editable section of its own. */
+function blankTemplate(): TemplateFile {
+  const empty: TemplateFile = { formatVersion: 1, id: '' };
+  return { ...empty, sections: [{ name: freshSectionName(empty), editable: true }] };
 }
 
-interface Saved {
-  readonly state: SavedState;
-  readonly stored: TemplateFile;
-  /** The draft when the save was asked for. */
-  readonly before: TemplateFile | undefined;
-}
-
-function report(core: WorkspaceCore, error: unknown) {
-  core.setProblem({
-    kind: 'failed',
-    message: error instanceof Error ? error.message : String(error),
-  });
-}
-
-// The value of a store request; a failure is reported while its template is open, and rethrown.
-async function reported<T>(core: WorkspaceCore, request: Promise<HostResult<T>>) {
-  const isCurrent = core.opened.tag();
-  try {
-    return await valueOf(request);
-  } catch (error) {
-    if (isCurrent()) report(core, error);
-    throw error;
-  }
-}
-
-// Stores a draft as a new template under its own id: the open one on its first save, or a copy,
-// which it opens. Rejects when the store refuses.
-async function create(core: WorkspaceCore, draft: TemplateFile, { copy }: { copy: boolean }) {
-  const isCurrent = core.opened.tag();
-  const before = core.opened.current()?.draft;
-  try {
-    const state = await valueOf(core.store.create(draft));
-    if (copy && isCurrent()) core.opened.replace({ saved: state, stored: draft, draft });
-    settle(core, { state, stored: draft, before }, isCurrent);
-    if (isCurrent()) core.onTemplateIdChange?.(draft.id);
-  } catch (error) {
-    if (isCurrent() && isFailure(error, 'conflict')) {
-      core.setProblem({ kind: 'id-taken', id: draft.id });
-    } else if (isCurrent()) report(core, error);
-    throw error;
-  }
-}
-
-// Saves a draft on a base revision; a conflict leaves it for the reader to reload or keep.
-async function saveOn(core: WorkspaceCore, draft: TemplateFile, baseRevision: string) {
-  const isCurrent = core.opened.tag();
-  const before = core.opened.current()?.draft;
-  try {
-    const state = await valueOf(core.store.save(draft.id, { template: draft, baseRevision }));
-    settle(core, { state, stored: draft, before }, isCurrent);
-  } catch (error) {
-    if (isCurrent() && isFailure(error, 'conflict')) core.setConflict(true);
-    else if (isCurrent()) report(core, error);
-    throw error;
-  }
-}
-
-// The requests the workspace's controls make, on the open template as it is when each is made.
-function workspaceRequests(core: WorkspaceCore) {
-  const { opened, store } = core;
-  return {
-    /** Saves the draft, creating the template on its first save; rejects when the store refuses. */
-    save: async () => {
-      const open = opened.current();
-      if (!open) return;
-      if (open.saved === null) await create(core, open.draft, { copy: false });
-      else await saveOn(core, open.draft, open.saved.revision);
-    },
-    /** Stores the draft as a new template under another id and name, and opens it. */
-    saveAs: async (identity: { id: string; name: string }) => {
-      const open = opened.current();
-      if (open) await create(core, { ...open.draft, ...identity }, { copy: true });
-    },
-    /** Removes the open template from the store. */
-    remove: async () => {
-      const open = opened.current();
-      if (!open) return;
-      const isCurrent = opened.tag();
-      const removed = await reported(core, store.remove(open.draft.id)).then(
-        () => true,
-        () => false,
-      );
-      if (!removed) return;
-      core.relist();
-      if (!isCurrent()) return;
-      opened.replace(null);
-      clear(core);
-      core.onTemplateIdChange?.(null);
-    },
-    /** Shows a saved version in place of the template, or the template again with null. */
-    view: async (version: TemplateVersion | null) => {
-      const isCurrent = opened.tag('view');
-      const open = opened.current();
-      if (!open || !version) return core.setViewing(null);
-      const load = store.load(open.draft.id, { revision: version.revision });
-      const { template } = await reported(core, load).catch(() => ({ template: null }));
-      if (template && isCurrent()) core.setViewing({ version, template });
-    },
-    /** Saves a version's settings as the template's newest revision. */
-    restore: async (revision: string) => {
-      const id = opened.current()?.draft.id;
-      if (id === undefined) return;
-      const isCurrent = opened.tag();
-      const { template } = await reported(core, store.load(id, { revision }));
-      const base = opened.current()?.saved?.revision;
-      if (isCurrent() && base) await saveOn(core, { ...template, id }, base);
-    },
-    /** Drops the draft and opens the template as stored now. */
-    reload: () => core.request(opened.current()?.draft.id ?? null),
-    /** Saves the draft over the template as stored now. */
-    overwrite: async () => {
-      const id = opened.current()?.draft.id;
-      if (id === undefined) return;
-      const isCurrent = opened.tag();
-      const latest = await reported(core, store.load(id));
-      const draft = opened.current()?.draft;
-      if (isCurrent() && draft) await saveOn(core, draft, latest.revision);
-    },
-  };
+// What keeps the open template from being saved: no id, or a parent that inherits from it.
+function saveProblemOf(draft: TemplateFile | undefined, templates: readonly TemplateSummary[]) {
+  if (!draft) return null;
+  if (!draft.id) return 'no-id' as const;
+  const byId = new Map(templates.map((template) => [template.id, template]));
+  const cycle =
+    draft.parent && hasTemplateParentCycle(draft.id, draft.parent, (id) => byId.get(id));
+  return cycle ? ('parent-cycle' as const) : null;
 }
 
 /** The workspace's state and requests. */
 export function useTemplateWorkspace(options: TemplateWorkspaceOptions) {
-  const { store, onTemplateIdChange } = options;
+  const { store, onTemplateIdChange, onRevisionChange } = options;
   const { templates, relist } = useTemplateList(store);
   const [open, opened] = useOpenTemplate();
   const [viewing, setViewing] = useState<ViewedVersion | null>(null);
   const [conflict, setConflict] = useState(false);
   const [problem, setProblem] = useState<WorkspaceProblem | null>(null);
+  const [isLoading, setLoading] = useState(Boolean(options.defaultTemplateId));
   const shown = viewing?.template ?? open?.draft ?? null;
-  const inherited = useInherited(store, shown);
+  const isRoot = shown !== null && (options.isRoot?.(shown) ?? false);
+  const inherited = useInherited(store, shown, isRoot);
   const setters = { store, opened, setViewing, setConflict, setProblem, relist };
+  const callbacks = { onTemplateIdChange, onRevisionChange };
   const request = useRequestedTemplate(
-    { ...setters, onTemplateIdChange },
-    options.defaultTemplateId ?? null,
+    { ...setters, ...callbacks, setLoading },
+    { id: options.defaultTemplateId ?? null, revision: options.defaultRevision ?? null },
   );
-  const core: WorkspaceCore = { ...setters, request, onTemplateIdChange };
+  const core: WorkspaceCore = { ...setters, ...callbacks, request };
   return {
     templates,
     open,
     viewing,
     resolved: shown ? mergeTemplateFiles(inherited, shown) : null,
     isDirty: open !== null && (open.saved === null || isChanged(open)),
+    isLoading,
     conflict,
     problem,
+    /** What keeps the open template from being saved, if anything. */
+    saveProblem: saveProblemOf(open?.draft, templates),
     /** Opens a stored template by id, or none, and tells the host once it is open. */
-    openTemplate: (templateId: string | null) => request(templateId, { announce: true }),
-    /** Opens a new, unsaved template with this name, which inherits the base template. */
-    createTemplate: (name: string) => {
-      const id = freeTemplateId('template', templates);
-      const fresh: TemplateFile = { formatVersion: 1, id, name };
+    openTemplate: (templateId: string | null, revision?: string | null) =>
+      request(templateId, { announce: true, revision }),
+    /** Opens a new, unsaved template (`blankTemplate`), and tells the host none is stored open. */
+    createTemplate: () => {
+      const fresh = blankTemplate();
+      setLoading(false);
       opened.replace({ saved: null, stored: fresh, draft: fresh });
       clear(core);
+      onTemplateIdChange?.(null);
     },
     change: (draft: TemplateFile) => opened.update((current) => current && { ...current, draft }),
     /** Drops the draft's changes: a saved template's settings go back to the stored ones. */
     discard: () =>
       opened.update((current) => (current?.saved ? { ...current, draft: current.stored } : null)),
+    /** Shows the saved version of the open template at a revision, or the template with null. */
+    viewRevision: async (revision: string | null) => {
+      const id = opened.current()?.draft.id;
+      const version: TemplateVersion | undefined =
+        id && revision ? await versionAt(store, id, revision) : undefined;
+      await workspaceRequests(core).view(version ?? null);
+    },
     ...workspaceRequests(core),
   };
 }

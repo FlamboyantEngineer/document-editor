@@ -8,7 +8,7 @@ import type { TemplateFile } from '../../model/index.js';
 import { ContentsSection } from './contents-section.js';
 import { SettingCard } from './setting-card.js';
 import { rows } from './setting-row.js';
-import { TEMPLATE_SECTIONS } from './settings-catalog.js';
+import { referenceSection, TEMPLATE_SECTIONS } from './settings-catalog.js';
 import { CustomStyleSection, TextStyleSection } from './style-sections.js';
 import type { TemplateEditorLabels, TemplateEditorProps } from './template-editor.js';
 import { settingAt, type TemplateSettingSection } from './template-settings.js';
@@ -91,7 +91,13 @@ export function SettingSections({
   });
   const set = useCallback<Target['set']>((path, value) => latest.current(path, value), []);
   const context: Rows = { ...given, target: { ...given.target, set } };
-  const shown = TEMPLATE_SECTIONS.filter(
+  const { referenceTypes } = given.props;
+  const sections = referenceTypes?.length
+    ? TEMPLATE_SECTIONS.map((section) =>
+        section.id === 'references' ? referenceSection(referenceTypes) : section,
+      )
+    : TEMPLATE_SECTIONS;
+  const shown = sections.filter(
     (section) => (!inSection || !section.documentOnly) && (onPages || !section.pagesOnly),
   );
   return shown.map((section) => (

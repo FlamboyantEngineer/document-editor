@@ -7,10 +7,12 @@
 // it restyles at once.
 
 import { PropertyPanel, PropertySection } from '@flamboyantengineer/ui-components/property-panel';
+import type { Ref } from 'react';
 import type { RegionChange } from '../../engine/index.js';
 import type { TemplateFile, TemplateSection } from '../../model/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
+import type { TemplateReferenceType } from './settings-catalog.js';
 import {
   extensionRows,
   ExtensionSections,
@@ -137,6 +139,17 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly parentError?: string | undefined;
   /** Whether the host has never saved the template, so its id is still a row to edit. */
   readonly isNew?: boolean | undefined;
+  /** Why the id cannot be saved, shown under its field, such as a save asked for without one. */
+  readonly idError?: string | undefined;
+  /** The id field's input, which a host focuses, such as when a save needs an id. */
+  readonly idInputRef?: Ref<HTMLInputElement> | undefined;
+  /** Whether the template's name is shown read-only. */
+  readonly isNameReadOnly?: boolean | undefined;
+  /**
+   * Whether the panel picks the scope itself, adding, moving and deleting sections. Defaults to
+   * true; a host that draws the scopes as tabs, as the template workspace does, turns it off.
+   */
+  readonly showsScopePicker?: boolean | undefined;
   /** The host's own settings, kept in the template's `extensions`. */
   readonly extensions?: TemplateExtensionSlots | undefined;
   /**
@@ -146,6 +159,11 @@ export interface TemplateEditorProps extends TemplateScopeProps {
   readonly layout?: DocumentLayout | undefined;
   /** The fonts the font fields suggest; others may be typed. */
   readonly fonts?: readonly string[] | undefined;
+  /**
+   * The host's reference types besides other documents, as the schema knows them
+   * (`referenceTypes`), each with a format and a link switch in the references section.
+   */
+  readonly referenceTypes?: readonly TemplateReferenceType[] | undefined;
   /** The fonts the code font fields suggest, monospace ones; others may be typed. */
   readonly codeFonts?: readonly string[] | undefined;
   readonly labels?: Partial<TemplateEditorLabels> | undefined;
@@ -256,14 +274,19 @@ export function TemplateEditor(props: TemplateEditorProps) {
         parentOptions={props.parentOptions}
         parentError={props.parentError}
         isNew={props.isNew}
+        idError={props.idError}
+        idInputRef={props.idInputRef}
+        isNameReadOnly={props.isNameReadOnly}
         isDisabled={isDisabled}
         labels={labels}
       >
         {slots?.rows?.identity ? extensionRows(context, slots.rows.identity) : null}
       </TemplateIdentity>
-      <PropertySection id="scope" title={labels.scope} defaultExpanded>
-        <ScopePicker {...scoped} />
-      </PropertySection>
+      {props.showsScopePicker === false ? null : (
+        <PropertySection id="scope" title={labels.scope} defaultExpanded>
+          <ScopePicker {...scoped} />
+        </PropertySection>
+      )}
       <SectionRows {...scoped} />
       <SettingSections
         context={context}
@@ -277,4 +300,14 @@ export function TemplateEditor(props: TemplateEditorProps) {
 }
 
 export { templateIdOf } from './template-identity.js';
+export { TemplateJsonEditor } from './template-json-editor.js';
+export { DEFAULT_TEMPLATE_SCOPE_LABELS, withListedSections } from './template-scope.js';
 export type { TemplateScope } from './template-scope-state.js';
+export {
+  freshSectionName,
+  renameSection,
+  type SectionNameProblem,
+  withNamedSection,
+  withoutSection,
+  withSectionAt,
+} from './template-section-list.js';

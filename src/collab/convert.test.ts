@@ -71,6 +71,35 @@ describe('room conversion', () => {
     },
   );
 
+  it('DOCE-COLLAB-6.2 DOCE-EMBEDS-1.4 keeps every attribute of an inline embed through a room, twice', () => {
+    const file = small([
+      {
+        type: 'paragraph',
+        attrs: { id: 'a0000001' },
+        content: [
+          { type: 'text', text: 'Total ' },
+          {
+            type: 'embed_inline',
+            attrs: {
+              id: 'e0000001',
+              kind: 'cell',
+              source: 'book!B2',
+              snapshot: 'r1',
+              label: 'B2',
+              pinned: true,
+              text: '42',
+            },
+          },
+        ],
+      },
+    ]);
+    const once = yjsToDocument(documentToYjs(file, { schema, newId: sequence() }), { schema });
+    if (!once) throw new Error('The room holds the document');
+    const twice = yjsToDocument(documentToYjs(once, { schema, newId: sequence() }), { schema });
+    expect(once).toEqual(file);
+    expect(JSON.stringify(twice)).toBe(JSON.stringify(once));
+  });
+
   it('DOCE-COLLAB-6.2 keeps every attribute of a citation, an abbreviation and an embed through a room, twice', () => {
     const { doc } = readDocumentFile(
       small([
