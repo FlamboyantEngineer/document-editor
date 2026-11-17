@@ -29,8 +29,8 @@ export function useHostReach(
   view: EditorView | null,
   { root, refs, progress, transactions }: HostReachOptions,
 ) {
-  const find = useFindBar(root, view, Boolean(props.find));
   const panes = useEditorPanes(props.comments);
+  const find = useFindBar(root, view, { find: props.find, panes });
   useEditorHandle(props.handleRef, view, {
     ...refs,
     template: props.template,

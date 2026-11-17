@@ -25,6 +25,38 @@ test.describe('side panels lab', () => {
     await expect(navigation(page).getByRole('tabpanel')).toHaveCount(0);
   });
 
+  test('DOCE-SEARCH-2.2 DOCE-SEARCH-3.2 sends the find keys to the panel search pane, and Escape back', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('panels');
+    await page.getByLabel('Find keys open the search pane').check();
+    await page.getByLabel('Panel expanded').uncheck();
+    const document = page.locator('.de-document-editor__content');
+    await document.locator('h1', { hasText: 'Timing' }).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Shift+Home');
+    await page.keyboard.press('ControlOrMeta+f');
+    await expect(navigation(page).getByRole('tab', { name: 'Search' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const query = navigation(page).getByRole('searchbox');
+    await expect(query).toBeFocused();
+    await expect(query).toHaveValue('Timing');
+    await expect(navigation(page).getByRole('option').first()).toBeVisible();
+    await expect(page.locator('.de-document-editor__find')).toHaveCount(0);
+    // Escape keeps the results, unmarks the matches and takes the writer to the document.
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('textbox', { name: 'Sample document' })).toBeFocused();
+    await expect(query).toHaveValue('Timing');
+    await expect(navigation(page).getByRole('option').first()).toBeVisible();
+    await expect(document.locator('[data-search-result]')).toHaveCount(0);
+    // Mod-H opens the replace controls with the replacement focused.
+    await page.keyboard.press('ControlOrMeta+h');
+    await expect(navigation(page).getByRole('textbox', { name: /replace/i })).toBeFocused();
+  });
+
   test('DOCE-LABS-3.6 remembers the panel left to itself across reloads', async ({ lab, page }) => {
     await lab.open('panels');
     await page.getByLabel('Controlled by the host').uncheck();

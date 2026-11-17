@@ -71,13 +71,13 @@ export interface DocumentSidePanelProps {
   readonly onExpandedChange?: ((isExpanded: boolean) => void) | undefined;
   /** Its width, in pixels (controlled). */
   readonly size?: number | undefined;
-  /** Its width at first when uncontrolled, in pixels. Defaults to 280. */
+  /** Its width at first when uncontrolled, in pixels. Defaults to 300. */
   readonly defaultSize?: number | undefined;
   /** Receives the width a resize ends at. */
   readonly onSizeChange?: ((size: number) => void) | undefined;
-  /** Its narrowest width, in pixels. Defaults to 200. */
+  /** Its narrowest width, in pixels. Defaults to 240. */
   readonly minSize?: number | undefined;
-  /** Its widest width, in pixels. Defaults to 640. */
+  /** Its widest width, in pixels. Defaults to 380. */
   readonly maxSize?: number | undefined;
   /**
    * The width, in pixels, the panel leaves its parent's other content, narrowing below `maxSize`
@@ -131,7 +131,10 @@ function useRevealedPanes(
 ) {
   const panes = useEditorPanesContext();
   const panel = useRef<HTMLElement>(null);
-  const [focusing, setFocusing] = useState<string | null>(null);
+  const [focusing, setFocusing] = useState<{
+    paneId: string;
+    onShown: ((pane: HTMLElement) => void) | undefined;
+  } | null>(null);
   const latest = useRef({ paneIds, select, expand });
   useEffect(() => {
     latest.current = { paneIds, select, expand };
@@ -143,16 +146,21 @@ function useRevealedPanes(
         reveal: (paneId, options: RevealPaneOptions) => {
           latest.current.select(paneId);
           latest.current.expand(true);
-          if (options.focus ?? true) setFocusing(paneId);
+          if (options.onShown || (options.focus ?? true)) {
+            setFocusing({ paneId, onShown: options.onShown });
+          }
         },
       }),
     [panes],
   );
   useEffect(() => {
     if (focusing === null) return;
-    const pane = panel.current?.querySelector<HTMLElement>(`[data-pane="${CSS.escape(focusing)}"]`);
+    const pane = panel.current?.querySelector<HTMLElement>(
+      `[data-pane="${CSS.escape(focusing.paneId)}"]`,
+    );
     if (!pane || pane.closest('[hidden], [inert]')) return;
-    (pane.querySelector<HTMLElement>(FOCUSABLE) ?? pane).focus();
+    if (focusing.onShown) focusing.onShown(pane);
+    else (pane.querySelector<HTMLElement>(FOCUSABLE) ?? pane).focus();
     // Focus moves once the pane shows, after the panel commits it; the next reveal asks again.
     setFocusing(null);
   }, [focusing, selectedPane, isExpanded]);
@@ -187,10 +195,10 @@ export function DocumentSidePanel(props: DocumentSidePanelProps) {
       isExpanded={state.isExpanded}
       onExpandedChange={state.expand}
       size={props.size}
-      defaultSize={props.defaultSize ?? 280}
+      defaultSize={props.defaultSize ?? 300}
       onSizeChangeEnd={props.onSizeChange}
-      minSize={props.minSize ?? 200}
-      maxSize={props.maxSize}
+      minSize={props.minSize ?? 240}
+      maxSize={props.maxSize ?? 380}
       minMainSize={props.minMainSize ?? 480}
     >
       {panes.map((pane) => (

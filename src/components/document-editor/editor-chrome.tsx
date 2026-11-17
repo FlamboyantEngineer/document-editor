@@ -56,8 +56,8 @@ export interface ChromeProps {
   startCommentRef: RefObject<(() => void) | null>;
   /** The open typed menus' keys, which the document's keys ask first. */
   menuKeys: MenuKeys;
-  /** Opens the find bar at a box, while the editor has one. */
-  openFind?: ((mode?: FindBarMode) => void) | null | undefined;
+  /** Opens the find bar, or the search pane, at a box, while the editor has one. */
+  openFind?: ((mode?: FindBarMode) => boolean) | null | undefined;
   /**
    * The pages' state while they are a projection of the editor's state, so the chrome follows each
    * layout as well as each state, such as the status bar's page count.

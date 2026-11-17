@@ -86,7 +86,8 @@ export interface DocumentEditorHandle {
   startComment(options?: StartCommentOptions): boolean;
   /**
    * Opens the find bar at its find box, or at its replacement with `replace`, seeded with the
-   * selected text, while the editor has a find bar (`find`); false otherwise.
+   * selected text, while the editor has a find bar (`find`), or the side panel's search pane with
+   * `find: 'pane'` while a panel holds it; false otherwise.
    */
   openFind(mode?: FindBarMode): boolean;
   /**
@@ -259,7 +260,7 @@ export function useEditorHandle(
     references: ReferenceSourceAdapter | undefined;
     layout: LayoutProgress;
     panes: EditorPanes;
-    openFind: ((mode?: FindBarMode) => void) | null;
+    openFind: ((mode?: FindBarMode) => boolean) | null;
   },
 ) {
   const stopCentring = useRef<(() => void) | null>(null);
@@ -283,10 +284,7 @@ export function useEditorHandle(
         start?.(options);
         return Boolean(start);
       },
-      openFind(mode) {
-        openFind?.(mode);
-        return Boolean(openFind);
-      },
+      openFind: (mode) => openFind?.(mode) ?? false,
       run(command) {
         if (!view) return false;
         const ran = command(view.state, view.dispatch, view);

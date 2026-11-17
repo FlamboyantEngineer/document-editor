@@ -7,10 +7,11 @@
 
 import { Announcer, useAnnounce } from '@flamboyantengineer/ui-components/announcer';
 import type { Key } from '@flamboyantengineer/ui-components/core';
-import { SearchPane } from '@flamboyantengineer/ui-components/search-pane';
+import { SearchPane, type SearchPaneHandle } from '@flamboyantengineer/ui-components/search-pane';
 import type { Command, EditorState } from 'prosemirror-state';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  leaveSearch,
   replaceAllMatches,
   replaceMatch,
   revealMatchAt,
@@ -21,6 +22,7 @@ import {
 import type { TemplateFile } from '../../model/index.js';
 import { searchControlState, searchOptionsOf } from '../../utils/search-options.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
+import { useEditorPanesContext } from './document-panels.js';
 
 /** What the search pane searches. */
 export interface DocumentSearchPaneProps {
@@ -28,13 +30,19 @@ export interface DocumentSearchPaneProps {
   readonly context?: EditorContext | null | undefined;
   /** The template the headings the results are under are numbered by. */
   readonly template?: TemplateFile | undefined;
-  /** Closes the pane; the search is cleared first. */
+  /**
+   * Called as the reader leaves the pane by Escape, after the matches are unmarked and the
+   * document focused at the current match; the query and the results stay.
+   */
   readonly onClose?: (() => void) | undefined;
   readonly className?: string | undefined;
 }
 
 // How long the reader pauses typing before the pane searches, in milliseconds.
 const searchDelay = 250;
+
+// How many results the pane shows at once, the others behind Show earlier and Show more.
+const MOUNTED_RESULTS = 500;
 
 // The matches of the pane's search, none without a query.
 function useSearchResults(state: EditorState, template: TemplateFile | undefined) {
@@ -69,12 +77,28 @@ function useDebouncedQuery(search: (query: string) => void) {
   };
 }
 
+// The pane's element and handle, which the editor's find keys move focus with.
+function useAttachedHandle() {
+  const handle = useRef<SearchPaneHandle>(null);
+  const element = useRef<HTMLDivElement>(null);
+  const panes = useEditorPanesContext();
+  useEffect(() => {
+    if (!panes || !element.current) return undefined;
+    return panes.attachSearch(element.current, {
+      focusQuery: () => handle.current?.focusQuery(),
+      focusReplacement: () => handle.current?.focusReplacement(),
+    });
+  }, [panes]);
+  return { handle, element };
+}
+
 // The pane inside its announcer.
 function SearchPaneBody({
   context,
   ...props
 }: DocumentSearchPaneProps & { context: EditorContext }) {
   const results = useSearchResults(context.state, props.template);
+  const { handle, element } = useAttachedHandle();
   const announce = useAnnounce();
   const { query, selected, current } = searchControlState(context.state, 'pane');
   const { labels, view } = context;
@@ -110,17 +134,23 @@ function SearchPaneBody({
         source: result.source,
         start: result.start,
         end: result.end,
-        label: result.heading ?? undefined,
+        label: result.heading ?? labels.searchNoSection,
         isReplaceable: result.replaceable,
       }))}
+      maxMountedResults={MOUNTED_RESULTS}
+      handleRef={handle}
+      ref={element}
       currentKey={current >= 0 ? current : null}
       onCurrentKeyChange={(key) => run(revealMatchAt(Number(key), 'pane'))}
       replaceMode={canReplace ? 'hidable' : 'none'}
       onReplace={canReplace ? (replacement) => run(replaceMatch(replacement, 'pane')) : undefined}
       onReplaceAll={canReplace ? replaceAll : undefined}
       onClose={() => {
+        // Escape leaves the results listed and the query kept, unmarks the matches in the
+        // document and takes the writer there, at the current match.
         pending.settle();
-        run(setSearch('', {}, 'pane'));
+        run(leaveSearch('pane'));
+        view?.focus();
         props.onClose?.();
       }}
     />

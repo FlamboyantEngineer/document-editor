@@ -256,8 +256,12 @@ export interface DocumentEditorProps
    * repaired elements without a writer to that author. Defaults to false.
    */
   repairIds?: boolean | DocumentEditorIdRepair | undefined;
-  /** Opens a find bar above the document with Mod-F, to find and replace text. Defaults to false. */
-  find?: boolean | undefined;
+  /**
+   * Opens a find bar above the document with Mod-F, to find and replace text; `'pane'` sends the
+   * find and replace keys to the side panel's search pane instead, and to the browser while no
+   * panel holds one. Defaults to false.
+   */
+  find?: boolean | 'pane' | undefined;
   /**
    * Whether the document opens the editor's context menu, with the host's providers and
    * arrangement when given as options. Defaults to true.

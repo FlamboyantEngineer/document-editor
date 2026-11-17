@@ -699,14 +699,14 @@ Verification: `src/components/document-editor/script-entries.test.tsx`
 
 ### DOCE-EDITOR-8.1 - A controlled side panel
 
-A side panel's selected pane (`selectedPane`, `defaultSelectedPane`, `onSelectedPaneChange`), expanded state (`isExpanded`, `defaultExpanded`, `onExpandedChange`) and width (`size`, `defaultSize`, `onSizeChange` once a resize ends) shall each be controlled by the host or held by the panel, which saves what it holds under `persistKey` through the base library's storage; a tab, a launcher, the toggle and `revealPane` report each change. Its width stays between `minSize` (200 pixels by default) and `maxSize` (640 by default), narrowed, never below `minSize`, to leave its parent's other content `minMainSize` (480 pixels by default) without changing the width it saves. Each pane's content sits in a `de-document-side-panel__pane` naming the pane in `data-pane`.
+A side panel's selected pane (`selectedPane`, `defaultSelectedPane`, `onSelectedPaneChange`), expanded state (`isExpanded`, `defaultExpanded`, `onExpandedChange`) and width (`size`, `defaultSize`, `onSizeChange` once a resize ends) shall each be controlled by the host or held by the panel, which saves what it holds under `persistKey` through the base library's storage; a tab, a launcher, the toggle and `revealPane` report each change. It opens `defaultSize` wide (300 pixels by default), and its width stays between `minSize` (240 pixels by default) and `maxSize` (380 by default), narrowed, never below `minSize`, to leave its parent's other content `minMainSize` (480 pixels by default) without changing the width it saves. Each pane's content sits in a `de-document-side-panel__pane` naming the pane in `data-pane`.
 
 Implementation: `src/components/document-panels/document-side-panel.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/panels.spec.ts`
 
 ### DOCE-EDITOR-8.2 - Revealing a pane
 
-The editor's handle shall reveal a pane by its id (`revealPane(paneId, { focus })`): the first side panel inside the editor that holds it selects it and expands, as its tab and launcher would, and focus moves into the pane, on its first focusable element or the pane itself, once it shows, unless `focus` is false. It returns false when no panel holds the pane.
+The editor's handle shall reveal a pane by its id (`revealPane(paneId, { focus })`): the first side panel inside the editor that holds it selects it and expands, as its tab and launcher would, and focus moves into the pane, on its first focusable element or the pane itself, once it shows, unless `focus` is false; given `onShown`, the panel calls it with the pane's element once it shows instead, as the find keys do to focus the search pane's query (DOCE-SEARCH-2.2). It returns false when no panel holds the pane.
 
 Implementation: `src/components/document-panels/document-panels.ts`, `src/components/document-panels/document-side-panel.tsx`, `src/components/document-editor/editor-handle.ts`, `src/components/document-editor/editor-scope.tsx`, `src/components/document-editor/use-host-reach.ts`, `labs/src/host-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
