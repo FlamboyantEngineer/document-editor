@@ -96,6 +96,31 @@ test.describe('template content lab', () => {
       .toContain('"key":"document.name"');
   });
 
+  test('DOCE-TEMPLATES-8.9 DOCE-TEMPLATES-8.10 previews a template script beside it and keeps the script alone', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-content');
+    const approvals = part(page, 'approvals', 'content');
+    const preview = approvals.locator('[data-script-preview] .de-script-preview');
+    await expect(preview).toHaveText('Signed by the approvers.');
+    await expect(approvals.locator('.de-script-message')).toHaveCount(0);
+    // An edit beside it hands the part on with the script and none of its preview.
+    await approvals.locator('p').first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' Today.');
+    await expect
+      .poll(async () => JSON.stringify((await sectionOf(page, 'approvals'))?.content))
+      .toContain('Today.');
+    const stored = (await sectionOf(page, 'approvals'))?.content as { type: string }[];
+    const script = stored.find((node) => node.type === 'script');
+    expect(script).toMatchObject({
+      attrs: { source: 'render.paragraph("Signed by the approvers.")' },
+    });
+    expect(script).not.toHaveProperty('content');
+    await expect(preview).toHaveText('Signed by the approvers.');
+  });
+
   test('DOCE-SECTIONS-5.4 DOCE-LABS-4.14 shows the cells of a borderless footer table by a dashed guide while editing', async ({
     lab,
     page,

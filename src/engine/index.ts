@@ -256,6 +256,11 @@ export {
 export { insertTemplateImage, type TemplateImageAsset } from './template-images.js';
 export { templatePreviewLockOf, type TemplatePreviewScope } from './template-preview-lock.js';
 export {
+  createTemplateScriptPreviews,
+  type TemplateScriptPreviewsOptions,
+  withoutScriptOutput,
+} from './template-script-previews.js';
+export {
   EDITOR_VARIABLES,
   type EditorVariable,
   insertVariable,

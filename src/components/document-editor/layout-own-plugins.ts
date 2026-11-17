@@ -1,8 +1,8 @@
 // The plugins a document's layout adds to the editor's own: its page debugging, list starts, page
 // variables and dynamic template content, footnote numbers by section, search, authorship, region
-// and template content editing, sections, template edit defaults, change lines, version changes,
-// unbreakable citation identifiers, the refresh of abbreviations a writer adds and, unless the host installs its own, its lists of
-// contents.
+// and template content editing with its script previews, sections, template edit defaults, change
+// lines, version changes, unbreakable citation identifiers, the refresh of abbreviations a writer
+// adds and, unless the host installs its own, its lists of contents.
 
 import type { Plugin } from 'prosemirror-state';
 import type { RefObject } from 'react';
@@ -18,6 +18,7 @@ import {
   createSearch,
   createSectionFootnoteNumbers,
   createTemplateContentEditing,
+  createTemplateScriptPreviews,
   createVersionChanges,
 } from '../../engine/index.js';
 import {
@@ -60,6 +61,10 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
     createTemplateContentEditing({
       enabled: () => Boolean(latest.current.onTemplatePartChange),
       onChange: (change) => latest.current.onTemplatePartChange?.(change),
+    }),
+    createTemplateScriptPreviews({
+      enabled: () => Boolean(latest.current.onTemplatePartChange),
+      runner: () => latest.current.scriptRunner,
     }),
     createDocumentSections({ template: () => latest.current.template }),
     ...createTemplateEditDefaults(() => latest.current.template),
