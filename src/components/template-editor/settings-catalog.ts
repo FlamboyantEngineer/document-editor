@@ -12,11 +12,13 @@ import { contentsSettings } from './contents-catalog.js';
 import { OBJECT_SECTIONS } from './object-settings.js';
 import {
   affixSetting,
+  cell,
   choice,
   numberingSetting,
   PAGE_SIZES,
   select,
   setting,
+  strip,
   type TemplateSetting,
   type TemplateSettingCard,
   type TemplateSettingSection,
@@ -51,8 +53,8 @@ const BULLETS: [string, string][] = [
 // A region's settings: its height, its space to the content, and whether it takes its parent's.
 const region = (key: 'header' | 'footer', label: string, space: string): TemplateSetting[] => [
   {
-    ...setting(`${key}.inherit`, `${label} inherits`, boolean),
-    hint: `Takes the ${key} of the parent template, or of the document for a section`,
+    ...setting(`${key}.inherit`, `Use the parent's ${key}`, boolean),
+    sectionLabel: `Use the document's ${key}`,
   },
   setting(`${key}.height`, `${label} height`, length),
   setting(`${key}.spacingToContent`, space, length),
@@ -148,6 +150,17 @@ export function referenceSection(
 
 const CHANGE_KINDS = ['insertions', 'deletions', 'modifications', 'formatting'] as const;
 
+// Size and orientation, under the paper's heading, or the page's in a template section.
+const PAPER = { document: 'Paper', section: 'Page' };
+
+// The text before a number, its format and the text after, as one row, labelled above.
+const numberStrip = (label: string): TemplateSetting =>
+  strip('', label, [
+    cell('Before', affixSetting('prefix', 'Before the number', 'prefix')),
+    cell('Format', numberingSetting('format', label)),
+    cell('After', affixSetting('suffix', 'After the number', 'suffix')),
+  ]);
+
 /** The editor's sections, in order, below the text styles. */
 export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
   {
@@ -162,6 +175,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
           select(...PAGE_SIZES.map((size): [string, string] => [size, pageSizeLabel(size)])),
         ),
         pagesOnly: true,
+        group: PAPER,
       },
       {
         ...setting(
@@ -170,6 +184,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
           choice(['portrait', 'Portrait'], ['landscape', 'Landscape']),
         ),
         pagesOnly: true,
+        group: PAPER,
       },
       setting('margins', 'Margins', { type: 'sides', unit: 'page', side: 'margin' }),
     ],
@@ -179,12 +194,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Paragraph numbering',
     pagesOnly: true,
     scope: ['styles', 'paragraph', 'numbering'],
-    settings: [
-      setting('enabled', 'Number paragraphs', boolean),
-      affixSetting('prefix', 'Before the number', 'prefix'),
-      numberingSetting('format', 'Format'),
-      affixSetting('suffix', 'After the number', 'suffix'),
-    ],
+    settings: [setting('enabled', 'Number paragraphs', boolean), numberStrip('Format')],
     cards: PARAGRAPH_LEVELS,
   },
   {
@@ -203,13 +213,13 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     title: 'Lists',
     scope: ['styles', 'list'],
     settings: [
+      numberStrip('Numbering format'),
       setting('bullet', 'Bullet', select(...BULLETS)),
-      affixSetting('prefix', 'Before the number', 'prefix'),
-      numberingSetting('format', 'Numbering format'),
-      affixSetting('suffix', 'After the number', 'suffix'),
       setting('indentation', 'Indentation', length),
-      setting('spaceBefore', 'Space before', length),
-      setting('spaceAfter', 'Space after', length),
+      strip('', 'Spacing', [
+        cell('Before', setting('spaceBefore', 'Space before', length)),
+        cell('After', setting('spaceAfter', 'Space after', length)),
+      ]),
     ],
   },
   ...OBJECT_SECTIONS,
@@ -243,14 +253,17 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
     pagesOnly: true,
     scope: ['changeBars'],
     settings: [
-      ...CHANGE_KINDS.flatMap((kind) => {
-        const label = `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
-        return [
-          setting(`${kind}.enabled`, `Show ${kind}`, boolean),
-          setting(`${kind}.color`, label, color),
-        ];
-      }),
-      setting('side', 'Side', choice(['left', 'Left'], ['right', 'Right'])),
+      // Each kind's switch beside its colour.
+      ...CHANGE_KINDS.map((kind) =>
+        strip(kind, `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`, [
+          cell('', setting('enabled', `Show ${kind}`, boolean)),
+          cell(
+            '',
+            setting('color', `${kind.charAt(0).toUpperCase()}${kind.slice(1)} color`, color),
+          ),
+        ]),
+      ),
+      setting('side', 'Side', select(['left', 'Left'], ['right', 'Right'])),
       setting('offset', 'Offset', length),
       setting('width', 'Width', length),
     ],

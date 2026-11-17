@@ -27,6 +27,8 @@ export interface Rows {
   readonly props: TemplateEditorProps;
   readonly labels: TemplateEditorLabels;
   readonly target: Target;
+  /** Whether the rows are a template section's, over the document's settings. */
+  readonly inSection?: boolean;
 }
 
 // A section of settings, with its cards; in a template section, only what a section may set.
@@ -91,7 +93,7 @@ export function SettingSections({
     latest.current = given.target.set;
   });
   const set = useCallback<Target['set']>((path, value) => latest.current(path, value), []);
-  const context: Rows = { ...given, target: { ...given.target, set } };
+  const context: Rows = { ...given, inSection, target: { ...given.target, set } };
   const { referenceTypes } = given.props;
   const sections = referenceTypes?.length
     ? TEMPLATE_SECTIONS.map((section) =>

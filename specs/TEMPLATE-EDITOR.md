@@ -64,19 +64,20 @@ Verification: `e2e/template-editor.spec.ts`
 
 Every setting of the template format (`TEMPLATE_SHAPE`) shall have a row, so a template is written without its JSON, apart from what other parts of the editor edit (its identity, its sections, the content of its regions and sections, and the host's extensions) and what the editor leaves to the template's file: the title's and headings' own line height, a custom style's colour, and a footnote's numbering mode, text after the number, colours, underline and text spacing, which keep their meaning when a template sets them. `TEMPLATE_SECTIONS` holds them as data, each section a list of settings and of cards (`TemplateSettingCard`), and `SettingSections` shows them after the scope, with the text and custom styles after the page setup and a host's rows at the end of a section (`extra`). Only the identity sections and the scope picker start expanded; a person opens the others:
 
-- Paragraph numbering: whether paragraphs are numbered, so a template section may switch it on or off, its text before the number, format and text after, and a card for each of its six levels with its format, number indent and text indent.
-- Header & footer: whether each takes its parent's (the parent template's, or the document's for a section), its height and its space to the content.
+- Page setup: the page size and orientation under a Paper heading (Page in a template section), then the margins.
+- Paragraph numbering: whether paragraphs are numbered, so a template section may switch it on or off, its text before the number, format and text after on one row labelled Before, Format and After, and a card for each of its six levels with its format, number indent and text indent.
+- Header & footer: whether each takes its parent's, labelled Use the parent's header (or footer) in the document's settings and Use the document's header (or footer) in a section's, its height and its space to the content.
 - References (DOCE-TEMPLATE-EDITOR-1.11).
-- Lists: the bullet, the text before the number, the numbering format, the text after, the indentation and the space before and after.
-- Tables, Figures, Code blocks and Equations: their own settings (a table's borders, padding, header and rows, a figure's default width, a code block's background and its text, an equation's brackets around the number), and for each a card for its numbering (whether it numbers, the text before, format and text after), its caption (placement, alignment and the text after a continued caption) and the font of the caption's label and of its text.
+- Lists: the text before the number, the numbering format and the text after on one row labelled Before, Format and After, then the bullet, the indentation, and the space before and after on one Spacing row.
+- Tables, Figures, Code blocks and Equations: their own settings (a table's borders, padding, header and rows, a figure's default width, a code block's background and its text, an equation's brackets around the number), and for each a card for its numbering (whether it numbers, the text before, format and text after) and one for its caption (its placement, picked from a list, its alignment and the text after a continued caption), then, under the Caption label and Caption text headings in the section, the font of the caption's label and of its text.
 - Footnotes: the separator line and its thickness, the space above and between notes, a card for the marker's font, size, bold and italic, and one for the note text's, with its alignment and line height.
 - Contents: the leader, its spacing and the space before and after it, the padding and spacing, cards for the title's and the entries' fonts, a card for each of six levels (indentation, spacing and leader), and a card for each kind of list (`DEFAULT_CONTENTS_KINDS`) with its title, its leader and each level's leader.
-- Change bars.
+- Change bars: for each kind of change, its switch beside its colour on one row, then the side, picked from a list, the offset and the width.
 
 A setting of a level writes that entry of the list, with `null` for each earlier entry the template does not set, so it inherits its parent's entry at that index; a list whose entries all inherit is left out. A template section shows only what a section may set: not the contents or the references.
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/object-settings.ts`, `src/components/template-editor/template-rows.tsx`, `src/components/template-editor/template-settings.ts`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/settings-catalog.test.ts`, `src/components/template-editor/template-settings.test.ts`, `e2e/template-workspace.spec.ts`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/settings-catalog.test.ts`, `src/components/template-editor/layout-rows.test.tsx`, `src/components/template-editor/template-settings.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.10 - Renaming and deleting a custom style
 
@@ -294,27 +295,28 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`
 
 ## Hooks
 
-| Hook                                 | Kind      | Values                | Description                                              |
-| ------------------------------------ | --------- | --------------------- | -------------------------------------------------------- |
-| `de-template-editor`                 | root      |                       | The template editor's settings panel.                    |
-| `data-scope`                         | attribute | `document`, `section` | On the template editor: whose settings it shows.         |
-| `de-template-editor__setting`        | slot      |                       | A setting's field, with its hover text.                  |
-| `de-template-editor__font-option`    | slot      |                       | A font's name in the font list, drawn in that font.      |
-| `de-template-editor__unit`           | slot      |                       | The unit after a style's size, on its font row.          |
-| `--de-font-option`                   | property  |                       | On a font option: the font it names.                     |
-| `data-inherited`                     | attribute | `true`                | On a setting's row and field: it inherits its value.     |
-| `de-template-workspace`              | root      |                       | The template workspace.                                  |
-| `de-template-workspace__band`        | slot      |                       | The band of scope tabs and the toolbar.                  |
-| `de-template-workspace__toolbar`     | slot      |                       | The workspace's toolbar of template actions.             |
-| `de-template-workspace__messages`    | slot      |                       | The workspace's banners.                                 |
-| `de-template-workspace__main`        | slot      |                       | The scope tabs' panel.                                   |
-| `de-template-workspace__body`        | slot      |                       | The preview beside the side panel.                       |
-| `de-template-workspace__panel`       | slot      |                       | The side panel of properties and history.                |
-| `de-template-workspace__open-dialog` | slot      |                       | The open dialog's search and tree.                       |
-| `de-template-workspace__settings`    | slot      |                       | The open template's settings.                            |
-| `de-template-workspace__preview`     | slot      |                       | The host's preview of the template shown.                |
-| `de-template-workspace__history`     | slot      |                       | The open template's saved versions.                      |
-| `de-template-picker`                 | root      |                       | The template picker's field.                             |
-| `data-dirty`                         | attribute | `true`                | On the workspace: the open template has unsaved changes. |
-| `data-layout`                        | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.  |
-| `data-loading`                       | attribute | `true`                | On the workspace: a template it asked for is loading.    |
+| Hook                                 | Kind      | Values                | Description                                                   |
+| ------------------------------------ | --------- | --------------------- | ------------------------------------------------------------- |
+| `de-template-editor`                 | root      |                       | The template editor's settings panel.                         |
+| `data-scope`                         | attribute | `document`, `section` | On the template editor: whose settings it shows.              |
+| `de-template-editor__setting`        | slot      |                       | A setting's field, with its hover text.                       |
+| `de-template-editor__font-option`    | slot      |                       | A font's name in the font list, drawn in that font.           |
+| `de-template-editor__unit`           | slot      |                       | The unit after a style's size, on its font row.               |
+| `de-template-editor__strip`          | slot      |                       | A row of fields, such as a number's before, format and after. |
+| `--de-font-option`                   | property  |                       | On a font option: the font it names.                          |
+| `data-inherited`                     | attribute | `true`                | On a setting's row and field: it inherits its value.          |
+| `de-template-workspace`              | root      |                       | The template workspace.                                       |
+| `de-template-workspace__band`        | slot      |                       | The band of scope tabs and the toolbar.                       |
+| `de-template-workspace__toolbar`     | slot      |                       | The workspace's toolbar of template actions.                  |
+| `de-template-workspace__messages`    | slot      |                       | The workspace's banners.                                      |
+| `de-template-workspace__main`        | slot      |                       | The scope tabs' panel.                                        |
+| `de-template-workspace__body`        | slot      |                       | The preview beside the side panel.                            |
+| `de-template-workspace__panel`       | slot      |                       | The side panel of properties and history.                     |
+| `de-template-workspace__open-dialog` | slot      |                       | The open dialog's search and tree.                            |
+| `de-template-workspace__settings`    | slot      |                       | The open template's settings.                                 |
+| `de-template-workspace__preview`     | slot      |                       | The host's preview of the template shown.                     |
+| `de-template-workspace__history`     | slot      |                       | The open template's saved versions.                           |
+| `de-template-picker`                 | root      |                       | The template picker's field.                                  |
+| `data-dirty`                         | attribute | `true`                | On the workspace: the open template has unsaved changes.      |
+| `data-layout`                        | attribute | `page`, `web`         | On the workspace: the layout the template shown is for.       |
+| `data-loading`                       | attribute | `true`                | On the workspace: a template it asked for is loading.         |

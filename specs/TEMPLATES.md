@@ -216,7 +216,7 @@ Verification: `src/engine/template-variables.test.ts`
 
 ### DOCE-TEMPLATES-8.5 - Inserting a variable
 
-`insertVariable(key)` shall put a live variable of the key in place of the selection, the caret after it, and refuse a key a `{{key}}` token cannot hold, a selection in code or across blocks, and a place the schema allows no variable. The toolbar's variable menu (`variable`, in the insert group, so also in the menubar's Insert menu) shall list the catalog, labelled by `editorVariables` and the host, each entry inserting its variable, while the host lists variables or the template's content is edited in place (`onRegionChange`).
+`insertVariable(key)` shall put a live variable of the key in place of the selection, the caret after it, and refuse a key a `{{key}}` token cannot hold, a selection in code or across blocks, and a place the schema allows no variable. The toolbar's variable menu (`variable`, in the insert group, so also in the menubar's Insert menu) shall list the catalog, labelled by `editorVariables` and the host, grouped by the namespace before the first dot of each key under its name, each entry showing its raw `{{key}}` token and inserting its variable, while the host lists variables or the template's content is edited in place (`onRegionChange`), and the document is editable.
 
 Implementation: `src/engine/template-variables.ts`, `src/components/document-editor/variable-menu.ts`, `src/components/document-editor/insert-controls.tsx`
 Verification: `src/engine/template-variables.test.ts`, `src/components/document-editor/variable-menu.test.tsx`, `e2e/template-content.spec.ts`

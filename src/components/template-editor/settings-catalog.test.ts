@@ -62,10 +62,13 @@ const NUMBERING = ['enabled', 'format', 'prefix', 'suffix'];
 const SIDES = ['top', 'right', 'bottom', 'left'];
 
 // The paths a setting's row writes.
-const settingPaths = (base: string[], setting: TemplateSetting): string[][] =>
-  setting.kind.type === 'sides'
-    ? SIDES.map((side) => [...base, ...setting.path, side])
-    : [[...base, ...setting.path]];
+const settingPaths = (base: string[], setting: TemplateSetting): string[][] => {
+  const { kind } = setting;
+  if (kind.type === 'sides') return SIDES.map((side) => [...base, ...setting.path, side]);
+  if (kind.type === 'strip')
+    return kind.cells.flatMap((each) => settingPaths([...base, ...setting.path], each));
+  return [[...base, ...setting.path]];
+};
 
 // The paths a card's rows write.
 const cardPaths = (scope: readonly string[], card: TemplateSettingCard): string[][] => {

@@ -107,6 +107,10 @@ function settingField(setting: TemplateSetting, value: unknown): Field {
   }
 }
 
+function startsWith(path: readonly string[], prefix: readonly string[]): boolean {
+  return prefix.every((key, index) => path[index] === key);
+}
+
 // The field of a setting below a section or card, by its path there.
 function findSetting(
   settings: readonly TemplateSetting[],
@@ -116,6 +120,12 @@ function findSetting(
   const key = rest.join('.');
   for (const setting of settings) {
     const at = setting.path.join('.');
+    const { kind } = setting;
+    if (kind.type === 'strip' && startsWith(rest, setting.path)) {
+      const found = findSetting(kind.cells, rest.slice(setting.path.length), value);
+      if (found) return found;
+      continue;
+    }
     if (at === key) return settingField(setting, value);
     if (setting.kind.type === 'sides' && rest.length === setting.path.length + 1)
       if (key.startsWith(`${at}.`)) {
@@ -146,9 +156,6 @@ const cardStyleField = (parts: readonly StylePart[], rest: readonly string[], va
   PART_OF[rest[0] ?? '']?.some((part) => parts.includes(part))
     ? styleField(rest.join('.'), value)
     : null;
-
-const startsWith = (path: readonly string[], prefix: readonly string[]) =>
-  prefix.every((key, index) => path[index] === key);
 
 // The step that sets a setting below a section, by its path, or null when it has no field there.
 function sectionStep(
@@ -272,6 +279,9 @@ export const cardOf = (section: Locator, name: string) =>
 
 /** Opens a card of a section, by its name, and returns it. */
 export async function openCard(section: Locator, name: string): Promise<Locator> {
+  // A card shown inline is a group of the section's rows under its heading.
+  const group = section.getByRole('group', { name, exact: true });
+  if ((await group.count()) > 0) return group;
   const card = cardOf(section, name);
   const trigger = card.locator('.ui-property-card__trigger');
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
@@ -280,6 +290,7 @@ export async function openCard(section: Locator, name: string): Promise<Locator>
 
 /** Closes a card of a section, so its fields leave the section's other fields alone. */
 export async function closeCard(section: Locator, name: string): Promise<void> {
+  if ((await section.getByRole('group', { name, exact: true }).count()) > 0) return;
   const trigger = cardOf(section, name).locator('.ui-property-card__trigger');
   if ((await trigger.getAttribute('aria-expanded')) === 'true') await trigger.click();
 }

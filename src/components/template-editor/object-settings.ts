@@ -3,6 +3,7 @@
 
 import {
   choice,
+  select,
   setting,
   type StylePart,
   type TemplateSettingCard,
@@ -25,9 +26,9 @@ export const RUNNING_PARTS: readonly StylePart[] = [
 const length = { type: 'length' } as const;
 const color = { type: 'color' } as const;
 const boolean = { type: 'boolean' } as const;
-const placement = choice(['above', 'Above'], ['below', 'Below']);
+const placement = select(['above', 'Above'], ['below', 'Below']);
 
-/** The cards of a numbered object: its numbering, its caption, the caption's label and text. */
+/** A numbered object's cards: its numbering and caption, then its caption's label and text inline. */
 const CAPTIONED: readonly TemplateSettingCard[] = [
   { id: 'numbering', title: 'Numbering', path: [], style: ['numbering'] },
   {
@@ -47,8 +48,21 @@ const CAPTIONED: readonly TemplateSettingCard[] = [
       },
     ],
   },
-  { id: 'caption-label', title: 'Caption label', path: ['caption', 'label'], style: FONT_PARTS },
-  { id: 'caption-text', title: 'Caption text', path: ['caption', 'text'], style: FONT_PARTS },
+  // The caption's label and text sit under their headings in the section.
+  {
+    id: 'caption-label',
+    title: 'Caption label',
+    path: ['caption', 'label'],
+    style: FONT_PARTS,
+    inline: true,
+  },
+  {
+    id: 'caption-text',
+    title: 'Caption text',
+    path: ['caption', 'text'],
+    style: FONT_PARTS,
+    inline: true,
+  },
 ];
 
 /** The sections of the numbered objects, in the order the editor shows them. */

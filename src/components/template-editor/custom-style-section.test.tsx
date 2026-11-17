@@ -41,7 +41,7 @@ describe('custom styles', () => {
       const user = userEvent.setup();
       const written: TemplateFile[] = [];
       render(<Host start={{ formatVersion: 1, id: 'plain' }} written={written} />);
-      await openSections(user);
+      await openSections(user, 'Custom styles');
       await user.click(screen.getByRole('button', { name: 'Add a style' }));
       expect(written.at(-1)?.styles?.custom).toEqual({
         custom_style_1: {
@@ -77,7 +77,7 @@ describe('custom styles', () => {
         sections: [{ name: 'annex' }],
       };
       render(<Host start={template} resolved={template} scope="annex" written={written} />);
-      await openSections(user);
+      await openSections(user, 'Custom styles');
       await user.click(screen.getByRole('button', { name: /^lead\b.*inherited/ }));
       const size = screen.getByRole('textbox', { name: 'Size' });
       expect(size).toBeDisabled();
@@ -100,7 +100,7 @@ describe('text style rows', () => {
     async () => {
       const user = userEvent.setup();
       render(<Host start={{ formatVersion: 1, id: 'plain' }} written={[]} />);
-      await openSections(user);
+      await openSections(user, 'Text styles');
       const [card] = screen.getAllByRole('button', { name: /^Heading 1\b/ });
       if (!card) throw new Error('No Heading 1 card');
       await user.click(card);
