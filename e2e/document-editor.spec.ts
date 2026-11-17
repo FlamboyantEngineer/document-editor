@@ -252,6 +252,33 @@ test.describe('document editor lab', () => {
     ).toHaveText('operator console');
   });
 
+  test('DOCE-EDITOR-3.3 comments on the whole selection when the menu opens outside it', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await expect(editor(page)).toHaveAttribute('data-layout-state', 'settled');
+    // From "operator" in one paragraph to "keeps" in the next.
+    const from = await pointAt(page, 'operator console');
+    await page.mouse.click(from.left + 1, from.y);
+    const to = await pointAt(page, 'The log keeps');
+    await page.keyboard.down('Shift');
+    await page.mouse.click(to.right - 1, to.y);
+    await page.keyboard.up('Shift');
+    await expect
+      .poll(() => page.evaluate(() => getSelection()?.toString() ?? ''))
+      .toMatch(/^operator console[\s\S]*The log keeps$/);
+    await openMenuAt(page, 'ninety days');
+    await item(page, 'Comment').click();
+    // One thread, its marks on both paragraphs.
+    const on = (text: string) =>
+      content(page).locator('mark[data-comment-id]', { hasText: text }).last();
+    await expect(on('operator console')).toHaveText(/^operator console/);
+    await expect(on('The log keeps')).toHaveText(/The log keeps$/);
+    const thread = await on('operator console').getAttribute('data-comment-id');
+    await expect(on('The log keeps')).toHaveAttribute('data-comment-id', thread ?? '');
+  });
+
   test('DOCE-EDITOR-3.3 starts a comment on the caret block from the menu without a selection', async ({
     lab,
     page,

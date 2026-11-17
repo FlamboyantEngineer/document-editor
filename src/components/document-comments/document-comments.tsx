@@ -12,7 +12,7 @@ import type { CommentTextFormat } from '@flamboyantengineer/ui-components/commen
 import type { Key } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
 import type { RichTextStateUpdate } from '@flamboyantengineer/ui-components/rich-text-editor';
-import type { EditorState } from 'prosemirror-state';
+import type { Command, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Suggestion, SuggestionPolicy } from '../../engine/index.js';
@@ -42,9 +42,14 @@ import { MarginCard, useCardPolicy, useStableCallbacks } from './margin-card.js'
 import type { ReplyStart, ShownActivity } from './thread-card-hooks.js';
 import type { ThreadPermissionPolicy } from './thread-permissions.js';
 import { useCardContext } from './use-card-context.js';
-import { useProvidedCommentThreads, useSuggestionAuthors } from './use-comment-threads.js';
+import {
+  type CommentThreads,
+  useProvidedCommentThreads,
+  useSuggestionAuthors,
+} from './use-comment-threads.js';
 import { useMarginOpening } from './use-open-cards.js';
 import { useSuggestionThreads } from './use-suggestion-threads.js';
+import { useTargetWriteBack } from './use-target-write-back.js';
 
 export type {
   OpenComment,
@@ -125,6 +130,11 @@ export interface DocumentCommentsOptions {
   /** The space between a page's end edge and the cards beside it, in pixels; 20 by default. */
   cardGap?: number | undefined;
   /**
+   * Makes no card active once focus leaves the margin and its popups, so the active card's
+   * emphasis and its text's go with it. Off by default: the active card follows the caret.
+   */
+  clearsActiveOnBlur?: boolean | undefined;
+  /**
    * Where the threads show: in a margin beside the pages (`margin`, the default), or only in the
    * comments panel (`pane`), which then holds the thread being started too and leaves the document
    * its whole width.
@@ -158,8 +168,22 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   onReveal?: (() => void) | undefined;
   /** Receives what the comments do with pointer presses and clicks in the document. */
   pointerRef?: RefObject<CommentPointer | null> | undefined;
+  /** Told once a suggestion names the thread just started for it, so the document saves now. */
+  onSuggestionLinked?: (() => void) | undefined;
   /** The document's content. */
   children: ReactNode;
+}
+
+// Keeps the stored threads to the document while the reader may edit: the reader's suggestions get
+// their threads, and moved text its targets.
+function useThreadUpkeep(
+  props: DocumentCommentsProps,
+  comments: CommentThreads,
+  run: (command: Command) => void,
+) {
+  const editable = props.view?.editable ?? false;
+  useSuggestionThreads({ state: props.state, comments, run, options: props, editable });
+  useTargetWriteBack({ state: props.state, comments, editable });
 }
 
 interface Measured {
@@ -248,7 +272,7 @@ function PaneComments(props: DocumentCommentsProps) {
     onOpen: onReveal,
   });
   // The reader's suggestions get their threads wherever the threads are shown.
-  useSuggestionThreads({ state: props.state, comments, run, options: props });
+  useThreadUpkeep(props, comments, run);
   // Commented text, clicked, takes the reader to its thread in the pane, ready to answer.
   useCommentPointer(props, {
     run,
@@ -277,7 +301,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
     comments,
     onStart: setActive,
   });
-  useSuggestionThreads({ state, comments, run, options: props });
+  useThreadUpkeep(props, comments, run);
   const items = useMemo(
     () => listCommentItems(state, { threads: comments.threads, canComment, filter }),
     [state, comments.threads, canComment, filter],
@@ -322,6 +346,7 @@ function CommentsMargin(props: DocumentCommentsProps) {
         presentation={cards.markers ? 'icons' : 'cards'}
         openKeys={cards.openKeys}
         onOpenChange={cards.onOpenChange}
+        clearsActiveOnBlur={props.clearsActiveOnBlur}
         renderCard={(annotation, { isActive }) => {
           const item = byKey.get(String(annotation.id));
           return item ? (

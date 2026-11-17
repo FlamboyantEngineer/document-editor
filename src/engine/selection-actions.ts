@@ -20,7 +20,7 @@ import {
   type AutomationError,
   type CreatedThread,
 } from './automation.js';
-import { textOf } from './automation-address.js';
+import { type EditAddress, textOf } from './automation-address.js';
 
 /**
  * The passages a selection covers: the selected part of each text block with an element id, in
@@ -97,8 +97,10 @@ export function selectionActionEdits(
   }
   // In each element, later ranges first, so a replacement never moves the offsets of one before it.
   const elements = passages.map((passage) => passage.elementId);
-  const rank = (edit: AutomationEdit) =>
-    'at' in edit ? [elements.indexOf(edit.at.elementId), -(edit.at.from ?? 0)] : [0, 0];
+  const rank = (edit: AutomationEdit) => {
+    const at = 'at' in edit && !Array.isArray(edit.at) ? (edit.at as EditAddress) : null;
+    return at ? [elements.indexOf(at.elementId), -(at.from ?? 0)] : [0, 0];
+  };
   return edits.toSorted((a, b) => {
     const [elementA = 0, fromA = 0] = rank(a);
     const [elementB = 0, fromB = 0] = rank(b);

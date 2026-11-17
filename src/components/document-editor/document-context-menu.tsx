@@ -8,7 +8,7 @@ import {
   type MenuPoint,
   useMenuController,
 } from '@flamboyantengineer/ui-components/context-menu';
-import { NodeSelection, TextSelection } from 'prosemirror-state';
+import { type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useRef } from 'react';
@@ -62,6 +62,33 @@ function selectAt(view: EditorView, point: { left: number; top: number }) {
       : TextSelection.near(doc.resolve(hit.pos));
   if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection));
   return { pos: hit.pos };
+}
+
+// The text selection a secondary click outside it moves away from, which a comment started from the
+// menu still takes whole; none when the click lands inside it.
+function selectionLeft(view: EditorView, point: { left: number; top: number }) {
+  const { selection } = view.state;
+  if (!(selection instanceof TextSelection) || selection.empty) return null;
+  const hit = view.posAtCoords(point);
+  return hit && !isSelected(view, hit.pos) ? { selection, doc: view.state.doc } : null;
+}
+
+// Starts the comment on the selection a click moved away from, while the document is as it was.
+function commentOnLeft(
+  view: EditorView,
+  left: ReturnType<typeof selectionLeft>,
+  start: (() => void) | null,
+) {
+  if (!start || !left) return { startComment: start, commentState: null };
+  const restore = () => view.state.tr.setSelection(left.selection);
+  const same = () => view.state.doc === left.doc;
+  return {
+    commentState: same() ? view.state.apply(restore()) : null,
+    startComment: () => {
+      if (same()) view.dispatch(restore());
+      start();
+    },
+  };
 }
 
 // Whether a pointer event landed on a proofing issue's mark.
@@ -145,6 +172,18 @@ function useMenuFollowsContent(
   }, [view, controller, holdRef]);
 }
 
+// What the menu opens on; from the pointer, the proofing entries show only on an issue's mark the
+// view draws.
+function targetAt(
+  state: EditorState,
+  pos: number,
+  { editable, mark }: { editable: boolean; mark?: boolean | undefined },
+) {
+  const resolved = resolveContextTarget(state, pos, editable);
+  if (mark === undefined) return resolved;
+  return { ...resolved, proofingIssue: mark ? resolved.proofingIssue : null, proofingMark: mark };
+}
+
 /** Opens the editor's context menu on the document of `view`. */
 export function DocumentContextMenu(props: DocumentContextMenuProps) {
   const { view } = props;
@@ -160,26 +199,21 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     // The opening that waits for the button's release or the next frame, cancelled on unmount.
     const pending = { cancel: () => undefined as void };
     let frame = 0;
-    const show = (anchor: MenuPoint, pos: number, mark?: boolean) => {
+    const show = (
+      anchor: MenuPoint,
+      pos: number,
+      { mark, left = null }: { mark?: boolean; left?: ReturnType<typeof selectionLeft> } = {},
+    ) => {
       const { startCommentRef, options: menu, shown, ...options } = latest.current;
       const { state } = view;
-      const resolved = resolveContextTarget(state, pos, options.editable);
-      // From the pointer, the proofing entries show only on an issue's mark the view draws.
-      const target =
-        mark === undefined
-          ? resolved
-          : {
-              ...resolved,
-              proofingIssue: mark ? resolved.proofingIssue : null,
-              proofingMark: mark,
-            };
+      const target = targetAt(state, pos, { editable: options.editable, mark });
       // The providers get the editor as its other controls see it, on the state the menu opens
       // on; at a locked position the writer cannot edit.
       const context = createEditorContext(view, state, {
         ...shown,
         editable: options.editable && !target.locked,
       });
-      const entries = { ...options, startComment: startCommentRef.current };
+      const entries = { ...options, ...commentOnLeft(view, left, startCommentRef.current) };
       const items = composeContextMenu(view, target, { context, entries, menu });
       if (items.length === 0) return;
       holdRef.current = holdAt(view, anchor, pos);
@@ -198,6 +232,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       const anchor = { x: event.clientX, y: event.clientY };
       const mark = onProofingMark(event.target);
       const point = { left: event.clientX, top: event.clientY };
+      const left = keeps(event) ? null : selectionLeft(view, point);
       const { pos } = keeps(event) ? { pos: view.state.selection.head } : selectAt(view, point);
       // A moved selection reaches the view once the editor commits it, a frame later. Where the
       // menu opens on the press, it opens once the button is released, or the release would land
@@ -205,7 +240,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
       pending.cancel();
       const open = () => {
         owner.removeEventListener('mouseup', open, true);
-        frame = owner.requestAnimationFrame(() => show(anchor, pos, mark));
+        frame = owner.requestAnimationFrame(() => show(anchor, pos, { mark, left }));
       };
       pending.cancel = () => {
         owner.removeEventListener('mouseup', open, true);

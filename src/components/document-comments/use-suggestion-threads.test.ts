@@ -58,6 +58,8 @@ describe('planSuggestionThreads', () => {
           change: { kind: 'replace', inserted: 'longer', deleted: 'x' },
         },
       ],
+      recreate: [],
+      remove: [],
     });
   });
 
@@ -84,6 +86,66 @@ describe('planSuggestionThreads', () => {
         },
       ],
       update: [],
+      recreate: [],
+      remove: [],
     });
+  });
+
+  it('DOCE-COMMENTS-2.36 starts again a listed store’s missing thread, for any writer', () => {
+    const plan = planSuggestionThreads(
+      [
+        suggestion('theirs', { author: 'grace', thread: 'lost', deleted: 'old' }),
+        suggestion('kept', { thread: 't1', inserted: 'x' }),
+      ],
+      {
+        me: 'ada',
+        listed: true,
+        threads: new Map([
+          ['t1', thread('t1', { automatic: true, change: { kind: 'insert', inserted: 'x' } })],
+        ]),
+      },
+    );
+    expect(plan.recreate).toEqual([
+      {
+        suggestion: expect.objectContaining({ id: 'theirs', thread: 'lost' }),
+        quote: 'old',
+        change: { kind: 'delete', deleted: 'old' },
+      },
+    ]);
+    // Before the store lists its threads, a thread it lacks may still be on its way.
+    const early = planSuggestionThreads([suggestion('theirs', { thread: 'lost' })], {
+      me: 'ada',
+      threads: new Map(),
+    });
+    expect(early.recreate).toEqual([]);
+  });
+
+  it('DOCE-COMMENTS-2.36 removes only the reader’s own undecided thread whose suggestion went', () => {
+    const automatic = { automatic: true, author: 'ada' };
+    const plan = planSuggestionThreads([], {
+      me: 'ada',
+      gone: new Set(['s1', 's2', 's3', 's4', 's5']),
+      threads: new Map([
+        ['withdrawn', thread('withdrawn', { ...automatic, suggestion: 's1' })],
+        [
+          'decided',
+          thread('decided', {
+            ...automatic,
+            suggestion: 's2',
+            decision: {
+              decision: 'accept',
+              suggestion: 's2',
+              by: 'grace',
+              at: '2026-01-01T00:00:00Z',
+            },
+          }),
+        ],
+        ['theirs', thread('theirs', { ...automatic, author: 'grace', suggestion: 's3' })],
+        ['written', thread('written', { author: 'ada', suggestion: 's4' })],
+        ['resolved', thread('resolved', { ...automatic, suggestion: 's5', state: 'resolved' })],
+        ['present', thread('present', { ...automatic, suggestion: 's6' })],
+      ]),
+    });
+    expect(plan.remove).toEqual(['withdrawn']);
   });
 });

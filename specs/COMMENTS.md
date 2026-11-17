@@ -83,7 +83,7 @@ Verification: `src/engine/comment-targets.test.ts`
 
 ### DOCE-COMMENTS-1.12 - Threads placed by their targets
 
-`anchorThreads(threads)` shall place the anchors of the listed text threads that no mark anchors where their targets are found, without changing the document, as when the reader may write only a shared room's comments: the index lists them with the marked anchors, draws them as stored anchors are drawn (`mark` with `data-comment-id`, `data-comment-state` and `data-comment-placed`), and maps them through edits; a mark anchoring the thread takes over from its placed anchor. Each call drops the threads no longer listed, keeps the place of each thread placed before, which edits have moved with its text, and places the others where their targets are found (`unplacedThreads` lists the text threads with a target that are neither marked nor placed). The comments margin and panel call it with the store's threads whenever they change, when any has a target, and whenever the document loses a thread placed before, as when it is replaced, so every reader sees the threads placed without marks. Limit: the stored target is not written back as the text moves, so once the editor is opened again, a thread whose text moved is found by its text nearest its stored offsets in its element, else by its quote in any text block, and one whose text changed may not be found.
+`anchorThreads(threads)` shall place the anchors of the listed text threads that no mark anchors where their targets are found, without changing the document, as when the reader may write only a shared room's comments: the index lists them with the marked anchors, draws them as stored anchors are drawn (`mark` with `data-comment-id`, `data-comment-state` and `data-comment-placed`), and maps them through edits; a mark anchoring the thread takes over from its placed anchor. Each call drops the threads no longer listed, keeps the place of each thread placed before, which edits have moved with its text, and places the others where their targets are found (`unplacedThreads` lists the text threads with a target that are neither marked nor placed). The comments margin and panel call it with the store's threads whenever they change, when any has a target, and whenever the document loses a thread placed before, as when it is replaced, so every reader sees the threads placed without marks. An editor that writes keeps the stored targets to where the text now is (DOCE-COMMENTS-1.14); a thread whose stored target no longer matches is found by its text nearest its stored offsets in its element, else by its quote in any text block, and one whose text changed meanwhile may not be found.
 
 Implementation: `src/engine/comment-targets.ts`, `src/engine/comment-anchors.ts`, `src/components/document-comments/comment-controls.ts`
 Verification: `src/engine/comment-targets.test.ts`, `src/components/document-comments/document-comments.test.tsx`
@@ -94,6 +94,20 @@ Verification: `src/engine/comment-targets.test.ts`, `src/components/document-com
 
 Implementation: `src/engine/review-changes.ts`, `src/engine/edit-lock.ts`
 Verification: `src/engine/review-changes.test.ts`
+
+### DOCE-COMMENTS-1.14 - Targets kept to the text
+
+While the reader edits the document and the store can change a thread (`update`), the comments margin and the pane placement shall, once the reader pauses, describe each stored thread's target again from its anchor (`describeCommentTarget`) and give the store the new target and quote of each thread whose text moved or changed, or that was stored without a target; each new target is asked for once, so a store that refuses it is not asked again until the text moves again. Deleted threads and threads on the whole document are left as they are. A reader who may not edit writes nothing back.
+
+Implementation: `src/components/document-comments/use-target-write-back.ts`, `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/use-target-write-back.test.tsx`
+
+### DOCE-COMMENTS-1.15 - Comments and suggestions in footnotes
+
+A footnote's text (DOCE-FOOTNOTES-1.1) shall take comment threads and suggestions as the body's text does, with the same cards, permissions and commands. A footnote's text has no element id of its own, so a target range in it names its footnote's id as its element (DOCE-COMMENTS-1.10), and a target is found again in that footnote's text; a block whose own element id is the same is found first. A suggestion typed in a footnote's text is recorded in it and named by its thread like any other.
+
+Implementation: `src/engine/comment-targets.ts`
+Verification: `src/engine/footnote-comments.test.ts`, `src/components/document-comments/comment-anchoring.test.tsx`
 
 ## DOCE-COMMENTS-2 - The comments margin
 
@@ -109,7 +123,7 @@ Verification: `src/components/document-comments/document-comments.test.tsx`, `sr
 While text is selected, the margin shall offer Comment beside it, inside another thread's text too and on exactly another thread's text, since threads may overlap. Pressing it shall start a new thread on the selection as a draft (DOCE-COMMENTS-1.6) and show the composer of its opening comment; submitting shall store the thread with the text it quotes and its portable target (DOCE-COMMENTS-1.10), then anchor it in the document, or, for a reader who may not change the document but may comment (an editor that is not editable), leave the document as it was and place the anchor by its target (DOCE-COMMENTS-1.12), removing the thread from the store again when the document no longer allows the anchor, as when a collaborator deleted the text meanwhile (likewise a suggestion's thread whose suggestion was decided meanwhile), and cancelling shall forget the draft, leaving the document as it was.
 
 Implementation: `src/components/document-comments/comment-items.tsx`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-anchoring.test.tsx`
 
 ### DOCE-COMMENTS-2.3 - Answering and resolving
 
@@ -239,10 +253,10 @@ Verification: `src/collab/comment-store.test.ts`
 
 ### DOCE-COMMENTS-2.21 - Threads for suggestions
 
-With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes (the text it formats, for a change of formatting alone), what it does (`change`: insert, delete, replace or format) and `automatic`, and name it on the suggestion's marks outside the reader's history; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions, and the threads started for them, are left to that writer's editor (`planSuggestionThreads`). The margin and the pane placement (DOCE-COMMENTS-4.7) both do so.
+With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes (the text it formats, for a change of formatting alone), what it does (`change`: insert, delete, replace or format) and `automatic`, and name it on the suggestion's marks outside the reader's history, then save the editor's `session` at once, so a reload keeps the thread and the marks naming it; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions, and the threads started for them, are left to that writer's editor (`planSuggestionThreads`). The margin and the pane placement (DOCE-COMMENTS-4.7) both do so.
 
-Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
+Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/suggestion-thread-upkeep.test.tsx`, `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.22 - What the reader may do in a thread
 
@@ -323,10 +337,10 @@ Verification: `src/components/document-comments/comment-records.test.tsx`, `src/
 
 ### DOCE-COMMENTS-2.33 - Card headers
 
-A thread's card, in the margin and the panel, shall offer Resolve as an icon button in its header, and, while the thread is resolved, Reopen as an entry of the header menu rather than a button. The opening comment's Edit and Delete, then the host's actions for it (DOCE-COMMENTS-4.11), shall be entries of that header menu, the comment drawing no menu of its own; replies show indented under it. Given `threadActions(target)`, the header menu of each thread's and each suggestion's card shall end with the host's entries for the thread, or for the suggestion while it has no thread (`ThreadActionTarget`), such as copying a link; the menu shows also while the thread is resolved or the reader may not comment. A thread being started shall have a close button in its header, which puts it away as Cancel does. Delete asks for confirmation first, unless `confirmsDelete` is false.
+A thread's card, in the margin and the panel, shall offer Resolve as an icon button in its header, pending with a spinner while the store answers and taking no second press meanwhile, and, while the thread is resolved, Reopen as an entry of the header menu rather than a button. The opening comment's Edit and Delete, then the host's actions for it (DOCE-COMMENTS-4.11), shall be entries of that header menu, the comment drawing no menu of its own; replies show indented under it. Given `threadActions(target)`, the header menu of each thread's and each suggestion's card shall end with the host's entries for the thread, or for the suggestion while it has no thread (`ThreadActionTarget`), such as copying a link; the menu shows also while the thread is resolved or the reader may not comment. A thread being started shall have a close button in its header, which puts it away as Cancel does. Delete asks for confirmation first, unless `confirmsDelete` is false.
 
 Implementation: `src/components/document-comments/comment-cards.tsx`, `src/components/document-comments/suggestion-card.tsx`, `src/components/document-comments/use-card-context.ts`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/comment-card-headers.test.tsx`, `src/components/document-comments/document-comments.test.tsx`
+Verification: `src/components/document-comments/comment-card-headers.test.tsx`, `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/comment-host-seams.test.tsx`
 
 ### DOCE-COMMENTS-2.34 - The reply box on the selected card
 
@@ -341,6 +355,20 @@ The card of a thread whose suggestion was decided (`decision`) shall say in its 
 
 Implementation: `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/comment-card-headers.test.tsx`
+
+### DOCE-COMMENTS-2.36 - Suggestion threads kept to the document
+
+With `suggestionThreads`, while the reader may edit and once the store has listed its threads, a suggestion by anyone that names a thread the store lacks shall get that thread started again with the same id, as an automatic thread with its quote and change; the store is asked once for each id, and a store refuses an id it holds, so a deleted thread stays deleted. The reader's own open automatic thread with no decision whose suggestion was in the document at one pause and is still gone at the next, as when it was withdrawn or undone, shall be deleted from the store. A reader who may not edit starts and deletes no such thread.
+
+Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/comment-thread-list.ts`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/suggestion-thread-upkeep.test.tsx`
+
+### DOCE-COMMENTS-2.37 - The active card when focus leaves
+
+With `clearsActiveOnBlur`, the margin shall make no card active once focus leaves it and its popups, so the active card's emphasis, and the layer's highlight of its text, go with it until a card is focused or the caret moves into an anchor again. Without it, the default, the active card stays active until another becomes active.
+
+Implementation: `src/components/document-comments/document-comments.tsx`
+Verification: `src/components/document-comments/active-card-blur.test.tsx`
 
 ## DOCE-COMMENTS-3 - Comments in the browser
 

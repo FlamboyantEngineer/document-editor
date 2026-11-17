@@ -17,9 +17,13 @@ import type { CommentThreads } from './use-comment-threads.js';
 /** What the editor does to keep the threads of the reader's suggestions. */
 interface SuggestionThreadPlan {
   /** Suggestions of the reader's with no thread yet, with the thread to start for each. */
-  readonly start: readonly { suggestion: Suggestion; quote: string; change: CommentChange }[];
+  readonly start: { suggestion: Suggestion; quote: string; change: CommentChange }[];
   /** Threads the editor started whose suggestion now does something else. */
-  readonly update: readonly { threadId: string; quote: string; change: CommentChange }[];
+  readonly update: { threadId: string; quote: string; change: CommentChange }[];
+  /** Suggestions naming a thread the store does not have, whose thread to start again. */
+  readonly recreate: { suggestion: Suggestion; quote: string; change: CommentChange }[];
+  /** The reader's open automatic threads whose suggestion went from the document. */
+  remove: readonly string[];
 }
 
 // How long the reader pauses before the threads follow their suggestions, by default.
@@ -37,6 +41,42 @@ const sameChange = (a: CommentChange | null | undefined, b: CommentChange) =>
   (a.inserted ?? '') === (b.inserted ?? '') &&
   (a.deleted ?? '') === (b.deleted ?? '');
 
+// Whether a thread is the reader's own open, undecided automatic thread whose suggestion went.
+const isLeftBehind = (thread: CommentThread, me: string, gone: ReadonlySet<string>) =>
+  Boolean(
+    thread.automatic &&
+    thread.state === 'open' &&
+    (thread.author ?? thread.entries[0]?.author) === me &&
+    !thread.decision &&
+    thread.suggestion &&
+    gone.has(thread.suggestion),
+  );
+
+interface PlanOptions {
+  readonly threads: ReadonlyMap<string, CommentThread>;
+  readonly me: string;
+  readonly textOf?: ((suggestion: Suggestion) => string) | undefined;
+  /** Whether the store listed its threads, so a thread it lacks is missing, not yet to come. */
+  readonly listed?: boolean | undefined;
+  /** The suggestions that were in the document at the last pause and no longer are. */
+  readonly gone?: ReadonlySet<string> | undefined;
+}
+
+// Files one suggestion under what its thread needs: started, updated or started again.
+function classify(suggestion: Suggestion, options: PlanOptions, plan: SuggestionThreadPlan): void {
+  const { threads, me, textOf } = options;
+  const change = suggestionChange(suggestion);
+  const quote = suggestion.inserted || suggestion.deleted || (textOf?.(suggestion) ?? '');
+  const thread = suggestion.thread ? threads.get(suggestion.thread) : undefined;
+  // Any writer's suggestion whose thread went missing gets it back.
+  if (suggestion.thread && !thread && options.listed)
+    plan.recreate.push({ suggestion, quote, change });
+  if (suggestion.author !== me) return;
+  if (!suggestion.thread) plan.start.push({ suggestion, quote, change });
+  else if (thread?.automatic && thread.state === 'open' && !sameChange(thread.change, change))
+    plan.update.push({ threadId: thread.id, quote, change });
+}
+
 /**
  * The threads to start for the reader's suggestions without one, and the threads the editor
  * started to bring up to date; another writer's suggestions, and their threads, are theirs to
@@ -44,28 +84,15 @@ const sameChange = (a: CommentChange | null | undefined, b: CommentChange) =>
  */
 export function planSuggestionThreads(
   suggestions: readonly Suggestion[],
-  {
-    threads,
-    me,
-    textOf = () => '',
-  }: {
-    threads: ReadonlyMap<string, CommentThread>;
-    me: string;
-    textOf?: (suggestion: Suggestion) => string;
-  },
+  options: PlanOptions,
 ): SuggestionThreadPlan {
-  const start: SuggestionThreadPlan['start'][number][] = [];
-  const update: SuggestionThreadPlan['update'][number][] = [];
-  for (const suggestion of suggestions) {
-    const change = suggestionChange(suggestion);
-    if (suggestion.author !== me) continue;
-    const quote = suggestion.inserted || suggestion.deleted || textOf(suggestion);
-    const thread = suggestion.thread ? threads.get(suggestion.thread) : undefined;
-    if (!suggestion.thread) start.push({ suggestion, quote, change });
-    else if (thread?.automatic && thread.state === 'open' && !sameChange(thread.change, change))
-      update.push({ threadId: thread.id, quote, change });
-  }
-  return { start, update };
+  const plan: SuggestionThreadPlan = { start: [], update: [], recreate: [], remove: [] };
+  for (const suggestion of suggestions) classify(suggestion, options, plan);
+  const gone = options.gone ?? new Set();
+  plan.remove = [...options.threads.values()]
+    .filter((thread) => isLeftBehind(thread, options.me, gone))
+    .map((thread) => thread.id);
+  return plan;
 }
 
 // Links a suggestion to its thread outside the reader's history: undoing their edit should not
@@ -77,52 +104,105 @@ const linkQuietly =
       dispatch?.(tr.setMeta('addToHistory', false)),
     );
 
+type Plan = ReturnType<typeof planSuggestionThreads>;
+
+/** What carries a plan out: the store, the editor's commands, and who hears of a new link. */
+interface Carrying {
+  readonly comments: CommentThreads;
+  readonly run: (command: Command) => void;
+  readonly linked?: (() => void) | undefined;
+}
+
+// Starts, updates, starts again and removes the threads a plan names; a suggestion whose thread is
+// being started is left to that start.
+function carryOut(plan: Plan, { comments, run, linked }: Carrying, starting: Set<string>) {
+  for (const { suggestion, quote, change } of plan.start) {
+    if (starting.has(suggestion.id)) continue;
+    starting.add(suggestion.id);
+    const id = createElementId();
+    const thread = { id, quote, text: '', suggestion: suggestion.id, change, automatic: true };
+    void comments
+      .create(thread)
+      .then(() => {
+        run(linkQuietly(suggestion.id, id));
+        linked?.();
+      })
+      .catch(() => undefined)
+      .finally(() => starting.delete(suggestion.id));
+  }
+  for (const { threadId, quote, change } of plan.update)
+    void comments.update?.(threadId, { quote, change }).catch(() => undefined);
+  for (const { suggestion, quote, change } of plan.recreate) {
+    // Asked once: a store refuses an id it holds, a deleted thread's included.
+    const id = suggestion.thread;
+    if (!id || starting.has(`again:${id}`)) continue;
+    starting.add(`again:${id}`);
+    const thread = { id, quote, text: '', suggestion: suggestion.id, change, automatic: true };
+    void comments.create(thread).catch(() => undefined);
+  }
+  for (const threadId of plan.remove) void comments.remove(threadId).catch(() => undefined);
+}
+
 /**
  * Starts a thread for each of the reader's suggestions once they pause, and keeps the threads it
- * started to what their suggestions do, while the margin's `suggestionThreads` asks.
+ * started to what their suggestions do, while the margin's `suggestionThreads` asks. While the
+ * reader may edit, a suggestion naming a thread the store lacks gets its thread back, and the
+ * reader's automatic thread whose suggestion went from the document (withdrawn or undone) is
+ * deleted.
  */
 export function useSuggestionThreads({
   state,
   comments,
   run,
   options,
+  editable,
 }: {
   state: EditorState;
   comments: CommentThreads;
   run: (command: Command) => void;
-  options: Pick<DocumentCommentsOptions, 'suggestionThreads' | 'identity'>;
+  options: Pick<DocumentCommentsOptions, 'suggestionThreads' | 'identity'> & {
+    onSuggestionLinked?: (() => void) | undefined;
+  };
+  editable: boolean;
 }): void {
   const asked = options.suggestionThreads;
   const delay = asked ? ((asked === true ? null : asked.delay) ?? DEFAULT_DELAY) : null;
   const me = options.identity.currentPerson().id;
-  const latest = useRef({ comments, run });
+  const linked = options.onSuggestionLinked;
+  const latest = useRef<Carrying>({ comments, run, linked });
   useLayoutEffect(() => {
-    latest.current = { comments, run };
+    latest.current = { comments, run, linked };
   });
-  // The suggestions whose threads are being started, so a later pause does not start another.
+  // The suggestions whose threads are being started, so a later pause does not start another,
+  // and those the document held at the last pause.
   const starting = useRef(new Set<string>());
+  const seen = useRef<ReadonlySet<string> | null>(null);
+  const missing = useRef<ReadonlySet<string>>(new Set());
   const { doc } = state;
-  const { threads } = comments;
+  const { threads, listed = false } = comments;
   useEffect(() => {
     if (delay === null) return undefined;
-    const timer = setTimeout(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
       const textOf = ({ from, to }: Suggestion) => doc.textBetween(from, to, ' ');
-      const plan = planSuggestionThreads(listSuggestions(doc), { threads, me, textOf });
-      const { comments: current, run: runNow } = latest.current;
-      for (const { suggestion, quote, change } of plan.start) {
-        if (starting.current.has(suggestion.id)) continue;
-        starting.current.add(suggestion.id);
-        const id = createElementId();
-        const thread = { id, quote, text: '', suggestion: suggestion.id, change, automatic: true };
-        void current
-          .create(thread)
-          .then(() => runNow(linkQuietly(suggestion.id, id)))
-          .catch(() => undefined)
-          .finally(() => starting.current.delete(suggestion.id));
-      }
-      for (const { threadId, quote, change } of plan.update)
-        void current.update?.(threadId, { quote, change }).catch(() => undefined);
-    }, delay);
+      const suggestions = listSuggestions(doc);
+      const now = new Set(suggestions.map((each) => each.id));
+      // Gone at two pauses in a row, so a decision being recorded on its thread meanwhile wins.
+      const gone = new Set([...missing.current].filter((id) => !now.has(id)));
+      missing.current = new Set([...(seen.current ?? [])].filter((id) => !now.has(id)));
+      seen.current = now;
+      const plan = planSuggestionThreads(suggestions, {
+        threads,
+        me,
+        textOf,
+        listed: listed && editable,
+        gone: editable ? gone : new Set(),
+      });
+      carryOut(plan, latest.current, starting.current);
+      // A suggestion just gone is looked at again after another pause.
+      if (missing.current.size > 0) timer = setTimeout(tick, delay);
+    };
+    timer = setTimeout(tick, delay);
     return () => clearTimeout(timer);
-  }, [doc, threads, me, delay]);
+  }, [doc, threads, listed, me, delay, editable]);
 }
