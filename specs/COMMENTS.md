@@ -349,6 +349,13 @@ The card of a thread whose suggestion was decided (`decision`) shall say in its 
 Implementation: `src/components/document-comments/comment-cards.tsx`
 Verification: `src/components/document-comments/comment-card-headers.test.tsx`
 
+### DOCE-COMMENTS-2.36 - Suggestion threads kept to the document
+
+With `suggestionThreads`, while the reader may edit and once the store has listed its threads, a suggestion by anyone that names a thread the store lacks shall get that thread started again with the same id, as an automatic thread with its quote and change; the store is asked once for each id, and a store refuses an id it holds, so a deleted thread stays deleted. The reader's own open automatic thread with no decision whose suggestion was in the document at one pause and is still gone at the next, as when it was withdrawn or undone, shall be deleted from the store. A reader who may not edit starts and deletes no such thread.
+
+Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/comment-thread-list.ts`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/suggestion-thread-upkeep.test.tsx`
+
 ## DOCE-COMMENTS-3 - Comments in the browser
 
 ### DOCE-COMMENTS-3.1 - Level with the text

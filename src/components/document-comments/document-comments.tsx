@@ -249,7 +249,13 @@ function PaneComments(props: DocumentCommentsProps) {
     onOpen: onReveal,
   });
   // The reader's suggestions get their threads wherever the threads are shown.
-  useSuggestionThreads({ state: props.state, comments, run, options: props });
+  useSuggestionThreads({
+    state: props.state,
+    comments,
+    run,
+    options: props,
+    editable: props.view?.editable ?? false,
+  });
   useTargetWriteBack({ state: props.state, comments, editable: props.view?.editable ?? false });
   // Commented text, clicked, takes the reader to its thread in the pane, ready to answer.
   useCommentPointer(props, {
@@ -279,7 +285,13 @@ function CommentsMargin(props: DocumentCommentsProps) {
     comments,
     onStart: setActive,
   });
-  useSuggestionThreads({ state, comments, run, options: props });
+  useSuggestionThreads({
+    state,
+    comments,
+    run,
+    options: props,
+    editable: props.view?.editable ?? false,
+  });
   useTargetWriteBack({ state, comments, editable: props.view?.editable ?? false });
   const items = useMemo(
     () => listCommentItems(state, { threads: comments.threads, canComment, filter }),

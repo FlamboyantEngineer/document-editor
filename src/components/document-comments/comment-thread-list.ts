@@ -10,6 +10,8 @@ type Threads = ReadonlyMap<string, CommentThread>;
 /** The threads, why they could not be listed, and how the reader's changes are kept. */
 interface ThreadList {
   readonly threads: Threads;
+  /** Whether the store has listed the threads once, or told of them. */
+  readonly listed: boolean;
   readonly error: string | null;
   /** Notes that the reader is changing a thread, before the store is asked. */
   readonly write: (threadId: string) => void;
@@ -58,6 +60,7 @@ export function useThreadList(
 ): ThreadList {
   const [threads, setThreads] = useState<Threads>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const [listed, setListed] = useState(false);
   // Each thread the reader changed, by the count of changes when it was last changed, and the
   // threads whose changes the store has not answered yet.
   const writes = useRef({ count: 0, at: new Map<string, number>(), open: new Set<string>() });
@@ -74,6 +77,7 @@ export function useThreadList(
           return;
         }
         setError(null);
+        setListed(true);
         setThreads((current) => mergeListed(current, result.value, keptSince(since)));
       },
       // A store that throws instead of answering has failed all the same.
@@ -85,6 +89,7 @@ export function useThreadList(
     // the state after every change it has taken, so only changes it has not answered are kept.
     const stop = store.subscribe?.(documentId, (listed) => {
       if (controller.signal.aborted) return;
+      setListed(true);
       setThreads((current) => mergeListed(current, listed, new Set(writes.current.open)));
     });
     return () => {
@@ -108,5 +113,5 @@ export function useThreadList(
       return next;
     });
   }, []);
-  return { threads, error, write, settle };
+  return { threads, listed, error, write, settle };
 }
