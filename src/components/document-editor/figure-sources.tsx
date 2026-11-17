@@ -1,17 +1,14 @@
 // Where a figure's drawing comes from, as the figure dialog sets it: an image uploaded, chosen
 // among the host's assets or typed in by address, or a diagram drawn in the host's editor.
 
-import {
-  AssetPicker,
-  type AssetPickerItem,
-  type AssetPickerSearch,
-} from '@flamboyantengineer/ui-components/asset-picker';
+import { AssetPicker } from '@flamboyantengineer/ui-components/asset-picker';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { FileUpload } from '@flamboyantengineer/ui-components/file-upload';
 import { Popover, PopoverTrigger } from '@flamboyantengineer/ui-components/popover';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AssetAdapter, DiagramAdapter, FoundAsset, StoredDiagram } from '../../host/index.js';
+import { useAssetSearch } from './asset-search.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import type { FigureSize } from './figure-size.js';
 
@@ -55,30 +52,6 @@ export function useFigureUpload(
 }
 
 type FigureUpload = ReturnType<typeof useFigureUpload>;
-
-const pickerItem = (asset: FoundAsset): AssetPickerItem => ({
-  id: asset.id,
-  name: asset.name,
-  thumbnailSrc: asset.thumbnailUrl ?? asset.url,
-  alt: asset.alt,
-  width: asset.width,
-  height: asset.height,
-});
-
-// The host's asset search as the picker asks for it, remembering each asset it found.
-function useAssetSearch(search: NonNullable<AssetAdapter['search']>) {
-  const found = useRef(new Map<string, FoundAsset>());
-  const load = useCallback<AssetPickerSearch>(
-    async (query, signal, cursor) => {
-      const result = await search(query, { signal, cursor });
-      if (!result.ok) throw new Error(result.error.message ?? result.error.kind);
-      for (const asset of result.value.items) found.current.set(asset.id, asset);
-      return { items: result.value.items.map(pickerItem), cursor: result.value.cursor };
-    },
-    [search],
-  );
-  return { load, found: (id: string) => found.current.get(id) };
-}
 
 const picked = (asset: FoundAsset): PickedAsset => ({
   asset: { fileAssetId: asset.id, snapshotId: asset.snapshotId ?? asset.id },

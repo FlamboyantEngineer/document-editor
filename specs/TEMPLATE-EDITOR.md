@@ -195,7 +195,7 @@ Verification: `src/components/template-workspace/template-workspace.test.tsx`, `
 
 ### DOCE-TEMPLATE-EDITOR-3.6 - The preview and web-layout templates
 
-`renderPreview` shall draw the template shown, resolved with what it inherits, beside the side panel (`preview`, a region named by `preview`), with the scope of the tab shown and, while the template is editable, `onRegionChange`, which writes a header or footer edited on the preview's pages into the open template (`withRegionChange`). Whether a template is for pages or the web layout is the host's to say (`layoutOf`, pages by default), since the stored format does not hold it; the preview is told the layout and the root publishes it as `data-layout`, so a web-layout template previews as the web layout shows a document, and the template editor, given the layout (`layout`), shows no page size, orientation, header or footer rows for it (`pagesOnly`), keeping its margins, which inset the web layout's content.
+`renderPreview` shall draw the template shown, resolved with what it inherits, beside the side panel (`preview`, a region named by `preview`), with the scope of the tab shown and, while the template is editable, `onRegionChange`, which writes a header or footer edited on the preview's pages into the open template (`withRegionChange`), and `onTemplatePartChange`, which writes a section's starting content or placeholder edited in place (DOCE-SECTIONS-5.2) into it (`withTemplatePart`). Without `renderPreview` the workspace draws its own preview (DOCE-TEMPLATE-EDITOR-3.16). Whether a template is for pages or the web layout is the host's to say (`layoutOf`, pages by default), since the stored format does not hold it; the preview is told the layout and the root publishes it as `data-layout`, so a web-layout template previews as the web layout shows a document, and the template editor, given the layout (`layout`), shows no page size, orientation, header or footer rows for it (`pagesOnly`), keeping its margins, which inset the web layout's content.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/template-rows.tsx`, `src/components/template-editor/settings-catalog.ts`
 Verification: `src/components/template-workspace/template-workspace.test.tsx`, `e2e/template-workspace.spec.ts`
@@ -262,6 +262,20 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 
 Implementation: `src/components/template-workspace/template-workspace-types.ts`, `src/components/template-workspace/template-workspace.tsx`
 Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
+
+### DOCE-TEMPLATE-EDITOR-3.16 - The workspace's own preview
+
+Without `renderPreview`, the workspace shall preview the tab shown with `TemplatePreviewEditor`: a document editor over the template's preview document shown in parts (DOCE-TEMPLATES-8.6), on a section's tab only that section, its content and placeholder followed by the sample in the section's own settings (`scope`), on the document's tab the sample and then every section, drawn afresh for another template, tab, layout or version. Its headers, footers and the sections' content and placeholders shall be edited in place into the draft, with `templatePreviewLockOf({ template, scope })` as its editing lock: what `templatePreviewLock` locks, on the document's tab each header and footer a section sets itself rather than taking the document's, which that section's tab edits, and a table in a section's content or placeholder, whose cells and size stay as they are; a header's or footer's table stays editable (DOCE-SECTIONS-5.4). It previews the template's layout at 100%, switched in its status bar for the reader without changing the template, and is read-only, without its toolbar, while a saved version is shown. `assets` and `variables` reach its image button and variable menu.
+
+Implementation: `src/components/template-workspace/template-preview-editor.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/engine/template-preview-lock.ts`, `src/model/templates/template-preview.ts`
+Verification: `src/components/template-workspace/template-preview-editor.test.tsx`, `src/engine/template-preview-lock.test.ts`, `src/model/templates/template-preview.test.ts`, `e2e/template-workspace.spec.ts`
+
+### DOCE-TEMPLATE-EDITOR-3.17 - The preview's toolbar and status bar
+
+`TEMPLATE_PREVIEW_TOOLBAR`, as a document editor's `toolbar`, shall keep what a template's own content takes: undo and redo, the text style with the title before heading 1 (DOCE-EDITOR-4.1), the formats but the link, the bulleted and numbered lists, and a table, a page break, a variable, a script, a symbol and an image asset, leaving out references, footnotes, figures, code, math, contents, sections, abbreviations and the layout and mode controls. `TEMPLATE_PREVIEW_STATUS_BAR` shall keep the layout switch and the zoom, and `TEMPLATE_PREVIEW_ZOOM_LEVELS` be 50, 75, 100, 125 and 150%. The image asset item (`image-asset`, `insertImageAsset`) shall show while the template's own content is edited and the host's `assets` can search: it opens the host's images (an asset picker) and places the one chosen at the selection as a template image (`insertTemplateImage`, DOCE-SCHEMA-3.3), stored by its asset and snapshot and at its own size shrunk to fit 160 by 96 pixels, and it is disabled, saying why, where no image can go.
+
+Implementation: `src/components/template-workspace/template-preview-editor.tsx`, `src/components/document-editor/template-image-button.tsx`, `src/components/document-editor/insert-controls.tsx`, `src/engine/template-images.ts`
+Verification: `src/components/template-workspace/template-preview-editor.test.tsx`, `src/engine/template-images.test.ts`
 
 ## Hooks
 

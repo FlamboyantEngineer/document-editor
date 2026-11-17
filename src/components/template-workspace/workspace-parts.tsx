@@ -6,6 +6,9 @@ import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { TabPanel } from '@flamboyantengineer/ui-components/tabs';
 import { lazy, type ReactNode, type Ref, Suspense } from 'react';
+import type { VariablesAdapter } from '../../host/adapters.js';
+import type { AssetAdapter } from '../../host/asset-adapters.js';
+import { withTemplatePart } from '../../model/index.js';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
 import {
   TemplateEditor,
@@ -125,33 +128,55 @@ export function WorkspaceProperties(props: PropertiesProps) {
   );
 }
 
+// The workspace's own preview loads the first time it shows, so a host that draws its own does not
+// carry the document editor (DOCE-ENTRY-2.5).
+const TemplatePreviewEditor = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('./template-preview-editor.js')).TemplatePreviewEditor,
+}));
+
 interface PreviewProps extends PartProps {
   readonly scope: TemplateScope;
   readonly layout: DocumentLayout;
   readonly renderPreview?: ((preview: TemplatePreview) => ReactNode) | undefined;
+  readonly assets?: AssetAdapter | undefined;
+  readonly variables?: VariablesAdapter | undefined;
 }
 
-/** The host's preview of the template shown, whose header and footer edits go into the draft. */
-export function WorkspacePreview({
-  workspace,
-  labels,
-  scope,
-  layout,
-  renderPreview,
-}: PreviewProps) {
+/**
+ * The preview of the template shown, the host's or the workspace's own, whose edits of headers,
+ * footers and section content go into the draft.
+ */
+export function WorkspacePreview({ workspace, labels, scope, layout, ...props }: PreviewProps) {
   const { open, viewing, resolved } = workspace;
-  if (!resolved || !open || !renderPreview) return null;
+  if (!resolved || !open) return null;
   const editable = viewing === null;
+  const preview: TemplatePreview = {
+    template: resolved,
+    layout,
+    scope,
+    onRegionChange: editable
+      ? (change) => workspace.change(withRegionChange(open.draft, change, resolved))
+      : undefined,
+    onTemplatePartChange: editable
+      ? (change) => workspace.change(withTemplatePart(open.draft, change, resolved))
+      : undefined,
+  };
   return (
     <div {...workspaceHooks.slot('preview')} role="region" aria-label={labels.preview}>
-      {renderPreview({
-        template: resolved,
-        layout,
-        scope,
-        onRegionChange: editable
-          ? (change) => workspace.change(withRegionChange(open.draft, change, resolved))
-          : undefined,
-      })}
+      {props.renderPreview ? (
+        props.renderPreview(preview)
+      ) : (
+        <Suspense fallback={null}>
+          <TemplatePreviewEditor
+            // A template, tab, layout or version of its own starts its preview afresh.
+            key={[resolved.id, scope ?? '', layout, viewing?.version.revision ?? ''].join('\n')}
+            preview={preview}
+            assets={props.assets}
+            variables={props.variables}
+            aria-label={labels.previewDocument}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

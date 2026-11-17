@@ -3,12 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { readDocumentFile } from '../format/document-format-convert.js';
 import type { TemplateFile } from '../format/template-format.js';
-import {
-  templatePartSections,
-  templatePreviewDocument,
-  withEditableSections,
-  withTemplatePart,
-} from './template-preview.js';
+import { withEditableSections, withTemplatePart } from './template-parts.js';
+import { templatePartSections, templatePreviewDocument } from './template-preview.js';
 
 const TEMPLATE: TemplateFile = {
   formatVersion: 1,
@@ -94,6 +90,25 @@ describe('template preview', () => {
     });
     // Three items, each with two under it, each with one under that.
     expect(bullets).toEqual([3, 2, 1, 1, 2, 1, 1, 2, 1, 1]);
+  });
+
+  it('DOCE-TEMPLATES-8.6 DOCE-TEMPLATE-EDITOR-3.16 shows one section alone, then the sample in it', () => {
+    const file = templatePreviewDocument(TEMPLATE, undefined, { parts: true, scope: 'approvals' });
+    expect(file.sections.map((section) => section.name)).toEqual([
+      'approvals',
+      'approvals',
+      'approvals',
+    ]);
+    const doc = readDocumentFile(file, documentSchema).doc;
+    // The third section of the name holds the sample, which is no part.
+    expect(templatePartSections(doc).map(({ part }) => part)).toEqual(['content', 'placeholder']);
+    expect(doc.lastChild?.textContent).toContain('Specification');
+    // A section the template lacks, or the document's tab, shows the sample and every section.
+    for (const scope of ['missing', null]) {
+      const all = templatePreviewDocument(TEMPLATE, undefined, { parts: true, scope });
+      expect(all.sections.map((section) => section.name)[0]).toBeNull();
+      expect(all.sections).toHaveLength(5);
+    }
   });
 
   it('DOCE-TEMPLATES-8.6 shows each template section in parts, its content then its placeholder', () => {

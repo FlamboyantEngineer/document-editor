@@ -69,6 +69,8 @@ export interface TemplateWorkspaceLabels extends RevisionLabels {
   readonly removeMessage: string;
   readonly history: string;
   readonly preview: string;
+  /** Names the document the workspace's own preview edits. */
+  readonly previewDocument: string;
   /** Says another save came between opening the template and saving it. */
   readonly conflict: string;
   /** Drops the changes and opens the template as stored now. */
@@ -129,6 +131,7 @@ export const DEFAULT_TEMPLATE_WORKSPACE_LABELS: TemplateWorkspaceLabels = {
   removeMessage: 'The template and every saved version of it are deleted.',
   history: 'History',
   preview: 'Template preview',
+  previewDocument: 'Template preview document',
   conflict: 'Someone else saved this template since you opened it.',
   reload: 'Reload',
   overwrite: 'Keep my changes',

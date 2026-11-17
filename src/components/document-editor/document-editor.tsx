@@ -490,5 +490,7 @@ export function DocumentEditor(given: DocumentEditorProps) {
 }
 
 // What another component reaches the editor by.
+export type { DocumentStatusBarOptions } from './document-status-bar.js';
 export { type DocumentMarkup, type EditorContext, useDocumentEditor } from './editor-context.js';
+export type { DocumentToolbarOptions } from './toolbar-items.js';
 export type { DocumentLayout } from './use-document-layout.js';
