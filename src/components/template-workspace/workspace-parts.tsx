@@ -5,15 +5,12 @@
 import { Banner } from '@flamboyantengineer/ui-components/banner';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { TabPanel } from '@flamboyantengineer/ui-components/tabs';
-import type { ReactNode, Ref } from 'react';
-import type { TemplateFile } from '../../model/index.js';
+import { lazy, type ReactNode, type Ref, Suspense } from 'react';
 import type { DocumentLayout } from '../document-editor/document-editor.js';
 import {
   TemplateEditor,
   type TemplateEditorProps,
-  TemplateJsonEditor,
   type TemplateScope,
-  withListedSections,
   withRegionChange,
 } from '../template-editor/template-editor.js';
 import { parentOptionsOf } from './template-requests.js';
@@ -159,23 +156,20 @@ export function WorkspacePreview({
   );
 }
 
-/** The open template's JSON in place of the preview, applied once valid as focus leaves it. */
-export function WorkspaceJson({
-  workspace,
-  labels,
-  onValidityChange,
-}: PartProps & { onValidityChange: (errors: readonly string[]) => void }) {
-  const { open, viewing } = workspace;
-  if (!open) return null;
+// The JSON view loads the first time it shows, so the workspace's own code does not carry its code
+// editor (DOCE-ENTRY-2.2).
+const LazyJson = /* @__PURE__ */ lazy(async () => ({
+  default: (await import('./workspace-json.js')).WorkspaceJson,
+}));
+
+/** The open template's JSON in place of the preview, once it has loaded. */
+export function WorkspaceJson(
+  props: PartProps & { onValidityChange: (errors: readonly string[]) => void },
+) {
   return (
-    <div {...workspaceHooks.slot('json')} role="region" aria-label={labels.json}>
-      <TemplateJsonEditor
-        template={viewing?.template ?? withListedSections(open.draft, undefined)}
-        onChange={(template: TemplateFile) => workspace.change(template)}
-        onValidityChange={onValidityChange}
-        isDisabled={viewing !== null}
-      />
-    </div>
+    <Suspense fallback={null}>
+      <LazyJson {...props} />
+    </Suspense>
   );
 }
 

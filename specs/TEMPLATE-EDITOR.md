@@ -246,14 +246,14 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 
 With `debug`, Control+Alt+B in the workspace shall show the open template's JSON editor (`json`, a region named by `json`, DOCE-TEMPLATE-EDITOR-2.7) in place of the preview, and the preview again on the next press; the root publishes `data-view="json"` while it shows. Save is disabled while the text is not a valid template. A held key's repeats and a key pressed during a text composition do nothing, and without `debug` the keys do nothing.
 
-Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/workspace-parts.tsx`
+Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/workspace-json.tsx`
 Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
 
 ### DOCE-TEMPLATE-EDITOR-3.14 - The open dialog
 
 Open shall show a dialog (`open-dialog`, titled by `openTitle`) listing the stored templates on the base library's `Tree` (named by `templates`): the templates the host pins first (`catalog.pinned`, in its order), then each template in the folders the host places it in (`catalog.pathOf`, outermost first), folders before templates and each by name, with the icon the host gives a template (`catalog.iconOf`). A search field (`searchTemplates`) keeps the templates whose name, id or folder path holds every word typed, with their folders. Open is enabled once a template is selected and opens it; a double click or Enter on a template's row opens it too.
 
-Implementation: `src/components/template-workspace/template-open-dialog.tsx`, `src/components/template-workspace/workspace-toolbar.tsx`
+Implementation: `src/components/template-workspace/template-open-dialog.tsx`, `src/components/template-workspace/template-open-list.tsx`, `src/components/template-workspace/workspace-toolbar.tsx`
 Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.15 - A host's own layout

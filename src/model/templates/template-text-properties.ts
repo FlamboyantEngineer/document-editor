@@ -7,7 +7,7 @@ import type {
   TemplateStyles,
   TextSettings,
 } from '../format/template-format.js';
-import { isBulletKeyword } from '../format/template-format-validate.js';
+import { isBulletKeyword } from '../format/template-format-values.js';
 import { escapeCssContent } from '../numbering/document-numbering.js';
 import { parseNumberingStyle, resolveCssCounterStyleToken } from '../numbering/numbering-format.js';
 import { resolveFontStack } from './template-css-values.js';

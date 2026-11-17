@@ -207,7 +207,7 @@ describe('TemplateWorkspace layout', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.13 shows the template as JSON with Control+Alt+B when the host allows',
+    'DOCE-TEMPLATE-EDITOR-3.13 DOCE-ENTRY-2.5 shows the template as JSON with Control+Alt+B when allowed',
     async () => {
       const user = userEvent.setup();
       render(
@@ -237,7 +237,7 @@ describe('TemplateWorkspace layout', () => {
   );
 
   it(
-    'DOCE-TEMPLATE-EDITOR-3.14 lists templates in folders, pinned first, and searches them',
+    'DOCE-TEMPLATE-EDITOR-3.14 DOCE-ENTRY-2.5 lists templates in folders, pinned first, and searches',
     async () => {
       const user = userEvent.setup();
       const onTemplateIdChange = vi.fn();
@@ -253,7 +253,8 @@ describe('TemplateWorkspace layout', () => {
       );
       await user.click(screen.getByRole('button', { name: 'Open' }));
       const dialog = await screen.findByRole('dialog', { name: 'Open a template' }, LOADED);
-      const tree = within(dialog).getByRole('treegrid', { name: 'Templates' });
+      // The list loads the first time the dialog opens.
+      const tree = await within(dialog).findByRole('treegrid', { name: 'Templates' }, LOADED);
       const rows = () =>
         within(tree)
           .getAllByRole('row')

@@ -8,7 +8,7 @@ import type {
 import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import { nodes as basicNodes } from 'prosemirror-schema-basic';
 import { bulletList, listItem, orderedList } from 'prosemirror-schema-list';
-import { CUSTOM_STYLE_NAME } from '../format/template-format-validate.js';
+import { CUSTOM_STYLE_NAME } from '../format/template-format-values.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 
 /** The groups block content and top-level layouts belong to. */

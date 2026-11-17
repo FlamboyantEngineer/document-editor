@@ -68,3 +68,10 @@ A dialog of DOCE-ENTRY-2.2 whose code fails to load, as a dropped connection may
 
 Implementation: `src/components/document-editor/lazy-dialog.tsx`, `src/components/document-editor/object-dialogs.tsx`
 Verification: `src/components/document-editor/lazy-dialog.test.tsx`
+
+### DOCE-ENTRY-2.5 - The template workspace's surfaces
+
+The template workspace shall load its JSON view, with its code editor, and its open dialog's list of templates the first time each shows, not with the entry; nothing shows while one loads. `npm run check:bundle-size` fails the workspace consumer whose initial code holds any of them.
+
+Implementation: `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/template-open-dialog.tsx`, `scripts/check-bundle-size.mjs`
+Verification: `test/bundle-budgets.test.ts`, `src/components/template-workspace/template-workspace-layout.test.tsx`
