@@ -103,6 +103,79 @@ test.describe('comment layout', () => {
     await expect(markers).toHaveCount(count);
   });
 
+  test('DOCE-COMMENTS-2.23 keeps a deletion’s marker placed and usable with change bars and no markup', async ({
+    page,
+  }) => {
+    await page.getByLabel('Comment markers').check();
+    const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+    await toolbar.locator('[data-item="mode"]').click();
+    await page.getByRole('menuitemcheckbox', { name: 'Suggesting' }).click();
+    // A deletion alone: the word.
+    const word = content(page).locator('p', { hasText: 'Approved by' });
+    await word.scrollIntoViewIfNeeded();
+    const spot = await word.evaluate((element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const at = node.textContent?.indexOf('Approved') ?? -1;
+        if (at < 0) continue;
+        const range = document.createRange();
+        range.setStart(node, at);
+        range.setEnd(node, at + 8);
+        const rect = range.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+      return null;
+    });
+    if (!spot) throw new Error('No Approved');
+    const markers = margin(page).locator(':scope > [role="listitem"]');
+    const before = await markers.count();
+    // The markers there are already, so the deletion's is the one left untagged.
+    await markers.evaluateAll((items) => {
+      for (const item of items) item.setAttribute('data-test-before', '');
+    });
+    await page.mouse.dblclick(spot.x, spot.y);
+    await page.keyboard.press('Backspace');
+    const deletion = content(page).locator('del[data-id]', { hasText: 'Approved' });
+    await expect(deletion).toHaveCount(1);
+    // Its thread starts once the writer pauses, with a marker of its own.
+    await expect(markers).toHaveCount(before + 1);
+    const count = before + 1;
+    // The line of the text beside the deletion, which shows whatever the markup.
+    const lineTop = () =>
+      word.evaluate((element) => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const at = node.textContent?.indexOf('by') ?? -1;
+          if (at < 0) continue;
+          const range = document.createRange();
+          range.setStart(node, at);
+          range.setEnd(node, at + 2);
+          return range.getBoundingClientRect().top;
+        }
+        return 0;
+      });
+    // The deletion's marker, the one not tagged, and how far it stands from that line.
+    const marker = margin(page).locator(':scope > [role="listitem"]:not([data-test-before])');
+    const offset = async () =>
+      (await marker.evaluate((item) => item.getBoundingClientRect().top)) - (await lineTop());
+    // Once measured, it stands by that line.
+    await expect.poll(async () => Math.abs(await offset())).toBeLessThan(120);
+    const placed = await offset();
+    const menubar = page.getByRole('menubar', { name: 'Menu' });
+    for (const markup of ['Change bars', 'No markup']) {
+      await menubar.getByRole('menuitem', { name: 'View' }).click();
+      await page.getByRole('menuitem', { name: 'Markup' }).click();
+      await page.getByRole('menuitemcheckbox', { name: markup }).click();
+      await expect(markers).toHaveCount(count);
+      await expect.poll(async () => Math.abs((await offset()) - placed)).toBeLessThan(60);
+    }
+    // It still opens the deletion's card.
+    await marker.getByRole('button').click();
+    await expect(
+      margin(page).locator('.de-document-comments__card').filter({ hasText: 'Approved' }),
+    ).toBeVisible();
+  });
+
   test('DOCE-COMMENTS-2.23 centres the pages with markers until a card opens, then the pages and margin as a pair', async ({
     page,
   }) => {

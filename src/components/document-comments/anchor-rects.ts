@@ -110,8 +110,28 @@ function selectionBoxes(layer: HTMLElement): DOMRect[] {
   return first ? [new DOMRect(first.left, first.top, 0, first.height)] : [];
 }
 
+// Where an anchor the markup hides would start, such as a deletion shown with change bars or no
+// markup: a line-high box with no width there, so its card or marker stays by its line.
+function hiddenBoxes(element: Element): DOMRect[] {
+  const range = element.ownerDocument.createRange();
+  range.setStartBefore(element);
+  range.collapse(true);
+  const [at] = range.getClientRects();
+  if (at && at.height > 0) return [new DOMRect(at.left, at.top, 0, at.height)];
+  const [line] = element.parentElement?.getClientRects() ?? [];
+  return line ? [new DOMRect(line.left, line.top, 0, line.height)] : [];
+}
+
+// The line boxes of a target's marking elements, or where they would start while all are hidden.
+function markingBoxes(elements: readonly Element[]): DOMRect[] {
+  const boxes = elements.flatMap((element) => [...element.getClientRects()]);
+  const [first] = elements;
+  return boxes.length === 0 && first ? hiddenBoxes(first) : boxes;
+}
+
 /**
- * Measures each target's anchor inside a layer, by annotation key; a missing anchor has none. The
+ * Measures each target's anchor inside a layer, by annotation key; a missing anchor has none, and
+ * one the markup hides has a box where it would start. The
  * marking elements are found in one pass over the layer, however many targets there are.
  */
 function measureAnchors(
@@ -127,7 +147,7 @@ function measureAnchors(
     const boxes =
       target.kind === 'selection'
         ? selectionBoxes(layer)
-        : elementsOf(marking, target).flatMap((element) => [...element.getClientRects()]);
+        : markingBoxes(elementsOf(marking, target));
     measured.set(
       key,
       boxes.map((box) => ({
