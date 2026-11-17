@@ -25,6 +25,14 @@ export interface ObjectLabels {
   readonly applyAndRun: string;
   readonly runScript: string;
   readonly runAllScripts: string;
+  /** Why a run waits: another run of the document's scripts is in flight. */
+  readonly reasonScriptsRunning: string;
+  /** Shown in a script block whose script produced nothing, while the document is edited. */
+  readonly scriptEmpty: string;
+  /** The banner while scripts run. */
+  readonly scriptsRunning: string;
+  /** The banner after a run failed, given the first failure's message and how many failed. */
+  readonly scriptFailed: (message: string, count: number) => string;
   readonly scriptAside: string;
   readonly scriptPreview: string;
   readonly scriptReference: string;
@@ -191,6 +199,11 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   applyAndRun: 'Apply and run',
   runScript: 'Run script',
   runAllScripts: 'Run all scripts',
+  reasonScriptsRunning: 'Scripts are running',
+  scriptEmpty: 'This script produced no content. Edit the script or run it again.',
+  scriptsRunning: 'Running scripts…',
+  scriptFailed: (message, count) =>
+    `Script error: ${message}${count > 1 ? ` (and ${String(count - 1)} more)` : ''}`,
   scriptAside: 'Preview and reference',
   scriptPreview: 'Preview',
   scriptReference: 'Reference',

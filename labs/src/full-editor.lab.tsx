@@ -238,7 +238,8 @@ function initialState(): EditorState {
     },
     // Citations of other documents: one has an update, one names a target that is gone.
     citingParagraph(),
-    // A script block the host runs each time the document opens.
+    // A script block showing the output saved with the document, which opening never reruns, and
+    // one whose script the lab cannot run, which produced nothing yet.
     {
       type: 'script',
       attrs: {
@@ -246,7 +247,9 @@ function initialState(): EditorState {
         source: 'render.paragraph(`Status: ${document.blocks} blocks.`)',
         refresh: 'open',
       },
+      content: [{ type: 'paragraph', content: [text('Status: saved with the document.')] }],
     },
+    { type: 'script', attrs: { id: '5c41b7e2', source: 'render.chart()' } },
     {
       type: 'paragraph',
       content: [

@@ -121,16 +121,17 @@ export { revealElement } from './reveal.js';
 export type { ScriptBlockAt, ScriptOutput } from './script-output.js';
 export { listScriptBlocks } from './script-output.js';
 export { findStaleScripts } from './script-staleness.js';
-export type { ScriptRunOptions } from './scripts.js';
+export type { ScriptBlockState, ScriptBlockStatus } from './script-state.js';
+export { scriptBlockStates, scriptMessage, scriptsState } from './script-state.js';
+export type { ScriptRunOptions, ScriptsBusyError } from './scripts.js';
 export {
   applyScriptOutputs,
   checkStaleScripts,
   createScripts,
   insertScriptBlock,
-  runOpeningScripts,
+  isScriptsBusyError,
   runScripts,
   scriptBlockAt,
-  scriptsState,
   setScriptSource,
 } from './scripts.js';
 export type { SearchMatch, SearchOptions, SearchScope, SearchState } from './search.js';

@@ -471,7 +471,7 @@ describe('createMemoryHost', () => {
       ok: true,
       value: 'b:count',
     });
-    await expect(host.scripts?.run({ ...request, purpose: 'open' })).resolves.toEqual({
+    await expect(host.scripts?.run({ ...request, purpose: 'run' })).resolves.toEqual({
       ok: true,
       value: { content: [], provenance: { inputs: 'b:count' } },
     });

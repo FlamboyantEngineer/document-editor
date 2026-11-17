@@ -14,7 +14,7 @@ import {
 import type { GlossaryAdapter, ScriptRunnerAdapter } from '../../host/index.js';
 import type { TemplateFile } from '../../model/index.js';
 import { type EditorContext, unavailableReason } from './editor-context.js';
-import { startScripts } from './script-entries.js';
+import { scriptsWaitReason, startScripts } from './script-entries.js';
 
 /** What the Tools menu acts with. */
 export interface ToolsFeatures {
@@ -39,14 +39,20 @@ async function updateAbbreviations(view: EditorView, glossary: GlossaryAdapter) 
 // for a change that cannot be suggested, while they suggest.
 function changing(
   context: EditorContext,
-  entry: { id: string; label: string; run: () => void; suggestable?: boolean },
+  entry: {
+    id: string;
+    label: string;
+    run: () => void;
+    suggestable?: boolean;
+    waiting?: string | null;
+  },
 ) {
   const suggestingOnly = context.suggesting && entry.suggestable === false;
   const reason = !context.editable
     ? unavailableReason(context)
     : suggestingOnly
       ? context.labels.reasonSuggesting
-      : undefined;
+      : (entry.waiting ?? undefined);
   return {
     id: entry.id,
     label: entry.label,
@@ -95,6 +101,8 @@ export function toolsEntries(context: EditorContext, features: ToolsFeatures): M
             label: labels.runAllScripts,
             // A script's output replaces the block's content outright, which no suggestion tracks.
             suggestable: false,
+            // One run at a time.
+            waiting: scriptsWaitReason(view, context),
             run: () => startScripts(view, scriptRunner),
           }),
         ]

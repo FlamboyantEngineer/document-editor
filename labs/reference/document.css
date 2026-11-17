@@ -1655,6 +1655,22 @@ a.de-contents__entry {
   min-height: 1.5em;
 }
 
+/* What a failed block's runner said, or that its script produced nothing; never printed. */
+.de-script-message {
+  display: block;
+  color: #64748b;
+  font:
+    italic 0.85em/1.4 system-ui,
+    sans-serif;
+  user-select: none;
+}
+
+.de-script-message[data-script-message='error'] {
+  color: #b91c1c;
+  font-style: normal;
+  white-space: pre-wrap;
+}
+
 @media print {
   .script-block {
     outline: none;
