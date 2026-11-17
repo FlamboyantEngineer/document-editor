@@ -378,9 +378,9 @@ Verification: `src/engine/document-statistics.test.ts`
 
 ### DOCE-EDITOR-5.3 - Going to a page and switching the layout
 
-On pages, the status bar's page status shall open a field that takes the reader to a page by its number (`scrollToPage`) once committed; with `onLayoutChange`, the bar offers a switch (`de-document-editor__layout-toggle`, named by `layout`): a page view and a web view button, each an icon, the layout shown pressed.
+On pages, the status bar's page status shall open a field that takes the reader to a page by its number (`scrollToPage`) once committed, by Enter or by leaving the field, scrolling only the area that scrolls the document so the page around the editor stays put; Escape closes the field without going anywhere, even as it then loses focus, and goes no further than the field, so a dialog holding the editor stays open; with `onLayoutChange`, the bar offers a switch (`de-document-editor__layout-toggle`, named by `layout`): a page view and a web view button, each an icon, the layout shown pressed.
 
-Implementation: `src/components/document-editor/status-controls.tsx`, `src/components/document-editor/document-status-bar.tsx`
+Implementation: `src/components/document-editor/status-controls.tsx`, `src/components/document-editor/document-status-bar.tsx`, `src/utils/scroll-frame.ts`
 Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-5.4 - The page in view
@@ -436,7 +436,7 @@ Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/edi
 
 ### DOCE-EDITOR-6.4 - Zoom
 
-`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`), and Ctrl+wheel or Cmd+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last; the wheel steps once for each notch's travel (50 pixels), so a trackpad pinch, many small movements, steps as a notch does. The pages measure unscaled, so the zoom never changes them.
+`zoom` shall scale the document, its pages and not the chrome around them, by the percentage given, published as `--de-zoom`; with `onZoomChange` the status bar shows the base library's `ZoomControl` (`de-document-editor__zoom`, named by `zoom`) over the zoom levels (`zoomLevels`, by default `ZOOM_LEVELS`: 50, 75, 100, 125 and 150 percent), and Ctrl+wheel or Cmd+wheel over the editor and the menubar's zoom in and out step to the next level up or down, never past the first or last; the wheel steps once for each notch's travel (50 pixels), so a trackpad pinch, many small movements, steps as a notch does. The pages measure unscaled, so the zoom never changes them.
 
 Implementation: `src/components/document-editor/editor-chrome.tsx`, `src/components/document-editor/document-status-bar.tsx`, `src/components/document-editor/menubar-menus.ts`, `labs/reference/editor-chrome.css`
 Verification: `src/components/document-editor/menubar-menus.test.ts`, `src/components/document-editor/document-status-bar.test.tsx`, `e2e/document-editor.spec.ts`
@@ -788,7 +788,7 @@ Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2
 | `de-document-editor__proofing-language` | slot      |                                                                        | The status bar's proofing menu (DOCE-PROOFING-3.5).                                       |
 | `de-document-editor__presence`          | slot      |                                                                        | The toolbar's avatars of the other people (DOCE-COLLAB-1.3).                              |
 | `de-document-editor__presence-card`     | slot      |                                                                        | A person's card from their avatar, with `data-status` (DOCE-COLLAB-1.3).                  |
-| `data-pending`                          | state     | `true`                                                                 | On the proofing status: some text waits to be checked.                                    |
+| `data-checking`                         | state     | `true`                                                                 | On the proofing status: some text waits to be checked.                                    |
 | `data-issues`                           | state     | `true`                                                                 | On the proofing status: issues are marked.                                                |
 | `data-status`                           | attribute | `STATUS_BAR_ITEMS`, the host's ids; `ready`, `degraded`, `unavailable` | On a status item: what it reports; on the proofing status: whether the proofers answer.   |
 | `de-document-editor__content`           | slot      |                                                                        | The document.                                                                             |
