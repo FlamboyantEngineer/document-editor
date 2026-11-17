@@ -85,6 +85,18 @@ describe('following the document', () => {
     state.apply(markSystemChange(state.tr.insertText('!', inside(state, 'Beta'))));
     expect(spy).toHaveBeenCalledTimes(2);
   });
+
+  it("DOCE-VERSIONS-2.5 keeps a block's change shown when a derived change sets its attributes", () => {
+    const state = stateWith(createVersionChanges({ previous: () => older, display: () => 'bars' }));
+    const before = shownBy(state);
+    // As attributing the blocks to their writer does after a split: the blocks' markup is set.
+    const tr = state.tr;
+    state.doc.descendants((block, pos) => {
+      if (block.isTextblock) tr.setNodeMarkup(pos, null, { ...block.attrs, dataAuthor: 'cy' });
+      return !block.isTextblock;
+    });
+    expect(shownBy(state.apply(markDerived(tr)))).toEqual(before);
+  });
 });
 
 // What a state shows: its changes, and its decorations by where they are and what they mark.

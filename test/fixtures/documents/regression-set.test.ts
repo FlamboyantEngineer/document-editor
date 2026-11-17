@@ -106,6 +106,71 @@ describe('regression set', () => {
   );
 });
 
+// What each document is in the set for: the node types, marks or cell spans it must hold.
+const HOLDS: Record<string, { nodes?: string[]; marks?: string[]; spans?: boolean }> = {
+  'caption-numbering': { nodes: ['figure', 'table', 'codeBlock', 'mathBlock', 'contents'] },
+  'code-block-stress': { nodes: ['codeBlock', 'linkedCode'] },
+  'comments-and-suggestions': { marks: ['comment', 'insertion', 'deletion'] },
+  'contents-lists': { nodes: ['contents', 'figure', 'table'] },
+  'cross-references': { marks: ['reference'] },
+  'footnote-heavy': { nodes: ['footnote'] },
+  'footnotes-in-structures': { nodes: ['footnote', 'blockquote', 'listItem', 'tableCell'] },
+  'inline-images': { nodes: ['image'] },
+  'list-split-stress': { nodes: ['orderedList', 'bulletList'] },
+  'long-mixed': { nodes: ['contents', 'figure', 'footnote', 'pageBreak', 'table', 'codeBlock'] },
+  math: { nodes: ['math', 'mathBlock'] },
+  'page-breaks-and-rules': { nodes: ['pageBreak', 'rule'] },
+  'people-and-abbreviations': { nodes: ['abbreviation', 'mention', 'signature'] },
+  'roman-numbering-coverage': { nodes: ['orderedList', 'contents', 'figure', 'table'] },
+  'table-long-repeated-header': { nodes: ['tableHeader'] },
+  'table-merged-cells': { nodes: ['tableHeader'], spans: true },
+  'template-blocks-and-variables': { nodes: ['templateBlock', 'variable'] },
+};
+
+// The node types and mark types a stored document holds, and whether a cell spans others.
+function contentsOf(file: DocumentFile) {
+  const nodes = new Set<string>();
+  const marks = new Set<string>();
+  let spans = false;
+  const walk = (list: readonly StoredNode[]) => {
+    for (const node of list) {
+      nodes.add(node.type);
+      for (const mark of node.marks ?? []) marks.add(mark.type);
+      const { colspan, rowspan } = node.attrs ?? {};
+      if (Number(colspan ?? 1) > 1 || Number(rowspan ?? 1) > 1) spans = true;
+      walk(node.content ?? []);
+    }
+  };
+  for (const section of file.sections) walk(section.content);
+  return { nodes, marks, spans };
+}
+
+describe('regression set contents', () => {
+  it.each(Object.entries(HOLDS))(
+    'DOCE-LABS-4.1 %s holds what it is in the set for',
+    (name, holds) => {
+      const document = documents.find((each) => each.name === name);
+      expect(document, name).toBeDefined();
+      if (!document) return;
+      const found = contentsOf(document.file);
+      for (const type of holds.nodes ?? []) expect(found.nodes, type).toContain(type);
+      for (const type of holds.marks ?? []) expect(found.marks, type).toContain(type);
+      if (holds.spans) expect(found.spans).toBe(true);
+    },
+  );
+
+  it('DOCE-LABS-4.1 lists every document and template of the set in its README, with its template', () => {
+    const readme = readFileSync(join(here, 'README.md'), 'utf8');
+    const rows = new Map(
+      [...readme.matchAll(/^\| `([\w-]+)` +\| `([\w-]+)`/gm)].map(
+        ([, name = '', template = '']) => [name, template],
+      ),
+    );
+    for (const { name, file } of documents) expect(rows.get(name), name).toBe(file.template?.id);
+    for (const id of templates.keys()) expect(readme, id).toContain(`| \`${id}\``);
+  });
+});
+
 // A list's shape: for each item, the shape of the list nested in it, or 0 for none.
 type Shape = number | Shape[];
 const shapeOf = (list: StoredNode): Shape[] =>

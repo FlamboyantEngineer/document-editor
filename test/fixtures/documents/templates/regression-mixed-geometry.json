@@ -71,6 +71,14 @@
       },
       "footer": {
         "inherit": true
+      },
+      "changeBars": {
+        "insertions": {
+          "color": "#008080"
+        },
+        "modifications": {
+          "enabled": false
+        }
       }
     }
   ]

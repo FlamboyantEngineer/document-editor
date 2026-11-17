@@ -101,4 +101,29 @@ test.describe('shared room lab', () => {
     }
     await expectSameDocument(page);
   });
+
+  test('DOCE-COLLAB-6.4 DOCE-COLLAB-6.3 DOCE-PAGINATION-7.15 keeps the binding and undo through layout switches while the other writes', async ({
+    lab,
+    page,
+  }) => {
+    await openLab(lab, page);
+    const web = page.getByLabel("Ada's web layout");
+    await typeAfter(page, 'Ada', 'Startup responses', ' mine');
+    await expect(editor(page, 'Grace')).toContainText('Startup responses mine');
+    await web.check();
+    await typeAfter(page, 'Grace', 'Shutdown conditions', ' theirs');
+    await expect(editor(page, 'Ada')).toContainText('Shutdown conditions theirs');
+    await web.uncheck();
+    await typeAfter(page, 'Grace', 'Shutdown conditions theirs', ' again');
+    await expect(editor(page, 'Ada')).toContainText('Shutdown conditions theirs again');
+    await web.check();
+    await editor(page, 'Ada').getByRole('heading', { name: 'Startup responses mine' }).click();
+    await page.keyboard.press('ControlOrMeta+z');
+    for (const name of ['Ada', 'Grace']) {
+      await expect(editor(page, name)).not.toContainText('Startup responses mine');
+      await expect(editor(page, name)).toContainText('Shutdown conditions theirs again');
+    }
+    await web.uncheck();
+    await expectSameDocument(page);
+  });
 });

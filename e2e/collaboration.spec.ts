@@ -28,11 +28,15 @@ test.describe('collaboration', () => {
     const card = page.locator('.de-document-editor__presence-card');
     await expect(card).toContainText('grace@example.com');
     await expect(card.locator('[data-presence-activity]')).toHaveText('Editing');
+    // The lab's collaborators move every 1.5 seconds, which can take the selection from under the
+    // pointer between hovering it and reading its label: hover it again until the label is read.
     const selection = page.locator('.de-presence-selection[data-presence-peer="grace"]').first();
-    await selection.hover();
-    expect(await selection.evaluate((node) => getComputedStyle(node, '::after').content)).toBe(
-      '"Grace Hopper"',
-    );
+    await expect
+      .poll(async () => {
+        await selection.hover();
+        return selection.evaluate((node) => getComputedStyle(node, '::after').content);
+      })
+      .toBe('"Grace Hopper"');
     await page.getByLabel('Collaborators').uncheck();
     await expect(carets).toHaveCount(0);
     await expect(avatars).toHaveCount(0);

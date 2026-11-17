@@ -144,6 +144,26 @@ describe('comparing versions', () => {
     expect(accepted).toMatchObject({ kind: 'modification', text: 'each', previousText: 'every' });
   });
 
+  it('DOCE-VERSIONS-1.6 shows a suggestion the older version held and the newer rejected', () => {
+    const pending: StoredNode = {
+      type: 'paragraph',
+      attrs: { id: 'a0000001' },
+      content: [
+        {
+          type: 'text',
+          text: 'each ',
+          marks: [{ type: 'insertion', attrs: { id: 's1', author: 'w' } }],
+        },
+        { type: 'text', text: 'word' },
+      ],
+    };
+    const rejected = read(paragraph('a0000001', 'word'));
+    // Pending in the older version, the suggestion is no change of the text until accepted.
+    expect(compareVersions(read(pending), rejected)).toEqual([]);
+    const [shown] = compareVersions(read(pending), rejected, { suggestions: 'accepted' });
+    expect(shown).toMatchObject({ kind: 'modification', text: 'word', previousText: 'each word' });
+  });
+
   it('DOCE-VERSIONS-1.6 does not show suggested-deleted text a second time as deleted text', () => {
     const deletion = { type: 'deletion', attrs: { id: 's1', author: 'w' } };
     const keys = (older: StoredNode, newer: StoredNode) => {
