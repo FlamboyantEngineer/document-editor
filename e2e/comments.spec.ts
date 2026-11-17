@@ -441,7 +441,7 @@ test.describe('comments lab', () => {
     page,
   }) => {
     await lab.open('comments');
-    await page.getByLabel('Suggesting').check();
+    await page.getByLabel('Suggesting', { exact: true }).check();
     await page.getByLabel('A thread for each suggestion').check();
     await content(page).getByText('The log keeps').click();
     await page.keyboard.press('End');

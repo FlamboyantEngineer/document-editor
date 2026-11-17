@@ -1,13 +1,13 @@
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { documentSchema } from '../../../test/document-markup.js';
+import { documentSchema, parseMarkup } from '../../../test/document-markup.js';
 import { DEFAULT_SHORTCUTS } from '../../engine/index.js';
 import { readDocumentFile } from '../../model/index.js';
 import { blockStyles } from './block-styles.js';
 import { createEditorContext } from './editor-context.js';
 import { DEFAULT_EDITOR_LABELS } from './editor-labels.js';
 import { DEFAULT_SYMBOLS } from './symbols.js';
-import { builtInToolbarGroups } from './toolbar-controls.js';
+import { builtInToolbarGroups } from './toolbar-groups.js';
 import {
   disabledReasonOf,
   isItemEnabled,
@@ -32,6 +32,57 @@ describe('TOOLBAR_GROUPS', () => {
       groups.map((group) => [group.id, group.items.map((item) => item.id)]),
     );
     expect(listed).toEqual(TOOLBAR_GROUPS);
+  });
+});
+
+describe('built-in toolbar groups', () => {
+  const groupsWith = (optional?: readonly ('link' | 'checklist')[]) =>
+    builtInToolbarGroups(documentSchema, DEFAULT_EDITOR_LABELS, { templateStyle: {}, optional });
+  const idsOf = (groups: ReturnType<typeof groupsWith>, id: string) =>
+    groups.find((group) => group.id === id)?.items.map((item) => item.id);
+
+  it('DOCE-EDITOR-4.3 names each group and sets off the marks, lists, references, layout and mode', () => {
+    const groups = groupsWith();
+    expect(groups.map((group) => group.label)).toEqual([
+      'View',
+      'History',
+      'Text styling',
+      'Text formatting',
+      'Lists',
+      'References',
+      'Insert content',
+      'Layout',
+      'Editing mode',
+    ]);
+    expect(groups.filter((group) => group.divided).map((group) => group.id)).toEqual([
+      'view',
+      'marks',
+      'lists',
+      'references',
+      'layout',
+      'mode',
+    ]);
+  });
+
+  it('DOCE-EDITOR-4.3 leaves the link and the checklist out unless the host names them', () => {
+    expect(idsOf(groupsWith(), 'marks')).not.toContain('link');
+    expect(idsOf(groupsWith(), 'lists')).toEqual(['bullet-list', 'numbered-list']);
+    const all = groupsWith(['link', 'checklist']);
+    expect(idsOf(all, 'marks')?.at(-1)).toBe('link');
+    expect(idsOf(all, 'lists')?.at(-1)).toBe('checklist');
+  });
+
+  it('DOCE-EDITOR-4.3 says why a reference cannot go where the writer could otherwise edit', () => {
+    const labels = { ...DEFAULT_EDITOR_LABELS, referencesUnavailable: 'Not here' };
+    const reference = builtInToolbarGroups(documentSchema, labels, { templateStyle: {} })
+      .find((group) => group.id === 'references')
+      ?.items.find((item) => item.id === 'reference');
+    if (reference?.kind !== 'menu') throw new Error('No reference menu.');
+    const doc = parseMarkup('<h1>Title</h1>');
+    const state = EditorState.create({ doc, selection: TextSelection.create(doc, 2) });
+    const context = createEditorContext(null, state, { editable: true, labels });
+    expect(isItemEnabled(reference, context)).toBe(false);
+    expect(disabledReasonOf(reference, context)).toBe('Not here');
   });
 });
 

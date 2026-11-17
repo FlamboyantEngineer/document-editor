@@ -62,34 +62,46 @@ export interface ToolbarGroup {
   readonly label?: string | undefined;
   /** Joins the group's controls into one segmented run. */
   readonly attached?: boolean | undefined;
+  /** Sets the group off from the one before it by a separator. Defaults to true. */
+  readonly divided?: boolean | undefined;
   readonly items: readonly ToolbarItem[];
 }
 
 /** The editor's own groups, in order, and the ids of their items. */
 export const TOOLBAR_GROUPS = {
+  view: ['document-menu'],
   history: ['undo', 'redo'],
   'block-style': ['block-style'],
-  marks: ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript', 'link'],
-  lists: ['bullet-list', 'numbered-list', 'checklist'],
+  marks: ['bold', 'italic', 'underline', 'strikethrough', 'superscript', 'subscript'],
+  lists: ['bullet-list', 'numbered-list'],
+  references: ['reference'],
   insert: [
-    'insert-table',
-    'page-break',
     'footnote',
+    'page-break',
+    'figure',
+    'insert-table',
     'code-block',
     'math',
-    'figure',
-    'contents',
-    'reference',
-    'abbreviation',
     'script',
+    'contents',
+    'symbol',
+    'abbreviation',
     'section',
     'variable',
-    'symbol',
     'image-asset',
   ],
   layout: ['layout'],
   mode: ['presence', 'mode', 'markup'],
 } as const;
+
+/** The editor's own items it leaves out unless the host names them (`optional`), with their group. */
+const OPTIONAL_TOOLBAR_ITEMS = { link: 'marks', checklist: 'lists' } as const;
+
+/** One of the editor's own items it leaves out by default. */
+export type OptionalToolbarItem = keyof typeof OPTIONAL_TOOLBAR_ITEMS;
+
+/** Every optional item, as the menubar and the slash menu offer them. */
+export const ALL_OPTIONAL = Object.keys(OPTIONAL_TOOLBAR_ITEMS) as readonly OptionalToolbarItem[];
 
 /** What happens to a toolbar too wide for its row: it wraps onto more rows, or scrolls. */
 export type ToolbarOverflow = 'wrap' | 'scroll';
@@ -101,6 +113,11 @@ export interface DocumentToolbarOptions {
    * item naming no group, or a group the toolbar lacks, joins a group of that name at the end.
    */
   readonly items?: readonly ToolbarItem[] | undefined;
+  /**
+   * The editor's own items it leaves out by default to show, each at the end of its group
+   * (`OPTIONAL_TOOLBAR_ITEMS`): `link` among the marks, `checklist` among the lists.
+   */
+  readonly optional?: readonly OptionalToolbarItem[] | undefined;
   /** Rearranges the groups once the items joined them: reorders, drops or regroups items. */
   readonly arrange?: ((groups: readonly ToolbarGroup[]) => readonly ToolbarGroup[]) | undefined;
   /** The host's own controls before the editor's, such as the document's name. */

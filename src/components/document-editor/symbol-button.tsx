@@ -50,7 +50,7 @@ export function SymbolButton({
         isDisabled={isDisabled}
         focusableWhenDisabled={reason !== undefined}
       />
-      <Popover placement="bottom start" aria-label={labels.symbol}>
+      <Popover placement="bottom start" aria-label={labels.symbol} isNonModal>
         <Suspense fallback={null}>
           <CharacterGrid
             aria-label={labels.symbol}

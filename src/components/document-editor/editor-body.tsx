@@ -143,6 +143,7 @@ function useBodyViewProps({
           scripts,
           copyLink: onCopyLink ? () => copyContentLink(view, onCopyLink) : null,
           state: view.state,
+          run: (command) => command(view.state, view.dispatch, view),
         }).find(([id]) => matchesShortcut(table, id, event))?.[1];
         if (!action) return false;
         event.preventDefault();
