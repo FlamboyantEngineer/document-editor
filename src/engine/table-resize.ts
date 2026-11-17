@@ -14,6 +14,7 @@ import {
 } from 'prosemirror-state';
 import { cellAround, TableMap } from 'prosemirror-tables';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { DATA_ID_ATTR } from '../model/index.js';
 import {
   type BorderState as ResizeState,
   forgetBorderOnScroll,
@@ -136,6 +137,17 @@ function showWidths(table: HTMLElement, widths: readonly number[]): void {
   table.style.width = `${String(widths.reduce((sum, width) => sum + width, 0))}px`;
 }
 
+// The elements a table is drawn as: on the pages, each part of it split across them, which carry
+// its id; otherwise the table alone.
+function partsOf(view: EditorView, table: HTMLElement): HTMLElement[] {
+  const id = table.getAttribute(DATA_ID_ATTR);
+  if (!id) return [table];
+  const parts = [...view.dom.querySelectorAll<HTMLElement>(`table[${DATA_ID_ATTR}]`)].filter(
+    (each) => each.getAttribute(DATA_ID_ATTR) === id,
+  );
+  return parts.includes(table) ? parts : [table];
+}
+
 // The whole table a resize runs on: the one at `pos`, or, once the pages its parts sat on joined,
 // the table with its id.
 function wholeTable(doc: ProseMirrorNode, pos: number, id: unknown) {
@@ -236,10 +248,17 @@ function dragBorder(view: EditorView, event: MouseEvent, handle: number): void {
   const resize = { column: at.column, max: roomFor(dom) };
   // Only the last column's border changes the table's outer width.
   const keepFit = at.column < at.map.width - 1;
-  const restore = shownStyles(dom);
+  const shown = partsOf(view, dom);
+  const restores = shown.map(shownStyles);
+  const restore = () => {
+    for (const each of restores) each();
+  };
   const owner = view.dom.ownerDocument;
   const widthsAt = (x: number) => resizeColumns(start, { ...resize, by: x - event.clientX });
-  const move = (moved: MouseEvent) => showWidths(dom, widthsAt(moved.clientX));
+  const move = (moved: MouseEvent) => {
+    const widths = widthsAt(moved.clientX);
+    for (const each of shown) showWidths(each, widths);
+  };
   const finish = (up: MouseEvent) => {
     owner.removeEventListener('mousemove', move);
     owner.removeEventListener('mouseup', finish);

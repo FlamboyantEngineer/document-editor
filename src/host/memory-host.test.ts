@@ -338,6 +338,47 @@ describe('createMemoryHost', () => {
     ).toEqual(['SPEC-1', null]);
   });
 
+  it("DOCE-HOST-1.9 DOCE-REFERENCES-1.11 lists a cited document's targets and resolves a citation of one", async () => {
+    const heading = {
+      id: 'h1',
+      kind: 'heading',
+      stable: true,
+      numbering: '1.',
+      title: 'Scope',
+      label: '1. Scope',
+    };
+    const host = createMemoryHost({
+      citations: [
+        {
+          refType: 'external-document',
+          label: 'Power interface specification',
+          baseline: {
+            version: 1,
+            documentId: 'doc-1',
+            numbering: 'SPEC-1',
+            title: 'Power interface specification',
+            revision: null,
+            revisionLabel: '',
+            target: null,
+            defaultLabel: 'SPEC-1',
+          },
+        },
+      ],
+      citationTargets: { 'doc-1': [heading] },
+    });
+    const targets = await host.references?.targets?.('doc-1');
+    expect(targets).toEqual({ ok: true, value: [heading] });
+    expect((await host.references?.targets?.('gone'))?.ok).toBe(false);
+    const resolved = await host.references?.resolve?.([
+      { documentId: 'doc-1', targetId: 'h1' },
+      { documentId: 'doc-1', targetId: 'h9' },
+    ]);
+    expect(
+      resolved?.ok &&
+        resolved.value.map((each) => (each && each !== 'no-access' ? each.target : each)),
+    ).toEqual([heading, null]);
+  });
+
   it('DOCE-HOST-1.10 DOCE-HOST-3.8 edits, deletes and reacts to comments, telling subscribers', async () => {
     const { comments } = createMemoryHost({
       person: { id: 'p1', name: 'Ada' },

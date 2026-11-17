@@ -33,6 +33,20 @@ export type ObjectDialog =
   /** One of the host's own dialogs (`dialogs`), by its name, with what the opener hands it. */
   | { readonly kind: 'host'; readonly name: string; readonly data?: unknown };
 
+/**
+ * A reference type of the host's own, which the reference menu offers after the editor's: picking
+ * it, or editing a reference of the type, opens the host's dialog of that name (`dialogs`), handed
+ * `{ refType }`.
+ */
+export interface ReferenceKind {
+  /** The reference type its references record, which the schema knows (`referenceTypes`). */
+  readonly refType: string;
+  /** The reference menu's entry, which also titles the dialog. */
+  readonly label: string;
+  /** The name of the host's dialog that inserts and edits references of the type. */
+  readonly dialog: string;
+}
+
 /** The editor as its chrome and a host's controls see it. */
 export interface EditorContext {
   /** The engine's view, once it is mounted. */

@@ -35,7 +35,7 @@ import {
   type ShortcutTable,
 } from '../../engine/index.js';
 import { DEFAULT_CONTENTS_KINDS, type TemplateFile } from '../../model/index.js';
-import type { EditorContext } from './editor-context.js';
+import type { EditorContext, ReferenceKind } from './editor-context.js';
 import type { DocumentEditorLabels } from './editor-labels.js';
 import { SymbolButton } from './symbol-button.js';
 import type { ToolbarButtonItem, ToolbarItem } from './toolbar-items.js';
@@ -55,6 +55,8 @@ export interface InsertFeatures extends VariableFeatures {
   readonly template?: TemplateFile | undefined;
   /** Whether the host finds references to other documents, which the reference menu offers. */
   readonly references?: boolean | undefined;
+  /** The host's own reference types, which the reference menu offers after the editor's. */
+  readonly referenceKinds?: readonly ReferenceKind[] | undefined;
   /** Whether the host runs scripts, which the script button then inserts. */
   readonly scripts?: boolean | undefined;
   /** Whether the host draws diagrams, which the figure menu then offers beside images. */
@@ -276,6 +278,11 @@ export function insertItems(
               },
             ]
           : []),
+        ...(features.referenceKinds ?? []).map(({ refType, label, dialog }) => ({
+          id: `reference-${refType}`,
+          label,
+          onAction: () => context.openDialog({ kind: 'host', name: dialog, data: { refType } }),
+        })),
       ],
     },
     ...hostItems(labels, features, shortcuts),

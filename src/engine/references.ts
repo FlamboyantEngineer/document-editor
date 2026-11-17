@@ -25,6 +25,7 @@ import {
   type ReferenceTarget,
   referenceTargets,
 } from './reference-targets.js';
+import { renderCitations, renderPastedCitations, rewriteReference } from './reference-text.js';
 import { touchesReferences } from './reference-updates.js';
 import { revealElement } from './reveal.js';
 import { isRemoteTransaction } from './transaction-kind.js';
@@ -88,6 +89,19 @@ export function canInsertReference(state: EditorState): boolean {
   return $from.parent.type.allowsMarkType(type);
 }
 
+/** The citation attributes a host's own reference type may record beside its baseline. */
+export interface CitationAttrs {
+  /** A target inside the cited document the baseline does not name, such as a clause. */
+  readonly subTarget?: string | null | undefined;
+  /** The exact revision of a catalogue entry cited, and the label it had then. */
+  readonly libraryRevisionId?: string | null | undefined;
+  readonly libraryLabel?: string | null | undefined;
+  /** The cited document as a list of references prints it. */
+  readonly docPublisher?: string | null | undefined;
+  readonly docAuthors?: string | null | undefined;
+  readonly docPages?: string | null | undefined;
+}
+
 /** What a reference cites: a target of this document, or a citation a host resolved. */
 export type ReferenceSource =
   | { readonly kind: 'internal'; readonly target: ReferenceTarget; readonly text: string }
@@ -98,6 +112,8 @@ export type ReferenceSource =
       readonly baseline: ReferenceBaseline;
       readonly text: string;
       readonly includeRevision?: boolean | undefined;
+      /** What a host's own reference type records beside the baseline. */
+      readonly attrs?: CitationAttrs | undefined;
     };
 
 function referenceAttrs(source: ReferenceSource): Record<string, unknown> {
@@ -119,19 +135,21 @@ function referenceAttrs(source: ReferenceSource): Record<string, unknown> {
     docNumber: baseline.numbering || null,
     docTitle: baseline.title || null,
     docRevision: baseline.revisionLabel || null,
+    ...source.attrs,
   };
 }
 
 /**
  * Inserts a reference at the selection, in place of the selected text, or changes the reference
- * holding the selection. Refused where a reference may not go (`canInsertReference`).
+ * holding the selection, wherever it is. A new reference is refused where a reference may not go
+ * (`canInsertReference`).
  */
 export function insertReference(source: ReferenceSource): Command {
   return (state, dispatch) => {
     const type = state.schema.marks.reference;
-    if (!type || !canInsertReference(state) || !source.text) return false;
+    const current = referenceAt(state);
+    if (!type || !source.text || (!current && !canInsertReference(state))) return false;
     if (dispatch) {
-      const current = referenceAt(state);
       const { from, to } = current ?? state.selection;
       const marks = state.doc
         .resolve(from)
@@ -196,31 +214,29 @@ export function updateReferences(tr: Transaction, template: TemplateFile): boole
   let changed = false;
   for (const reference of references.reverse()) {
     const target = targets.get(internalTargetId(reference.mark) ?? '');
-    const text = target ? internalReferenceText(target, template) : null;
     const current = tr.doc.textBetween(reference.from, reference.to);
+    const text = target ? internalReferenceText(target, template) : current;
     const mark = currentMark(reference, target);
-    if (mark.eq(reference.mark) && (text === null || text === current)) continue;
-    if (text !== null && text !== current) {
-      const marks = tr.doc.resolve(reference.from + 1).marks();
-      const kept = marks.filter((each) => each.type !== mark.type);
-      tr.replaceWith(reference.from, reference.to, tr.doc.type.schema.text(text, [...kept, mark]));
-    } else {
-      tr.removeMark(reference.from, reference.to, mark.type);
-      tr.addMark(reference.from, reference.to, mark);
-    }
+    if (mark.eq(reference.mark) && text === current) continue;
+    rewriteReference(tr, { from: reference.from, to: reference.to, text, mark });
     changed = true;
   }
   return changed;
 }
 
 /**
- * Renders every internal reference again as the template formats it now, out of the undo history,
- * such as after the template changed; false when none changed.
+ * Renders every reference again as the template formats it now, out of the undo history, such as
+ * after the template changed: an internal one from its target, a citation of another document from
+ * what it recorded when cited. False when none changed.
  */
 export function refreshReferences(template: TemplateFile): Command {
   return (state, dispatch) => {
     const tr = state.tr;
-    if (!updateReferences(tr, template)) return false;
+    const internal = updateReferences(tr, template);
+    const references = listReferences(tr.doc).filter((each) =>
+      isReferencePlace(tr.doc.resolve(each.from)),
+    );
+    if (!renderCitations(tr, { template, references }) && !internal) return false;
     dispatch?.(tr.setMeta(referencesKey, true).setMeta('addToHistory', false));
     return true;
   };
@@ -254,7 +270,8 @@ export function createReferences({
       const local = transactions.filter((tr) => !isRemote(tr) && !isReferenceUpdate(tr));
       if (!local.some(touchesReferences)) return null;
       const tr = after.tr;
-      if (!updateReferences(tr, template())) return null;
+      const pasted = renderPastedCitations(tr, { template: template(), transactions });
+      if (!updateReferences(tr, template()) && !pasted) return null;
       return tr.setMeta(referencesKey, true).setMeta('addToHistory', false);
     },
     props: {

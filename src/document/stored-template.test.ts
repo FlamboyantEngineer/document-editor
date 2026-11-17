@@ -19,7 +19,7 @@ describe('stored-file readers with a template', () => {
       ['c4265650', 'figure', 'Figure 1 - Target figure'],
       ['c8265c9c', 'table', 'Table 1 - Target table'],
       ['c9265e2f', 'codeblock', 'Code Block 1 - Target code'],
-      ['ce26660e', 'equation', '(Eq. 1) - a^2 + b^2 = c^2'],
+      ['ce26660e', 'equation', '(Eq. 1)'],
     ]);
     expect(targets[0]).toEqual({
       id: 'c7265b09',

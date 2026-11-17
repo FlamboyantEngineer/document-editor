@@ -236,6 +236,8 @@ export type { SnapshotOutlineEntry } from './print-outline.js';
 export { snapshotOutline } from './print-outline.js';
 export { isReferencePlace, repairPastedReferences } from './reference-places.js';
 export { refreshReferenceStatus } from './reference-status.js';
+export type { CitationText } from './reference-text.js';
+export { citationLabel, citationText } from './reference-text.js';
 export { touchesReferences } from './reference-updates.js';
 export { refreshReferences } from './references.js';
 export { replaceDocumentContent } from './replace-document-content.js';

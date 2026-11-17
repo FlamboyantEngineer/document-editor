@@ -125,6 +125,10 @@ export interface ObjectLabels {
     Record<'heading' | 'figure' | 'table' | 'codeblock' | 'equation', string>
   >;
   readonly otherDocument: string;
+  /** The target type that cites another document as a whole. */
+  readonly wholeDocument: string;
+  /** Shows the cited document's revision in a reference to it. */
+  readonly includeRevision: string;
   readonly abbreviation: string;
   readonly abbreviationText: string;
   readonly expansion: string;
@@ -283,6 +287,8 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
     equation: 'Equation',
   },
   otherDocument: 'Document',
+  wholeDocument: 'Whole document',
+  includeRevision: 'Include revision',
   abbreviation: 'Abbreviation…',
   abbreviationText: 'Abbreviation',
   expansion: 'Expansion',

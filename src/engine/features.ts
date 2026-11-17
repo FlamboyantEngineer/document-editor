@@ -81,6 +81,7 @@ export {
   updateReference,
 } from './reference-status.js';
 export type {
+  CitationAttrs,
   ReferenceAt,
   ReferencesOptions,
   ReferenceSource,

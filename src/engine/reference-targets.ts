@@ -4,6 +4,7 @@
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import {
   catalogDocument,
+  deriveLinkedCodeBlockCaption,
   ELEMENT_KINDS,
   formatReference,
   type ReferenceBaseline,
@@ -34,18 +35,27 @@ const CATALOG_KINDS = {
   equations: 'equation',
 } as const;
 
+// A target's title: an equation has none, its number names it; linked code is named by its source.
+function titleOf(node: ProseMirrorNode, text: string): string {
+  if (node.type.name === 'math_display') return '';
+  if (node.type.name === 'linked_code_block') return deriveLinkedCodeBlockCaption(node.attrs.url);
+  return text;
+}
+
 /** The targets a document holds, by kind, in reading order: those with an element id. */
 export function referenceTargets(doc: ProseMirrorNode, template: TemplateFile): ReferenceTarget[] {
   const catalog = catalogDocument(doc, template, ELEMENT_KINDS);
   const targets: ReferenceTarget[] = [];
   for (const [key, kind] of Object.entries(CATALOG_KINDS)) {
     for (const entry of catalog[key] ?? []) {
-      const id = doc.nodeAt(entry.pos)?.attrs.dataId as unknown;
-      if (typeof id !== 'string' || !id) continue;
+      const node = doc.nodeAt(entry.pos);
+      const id = node?.attrs.dataId as unknown;
+      if (!node || typeof id !== 'string' || !id) continue;
       const number = entry.number.trim();
+      const title = titleOf(node, entry.text);
       const separator = kind === 'heading' ? ' ' : ' - ';
-      const label = [number, entry.text].filter(Boolean).join(separator);
-      targets.push({ id, kind, number, title: entry.text, label, pos: entry.pos });
+      const label = [number, title].filter(Boolean).join(separator);
+      targets.push({ id, kind, number, title, label, pos: entry.pos });
     }
   }
   return targets;

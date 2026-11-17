@@ -37,6 +37,7 @@ export type {
   HostDialogProps,
   MentionOptions,
   ObjectDialog,
+  ReferenceKind,
   SelectionToolbarOptions,
   SlashMenuItem,
   SlashMenuOptions,
