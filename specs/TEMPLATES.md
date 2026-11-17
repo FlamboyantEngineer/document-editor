@@ -108,7 +108,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 `templateProperties(template, { section, fontStacks })` shall write a scope's page size and margins, its text styles (font, size, weight, style, decoration, color, line height, alignment and spacing), its list, table, code block and contents settings (DOCE-TEMPLATES-10.5), its captions and its footnotes as `--doc-*` custom properties. A setting no scope sets shall be left out, so the stylesheet's fallback applies. The properties are joined into `style` attributes and a style element, and a template a host loads may not have been validated, so a value that is not of its setting's kind, as validation knows it (DOCE-FORMAT-2.2: a length, a color, a font weight, a line height, an alignment), shall be left out too, and text that is not such a value never reaches a style.
 
 Implementation: `src/model/templates/template-properties.ts`, `src/model/templates/template-text-properties.ts`, `src/model/templates/template-property-values.ts`
-Verification: `src/model/templates/template-properties.test.ts`
+Verification: `src/model/templates/template-properties.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATES-5.3 - Numbering properties
 
@@ -150,7 +150,7 @@ Verification: `src/model/templates/template-properties.test.ts`
 `templateProperties` for the document shall write the template's change bars: each kind's color (`--doc-change-bar-<insertions|deletions|modifications|formatting>-color`), transparent for a disabled kind and left out when it is not a color, their width, and `--doc-change-bar-left` and `--doc-change-bar-right`, one placing a bar its offset outside a block on the template's side and the other `auto`. A section scope shall write none.
 
 Implementation: `src/model/templates/template-properties.ts`
-Verification: `src/model/templates/template-properties.test.ts`
+Verification: `src/model/templates/template-properties.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATES-5.9 - A section's change bars
 
@@ -293,7 +293,7 @@ Verification: `src/model/format/template-format.test.ts`
 A list's `bullet` shall be a marker keyword (`disc`, `circle`, `square`, `none`) or up to 8 characters of text without control or formatting characters (`isTemplateBullet`), and `validateTemplateFile` shall report any other. `templateProperties` shall write a keyword as the list style and text as an escaped CSS string followed by a space (DOCE-NUMBERING-2.4), so a bullet can never close the style element.
 
 Implementation: `src/model/format/template-format-validate.ts`, `src/model/templates/template-text-properties.ts`, `src/components/template-editor/template-settings.ts`
-Verification: `src/model/format/template-format.test.ts`, `src/model/templates/template-properties.test.ts`
+Verification: `src/model/format/template-format.test.ts`, `src/model/templates/template-properties.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATES-10.3 - Custom style names
 
@@ -314,7 +314,7 @@ Verification: `src/model/templates/template-settings.test.ts`, `src/engine/conte
 `contentsListProperties(list, fontStacks)` shall write a kind's resolved settings as the custom properties its list carries: the title's and entries' type (`--doc-contents-title-*`, `--doc-contents-entry-*`), padding (`--doc-contents-padding-left`, `-right`) and spacing (`--doc-contents-margin-top`, `-bottom`); and for each level, the properties its rows carry: its type (`--doc-contents-level-font-size`, `-font-weight`, `-font-style` and the entries' others), indentation, spacing (`--doc-contents-level-indentation`, `-margin-top`, `-margin-bottom`) and its leader's spacing, gaps and style (`--doc-contents-level-leader-spacing`, `-gap-before`, `-gap-after`, `-font-weight`, `-font-style`). A value not of its setting's kind shall be left out, as `templateProperties` leaves it out. A numbered list's counter content (`--doc-ol-counter-content`) shall print its `prefix`, its number in its format's first level, the level's separator and its `suffix`, each escaped.
 
 Implementation: `src/model/templates/template-text-properties.ts`, `src/engine/contents.ts`
-Verification: `src/model/templates/template-settings.test.ts`, `src/model/templates/template-properties.test.ts`
+Verification: `src/model/templates/template-settings.test.ts`, `src/model/templates/template-properties.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATES-10.6 - Extension records
 

@@ -338,6 +338,82 @@ test.describe('template workspace lab', () => {
     await expect.poll(() => shown.locator('table').count()).toBeGreaterThan(1);
   });
 
+  test('DOCE-TEMPLATES-5.2 DOCE-TEMPLATES-5.8 DOCE-TEMPLATES-10.2 DOCE-TEMPLATES-10.5 draws the preview with the template’s typography, list metrics and change bar colors', async ({
+    lab,
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await lab.open('template-workspace');
+    await showPane(page, 'Properties');
+    const written = {
+      name: 'Typography',
+      styles: {
+        paragraph: { font: 'Georgia', lineHeight: 1.4, alignment: 'justify', spaceAfter: '9pt' },
+        list: { bullet: 'square', format: 'a)', indentation: '18pt', spaceAfter: '3pt' },
+      },
+      changeBars: {
+        insertions: { color: '#15803d' },
+        deletions: { color: '#b91c1c' },
+        modifications: { color: '#1d4ed8' },
+        formatting: { color: '#a21caf' },
+        width: '3px',
+      },
+    };
+    await writeFields(settings(page), written, []);
+    const shown = preview(page);
+    const computed = (selector: string, properties: readonly string[], pseudo?: string) =>
+      shown
+        .locator(selector)
+        .first()
+        .evaluate(
+          (element, [names, at]) => {
+            const style = getComputedStyle(element, at);
+            return (names as string[]).map((name) => style.getPropertyValue(name));
+          },
+          [properties, pseudo] as const,
+        );
+    // A paragraph's face, line height (1.4 of its 12px), alignment and space after (9pt = 12px).
+    await expect
+      .poll(() =>
+        computed('.pm-page-content > p', [
+          'font-family',
+          'line-height',
+          'text-align',
+          'margin-bottom',
+        ]),
+      )
+      .toEqual(['Georgia', '16.8px', 'justify', '12px']);
+    // A list's indentation (18pt = 24px), space after (3pt = 4px), bullet and number format.
+    await expect
+      .poll(() =>
+        computed('.pm-page-content > ul', ['padding-left', 'margin-bottom', 'list-style-type']),
+      )
+      .toEqual(['24px', '4px', 'square']);
+    await expect.poll(() => computed('.pm-page-content > ol', ['padding-left'])).toEqual(['24px']);
+    expect(await computed('.pm-page-content > ol > li', ['content'], '::marker')).toEqual([
+      'counter(ordered-list, lower-alpha) ") "',
+    ]);
+    // Each kind's bar in its own color, at the template's width.
+    const bar = (selector: string) => computed(selector, ['background-color', 'width'], '::after');
+    await expect
+      .poll(() => bar('.pm-page-content > p[data-diff-change="insertion"]'))
+      .toEqual([rgbOf('#15803d'), '3px']);
+    await expect
+      .poll(() => bar('.pm-page-content > [data-diff-change="formatting"]'))
+      .toEqual([rgbOf('#a21caf'), '3px']);
+    await expect
+      .poll(() => bar('.pm-page-content > [data-diff-deletion]:not([data-diff-change])'))
+      .toEqual([rgbOf('#b91c1c'), '3px']);
+    await expect
+      .poll(() =>
+        computed('.de-change-lines__line[data-diff-line="modification"]', [
+          'background-color',
+          'width',
+        ]),
+      )
+      .toEqual([rgbOf('#1d4ed8'), '3px']);
+  });
+
   test('DOCE-TEMPLATE-EDITOR-3.16 DOCE-TEMPLATE-EDITOR-3.17 previews a section alone and places an image in it', async ({
     lab,
     page,

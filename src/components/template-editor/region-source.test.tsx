@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { openSections } from '../../../test/property-sections.js';
 import type { TemplateFile } from '../../model/index.js';
 import { TemplateEditor } from './template-editor.js';
@@ -32,6 +32,11 @@ function Host({ scope, written }: { scope?: string; written: TemplateFile[] }) {
 }
 
 describe('the header’s and footer’s HTML source', () => {
+  // The dialog loads on first use; loaded here, the tests do not race its import.
+  beforeAll(async () => {
+    await import('./region-source-dialog.js');
+  });
+
   it(
     'DOCE-TEMPLATE-EDITOR-1.4 edits a header’s HTML in a dialog and keeps only what the schema knows',
     async () => {
