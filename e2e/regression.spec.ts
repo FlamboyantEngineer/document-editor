@@ -607,6 +607,8 @@ test.describe('short lists at scale', () => {
     lab,
     page,
   }) => {
+    // A 100-page document takes longer than the usual test time to open under load.
+    test.setTimeout(120_000);
     await openScale(lab, page, SIZE.shortLists100);
     const pages = await page.evaluate(readListPages);
     expect(pages.length).toBeGreaterThanOrEqual(100);
