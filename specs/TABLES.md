@@ -104,7 +104,7 @@ Verification: `src/engine/table-format.test.ts`
 `insertTableLines(axis, side)` shall insert rows above or below the selection, or columns before or after it, as many as the selected cells span, one at the caret, keeping the headers leading (DOCE-TABLES-3.8): a row or column inserted before a header row or column is a header one, any other is not, and its cells in a header column or row are header cells. The context menu's and the grips' insert entries use it.
 
 Implementation: `src/engine/table-format.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-format.test.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.4 - Inserting a table from the keyboard
 
@@ -118,7 +118,7 @@ Verification: `src/engine/table-format.test.ts`
 A Ctrl or Cmd click in a cell of an editable document shall select the cell (`selectCellTo`), or, while cells of the same table are selected, grow the selection from its first cell to the one clicked; a Ctrl click on a reference follows the reference instead (DOCE-REFERENCES-1.3).
 
 Implementation: `src/engine/table-pointer.ts`, `src/engine/tables.ts`
-Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`
+Verification: `src/engine/table-format.test.ts`, `e2e/tables.spec.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.6 - Row heights
 
@@ -139,14 +139,14 @@ Verification: `src/model/layout/column-widths.test.ts`, `src/engine/table-format
 A table's header rows are its leading rows of header cells only, and its header columns its leading columns whose cells below the header rows are header cells. `toggleHeaderLines(axis)` shall make the rows (columns) the selection covers header rows, with every row before them, or, when the first of them is a header already, make it and every row after it plain, as one change on the whole table; a cell in a header row or a header column stays a header cell. The context menu's `Header` entries and the grips' header entries use it.
 
 Implementation: `src/engine/table-headers.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-headers.test.ts`
+Verification: `src/engine/table-headers.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.9 - Splitting a cell
 
 `splitTableCell(axis)` shall split the cell holding the caret, or the one cell selected: a merged cell back into the cells it covers, and any other in two, side by side (`column`, the column's width halved and the column's other cells spanning both) or one above the other (`row`, a row below whose other cells span both), with the caret in the new cell, on the whole table. Several selected cells are refused. The context menu's `Split cell` entry offers both.
 
 Implementation: `src/engine/table-split.ts`, `src/components/document-editor/table-actions.ts`
-Verification: `src/engine/table-split.test.ts`
+Verification: `src/engine/table-split.test.ts`, `e2e/table-selection.spec.ts`
 
 ### DOCE-TABLES-3.10 - Equal rows
 
