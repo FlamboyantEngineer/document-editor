@@ -56,6 +56,7 @@ function InternalReferenceDialog({
     <EditorModal
       view={view}
       onClose={onClose}
+      isDismissable
       data-dialog="reference"
       data-reference="internal"
       title={titleOf(labels.internalReference)}
