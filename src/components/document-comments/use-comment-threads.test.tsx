@@ -105,7 +105,7 @@ describe('useCommentThreads', () => {
     answer = held();
     act(() => row?.onRetry?.());
     await act(async () => {
-      answer.resolve(await store.reply('doc', 't1', 'Because'));
+      answer.resolve(await store.reply('doc', { threadId: 't1', text: 'Because' }));
     });
     await waitFor(() => expect(result.current.activity.has('t1')).toBe(false));
     expect(result.current.threads.get('t1')?.entries.map((each) => each.text)).toEqual([
