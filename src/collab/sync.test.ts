@@ -118,6 +118,45 @@ describe('collab sync', () => {
     expect(textblocks(a.state.doc)).toHaveLength(4);
   });
 
+  it('DOCE-COLLAB-4.1 converges five writers typing, splitting and marking at once', async () => {
+    const first = headlessEditor(start());
+    const editors = [first];
+    for (let index = 1; index < 5; index += 1) {
+      const doc = new Y.Doc();
+      Y.applyUpdate(doc, Y.encodeStateAsUpdate(first.doc));
+      editors.push(headlessEditor(start(), { doc }));
+    }
+    const syncAll = () => {
+      for (const from of editors) {
+        for (const to of editors) {
+          if (from === to) continue;
+          const update = Y.encodeStateAsUpdate(from.doc, Y.encodeStateVector(to.doc));
+          Y.applyUpdate(to.doc, update, 'network');
+        }
+      }
+    };
+    for (let round = 0; round < 3; round += 1) {
+      editors.forEach((editor, index) => {
+        const n = (index + round) % 3;
+        typeAtEnd(editor, n, ` w${String(index)}r${String(round)}`);
+        if (index === round)
+          editor.dispatch(editor.state.tr.split(block(editor.state.doc, 1).from + 2 + index));
+        if (index === 4) {
+          const { from } = block(editor.state.doc, 0);
+          editor.dispatch(editor.state.tr.addMark(from, from + 2, markType('em').create()));
+        }
+      });
+      syncAll();
+      await settle();
+    }
+    expectConverged(...editors);
+    const text = textOf(first.state.doc);
+    for (let index = 0; index < 5; index += 1) {
+      for (let round = 0; round < 3; round += 1)
+        expect(text).toContain(`w${String(index)}r${String(round)}`);
+    }
+  });
+
   it('DOCE-COLLAB-4.1 keeps the local selection on its text when a shared change lands', async () => {
     const { a, b, sync } = pair();
     const caret = block(a.state.doc, 2).to;
@@ -151,6 +190,23 @@ describe('collab sync', () => {
     await settle();
     expect(textOf(b.state.doc)).toMatch(/Shared\./);
     expect(isRemoteTransaction(b.dispatched[0] ?? b.state.tr)).toBe(true);
+    expectConverged(a, b);
+  });
+
+  it('DOCE-COLLAB-4.2 sends nothing when it joins a room and nobody edits', async () => {
+    const template = () => BASE_TEMPLATE;
+    const plugins = createDocumentEditing(documentSchema, { template, history: false });
+    const a = headlessEditor(start(), { plugins });
+    const docB = new Y.Doc();
+    Y.applyUpdate(docB, Y.encodeStateAsUpdate(a.doc));
+    const sent: Uint8Array[] = [];
+    docB.on('update', (update: Uint8Array, origin: unknown) => {
+      if (origin !== 'network') sent.push(update);
+    });
+    const b = headlessEditor(start(), { doc: docB, plugins });
+    await settle();
+    await settle();
+    expect(sent).toEqual([]);
     expectConverged(a, b);
   });
 
