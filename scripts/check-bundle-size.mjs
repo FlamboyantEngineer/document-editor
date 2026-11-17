@@ -65,6 +65,8 @@ const CONSUMERS = [
       'dist/components/template-editor/template-json-editor\\.js',
       `${UI}/code-editor/`,
       'dist/components/template-workspace/template-open-list\\.js',
+      'dist/components/template-workspace/template-preview-editor\\.js',
+      'dist/components/document-editor/document-editor\\.js',
     ],
     holds: ['dist/components/template-workspace/template-workspace\\.js'],
   },

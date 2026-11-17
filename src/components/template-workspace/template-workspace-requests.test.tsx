@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { installEditorDom } from '../../../test/editor-dom.js';
 import {
   LOADED,
   nameField,
@@ -38,6 +39,9 @@ function holdBack(store: Store, method: Method) {
     stop: () => Object.assign(store, { [method]: original }),
   };
 }
+
+// The workspace draws its own preview, a document editor, unless a test draws one.
+installEditorDom();
 
 describe('TemplateWorkspace requests', () => {
   it(

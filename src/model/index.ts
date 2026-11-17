@@ -221,6 +221,7 @@ export { setPageRegions } from './templates/page-regions.js';
 export * from './templates/template-content.js';
 export * from './templates/template-css-values.js';
 export * from './templates/template-numbering.js';
+export * from './templates/template-parts.js';
 export * from './templates/template-preview.js';
 export type {
   ContentsListProperties,

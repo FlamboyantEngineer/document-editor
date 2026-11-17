@@ -5,7 +5,6 @@ import { findNextZoomLevel } from '@flamboyantengineer/ui-components/zoom-contro
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { memo, type RefObject, useDeferredValue, useEffect, useMemo } from 'react';
-import { customStyleNames } from '../../engine/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import type { DocumentContextMenuOptions } from './context-providers.js';
 import { contextFeatures, DocumentContextMenu } from './document-context-menu.js';
@@ -26,14 +25,13 @@ import {
   type ObjectDialog,
 } from './editor-context.js';
 import { figurePasteOptions } from './figure-paste.js';
-import type { InsertFeatures } from './insert-controls.js';
+import { useInsertFeatures } from './insert-features.js';
 import { DocumentMentionMenu } from './mention-menu.js';
 import type { DocumentMenubarOptions } from './menubar-menus.js';
 import type { ShellFeatures } from './mode-controls.js';
 import { DocumentSelectionToolbar, type SelectionToolbarOptions } from './selection-toolbar.js';
 import { DocumentSlashMenu, type SlashMenuOptions } from './slash-menu.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
-import { DEFAULT_SYMBOLS } from './symbols.js';
 import type { DocumentToolbarOptions } from './toolbar-items.js';
 import type { MenuKeys } from './trigger-menu.js';
 import type { DocumentExports } from './use-document-exports.js';
@@ -112,48 +110,6 @@ const ShownBottomChrome = memo(function ShownBottomChrome({
     </DocumentEditorContext>
   );
 });
-
-// What the insert items offer, kept while the host's features stay the same.
-function useInsertFeatures(props: DocumentEditorProps): InsertFeatures {
-  const linkedCode = Boolean(props.codeSource);
-  const glossary = Boolean(props.glossary);
-  const scripts = Boolean(props.scriptRunner);
-  const references = Boolean(props.referenceSource);
-  const diagrams = Boolean(props.diagrams);
-  const symbols = props.symbols ?? DEFAULT_SYMBOLS;
-  const custom = customStyleNames(props.template).join('\n');
-  const { variables } = props;
-  const templateContent = Boolean(props.onRegionChange ?? props.onTemplatePartChange);
-  return useMemo<InsertFeatures>(
-    () => ({
-      linkedCode,
-      symbols,
-      glossary,
-      // Custom styles are for a template's own content; document authors keep to the built-in ones.
-      customStyles: custom && templateContent ? custom.split('\n') : [],
-      template: props.template,
-      scripts,
-      references,
-      referenceKinds: props.referenceKinds,
-      diagrams,
-      variables,
-      templateContent,
-    }),
-    [
-      linkedCode,
-      symbols,
-      glossary,
-      custom,
-      props.template,
-      scripts,
-      references,
-      props.referenceKinds,
-      diagrams,
-      variables,
-      templateContent,
-    ],
-  );
-}
 
 /** The toolbar and the find bar above the document. */
 function TopChrome({

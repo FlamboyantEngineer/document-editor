@@ -161,7 +161,7 @@ Verification: `src/engine/template-content-editing.test.ts`, `e2e/template-conte
 
 ### DOCE-SECTIONS-5.3 - The toolbar in template content and the read-only sample
 
-The editor's toolbar shall work in the pages' headers and footers and in a template section's content and placeholder as it does in a document, its marks, lists and variables handed on as edits of the region or part, an edit that only marks text or sets a node's attributes included. With `templatePreviewLock` as the editing lock (`isLocked` of `createDocumentEditing`), the sample around them shall be read-only, its toolbar disabled there, and while template content is edited a writer's change that would add, remove or rename a section shall be refused.
+The editor's toolbar shall work in the pages' headers and footers and in a template section's content and placeholder as it does in a document, its marks, lists and variables handed on as edits of the region or part, an edit that only marks text or sets a node's attributes included. With `templatePreviewLock` as the editing lock (`isLocked` of `createDocumentEditing`), the sample around them shall be read-only, a section's own sample shown alone (a third section of its name) included, its toolbar disabled there, and while template content is edited a writer's change that would add, remove or rename a section shall be refused.
 
 Implementation: `src/engine/template-content-editing.ts`, `src/engine/region-editing.ts`, `labs/src/template-content.lab.tsx`
 Verification: `src/engine/template-content-editing.test.ts`, `src/engine/region-editing.test.ts`, `e2e/template-content.spec.ts`
