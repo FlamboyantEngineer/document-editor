@@ -263,6 +263,8 @@ function Lab({ versions }: { versions: readonly DocumentVersion[] }) {
           editable={!pair}
           compare={shown ? { previous: shown, display, scope: scope ? [scope] : undefined } : null}
           onChangeBarsChange={setBars}
+          scrollable
+          overview
           aria-label="Sample document"
         />
       </div>

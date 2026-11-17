@@ -65,6 +65,7 @@ export function layoutOwnPlugins(latest: RefObject<DocumentLayoutOptions>): Plug
       previous: () => latest.current.compare?.previous ?? null,
       display: () => latest.current.compare?.display ?? 'markup',
       suggestions: () => latest.current.compare?.suggestions ?? 'rejected',
+      generated: () => latest.current.compare?.generated ?? false,
       scope: () => latest.current.compare?.scope ?? null,
     }),
   ];

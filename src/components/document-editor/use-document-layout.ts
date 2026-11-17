@@ -157,6 +157,11 @@ export interface DocumentComparison {
   readonly display?: VersionChangeDisplay | undefined;
   /** Whether the document's suggestions count as rejected (the default) or as accepted. */
   readonly suggestions?: CompareSuggestions | undefined;
+  /**
+   * Whether a block whose only change is in what the document generates (a reference's text, a
+   * variable's value, a script's output) shows as modified. Defaults to false.
+   */
+  readonly generated?: boolean | undefined;
   /** The element ids compared, a heading for its headed section; the others are marked outside. */
   readonly scope?: readonly string[] | undefined;
 }
@@ -321,12 +326,12 @@ export function useDocumentLayout(
     refresh.current?.();
   }, [template]);
 
-  const { previous, display, suggestions, scope } = options.compare ?? {};
+  const { previous, display, suggestions, generated, scope } = options.compare ?? {};
   const scopeKey = scope?.join(' ');
   useEffect(() => {
     latest.current.onStateChange(recompare);
     refresh.current?.();
-  }, [previous, display, suggestions, scopeKey]);
+  }, [previous, display, suggestions, generated, scopeKey]);
   useHostVariables(options, { refresh, redraw });
   useHostRules(options.layoutRules, refresh);
   useLayoutDebug(options.debug, options.onStateChange, redraw);

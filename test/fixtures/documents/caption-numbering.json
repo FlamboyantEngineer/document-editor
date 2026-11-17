@@ -1,0 +1,1822 @@
+{
+  "formatVersion": 1,
+  "template": {
+    "id": "regression-captions"
+  },
+  "sections": [
+    {
+      "name": "front_matter",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "ca910001"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Lists of objects"
+            }
+          ]
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "kind": "figures",
+            "id": "ca910002"
+          }
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "kind": "tables",
+            "id": "ca910003"
+          }
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "kind": "codeBlocks",
+            "id": "ca910004"
+          }
+        },
+        {
+          "type": "contents",
+          "attrs": {
+            "kind": "equations",
+            "id": "ca910005"
+          }
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "ca910006"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Front matter objects number on their own, before any chapter."
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Site map",
+            "caption": "Site map",
+            "id": "ca910007"
+          }
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca910008",
+            "source": "a^2 + b^2 = c^2"
+          }
+        }
+      ]
+    },
+    {
+      "name": "body",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "ca910009"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Soil"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "ca91000a"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Every object in the soil chapter numbers within it."
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plan 0",
+            "caption": "Plan of the north beds, soil",
+            "id": "ca91000b"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Sowing dates, soil",
+            "id": "ca91001b"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91000c"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca91000d"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91000e"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Crop"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca91000f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910010"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910011"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910012"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910013"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Beans"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910014"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910015"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "10"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910016"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910017"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910018"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Peas"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910019"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91001a"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "8"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "caption": "Watering rule, soil",
+            "id": "ca91001c"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "def water(bed, litres=2):\n    return bed.wet(litres)"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca91001d",
+            "source": "V_{0} = \\pi r^2 h"
+          }
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "ca91001e"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "More about soil"
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plan 3",
+            "caption": "Plan of the west beds, soil again",
+            "id": "ca91001f"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Sowing dates, soil again",
+            "id": "ca91002f"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910020"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910021"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910022"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Crop"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910023"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910024"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910025"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910026"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910027"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Beans"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910028"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910029"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "13"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91002a"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91002b"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91002c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Peas"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91002d"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91002e"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "11"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "caption": "Watering rule, soil again",
+            "id": "ca910030"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "def water(bed, litres=5):\n    return bed.wet(litres)"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca910031",
+            "source": "V_{3} = \\pi r^2 h"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "captionEnabled": false,
+            "id": "ca91003c"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910032"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910033"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910034"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Uncaptioned"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910035"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910036"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Table"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910037"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910038"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910039"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "is"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91003a"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91003b"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "skipped"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "ca91003d"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Water"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "ca91003e"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Every object in the water chapter numbers within it."
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plan 1",
+            "caption": "Plan of the south beds, water",
+            "id": "ca91003f"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Sowing dates, water",
+            "id": "ca91004f"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910040"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910041"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910042"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Crop"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910043"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910044"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910045"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910046"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910047"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Beans"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910048"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910049"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "11"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91004a"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91004b"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91004c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Peas"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91004d"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91004e"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "9"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "caption": "Watering rule, water",
+            "id": "ca910050"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "def water(bed, litres=3):\n    return bed.wet(litres)"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca910051",
+            "source": "V_{1} = \\pi r^2 h"
+          }
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "ca910052"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "More about water"
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plan 4",
+            "caption": "Plan of the north beds, water again",
+            "id": "ca910053"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Sowing dates, water again",
+            "id": "ca910063"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910054"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910055"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910056"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Crop"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910057"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910058"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910059"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91005a"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91005b"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Beans"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91005c"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91005d"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "14"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91005e"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91005f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910060"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Peas"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910061"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910062"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "12"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "caption": "Watering rule, water again",
+            "id": "ca910064"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "def water(bed, litres=6):\n    return bed.wet(litres)"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca910065",
+            "source": "V_{4} = \\pi r^2 h"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "captionEnabled": false,
+            "id": "ca910070"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910066"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910067"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910068"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Uncaptioned"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910069"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91006a"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Table"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91006b"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91006c"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91006d"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "is"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91006e"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91006f"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "skipped"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "ca910071"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Seeds"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "ca910072"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Every object in the seeds chapter numbers within it."
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plan 2",
+            "caption": "Plan of the east beds, seeds",
+            "id": "ca910073"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Sowing dates, seeds",
+            "id": "ca910083"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910074"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910075"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910076"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Crop"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910077"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910078"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910079"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91007a"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91007b"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Beans"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91007c"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91007d"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "12"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91007e"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91007f"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910080"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Peas"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910081"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910082"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "10"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "caption": "Watering rule, seeds",
+            "id": "ca910084"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "def water(bed, litres=4):\n    return bed.wet(litres)"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca910085",
+            "source": "V_{2} = \\pi r^2 h"
+          }
+        },
+        {
+          "type": "heading",
+          "attrs": {
+            "level": 2,
+            "id": "ca910086"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "More about seeds"
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plan 5",
+            "caption": "Plan of the south beds, seeds again",
+            "id": "ca910087"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Sowing dates, seeds again",
+            "id": "ca910097"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910088"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca910089"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91008a"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Crop"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca91008b"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91008c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91008d"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca91008e"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91008f"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Beans"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910090"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910091"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "15"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca910092"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910093"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910094"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Peas"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca910095"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca910096"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "13"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "caption": "Watering rule, seeds again",
+            "id": "ca910098"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "def water(bed, litres=7):\n    return bed.wet(litres)"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca910099",
+            "source": "V_{5} = \\pi r^2 h"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "captionEnabled": false,
+            "id": "ca9100a4"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91009a"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca91009b"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91009c"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Uncaptioned"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca91009d"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca91009e"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Table"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca91009f"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca9100a0"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100a1"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "is"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca9100a2"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100a3"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "skipped"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "annex",
+      "content": [
+        {
+          "type": "heading",
+          "attrs": {
+            "id": "ca9100a5"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "Reference data"
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "attrs": {
+            "id": "ca9100a6"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "The annex numbers its objects from 1 again."
+            }
+          ]
+        },
+        {
+          "type": "figure",
+          "attrs": {
+            "src": "data:image/gif;base64,R0lGODlhAQABAAAAACw=",
+            "alt": "Plan 7",
+            "caption": "Plan of the west beds, annex",
+            "id": "ca9100a7"
+          }
+        },
+        {
+          "type": "table",
+          "attrs": {
+            "caption": "Sowing dates, annex",
+            "id": "ca9100b7"
+          },
+          "content": [
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca9100a8"
+              },
+              "content": [
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca9100a9"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100aa"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Crop"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableHeader",
+                  "attrs": {
+                    "id": "ca9100ab"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100ac"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Week"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca9100ad"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca9100ae"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100af"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Beans"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca9100b0"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100b1"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "17"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "tableRow",
+              "attrs": {
+                "id": "ca9100b2"
+              },
+              "content": [
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca9100b3"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100b4"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "Peas"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "tableCell",
+                  "attrs": {
+                    "id": "ca9100b5"
+                  },
+                  "content": [
+                    {
+                      "type": "paragraph",
+                      "attrs": {
+                        "id": "ca9100b6"
+                      },
+                      "content": [
+                        {
+                          "type": "text",
+                          "text": "15"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "codeBlock",
+          "attrs": {
+            "language": "python",
+            "caption": "Watering rule, annex",
+            "id": "ca9100b8"
+          },
+          "content": [
+            {
+              "type": "text",
+              "text": "def water(bed, litres=9):\n    return bed.wet(litres)"
+            }
+          ]
+        },
+        {
+          "type": "mathBlock",
+          "attrs": {
+            "id": "ca9100b9",
+            "source": "V_{7} = \\pi r^2 h"
+          }
+        }
+      ]
+    }
+  ]
+}

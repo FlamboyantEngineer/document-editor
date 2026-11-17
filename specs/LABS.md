@@ -57,20 +57,21 @@ Verification: `e2e/stress.spec.ts`
 
 ### DOCE-LABS-2.3 - Budgets
 
-`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target and whether it meets it, as a table and in `test-results/performance.json`. The typing budgets on 40 and 300 pages, and the remote typing budget, are enforced: each is measured on every key's own work (`keystrokeWork`), from the key's press until its input is handled and from the start of the frame that draws it until that frame is drawn, without the wait for that frame, and a test fails on a missed one; remote typing is measured from a remote writer's keystroke reaching the editor, one every 100 ms into the middle of the document, to the frame after it is drawn, since remote changes repaint at once with no fixed tick. The other budgets are targets until the pagination phase ends: the harness records and does not fail on a missed one. Time budgets are measured on the development machine; counter budgets do not depend on it.
+`npm run test:perf` shall measure the performance budgets on the scale lab (`e2e/performance.spec.ts`, run apart from `npm run test:labs` as the `budgets` project), with the browser's own counters (`Performance.getMetrics`, a trace's restyled elements) and the pagination's (`layoutStats`), and report each metric beside its target and whether it meets it, as a table and in `test-results/performance.json`. The typing budgets on 40 and 300 pages, the remote typing budget and the remote typing budget while changes show (`?compare` on the scale lab) are enforced: each is measured on every key's own work (`keystrokeWork`), from the key's press until its input is handled and from the start of the frame that draws it until that frame is drawn, without the wait for that frame, and a test fails on a missed one; remote typing is measured from a remote writer's keystroke reaching the editor, one every 100 ms into the middle of the document, to the frame after it is drawn, since remote changes repaint at once with no fixed tick. The other budgets are targets until the pagination phase ends: the harness records and does not fail on a missed one. Time budgets are measured on the development machine; counter budgets do not depend on it.
 
-| Budget                         | Metric                                                                                                                         | Target                                   |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
-| Single section, 5000 blocks    | Pages; first settled time                                                                                                      | ≥ 300 pages; the time is recorded        |
-| Multi-section, 25 × 200 blocks | After an edit mid-document: layouts until settled; template regions drawn again; sections reused per layout (`sectionsReused`) | ≤ 4; ≤ 24; ≥ 23 of 25                    |
-| Remote keystroke, 1600 blocks  | Per keystroke: sections relaid (`sectionsRelaid`); blocks measured (`blocksMeasured`)                                          | ≤ 1; ≤ 5                                 |
-| Wheel scroll                   | Browser layouts per wheel event, on 5 and 40 pages                                                                             | ≤ 3, no growth with the pages            |
-| Typing style scope             | Elements restyled per keystroke, 40 pages against 5                                                                            | ≤ 3 times                                |
-| Keystroke latency              | p95 of each key's own work, on 40 and 300 pages (enforced)                                                                     | ≤ 16 ms; ≤ 32 ms                         |
-| Remote typing                  | p95 from a remote keystroke reaching the editor to the frame after it is drawn, on 300 pages (enforced)                        | ≤ 32 ms                                  |
-| Typing beside comment threads  | p95 from a key's press to the frame after it is drawn, on 300 pages beside 500 open comment threads                            | ≤ 32 ms                                  |
-| Load, 24 pages                 | `whenSettled` time from navigation over five loads: median, p95                                                                | ≤ 6 s; ≤ 12 s                            |
-| Workload load, 18 and 40 pages | `whenSettled` time from navigation, median of five loads with the cache cleared (cold) and of five reloads                     | ≤ 2.6 s and ≤ 2.2 s; ≤ 4.5 s and ≤ 4.0 s |
+| Budget                         | Metric                                                                                                                                                                                           | Target                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Single section, 5000 blocks    | Pages; first settled time                                                                                                                                                                        | ≥ 300 pages; the time is recorded        |
+| Multi-section, 25 × 200 blocks | After an edit mid-document: layouts until settled; template regions drawn again; sections reused per layout (`sectionsReused`)                                                                   | ≤ 4; ≤ 24; ≥ 23 of 25                    |
+| Remote keystroke, 1600 blocks  | Per keystroke: sections relaid (`sectionsRelaid`); blocks measured (`blocksMeasured`)                                                                                                            | ≤ 1; ≤ 5                                 |
+| Wheel scroll                   | Browser layouts per wheel event, on 5 and 40 pages                                                                                                                                               | ≤ 3, no growth with the pages            |
+| Typing style scope             | Elements restyled per keystroke, 40 pages against 5                                                                                                                                              | ≤ 3 times                                |
+| Keystroke latency              | p95 of each key's own work, on 40 and 300 pages (enforced)                                                                                                                                       | ≤ 16 ms; ≤ 32 ms                         |
+| Remote typing                  | p95 from a remote keystroke reaching the editor to the frame after it is drawn, on 300 pages (enforced)                                                                                          | ≤ 32 ms                                  |
+| Typing while changes show      | With the document compared with itself as opened, shown as change bars, on 300 pages: p95 of each key's own work (recorded); p95 of a remote keystroke to the frame after it is drawn (enforced) | ≤ 32 ms; ≤ 32 ms                         |
+| Typing beside comment threads  | p95 from a key's press to the frame after it is drawn, on 300 pages beside 500 open comment threads                                                                                              | ≤ 32 ms                                  |
+| Load, 24 pages                 | `whenSettled` time from navigation over five loads: median, p95                                                                                                                                  | ≤ 6 s; ≤ 12 s                            |
+| Workload load, 18 and 40 pages | `whenSettled` time from navigation, median of five loads with the cache cleared (cold) and of five reloads                                                                                       | ≤ 2.6 s and ≤ 2.2 s; ≤ 4.5 s and ≤ 4.0 s |
 
 A text-only change shall walk no section it does not change, through every editing plugin: a plugin that follows changes reads only the nodes they reached (`changedNodes`), and paragraph numbering keeps its numbers, moved with the change, when typing leaves every paragraph with or without its numbering content. A unit test fails on any walk of an untouched section's children, descendants or a range of them.
 
@@ -162,10 +163,10 @@ Verification: `e2e/regression.spec.ts`
 
 ### DOCE-LABS-4.3 - Lists
 
-A long ordered list shall split between items, each item shown once and numbered on from page to page; a nested list and an item longer than a page split and show every stored item; and a split item's continuation draws no empty line where it opens.
+A long ordered list shall split between items, each item shown once and numbered on from page to page; a nested list and an item longer than a page split and show every stored item; and a split item's continuation draws no empty line where it opens. The regression set's `list-split-stress` document shall hold, before two sixty-item runways, four ordered lists: thirty items on one level, thirty items with two subitems each, two items with twenty subitems each, and twenty items with two subitems that hold one child each; it splits over pages and shows every item.
 
 Implementation: `labs/src/regression/regression-documents.ts`
-Verification: `e2e/regression.spec.ts`
+Verification: `e2e/regression.spec.ts`, `test/fixtures/documents/regression-set.test.ts`
 
 ### DOCE-LABS-4.4 - Tables
 
@@ -176,7 +177,7 @@ Verification: `e2e/regression.spec.ts`
 
 ### DOCE-LABS-4.5 - Code
 
-A 150-line listing shall split at line breaks, each line on one page only, each fragment numbering its lines on from the last; a quoted code block longer than a page splits inside its quote.
+A 150-line listing shall split at line breaks, each line on one page only, each fragment numbering its lines on from the last; a quoted code block longer than a page splits inside its quote. The regression set's `code-block-stress` document shall hold linked code of one page, of a whole file, of a range starting at a three-digit line and of a range placed after prose so it splits mid-page, and short, long and long-row authored blocks; each long block splits with its fragments numbering on from its first line.
 
 Implementation: `labs/src/regression/regression-documents.ts`
 Verification: `e2e/regression.spec.ts`
@@ -222,3 +223,17 @@ The reference stylesheet shall draw what a template sets as properties: table bo
 
 Implementation: `labs/reference/document.css`
 Verification: `e2e/regression.spec.ts`
+
+### DOCE-LABS-4.12 - Roman numbering
+
+The regression set's `roman-numbering-coverage` document shall number lower-case Roman front matter (`i.`, `i.i`), an upper-case Roman body on three levels (`I.`, `I.1`, `I.1.i`) and an annex that starts again (`I-`, `II-`, `III-`); its ordered lists, nested ones among them, shall number in their section's Roman style, each on from its start, at the subtractive edges (3, 8, 38, 48, 98, 398, 498, 898, 998, 3,998), past 3,999 (3,999, 7,998, 12,000) and over pages in a 240-item list; its front matter shall list the chapters; and its figures, tables, code blocks and equations, listed on the annex's last page, shall number from 1 under each chapter (`I-1`, `II-1`) and again in the annex (`I.i`).
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`, `test/fixtures/documents/regression-set.test.ts`
+
+### DOCE-LABS-4.13 - Caption numbering
+
+The regression set's `caption-numbering` document shall hold captioned figures, tables, code blocks and equations in three numbering contexts, its own template (`regression-captions`) numbering them `i` in the front matter, `1.1` under each body chapter and `A-1` in the annex, and a list of each kind; each list shall show every captioned object with its number in its context, and leave out a table without a caption.
+
+Implementation: `labs/src/regression/regression-documents.ts`
+Verification: `e2e/regression.spec.ts`, `test/fixtures/documents/regression-set.test.ts`

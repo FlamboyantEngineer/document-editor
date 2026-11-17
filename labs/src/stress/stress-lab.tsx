@@ -88,6 +88,12 @@ function initialSize(sizes: StressLabOptions['sizes']): number {
   return sizes?.find(({ value }) => value === asked)?.value ?? sizes?.[0]?.value ?? 1;
 }
 
+// `?compare` shows the document's changes since it was opened as change bars, as a reader reviewing
+// changes sees it, so the budgets can be measured with a comparison running.
+const COMPARE = new URLSearchParams(window.location.search).has('compare')
+  ? ({ previous: 'opened', display: 'bars' } as const)
+  : undefined;
+
 function stateOf(file: DocumentFile): EditorState {
   const schema = createDocumentSchema();
   const state = EditorState.create({
@@ -227,6 +233,7 @@ function StressLab({ build, sizes, remote, threads }: StressLabOptions) {
         aria-label="Stress document"
         handleRef={handle}
         events={events}
+        compare={COMPARE}
         comments={
           review?.comments
             ? {

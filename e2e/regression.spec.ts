@@ -308,11 +308,14 @@ function storedNodes(file: DocumentFile, type: string): StoredNode[] {
 
 const ALL_DOCUMENTS: readonly { name: RegressionDocumentName; pages: number }[] = [
   { name: 'blockquotes', pages: 2 },
+  { name: 'caption-numbering', pages: 5 },
+  { name: 'code-block-stress', pages: 4 },
   { name: 'code-blocks', pages: 3 },
   { name: 'empty-sections', pages: 3 },
   { name: 'footnote-heavy', pages: 4 },
   { name: 'footnotes-in-structures', pages: 1 },
   { name: 'heading-keep-with-next', pages: 4 },
+  { name: 'list-split-stress', pages: 12 },
   { name: 'long-bullet-list-with-nesting', pages: 2 },
   { name: 'long-mixed', pages: 20 },
   { name: 'long-ordered-list', pages: 3 },
@@ -322,6 +325,7 @@ const ALL_DOCUMENTS: readonly { name: RegressionDocumentName; pages: number }[] 
   { name: 'oversized-blocks', pages: 12 },
   { name: 'page-breaks-and-rules', pages: 4 },
   { name: 'roman-and-alpha-numbering', pages: 6 },
+  { name: 'roman-numbering-coverage', pages: 14 },
   { name: 'roman-numbering-stress', pages: 4 },
   { name: 'table-both-header-modes', pages: 8 },
   { name: 'table-long-headerless', pages: 8 },
@@ -518,7 +522,11 @@ test.describe('list split stress', () => {
     expect(numbers).toEqual(numbers.map((_, index) => index + 1));
   });
 
-  for (const name of ['long-bullet-list-with-nesting', 'oversized-blocks'] as const) {
+  for (const name of [
+    'long-bullet-list-with-nesting',
+    'oversized-blocks',
+    'list-split-stress',
+  ] as const) {
     test(`DOCE-LABS-4.3 DOCE-PAGINATION-4.2 splits the lists of ${name} and shows every item`, async ({
       page,
     }) => {
@@ -614,6 +622,45 @@ test.describe('code block stress', () => {
       lines.push(...fragment.lines);
     }
     expect(lines.filter((line) => line.includes('reading = sensor.read'))).toHaveLength(150);
+  });
+
+  test('DOCE-LABS-4.5 DOCE-PAGINATION-3.3 splits long linked and authored code over pages', async ({
+    page,
+  }) => {
+    await openDocument(page, 'code-block-stress');
+    const pages = await pagesOf(page);
+    expectPagesHoldContent(pages);
+    // The pages each linked block shows on, by the order the document stores them in.
+    const linked = storedNodes(await storedOf(page), 'linkedCode').map((node) => node.attrs?.id);
+    const shownOn = await page
+      .locator('.de-document-editor__content .pm-page')
+      .evaluateAll((all) =>
+        all.map((each) =>
+          [...each.querySelectorAll('[data-id].linked-code-block')].map((block) =>
+            block.getAttribute('data-id'),
+          ),
+        ),
+      );
+    const pageCountOf = (id: unknown) => shownOn.filter((ids) => ids.includes(String(id))).length;
+    // One page; the whole file, the range from line 120 and the block after prose split.
+    expect(linked.map(pageCountOf).map((count) => count > 1)).toEqual([false, true, true, true]);
+    // The block after prose starts on a page that holds other content before it.
+    const mid = shownOn.findIndex((ids) => ids.includes(String(linked[3])));
+    expect(pages[mid]?.blocks.length ?? 0).toBeGreaterThan(1);
+    // The long authored blocks split, each fragment numbering its lines on from the last.
+    const authored = new Map<string, { lineStart: number; lines: string[] }[]>();
+    for (const fragment of pages.flatMap((each) => each.code)) {
+      if (fragment.id) authored.set(fragment.id, [...(authored.get(fragment.id) ?? []), fragment]);
+    }
+    const split = [...authored.values()].filter((fragments) => fragments.length > 1);
+    expect(split.length).toBe(2);
+    for (const fragments of split) {
+      let next = 1;
+      for (const fragment of fragments) {
+        expect(fragment.lineStart).toBe(next);
+        next += fragment.lines.length;
+      }
+    }
   });
 
   test('DOCE-LABS-4.5 DOCE-PAGINATION-4.4 splits a quoted code block longer than a page', async ({
@@ -843,6 +890,137 @@ test.describe('mixed geometry', () => {
       return `${roman(chapter)}.${String.fromCharCode(96 + part)} `;
     });
     expect(headings.map(({ label }) => label)).toEqual(expected);
+  });
+
+  test('DOCE-LABS-4.12 numbers Roman headings of three levels in lower- and upper-case sections', async ({
+    page,
+  }) => {
+    await openDocument(page, 'roman-numbering-coverage');
+    const pages = await pagesOf(page);
+    expectPagesHoldContent(pages);
+    const headingsOf = (section: string) =>
+      pages.filter((each) => each.section === section).flatMap((each) => each.headings);
+    // Each level's counter, the levels below it starting again under a new heading.
+    const numbered = (
+      headings: readonly HeadingRead[],
+      label: (counts: readonly number[], level: number) => string,
+    ) => {
+      const counts = [0, 0, 0];
+      return headings.map(({ level }) => {
+        counts[level - 1] = (counts[level - 1] ?? 0) + 1;
+        counts.fill(0, level);
+        return label(counts, level);
+      });
+    };
+    const front = headingsOf('front_matter');
+    expect(front.map(({ label }) => label)).toEqual(
+      numbered(front, ([chapter = 0, part = 0], level) =>
+        level === 1 ? `${roman(chapter)}. ` : `${roman(chapter)}.${roman(part)} `,
+      ),
+    );
+    const body = headingsOf('body');
+    expect(body.map(({ level }) => level)).toContain(3);
+    expect(body.map(({ label }) => label)).toEqual(
+      numbered(
+        body,
+        ([chapter = 0, part = 0, detail = 0], level) =>
+          [
+            `${roman(chapter).toUpperCase()}.`,
+            `${roman(chapter).toUpperCase()}.${String(part)}`,
+            `${roman(chapter).toUpperCase()}.${String(part)}.${roman(detail)}`,
+          ][level - 1] + ' ',
+      ),
+    );
+    const annex = headingsOf('annex');
+    expect(annex.map(({ label }) => label)).toEqual(['I- ', 'II- ', 'III- ']);
+  });
+
+  test('DOCE-LABS-4.12 numbers Roman lists on from their starts, past 3,999 and over pages', async ({
+    page,
+  }) => {
+    await openDocument(page, 'roman-numbering-coverage');
+    const pages = await pagesOf(page);
+    const numbersOf = new Map<string, number[]>();
+    const pagesOfList = new Map<string, number>();
+    for (const list of pages.flatMap((each) => each.lists)) {
+      const id = list.id ?? '';
+      const before = numbersOf.get(id) ?? [];
+      // An item split over pages shows its number again where it continues.
+      const continued = before.length > 0 && before.at(-1) === list.numbers[0];
+      numbersOf.set(id, [...before, ...list.numbers.slice(continued ? 1 : 0)]);
+      pagesOfList.set(id, (pagesOfList.get(id) ?? 0) + 1);
+    }
+    const stored = (await storedOf(page)).sections.flatMap((section) =>
+      section.content.filter((node) => node.type === 'orderedList'),
+    );
+    for (const list of stored) {
+      const start = Number(list.attrs?.start ?? 1);
+      const count = list.content?.length ?? 0;
+      expect(numbersOf.get(String(list.attrs?.id)), `list from ${String(start)}`).toEqual(
+        Array.from({ length: count }, (_, index) => start + index),
+      );
+    }
+    const starts = stored.map((list) => Number(list.attrs?.start ?? 1));
+    expect(starts).toEqual(expect.arrayContaining([4 - 1, 9 - 1, 3998, 3999, 7998, 12000]));
+    const long = stored.find((list) => (list.content?.length ?? 0) > 200);
+    expect(pagesOfList.get(String(long?.attrs?.id))).toBeGreaterThan(1);
+    // Lists number in their section's style: lower-case Roman in the body, upper-case in the annex.
+    const markers = await page.evaluate(() =>
+      [...document.querySelectorAll('.pm-section')].map((section) => [
+        section.getAttribute('data-section-name'),
+        [
+          ...new Set(
+            [...section.querySelectorAll('ol > li')].map(
+              (item) => getComputedStyle(item, '::marker').content,
+            ),
+          ),
+        ],
+      ]),
+    );
+    expect(Object.fromEntries(markers)).toMatchObject({
+      body: ['counter(ordered-list, de-lower-roman) ") "'],
+      annex: ['counter(ordered-list, de-upper-roman) ". "'],
+    });
+  });
+
+  test('DOCE-LABS-4.12 DOCE-LABS-4.13 lists each object kind with its number in its section', async ({
+    page,
+  }) => {
+    const numbers = async (name: RegressionDocumentName) => {
+      await openDocument(page, name);
+      return page.evaluate(() =>
+        Object.fromEntries(
+          [
+            ...document.querySelectorAll(
+              '.de-document-editor__content .de-contents[data-contents-type]',
+            ),
+          ]
+            .map((list) => [
+              list.getAttribute('data-contents-type'),
+              [...list.querySelectorAll('.de-contents__entry .de-contents__number')].map(
+                (number) => number.textContent,
+              ),
+            ])
+            .filter(([, entries]) => (entries?.length ?? 0) > 0),
+        ),
+      );
+    };
+    const each = (kind: string, labels: readonly string[]) =>
+      labels.map((label) => (kind === 'Eq.' ? `(Eq. ${label})` : `${kind} ${label}`));
+    const roman = ['I-1', 'I-2', 'II-1', 'II-2', 'III-1', 'III-2', 'I.i'];
+    expect(await numbers('roman-numbering-coverage')).toMatchObject({
+      figures: each('Figure', roman),
+      tables: each('Table', roman),
+      codeBlocks: each('Code Block', roman),
+      equations: each('Eq.', roman),
+    });
+    const sections = ['1.1', '1.2', '2.1', '2.2', '3.1', '3.2', 'A-1'];
+    expect(await numbers('caption-numbering')).toEqual({
+      figures: each('Figure', ['i', ...sections]),
+      tables: each('Table', sections),
+      codeBlocks: each('Code Block', sections),
+      equations: each('Eq.', ['i', ...sections]),
+    });
   });
 
   test('DOCE-LABS-4.10 numbers the Roman body and the alphabetic annex of one document', async ({
