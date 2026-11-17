@@ -9,7 +9,7 @@ The template editor edits a template's own settings beside the document it style
 `TemplateEditor` shall show a template's settings in a searchable `PropertyPanel` (`de-template-editor`, named by `panel`), by section (`TEMPLATE_SECTIONS`), each setting a property row with the base library's field for its kind: text, a length (kept once it reads as one, such as `12pt` or `20mm`), a number, a colour, a yes-or-no that may be unset, a choice from a list, or one of a few as segments (DOCE-TEMPLATE-EDITOR-1.7), a row marked overridden while the template sets its value. A field holds the template's own value and, while it has none, shows the value `resolved` gives it from its parents (`inherited`); a field emptied, or whose menu's Reset to inherited value is picked, inherits again (`withSetting` given null leaves the setting out, and the objects it leaves empty), and a row has no reset button of its own (DOCE-TEMPLATE-EDITOR-1.13). After page setup, the Text styles section shall hold a card for each built-in style, in reading order (`TEXT_STYLES`: title, headings 1 to 6, paragraph), named by the style and summing up its font, size and spacing, marked overridden while the scope sets any of it. A card's rows are its font and size (in points); its weight, slant and underline as toggles that go from inherited, shown mixed, to on, off and inherited again, and its alignment as segments drawn as the base library's text alignment glyphs, justified for the paragraph only; its colour; its space before and after (in points); its line height; for the paragraph its indentation; and for a heading its numbering: whether it numbers, the text before the number, its format and the text after. The other sections' cards take the same rows for the parts of a style they hold (`StylePart`). The code block's text is in the Code blocks section.
 
 Implementation: `src/components/template-editor/template-editor.tsx`, `src/components/template-editor/setting-row.tsx`, `src/components/template-editor/template-settings.ts`, `src/components/template-editor/style-sections.tsx`, `src/components/template-editor/style-fields.tsx`, `src/components/template-editor/style-rows.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`, `src/components/template-editor/setting-row.test.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/template-editor.test.tsx`, `src/components/template-editor/setting-row.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.2 - Following the document
 
@@ -75,21 +75,21 @@ Every setting of the template format (`TEMPLATE_SHAPE`) shall have a row, so a t
 A setting of a level writes that entry of the list, with `null` for each earlier entry the template does not set, so it inherits its parent's entry at that index; a list whose entries all inherit is left out. A template section shows only what a section may set: not the contents, the references or the footnote numbering.
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/object-settings.ts`, `src/components/template-editor/template-rows.tsx`, `src/components/template-editor/template-settings.ts`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/settings-catalog.test.ts`, `src/components/template-editor/template-settings.test.ts`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/settings-catalog.test.ts`, `src/components/template-editor/template-settings.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.10 - Renaming and deleting a custom style
 
 Renaming a custom style of the document's settings shall rename it with what refers to it in the template (`withCustomStyleRenamed`): a section's override of the style, and each block of the template's content in the style; deleting it shall take it out of the sections too and take it off those blocks. In a section's settings, renaming or deleting changes the section's own styles. While the name typed may not be taken, the field shall say why (`customStyleNameError`): it is not a letter followed by up to fifteen letters, digits, `_` or `-`, or another style has it.
 
 Implementation: `src/components/template-editor/custom-style-names.ts`, `src/components/template-editor/style-sections.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/custom-style-names.test.ts`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/custom-style-names.test.ts`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.11 - References
 
 A References section shall hold a Format card, with the format of each reference format key (`referenceFormatKeys`), named by what it points to, then a card (`Links to the target`) with whether each links to its target. The host's reference types besides other documents (`referenceTypes`, each with what its targets are in) add their keys. The first format says which tokens a format may use and that an empty one inherits; a format that is not valid (`referenceFormatError`) shall show why on its field.
 
 Implementation: `src/components/template-editor/settings-catalog.ts`, `src/components/template-editor/setting-controls.tsx`
-Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`, `src/components/template-editor/template-editor.test.tsx`
+Verification: `e2e/template-editor.spec.ts`, `src/components/template-editor/setting-row.test.tsx`, `src/components/template-editor/template-editor.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-1.12 - Lists of contents
 
@@ -254,7 +254,7 @@ Verification: `src/components/template-workspace/template-workspace-layout.test.
 With `debug`, Control+Alt+B in the workspace shall show the open template's JSON editor (`json`, a region named by `json`, DOCE-TEMPLATE-EDITOR-2.7) in place of the preview, and the preview again on the next press; the root publishes `data-view="json"` while it shows. Save is disabled while the text is not a valid template. A held key's repeats and a key pressed during a text composition do nothing, and without `debug` the keys do nothing.
 
 Implementation: `src/components/template-workspace/template-workspace.tsx`, `src/components/template-workspace/workspace-parts.tsx`, `src/components/template-workspace/workspace-json.tsx`
-Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`
+Verification: `src/components/template-workspace/template-workspace-layout.test.tsx`, `e2e/template-workspace.spec.ts`
 
 ### DOCE-TEMPLATE-EDITOR-3.14 - The open dialog
 

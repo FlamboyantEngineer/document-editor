@@ -1,16 +1,6 @@
-import { readFileSync } from 'node:fs';
 import type { Locator, Page } from '@playwright/test';
-import { expect, test, waitForLab } from './fixtures.js';
-import {
-  closeCard,
-  openCard,
-  pickIn,
-  sectionOf,
-  setField,
-  type SettingStep,
-  settingSteps,
-  withoutEmptyText,
-} from './template-settings-steps.js';
+import { expect, test } from './fixtures.js';
+import { sectionOf } from './template-settings-steps.js';
 
 const panel = (page: Page) =>
   page.getByRole('region', { name: 'Template settings' }).or(page.locator('.de-template-editor'));
@@ -348,71 +338,6 @@ test.describe('template editor lab', () => {
     expect(await css(heading, 'fontSize')).toBe('20px');
     expect(await css(heading.locator('xpath=following-sibling::p[1]'), 'fontSize')).toBe('12px');
     expect(await css(list, 'paddingLeft')).toBe('32px');
-  });
-
-  test('DOCE-TEMPLATE-EDITOR-1.9 DOCE-TEMPLATE-EDITOR-1.10 DOCE-TEMPLATE-EDITOR-1.11 writes a whole template field by field', async ({
-    page,
-  }) => {
-    // About 350 fields, each typed, picked or pressed: some 2 minutes here, several times that on a
-    // shared CI runner.
-    test.setTimeout(600_000);
-    const fixture = withoutEmptyText(
-      JSON.parse(
-        readFileSync(
-          new URL('../test/fixtures/templates/field-report.json', import.meta.url),
-          'utf8',
-        ),
-      ),
-    ) as Record<string, unknown>;
-    // What other parts of the editor set: the identity, the sections, the regions' content and
-    // the host's extensions.
-    const leftOut = ['formatVersion', 'id', 'parent', 'sections', 'extensions'];
-    const steps = settingSteps(fixture, [...leftOut, 'name', 'header.content', 'footer.content']);
-    // The settings alone: the template is read back from its JSON.
-    await page.goto('template-editor.html?document=none');
-    await waitForLab(page);
-    const settings = panel(page).first();
-    const name = sectionOf(settings, 'Identity').getByRole('textbox', { name: 'Name' });
-    await name.fill(String(fixture.name));
-    await name.press('Enter');
-    // Each custom style, added and renamed.
-    const styles = sectionOf(settings, 'Custom styles');
-    const custom = Object.keys((fixture.styles as { custom: Record<string, unknown> }).custom);
-    for (const [index, name] of custom.entries()) {
-      await styles.getByRole('button', { name: 'Add a style' }).click();
-      const added = await openCard(styles, `style_${String(index + 1)}`);
-      const field = added.getByRole('textbox', { name: 'Name' });
-      await field.fill(name);
-      await field.press('Enter');
-      await expect(styles.locator('.ui-property-card__name', { hasText: name })).toHaveCount(1);
-    }
-    // The steps by section and card, each card open only while its fields are set.
-    const groups = new Map<string, SettingStep[]>();
-    for (const step of steps) {
-      const picks = (step.picks ?? []).map((each) => each.option).join('/');
-      const key = `${step.section}\u0000${picks}\u0000${step.card ?? ''}`;
-      groups.set(key, [...(groups.get(key) ?? []), step]);
-    }
-    for (const group of groups.values()) {
-      const [first] = group;
-      if (!first) continue;
-      const section = sectionOf(settings, first.section);
-      await pickIn(section, first.picks);
-      const scope = first.card ? await openCard(section, first.card) : section;
-      for (const step of group) await setField(scope, step);
-      if (first.card) await closeCard(section, first.card);
-    }
-    await page.getByLabel('Edit as JSON').check();
-    const json = page.getByRole('textbox', { name: 'Template JSON' });
-    const written = JSON.parse(await json.inputValue()) as Record<string, unknown>;
-    const expected = structuredClone(fixture) as Record<string, Record<string, unknown>>;
-    for (const key of leftOut) {
-      delete written[key];
-      delete expected[key];
-    }
-    delete expected.header?.content;
-    delete expected.footer?.content;
-    expect(written).toEqual(expected);
   });
 
   test('DOCE-TEMPLATE-EDITOR-2.1 DOCE-TEMPLATE-EDITOR-2.3 DOCE-TEMPLATE-EDITOR-2.4 renames, moves and deletes a section, the scope following it by name', async ({

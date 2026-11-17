@@ -342,3 +342,47 @@ export async function setField(scope: Locator, step: SettingStep): Promise<void>
     }
   }
 }
+
+/**
+ * Writes a template into the editor's panel field by field, as a writer does: its name, each
+ * custom style added and renamed, then every setting, each card open only while its fields are
+ * set. The keys left out, and the regions' content, are set elsewhere.
+ */
+export async function writeFields(
+  settings: Locator,
+  template: Record<string, unknown>,
+  leftOut: readonly string[],
+): Promise<void> {
+  const steps = settingSteps(template, [...leftOut, 'name', 'header.content', 'footer.content']);
+  // A name is written on Enter.
+  const name = sectionOf(settings, 'Identity').getByRole('textbox', { name: 'Name' });
+  await name.fill(String(template.name));
+  await name.press('Enter');
+  const styles = sectionOf(settings, 'Custom styles');
+  const custom = Object.keys(
+    (template.styles as { custom?: Record<string, unknown> }).custom ?? {},
+  );
+  for (const [index, name] of custom.entries()) {
+    await styles.getByRole('button', { name: 'Add a style' }).click();
+    const added = await openCard(styles, `style_${String(index + 1)}`);
+    const field = added.getByRole('textbox', { name: 'Name' });
+    await field.fill(name);
+    await field.press('Enter');
+    await expect(styles.locator('.ui-property-card__name', { hasText: name })).toHaveCount(1);
+  }
+  const groups = new Map<string, SettingStep[]>();
+  for (const step of steps) {
+    const picks = (step.picks ?? []).map((each) => each.option).join('/');
+    const key = `${step.section}\u0000${picks}\u0000${step.card ?? ''}`;
+    groups.set(key, [...(groups.get(key) ?? []), step]);
+  }
+  for (const group of groups.values()) {
+    const [first] = group;
+    if (!first) continue;
+    const section = sectionOf(settings, first.section);
+    await pickIn(section, first.picks);
+    const scope = first.card ? await openCard(section, first.card) : section;
+    for (const step of group) await setField(scope, step);
+    if (first.card) await closeCard(section, first.card);
+  }
+}
