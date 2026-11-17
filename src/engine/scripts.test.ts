@@ -3,7 +3,7 @@ import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
-import type { ScriptRunRequest } from '../host/index.js';
+import { createMemoryHost, type ScriptRunRequest } from '../host/index.js';
 import { readDocumentFile, type StoredContent, writeDocumentFile } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
 import { listScriptBlocks } from './script-output.js';
@@ -368,6 +368,35 @@ describe('script blocks', () => {
       { id: 'a0000001', status: 'error', message: 'Broken' },
       { id: 'a0000003', status: 'empty', message: undefined },
     ]);
+    view.destroy();
+  });
+
+  it('DOCE-HOST-1.11 DOCE-OBJECTS-4.2 renders what a host macro returns, and reports a failing or refused macro, keeping the output', async () => {
+    // The host's own catalog, reached only through its runner: one macro it allows, one it refuses.
+    const catalog: Record<string, () => string> = { reviewers: () => 'Ada, Grace' };
+    const allowed = new Set(['reviewers']);
+    let fails = false;
+    const host = createMemoryHost({
+      scripts: ({ source }) => {
+        const name = /^macro\("(\w+)"\)$/.exec(source)?.[1] ?? '';
+        if (!allowed.has(name)) throw new Error(`Macro ${name} is not allowed`);
+        if (fails) throw new Error(`Macro ${name} failed`);
+        const text = catalog[name]?.() ?? '';
+        return [{ type: 'paragraph', content: [{ type: 'text', text }] }];
+      },
+    });
+    if (!host.scripts) throw new Error('The host runs scripts.');
+    const view = viewWith('macro("reviewers")', 'macro("salaries")');
+    expect(await runScripts(view, host.scripts)).toEqual(['a0000002']);
+    const [ran, refused] = listScriptBlocks(view.state.doc);
+    expect(ran?.node.textContent).toBe('Ada, Grace');
+    expect(refused?.node.childCount).toBe(0);
+    expect(scriptsState(view.state).failed.get('a0000002')).toBe('Macro salaries is not allowed');
+    const stored = writeDocumentFile(view.state.doc);
+    fails = true;
+    expect(await runScripts(view, host.scripts, { ids: ['a0000001'] })).toEqual(['a0000001']);
+    expect(scriptsState(view.state).failed.get('a0000001')).toBe('Macro reviewers failed');
+    expect(writeDocumentFile(view.state.doc)).toEqual(stored);
     view.destroy();
   });
 

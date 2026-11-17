@@ -217,7 +217,7 @@ test.describe('template workspace lab', () => {
     await expect(saveButton(page)).toBeEnabled();
   });
 
-  test('DOCE-TEMPLATE-EDITOR-3.11 lays the properties out without overflow or overlap at 420 and 500 pixels', async ({
+  test('DOCE-TEMPLATE-EDITOR-3.11 lays the properties out without overflow or overlap at 300, 420 and 500 pixels', async ({
     lab,
     page,
   }) => {
@@ -233,9 +233,7 @@ test.describe('template workspace lab', () => {
     );
     while ((await closed.count()) > 0) await closed.first().click();
     const separator = panel(page).getByRole('separator');
-    // At 300 pixels the base library's reference styles keep the margins strip and its unit on one
-    // line, a few pixels wider than the panel; that is the base library's to change.
-    for (const width of [420, 500]) {
+    for (const width of [300, 420, 500]) {
       // The panel sits at the end edge: dragging its edge left widens it.
       const now = (await panel(page).boundingBox())?.width ?? 0;
       const handle = await separator.boundingBox();
