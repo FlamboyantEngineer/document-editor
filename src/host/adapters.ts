@@ -308,6 +308,12 @@ export interface ScriptRunOutput {
   signatures?: ScriptSignature[] | null | undefined;
 }
 
+/** What a script is checked in: the block it is for, null for a new one, and the document. */
+export interface ScriptCheckContext {
+  readonly blockId: string | null;
+  readonly document: DocumentFile;
+}
+
 /** Runs a document's scripts, producing the content each script block shows. */
 export interface ScriptRunnerAdapter {
   /** What a script produces, run against the document as it is; the signal stops it. */
@@ -322,8 +328,17 @@ export interface ScriptRunnerAdapter {
   ): Promise<HostResult<string>>;
   /** The names a script can use, which the script editor completes and documents. */
   readonly vocabulary?: readonly ScriptVocabularyEntry[] | undefined;
-  /** Checks a script without running it; an error keeps it from being applied. */
-  check?(source: string, signal?: AbortSignal): Promise<HostResult<readonly ScriptDiagnostic[]>>;
+  /**
+   * Whether the script editor offers the standard names and keywords after `vocabulary`. `false`
+   * when `vocabulary` is every name a script can use. Defaults to `true`.
+   */
+  readonly standardVocabulary?: boolean | undefined;
+  /** Checks a script without running it, where it is; an error keeps it from being applied. */
+  check?(
+    source: string,
+    signal?: AbortSignal,
+    context?: ScriptCheckContext,
+  ): Promise<HostResult<readonly ScriptDiagnostic[]>>;
 }
 
 /** A citation of another document, or of a target in it, that a host found. */

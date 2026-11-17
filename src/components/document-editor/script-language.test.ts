@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ScriptVocabularyEntry } from '../../host/index.js';
-import { groupScriptVocabulary, scriptCompletions, scriptEntryAt } from './script-language.js';
+import {
+  groupScriptVocabulary,
+  SCRIPT_STANDARD_VOCABULARY,
+  scriptCompletions,
+  scriptEntryAt,
+} from './script-language.js';
 
 const VOCABULARY: ScriptVocabularyEntry[] = [
   { name: 'render', kind: 'object', description: 'Builds blocks.' },
@@ -29,6 +34,18 @@ describe('script language', () => {
         documentation: 'Adds a paragraph.',
       }),
     ]);
+  });
+
+  it('DOCE-EDITOR-4.9 completes the host names, then the standard objects and the keywords, in one list', () => {
+    const host: ScriptVocabularyEntry[] = [
+      { name: 'render', kind: 'object' },
+      { name: 'summary_block', kind: 'snippet', insertText: 'include("summary_block")' },
+    ];
+    const labels = scriptCompletions([...host, ...SCRIPT_STANDARD_VOCABULARY], '', 0).options.map(
+      (option) => option.label,
+    );
+    expect(labels.slice(0, 2)).toEqual(['render', 'summary_block']);
+    expect(labels).toEqual(expect.arrayContaining(['Math', 'JSON', 'Date', 'const', 'return']));
   });
 
   it('DOCE-EDITOR-4.9 documents the name under the pointer and groups the reference by object', () => {

@@ -12,6 +12,7 @@ import type {
   ExternalReference,
   GlossaryAdapter,
   IdentityAdapter,
+  ScriptCheckContext,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptRunRequest,
@@ -67,8 +68,11 @@ export interface MemoryHostOptions {
   scriptInputsKey?: ((request: Omit<ScriptRunRequest, 'purpose'>) => string) | undefined;
   /** The names the scripts can use, which the script editor completes and documents. */
   scriptVocabulary?: readonly ScriptVocabularyEntry[] | undefined;
-  /** Checks a script without running it, returning its problems. */
-  checkScript?: ((source: string) => readonly ScriptDiagnostic[]) | undefined;
+  /** Checks a script without running it, where it is, returning its problems. */
+  checkScript?:
+    ((source: string, context?: ScriptCheckContext) => readonly ScriptDiagnostic[]) | undefined;
+  /** Whether the script editor offers the standard names after `scriptVocabulary`. */
+  standardScriptVocabulary?: boolean | undefined;
   /** The time a document is saved at, which its version records. Defaults to now. */
   now?: (() => Date) | undefined;
   /** Answers a completion request; without it the host has no completion provider. */
@@ -177,12 +181,16 @@ function createMemoryCodeSource(files: Readonly<Record<string, string>>): CodeSo
 /** Runs scripts with the function given, its throw an `unavailable` failure with the thrown message. */
 function createMemoryScripts(
   produce: NonNullable<MemoryHostOptions['scripts']>,
-  { scriptVocabulary, checkScript, scriptInputsKey }: MemoryHostOptions,
+  { scriptVocabulary, standardScriptVocabulary, checkScript, scriptInputsKey }: MemoryHostOptions,
 ): ScriptRunnerAdapter {
   return {
     vocabulary: scriptVocabulary,
+    standardVocabulary: standardScriptVocabulary,
     ...(checkScript
-      ? { check: (source: string) => Promise.resolve({ ok: true, value: checkScript(source) }) }
+      ? {
+          check: (source: string, _signal?: AbortSignal, context?: ScriptCheckContext) =>
+            Promise.resolve({ ok: true, value: checkScript(source, context) }),
+        }
       : {}),
     ...(scriptInputsKey
       ? {
