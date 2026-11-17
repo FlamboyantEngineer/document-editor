@@ -6,6 +6,7 @@ import {
 } from '@flamboyantengineer/collaboration-tools/server';
 import { connectToServer } from '@flamboyantengineer/collaboration-tools/testing';
 import * as Y from '@y/y';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type Command, EditorState, type Transaction } from 'prosemirror-state';
 import { describe, expect, it, vi } from 'vitest';
 import { headlessEditor, readFixture, undoManagerOf } from '../../test/collab-fixtures.js';
@@ -29,6 +30,7 @@ import {
 import { suggestTransaction } from '../engine/suggestions.js';
 import { createMemoryHost } from '../host/index.js';
 import { type DocumentFile, readDocumentFile } from '../model/index.js';
+import { createFigure } from '../model/schema/caption-content.js';
 import { createRoomCommentStore } from './comment-store.js';
 import {
   documentToYjs,
@@ -1429,6 +1431,94 @@ describe('DOCE-COLLAB-7.2 DOCE-OBJECTS-2.1 captions in a guarded room', () => {
         expect(room.provider.getState().refusal).toBe('unauthorized-write');
         expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
       }
+    } finally {
+      await room.close();
+    }
+  });
+
+  // The room's document with a node added after its paragraph, built without the schema's checks,
+  // as a writer sending raw content could.
+  const withRaw = (doc: Y.Doc, added: ProseMirrorNode) => {
+    const held = readContent(schema, doc.get('content'));
+    if (!held) throw new Error('Missing seeded content.');
+    let at = -1;
+    held.descendants((each, pos) => {
+      if (at < 0 && each.type.name === 'paragraph') at = pos;
+      return at < 0;
+    });
+    const $at = held.resolve(at);
+    let next = $at.parent.copy($at.parent.content.addToEnd(added));
+    for (let depth = $at.depth - 1; depth >= 0; depth -= 1) {
+      const node = $at.node(depth);
+      next = node.copy(node.content.replaceChild($at.index(depth), next));
+    }
+    doc.get('content').applyDelta(diffNodes(held, next) as never);
+  };
+
+  it('refuses even an editor a table, table holder or figure that is not whole', async () => {
+    const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+    const caption = figure?.firstChild;
+    const table = figure?.lastChild;
+    const image = createFigure(schema, { src: 'https://example.com/a.png' }, 'Board');
+    const block = schema.nodes.paragraph?.create(null, schema.text('Block'));
+    if (figure?.type.name !== 'table_figure' || !caption || !table || !image || !block) {
+      throw new Error('No table with its caption.');
+    }
+    const shapes: [string, ProseMirrorNode][] = [
+      ['a table with no holder', table],
+      ['a holder without its caption', figure.type.create(null, [table])],
+      ['a holder with two captions', figure.type.create(null, [caption, caption, table])],
+      ['a figure without its caption', image.type.create(image.attrs, [])],
+      [
+        'a block inside a caption',
+        figure.type.create(null, [caption.type.create(caption.attrs, [block]), table]),
+      ],
+    ];
+    for (const [name, shape] of shapes) {
+      const room = await setup({ granted: editor });
+      try {
+        withRaw(room.doc, shape);
+        await room.provider.whenStored();
+        expect(room.provider.getState().refusal, name).toBe('unauthorized-write');
+        expect(yjsToDocument(room.handle.snapshot(), { schema }), name).toEqual(file('Original'));
+      } finally {
+        await room.close();
+      }
+    }
+  });
+
+  // Suggesting a whole table or figure, its caption and table marked as inserted, comes with
+  // captions that hold suggestions; until then a suggester cannot insert one.
+  it('refuses a suggester a whole table with its caption, even marked as the suggester’s', async () => {
+    const room = await setup();
+    try {
+      const figure = stateOf('Limits').doc.firstChild?.firstChild?.child(1)?.firstChild;
+      if (figure?.type.name !== 'table_figure') throw new Error('No table with its caption.');
+      change(room.doc, (state) => {
+        let end = -1;
+        state.doc.descendants((each, pos) => {
+          if (end < 0 && each.type.name === 'paragraph') end = pos + each.nodeSize;
+          return end < 0;
+        });
+        // The suggestion engine makes no such change; a writer sending raw content could.
+        const insertion = schema.marks.insertion;
+        if (!insertion) throw new Error('Missing insertion.');
+        const tr = state.tr.insert(end, figure);
+        const suggested = tr.addMark(
+          end,
+          end + figure.nodeSize,
+          insertion.create({ dataId: 's0000002', dataAuthor: 'writer' }),
+        );
+        let marked = 0;
+        suggested.doc.descendants((each) => {
+          if (each.isText && each.marks.some((mark) => mark.type === insertion)) marked += 1;
+        });
+        expect(marked).toBe(2);
+        return state.apply(suggested);
+      });
+      await room.provider.whenStored();
+      expect(room.provider.getState().refusal).toBe('unauthorized-write');
+      expect(yjsToDocument(room.handle.snapshot(), { schema })).toEqual(file('Original'));
     } finally {
       await room.close();
     }
