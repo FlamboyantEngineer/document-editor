@@ -3,6 +3,7 @@
 // resolves. Each changes the object selected, or inserts one where the selection is.
 
 import { MathPreview } from '@flamboyantengineer/ui-components/math-preview';
+import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { TextField } from '@flamboyantengineer/ui-components/text-field';
 import type { EditorView } from 'prosemirror-view';
 import { type ComponentType, Suspense, useCallback, useState } from 'react';
@@ -57,6 +58,8 @@ interface ObjectDialogsProps {
   readonly scriptRunner?: ScriptRunnerAdapter | undefined;
   /** The template references are formatted by. */
   readonly template: TemplateFile;
+  /** The host's node views, which the script preview draws as the editor does. */
+  readonly nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
   /** The host's own dialogs by name, which `openDialog({ kind: 'host', name })` opens. */
   readonly dialogs?: Readonly<Record<string, ComponentType<HostDialogProps>>> | undefined;
   readonly onClose: () => void;
@@ -233,7 +236,12 @@ function HostedDialog({
       return glossary ? <AbbreviationDialog {...shared} glossary={glossary} /> : null;
     case 'script':
       return scriptRunner ? (
-        <ScriptDialog {...shared} runner={scriptRunner} template={hosted.template} />
+        <ScriptDialog
+          {...shared}
+          runner={scriptRunner}
+          template={hosted.template}
+          nodeViews={hosted.nodeViews}
+        />
       ) : null;
     case 'linked-code':
       return codeSource ? <LinkedCodeDialog {...shared} codeSource={codeSource} /> : null;

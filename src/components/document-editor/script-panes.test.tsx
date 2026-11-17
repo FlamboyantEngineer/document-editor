@@ -4,10 +4,11 @@ import { EditorView } from 'prosemirror-view';
 import { describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../../test/document-markup.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { contentsKey, createDocumentEditing, dynamicTemplatesKey } from '../../engine/index.js';
 import type { ScriptRunnerAdapter } from '../../host/index.js';
 import { readDocumentFile, type StoredContent, type TemplateFile } from '../../model/index.js';
 import { DEFAULT_EDITOR_LABELS as labels } from './editor-labels.js';
-import { previewCounters, previewScript, ScriptPreview } from './script-panes.js';
+import { drawingPlugins, previewCounters, previewScript, ScriptPreview } from './script-panes.js';
 
 const TEMPLATE: TemplateFile = { formatVersion: 1, id: 'article' };
 
@@ -178,5 +179,85 @@ describe('previewScript', () => {
         objects: { figure: 2, table: 1, codeBlock: 0, equation: 4 },
       }),
     ).toBe('h1 3 h2 0 h3 0 h4 0 h5 0 h6 0 figure 2 table 1 codeblock 0 equation 4 ordered-list 0');
+  });
+
+  it('DOCE-EDITOR-4.9 shows the output in the section its block is in', async () => {
+    const { doc } = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          { name: 'summary', content: [{ type: 'paragraph' }] },
+          { name: 'results', content: [{ type: 'script', attrs: { source: 'count()' } }] },
+        ],
+      },
+      documentSchema,
+    );
+    const view = new EditorView(document.createElement('div'), {
+      state: EditorState.create({ doc }),
+    });
+    let at = -1;
+    doc.descendants((node, pos) => {
+      if (node.type.name === 'script_block') at = pos;
+    });
+    const runner = producing([{ type: 'paragraph', content: [{ type: 'text', text: 'Twelve' }] }]);
+    const preview = await previewScript(view, runner, {
+      source: 'count()',
+      at,
+      template: TEMPLATE,
+      labels,
+    });
+    if (preview.status !== 'ready') throw new Error('The preview is ready.');
+    expect(preview.document?.firstChild?.attrs.sectionName).toBe('results');
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.9 draws the output as the editor draws the document, its math typeset', async () => {
+    const view = editorView();
+    const runner = producing([{ type: 'mathBlock', attrs: { source: 'x^2' } }]);
+    const preview = await previewScript(view, runner, {
+      source: 'equation()',
+      at: 0,
+      template: TEMPLATE,
+      labels,
+    });
+    const editing = EditorState.create({
+      schema: documentSchema,
+      plugins: createDocumentEditing(documentSchema),
+    });
+    const plugins = drawingPlugins(editing);
+    expect(plugins.length).toBeGreaterThan(0);
+    expect(plugins.every((plugin) => plugin.props.nodeViews)).toBe(true);
+    // The layout adds its own template content and lists of contents, the preview's too.
+    const keys = plugins.map((plugin) => plugin.spec.key);
+    expect(keys).not.toContain(dynamicTemplatesKey);
+    expect(keys).not.toContain(contentsKey);
+    render(
+      <ScriptPreview
+        template={TEMPLATE}
+        labels={labels}
+        preview={preview}
+        onRefresh={() => undefined}
+        views={{ plugins }}
+      />,
+    );
+    expect(document.querySelector('.de-script-editor__preview .de-math')).toHaveAttribute(
+      'data-display',
+      'display',
+    );
+    view.destroy();
+  });
+
+  it('DOCE-EDITOR-4.9 keeps the preview from running while the script has problems', () => {
+    render(
+      <ScriptPreview
+        template={TEMPLATE}
+        labels={labels}
+        preview={{ status: 'idle' }}
+        onRefresh={() => undefined}
+        blocked
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Refresh preview' })).toBeDisabled();
+    expect(status()).toHaveTextContent('Fix the problems in the script to preview it.');
   });
 });

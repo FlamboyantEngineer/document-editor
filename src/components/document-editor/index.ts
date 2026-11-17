@@ -51,6 +51,10 @@ export {
   PRESENCE_VISIBLE,
 } from './presence-avatars.js';
 export type { EditorSession, EditorSessionDocument } from './save-status-item.js';
+export type { ScriptCheck, ScriptEditorProps } from './script-editor.js';
+export { ScriptEditor, useScriptCheck } from './script-editor.js';
+export { SCRIPT_STANDARD_VOCABULARY } from './script-language.js';
+export type { ScriptPreviewState, ScriptPreviewViews } from './script-panes.js';
 export type { SelectionToolbarOptions } from './selection-toolbar.js';
 export { SELECTION_TOOLBAR_GROUPS } from './selection-toolbar.js';
 export type { SlashMenuItem, SlashMenuOptions } from './slash-menu.js';

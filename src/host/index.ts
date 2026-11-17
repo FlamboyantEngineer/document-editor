@@ -22,6 +22,7 @@ export type {
   ReferenceSourceAdapter,
   ResolvedCode,
   SavedState,
+  ScriptCheckContext,
   ScriptDiagnostic,
   ScriptRunnerAdapter,
   ScriptRunOutput,
