@@ -13,16 +13,16 @@ Generic stored documents (`DocumentFile`, [FORMAT.md](../../../specs/FORMAT.md))
 
 ## Templates
 
-| Template                    | Shape                                                                                                                                                                                |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `regression-base`           | A4 portrait; numbered headings (`1.`, `1.1`, `1.1.1`), paragraphs and captions; repeated table headers; header and footer with page variables; document-wide footnote numbers.       |
-| `regression-mixed-geometry` | Inherits the base. An A5 cover with empty regions, a US Legal body, and an A4 landscape appendix that restarts numbering as `A.` and `A.1` and inherits the footer.                  |
-| `regression-numbering`      | Inherits the base. Lower-case Roman front matter (`i.`), upper-case Roman body (`I.`, `I.1`, `I.1.a`) and an alphabetic annex (`A-`, `A-1`, paragraphs `a)`).                        |
-| `regression-roman`          | Inherits the base. Lower-case Roman front matter (`i.`, `i.i`), an upper-case body (`I.`, `I.1`, `I.1.i`, lists `i)`, objects `I-1`) and an annex (`I-`, lists `I.`, objects `I.i`). |
-| `regression-captions`       | Inherits the base. Objects numbered `i` in the front matter, `1.1` under each body chapter and `A-1` in the annex.                                                                   |
-| `regression-locked`         | Inherits the base. Required, optional, insertable and locked (`editable: false`) sections, with fixed content and a placeholder.                                                     |
-| `regression-tables`         | Inherits the base. One section repeats table headers on every page, the other shows them on the first page only.                                                                     |
-| `regression-footnotes`      | Inherits the base. US Letter, footnotes numbered per page, with their own spacing and text style.                                                                                    |
+| Template                    | Shape                                                                                                                                                                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `regression-base`           | A4 portrait; numbered headings (`1.`, `1.1`, `1.1.1`), paragraphs and captions; repeated table headers; header and footer with page variables; document-wide footnote numbers.                                                          |
+| `regression-mixed-geometry` | Inherits the base. An A5 cover with empty regions, a US Legal body, and an A4 landscape appendix that restarts numbering as `A.` and `A.1`, inherits the footer, and has change bars of its own: teal insertions, no modification bars. |
+| `regression-numbering`      | Inherits the base. Lower-case Roman front matter (`i.`), upper-case Roman body (`I.`, `I.1`, `I.1.a`) and an alphabetic annex (`A-`, `A-1`, paragraphs `a)`).                                                                           |
+| `regression-roman`          | Inherits the base. Lower-case Roman front matter (`i.`, `i.i`), an upper-case body (`I.`, `I.1`, `I.1.i`, lists `i)`, objects `I-1`) and an annex (`I-`, lists `I.`, objects `I.i`).                                                    |
+| `regression-captions`       | Inherits the base. Objects numbered `i` in the front matter, `1.1` under each body chapter and `A-1` in the annex.                                                                                                                      |
+| `regression-locked`         | Inherits the base. Required, optional, insertable and locked (`editable: false`) sections, with fixed content and a placeholder.                                                                                                        |
+| `regression-tables`         | Inherits the base. One section repeats table headers on every page, the other shows them on the first page only.                                                                                                                        |
+| `regression-footnotes`      | Inherits the base. US Letter, footnotes numbered per page, with their own spacing and text style.                                                                                                                                       |
 
 ## Documents
 
