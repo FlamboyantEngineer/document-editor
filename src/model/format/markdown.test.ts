@@ -114,6 +114,29 @@ describe('writeMarkdown', () => {
     expect(markdown).toContain('$$\nb_1\n$$');
   });
 
+  it('DOCE-FORMAT-4.1 DOCE-EMBEDS-1.4 writes an inline embed as its text, in its text style', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            paragraph(
+              text('Total '),
+              {
+                type: 'embed_inline',
+                marks: [{ type: 'bold' }],
+                attrs: { kind: 'cell', source: 'book!B2', text: '42' },
+              },
+              text(' units'),
+            ),
+          ],
+        },
+      ],
+    };
+    expect(writeMarkdown(file)).toContain('Total **42** units');
+  });
+
   it('DOCE-FORMAT-4.1 writes a link by its address, and as its text when the address could run script', () => {
     const linked = (href: string): StoredNode => ({
       type: 'text',

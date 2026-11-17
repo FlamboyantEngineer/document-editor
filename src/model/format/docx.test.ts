@@ -73,6 +73,32 @@ describe('writeDocx', () => {
     expect(document).toContain('b_1');
   });
 
+  it('DOCE-FORMAT-5.2 DOCE-EMBEDS-1.4 writes an inline embed as its text, in its text style', () => {
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                text('Total '),
+                {
+                  type: 'embed_inline',
+                  marks: [{ type: 'bold' }],
+                  attrs: { kind: 'cell', source: 'book!B2', text: '42' },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const document = readStored(writeDocx(file)).get('word/document.xml') ?? '';
+    expect(document).toMatch(/<w:b\/>.*<w:t[^>]*>42<\/w:t>/);
+  });
+
   it('DOCE-FORMAT-5.2 writes headings, formats, lists, tables, links and footnotes', () => {
     const file: DocumentFile = {
       formatVersion: 1,

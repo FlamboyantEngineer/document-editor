@@ -21,7 +21,7 @@ import {
   type Step,
 } from 'prosemirror-transform';
 import type { EmbedContent, EmbedSource } from '../host/index.js';
-import { isEmbed, readStoredContent } from '../model/index.js';
+import { isEmbed, isInlineEmbed, readStoredContent } from '../model/index.js';
 import { isWritersChange } from './edit-lock.js';
 import { isPresentationStep } from './embed-presentation.js';
 import { newBlockRange } from './tables.js';
@@ -32,12 +32,17 @@ export interface EmbedAt {
   readonly node: ProseMirrorNode;
 }
 
-/** The document's embeds, in document order. */
+/** Whether a node is an embed, a block or an inline one. */
+export const isAnyEmbed = (node: ProseMirrorNode) => isEmbed(node) || isInlineEmbed(node);
+
+/** The document's embeds, blocks and inline ones, in document order. */
 export function listEmbeds(doc: ProseMirrorNode): EmbedAt[] {
   const found: EmbedAt[] = [];
+  // Only a schema with inline embeds needs a look into text.
+  const inline = Boolean(doc.type.schema.nodes.embed_inline);
   doc.descendants((node, pos) => {
-    if (isEmbed(node)) found.push({ pos, node });
-    return !node.isTextblock && !isEmbed(node);
+    if (isAnyEmbed(node)) found.push({ pos, node });
+    return !isEmbed(node) && (inline || !node.isTextblock);
   });
   return found;
 }
@@ -45,7 +50,7 @@ export function listEmbeds(doc: ProseMirrorNode): EmbedAt[] {
 /** The embed selected or holding the selection, or null. */
 export function embedAt(state: EditorState): EmbedAt | null {
   const { selection } = state;
-  if (selection instanceof NodeSelection && isEmbed(selection.node)) {
+  if (selection instanceof NodeSelection && isAnyEmbed(selection.node)) {
     return { node: selection.node, pos: selection.from };
   }
   const { $from } = selection;
@@ -55,23 +60,51 @@ export function embedAt(state: EditorState): EmbedAt | null {
   return null;
 }
 
-/** The embed showing a host's content, as the host loaded it. */
+/** How an embed is made: inline, as its content's text, and staying at its state (`pinned`). */
+export interface EmbedOptions {
+  readonly inline?: boolean | undefined;
+  readonly pinned?: boolean | undefined;
+}
+
+/** The text of loaded content, as an inline embed shows it: its blocks' text, a space apart. */
+export function embeddedText(content: Fragment): string {
+  const parts: string[] = [];
+  content.descendants((node) => {
+    if (!node.isTextblock) return true;
+    if (node.textContent) parts.push(node.textContent);
+    return false;
+  });
+  return parts.join(' ');
+}
+
+/** The embed showing a host's content, as the host loaded it, a block or inline. */
 export function createEmbedNode(
   state: EditorState,
   embed: EmbedSource & EmbedContent,
+  { inline = false, pinned = false }: EmbedOptions = {},
 ): ProseMirrorNode | null {
-  const type = state.schema.nodes.embed;
+  const type = inline ? state.schema.nodes.embed_inline : state.schema.nodes.embed;
   if (!type) return null;
   const content = Fragment.from(readStoredContent(embed.content, state.schema));
-  const attrs = { kind: embed.kind, source: embed.source, snapshot: embed.snapshot };
+  const attrs = { kind: embed.kind, source: embed.source, snapshot: embed.snapshot, pinned };
+  if (inline)
+    return type.createChecked({ ...attrs, label: embed.label, text: embeddedText(content) });
   return type.createChecked({ ...attrs, label: embed.label }, content);
 }
 
-/** Inserts an embed of a host's content where a new block goes, selected. */
-export function insertEmbed(embed: EmbedSource & EmbedContent): Command {
+/**
+ * Inserts an embed of a host's content where a new block goes, selected, or, `inline`, in place of
+ * the selection, the caret after it.
+ */
+export function insertEmbed(
+  embed: EmbedSource & EmbedContent,
+  options: EmbedOptions = {},
+): Command {
   return (state, dispatch) => {
+    if (options.inline)
+      return insertInline(state, createEmbedNode(state, embed, options), dispatch);
     const range = newBlockRange(state);
-    const node = range ? createEmbedNode(state, embed) : null;
+    const node = range ? createEmbedNode(state, embed, options) : null;
     if (!range || !node) return false;
     if (dispatch) {
       const tr = state.tr.replaceWith(range.from, range.to, node);
@@ -80,6 +113,21 @@ export function insertEmbed(embed: EmbedSource & EmbedContent): Command {
     }
     return true;
   };
+}
+
+// Puts an inline embed in place of the selection, the caret after it, as a mention goes in;
+// refused where it may not go.
+function insertInline(
+  state: EditorState,
+  node: ProseMirrorNode | null,
+  dispatch: ((tr: Transaction) => void) | undefined,
+): boolean {
+  const { $from } = state.selection;
+  if (!node || !$from.parent.canReplaceWith($from.index(), $from.indexAfter(), node.type)) {
+    return false;
+  }
+  dispatch?.(state.tr.replaceSelectionWith(node, false).scrollIntoView());
+  return true;
 }
 
 /** The key of the embeds plugin; a change carrying it is the host's, such as an update. */
@@ -146,6 +194,11 @@ export function touchesEmbed(tr: Transaction): boolean {
   return tr.steps.some((step, index) => {
     const doc = tr.docs[index];
     if (!doc || isPresentationStep(step, doc)) return false;
+    // An inline embed has no inside: what it shows is its attributes.
+    if (step instanceof AttrStep) {
+      const node = doc.nodeAt(step.pos);
+      if (node && isInlineEmbed(node)) return true;
+    }
     return rangesOf(step, doc).some(
       (range) =>
         insideEmbed(doc, range.from) ||
