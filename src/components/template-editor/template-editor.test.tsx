@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { StoredContent, TemplateFile } from '../../model/index.js';
 import { SettingControl } from './setting-controls.js';
@@ -223,5 +224,93 @@ describe('the references settings', () => {
     await openCard(/^Links to the target/);
     await user.click(screen.getByRole('checkbox', { name: 'To the catalog' }));
     expect(changes.at(-1)?.references?.links?.catalog).toBe(true);
+  }, 15_000);
+});
+
+// The template editor over its own state, as a host keeps it, reporting each change.
+function Stateful({
+  initial,
+  onTemplate,
+}: {
+  initial: TemplateFile;
+  onTemplate: (template: TemplateFile) => void;
+}) {
+  const [template, setTemplate] = useState(initial);
+  return (
+    <TemplateEditor
+      template={template}
+      onChange={(next) => {
+        setTemplate(next);
+        onTemplate(next);
+      }}
+    />
+  );
+}
+
+describe('the template editor over a template it keeps', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.3 keeps the document landscape and its new section portrait in one run', async () => {
+    const user = userEvent.setup();
+    let last: TemplateFile | undefined;
+    render(
+      <Stateful
+        initial={{ formatVersion: 1, id: 'plain' }}
+        onTemplate={(next) => {
+          last = next;
+        }}
+      />,
+    );
+    const panel = screen.getByRole('region', { name: 'Template settings' });
+    await user.click(within(panel).getByRole('radio', { name: 'Landscape' }));
+    await user.click(screen.getByRole('button', { name: 'Add a section' }));
+    expect(panel).toHaveAttribute('data-scope', 'section');
+    await user.click(within(panel).getByRole('radio', { name: 'Portrait' }));
+    expect(last?.page?.orientation).toBe('landscape');
+    expect(last?.sections?.[0]?.page?.orientation).toBe('portrait');
+  }, 15_000);
+
+  it('DOCE-TEMPLATE-EDITOR-1.10 renames a style in use, and the blocks in it follow', async () => {
+    const user = userEvent.setup();
+    let last: TemplateFile | undefined;
+    const lead = { type: 'paragraph', attrs: { className: 'lead' }, content: [] };
+    render(
+      <Stateful
+        initial={{
+          formatVersion: 1,
+          id: 'plain',
+          styles: { custom: { lead: { size: '13pt' } } },
+          header: { content: [lead] },
+        }}
+        onTemplate={(next) => {
+          last = next;
+        }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /^lead\b/ }));
+    const name = screen.getAllByRole('textbox', { name: 'Name' }).at(-1);
+    if (!name) throw new Error('No style name');
+    await user.clear(name);
+    await user.type(name, 'opening{Enter}');
+    expect(last?.styles?.custom).toEqual({ opening: { size: '13pt' } });
+    expect(last?.header?.content).toEqual([{ ...lead, attrs: { className: 'opening' } }]);
+  }, 15_000);
+});
+
+describe('a disabled template editor', () => {
+  it('DOCE-TEMPLATE-EDITOR-1.1 locks every setting and still filters them', async () => {
+    const user = userEvent.setup();
+    render(
+      <TemplateEditor
+        template={{ formatVersion: 1, id: 'plain' }}
+        onChange={() => undefined}
+        isDisabled
+      />,
+    );
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Landscape' })).toBeDisabled();
+    const filter = screen.getByRole('searchbox');
+    await user.type(filter, 'orientation');
+    expect(filter).toHaveValue('orientation');
+    expect(screen.queryByRole('textbox', { name: 'Name' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Landscape' })).toBeDisabled();
   }, 15_000);
 });
