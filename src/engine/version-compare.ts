@@ -65,8 +65,10 @@ export interface VersionBlock extends VersionBlockReading {
   readonly positions: number[];
   authored: string;
   generated: string;
-  /** Its containers, outermost first, by kind and attributes. */
+  /** Its containers, outermost first, by kind and what they hold. */
   readonly container: string;
+  /** Its containers' presentation, outermost first. */
+  readonly containerFormat: string;
 }
 
 /** An older version read once, so newer versions are compared with it without reading it again. */
@@ -126,7 +128,7 @@ export function collectVersionBlocks(
     if (!node.isBlock || !(node.isTextblock || node.isAtom)) return true;
     if (suggestions === 'rejected' && node.attrs.suggestionSplitKind === 'insertion') return false;
     const id = typeof node.attrs.dataId === 'string' ? node.attrs.dataId : null;
-    const { container, generated } = containersOf(doc.resolve(pos));
+    const { container, containerFormat, generated } = containersOf(doc.resolve(pos));
     const read = readVersionBlock(node, { pos, suggestions, generated });
     const part = { from: pos, to: pos + node.nodeSize };
     const last = blocks.at(-1);
@@ -138,7 +140,8 @@ export function collectVersionBlocks(
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
     const key = count ? `${base}#${String(count)}` : base;
-    blocks.push({ ...read, key, id, type: node.type.name, parts: [part], container });
+    const type = node.type.name;
+    blocks.push({ ...read, key, id, type, parts: [part], container, containerFormat });
     return false;
   });
   return blocks;
@@ -178,8 +181,15 @@ function changeOf(
   const targets = changedTargets(newer, older);
   const structureChanged = newer.container !== older.container;
   const formatChanged =
-    structureChanged || withoutLengths(newer.format) !== withoutLengths(older.format);
-  const edited = newer.authored !== older.authored || targets.length > 0;
+    newer.containerFormat !== older.containerFormat ||
+    withoutLengths(newer.format) !== withoutLengths(older.format);
+  // A changed kind, container or object, such as a heading's level, a list's kind, a cell's span or
+  // an image's source, changes what the block holds, as an edit of its text does.
+  const edited =
+    newer.authored !== older.authored ||
+    targets.length > 0 ||
+    structureChanged ||
+    newer.content !== older.content;
   const generated = textChanged || newer.generated !== older.generated;
   // Without a text change, runs that changed length were formatted apart or together.
   const formatted = formatChanged || (!textChanged && newer.format !== older.format);
@@ -282,11 +292,11 @@ export function compareBlockWithOlder(
   const $pos = newer.resolve(pos);
   if (!node || !comparesAlone(node, $pos)) return undefined;
   const id = String(node.attrs.dataId);
-  const { container, generated } = containersOf($pos);
+  const { container, containerFormat, generated } = containersOf($pos);
   const suggestions = older.options.suggestions ?? 'rejected';
   const read = readVersionBlock(node, { pos, suggestions, generated });
   const parts = [{ from: pos, to: pos + node.nodeSize }];
-  const block = { ...read, key: id, id, type: node.type.name, parts, container };
+  const block = { ...read, key: id, id, type: node.type.name, parts, container, containerFormat };
   if (shown?.kind === 'insertion') return insertionOf(block);
   const previous = older.byKey.get(id);
   if (!previous) return undefined;

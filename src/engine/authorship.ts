@@ -45,6 +45,24 @@ function authoredRuns(doc: ProseMirrorNode) {
   return runs;
 }
 
+/**
+ * Whether some of the document's text has no writer: no contributor mark, suggestion writer or
+ * block writer, as text read in from elsewhere without them.
+ */
+export function hasUnattributedText(doc: ProseMirrorNode): boolean {
+  let found = false;
+  doc.descendants((node) => {
+    if (found) return false;
+    if (!node.isTextblock) return true;
+    const block = named(node.attrs.dataAuthor);
+    node.forEach((child) => {
+      if (child.isText && child.text && !writerOf(child, block)) found = true;
+    });
+    return false;
+  });
+  return found;
+}
+
 /** The document's writers, the most text first, each with their colour slot. */
 export function documentAuthors(doc: ProseMirrorNode): DocumentAuthor[] {
   const counts = new Map<string, number>();

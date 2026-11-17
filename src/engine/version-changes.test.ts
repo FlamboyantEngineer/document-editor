@@ -253,3 +253,32 @@ function versionChangesDecorations(state: EditorState): Record<string, string>[]
         (decoration as unknown as { type: { attrs: Record<string, string> } }).type.attrs,
     );
 }
+
+describe('generated values in the editor comparison', () => {
+  const cited = (label: string) =>
+    read({
+      type: 'paragraph',
+      attrs: { id: 'a0000001' },
+      content: [
+        { type: 'text', text: 'See ' },
+        { type: 'text', text: label, marks: [{ type: 'reference', attrs: { target: 'x' } }] },
+      ],
+    });
+
+  it('DOCE-VERSIONS-1.10 shows a changed generated value only when the comparison asks', () => {
+    const before = cited('Section 3');
+    const after = cited('Section 10');
+    const kinds = (generated?: boolean) =>
+      versionChanges(
+        stateWith(
+          createVersionChanges({
+            previous: () => before,
+            generated: generated === undefined ? undefined : () => generated,
+          }),
+          after,
+        ),
+      ).map((change) => change.kind);
+    expect(kinds()).toEqual([]);
+    expect(kinds(true)).toEqual(['modification']);
+  });
+});

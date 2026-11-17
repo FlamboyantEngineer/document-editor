@@ -41,6 +41,11 @@ export interface ContextTarget {
   /** The cell's row and column, from 0, in a table. */
   readonly tableCell: { readonly row: number; readonly column: number } | null;
   readonly proofingIssue: ProofingIssueAt | null;
+  /**
+   * Whether the pointer is on a proofing issue's mark; from the keyboard, whether the caret is in
+   * an issue. The proofing entries show only there.
+   */
+  readonly proofingMark: boolean;
   readonly suggestion: Suggestion | null;
   /** Whether the writer can edit the document now. */
   readonly editable: boolean;
@@ -119,6 +124,7 @@ export function resolveContextTarget(
   const place = placeAt(state, at);
   const markKind = marks.map((mark) => MARK_KINDS[mark.type.name]).find(Boolean);
   const kind = place.kind ?? markKind ?? (tableCell ? 'table-cell' : 'text');
+  const issue = proofingIssueAt(state, at);
   return {
     pos: at,
     kind,
@@ -127,7 +133,8 @@ export function resolveContextTarget(
     marks,
     elementId: elementIdAt(state, at),
     tableCell,
-    proofingIssue: proofingIssueAt(state, at),
+    proofingIssue: issue,
+    proofingMark: issue !== null,
     suggestion: listSuggestions(state.doc).find((each) => each.from <= at && at <= each.to) ?? null,
     editable,
     locked: isPositionLocked(state, at),

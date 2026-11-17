@@ -14,12 +14,14 @@ export interface DocumentPanelsLabels {
   /** The comments pane of an editor without comments. */
   readonly commentsUnavailable: string;
   readonly contributors: string;
+  /** The contributors pane's row for changes the system made (the writer `system`). */
+  readonly systemContributor: string;
+  /** The contributors pane's row for text no writer is known for. */
+  readonly unknownContributor: string;
   /** The contributors pane's switch that shows who wrote what. */
   readonly showAuthorship: string;
   /** Shown while the document has no writers. */
   readonly noContributors: string;
-  /** How much of the text a writer wrote. */
-  readonly contributorCharacters: (characters: number) => string;
   /** The properties pane's sections. */
   readonly document: string;
   readonly section: string;
@@ -61,8 +63,8 @@ export const DEFAULT_PANELS_LABELS: DocumentPanelsLabels = {
   contributors: 'Contributors',
   showAuthorship: 'Show who wrote what',
   noContributors: 'No one has written in this document yet.',
-  contributorCharacters: (characters) =>
-    characters === 1 ? '1 character' : `${String(characters)} characters`,
+  systemContributor: 'System',
+  unknownContributor: 'Unknown',
   document: 'Document',
   section: 'Section',
   selection: 'Selection',

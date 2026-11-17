@@ -1,25 +1,14 @@
 // The editing runtime: commands and plugins an editor installs.
 
 export type { CitationHref, PrintedCitation } from '../model/schema/reference-mark.js';
-export type {
-  AbbreviationHealthOptions,
-  AbbreviationIssue,
-  AbbreviationIssueKind,
-  GlossaryAnswer,
-  ResolvedGlossaryEntry,
-} from './abbreviation-health.js';
-export {
-  abbreviationIssueAt,
-  abbreviationIssues,
-  createAbbreviationHealth,
-  recordGlossaryEntries,
-} from './abbreviation-health.js';
 export type { AbbreviationDisplay, AbbreviationEntry } from './abbreviations.js';
 export {
+  abbreviationAlternatives,
   abbreviationAt,
   documentAbbreviations,
   insertAbbreviation,
   refreshAbbreviations,
+  relinkAbbreviation,
   setAbbreviationDisplay,
   unlinkAbbreviation,
 } from './abbreviations.js';
@@ -27,6 +16,7 @@ export {
   createAuthorship,
   type DocumentAuthor,
   documentAuthors,
+  hasUnattributedText,
   isAuthorshipShown,
   showAuthorship,
 } from './authorship.js';

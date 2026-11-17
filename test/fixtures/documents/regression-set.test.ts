@@ -105,3 +105,62 @@ describe('regression set', () => {
     },
   );
 });
+
+// A list's shape: for each item, the shape of the list nested in it, or 0 for none.
+type Shape = number | Shape[];
+const shapeOf = (list: StoredNode): Shape[] =>
+  (list.content ?? []).map((item) => {
+    const nested = item.content?.find((child) => child.type.endsWith('List'));
+    return nested ? shapeOf(nested) : 0;
+  });
+
+describe('list split stress', () => {
+  it('DOCE-LABS-4.3 holds the four ordered lists before its runways', () => {
+    const file = JSON.parse(
+      readFileSync(join(here, 'list-split-stress.json'), 'utf8'),
+    ) as DocumentFile;
+    const lists = (file.sections[0]?.content ?? []).filter((node) => node.type.endsWith('List'));
+    const [single, pairs, long, deep, ...runways] = lists;
+    const times = <T>(count: number, value: T) => Array.from({ length: count }, () => value);
+    expect(single && shapeOf(single)).toEqual(times(30, 0));
+    expect(pairs && shapeOf(pairs)).toEqual(times(30, [0, 0]));
+    expect(long && shapeOf(long)).toEqual(times(2, times(20, 0)));
+    expect(deep && shapeOf(deep)).toEqual(times(20, [[0], [0]]));
+    expect([single, pairs, long, deep].map((list) => list?.type)).toEqual(times(4, 'orderedList'));
+    expect(runways.map((list) => (list.content ?? []).length)).toEqual([60, 60]);
+  });
+});
+
+// The block types a section holds at its top level, each once.
+const typesOf = (file: DocumentFile, name: string) =>
+  new Set(file.sections.find((section) => section.name === name)?.content.map(({ type }) => type));
+
+describe('numbering stress', () => {
+  const read = (name: string) =>
+    JSON.parse(readFileSync(join(here, `${name}.json`), 'utf8')) as DocumentFile;
+  const objects = ['figure', 'table', 'codeBlock', 'mathBlock'];
+
+  it('DOCE-LABS-4.12 holds Roman lists from their subtractive and thousand edges', () => {
+    const file = read('roman-numbering-coverage');
+    const starts = (file.sections[1]?.content ?? [])
+      .filter((node) => node.type === 'orderedList')
+      .map((list) => Number(list.attrs?.start ?? 1));
+    expect(starts).toEqual(
+      expect.arrayContaining([3, 8, 38, 48, 98, 398, 498, 898, 998, 3998, 3999, 7998, 12000]),
+    );
+    for (const section of ['body', 'annex']) {
+      expect([...typesOf(file, section)]).toEqual(expect.arrayContaining(objects));
+    }
+  });
+
+  it('DOCE-LABS-4.13 holds four object kinds in three sections and a list of each', () => {
+    const file = read('caption-numbering');
+    for (const section of ['body', 'annex']) {
+      expect([...typesOf(file, section)]).toEqual(expect.arrayContaining(objects));
+    }
+    const kinds = (file.sections[0]?.content ?? [])
+      .filter((node) => node.type === 'contents')
+      .map((node) => node.attrs?.kind);
+    expect(kinds).toEqual(['figures', 'tables', 'codeBlocks', 'equations']);
+  });
+});

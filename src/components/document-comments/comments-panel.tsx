@@ -24,7 +24,7 @@ import type { AnchorTarget } from './anchor-rects.js';
 import { DEFAULT_COMMENTS_LABELS } from './comment-cards.js';
 import type { CommentsFilter } from './comment-filters.js';
 import { type OpenedComment, useCommentFocus } from './comment-focus.js';
-import { caretKey } from './comment-items.js';
+import { caretKey, type CommentItem } from './comment-items.js';
 import { WithCommentThreads } from './comment-threads-provider.js';
 import { hooks } from './comments-panel-hooks.js';
 import { usePanelLists } from './comments-panel-items.js';
@@ -36,6 +36,7 @@ import {
 import type { DocumentCommentsOptions } from './document-comments.js';
 import { useStableCallbacks } from './margin-card.js';
 import { PanelCard, type ShowOptions, UnanchoredCard } from './panel-card.js';
+import { InDocumentRows, isBesideText, type RowItem } from './panel-rows.js';
 import { useCardContext } from './use-card-context.js';
 import {
   type CommentThreads,
@@ -54,6 +55,12 @@ export interface DocumentCommentsPanelProps extends DocumentCommentsOptions {
   /** Which threads it lists at first, uncontrolled. Defaults to the open ones. */
   readonly defaultFilter?: CommentsFilter | undefined;
   readonly onFilterChange?: ((filter: CommentsFilter) => void) | undefined;
+  /**
+   * How it lists the threads and suggestions the margin shows beside their text (open threads and
+   * standing suggestions): as one row each, which opens the card in the margin, or as full cards.
+   * Rows by default, unless the threads are placed in the pane alone, which has no margin.
+   */
+  readonly anchoredAs?: 'rows' | 'cards' | undefined;
   /** Whether the reader may accept and reject suggestions. Defaults to an editable editor that is not suggesting. */
   readonly canDecide?: boolean | undefined;
   readonly className?: string | undefined;
@@ -165,9 +172,41 @@ function usePanelActive(caret: Key | null, opened: OpenedComment | null) {
     );
   }, []);
   const pressed = chosen?.caret === caret ? chosen.key : null;
-  const active =
-    pressed ?? (caret && caret !== 'draft' ? caret : opened && `comment:${opened.threadId}`);
+  const active = pressed ?? (caret && caret !== 'draft' ? caret : (opened?.key ?? null));
   return { active, select };
+}
+
+/**
+ * The items listed as rows and those listed as cards; a row opens its card in the margin, beside
+ * its text, which the document scrolls into view.
+ */
+function useInDocumentRows(
+  props: DocumentCommentsPanelProps,
+  items: readonly CommentItem[],
+  view: EditorView | null,
+) {
+  const focus = useCommentFocus();
+  const asRows = (props.anchoredAs ?? (props.placement === 'pane' ? 'cards' : 'rows')) === 'rows';
+  const rows: RowItem[] = [];
+  const cards: CommentItem[] = [];
+  for (const item of items) {
+    if (asRows && isBesideText(item)) rows.push(item);
+    else cards.push(item);
+  }
+  const open = (key: string) => {
+    const item = rows.find((each) => each.key === key);
+    if (!item) return;
+    if (view) showIn(view, item.target, { focus: false });
+    if (item.kind === 'thread') focus.open({ threadId: item.thread.id });
+    else focus.openSuggestion(item.suggestion.id, item.suggestion.thread);
+  };
+  // The same function from one state to the next, so the rows are not drawn again as the reader types.
+  const latest = useRef(open);
+  useLayoutEffect(() => {
+    latest.current = open;
+  });
+  const onOpen = useCallback((key: string) => latest.current(key), []);
+  return { rows, cards, onOpen };
 }
 
 function CommentsPanelList(props: DocumentCommentsPanelProps) {
@@ -189,6 +228,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
   const { run, startThread, onShow } = usePanelCommands(context?.view ?? null);
   const caret = state ? caretKey(items, state) : null;
   const { active, select } = usePanelActive(caret, opened);
+  const { rows, cards, onOpen } = useInDocumentRows(props, items, context?.view ?? null);
   const policy = usePanelPolicy(props, context, comments);
   const adding = useDocumentDraft();
   // Comments on the whole document come first, then the document's text in reading order, then
@@ -229,7 +269,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
             onClose={adding.close}
           />
         ) : null}
-        {items.map((item) => (
+        {cards.map((item) => (
           <PanelCard
             key={item.key}
             item={item}
@@ -240,6 +280,7 @@ function CommentsPanelList(props: DocumentCommentsPanelProps) {
         ))}
         {orphaned.map(unanchoredCard)}
       </div>
+      <InDocumentRows items={rows} context={card} active={active} onOpen={onOpen} />
     </section>
   );
 }

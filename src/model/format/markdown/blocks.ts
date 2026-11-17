@@ -1,10 +1,11 @@
 // A document's blocks as Markdown: headings, paragraphs, lists, quotes, code, math, tables,
-// figures, rules and template blocks. A block a suggestion leaves out, a page break and a list of
-// contents are left out.
+// figures, rules, template blocks and lists of abbreviations, as tables. A block a suggestion
+// leaves out, a page break and any other list of contents are left out.
 
 import { storedMathSource, type StoredNode } from '../document-format.js';
 import { isLeftOut } from '../left-out.js';
 import { assetAddress } from '../writer-values.js';
+import { abbreviationTable } from './abbreviations.js';
 import { codeFence, escapeHeadingEnd, escapeLineStart, escapeText, linkAddress } from './escape.js';
 import { inlines } from './inlines.js';
 import { tableOf } from './tables.js';
@@ -121,7 +122,8 @@ const BLOCKS: Readonly<Record<string, (node: StoredNode, writing: Writing) => st
   templateBlock: templateBlockOf,
   rule: () => '---',
   pageBreak: () => null,
-  contents: () => null,
+  contents: (node, writing) =>
+    node.attrs?.kind === 'abbreviations' ? abbreviationTable(writing.abbreviations ?? []) : null,
 };
 
 // A block's Markdown, or null for a block it leaves out, such as a figure a suggestion inserts when

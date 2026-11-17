@@ -1,12 +1,19 @@
-// The contributors pane: who wrote the document, the most text first, each named by the host's
-// identity adapter and drawn in the colour slot their text takes while authorship shows, with a
-// switch that shows or hides who wrote what.
+// The contributors pane: one stable row for each writer of the document, by the name the host's
+// identity adapter gives them, each in the colour slot their text takes while authorship shows and
+// with a card on hover and focus; changes the system made and text no writer is known for have a
+// plain row of their own. A switch shows or hides who wrote what.
 
+import { PreviewTrigger } from '@flamboyantengineer/ui-components/hover-card';
 import { Switch } from '@flamboyantengineer/ui-components/switch';
 import { UserIdentity } from '@flamboyantengineer/ui-components/user-identity';
-import { useMemo } from 'react';
-import { documentAuthors, isAuthorshipShown } from '../../engine/index.js';
-import type { IdentityAdapter } from '../../host/index.js';
+import { type ReactNode, useMemo } from 'react';
+import {
+  type DocumentAuthor,
+  documentAuthors,
+  hasUnattributedText,
+  isAuthorshipShown,
+} from '../../engine/index.js';
+import type { EditorPerson, IdentityAdapter } from '../../host/index.js';
 import { createHooks } from '../../utils/hooks.js';
 import { usePeople } from '../../utils/use-people.js';
 import { type EditorContext, useDocumentEditor } from '../document-editor/document-editor.js';
@@ -22,11 +29,78 @@ export interface DocumentContributorsProps {
   readonly authorship?: boolean | undefined;
   /** Asks the host to show or hide authorship (the editor's `authorship`); no switch without it. */
   readonly onAuthorshipChange?: ((shown: boolean) => void) | undefined;
+  /** The card a named writer's row opens on hover or focus, in place of the editor's. */
+  readonly renderCard?: ((person: EditorPerson) => ReactNode) | undefined;
   readonly labels?: Partial<DocumentPanelsLabels> | undefined;
   readonly className?: string | undefined;
 }
 
+/** The writer whose changes the system made, not a person. */
+const SYSTEM_CONTRIBUTOR = 'system';
+
 const hooks = createHooks('document-contributors', ['list', 'contributor']);
+
+interface Row {
+  readonly author: DocumentAuthor;
+  readonly label: string;
+  readonly person: EditorPerson | undefined;
+}
+
+// The writers by the name they show with, then by id, so a row keeps its place as text is added.
+function rowsOf(
+  authors: readonly DocumentAuthor[],
+  { people, labels }: { people: ReadonlyMap<string, EditorPerson>; labels: DocumentPanelsLabels },
+): Row[] {
+  return authors
+    .map((author) => {
+      const person = people.get(author.id);
+      const label =
+        author.id === SYSTEM_CONTRIBUTOR ? labels.systemContributor : (person?.name ?? author.id);
+      return { author, label, person };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label) || a.author.id.localeCompare(b.author.id));
+}
+
+// A named writer's row opens their card on hover and focus; the system's and an unknown writer's
+// are plain text, with no colour or picture.
+function ContributorRow({
+  row,
+  renderCard,
+}: {
+  row: Row;
+  renderCard: DocumentContributorsProps['renderCard'];
+}) {
+  const { author, label, person } = row;
+  const data = { author: author.id, authorSlot: author.slot };
+  if (author.id === SYSTEM_CONTRIBUTOR) {
+    return <li {...hooks.slot('contributor', { ...data, kind: 'system' })}>{label}</li>;
+  }
+  const identity = (
+    <UserIdentity
+      name={label}
+      src={person?.avatarUrl}
+      colorKey={author.id}
+      colorIndex={author.slot}
+    />
+  );
+  return (
+    <li {...hooks.slot('contributor', { ...data, kind: person ? 'person' : 'unresolved' })}>
+      {person ? (
+        <PreviewTrigger
+          trigger="hover"
+          previewLabel={label}
+          preview={
+            renderCard?.(person) ?? <UserIdentity name={person.name} src={person.avatarUrl} />
+          }
+        >
+          {identity}
+        </PreviewTrigger>
+      ) : (
+        identity
+      )}
+    </li>
+  );
+}
 
 /** The document's writers, with a switch for showing who wrote what. */
 export function DocumentContributors(props: DocumentContributorsProps) {
@@ -34,6 +108,7 @@ export function DocumentContributors(props: DocumentContributorsProps) {
   const context = props.context ?? held;
   const doc = context?.state.doc ?? null;
   const authors = useMemo(() => (doc ? documentAuthors(doc) : []), [doc]);
+  const unknown = useMemo(() => (doc ? hasUnattributedText(doc) : false), [doc]);
   const people = usePeople(
     props.identity,
     authors.map((author) => author.id),
@@ -42,6 +117,7 @@ export function DocumentContributors(props: DocumentContributorsProps) {
   const labels = { ...DEFAULT_PANELS_LABELS, ...props.labels };
   const shown = props.authorship ?? isAuthorshipShown(context.state);
   const { onAuthorshipChange } = props;
+  const rows = rowsOf(authors, { people, labels });
   return (
     <section
       {...hooks.root({ className: props.className, data: { authorship: shown } })}
@@ -52,25 +128,14 @@ export function DocumentContributors(props: DocumentContributorsProps) {
           {labels.showAuthorship}
         </Switch>
       ) : null}
-      {authors.length === 0 ? <p>{labels.noContributors}</p> : null}
+      {rows.length === 0 && !unknown ? <p>{labels.noContributors}</p> : null}
       <ul {...hooks.slot('list')}>
-        {authors.map((author) => {
-          const person = people.get(author.id);
-          return (
-            <li
-              key={author.id}
-              {...hooks.slot('contributor', { author: author.id, authorSlot: author.slot })}
-            >
-              <UserIdentity
-                name={person?.name ?? author.id}
-                src={person?.avatarUrl}
-                colorKey={author.id}
-                colorIndex={author.slot}
-                description={labels.contributorCharacters(author.characters)}
-              />
-            </li>
-          );
-        })}
+        {rows.map((row) => (
+          <ContributorRow key={row.author.id} row={row} renderCard={props.renderCard} />
+        ))}
+        {unknown ? (
+          <li {...hooks.slot('contributor', { kind: 'unknown' })}>{labels.unknownContributor}</li>
+        ) : null}
       </ul>
     </section>
   );

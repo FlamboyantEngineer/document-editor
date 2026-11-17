@@ -13,7 +13,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.2 - Moves and formatting
 
-A block both versions hold that left the longest run of blocks kept in order shall be a `move`; one whose text is unchanged but whose attributes or text formatting changed shall be `formatting`.
+A block both versions hold that left the longest run of blocks kept in order shall be a `move`. One whose kind or whose attributes saying what it holds changed (a heading's level, a paragraph's outline level, an image's or an object's source, a caption, an inline object such as a mention or a footnote) shall be a `modification`, as an edit of its text is. One whose text and content are unchanged but whose presentation changed (its text's marks, its style class, alignment, colors, size or object layout) shall be `formatting`. A move's bar takes the modification's color.
 
 Implementation: `src/engine/version-compare.ts`, `src/engine/common-subsequence.ts`
 Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequence.test.ts`
@@ -48,7 +48,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.7 - Containers
 
-A block both versions hold whose containers changed (wrapped in or taken out of a list, a table or a quote, moved between them, or in a container whose kind or attributes changed, such as a list's kind or a cell's span) shall be marked `structureChanged`. With its text unchanged it shall be `formatting`; with its text changed, a `modification` whose `formatChanged` is set.
+A block both versions hold whose containers changed (wrapped in or taken out of a list, a table or a quote, moved between them, or in a container whose kind or attributes changed, such as a list's kind or a cell's span) shall be marked `structureChanged`. It shall then be a `modification`, with its text changed or not. A change of a container's presentation alone (a cell's alignment, colors, height or column widths, a table's borders) shall count as formatting, and with a text change sets the modification's `formatChanged`.
 
 Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
 Verification: `src/engine/version-compare.test.ts`
@@ -69,10 +69,10 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.10 - Generated values
 
-Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a footnote's number, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`), a block whose only change is in such values shall be a `modification` marked `generated`.
+Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a footnote's number, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`, or a comparison's `generated` in the editor), a block whose only change is in such values shall be a `modification` marked `generated`.
 
 Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
-Verification: `src/engine/version-compare.test.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/version-changes.test.ts`
 
 ## DOCE-VERSIONS-2 - Showing changes
 

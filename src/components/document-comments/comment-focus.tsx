@@ -14,7 +14,11 @@ export interface ThreadTarget {
 }
 
 /** The opened comment, numbered so opening the same one again shows it again. */
-export interface OpenedComment extends ThreadTarget {
+export interface OpenedComment extends Omit<ThreadTarget, 'threadId'> {
+  /** The card to open: `comment:<thread>`, or `suggestion:<id>` for a suggestion's. */
+  readonly key: string;
+  /** The thread opened; none for a suggestion opened that has no thread yet. */
+  readonly threadId?: string | undefined;
   readonly sequence: number;
   /** Where focus goes in the thread's card: its reply box, as when its text was clicked. */
   readonly focus?: 'reply' | undefined;
@@ -36,6 +40,8 @@ export type OpenComment = (target: ThreadTarget) => boolean;
 interface CommentFocus {
   readonly opened: OpenedComment | null;
   open(target: ThreadTarget, options?: { readonly focus?: 'reply' | undefined }): void;
+  /** Opens a suggestion's card, by its id, and its thread, if it has one. */
+  openSuggestion(id: string, threadId: string | null): void;
   /** The text the thread being started begins with. */
   readonly newText: string | null;
   setNewText(text: string | null): void;
@@ -46,6 +52,7 @@ const CommentFocusContext = createContext<CommentFocus | null>(null);
 const NO_FOCUS: CommentFocus = {
   opened: null,
   open: () => undefined,
+  openSuggestion: () => undefined,
   newText: null,
   setNewText: () => undefined,
 };
@@ -60,7 +67,14 @@ export function CommentFocusProvider({ children }: { readonly children: ReactNod
       open: (target, options) =>
         setOpened((current) => ({
           ...target,
+          key: `comment:${target.threadId}`,
           focus: options?.focus,
+          sequence: (current?.sequence ?? 0) + 1,
+        })),
+      openSuggestion: (id, threadId) =>
+        setOpened((current) => ({
+          key: `suggestion:${id}`,
+          threadId: threadId ?? undefined,
           sequence: (current?.sequence ?? 0) + 1,
         })),
       newText,

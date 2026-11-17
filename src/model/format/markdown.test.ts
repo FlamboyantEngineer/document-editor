@@ -230,4 +230,41 @@ describe('writeMarkdown', () => {
       'Kept\n\n![Old](old.png)\n\n- One\n- Three\n',
     );
   });
+
+  it('DOCE-FORMAT-4.10 writes a list of abbreviations as a two-column table of those cited', () => {
+    const abbreviation = (entry: string, short: string, expansion: string): StoredNode => ({
+      type: 'abbreviation',
+      attrs: { entry, abbreviation: short, expansion },
+    });
+    const file: DocumentFile = {
+      formatVersion: 1,
+      sections: [
+        {
+          name: null,
+          content: [
+            { type: 'contents', attrs: { kind: 'abbreviations' } },
+            { type: 'contents', attrs: { kind: 'headings' } },
+            paragraph(
+              abbreviation('g2', 'PDU', 'Power distribution unit'),
+              text(' and '),
+              abbreviation('g1', 'GSE', 'Ground | support'),
+              text(' and '),
+              abbreviation('g2', 'PDU', 'Power distribution unit'),
+            ),
+          ],
+        },
+      ],
+    };
+    expect(writeMarkdown(file)).toBe(
+      [
+        '| Abbreviation | Expansion |',
+        '| --- | --- |',
+        '| GSE | Ground \\| support |',
+        '| PDU | Power distribution unit |',
+        '',
+        'Power distribution unit (PDU) and Ground \\| support (GSE) and Power distribution unit (PDU)',
+        '',
+      ].join('\n'),
+    );
+  });
 });

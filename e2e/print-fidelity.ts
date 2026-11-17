@@ -123,7 +123,9 @@ const words = (text: string) => text.match(/[\p{L}\p{N}]+/gu) ?? [];
 // characters; a word is looked for after the one before it, and then anywhere, since a PDF reader
 // may take a table's cells or the page's regions in another order.
 function missingWords(page: readonly string[], sheet: string): string[] {
-  const run = words(sheet).join('');
+  // A PDF reader gives a math font's letters as mathematical letters (𝑎); compatibility
+  // normalisation reads them as the letters the page shows.
+  const run = words(sheet.normalize('NFKC')).join('');
   const missing: string[] = [];
   let from = 0;
   for (const word of page) {
@@ -179,31 +181,74 @@ function visibleText(page: Element): string {
   return parts.join(' ');
 }
 
-// Moves each printed page by less than a pixel, so it sits at the same fraction of a pixel as the
-// editor's page did: text is drawn snapped to the pixel grid from where its page sits, so pages
-// at different fractions would draw it a pixel apart. Every page is read before any moves, since
-// reading a page after another moved lays the whole printed document out again; a page moved
-// relatively moves no other. Only the places go to the browser: the editor's screenshots would be
-// serialized with them.
+/** Where a page sits: in the content of the box that scrolls it, and where that box sits. */
+interface ScrolledPlace {
+  readonly x: number;
+  readonly y: number;
+  readonly scrollerX: number;
+  readonly scrollerY: number;
+}
+
+// Where a page sits in the content of the box that scrolls it, and where that box sits in the
+// window: text in a scrolled box is drawn snapped to the pixel grid of that box's content.
+function placeInScroller(element: Element): ScrolledPlace {
+  let scroller = element.parentElement;
+  while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY)) {
+    scroller = scroller.parentElement;
+  }
+  const box = element.getBoundingClientRect();
+  if (!scroller) return { x: box.x, y: box.y, scrollerX: 0, scrollerY: 0 };
+  const edge = scroller.getBoundingClientRect();
+  return {
+    x: box.x - edge.x + scroller.scrollLeft,
+    y: box.y - edge.y + scroller.scrollTop,
+    scrollerX: edge.x,
+    scrollerY: edge.y,
+  };
+}
+
+// Lays the printed document out in a box that scrolls, as the editor's pages are, at the same
+// fraction of a pixel of the window: a browser may draw text in a scrolled box otherwise than in
+// the window, with its glyphs snapped to the box's content. Then moves each printed page by less than a pixel, so it sits at the same fraction of a pixel of
+// its scrolled content as the editor's page did: text is drawn snapped to the pixel grid from
+// where its page sits, so pages at different fractions would draw it a pixel apart. Every page is
+// read before any moves, since reading a page after another moved lays the whole printed document
+// out again; a page moved relatively moves no other. Only the places go to the browser: the
+// editor's screenshots would be serialized with them.
 async function alignToEditor(
+  printed: Page,
   pages: Locator,
-  editor: { readonly x: number; readonly y: number }[],
+  editor: readonly ScrolledPlace[],
 ): Promise<void> {
-  await pages.evaluateAll((elements, places) => {
-    const boxes = elements.map((element) => element.getBoundingClientRect());
-    const fraction = (value: number) => value - Math.floor(value);
-    const shift = (to: number, from: number) => fraction(fraction(to) - fraction(from));
-    elements.forEach((element, index) => {
-      const box = boxes[index];
-      const { x, y } = places[index] ?? { x: 0, y: 0 };
-      if (!box) return;
-      Object.assign((element as HTMLElement).style, {
-        position: 'relative',
-        left: `${String(shift(x, box.x))}px`,
-        top: `${String(shift(y, box.y))}px`,
+  const fraction = (value: number) => value - Math.floor(value);
+  const { scrollerX = 0, scrollerY = 0 } = editor[0] ?? {};
+  await printed.addStyleTag({
+    content: `html { overflow: hidden; height: 100%; }
+      body { overflow: auto; height: calc(100% - 1px); margin: 0; position: relative;
+        top: ${String(fraction(scrollerY))}px; left: ${String(fraction(scrollerX))}px; }`,
+  });
+  const count = await pages.count();
+  const printedPlaces: ScrolledPlace[] = [];
+  for (let index = 0; index < count; index += 1) {
+    printedPlaces.push(await pages.nth(index).evaluate(placeInScroller));
+  }
+  await pages.evaluateAll(
+    (elements, [places, from]) => {
+      const fraction = (value: number) => value - Math.floor(value);
+      const shift = (to: number, at: number) => fraction(fraction(to) - fraction(at));
+      elements.forEach((element, index) => {
+        const box = from[index];
+        const { x, y } = places[index] ?? { x: 0, y: 0 };
+        if (!box) return;
+        Object.assign((element as HTMLElement).style, {
+          position: 'relative',
+          left: `${String(shift(x, box.x))}px`,
+          top: `${String(shift(y, box.y))}px`,
+        });
       });
-    });
-  }, editor);
+    },
+    [editor, printedPlaces] as const,
+  );
 }
 
 /**
@@ -217,9 +262,13 @@ export async function expectPrintEqualsEditor(
   snapshot: () => Promise<string>,
 ): Promise<readonly PageComparison[]> {
   // The caret is hidden by a stylesheet: Playwright hides it by writing a style on each editable
-  // element, which the editor takes for an edit of its pages and draws them again.
+  // element, which the editor takes for an edit of its pages and draws them again. So are the
+  // manual page break markers, which print leaves out (DOCE-EDITOR-6.33).
   await page.addStyleTag({
-    content: '#lab-chrome { display: none !important; } * { caret-color: transparent !important; }',
+    content: [
+      '#lab-chrome { display: none !important; } * { caret-color: transparent !important; }',
+      ':is(hr.manual-page-break, [data-page-break])::before, :is(hr.manual-page-break, [data-page-break])::after { display: none !important; }',
+    ].join(' '),
   });
   await page.mouse.move(0, 0);
   const pages = content(page).locator('.pm-page');
@@ -229,19 +278,20 @@ export async function expectPrintEqualsEditor(
     words: string[];
     width: number;
     height: number;
-    x: number;
-    y: number;
+    place: ScrolledPlace;
   }[] = [];
   for (let index = 0; index < count; index += 1) {
     const one = pages.nth(index);
     const box = await one.boundingBox();
+    // Read before the screenshot, which may scroll the page into view: the screenshot only moves
+    // the page by whole pixels, within its content and in the window alike.
+    const place = await one.evaluate(placeInScroller);
     shown.push({
       image: await one.screenshot({ caret: 'initial', animations: 'disabled' }),
       words: words(await one.evaluate(visibleText)),
       width: box?.width ?? 0,
       height: box?.height ?? 0,
-      x: box?.x ?? 0,
-      y: box?.y ?? 0,
+      place,
     });
   }
 
@@ -270,10 +320,15 @@ export async function expectPrintEqualsEditor(
   });
 
   await printed.emulateMedia({ media: 'print' });
+  // A window as large as the editor's, so the box that scrolls the printed pages shows a whole
+  // page, as the editor's does.
+  const size = page.viewportSize();
+  if (size) await printed.setViewportSize(size);
   const printedPages = printed.locator('.pm-page');
   await alignToEditor(
+    printed,
     printedPages,
-    shown.map(({ x, y }) => ({ x, y })),
+    shown.map(({ place }) => place),
   );
   const comparisons: PageComparison[] = [];
   for (let index = 0; index < count; index += 1) {

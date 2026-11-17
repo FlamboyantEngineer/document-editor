@@ -6,14 +6,16 @@ import { useAnnounce } from '@flamboyantengineer/ui-components/announcer';
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { GlobeGlyph } from '@flamboyantengineer/ui-components/core';
 import { DropdownMenu } from '@flamboyantengineer/ui-components/dropdown-menu';
+import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { memo, useDeferredValue, useEffect, useMemo, useRef } from 'react';
 import {
   contentLimitOf,
   documentCounts,
   documentStatistics,
+  hasAbbreviationHealth,
   isProofingPending,
-  listProofingIssues,
+  listDocumentIssues,
   proofingLanguages,
   proofingState,
   selectNextProofingIssue,
@@ -103,27 +105,36 @@ function useSettledAnnouncement(count: number | null, announce: (count: number) 
   }, [count]);
 }
 
+// Whether a state's document is checked: proofed, unless proofing is off now, or its
+// abbreviations' glossary entries checked.
+function isChecked(state: EditorState) {
+  const proofing = proofingState(state);
+  return proofing ? proofing.enabled : hasAbbreviationHealth(state);
+}
+
 /**
- * The proofing status, when the document is proofed: a button selecting, centring and flashing the
- * next issue, announced, or saying the proofers do not answer; each new count once checked is
- * announced.
+ * The proofing status, when the document is proofed or its abbreviations checked: a button
+ * selecting, centring and flashing the next issue, announced, or saying the proofers do not
+ * answer; each new count once checked is announced. The count holds the abbreviations whose
+ * glossary entry needs the writer. While proofing is off, as in a view the reader cannot edit, it
+ * shows nothing.
  */
 export function DocumentProofingStatus() {
   const shown = useDeferredEditor();
   const announce = useAnnounce();
-  const proofing = shown ? proofingState(shown.deferred) : null;
-  const issues = proofing && shown ? listProofingIssues(shown.deferred).length : null;
-  const pending = proofing && shown ? isProofingPending(shown.deferred) : true;
+  const checked = shown ? isChecked(shown.deferred) : false;
+  const issues = checked && shown ? listDocumentIssues(shown.deferred).length : null;
+  const pending = checked && shown ? isProofingPending(shown.deferred) : true;
   useSettledAnnouncement(pending ? null : issues, (count) =>
     shown ? announce(shown.editor.labels.proofingStatus(count, false)) : undefined,
   );
-  if (!shown || !proofing || issues === null) return null;
+  if (!shown || !checked || issues === null) return null;
   const { view, labels } = shown.editor;
   return (
     <ProofingStatusButton
       view={view}
       labels={labels}
-      status={proofing.status}
+      status={proofingState(shown.deferred)?.status ?? 'ready'}
       issues={issues}
       pending={pending}
       announce={announce}

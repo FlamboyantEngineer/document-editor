@@ -639,6 +639,31 @@
   align-items: flex-start;
 }
 
+/* The rows of the threads beside the text: a small heading, then one line each. */
+.de-comments-panel__in-document {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.de-comments-panel__heading {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ref-text-muted, #59636e);
+}
+
+.de-comments-panel__row .ui-list-row-content__title,
+.de-comments-panel__row .ui-list-row-content__meta {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* A side panel's pane fills the panel; it takes focus only when revealed. */
 .de-document-side-panel {
   min-height: 0;

@@ -71,38 +71,7 @@ export {
   scrollToPeer,
   setPeers,
 } from './presence.js';
-export type {
-  ProofingIssueAt,
-  ProofingOptions,
-  ProofingState,
-  ProofingStatus,
-  SourcedIssue,
-} from './proofing.js';
-export {
-  createProofing,
-  isProofingPending,
-  PROOFING_ISSUE_ATTR,
-  proofingKey,
-  proofingUpdate,
-} from './proofing.js';
-export {
-  addProofingWord,
-  countAlikeIssues,
-  disableProofingRule,
-  ignoreProofingIssue,
-  ignoreProofingOnce,
-  listProofingIssues,
-  proofingIssueAt,
-  proofingLanguages,
-  proofingState,
-  recheckProofing,
-  replaceAllProofingIssues,
-  replaceProofingIssue,
-  selectNextProofingIssue,
-  setProofingLanguage,
-} from './proofing-commands.js';
-export type { TextSegment as ProofingSegment } from './proofing-text.js';
-export { segmentsOf } from './proofing-text.js';
+export * from './proofing-features.js';
 export type { CitationKey, ReferenceStatus, ReferenceStatusOptions } from './reference-status.js';
 export {
   citationKey,

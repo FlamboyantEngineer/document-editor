@@ -159,4 +159,26 @@ describe('print links', () => {
     // A row whose element is not in the snapshot keeps no link.
     expect(gone?.querySelector('a')).toBeNull();
   });
+
+  it('DOCE-EDITOR-6.21 links an abbreviation to its list row, keeping its expansion and tooltip', () => {
+    const abbreviation = (entry: string) =>
+      `<span data-abbreviation-ref="${entry}" data-abbr="API" data-expansion="Programming interface">` +
+      `<a href="#abbr-${entry}" data-abbr-tooltip="API: Programming interface">API</a></span>`;
+    const printed = body(
+      [
+        `<p>${abbreviation('g1')} and ${abbreviation('g2')}</p>`,
+        '<div class="de-contents__entry" id="abbr-g1">API</div>',
+      ].join(''),
+    );
+    addPrintLinks(printed, { numbers: new Map() });
+    const [listed, unlisted] = printed.querySelectorAll('[data-abbreviation-ref]');
+    const link = listed?.querySelector('a');
+    expect(link).toHaveAttribute('href', '#abbr-g1');
+    expect(link).toHaveAttribute('data-print-link', 'abbreviation');
+    expect(link).toHaveAttribute('data-abbr-tooltip', 'API: Programming interface');
+    expect(listed).toHaveAttribute('data-expansion', 'Programming interface');
+    // An abbreviation whose list is not in the snapshot prints as its text.
+    expect(unlisted?.querySelector('a')).toBeNull();
+    expect(unlisted).toHaveTextContent('API');
+  });
 });

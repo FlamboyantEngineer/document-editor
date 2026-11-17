@@ -19,6 +19,7 @@ import {
   applySuggestionMarkup,
   editorMarkup,
   isViewStateAttribute,
+  PRINT_MARKER_RULES,
   removeViewOnlyDecorations,
   type SnapshotMarkup,
 } from './print-view.js';
@@ -97,6 +98,7 @@ function printRules(template: TemplateFile, sizes: readonly string[]): string {
     '@media print { body.de-snapshot { margin: 0; } .de-snapshot :is(.pm-section, .pm-page) { margin: 0 !important; gap: 0 !important; } }',
     `.de-snapshot a[${PRINT_LINK_ATTRIBUTE}] { color: inherit; text-decoration: inherit; }`,
     ':root { color-scheme: light; } .de-snapshot, .de-snapshot * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }',
+    PRINT_MARKER_RULES,
   ].join(' ');
 }
 

@@ -171,6 +171,8 @@ function Lab() {
   const [reading, setReading] = useState(false);
   const [resolved, setResolved] = useState(false);
   const [panel, setPanel] = useState(false);
+  // The panel lists the threads beside the text as rows, unless the reader asks for full cards.
+  const [panelCards, setPanelCards] = useState(false);
   const [pane, setPane] = useState(false);
   const [groups, setGroups] = useState(false);
   const [actions, setActions] = useState(false);
@@ -354,6 +356,19 @@ function Lab() {
         >
           Ask to confirm the selection
         </button>
+        {/* Last, so the controls before it keep their places beside the floating panel. */}
+        <label>
+          <input
+            type="checkbox"
+            name="panel-cards"
+            checked={panelCards}
+            onChange={(event) => {
+              setPanelCards(event.currentTarget.checked);
+              if (event.currentTarget.checked) setPanel(true);
+            }}
+          />{' '}
+          Full cards in the panel
+        </label>
       </fieldset>
       <DocumentEditor
         state={state}
@@ -392,6 +407,7 @@ function Lab() {
               canDecide={!reading}
               defaultFilter={resolved ? 'all' : 'open'}
               onFilterChange={setPanelFilter}
+              anchoredAs={panelCards ? 'cards' : undefined}
               {...review}
             />
             <output aria-label="Panel filter">{panelFilter}</output>

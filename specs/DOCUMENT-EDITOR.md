@@ -278,10 +278,10 @@ Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/doc
 
 ### DOCE-EDITOR-4.19 - Scroll overview
 
-While the editor scrolls the document (`scrollable`), `overview` shall show the base library's `ScrollOverview` over the frame (`de-document-editor__overview`), given the editor's marker layers by element (`overviewLayers`, `OVERVIEW_LAYERS`): `search` for the search matches (`data-search-match`), `proofing` for the proofing issues (`data-proofing-issue`), `changes` for the suggested insertions and deletions, and `unread` for the elements whose ids `overview.unread` names, in that order of priority where they meet. Each marker's colour is the host stylesheet's `--de-overview-<layer>`; the editor draws nothing itself. The layers follow the document's elements at most once a frame.
+While the editor scrolls the document (`scrollable`), `overview` shall show the base library's `ScrollOverview` over the frame (`de-document-editor__overview`), given the editor's marker layers by element (`overviewLayers`, `OVERVIEW_LAYERS`): `search` for the search matches (`data-search-match`), `proofing` for the proofing issues (`data-proofing-issue`), `changes` for the suggested insertions and deletions, `changebars` for the change bars drawn beside the pages (each changed line's bar, and each block's own bar where its lines have none), and `unread` for the elements whose ids `overview.unread` names, in that order of priority where they meet. Each marker's colour is the host stylesheet's `--de-overview-<layer>`, but a change bar's is the colour the page draws it in (the template's or its section's) at half its opacity, a bar drawn transparent or not at all marks nothing, and change bars sharing a pixel show the strongest kind (DOCE-VERSIONS-2.4); the editor draws nothing itself. The layers follow the document's elements at most once a frame, so they clear when the bars hide. The layers follow the document's elements at most once a frame.
 
 Implementation: `src/components/document-editor/editor-overview.tsx`, `src/components/document-editor/editor-surface.tsx`
-Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/document-editor.spec.ts`
+Verification: `src/components/document-editor/editor-surface.test.tsx`, `e2e/document-editor.spec.ts`, `e2e/versions.spec.ts`
 
 ### DOCE-EDITOR-4.20 - A part of the editor's state
 
@@ -548,7 +548,7 @@ Verification: `src/components/document-editor/visible-elements.test.ts`, `e2e/do
 
 ### DOCE-EDITOR-6.21 - Links in print
 
-A snapshot shall keep the document's links: the first element carrying each element id shall take it as its anchor (`id`), an internal reference that is not broken shall link to its target's anchor, a citation of another document shall link to the address the host gives it (`citationHref`, by default the `references` adapter's `href`, DOCE-HOST-1.9) and stay unlinked without one, each footnote marker shall take the anchor `fnref-<id>` and link to its entry, and each entry the anchor `fn-<id>`, its number linking back to the marker. Each link is an `a` inside the element it links, carrying `data-print-link` (`reference`, `citation`, `footnote` or `footnote-back`), and prints in the colour and decoration of the text around it, so a PDF made from the snapshot keeps working links that look as the editor shows them.
+A snapshot shall keep the document's links: the first element carrying each element id shall take it as its anchor (`id`), an internal reference that is not broken shall link to its target's anchor, a citation of another document shall link to the address the host gives it (`citationHref`, by default the `references` adapter's `href`, DOCE-HOST-1.9) and stay unlinked without one, each footnote marker shall take the anchor `fnref-<id>` and link to its entry, and each entry the anchor `fn-<id>`, its number linking back to the marker. An abbreviation shall link to its row in a list of abbreviations the snapshot holds, keeping its abbreviation and expansion (`data-abbr`, `data-expansion`) and its tooltip as data (`data-abbr-tooltip`), so a host can give the link its own annotation; one whose list is not in the snapshot prints as its text. Each link is an `a` inside the element it links, carrying `data-print-link` (`reference`, `citation`, `footnote`, `footnote-back`, `contents` or `abbreviation`), and prints in the colour and decoration of the text around it, so a PDF made from the snapshot keeps working links that look as the editor shows them.
 
 Implementation: `src/engine/print-links.ts`, `src/engine/snapshot.ts`, `src/model/schema/reference-mark.ts`, `src/model/schema/footnote-nodes.ts`, `src/components/document-editor/editor-handle.ts`
 Verification: `src/engine/print-links.test.ts`, `e2e/print.spec.ts`
@@ -562,7 +562,7 @@ Verification: `src/engine/print-links.test.ts`
 
 ### DOCE-EDITOR-6.23 - What a snapshot may hold
 
-A snapshot's pages shall hold only the elements and attributes on its allow-list (`allowSnapshotMarkup`): text, lists, tables, figures and images, links, vector drawings and math, with `class`, `id`, `style`, the `data-*` and `aria-*` hooks and the attributes those elements draw with. Whatever a node view or decoration drew, an element that runs, embeds another page or takes input (`script`, `style`, `iframe`, `object`, `embed`, form controls and the like) shall be left out with its content, any other element off the list shall give way to its content, event handlers and every other attribute off the list shall go, as shall a link to an address other than an anchor, a web page, a mail address or a telephone number, an image from one other than a web address, image data or a blob, and a style that runs script. A signature shall print from its stored vector through `signatureSvgMarkup`, which writes only validated geometry, drawn in the current colour, as the editor draws it, or nothing for a value that is not a signature.
+A snapshot's pages shall hold only the elements and attributes on its allow-list (`allowSnapshotMarkup`): text, lists, tables, figures and images, links, vector drawings and math, with `class`, `id`, `style`, the `data-*` and `aria-*` hooks and the attributes those elements draw with, and no tooltip (`title`) a node view or decoration drew for the screen. Whatever a node view or decoration drew, an element that runs, embeds another page or takes input (`script`, `style`, `iframe`, `object`, `embed`, form controls and the like) shall be left out with its content, any other element off the list shall give way to its content, event handlers and every other attribute off the list shall go, as shall a link to an address other than an anchor, a web page, a mail address or a telephone number, an image from one other than a web address, image data or a blob, and a style that runs script. A signature shall print from its stored vector through `signatureSvgMarkup`, which writes only validated geometry, drawn in the current colour, as the editor draws it, or nothing for a value that is not a signature.
 
 Implementation: `src/engine/print-allow-list.ts`, `src/engine/snapshot.ts`, `src/model/signature-vector.ts`
 Verification: `src/engine/print-allow-list.test.ts`, `src/model/signature-vector.test.ts`
@@ -629,6 +629,13 @@ With the host's `telemetry` adapter, the editor shall trace how it opens: how lo
 
 Implementation: `src/components/document-editor/use-editor-telemetry.ts`, `src/engine/document-editing.ts`, `labs/src/host-panel.tsx`
 Verification: `src/engine/document-editing.test.ts`, `e2e/document-editor.spec.ts`
+
+### DOCE-EDITOR-6.33 - Markers in print
+
+A snapshot and a static render of a stored document shall carry the print rules for what the editor draws only on the screen (`PRINT_MARKER_RULES`): a manual page break keeps its place in the page, which still ends there, but draws no line or label, and table cells are positioned statically in print, so their backgrounds paint under the collapsed borders at every zoom of a PDF viewer. An empty script block's output prints as the box it keeps, with no prompt.
+
+Implementation: `src/engine/print-view.ts`, `src/engine/snapshot.ts`, `src/document/print.ts`
+Verification: `src/engine/snapshot.test.ts`, `src/document/print.test.ts`
 
 ## DOCE-EDITOR-7 - Banners
 

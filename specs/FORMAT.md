@@ -117,7 +117,7 @@ Verification: `src/model/format/template-format-resolve.test.ts`
 
 ### DOCE-FORMAT-4.1 - Writing Markdown
 
-`writeMarkdown(file)` shall write a stored document as Markdown with GitHub's tables, strikethrough and footnotes: headings, paragraphs and their formats, links, lists, quotes, fenced code with its language and caption, linked code, inline and display math, its stored `source`, between dollar signs, checklist items as task list items (`- [ ] `, `- [x] `), tables with their caption, figures and inline images as images, a figure with its caption, rules, and footnotes as numbered definitions at the end; underline, superscript and subscript as HTML; page breaks and lists of contents left out. A link whose address a link may not hold (DOCE-SCHEMA-3.8) is written as its text.
+`writeMarkdown(file)` shall write a stored document as Markdown with GitHub's tables, strikethrough and footnotes: headings, paragraphs and their formats, links, lists, quotes, fenced code with its language and caption, linked code, inline and display math, its stored `source`, between dollar signs, checklist items as task list items (`- [ ] `, `- [x] `), tables with their caption, figures and inline images as images, a figure with its caption, rules, and footnotes as numbered definitions at the end; underline, superscript and subscript as HTML; page breaks and lists of contents left out, but for lists of abbreviations (DOCE-FORMAT-4.10). A link whose address a link may not hold (DOCE-SCHEMA-3.8) is written as its text.
 
 Implementation: `src/model/format/markdown.ts`, `src/model/format/markdown/blocks.ts`, `src/model/format/markdown/inlines.ts`
 Verification: `src/model/format/markdown.test.ts`
@@ -177,6 +177,13 @@ Verification: `src/model/format/markdown-appendix.test.ts`
 
 Implementation: `src/model/format/markdown.ts`
 Verification: `src/model/format/markdown-golden.test.ts`
+
+### DOCE-FORMAT-4.10 - Lists of abbreviations
+
+`writeMarkdown` shall write a list of abbreviations as a two-column table, `Abbreviation` and `Expansion`, of the entries the document's abbreviations cite, each once, in the order the list shows them (`compareAbbreviations`), each cell escaped as text; a document citing none writes no table. Other lists of contents stay left out.
+
+Implementation: `src/model/format/markdown/abbreviations.ts`, `src/model/format/markdown/blocks.ts`, `src/model/format/markdown.ts`
+Verification: `src/model/format/markdown.test.ts`
 
 ## DOCE-FORMAT-5 - Word processing documents
 

@@ -319,21 +319,69 @@ describe('DocumentSidePanel', () => {
 });
 
 describe('DocumentContributors', () => {
-  it('DOCE-COLLAB-3.4 lists the writers, the most text first, and toggles authorship', async () => {
+  it('DOCE-COLLAB-3.4 lists one row per writer by name, with a card, and toggles authorship', async () => {
     const user = userEvent.setup();
     const onAuthorshipChange = vi.fn();
     render(<Harness panel={{ panes: ['contributors'], onAuthorshipChange }} />);
     const pane = screen.getByRole('region', { name: 'Contributors' });
-    const rows = within(pane).getAllByRole('listitem');
-    expect(rows[0]).toHaveAttribute('data-author', 'grace');
-    expect(rows[1]).toHaveAttribute('data-author', 'ada');
-    // Named by the identity adapter, with how much each wrote.
+    // Named by the identity adapter, by name rather than by how much each wrote, with no count.
     expect(await within(pane).findByText('Grace Hopper')).toBeInTheDocument();
-    expect(within(rows[0] as HTMLElement).getByText('11 characters')).toBeInTheDocument();
-    expect(within(rows[1] as HTMLElement).getByText('5 characters')).toBeInTheDocument();
+    const rows = within(pane).getAllByRole('listitem');
+    expect(rows.map((row) => row.getAttribute('data-author'))).toEqual(['ada', 'grace']);
+    expect(pane).not.toHaveTextContent(/characters?/);
     expect(rows[0]).toHaveAttribute('data-author-slot');
+    expect(rows[0]).toHaveAttribute('data-kind', 'person');
+    // The whole row opens the writer's card on hover.
+    await user.hover(within(rows[1] as HTMLElement).getByRole('button'));
+    expect(await screen.findByRole('dialog', { name: 'Grace Hopper' })).toBeInTheDocument();
     await user.click(within(pane).getByRole('switch', { name: 'Show who wrote what' }));
     expect(onAuthorshipChange).toHaveBeenCalledWith(true);
+  });
+
+  it('DOCE-COLLAB-3.4 shows the system and text no writer is known for as plain rows', () => {
+    const state = EditorState.create({
+      doc: readDocumentFile(
+        {
+          formatVersion: 1,
+          sections: [
+            {
+              name: null,
+              content: [
+                {
+                  type: 'paragraph',
+                  attrs: { id: 'p1', author: 'system' },
+                  content: [{ type: 'text', text: 'Made by the system.' }],
+                },
+                {
+                  type: 'paragraph',
+                  attrs: { id: 'p2' },
+                  content: [{ type: 'text', text: 'Read in from elsewhere.' }],
+                },
+              ],
+            },
+          ],
+        },
+        documentSchema,
+      ).doc,
+      plugins: createDocumentEditing(documentSchema),
+    });
+    render(
+      <DocumentEditor
+        state={state}
+        onStateChange={() => undefined}
+        template={TEMPLATE}
+        layout="web"
+      >
+        <DocumentContributors />
+      </DocumentEditor>,
+    );
+    const pane = screen.getByRole('region', { name: 'Contributors' });
+    const rows = within(pane).getAllByRole('listitem');
+    expect(rows.map((row) => [row.getAttribute('data-kind'), row.textContent])).toEqual([
+      ['system', 'System'],
+      ['unknown', 'Unknown'],
+    ]);
+    expect(within(pane).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('DOCE-COLLAB-3.4 shows writers by id and no switch without the host', () => {

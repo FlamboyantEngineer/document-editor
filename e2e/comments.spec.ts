@@ -212,7 +212,7 @@ test.describe('comments lab', () => {
     page,
   }) => {
     await lab.open('comments');
-    await page.getByLabel('Comments panel').check();
+    await page.getByLabel('Full cards in the panel').check();
     const panel = page.getByRole('region', { name: 'All comments' });
     await expect(panel).toContainText('Is one second measured');
     await panel.getByRole('radio', { name: 'Mine' }).click();
@@ -225,6 +225,29 @@ test.describe('comments lab', () => {
       before,
     );
     await expect(page.getByRole('textbox', { name: 'Sample document' })).toBeFocused();
+  });
+
+  test('DOCE-COMMENTS-4.13 lists the threads beside the text as rows that open their cards', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('comments');
+    await page.getByLabel('Markers, cards on request').check();
+    await page.getByLabel('Comments panel').check();
+    const rows = page
+      .getByRole('region', { name: 'All comments' })
+      .getByRole('list', { name: 'In the document' });
+    const row = rows.getByRole('button', { name: /Comment by/ }).first();
+    await expect(row).toContainText('on “');
+    const before = await page.evaluate(() => document.documentElement.dataset.labCaret ?? '');
+    await row.click();
+    await page.waitForFunction(
+      (previous) => (document.documentElement.dataset.labCaret ?? '') !== previous,
+      before,
+    );
+    const opened = margin(page).locator('.de-document-comments__card:focus');
+    await expect(opened).toContainText('Is one second measured');
+    await expect(opened).toBeInViewport();
   });
 
   test('DOCE-COMMENTS-2.12 keeps a reply being written when its composer goes and comes back', async ({
@@ -260,7 +283,7 @@ test.describe('comments lab', () => {
 
   test('DOCE-COMMENTS-4.1 decides a suggestion from the panel', async ({ lab, page }) => {
     await lab.open('comments');
-    await page.getByLabel('Comments panel').check();
+    await page.getByLabel('Full cards in the panel').check();
     const panel = page.getByRole('region', { name: 'All comments' });
     const suggestion = panel.locator('.de-comments-panel__suggestion');
     await expect(suggestion).toContainText('Grace Hopper');
@@ -324,7 +347,7 @@ test.describe('comments lab', () => {
     page,
   }) => {
     await lab.open('comments');
-    await page.getByLabel('Comments panel').check();
+    await page.getByLabel('Full cards in the panel').check();
     await page.getByRole('button', { name: 'Answer the first comment' }).click();
     const panel = page.getByRole('region', { name: 'All comments' });
     const thread = card(page, 'Is one second measured');
