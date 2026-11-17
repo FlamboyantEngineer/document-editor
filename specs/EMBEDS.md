@@ -31,10 +31,10 @@ Verification: `src/host/linked-spreadsheet.test.ts`
 
 ### DOCE-EMBEDS-1.4 - Inline embeds
 
-The document schema shall hold an inline atom `embed_inline` at ordinal 470 (`DOCUMENT_NODE_ORDER.embed_inline`, `INLINE_EMBED_NODE`, `isInlineEmbed`), such as one cell of a spreadsheet, with the element attributes, the attributes of an embed (DOCE-EMBEDS-1.1) and `text`, the content's text it shows (`embeddedText`: the text of the content's blocks, a space apart). It shall be stored under the name `embed_inline` with those attributes, written as a `span` with the `de-embed-inline` class, the embed's data attributes and its text, which it is read from, and read as its text by a document's text. It takes the text style around it. The writer may select, move and delete it whole, but not change its attributes (DOCE-EMBEDS-2.1).
+The document schema shall hold an inline atom `embed_inline` at ordinal 470 (`DOCUMENT_NODE_ORDER.embed_inline`, `INLINE_EMBED_NODE`, `isInlineEmbed`), such as one cell of a spreadsheet, with the element attributes, the attributes of an embed (DOCE-EMBEDS-1.1) and `text`, the content's text it shows (`embeddedText`: the text of the content's blocks, a space apart). It shall be stored under the name `embed_inline` with those attributes, written as a `span` with the `de-embed-inline` class, the embed's data attributes and its text, which it is read from, and read as its text by a document's text. It takes the text style around it, and Word and Markdown export write it as the text it shows, in that style (DOCE-FORMAT-4.1, 5.2). The writer may select, move and delete it whole, but not change its attributes (DOCE-EMBEDS-2.1); in a shared room, a writer who only suggests may insert or remove one only as their own suggestion and may not change its attributes (DOCE-COLLAB-7.2).
 
-Implementation: `src/model/schema/embed-nodes.ts`, `src/engine/embeds.ts`
-Verification: `src/engine/embed-inline.test.ts`
+Implementation: `src/model/schema/embed-nodes.ts`, `src/engine/embeds.ts`, `src/model/format/docx/inline.ts`, `src/model/format/markdown/inlines.ts`
+Verification: `src/engine/embed-inline.test.ts`, `src/model/format/docx.test.ts`, `src/model/format/markdown.test.ts`, `src/collab/room-change-guard-security.test.ts`, `src/collab/convert.test.ts`, `src/collab/guard-self-check.test.ts`
 
 ## DOCE-EMBEDS-2 - What an embed holds
 
