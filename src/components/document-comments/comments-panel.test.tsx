@@ -103,6 +103,15 @@ describe('DocumentCommentsPanel', () => {
     expect(within(list).queryByText('Old')).not.toBeInTheDocument();
   });
 
+  it('DOCE-COMMENTS-4.2 names the filters with the host’s words', async () => {
+    const labels = { filterOpen: 'Unresolved', filterAll: 'Every thread', filterMine: 'Mine only' };
+    render(<Harness host={mentioning()} panel={{ labels }} />);
+    const filter = await within(panel()).findByRole('radiogroup', { name: 'Show' });
+    expect(within(filter).getByRole('radio', { name: /Unresolved/ })).toBeChecked();
+    expect(within(filter).getByRole('radio', { name: /Every thread/ })).toBeInTheDocument();
+    expect(within(filter).getByRole('radio', { name: /Mine only/ })).toBeInTheDocument();
+  });
+
   it('DOCE-COMMENTS-4.2 hides the threads the reader is not the audience of', async () => {
     render(
       <Harness
