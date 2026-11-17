@@ -16,7 +16,7 @@ import {
   type SectionLayout,
 } from './incremental-layout.js';
 import { measureChildBlocks } from './measure-blocks.js';
-import { type MeasureCache, measureCacheCounts } from './measure-cache.js';
+import { blockMargin, type MeasureCache, measureCacheCounts } from './measure-cache.js';
 import { type FootnoteArea, footnoteAreaHeight, measureFootnotes } from './measure-footnotes.js';
 
 /**
@@ -168,7 +168,8 @@ function regionHeight(view: EditorView, pos: number | null, ratio: number): numb
   if (!height) return 0;
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
   if (!style) return height / ratio;
-  const margins = (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
+  const margins =
+    (parseFloat(blockMargin(style, 'start')) || 0) + (parseFloat(blockMargin(style, 'end')) || 0);
   return height / ratio + margins;
 }
 

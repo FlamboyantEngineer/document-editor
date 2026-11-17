@@ -52,3 +52,44 @@ describe('optional reference presentation', () => {
     expect(files).not.toContain('labs/reference.css');
   }, 15_000);
 });
+
+// The compound each `:has(` is attached to in a stylesheet: the selector text before it, back to
+// the last combinator or list separator outside parentheses.
+function hasSubjects(css: string): string[] {
+  const subjects: string[] = [];
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (let at = text.indexOf(':has('); at >= 0; at = text.indexOf(':has(', at + 5)) {
+    let depth = 0;
+    let start = at;
+    while (start > 0) {
+      const character = text[start - 1] ?? '';
+      if (character === ')') depth += 1;
+      else if (character === '(') {
+        if (depth === 0) break;
+        depth -= 1;
+      } else if (depth === 0 && /[\s>+~,{}]/.test(character)) break;
+      start -= 1;
+    }
+    subjects.push(text.slice(start, at));
+  }
+  return subjects;
+}
+
+describe('reference stylesheet selectors', () => {
+  it('DOCE-LABS-1.6 never makes the page, the root or a bare compound the subject of :has()', () => {
+    for (const path of ['labs/reference/document.css', 'labs/reference/editor-chrome.css']) {
+      for (const subject of hasSubjects(readFileSync(path, 'utf8'))) {
+        expect(subject, path).not.toMatch(/^(\*|body|html|:root)?$/);
+      }
+    }
+  });
+
+  it('DOCE-LABS-1.6 finds the subject of each :has()', () => {
+    expect(hasSubjects('a > :has(b) {} p:has(> c), :is(p, h1):has(d) {} body:has(e) {}')).toEqual([
+      '',
+      'p',
+      ':is(p, h1)',
+      'body',
+    ]);
+  });
+});
