@@ -319,13 +319,13 @@ export async function setField(scope: Locator, step: SettingStep): Promise<void>
     case 'color':
       return typeIn(scope.getByRole('textbox', { name: label, exact: true }), String(value));
     case 'combobox': {
-      // The list a typed format opens hides the rest of the panel: Escape closes it, keeping the
-      // draft, and Enter commits the format.
+      // Enter commits a typed format, open list or not, while no format in it is picked; the list
+      // then closes. While it is open it hides the rest of the panel, so Enter goes to the page.
       const field = scope.getByRole('combobox', { name: label, exact: true });
       await field.fill(String(value));
-      await page.keyboard.press('Escape');
+      await page.keyboard.press('Enter');
       await expect(page.getByRole('listbox')).toHaveCount(0);
-      await field.press('Enter');
+      await expect(field).toHaveValue(String(value));
       return;
     }
     case 'check':

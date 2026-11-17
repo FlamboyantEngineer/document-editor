@@ -268,10 +268,11 @@ test.describe('template editor lab', () => {
     const heading = await card(page, 'Heading 1');
     const numbering = heading.getByRole('combobox', { name: 'Numbering', exact: true });
     await numbering.fill('Ab.1x');
-    // Escape closes the list the typing opened and keeps the draft; Enter commits it.
-    await page.keyboard.press('Escape');
+    // Enter commits the draft while no format in the list the typing opened is picked; the open
+    // list hides the rest of the panel, so Enter goes to the page.
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('listbox')).toHaveCount(0);
     await expect(numbering).toHaveValue('A.1');
-    await numbering.press('Enter');
     await numbering.fill('');
     await page.getByRole('option', { name: /^I\.\s*I\., II\., III\./ }).click();
     await expect(numbering).toHaveValue('I.');
