@@ -71,9 +71,10 @@ describe('TemplateWorkspace', () => {
       const save = saveButton();
       expect(root()).toHaveAttribute('data-dirty', 'true');
       await user.click(save);
-      await waitFor(() => expect(save).toBeDisabled(), LOADED);
-      // Save says for a moment that it saved, through its name and icon.
-      expect(save).toHaveAccessibleName('Saved');
+      // Save says for a moment that it saved, through its name and icon. It is disabled while it
+      // saves too, so wait for the name rather than for the disabled state.
+      await waitFor(() => expect(save).toHaveAccessibleName('Saved'), LOADED);
+      expect(save).toBeDisabled();
       await expect(store.load('report')).resolves.toMatchObject({
         value: { revision: 'rev-2', template: { name: 'Annual report' } },
       });
