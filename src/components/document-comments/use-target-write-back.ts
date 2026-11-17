@@ -15,7 +15,7 @@ const DELAY = 800;
 const keyOf = (target: CommentTarget) => JSON.stringify([target.quote, target.ranges]);
 
 /** The threads whose anchors now describe another target than the one stored, with that target. */
-export function movedTargets(
+function movedTargets(
   state: EditorState,
   threads: ReadonlyMap<string, CommentThread>,
 ): { threadId: string; target: CommentTarget }[] {

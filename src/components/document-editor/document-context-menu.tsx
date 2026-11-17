@@ -8,7 +8,7 @@ import {
   type MenuPoint,
   useMenuController,
 } from '@flamboyantengineer/ui-components/context-menu';
-import { NodeSelection, TextSelection } from 'prosemirror-state';
+import { type EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import { type RefObject, useEffect, useRef } from 'react';
@@ -172,6 +172,18 @@ function useMenuFollowsContent(
   }, [view, controller, holdRef]);
 }
 
+// What the menu opens on; from the pointer, the proofing entries show only on an issue's mark the
+// view draws.
+function targetAt(
+  state: EditorState,
+  pos: number,
+  { editable, mark }: { editable: boolean; mark?: boolean | undefined },
+) {
+  const resolved = resolveContextTarget(state, pos, editable);
+  if (mark === undefined) return resolved;
+  return { ...resolved, proofingIssue: mark ? resolved.proofingIssue : null, proofingMark: mark };
+}
+
 /** Opens the editor's context menu on the document of `view`. */
 export function DocumentContextMenu(props: DocumentContextMenuProps) {
   const { view } = props;
@@ -194,16 +206,7 @@ export function DocumentContextMenu(props: DocumentContextMenuProps) {
     ) => {
       const { startCommentRef, options: menu, shown, ...options } = latest.current;
       const { state } = view;
-      const resolved = resolveContextTarget(state, pos, options.editable);
-      // From the pointer, the proofing entries show only on an issue's mark the view draws.
-      const target =
-        mark === undefined
-          ? resolved
-          : {
-              ...resolved,
-              proofingIssue: mark ? resolved.proofingIssue : null,
-              proofingMark: mark,
-            };
+      const target = targetAt(state, pos, { editable: options.editable, mark });
       // The providers get the editor as its other controls see it, on the state the menu opens
       // on; at a locked position the writer cannot edit.
       const context = createEditorContext(view, state, {
