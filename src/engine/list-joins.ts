@@ -8,7 +8,7 @@ import { canJoin } from 'prosemirror-transform';
 import { isLocalEdit, isRemoteTransaction } from './transaction-kind.js';
 
 /** Which changes the list joins leave as they are. */
-export interface ListJoinOptions {
+interface ListJoinOptions {
   /** Whether a change came from elsewhere. Defaults to `isRemoteTransaction`. */
   readonly isRemote?: ((tr: Transaction) => boolean) | undefined;
 }

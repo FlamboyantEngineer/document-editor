@@ -24,7 +24,7 @@ export const takesWriterAway = (tr: Transaction, before: EditorState): boolean =
   isOwn(tr, before) || startsCommentDraft(tr);
 
 /** The question asked for a position and the offer at one, while there is either. */
-export interface HeldCompletion<O extends { readonly pos: number }> {
+interface HeldCompletion<O extends { readonly pos: number }> {
   readonly asking: number | null;
   readonly offer: O | null;
 }

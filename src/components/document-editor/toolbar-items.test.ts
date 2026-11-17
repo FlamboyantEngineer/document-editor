@@ -91,7 +91,7 @@ describe('built-in toolbar groups', () => {
     const figureOf = (diagrams: boolean) =>
       builtInToolbarGroups(documentSchema, DEFAULT_EDITOR_LABELS, {
         templateStyle: {},
-        features: { diagrams },
+        features: { linkedCode: false, symbols: DEFAULT_SYMBOLS, glossary: false, diagrams },
       })
         .find((group) => group.id === 'insert')
         ?.items.find((item) => item.id === 'figure');

@@ -39,8 +39,8 @@ const TABLE_KEYS = [
   'table-pointer',
   'plugin',
 ];
-// The gap cursor, the document's keys with its shortcut table, and the base keymap.
-const LAST_KEYS = ['plugin', 'document-shortcuts', 'plugin'];
+// The gap cursor, the list joins, the document's keys with its shortcut table, and the base keymap.
+const LAST_KEYS = ['plugin', 'list-joins', 'document-shortcuts', 'plugin'];
 // The typing shortcuts' input rules, the last shortcut they made, and Backspace taking it back.
 const TYPING_KEYS = ['plugin', 'typing-rules', 'plugin'];
 
