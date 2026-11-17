@@ -76,6 +76,13 @@ export interface TemplateWorkspaceProps {
   /** The layout a template is for: on pages, or the web layout. Defaults to pages. */
   readonly layoutOf?: ((template: TemplateFile) => DocumentLayout) | undefined;
   /**
+   * Whether a template inherits nothing, not even the base template, such as a host's reserved
+   * web-layout template. Its parent row is hidden and its settings are its own.
+   */
+  readonly isRoot?: ((template: TemplateFile) => boolean) | undefined;
+  /** Whether a template's name is shown but not edited, such as a host's reserved template. */
+  readonly isNameReadOnly?: ((template: TemplateFile) => boolean) | undefined;
+  /**
    * Draws the template shown in place of the workspace's own preview (`TemplatePreviewEditor`),
    * such as a document editor with the template's preview document.
    */

@@ -272,6 +272,7 @@ describe('TemplateWorkspace', () => {
       expect(within(settings).queryByText('Orientation')).not.toBeInTheDocument();
       expect(within(settings).queryByText('Header & footer')).not.toBeInTheDocument();
       expect(within(settings).getAllByText('Margins').length).toBeGreaterThan(0);
+      expect(within(settings).getByText('Parent template')).toBeInTheDocument();
       // The preview's template is resolved: the base template's page size shows through.
       await waitFor(() => expect(previews.at(-1)?.template.page?.size).toBeTruthy(), LOADED);
       const last = previews.at(-1);
@@ -280,6 +281,105 @@ describe('TemplateWorkspace', () => {
       await waitFor(() => expect(root()).toHaveAttribute('data-dirty', 'true'), LOADED);
       await openFromDialog(user, /Report/);
       expect(await screen.findByRole('alertdialog', {}, LOADED)).toBeInTheDocument();
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-3.18 shows a root web-layout template with its name read-only and margins in pixels',
+    async () => {
+      const user = userEvent.setup();
+      const store = storeOf(REPORT, {
+        ...ARTICLE,
+        page: { margins: { top: '24px', right: '24px', bottom: '24px', left: '24px' } },
+      });
+      const previews: TemplatePreview[] = [];
+      render(
+        <TemplateWorkspace
+          store={store}
+          defaultTemplateId="article"
+          defaultPanelExpanded
+          layoutOf={(template) => (template.extensions?.layout === 'web' ? 'web' : 'page')}
+          isRoot={(template) => template.id === 'article'}
+          isNameReadOnly={(template) => template.id === 'article'}
+          renderPreview={(preview) => {
+            previews.push(preview);
+            return null;
+          }}
+        />,
+      );
+      const settings = await screen.findByRole('region', { name: 'Document settings' }, LOADED);
+      await waitFor(() => expect(previews.at(-1)?.template.name).toBe('Article'), LOADED);
+      // A root inherits nothing, not even the base template's page size, and has no parent row.
+      expect(previews.at(-1)?.template.page?.size).toBeUndefined();
+      expect(within(settings).queryByText('Parent template')).not.toBeInTheDocument();
+      expect(within(settings).getByRole('textbox', { name: 'Name' })).toHaveAttribute('readonly');
+      // The web layout has no paged-only categories.
+      for (const title of [
+        'Paragraph numbering',
+        'Footnotes',
+        'References',
+        'Change bars',
+        'Contents',
+      ]) {
+        expect(within(settings).queryByText(title)).not.toBeInTheDocument();
+      }
+      // Its margins read and write pixels.
+      const top = within(settings).getByRole('textbox', { name: 'Top margin' });
+      expect(top).toHaveValue('24');
+      await user.clear(top);
+      await user.type(top, '32');
+      await user.click(saveButton());
+      await waitFor(async () => {
+        const loaded = await store.load('article');
+        expect(loaded.ok && loaded.value.template.page?.margins?.top).toBe('32px');
+      }, LOADED);
+    },
+    SLOW,
+  );
+
+  it(
+    'DOCE-TEMPLATE-EDITOR-3.10 keeps each section’s own page settings through quick tab switches and a reopen',
+    async () => {
+      const user = userEvent.setup();
+      const store = storeOf({
+        formatVersion: 1,
+        id: 'sections',
+        name: 'Sections',
+        sections: [{ name: 'cover' }, { name: 'body' }],
+      });
+      const view = render(
+        <TemplateWorkspace store={store} defaultTemplateId="sections" defaultPanelExpanded />,
+      );
+      const topOf = async (tab: string, value: string) => {
+        await user.click(await screen.findByRole('tab', { name: tab }, LOADED));
+        const settings = await screen.findByRole('region', { name: 'Section settings' }, LOADED);
+        const top = within(settings).getByRole('textbox', { name: 'Top margin' });
+        await user.clear(top);
+        await user.type(top, value);
+      };
+      await topOf('cover', '2');
+      // Switch tabs quickly, without waiting for each to settle.
+      for (const tab of ['Document', 'body', 'cover', 'body', 'Document', 'cover']) {
+        await user.click(screen.getByRole('tab', { name: tab }));
+      }
+      await topOf('body', '3');
+      await user.click(saveButton());
+      await waitFor(async () => {
+        const loaded = await store.load('sections');
+        const sections = loaded.ok ? loaded.value.template.sections : [];
+        expect(sections?.map((section) => section.page?.margins?.top)).toEqual(['2mm', '3mm']);
+      }, LOADED);
+      view.unmount();
+      render(<TemplateWorkspace store={store} defaultTemplateId="sections" defaultPanelExpanded />);
+      for (const [tab, value] of [
+        ['cover', '2'],
+        ['body', '3'],
+      ] as const) {
+        await user.click(await screen.findByRole('tab', { name: tab }, LOADED));
+        const settings = await screen.findByRole('region', { name: 'Section settings' }, LOADED);
+        expect(within(settings).getByRole('textbox', { name: 'Top margin' })).toHaveValue(value);
+      }
     },
     SLOW,
   );

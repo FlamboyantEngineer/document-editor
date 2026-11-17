@@ -3,8 +3,8 @@
 // as a copy into a folder, delete it, and browse and restore its versions, with the workspace's own
 // preview of the tab shown beside the side panel, whose image button places the lab's badge. The
 // Article template is for the web layout, which the lab keeps in the template's own
-// `extensions.layout`, so it previews as the web layout shows a document; it is pinned first in
-// the open dialog. "Save elsewhere" saves the open template as another writer would, so the next
+// `extensions.layout`, so it previews as the web layout shows a document, with its margins in
+// pixels; it inherits nothing, keeps its name, and is pinned first in the open dialog. "Save elsewhere" saves the open template as another writer would, so the next
 // save meets a conflict. Control+Alt+B shows the JSON.
 
 import { LockGlyph } from '@flamboyantengineer/ui-components/core';
@@ -112,6 +112,8 @@ function Lab() {
         defaultTemplateId="report"
         onTemplateIdChange={setOpenId}
         layoutOf={(template) => (template.extensions?.layout === 'web' ? 'web' : 'page')}
+        isRoot={(template) => template.id === 'article'}
+        isNameReadOnly={(template) => template.id === 'article'}
         catalog={{
           pinned: ['article'],
           iconOf: (template) => (template.id === 'article' ? LockGlyph : undefined),

@@ -132,6 +132,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
   {
     id: 'paragraph-numbering',
     title: 'Paragraph numbering',
+    pagesOnly: true,
     scope: ['styles', 'paragraph', 'numbering'],
     settings: [
       setting('enabled', 'Number paragraphs', boolean),
@@ -169,6 +170,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
   {
     id: 'footnotes',
     title: 'Footnotes',
+    pagesOnly: true,
     scope: ['footnotes'],
     settings: [
       {
@@ -195,6 +197,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
   {
     id: 'references',
     title: 'References',
+    pagesOnly: true,
     scope: ['references'],
     documentOnly: true,
     settings: [],
@@ -203,6 +206,7 @@ export const TEMPLATE_SECTIONS: readonly TemplateSettingSection[] = [
   {
     id: 'change-bars',
     title: 'Change bars',
+    pagesOnly: true,
     scope: ['changeBars'],
     settings: [
       ...CHANGE_KINDS.flatMap((kind) => {

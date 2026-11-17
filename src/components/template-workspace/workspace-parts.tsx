@@ -92,6 +92,8 @@ interface PropertiesProps extends PartProps {
   readonly saveError: { id?: string; parent?: string };
   readonly idInputRef: Ref<HTMLInputElement>;
   readonly isNameReadOnly: boolean;
+  /** Whether the template inherits nothing, so it has no parent to pick. */
+  readonly isRoot: boolean;
 }
 
 /** The open template's settings for the scope shown, or a saved version's, read-only. */
@@ -119,7 +121,7 @@ export function WorkspaceProperties(props: PropertiesProps) {
         parentError={props.saveError.parent}
         isNameReadOnly={props.isNameReadOnly}
         isDisabled={viewing !== null}
-        parentOptions={parentOptionsOf(shown.id, workspace.templates)}
+        parentOptions={props.isRoot ? undefined : parentOptionsOf(shown.id, workspace.templates)}
         extensions={props.extensions}
         fonts={props.fonts}
         layout={props.layout}
