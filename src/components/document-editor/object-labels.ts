@@ -22,6 +22,8 @@ export interface ObjectLabels {
   readonly script: string;
   readonly editScript: string;
   readonly scriptSource: string;
+  /** The script editor's switch that wraps long lines of the script. */
+  readonly scriptWrap: string;
   readonly applyAndRun: string;
   readonly runScript: string;
   readonly runAllScripts: string;
@@ -40,6 +42,8 @@ export interface ObjectLabels {
   readonly scriptPreviewIdle: string;
   readonly scriptPreviewRunning: string;
   readonly scriptPreviewEmpty: string;
+  /** Says the preview waits until the problems the check found are fixed. */
+  readonly scriptPreviewBlocked: string;
   /** Says the script block being edited was deleted meanwhile, so its script cannot be applied. */
   readonly scriptBlockGone: string;
   /** Says a script's output is not content the document can hold; the reason follows it. */
@@ -193,6 +197,7 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   script: 'Script…',
   editScript: 'Edit script…',
   scriptSource: 'Script',
+  scriptWrap: 'Wrap lines',
   applyAndRun: 'Apply and run',
   runScript: 'Run script',
   runAllScripts: 'Run all scripts',
@@ -208,6 +213,7 @@ export const DEFAULT_OBJECT_LABELS: ObjectLabels = {
   scriptPreviewIdle: 'Refresh the preview to run the script.',
   scriptPreviewRunning: 'Updating the preview…',
   scriptPreviewEmpty: 'The script produced nothing.',
+  scriptPreviewBlocked: 'Fix the problems in the script to preview it.',
   scriptBlockGone: 'The script block is no longer in the document.',
   scriptOutputRefused: 'The script produced content the document cannot hold.',
   filterScriptReference: 'Filter the reference',

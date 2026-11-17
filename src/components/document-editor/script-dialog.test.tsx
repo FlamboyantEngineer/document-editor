@@ -131,4 +131,110 @@ describe('ScriptDialog', () => {
       expect(screen.getByRole('button', { name: 'Apply and run' })).toBeEnabled(),
     );
   });
+
+  it('DOCE-EDITOR-4.9 wraps the long lines of the script until the writer switches it off', async () => {
+    const user = userEvent.setup();
+    openDialog(runner());
+    const source = screen.getByRole('textbox', { name: 'Script' });
+    expect(source).toHaveAttribute('wrap', 'soft');
+    await user.click(screen.getByRole('switch', { name: 'Wrap lines' }));
+    expect(source).toHaveAttribute('wrap', 'off');
+  });
+
+  it('DOCE-EDITOR-4.9 keeps the preview while the reference is shown', async () => {
+    const user = userEvent.setup();
+    const host = {
+      run: vi.fn<ScriptRunnerAdapter['run']>(() =>
+        Promise.resolve({
+          ok: true,
+          value: { content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Twelve' }] }] },
+        }),
+      ),
+    };
+    openDialog(host);
+    await user.click(screen.getByRole('button', { name: 'Refresh preview' }));
+    const shown = await screen.findByRole('textbox', { name: 'Preview' });
+    await user.click(screen.getByRole('tab', { name: 'Reference' }));
+    await user.click(screen.getByRole('tab', { name: 'Preview' }));
+    expect(screen.getByRole('textbox', { name: 'Preview' })).toBe(shown);
+    expect(host.run).toHaveBeenCalledTimes(1);
+  });
+
+  it('DOCE-EDITOR-4.9 stops the preview run asked when the script changes', async () => {
+    const user = userEvent.setup();
+    const signals: AbortSignal[] = [];
+    const host = {
+      run: vi.fn<ScriptRunnerAdapter['run']>((_request, signal) => {
+        if (signal) signals.push(signal);
+        return new Promise(() => undefined);
+      }),
+    };
+    openDialog(host);
+    await user.click(screen.getByRole('button', { name: 'Refresh preview' }));
+    expect(signals[0]?.aborted).toBe(false);
+    await user.type(screen.getByRole('textbox', { name: 'Script' }), ';');
+    expect(signals[0]?.aborted).toBe(true);
+    expect(document.querySelector('.de-script-editor__preview')).toHaveAttribute(
+      'data-status',
+      'idle',
+    );
+  });
+
+  it('DOCE-EDITOR-4.9 keeps the preview from running while the check finds an error', async () => {
+    const user = userEvent.setup();
+    const host = {
+      ...runner(),
+      check: vi.fn<NonNullable<ScriptRunnerAdapter['check']>>(() =>
+        Promise.resolve({ ok: true, value: [{ message: 'Unexpected end', line: 1, column: 6 }] }),
+      ),
+    };
+    openDialog(host);
+    await writeScript(user, 'fresh(');
+    const refresh = screen.getByRole('button', { name: 'Refresh preview' });
+    await waitFor(() => expect(refresh).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'Apply and run' })).toBeDisabled();
+    expect(host.run).not.toHaveBeenCalled();
+  });
+
+  it("DOCE-HOST-1.11 tells the host's check which block the script is for, in the document as it is", async () => {
+    const user = userEvent.setup();
+    const host = {
+      ...runner(),
+      check: vi.fn<NonNullable<ScriptRunnerAdapter['check']>>(() =>
+        Promise.resolve({ ok: true, value: [] }),
+      ),
+    };
+    openDialog(host);
+    await writeScript(user, 'fresh()');
+    await waitFor(() => expect(host.check).toHaveBeenCalled());
+    const [source, signal, context] = host.check.mock.calls.at(-1) ?? [];
+    expect(source).toBe('fresh()');
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(context?.blockId).toBe('a0000001');
+    expect(context?.document.sections[0]?.content?.[1]).toMatchObject({
+      type: 'script',
+      attrs: { id: 'a0000001' },
+    });
+  });
+
+  it("DOCE-HOST-1.11 offers only the host's names when they are every name a script can use", async () => {
+    const user = userEvent.setup();
+    const vocabulary = [{ name: 'render', kind: 'object' as const, description: 'Builds output.' }];
+    openDialog({ ...runner(), vocabulary, standardVocabulary: false });
+    await user.click(screen.getByRole('tab', { name: 'Reference' }));
+    const reference = document.querySelector('.de-script-editor__reference');
+    expect(reference).toHaveTextContent('render');
+    expect(reference).not.toHaveTextContent('Math');
+    expect(reference).not.toHaveTextContent('const');
+  });
+
+  it("DOCE-HOST-1.11 offers the standard names after the host's by default", async () => {
+    const user = userEvent.setup();
+    const vocabulary = [{ name: 'render', kind: 'object' as const, description: 'Builds output.' }];
+    openDialog({ ...runner(), vocabulary });
+    await user.click(screen.getByRole('tab', { name: 'Reference' }));
+    const reference = document.querySelector('.de-script-editor__reference');
+    expect(reference).toHaveTextContent('render');
+    expect(reference).toHaveTextContent('Math');
+  });
 });

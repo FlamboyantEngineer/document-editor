@@ -246,6 +246,10 @@ test.describe('full editor lab', () => {
     await expect(content(page).first().locator('h2', { hasText: 'Preview heading' })).toHaveCount(
       0,
     );
+    // The preview draws the output as the editor does: an equation typeset.
+    await source.fill('render.equation("x^2")');
+    await dialog.getByRole('button', { name: 'Refresh preview' }).click();
+    await expect(dialog.locator('.de-math[data-state="ready"] math')).toBeVisible();
     // The reference lists the names a script can use, by object.
     await dialog.getByRole('tab', { name: 'Reference' }).click();
     await expect(dialog.getByText('render.heading(text, level)')).toBeVisible();

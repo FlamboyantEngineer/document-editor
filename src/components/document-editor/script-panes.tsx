@@ -5,17 +5,20 @@
 
 import { Button } from '@flamboyantengineer/ui-components/button';
 import { RefreshGlyph } from '@flamboyantengineer/ui-components/core';
+import type { RichTextNodeViewProps } from '@flamboyantengineer/ui-components/rich-text-editor';
 import { SearchField } from '@flamboyantengineer/ui-components/search-field';
 import type { Node as ProseMirrorNode, Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, type Plugin, type PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { type CSSProperties, useMemo, useState } from 'react';
+import { type ComponentType, type CSSProperties, useMemo, useState } from 'react';
+import { contentsKey, dynamicTemplatesKey } from '../../engine/index.js';
 import type { ScriptRunnerAdapter, ScriptVocabularyEntry } from '../../host/index.js';
 import {
   isDocumentFormatError,
   type NumberingCounters,
   numberingCountersAt,
   readDocumentFile,
+  sectionAt,
   type StoredContent,
   type TemplateFile,
   writeDocumentFile,
@@ -61,11 +64,38 @@ export function previewCounters({ headings, objects }: NumberingCounters): strin
   return [...levels, ...kinds, 'ordered-list 0'].join(' ');
 }
 
-// The document a script's output makes; an output the schema refuses throws.
-function outputDocument(output: StoredContent, schema: Schema): ProseMirrorNode | null {
+// The document a script's output makes, in the section its block is in, so the section's own
+// template settings, such as its width and styles, apply; an output the schema refuses throws.
+function outputDocument(
+  output: StoredContent,
+  schema: Schema,
+  section: string | null,
+): ProseMirrorNode | null {
   if (output.length === 0) return null;
-  return readDocumentFile({ formatVersion: 1, sections: [{ name: null, content: output }] }, schema)
-    .doc;
+  const sections = [{ name: section, content: output }];
+  return readDocumentFile({ formatVersion: 1, sections }, schema).doc;
+}
+
+/**
+ * What draws the preview as the editor draws the document: the plugins of the editor's state that
+ * draw node views, such as typeset math, signatures and linked code, and the host's node views.
+ */
+export interface ScriptPreviewViews {
+  readonly plugins: readonly Plugin[];
+  readonly nodeViews?: Readonly<Record<string, ComponentType<RichTextNodeViewProps>>> | undefined;
+}
+
+// The plugins that draw node views which every editor's layout adds itself, the preview's too.
+const LAYOUT_DRAWN = new Set<PluginKey>([dynamicTemplatesKey, contentsKey]);
+
+/**
+ * The plugins of an editor's state that draw node views, for a preview drawn as it draws, but for
+ * those its layout adds of its own.
+ */
+export function drawingPlugins(state: EditorState): Plugin[] {
+  return state.plugins.filter(
+    (plugin) => plugin.props.nodeViews && !LAYOUT_DRAWN.has(plugin.spec.key as PluginKey),
+  );
 }
 
 /** What a preview runs: the script, where its block is, and the template that numbers it. */
@@ -75,6 +105,8 @@ interface ScriptPreviewRequest {
   readonly at: number;
   readonly template: TemplateFile;
   readonly labels: DocumentEditorLabels;
+  /** Stops the run, as when the script changes before it answers. */
+  readonly signal?: AbortSignal | undefined;
 }
 
 /**
@@ -85,22 +117,24 @@ interface ScriptPreviewRequest {
 export async function previewScript(
   view: EditorView,
   runner: ScriptRunnerAdapter,
-  { source, at, template, labels }: ScriptPreviewRequest,
+  { source, at, template, labels, signal }: ScriptPreviewRequest,
 ): Promise<ScriptPreviewState> {
   const { doc } = view.state;
   const request = { purpose: 'preview', blockId: 'preview', source } as const;
   const result = await runner
-    .run({ ...request, document: writeDocumentFile(doc) })
+    .run({ ...request, document: writeDocumentFile(doc) }, signal)
     .catch((error: unknown) => ({
       ok: false as const,
       error: { kind: 'unavailable' as const, message: String(error) },
     }));
   if (!result.ok) return { status: 'error', message: result.error.message ?? '' };
   try {
+    const place = Math.min(at, doc.content.size);
+    const section = sectionAt(doc.resolve(place))?.name ?? null;
     return {
       status: 'ready',
-      document: outputDocument(result.value.content, doc.type.schema),
-      counters: numberingCountersAt(doc, template, Math.min(at, doc.content.size)),
+      document: outputDocument(result.value.content, doc.type.schema, section),
+      counters: numberingCountersAt(doc, template, place),
     };
   } catch (error) {
     // Why the format refused it helps whoever wrote the script; anything else is not for them.
@@ -109,17 +143,22 @@ export async function previewScript(
   }
 }
 
-// The output shown read-only, in the template's look, in the web layout.
+// The output shown read-only, in the template's look, in the web layout, drawn as the editor
+// draws the document.
 function PreviewDocument({
   document,
   template,
   labels,
+  views,
 }: {
   document: ProseMirrorNode;
   template: TemplateFile;
   labels: DocumentEditorLabels;
+  views: ScriptPreviewViews | undefined;
 }) {
-  const [state, setState] = useState(() => EditorState.create({ doc: document }));
+  const [state, setState] = useState(() =>
+    EditorState.create({ doc: document, plugins: [...(views?.plugins ?? [])] }),
+  );
   return (
     <DocumentEditor
       state={state}
@@ -127,32 +166,45 @@ function PreviewDocument({
       template={template}
       layout="web"
       editable={false}
+      nodeViews={views?.nodeViews}
       aria-label={labels.scriptPreview}
     />
   );
 }
 
 // What the preview says in place of an output, or null while it shows one.
-function previewMessage(preview: ScriptPreviewState, labels: DocumentEditorLabels): string | null {
-  if (preview.status === 'idle') return labels.scriptPreviewIdle;
+function previewMessage(
+  preview: ScriptPreviewState,
+  labels: DocumentEditorLabels,
+  blocked: boolean,
+): string | null {
+  if (preview.status === 'idle')
+    return blocked ? labels.scriptPreviewBlocked : labels.scriptPreviewIdle;
   if (preview.status === 'running') return labels.scriptPreviewRunning;
   if (preview.status === 'error') return preview.message;
   return preview.document ? null : labels.scriptPreviewEmpty;
 }
 
-/** The preview: a button that runs the script, then what it produced, or why it failed. */
+/**
+ * The preview: a button that runs the script, then what it produced, or why it failed. While the
+ * script has problems (`blocked`), it cannot run.
+ */
 export function ScriptPreview({
   template,
   labels,
   preview,
   onRefresh,
+  blocked = false,
+  views,
 }: {
   template: TemplateFile;
   labels: DocumentEditorLabels;
   preview: ScriptPreviewState;
   onRefresh: () => void;
+  blocked?: boolean | undefined;
+  views?: ScriptPreviewViews | undefined;
 }) {
-  const message = previewMessage(preview, labels);
+  const message = previewMessage(preview, labels, blocked);
   const counters =
     preview.status === 'ready'
       ? ({ '--de-script-editor-counters': previewCounters(preview.counters) } as CSSProperties)
@@ -163,6 +215,7 @@ export function ScriptPreview({
         size="sm"
         startIcon={RefreshGlyph}
         isPending={preview.status === 'running'}
+        isDisabled={blocked}
         onPress={onRefresh}
       >
         {labels.refreshPreview}
@@ -173,7 +226,12 @@ export function ScriptPreview({
         </p>
       )}
       {preview.status === 'ready' && preview.document ? (
-        <PreviewDocument document={preview.document} template={template} labels={labels} />
+        <PreviewDocument
+          document={preview.document}
+          template={template}
+          labels={labels}
+          views={views}
+        />
       ) : null}
     </div>
   );
