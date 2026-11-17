@@ -127,7 +127,7 @@ Verification: `e2e/objects.spec.ts`
 The object views shall draw a signature (`de-signature`, with `data-signed`) as its strokes, from its stored vector, and the signer's name (`de-signature__name`), and an unsigned one as the name alone.
 
 Implementation: `src/engine/object-views.ts`
-Verification: `e2e/objects.spec.ts`
+Verification: `e2e/objects.spec.ts`, `src/engine/object-views.test.ts`
 
 ### DOCE-OBJECTS-3.3 - Highlighting
 

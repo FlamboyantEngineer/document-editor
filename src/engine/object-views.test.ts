@@ -5,6 +5,7 @@ import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { documentSchema, findNode } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
+import { readDocumentFile } from '../model/index.js';
 import { createObjectViews } from './object-views.js';
 
 installEditorDom();
@@ -80,5 +81,53 @@ describe('typing over a selected object', () => {
     });
     const marked = schema.node('doc', null, [schema.node('marker'), schema.node('paragraph')]);
     expect(keepsSelection(viewSelecting(EditorState.create({ doc: marked }), 0))).toBe(false);
+  });
+});
+
+describe('signatures', () => {
+  it('DOCE-OBJECTS-3.2 draws an unsigned signature a script produced as the name alone, with no graphic', () => {
+    const signature = (person: string, label: string, vector?: unknown) => ({
+      type: 'signature',
+      attrs: { person, label, ...(vector ? { vector } : {}) },
+    });
+    const vector = {
+      viewBox: { width: 100, height: 40 },
+      paths: [{ d: 'M5 30 L95 10', fill: false, strokeWidth: 2 }],
+    };
+    const { doc } = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              {
+                type: 'script',
+                attrs: { id: 's0000001', source: 'signatures()' },
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [
+                      signature('reviewer', 'Sam Reviewer'),
+                      signature('ada', 'Ada', vector),
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    );
+    view = new EditorView(document.body.appendChild(document.createElement('div')), {
+      state: EditorState.create({ doc, plugins: [createObjectViews()] }),
+    });
+    const [unsigned, signed] = view.dom.querySelectorAll('.de-signature');
+    expect(unsigned).toHaveAttribute('data-signed', 'false');
+    expect(unsigned?.querySelector('svg')).toBeNull();
+    expect(unsigned?.querySelector('.de-signature__name')).toHaveTextContent('Sam Reviewer');
+    expect(signed).toHaveAttribute('data-signed', 'true');
+    expect(signed?.querySelector('svg path')).not.toBeNull();
   });
 });

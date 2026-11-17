@@ -77,4 +77,67 @@ describe('proofing status', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(status(container)).toBeNull();
   });
+
+  it('DOCE-PROOFING-1.2 marks issues in a compact field in the web layout that holds an embed', async () => {
+    const proofer: ProoferAdapter = {
+      check: (texts) =>
+        Promise.resolve(
+          texts.map(({ text }) => {
+            const at = text.indexOf('teh');
+            return at < 0
+              ? []
+              : [{ from: at, to: at + 3, kind: 'spelling' as const, suggestions: ['the'] }];
+          }),
+        ),
+    };
+    const embed = {
+      type: 'embed',
+      attrs: { id: 'e0000001', kind: 'data-set', source: 'set-7', label: 'Set 7' },
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rows of set 7' }] }],
+    };
+    const doc = readDocumentFile(
+      {
+        formatVersion: 1,
+        sections: [
+          {
+            name: null,
+            content: [
+              embed,
+              { type: 'paragraph', content: [{ type: 'text', text: 'A teh note' }] },
+            ],
+          },
+        ],
+      },
+      documentSchema,
+    ).doc;
+    function Field() {
+      const [state, setState] = useState(() =>
+        EditorState.create({
+          doc,
+          plugins: [
+            ...createDocumentEditing(documentSchema),
+            createProofing({ proofer, delay: 0 }),
+          ],
+        }),
+      );
+      return (
+        <DocumentEditor
+          state={state}
+          onStateChange={setState}
+          template={TEMPLATE}
+          layout="web"
+          toolbar={false}
+          menubar={false}
+          statusBar={false}
+          aria-label="Note"
+        />
+      );
+    }
+    const { container } = render(<Field />);
+    await vi.waitFor(() =>
+      expect(container.querySelector('[data-proofing-issue="spelling"]')).toHaveTextContent('teh'),
+    );
+    expect(container.querySelector('.de-embed')).toHaveTextContent('Rows of set 7');
+    expect(container.querySelector('.de-document-editor__toolbar')).toBeNull();
+  });
 });

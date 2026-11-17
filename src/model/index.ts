@@ -190,7 +190,7 @@ export {
   normalizeParagraphLevel,
   withElementOutput,
 } from './schema/element-attributes.js';
-export { EMBED_NODE, isEmbed } from './schema/embed-nodes.js';
+export { EMBED_NODE, INLINE_EMBED_NODE, isEmbed, isInlineEmbed } from './schema/embed-nodes.js';
 export { mentionPresentation } from './schema/inline-atom-nodes.js';
 export type { DocumentLayoutPreset, DocumentLayoutPresetId } from './schema/layout-presets.js';
 export {

@@ -4,6 +4,7 @@
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import {
+  isAnyEmbed,
   isPositionLocked,
   listSuggestions,
   objectBlockAt,
@@ -24,6 +25,7 @@ export type ContextKind =
   | 'footnote'
   | 'link'
   | 'reference'
+  | 'embed'
   | (string & {});
 
 /** What the context menu opens on. */
@@ -51,6 +53,11 @@ export interface ContextTarget {
   readonly editable: boolean;
   /** Whether the position is locked (`createEditLock`). */
   readonly locked: boolean;
+  /**
+   * The embed there: an inline one at the position, or the block one holding it, as in a table it
+   * holds, where a host offers its own entries, such as taking an update or opening the source.
+   */
+  readonly embed: { readonly pos: number; readonly node: ProseMirrorNode } | null;
 }
 
 const OBJECT_KINDS: Readonly<Record<string, ContextKind>> = {
@@ -65,6 +72,7 @@ const OBJECT_KINDS: Readonly<Record<string, ContextKind>> = {
 const INLINE_KINDS: Readonly<Record<string, ContextKind>> = {
   footnote_reference: 'footnote',
   math_inline: 'math',
+  embed_inline: 'embed',
 };
 
 const MARK_KINDS: Readonly<Record<string, ContextKind>> = {
@@ -78,6 +86,17 @@ function tableCellAt(state: EditorState, pos: number) {
     const name = $pos.node(depth).type.name;
     if (name !== 'table_cell' && name !== 'table_header') continue;
     return { row: $pos.index(depth - 2), column: $pos.index(depth - 1) };
+  }
+  return null;
+}
+
+// The inline embed at a position, or the block embed holding it.
+function embedThere(state: EditorState, pos: number): ContextTarget['embed'] {
+  const atom = state.doc.nodeAt(pos);
+  if (atom && isAnyEmbed(atom)) return { pos, node: atom };
+  const $pos = state.doc.resolve(pos);
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if (isAnyEmbed($pos.node(depth))) return { pos: $pos.before(depth), node: $pos.node(depth) };
   }
   return null;
 }
@@ -138,5 +157,6 @@ export function resolveContextTarget(
     suggestion: listSuggestions(state.doc).find((each) => each.from <= at && at <= each.to) ?? null,
     editable,
     locked: isPositionLocked(state, at),
+    embed: embedThere(state, at),
   };
 }
