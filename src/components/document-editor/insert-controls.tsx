@@ -149,7 +149,9 @@ function figureItem(labels: DocumentEditorLabels, features: InsertFeatures): Too
       (['image', 'diagram'] as const).map((figureType) => ({
         id: `${figureType}-figure`,
         label: figureType === 'image' ? labels.imageFigure : labels.diagramFigure,
-        onAction: () => context.openDialog({ kind: 'figure', figureType }),
+        // A diagram opens the host's diagram editor at once; an image, the figure dialog.
+        onAction: () =>
+          context.openDialog(figureType === 'image' ? { kind: 'figure' } : { kind: 'diagram' }),
       })),
   };
 }

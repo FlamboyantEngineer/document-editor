@@ -150,10 +150,11 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     const view = editorView();
     const props = { view, labels: DEFAULT_EDITOR_LABELS, onClose: () => {}, diagrams: { edit } };
     const { unmount } = render(<FigureDialog {...props} figureType="diagram" />);
-    expect(screen.getByRole('radiogroup', { name: 'Figure type' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled();
     await user.click(screen.getByRole('button', { name: 'Draw diagram…' }));
-    expect(edit).toHaveBeenCalledWith(null, expect.any(AbortSignal));
+    expect(edit).toHaveBeenCalledWith(null, expect.any(AbortSignal), {
+      onSave: expect.any(Function),
+    });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Insert' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Insert' }));
     expect(figureAttrs(view)).toMatchObject({
@@ -165,11 +166,11 @@ describe('FigureDialog', { timeout: 15_000 }, () => {
     });
     unmount();
     render(<FigureDialog {...props} />);
-    expect(screen.queryByRole('radiogroup', { name: 'Figure type' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Edit diagram…' }));
     expect(edit).toHaveBeenLastCalledWith(
       { assetId: 'drawing-1', snapshotId: 'drawing-1' },
       expect.any(AbortSignal),
+      { onSave: expect.any(Function) },
     );
     await waitFor(() => expect(screen.getByRole('button', { name: 'Apply' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: 'Apply' }));

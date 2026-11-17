@@ -40,7 +40,7 @@ export {
   createContents,
 } from './contents.js';
 export { setContentsDepth, setContentsGroups } from './contents-commands.js';
-export { setFigureSize, setObjectLayout } from './figure-commands.js';
+export { pinFigureSnapshot, setFigureSize, setObjectLayout } from './figure-commands.js';
 export { laidOutFigureSize } from './figure-measure.js';
 export {
   convertMath,

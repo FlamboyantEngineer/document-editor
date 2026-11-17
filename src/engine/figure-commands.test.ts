@@ -2,7 +2,7 @@ import { EditorState, NodeSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
-import { setFigureSize } from './figure-commands.js';
+import { pinFigureSnapshot, setFigureSize } from './figure-commands.js';
 
 // A document of one figure with the attributes given, the figure selected.
 function figureState(attrs: Record<string, unknown>) {
@@ -48,5 +48,21 @@ describe('setFigureSize', () => {
     expect(setFigureSize({ width: 0, height: 150 })(state)).toBe(false);
     expect(setFigureSize({ width: 10.5, height: 150 })(state)).toBe(false);
     expect(setFigureSize({ width: 1, height: 1 })(state)).toBe(true);
+  });
+});
+
+describe('pinFigureSnapshot', () => {
+  it('DOCE-HOST-1.15 pins the figures of an asset to its new snapshot, and nothing else', () => {
+    let state = figureState({ assetId: 'drawing', assetRevision: 'one', src: '' });
+    expect(pinFigureSnapshot({ assetId: 'other', snapshotId: 'two' })(state)).toBe(false);
+    pinFigureSnapshot({ assetId: 'drawing', snapshotId: 'two' })(state, (tr) => {
+      state = state.apply(tr);
+    });
+    let snapshot: unknown = null;
+    state.doc.descendants((node) => {
+      if (node.type.name === 'figure') snapshot = node.attrs.snapshotId;
+    });
+    expect(snapshot).toBe('two');
+    expect(pinFigureSnapshot({ assetId: 'drawing', snapshotId: 'two' })(state)).toBe(false);
   });
 });

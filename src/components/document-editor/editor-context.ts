@@ -26,6 +26,8 @@ export type ObjectDialog =
   | { readonly kind: 'figure'; readonly figureType?: 'image' | 'diagram' | undefined }
   /** Resizes the figure selected. */
   | { readonly kind: 'figure-size' }
+  /** Draws a new diagram in the host's editor at once and inserts it, with no dialog of its own. */
+  | { readonly kind: 'diagram' }
   | { readonly kind: 'link' }
   | { readonly kind: 'linked-code' }
   | { readonly kind: 'caption' }

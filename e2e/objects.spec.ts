@@ -292,23 +292,16 @@ test.describe('objects', () => {
     await expect(figure).not.toHaveAttribute('data-object-layout');
   });
 
-  test('DOCE-OBJECTS-1.4 inserts a diagram from the host diagram editor, then edits it', async ({
+  test('DOCE-OBJECTS-1.4 draws a diagram straight from the menu, then edits it', async ({
     page,
   }) => {
     await newParagraph(page, 'Power', '');
     await toolbar(page).getByRole('button', { name: 'Figure' }).click();
     await item(page, 'Diagram…').click();
-    await expect(page.locator('[data-dialog="figure"]')).toHaveAttribute(
-      'data-figure-type',
-      'diagram',
-    );
-    await dialog(page).getByRole('button', { name: 'Draw diagram…' }).click();
-    await dialog(page).getByRole('textbox', { name: 'Caption' }).fill('The flow');
-    await dialog(page).getByRole('button', { name: 'Insert' }).click();
-    const figure = content(page).locator('figure[data-figure-type="diagram"]', {
-      hasText: 'The flow',
-    });
+    // The host's editor opens at once, and its saved drawing becomes the figure with no dialog.
+    const figure = content(page).locator('figure[data-figure-type="diagram"]');
     await expect(figure).toHaveAttribute('data-figure-width', '480');
+    await expect(page.locator('[data-dialog="figure"]')).toHaveCount(0);
     const first = await figure.getAttribute('data-file-asset-id');
     await figure.click({ button: 'right' });
     await item(page, 'Edit figure…').click();

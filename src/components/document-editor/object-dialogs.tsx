@@ -73,6 +73,9 @@ const ignore = () => undefined;
 const FigureDialog = /* @__PURE__ */ lazyDialog(
   async () => (await SURFACE_LOADERS.figure()).FigureDialog,
 );
+const DiagramDrawing = /* @__PURE__ */ lazyDialog(
+  async () => (await SURFACE_LOADERS.figure()).DiagramDrawing,
+);
 const FigureResizeDialog = /* @__PURE__ */ lazyDialog(
   async () => (await SURFACE_LOADERS.figure()).FigureResizeDialog,
 );
@@ -272,6 +275,10 @@ function OpenDialog({
       );
     case 'figure-size':
       return <FigureResizeDialog {...shared} />;
+    case 'diagram':
+      return hosted.diagrams ? (
+        <DiagramDrawing {...shared} diagrams={hosted.diagrams} feedback={hosted.feedback} />
+      ) : null;
     case 'link':
       return <LinkDialog {...shared} />;
     case 'reference':

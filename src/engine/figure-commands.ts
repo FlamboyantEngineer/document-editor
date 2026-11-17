@@ -64,3 +64,27 @@ export function setObjectLayout(layout: 'left' | 'center' | 'right' | 'fit' | nu
     return true;
   };
 }
+
+/**
+ * Pins every figure showing a stored asset to the snapshot given, as a diagram editor stores a new
+ * snapshot of the same asset; false when no figure shows it.
+ */
+export function pinFigureSnapshot(asset: {
+  assetId: string;
+  snapshotId?: string | undefined;
+}): Command {
+  return (state, dispatch) => {
+    const snapshotId = asset.snapshotId ?? asset.assetId;
+    const tr = state.tr;
+    state.doc.descendants((node, pos) => {
+      if (node.type.name !== 'figure' || node.attrs.fileAssetId !== asset.assetId) return true;
+      if (node.attrs.snapshotId !== snapshotId) {
+        tr.setNodeMarkup(pos, undefined, { ...node.attrs, snapshotId });
+      }
+      return false;
+    });
+    if (!tr.docChanged) return false;
+    dispatch?.(tr);
+    return true;
+  };
+}

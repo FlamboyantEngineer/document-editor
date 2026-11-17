@@ -42,7 +42,18 @@ export interface FigureLabels {
   /** Names the figure dialog's preview of the image, and what it shows before there is one. */
   readonly figurePreview: string;
   readonly figurePreviewEmpty: string;
+  /** Under the upload control: the largest image an upload takes; and a file refused for it. */
+  readonly uploadLimit: (maxBytes: number) => string;
+  readonly uploadTooLarge: (maxBytes: number) => string;
+  /** Tells the reader a paste was dropped because the document changed while its images uploaded. */
+  readonly pasteAgain: string;
 }
+
+// A size in bytes in whole megabytes, or kilobytes below one.
+const sizeOf = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${String(Math.round(bytes / (1024 * 1024)))} MB`
+    : `${String(Math.max(1, Math.round(bytes / 1024)))} KB`;
 
 /** The figure controls' English text. */
 export const DEFAULT_FIGURE_LABELS: FigureLabels = {
@@ -75,4 +86,8 @@ export const DEFAULT_FIGURE_LABELS: FigureLabels = {
   },
   figurePreview: 'Preview',
   figurePreviewEmpty: 'The image shows here once it is chosen.',
+  uploadLimit: (maxBytes) => `Up to ${sizeOf(maxBytes)}.`,
+  uploadTooLarge: (maxBytes) =>
+    `The image is larger than ${sizeOf(maxBytes)}, the most an upload takes.`,
+  pasteAgain: 'The document changed while the images uploaded. Paste them again.',
 };
