@@ -589,12 +589,13 @@ function readListPages() {
         last: list === body?.lastElementChild,
         spare: bottom - list.getBoundingClientRect().bottom,
         firstItem: items[0]?.getBoundingClientRect().height ?? 0,
-        firstLines: items.map((item) =>
-          Math.abs(
-            (item.firstElementChild?.getBoundingClientRect().top ?? 0) -
-              item.getBoundingClientRect().top,
-          ),
-        ),
+        // Measured from the item's first child drawn with a box, past hidden markers.
+        firstLines: items.map((item) => {
+          const first = [...item.children].find((each) => each.getClientRects().length > 0);
+          return Math.abs(
+            (first?.getBoundingClientRect().top ?? 0) - item.getBoundingClientRect().top,
+          );
+        }),
       };
     });
     return { over: reach - bottom, lists };
