@@ -102,6 +102,13 @@ While the reader edits the document and the store can change a thread (`update`)
 Implementation: `src/components/document-comments/use-target-write-back.ts`, `src/components/document-comments/document-comments.tsx`
 Verification: `src/components/document-comments/use-target-write-back.test.tsx`
 
+### DOCE-COMMENTS-1.15 - Comments and suggestions in footnotes
+
+A footnote's text (DOCE-FOOTNOTES-1.1) shall take comment threads and suggestions as the body's text does, with the same cards, permissions and commands. A footnote's text has no element id of its own, so a target range in it names its footnote's id as its element (DOCE-COMMENTS-1.10), and a target is found again in that footnote's text; a block whose own element id is the same is found first. A suggestion typed in a footnote's text is recorded in it and named by its thread like any other.
+
+Implementation: `src/engine/comment-targets.ts`
+Verification: `src/engine/footnote-comments.test.ts`, `src/components/document-comments/comment-anchoring.test.tsx`
+
 ## DOCE-COMMENTS-2 - The comments margin
 
 ### DOCE-COMMENTS-2.1 - Cards beside the document
