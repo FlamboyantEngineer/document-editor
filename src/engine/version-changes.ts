@@ -8,6 +8,7 @@
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { type EditorState, Plugin, PluginKey, type Transaction } from 'prosemirror-state';
+import { Mapping, ReplaceAroundStep, type Step } from 'prosemirror-transform';
 import { DecorationSet } from 'prosemirror-view';
 import {
   isDerivedTransaction,
@@ -158,12 +159,30 @@ function followsOnly(tr: Transaction, scope: readonly VersionSpan[] | null): boo
   return outside;
 }
 
+// A step that only sets a node's attributes or type (`setNodeMarkup`), as attributing a block to
+// its writer does: it replaces the node's two tokens with two others, which would drop the
+// decorations on the node and move the start of its change.
+const setsMarkup = (step: Step | undefined) =>
+  step instanceof ReplaceAroundStep &&
+  step.insert === 1 &&
+  step.slice.size === 2 &&
+  step.gapFrom === step.from + 1 &&
+  step.gapTo === step.to - 1;
+
+// How positions move through a transaction, for the changes shown: a step that only sets a node's
+// markup moves none, so it is left out, and the node keeps its change and its decorations.
+function followingMapping(tr: Transaction): Mapping {
+  if (!tr.steps.some(setsMarkup)) return tr.mapping;
+  return new Mapping(tr.mapping.maps.filter((_, index) => !setsMarkup(tr.steps[index])));
+}
+
 function mapState(value: VersionChangesState, tr: Transaction): VersionChangesState {
+  const mapping = followingMapping(tr);
   return {
     ...value,
-    scope: value.scope?.map((span) => mapVersionSpan(span, tr.mapping)) ?? null,
-    changes: value.changes.map((change) => mapVersionChange(change, tr.mapping)),
-    decorations: value.decorations.map(tr.mapping, tr.doc),
+    scope: value.scope?.map((span) => mapVersionSpan(span, mapping)) ?? null,
+    changes: value.changes.map((change) => mapVersionChange(change, mapping)),
+    decorations: value.decorations.map(mapping, tr.doc),
   };
 }
 

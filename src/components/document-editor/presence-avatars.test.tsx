@@ -64,6 +64,19 @@ describe('DocumentPresence', () => {
     expect(within(people).getByRole('button', { name: /Grace/ })).toHaveAccessibleName(/Editing/);
   });
 
+  it('DOCE-COLLAB-1.3 shows at most five people, counting the others', () => {
+    const many: Peer[] = ['Ada', 'Ben', 'Cy', 'Dee', 'Eve', 'Fay', 'Gus'].map((name, index) => ({
+      id: name.toLowerCase(),
+      name,
+      head: index + 1,
+    }));
+    render(editor(many));
+    const people = screen.getByRole('group', { name: 'People in this document' });
+    expect(within(people).getByRole('button', { name: /Eve/ })).toBeInTheDocument();
+    expect(within(people).queryByRole('button', { name: /^Fay/ })).not.toBeInTheDocument();
+    expect(people).toHaveTextContent('+2');
+  });
+
   it('DOCE-COLLAB-1.3 shows no avatars while no one else is in the document', () => {
     const { container } = render(editor([]));
     expect(container.querySelector('[data-item="presence"]')).toBeNull();

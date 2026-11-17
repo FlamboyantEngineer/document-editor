@@ -1,7 +1,7 @@
 // Two writers edit one document in a shared room, on a room server in this page, each at their own
 // width and zoom: what either types reaches the other, the room's seed comes from `documentToYjs`,
 // and each writer's undo undoes only their own changes. Either can go offline and edit on their
-// own, then come back and merge.
+// own, then come back and merge, and either can switch between the pages and the web layout.
 
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -67,6 +67,7 @@ function Connection({ person }: { person: string }) {
 
 function WriterPane({ person }: { person: Writer }) {
   const [zoom, setZoom] = useState(person.zoom);
+  const [web, setWeb] = useState(false);
   const session = useDocumentSession({
     host: HOSTS.get(person.id) ?? hostOf(person),
     documentId: DOCUMENT_ID,
@@ -76,7 +77,16 @@ function WriterPane({ person }: { person: Writer }) {
   return (
     <section aria-label={person.name} style={{ flex: `0 0 ${person.width}`, minWidth: 0 }}>
       <h2>{person.name}</h2>
-      <Connection person={person.id} /> <StatusLine session={session} name={person.name} />
+      <Connection person={person.id} /> <StatusLine session={session} name={person.name} />{' '}
+      <label>
+        <input
+          type="checkbox"
+          name={`${person.id}-web-layout`}
+          checked={web}
+          onChange={(event) => setWeb(event.currentTarget.checked)}
+        />{' '}
+        {`${person.name}'s web layout`}
+      </label>
       <DocumentSessionBoundary
         session={session}
         fallback={<p>Opening the document…</p>}
@@ -90,6 +100,7 @@ function WriterPane({ person }: { person: Writer }) {
             aria-label={`${person.name}'s document`}
             zoom={zoom}
             onZoomChange={setZoom}
+            layout={web ? 'web' : 'page'}
           />
         )}
       </DocumentSessionBoundary>

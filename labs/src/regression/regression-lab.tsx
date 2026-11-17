@@ -1,6 +1,7 @@
 // The regression lab's page: a document of the regression set, picked by the Document picker or
 // the page's `document` query parameter, in the document editor with its scrolling frame and
-// status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view. The regression scenarios (`e2e/regression.spec.ts`)
+// status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view; with
+// `compare`, the changes since it opened as change bars. The regression scenarios (`e2e/regression.spec.ts`)
 // read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
@@ -45,6 +46,12 @@ function initialName(): RegressionDocumentName {
 // The layout the query names: pages, or the web layout (`layout=web`).
 const LAYOUT: DocumentLayout =
   new URLSearchParams(window.location.search).get('layout') === 'web' ? 'web' : 'page';
+
+// `compare` shows the changes since the document opened as change bars, as a reader reviewing
+// changes sees it: none until the reader edits.
+const COMPARE = new URLSearchParams(window.location.search).has('compare')
+  ? ({ previous: 'opened', display: 'bars' } as const)
+  : undefined;
 
 // Whether the host draws quotes with a React view of its own (`hostViews`).
 const HOST = new URLSearchParams(window.location.search).has('hostViews');
@@ -108,6 +115,7 @@ function RegressionLab() {
         onStateChange={setState}
         template={template}
         layout={LAYOUT}
+        compare={COMPARE}
         nodeViews={HOST ? HOST_VIEWS : undefined}
         scrollable
         statusBar

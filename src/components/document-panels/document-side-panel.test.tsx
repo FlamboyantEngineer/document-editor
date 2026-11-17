@@ -174,6 +174,13 @@ describe('DocumentSidePanel', () => {
     expect(outline).toHaveAttribute('aria-selected', 'false');
     await user.click(outline);
     expect(outline).toHaveAttribute('aria-selected', 'true');
+    // Collapsed and expanded again, it shows the pane it showed.
+    await user.click(within(details()).getByRole('button', { name: /collapse/i }));
+    await user.click(screen.getByRole('button', { name: /expand/i }));
+    expect(within(details()).getByRole('tab', { name: 'Outline' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
   it('DOCE-EDITOR-8.2 reveals a pane through the handle, expanding its panel and focusing it', async () => {
