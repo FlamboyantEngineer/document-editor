@@ -117,7 +117,7 @@ Verification: `e2e/full-editor.spec.ts`
 
 ### DOCE-LABS-3.3 - Host services mimicked in the page
 
-The host services lab shall mimic in the page each host service that needs a backend, so a person can try it by hand: embedded content the host keeps (`EmbedSourceAdapter`), which the controls change, remove or deny at the host and the writer checks and takes in again; the host's variables in the page headers (`VariablesAdapter`), changed while the document is open; font loading (`FontsAdapter`) that is immediate, slow or failing; and logs of what the editor measured (`TelemetryAdapter`) and told the reader (`FeedbackAdapter`). The editor shows the host's zoom levels, symbols and code languages, and can be hidden (`active`).
+The host services lab shall mimic in the page each host service that needs a backend, so a person can try it by hand: embedded content the host keeps (`EmbedSourceAdapter`), a table in the body and one in an appendix whose template section sets its own table colors, and one value inline in a heading, which the controls change, remove or deny at the host and the writer checks and takes in again; the host's variables in the page headers (`VariablesAdapter`), changed while the document is open; font loading (`FontsAdapter`) that is immediate, slow or failing; and logs of what the editor measured (`TelemetryAdapter`) and told the reader (`FeedbackAdapter`). The editor shows the host's zoom levels, symbols and code languages, and can be hidden (`active`).
 
 Implementation: `labs/src/host-services.lab.tsx`, `labs/host-services.html`
 Verification: `e2e/host-services.spec.ts`
@@ -184,10 +184,10 @@ Verification: `e2e/regression.spec.ts`
 
 ### DOCE-LABS-4.5 - Code
 
-A 150-line listing shall split at line breaks, each line on one page only, each fragment numbering its lines on from the last; a quoted code block longer than a page splits inside its quote. The regression set's `code-block-stress` document shall hold linked code of one page, of a whole file, of a range starting at a three-digit line and of a range placed after prose so it splits mid-page, and short, long and long-row authored blocks; each long block splits with its fragments numbering on from its first line.
+A 150-line listing shall split at line breaks, each line on one page only, each fragment numbering its lines on from the last; a quoted code block longer than a page splits inside its quote. The regression set's `code-block-stress` document shall hold linked code of one page, of a whole file, of a range starting at a three-digit line and of a range placed after prose so it splits mid-page, and short, long and long-row authored blocks; each long block splits with its fragments numbering on from its first line. Each fragment of split linked code shows one display with the block's caption, starts its gutter at its own first line, runs into the next fragment's range with no blank row at its end, and every fragment after the first is flagged continued; a selected fragment is drawn as before. A same-height edit in a middle code fragment measures that block alone and rebuilds no page. The regression lab resolves linked code to sample lines (`codeSource`), so the linked code dialog opens on any fragment.
 
-Implementation: `labs/src/regression/regression-documents.ts`
-Verification: `e2e/regression.spec.ts`
+Implementation: `labs/src/regression/regression-documents.ts`, `labs/src/regression/regression-code.ts`
+Verification: `e2e/regression.spec.ts`, `e2e/linked-code-fragments.spec.ts`
 
 ### DOCE-LABS-4.6 - Quotes
 

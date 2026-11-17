@@ -1,8 +1,8 @@
 // The regression lab's page: a document of the regression set, picked by the Document picker or
 // the page's `document` query parameter, in the document editor with its scrolling frame and
 // status bar, laid out on its template's pages; with `hostViews`, quotes drawn by a host view; with
-// `compare`, the changes since it opened as change bars. The regression scenarios (`e2e/regression.spec.ts`)
-// read the pages it draws and edit them.
+// `compare`, the changes since it opened as change bars. Its linked code resolves to sample lines.
+// The regression scenarios (`e2e/regression.spec.ts`) read the pages it draws and edit them.
 
 import { EditorState } from 'prosemirror-state';
 import { useRef, useState } from 'react';
@@ -25,6 +25,7 @@ import {
 import { markReadyWhenSettled } from '../lab-ready.js';
 import { useStressProbe } from '../stress/stress-probe.js';
 import { HOST_VIEWS } from './host-quote-view.js';
+import { REGRESSION_CODE } from './regression-code.js';
 import {
   REGRESSION_DOCUMENTS,
   regressionDocument,
@@ -117,6 +118,7 @@ function RegressionLab() {
         layout={LAYOUT}
         compare={COMPARE}
         nodeViews={HOST ? HOST_VIEWS : undefined}
+        codeSource={REGRESSION_CODE}
         scrollable
         statusBar
         className="lab-document-editor"

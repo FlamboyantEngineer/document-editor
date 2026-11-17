@@ -147,9 +147,14 @@ export function createMemoryComments(
   const listeners = new Map<string, Set<(threads: CommentThread[]) => void>>();
   const me = () => identity.currentPerson().id;
   let entries = 0;
-  const entry = (text: string): CommentEntry => {
+  const entry = (text: string, id?: string): CommentEntry => {
     entries += 1;
-    return { id: `comment-${String(entries)}`, author: me(), text, createdAt: now().toISOString() };
+    return {
+      id: id ?? `comment-${String(entries)}`,
+      author: me(),
+      text,
+      createdAt: now().toISOString(),
+    };
   };
   const threadsOf = (documentId: string) => {
     const existing = stored.get(documentId) ?? new Map<string, CommentThread>();
@@ -191,9 +196,10 @@ export function createMemoryComments(
       notify(documentId);
       return Promise.resolve({ ok: true, value: structuredClone(thread) });
     },
-    reply: (documentId, threadId, text) =>
+    reply: (documentId, { threadId, text, id }) =>
       change(documentId, threadId, (thread) => {
-        thread.entries.push(entry(text));
+        // A retry of a reply the store already holds adds nothing.
+        if (!thread.entries.some((each) => each.id === id)) thread.entries.push(entry(text, id));
         return null;
       }),
     remove: threadRemoval(change, { me, now, moderates }),
