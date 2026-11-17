@@ -1,6 +1,7 @@
 // The editor's banner region, floating over the top of the document between the panels: the host's
-// banners, then the editor's own, telling the writer the document is out of step with its template
-// and which of the template's fonts did not load. The region scrolls on its own, so a long stack
+// banners, then the editor's own, telling the writer the document's scripts are running or failed,
+// that the document is out of step with its template and which of the template's fonts did not
+// load. The region scrolls on its own, so a long stack
 // never pushes the document; banners that come or go while the reader drags, selects or resizes
 // wait for the gesture to end, so nothing changes under the pointer.
 
@@ -11,6 +12,7 @@ import { ScrollRegion } from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { scriptsState } from '../../engine/script-state.js';
 import {
   type SectionDrift,
   syncTemplateSections,
@@ -36,10 +38,18 @@ export interface DocumentBanner {
   readonly actions?: ReactNode;
   /** Offers to dismiss the banner, which the host then stops passing. */
   readonly onDismiss?: (() => void) | undefined;
+  /** Work is in progress: the banner shows a busy indicator. */
+  readonly isPending?: boolean | undefined;
 }
 
 /** The editor's own banners, published as `data-banner`. */
-export const EDITOR_BANNERS = ['template-update', 'template-drift', 'fonts-missing'] as const;
+export const EDITOR_BANNERS = [
+  'scripts-running',
+  'script-error',
+  'template-update',
+  'template-drift',
+  'fonts-missing',
+] as const;
 
 const hooks = createHooks('document-editor', ['banners']);
 
@@ -129,6 +139,36 @@ interface DocumentBannersProps {
   readonly session?: EditorSession | undefined;
 }
 
+// The scripts' banners: one while scripts run, with a busy indicator, and one after a run failed,
+// with the first failure's message, until the failed blocks run again or the reader dismisses it.
+// Both go with the document: a state of another document has neither.
+function scriptBanners(
+  state: EditorState,
+  { labels, dismissed, dismiss }: BannerDismissal & { labels: DocumentEditorLabels },
+): DocumentBanner[] {
+  const { running, failed } = scriptsState(state);
+  const banners: DocumentBanner[] = [];
+  if (running.size > 0) {
+    banners.push({ id: 'scripts-running', isPending: true, title: labels.scriptsRunning });
+  }
+  const [first] = failed.values();
+  const key = `script-error:${[...failed].join('\n')}`;
+  if (first !== undefined && !dismissed.has(key)) {
+    banners.push({
+      id: 'script-error',
+      tone: 'warning',
+      title: labels.scriptFailed(first, failed.size),
+      onDismiss: dismiss(key),
+    });
+  }
+  return banners;
+}
+
+interface BannerDismissal {
+  readonly dismissed: ReadonlySet<string>;
+  readonly dismiss: (key: string) => () => void;
+}
+
 // The editor's own banners, until the reader dismisses each.
 function useEditorBanners(props: DocumentBannersProps): DocumentBanner[] {
   const { view, state, template, editable, labels, missingFonts } = props;
@@ -138,7 +178,10 @@ function useEditorBanners(props: DocumentBannersProps): DocumentBanner[] {
   const driftKey = `template-drift:${JSON.stringify(drift)}`;
   const fontsKey = `fonts-missing:${missingFonts.join('\n')}`;
   const update = useTemplateUpdateBanner(props);
-  const own: DocumentBanner[] = update ? [update] : [];
+  const own: DocumentBanner[] = [
+    ...scriptBanners(state, { labels, dismissed, dismiss }),
+    ...(update ? [update] : []),
+  ];
   if (drift.length > 0 && !dismissed.has(driftKey)) {
     own.push({
       id: 'template-drift',

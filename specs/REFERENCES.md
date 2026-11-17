@@ -55,7 +55,7 @@ Verification: `src/engine/reference-places.test.ts`
 
 ### DOCE-REFERENCES-1.8 - What an internal reference records
 
-An internal reference shall record its target as it last read, its number, title and label (`referenceBaseline`, read with `referenceBaselineOf`), when inserted and each time it follows its target. `refreshReferences(template)` shall render every reference in body text again as the template formats it now, out of the undo history, such as after the template changed: an internal one from its target, a citation of another document from what it recorded when cited (DOCE-REFERENCES-1.10); it is refused when none changes.
+An internal reference shall record its target as it last read, its number, title and label (`referenceBaseline`, read with `referenceBaselineOf`), when inserted and each time it follows its target. `refreshReferences(template)` shall render every reference in body text again as the template formats it now, out of the undo history, such as after the template changed: an internal one from its target, a citation of another document from what it recorded when cited (DOCE-REFERENCES-1.10); it is refused when none changes. A reference in a script block's output is the script's: neither `refreshReferences` nor the plugin's own updates rewrite it, so the text, number and record it was produced with stay until the script runs again.
 
 Implementation: `src/engine/references.ts`, `src/engine/reference-targets.ts`
 Verification: `src/engine/reference-places.test.ts`

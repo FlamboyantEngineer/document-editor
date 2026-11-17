@@ -7,11 +7,15 @@ import { createDocumentEditing } from '../src/engine/index.js';
 import { readDocumentFile } from '../src/model/index.js';
 import { documentSchema } from './document-markup.js';
 
-/** A script block of a test document: its element id, its script, and when it refreshes. */
+/**
+ * A script block of a test document: its element id, its script, its stored refresh policy, and
+ * the text of the paragraph its output holds, none by default.
+ */
 export interface TestScript {
   readonly id: string;
   readonly source: string;
   readonly refresh?: 'open' | 'manual';
+  readonly output?: string | undefined;
 }
 
 /** A state whose document is a paragraph reading "Before", then the script blocks given. */
@@ -24,9 +28,12 @@ export function scriptState(scripts: readonly TestScript[]): EditorState {
           name: null,
           content: [
             { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
-            ...scripts.map(({ id, source, refresh = 'manual' }) => ({
+            ...scripts.map(({ id, source, refresh = 'manual', output }) => ({
               type: 'script',
               attrs: { id, source, refresh },
+              ...(output
+                ? { content: [{ type: 'paragraph', content: [{ type: 'text', text: output }] }] }
+                : {}),
             })),
           ],
         },

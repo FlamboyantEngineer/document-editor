@@ -30,6 +30,8 @@ export interface ScriptOutput {
   readonly content: Fragment;
   readonly provenance?: ScriptProvenance | null | undefined;
   readonly signatures?: readonly ScriptSignature[] | null | undefined;
+  /** The runner's key of what the script read, asked as it started; none when it keys none. */
+  readonly inputs?: string | undefined;
 }
 
 // The attributes that identify an element rather than say what it holds.
@@ -58,6 +60,9 @@ export function sameOutputContent(a: Fragment, b: Fragment): boolean {
 // Whether two recorded JSON values are the same, none being null.
 const sameRecord = (a: unknown, b: unknown) =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+// The inputs key a provenance records, or null.
+const inputsOf = (provenance: unknown) => (provenance as ScriptProvenance | null)?.inputs ?? null;
 
 // The element id of the output element at a place, counted in document order from 0, of the
 // script block with an id: the same block and place always give the same id (FNV-1a, 32 bits).
@@ -94,7 +99,9 @@ export function identifyOutput(blockId: string, content: Fragment): Fragment {
 /**
  * Puts each output in its block, of the blocks given in document order: its content, with its ids,
  * where it came from and its signatures, and when it was produced. A block whose script changed
- * meanwhile, or whose content, provenance and signatures are the same, is left as it is.
+ * meanwhile, or whose content, signatures and inputs key (`provenance.inputs`) are the same, is
+ * left as it is, keeping the rest of the provenance it records even when the output's differs, as
+ * a new run id would.
  */
 export function putScriptOutputs(
   tr: Transform,
@@ -108,8 +115,8 @@ export function putScriptOutputs(
     const signatures = output.signatures ? [...output.signatures] : null;
     const sameContent = sameOutputContent(block.node.content, output.content);
     const sameRecords =
-      sameRecord(block.node.attrs.provenance, provenance) &&
-      sameRecord(block.node.attrs.signatures, signatures);
+      sameRecord(block.node.attrs.signatures, signatures) &&
+      sameRecord(inputsOf(block.node.attrs.provenance), inputsOf(provenance));
     if (sameContent && sameRecords) continue;
     if (!sameContent) {
       const content = identifyOutput(block.id, output.content);

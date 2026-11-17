@@ -1,6 +1,6 @@
 // The decorations of the editor's writing helpers: a placeholder hint in an empty document or on the
-// empty line holding the caret, the spaces and no-break spaces as formatting marks show them, and
-// the caret block's hook. They read the state the view shows, the pages' own while the pages are a
+// empty line holding the caret, the spaces and no-break spaces as formatting marks show them, the
+// caret block's hook, and the message in a script block that produced nothing or failed. They read the state the view shows, the pages' own while the pages are a
 // projection, and the spaces are found again only where the document changed.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
@@ -8,7 +8,7 @@ import { type EditorState, TextSelection } from 'prosemirror-state';
 import { Mapping, StepMap } from 'prosemirror-transform';
 import { type Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { useMemo } from 'react';
-import { documentCounts } from '../../engine/index.js';
+import { documentCounts, scriptBlockStates, scriptMessage } from '../../engine/index.js';
 import { documentRegions, type TemplateFile } from '../../model/index.js';
 import { viewOnlyInline, viewOnlyNode, viewOnlyWidget } from '../../utils/view-only-decorations.js';
 import { heldSelectionDecorations } from './held-selection.js';
@@ -33,7 +33,16 @@ interface WritingDecorationOptions {
   readonly caretBlock?: boolean | undefined;
   /** Focus is elsewhere on the page: the editor draws the document's selection (`held-selection`). */
   readonly held?: boolean | undefined;
+  /** The message in a script block whose script produced nothing (`scriptEmptyMessage`). */
+  readonly scriptEmpty?: string | null | undefined;
 }
+
+// The message in each script block whose script produced nothing; a failed block's message is the
+// scripts plugin's (DOCE-OBJECTS-4.3).
+const emptyScriptDecorations = (state: EditorState, text: string) =>
+  scriptBlockStates(state)
+    .filter((block) => block.status === 'empty')
+    .map((block) => scriptMessage(block.pos, { kind: 'empty', text }));
 
 /** The hook class of a placeholder's hint; `data-placeholder-kind` is `document` or `line`. */
 const PLACEHOLDER_CLASS = 'de-placeholder';
@@ -189,9 +198,15 @@ export function writingDecorations(
   options: WritingDecorationOptions,
 ): ((state: EditorState) => DecorationSet) | null {
   const { placeholder, insertButton, sectionButtons, formattingMarks = false } = options;
-  const { caretBlock = false, held = false } = options;
+  const { caretBlock = false, held = false, scriptEmpty } = options;
   const any =
-    placeholder || insertButton || sectionButtons || formattingMarks || caretBlock || held;
+    placeholder ||
+    insertButton ||
+    sectionButtons ||
+    formattingMarks ||
+    caretBlock ||
+    held ||
+    scriptEmpty;
   if (!any) return null;
   const spaces = formattingMarks ? spaceDecorations() : null;
   return (state) => {
@@ -202,6 +217,7 @@ export function writingDecorations(
       ...(placeholder ? placeholderDecorations(state, placeholder) : []),
       ...(caretBlock ? caretBlockDecorations(state) : []),
       ...(held ? heldSelectionDecorations(state) : []),
+      ...(scriptEmpty ? emptyScriptDecorations(state, scriptEmpty) : []),
     ];
     return extra.length > 0 ? base.add(state.doc, extra) : base;
   };
@@ -217,8 +233,14 @@ export function useWritingDecorations(
     readonly editable?: boolean | undefined;
     readonly suggesting?: boolean | undefined;
     readonly template?: TemplateFile | undefined;
+    /** Runs the document's scripts; script blocks say they produced nothing only beside one. */
+    readonly scriptRunner?: object | undefined;
   },
-  labels: { readonly insertBlock: string; readonly addSection: (name: string) => string },
+  labels: {
+    readonly insertBlock: string;
+    readonly addSection: (name: string) => string;
+    readonly scriptEmpty: string;
+  },
   held: boolean,
 ) {
   const { placeholderText: placeholder, formattingMarks, caretBlock, editable = true } = props;
@@ -229,6 +251,7 @@ export function useWritingDecorations(
   // Sections are added only while the writer edits the document, not while suggesting.
   const template = editable && !props.suggesting ? props.template : undefined;
   const { insertBlock, addSection } = labels;
+  const empty = editable && props.scriptRunner ? labels.scriptEmpty : null;
   return useMemo(
     () =>
       writingDecorations({
@@ -238,8 +261,10 @@ export function useWritingDecorations(
         formattingMarks,
         caretBlock,
         held,
+        scriptEmpty: empty,
       }),
     [
+      empty,
       document,
       emptyLine,
       insert,

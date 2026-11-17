@@ -68,8 +68,14 @@ test.describe('find bar and search pane', () => {
     await expect(pane.getByRole('option').first()).toBeVisible();
     const results = await pane.getByRole('option').count();
 
-    // Mod-F from the toolbar opens the find bar and focuses its box.
-    await page.getByRole('toolbar').first().getByRole('button').first().focus();
+    // Mod-F from the toolbar opens the find bar and focuses its box. The toolbar's buttons wait
+    // for a caret in the document, so the writer places one first.
+    await content(page).locator('p').first().click();
+    await page
+      .getByRole('toolbar', { name: 'Formatting' })
+      .getByRole('button', { name: 'Bold' })
+      .focus();
+    await expect(page.getByRole('button', { name: 'Bold' })).toBeFocused();
     await page.keyboard.press('ControlOrMeta+f');
     const find = page.getByRole('searchbox', { name: 'Find in document' });
     await expect(find).toBeFocused();

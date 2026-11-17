@@ -30,7 +30,7 @@ import { ObjectEditors } from './object-editors.js';
 import { useOpeningAbbreviations } from './opening-abbreviations.js';
 import { PagesView } from './pages-view.js';
 import { debugParts } from './root-data.js';
-import { useOpeningScripts } from './script-entries.js';
+import { useStaleScripts } from './script-entries.js';
 import { editorSuggestionPolicy } from './suggestion-policy.js';
 import { TableHandles } from './table-handles.js';
 import { type MenuKeys, menuTakesKey } from './trigger-menu.js';
@@ -255,7 +255,7 @@ const CONTENT_CLASS = 'ui-rich-text-engine-content';
 function useOpeningChanges(view: EditorView | null, props: EditorBodyProps['props']) {
   const { state, editable = true, suggesting = false } = props;
   const writes = editable && !suggesting;
-  useOpeningScripts(view, { plugins: state.plugins, runner: props.scriptRunner, enabled: writes });
+  useStaleScripts(view, { plugins: state.plugins, runner: props.scriptRunner, enabled: writes });
   useOpeningAbbreviations(view, {
     plugins: state.plugins,
     glossary: props.glossary,

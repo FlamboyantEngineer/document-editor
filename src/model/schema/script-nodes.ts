@@ -7,8 +7,13 @@ import type { Node as ProseMirrorNode, NodeSpec } from 'prosemirror-model';
 import type { DomAttributes } from './dom-attributes.js';
 import { DOCUMENT_NODE_ORDER } from './node-order.js';
 
-/** Where a script block's output came from, as the host's script runner reports it. */
+/**
+ * Where a script block's output came from, as the host's script runner reports it. A host records
+ * its own fields beside these, such as a run's id, hashes of the sources that ran or a list of the
+ * parts it compiled in, which are kept as given; checking them is the host's.
+ */
 export interface ScriptProvenance {
+  readonly [field: string]: unknown;
   /** What ran the script, such as a host's runner or catalog entry. */
   source?: string | null;
   /** The revision of the script that ran, as the host names it. */
@@ -17,8 +22,13 @@ export interface ScriptProvenance {
   inputs?: string | null;
 }
 
-/** A signature a script placed in its output: who signed, their name, and the signed revision. */
+/**
+ * A signature a script placed in its output: who signed, their name, and the signed revision. A
+ * host records its own fields beside these, such as the signer's role or the evidence of their
+ * decision, which are kept as given.
+ */
 export interface ScriptSignature {
+  readonly [field: string]: unknown;
   person: string;
   label?: string | null;
   revision?: string | null;

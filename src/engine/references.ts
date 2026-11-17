@@ -18,6 +18,7 @@ import {
   type ReferenceBaseline,
   type TemplateFile,
 } from '../model/index.js';
+import { isScriptOutputAt } from './host-content.js';
 import { isReferencePlace } from './reference-places.js';
 import {
   internalBaseline,
@@ -203,11 +204,15 @@ function currentMark(reference: ReferenceAt, target: ReferenceTarget | undefined
  * Brings each internal reference in body text up to date in a transaction: its text as its target
  * reads now, recording the target's number and title, or marked broken, its text kept, when the
  * target is gone. A reference where none may go (`isReferencePlace`), as in a heading, is left as
- * it reads, so a heading that cites itself never grows. Returns whether any changed.
+ * it reads, so a heading that cites itself never grows, and so is one in a script block's output,
+ * which only its script changes. Returns whether any changed.
  */
 export function updateReferences(tr: Transaction, template: TemplateFile): boolean {
   const references = listReferences(tr.doc).filter(
-    (each) => internalTargetId(each.mark) && isReferencePlace(tr.doc.resolve(each.from)),
+    (each) =>
+      internalTargetId(each.mark) &&
+      isReferencePlace(tr.doc.resolve(each.from)) &&
+      !isScriptOutputAt(tr.doc, each.from),
   );
   if (references.length === 0) return false;
   const targets = new Map(referenceTargets(tr.doc, template).map((each) => [each.id, each]));
@@ -233,8 +238,8 @@ export function refreshReferences(template: TemplateFile): Command {
   return (state, dispatch) => {
     const tr = state.tr;
     const internal = updateReferences(tr, template);
-    const references = listReferences(tr.doc).filter((each) =>
-      isReferencePlace(tr.doc.resolve(each.from)),
+    const references = listReferences(tr.doc).filter(
+      (each) => isReferencePlace(tr.doc.resolve(each.from)) && !isScriptOutputAt(tr.doc, each.from),
     );
     if (!renderCitations(tr, { template, references }) && !internal) return false;
     dispatch?.(tr.setMeta(referencesKey, true).setMeta('addToHistory', false));

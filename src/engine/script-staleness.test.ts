@@ -7,9 +7,11 @@ import { readDocumentFile, writeDocumentFile } from '../model/index.js';
 import { createDocumentEditing } from './document-editing.js';
 import { listScriptBlocks } from './script-output.js';
 import { findStaleScripts } from './script-staleness.js';
-import { checkStaleScripts, createScripts, runScripts, scriptsState } from './scripts.js';
+import { scriptsState } from './script-state.js';
+import { checkStaleScripts, createScripts, runScripts } from './scripts.js';
 
-// Blocks whose outputs recorded the inputs given, null for none; the first `opening` run on opening.
+// Blocks whose outputs recorded the inputs given, null for none; the first `opening` have the
+// stored policy of running on opening, which runs nothing.
 function docWith(recorded: readonly (string | null)[], opening = 0) {
   return readDocumentFile(
     {
@@ -98,17 +100,27 @@ describe('stale script output', () => {
     view.destroy();
   });
 
-  it('DOCE-OBJECTS-4.7 checks staleness after the opening scripts ran', async () => {
+  it('DOCE-OBJECTS-4.7 DOCE-OBJECTS-4.2 checks staleness as the view opens, running no script', async () => {
     const runner = keyedRunner({ s1: 'k1', s2: 'k2' });
+    const ran: string[] = [];
+    const watched: ScriptRunnerAdapter = {
+      ...runner,
+      run: (request, signal) => {
+        ran.push(request.source);
+        return runner.run(request, signal);
+      },
+    };
     const view = new EditorView(document.createElement('div'), {
       state: EditorState.create({
-        doc: docWith(['old', 'old'], 1),
-        plugins: [createScripts({ runner })],
+        doc: docWith(['old', 'k2'], 1),
+        plugins: [createScripts({ runner: watched })],
       }),
     });
-    // The opening script recorded its inputs as it ran, so only the other is stale.
-    await expect.poll(() => [...scriptsState(view.state).stale]).toEqual(['a0000002']);
-    expect(listScriptBlocks(view.state.doc)[0]?.node.attrs.provenance).toEqual({ inputs: 'k1' });
+    // The stored policy of running on opening has no effect: the block keeps its output, stale.
+    await expect.poll(() => [...scriptsState(view.state).stale]).toEqual(['a0000001']);
+    expect(ran).toEqual([]);
+    expect(listScriptBlocks(view.state.doc)[0]?.node.attrs.provenance).toEqual({ inputs: 'old' });
+    expect(listScriptBlocks(view.state.doc)[0]?.node.attrs.refreshPolicy).toBe('open');
     view.destroy();
   });
 });
