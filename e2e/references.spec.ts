@@ -130,7 +130,8 @@ test.describe('references', () => {
       ).click();
       await expect(dialog(page)).toBeVisible();
       if (dismiss === 'Escape') await page.keyboard.press('Escape');
-      else await page.mouse.click(4, 4);
+      // A click on the document's own text only dismisses the dialog: the caret stays.
+      else await paragraph.click({ position: { x: 4, y: 4 }, force: true });
       await expect(dialog(page)).toHaveCount(0);
       await expect.poll(selected).toBe('scope');
     }
