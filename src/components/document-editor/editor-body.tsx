@@ -27,6 +27,7 @@ import type { DocumentEditorLabels } from './editor-labels.js';
 import { figurePasteHandlers, figurePasteOptions } from './figure-paste.js';
 import { useHeldSelection } from './held-selection.js';
 import { ObjectEditors } from './object-editors.js';
+import { useOpeningAbbreviations } from './opening-abbreviations.js';
 import { PagesView } from './pages-view.js';
 import { debugParts } from './root-data.js';
 import { useOpeningScripts } from './script-entries.js';
@@ -249,6 +250,19 @@ function useContentAttributes(props: DocumentEditorProps): Readonly<Record<strin
 // The engine's own class on its content element, which the pages view keeps.
 const CONTENT_CLASS = 'ui-rich-text-engine-content';
 
+// What opening a document changes, for a writer who edits directly: the scripts that run on
+// opening, and, when the host asks, the abbreviations brought up to date with the glossary.
+function useOpeningChanges(view: EditorView | null, props: EditorBodyProps['props']) {
+  const { state, editable = true, suggesting = false } = props;
+  const writes = editable && !suggesting;
+  useOpeningScripts(view, { plugins: state.plugins, runner: props.scriptRunner, enabled: writes });
+  useOpeningAbbreviations(view, {
+    plugins: state.plugins,
+    glossary: props.glossary,
+    enabled: writes && props.refreshAbbreviationsOnOpen === true,
+  });
+}
+
 /** The document in its engine, with the comments margin, the caller's chrome and the table handles. */
 export function EditorBody({
   props,
@@ -267,11 +281,7 @@ export function EditorBody({
   const viewProps = useBodyViewProps({ props, labels, startCommentRef, onDialog, menuKeys, held });
   const engineProps = useEngineProps(props, { engine, paged, viewProps });
   const attributes = useContentAttributes(props);
-  useOpeningScripts(view, {
-    plugins: state.plugins,
-    runner: props.scriptRunner,
-    enabled: editable && !suggesting,
-  });
+  useOpeningChanges(view, props);
   // With the comments in a pane, a thread started or opened shows that pane; focus stays put.
   const panes = useEditorPanesContext();
   // Only the document itself differs between the pages and the engine: the comments margin and the

@@ -1,19 +1,19 @@
-// The marker layers the editor gives the base library's scroll overview beside its scrolling frame:
-// the changes, the change bars, the search matches, the proofing issues and the elements the reader
-// has not read. The overview draws them; their colours are the host stylesheet's `--de-overview-*`
-// properties, and the change bars' the colours the bars are drawn in, at half their opacity.
+// The marker layers the editor paints beside its frame's native scrollbar, through the base
+// library's scroll region: the changes, the change bars, the search matches, the proofing issues
+// and the elements the reader has not read, each by where it sits in the scrolled content. The
+// region paints them; their colours are the host stylesheet's `--de-overview-*` properties, and
+// the change bars' the colours the bars are drawn in, at half their opacity.
 
-import {
-  ScrollOverview,
-  type ScrollOverviewSourceLayer,
+import type {
+  ScrollOverviewLayer,
+  ScrollOverviewSourceLayer,
 } from '@flamboyantengineer/ui-components/scroll-region';
 import type { EditorView } from 'prosemirror-view';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CHANGE_LINE_KINDS } from '../../engine/index.js';
 import { PROOFING_ISSUE_ATTR } from '../../engine/proofing.js';
 import { SEARCH_MATCH_ATTR } from '../../engine/search.js';
 import { DATA_ID_ATTR } from '../../model/schema/dom-attributes.js';
-import { createHooks } from '../../utils/hooks.js';
 
 /** What the overview marks besides the changes, the search matches and the proofing issues. */
 export interface DocumentOverviewOptions {
@@ -25,8 +25,6 @@ export interface DocumentOverviewOptions {
 export const OVERVIEW_LAYERS = ['search', 'proofing', 'changes', 'changebars', 'unread'] as const;
 
 type OverviewLayer = (typeof OVERVIEW_LAYERS)[number];
-
-const hooks = createHooks('document-editor', ['overview']);
 
 const VIEWPORT = '.ui-scroll-region__viewport';
 
@@ -76,6 +74,7 @@ function barColor(element: Element): string | null {
   const line = element.classList.contains('de-change-lines__line');
   const style = view.getComputedStyle(element, line ? null : '::after');
   if (!line && (style.content === 'none' || style.content === 'normal')) return null;
+  if (style.display === 'none') return null;
   const color = style.backgroundColor;
   if (!color || color === 'transparent' || color === 'rgba(0, 0, 0, 0)') return null;
   return `color-mix(in srgb, ${color} 50%, transparent)`;
@@ -109,40 +108,58 @@ export function overviewLayers(
   }));
 }
 
-// The elements each layer marks.
-const markedElements = (layers: readonly ScrollOverviewSourceLayer[]) =>
-  layers.flatMap((layer) => [
-    layer.name,
-    ...layer.markers.map((marker) => ('element' in marker ? marker.element : null)),
-  ]);
-
-// Whether two sets of layers mark the same elements.
-function isSameLayers(
-  a: readonly ScrollOverviewSourceLayer[],
-  b: readonly ScrollOverviewSourceLayer[],
-): boolean {
-  const before = markedElements(a);
-  const after = markedElements(b);
-  return before.length === after.length && before.every((each, index) => each === after[index]);
+// Each marker's range in the viewport's scrolled content: from the top of the content, as tall as
+// its element's box. An element the viewport does not hold marks nothing.
+function measureLayers(
+  viewport: HTMLElement,
+  layers: readonly ScrollOverviewSourceLayer[],
+): ScrollOverviewLayer[] {
+  const top = viewport.getBoundingClientRect().top - viewport.scrollTop;
+  return layers.map(({ name, markers }) => ({
+    name,
+    markers: markers.flatMap((marker) => {
+      if (!('element' in marker)) return [marker];
+      if (!viewport.contains(marker.element)) return [];
+      const box = marker.element.getBoundingClientRect();
+      return [
+        { top: box.top - top, height: box.height, color: marker.color, priority: marker.priority },
+      ];
+    }),
+  }));
 }
 
-// The overview's layers, measured again at most once a frame as the view's elements change.
-function useOverviewLayers(view: EditorView | null, options: DocumentOverviewOptions) {
-  const [layers, setLayers] = useState<readonly ScrollOverviewSourceLayer[]>([]);
+const keyOf = (layers: readonly ScrollOverviewLayer[]) => JSON.stringify(layers);
+
+/**
+ * The overview's layers for the frame's scrolling viewport (`region`, the `ScrollRegion`), measured
+ * again at most once a frame as the view's elements change or resize; none while `options` is null.
+ */
+export function useDocumentOverview(
+  region: HTMLElement | null,
+  view: EditorView | null,
+  options: DocumentOverviewOptions | null,
+): readonly ScrollOverviewLayer[] | undefined {
+  const [layers, setLayers] = useState<readonly ScrollOverviewLayer[]>([]);
   const latest = useRef(options);
   useEffect(() => {
     latest.current = options;
   });
+  const shown = options !== null;
+  const unread = options?.unread;
   useEffect(() => {
     const owner = view?.dom.ownerDocument.defaultView;
-    if (!view || !owner) return undefined;
+    // The region's ref names its scrolling viewport or its root, whichever the base library gives.
+    const viewport = region?.matches(VIEWPORT)
+      ? region
+      : region?.querySelector<HTMLElement>(VIEWPORT);
+    if (!view || !owner || !viewport || !shown) return undefined;
     let frame = 0;
     const schedule = () => {
       if (frame !== 0) return;
       frame = owner.requestAnimationFrame(() => {
         frame = 0;
-        const next = overviewLayers(view.dom, latest.current);
-        setLayers((current) => (isSameLayers(current, next) ? current : next));
+        const next = measureLayers(viewport, overviewLayers(view.dom, latest.current ?? {}));
+        setLayers((current) => (keyOf(current) === keyOf(next) ? current : next));
       });
     };
     schedule();
@@ -159,30 +176,14 @@ function useOverviewLayers(view: EditorView | null, options: DocumentOverviewOpt
         'data-diff-line',
       ],
     });
+    // A layout without resize observing (a test document) measures again on changes alone.
+    const sizes = 'ResizeObserver' in owner ? new owner.ResizeObserver(schedule) : null;
+    sizes?.observe(view.dom);
     return () => {
       changes.disconnect();
+      sizes?.disconnect();
       owner.cancelAnimationFrame(frame);
     };
-  }, [view, options.unread]);
-  return layers;
-}
-
-/**
- * The scroll overview over the editor's frame (`region`, the `ScrollRegion`), marking the layers
- * of the document the view shows.
- */
-export function DocumentOverview({
-  region,
-  view,
-  options,
-}: {
-  readonly region: HTMLElement;
-  readonly view: EditorView | null;
-  readonly options: DocumentOverviewOptions;
-}) {
-  const layers = useOverviewLayers(view, options);
-  // The region's ref names its scrolling viewport or its root, whichever the base library gives.
-  const viewport = region.matches(VIEWPORT) ? region : region.querySelector<HTMLElement>(VIEWPORT);
-  const scrollRef = useMemo(() => ({ current: viewport }), [viewport]);
-  return <ScrollOverview {...hooks.slot('overview')} scrollRef={scrollRef} layers={layers} />;
+  }, [region, view, shown, unread]);
+  return shown ? layers : undefined;
 }
