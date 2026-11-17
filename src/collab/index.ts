@@ -7,6 +7,7 @@ export {
   type PresenceUser,
   readAwarenessPeers,
 } from './awareness.js';
+export { readRoomComments, type RoomCommentsOptions, writeRoomComments } from './comment-seed.js';
 export { createRoomCommentStore, type RoomCommentStoreOptions } from './comment-store.js';
 export {
   type ConnectionGate,

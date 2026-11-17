@@ -1,6 +1,6 @@
-// Pairing the blocks without element ids that two versions do not hold alike: a block edited in a
-// version without ids reads as the same block edited, not as one deleted and another inserted, when
-// enough of its words are kept.
+// Pairing the blocks one version holds under a key the other does not: a block whose id was made
+// again reads as the same block when its kind and text are the same, and a block edited in a
+// version without ids when enough of its words are kept, not as one deleted and another inserted.
 
 /** A block as pairing reads it: its key, whether it has an id, its kind and its text. */
 interface PairedBlock {
@@ -36,19 +36,46 @@ function wordLikeness(one: string, other: string): number {
   return (2 * shared) / (first.length + second.length);
 }
 
+// Pairs each unpaired newer block with a free older block of the same kind and text, which a block
+// whose id was made again is; pairs are taken in order, so a repeated text pairs in turn.
+function pairSameText(free: PairedBlock[], unpaired: PairedBlock[]): void {
+  const byText = new Map<string, PairedBlock[]>();
+  for (const block of free) {
+    const text = `${block.type}\u0000${block.authored}`;
+    byText.set(text, [...(byText.get(text) ?? []), block]);
+  }
+  for (const block of unpaired) {
+    const same = byText.get(`${block.type}\u0000${block.authored}`)?.shift();
+    if (same) block.key = same.key;
+  }
+}
+
 /**
- * Gives each newer block without an id that the older version does not hold the key of the older
- * block without an id it is most like, when they are alike enough, so the two compare as one
- * block. A block of the same kind wins a tie; each older block pairs once.
+ * Gives each newer block whose key the older version does not hold the key of an older block the
+ * newer version does not hold, so the two compare as one block: one of the same kind and text,
+ * whatever their ids; else, for a block without an id, the older block without an id it is most
+ * like, when they are alike enough, a block of the same kind winning a tie. Each older block pairs
+ * once.
  */
-export function pairBlocksWithoutIds(
+export function pairUnmatchedBlocks(
   older: readonly PairedBlock[],
   newer: readonly PairedBlock[],
 ): void {
   const newerKeys = new Set(newer.map((block) => block.key));
   const olderKeys = new Set(older.map((block) => block.key));
-  const free = older.filter((block) => !block.id && !newerKeys.has(block.key));
-  const unpaired = newer.filter((block) => !block.id && !olderKeys.has(block.key));
+  const free = older.filter((block) => !newerKeys.has(block.key));
+  const unpaired = newer.filter((block) => !olderKeys.has(block.key));
+  if (!free.length || !unpaired.length) return;
+  pairSameText(free, unpaired);
+  const paired = new Set(unpaired.map((block) => block.key));
+  pairAlike(
+    free.filter((block) => !block.id && !paired.has(block.key)),
+    unpaired.filter((block) => !block.id && !olderKeys.has(block.key)),
+  );
+}
+
+// Pairs each block with the free one most like it, when they are alike enough.
+function pairAlike(free: readonly PairedBlock[], unpaired: readonly PairedBlock[]): void {
   if (!free.length || !unpaired.length || free.length * unpaired.length > MAX_PAIRS) return;
   const taken = new Set<PairedBlock>();
   for (const block of unpaired) {

@@ -220,8 +220,7 @@ div.de-host-view {
 /* Blocks in a header or footer take no vertical margins; `:nth-child(n)` outweighs the text styles. */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-header > :nth-child(n),
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-footer > :nth-child(n) {
-  margin-top: 0;
-  margin-bottom: 0;
+  margin-block: 0;
 }
 
 /* A region keeps the template's height at least, so the pages' text starts at the same place,
@@ -245,12 +244,14 @@ div.de-host-view {
   color: #475569;
 }
 
+/* A page's first block has no block-start margin and its last no block-end margin, in any
+   writing mode. */
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :first-child {
-  margin-top: 0;
+  margin-block-start: 0;
 }
 
 :where(.de-document-editor, .de-document-editor__measure) .pm-page-content > :last-child {
-  margin-bottom: 0;
+  margin-block-end: 0;
 }
 
 /* Each text style's font, size, weight, slant, underline, colour, line height, alignment and spacing. */
@@ -829,6 +830,14 @@ div.de-host-view {
   content: var(--doc-table-caption-continued, '');
 }
 
+/* A later part of a split table repeats its caption only with its header rows: a part that opens
+   with a body row shows none. */
+:where(.de-document-editor, .de-document-editor__measure)
+  table[data-split-part-index]:not([data-split-part-index='0']):has(> tbody > tr:first-child > td)
+  > caption {
+  display: none;
+}
+
 :where(.de-document-editor, .de-document-editor__measure)
   pre[data-code-block-continued='true']
   .doc-caption-continued::after {
@@ -1193,13 +1202,21 @@ a.de-contents__entry {
   background: var(--doc-change-bar-formatting-color, #dd00dd);
 }
 
+/* The web layout shows no bars for changes from an older version; a pending suggestion's bar in
+   the change bars markup stays, as it is the only sign of the suggestion there. */
+.de-document-editor[data-layout='web'] [data-diff-change]::after,
+.de-document-editor[data-layout='web'] [data-diff-deletion]::after,
+.de-document-editor[data-layout='web'] .de-change-lines__line:not([data-diff-line='suggestion']) {
+  display: none;
+}
+
 /* The holder of a block's line bars takes no room in its text. */
 .de-change-lines {
   user-select: none;
 }
 
-/* A block with line bars places them from its own top. */
-.de-document-editor :has(> .de-change-lines) {
+/* A block with line bars places them from its own top: the change lines draw them in text blocks. */
+.de-document-editor :is(p, h1, h2, h3, h4, h5, h6, pre, div):has(> .de-change-lines) {
   position: relative;
 }
 

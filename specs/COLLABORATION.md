@@ -101,7 +101,7 @@ Verification: `src/engine/provenance.test.ts`
 
 ### DOCE-COLLAB-3.4 - The contributors pane
 
-`DocumentContributors`, the side panel's `contributors` pane, shall list the document's writers (`documentAuthors`), the most text first, each named by the host's identity adapter (the panel's `identity`, else the editor's comment identity) or by their id, with the characters they wrote and their colour slot (`data-author`, `data-author-slot`), and publish whether authorship shows (`data-authorship`). With `onAuthorshipChange`, a switch shows or hides authorship by asking the host to change the editor's `authorship`.
+`DocumentContributors`, the side panel's `contributors` pane, shall list the document's writers (`documentAuthors`) in one stable row each, ordered by the name they show with and then by id (not by how much they wrote, and with no count), each named by the host's identity adapter (the panel's `identity`, else the editor's comment identity) or by their id, with their colour slot (`data-author`, `data-author-slot`), and publish whether authorship shows (`data-authorship`). A writer the identity adapter names (`data-kind="person"`) shall open a card on hover and keyboard focus over the whole row: the editor's (their name and picture) or `renderCard`'s. Changes the system made (the writer `system`, `data-kind="system"`) shall show as the `systemContributor` label in text only, with no colour, picture or card; a writer the adapter does not name (`data-kind="unresolved"`) has no card; and text with no writer at all (`hasUnattributedText`) shall add a last plain row, `unknownContributor` (`data-kind="unknown"`). With `onAuthorshipChange`, a switch shows or hides authorship by asking the host to change the editor's `authorship`.
 
 Implementation: `src/components/document-panels/document-contributors.tsx`, `src/components/document-panels/built-in-panes.tsx`, `src/components/document-panels/panel-labels.ts`, `labs/src/host-panes.tsx`
 Verification: `src/components/document-panels/document-side-panel.test.tsx`, `e2e/document-panels.spec.ts`
@@ -233,6 +233,13 @@ Verification: `src/collab/room-changes.test.ts`
 Implementation: `src/collab/room-change-guard.ts`
 Verification: `src/collab/room-change-guard.test.ts`
 
+### DOCE-COLLAB-6.8 - Seeding and exporting threads
+
+`writeRoomComments(doc, threads, { scope })` shall write stored comment threads into a room that holds none yet, in one transaction, so that `readRoomComments(doc, { scope })` and the room comment store list them as stored: who started each thread and when, its state, who resolved or deleted it and when, its target, change and decision, and its comments with their authors, dates, edits, deletions and reactions. It shall refuse a room that holds threads already and write nothing. A host seeds a room with `writeRoomDocument` and `writeRoomComments`, and stores what `readRoomDocument` and `readRoomComments` give back.
+
+Implementation: `src/collab/comment-seed.ts`
+Verification: `src/collab/comment-seed.test.ts`
+
 ## DOCE-COLLAB-7 - Embedded documents and server enforcement
 
 ### DOCE-COLLAB-7.1 - Independent fields in one room
@@ -258,22 +265,22 @@ Verification: `src/collab/guard-self-check.test.ts`
 
 ## Hooks
 
-| Hook                                    | Kind      | Values                                                                           | Description                                                   |
-| --------------------------------------- | --------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `de-presence-caret`                     | root      |                                                                                  | A peer's caret, at the head of their selection.               |
-| `de-presence-caret__label`              | slot      |                                                                                  | The peer's name above their caret.                            |
-| `de-presence-selection`                 | root      |                                                                                  | The text a peer's selection covers.                           |
-| `data-presence-peer`                    | attribute |                                                                                  | On a caret or selection: the peer's id.                       |
-| `data-presence-slot`                    | attribute | `0`–`7`                                                                          | On a caret or selection: the peer's colour slot.              |
-| `--de-presence-color`                   | property  |                                                                                  | On a caret or selection: the peer's own colour.               |
-| `data-presence-status`                  | attribute | `idle`, `away`                                                                   | On a caret or selection: the peer is not active.              |
-| `data-presence-name`                    | attribute |                                                                                  | On a selection: the peer's name, for a hover name.            |
-| `data-presence-email`                   | attribute |                                                                                  | On a card: the peer's email.                                  |
-| `data-presence-activity`                | attribute | `editing`, `reviewing`, `viewing`                                                | On a card: what the peer did last.                            |
-| `de-connection-status`                  | root      |                                                                                  | The shared room connection's phase, in the status bar.        |
-| `data-phase`                            | attribute | `connecting`, `synced`, `offline`, `read-only`, `refused`, `generation-mismatch` | On the connection status: its phase.                          |
-| `data-locked`                           | state     |                                                                                  | On the connection status: the phase locks every surface.      |
-| `data-editable`                         | state     |                                                                                  | On the connection status: the reader may change the document. |
-| `de-document-contributors`              | root      |                                                                                  | The contributors pane, with `data-authorship`.                |
-| `de-document-contributors__list`        | slot      |                                                                                  | The list of writers.                                          |
-| `de-document-contributors__contributor` | slot      |                                                                                  | A writer, with `data-author` and `data-author-slot`.          |
+| Hook                                    | Kind      | Values                                                                           | Description                                                                                                     |
+| --------------------------------------- | --------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `de-presence-caret`                     | root      |                                                                                  | A peer's caret, at the head of their selection.                                                                 |
+| `de-presence-caret__label`              | slot      |                                                                                  | The peer's name above their caret.                                                                              |
+| `de-presence-selection`                 | root      |                                                                                  | The text a peer's selection covers.                                                                             |
+| `data-presence-peer`                    | attribute |                                                                                  | On a caret or selection: the peer's id.                                                                         |
+| `data-presence-slot`                    | attribute | `0`–`7`                                                                          | On a caret or selection: the peer's colour slot.                                                                |
+| `--de-presence-color`                   | property  |                                                                                  | On a caret or selection: the peer's own colour.                                                                 |
+| `data-presence-status`                  | attribute | `idle`, `away`                                                                   | On a caret or selection: the peer is not active.                                                                |
+| `data-presence-name`                    | attribute |                                                                                  | On a selection: the peer's name, for a hover name.                                                              |
+| `data-presence-email`                   | attribute |                                                                                  | On a card: the peer's email.                                                                                    |
+| `data-presence-activity`                | attribute | `editing`, `reviewing`, `viewing`                                                | On a card: what the peer did last.                                                                              |
+| `de-connection-status`                  | root      |                                                                                  | The shared room connection's phase, in the status bar.                                                          |
+| `data-phase`                            | attribute | `connecting`, `synced`, `offline`, `read-only`, `refused`, `generation-mismatch` | On the connection status: its phase.                                                                            |
+| `data-locked`                           | state     |                                                                                  | On the connection status: the phase locks every surface.                                                        |
+| `data-editable`                         | state     |                                                                                  | On the connection status: the reader may change the document.                                                   |
+| `de-document-contributors`              | root      |                                                                                  | The contributors pane, with `data-authorship`.                                                                  |
+| `de-document-contributors__list`        | slot      |                                                                                  | The list of writers.                                                                                            |
+| `de-document-contributors__contributor` | slot      |                                                                                  | A writer, with `data-author`, `data-author-slot` and `data-kind` (`person`, `unresolved`, `system`, `unknown`). |

@@ -17,8 +17,10 @@ export interface VersionBlockReading {
   readonly positions: number[];
   /** The text with each run the document generates as one placeholder. */
   readonly authored: string;
-  /** The block's attributes and its runs of text by their marks, targets and review marks aside. */
+  /** The block's presentation and its runs of text by their marks, targets and review marks aside. */
   readonly format: string;
+  /** Its kind and the attributes that say what it holds, its inline objects' among them. */
+  readonly content: string;
   /** Where its links point, in order. */
   readonly links: string;
   /** What its references cite, in order. */
@@ -71,7 +73,33 @@ function attrsOf(node: { readonly attrs: Readonly<Record<string, unknown>> }, ge
   );
 }
 
-const attrsFormat = (node: ProseMirrorNode) => `${node.type.name}${JSON.stringify(attrsOf(node))}`;
+// The attributes that say only how a block or a container looks, a change of which is formatting;
+// every other attribute says what it holds or how it is built, a change of which is a modification.
+const PRESENTATION_ATTRS = new Set([
+  'className',
+  'numbered',
+  'objectLayout',
+  'width',
+  'height',
+  'colwidth',
+  'rowHeight',
+  'textAlign',
+  'verticalAlign',
+  'textColor',
+  'backgroundColor',
+  'tableBorderClass',
+  'imageStyle',
+  'templateImageAlignment',
+  'templateImageConstrain',
+  'templateImageWidth',
+  'templateImageHeight',
+]);
+
+const attrsFormat = (node: ProseMirrorNode) =>
+  JSON.stringify(attrsOf(node).filter(([name]) => PRESENTATION_ATTRS.has(name)));
+
+const attrsContent = (node: ProseMirrorNode) =>
+  `${node.type.name}${JSON.stringify(attrsOf(node).filter(([name]) => !PRESENTATION_ATTRS.has(name)))}`;
 
 // A run's formatting by its marks; a link or a reference counts by its kind, its target aside.
 function marksFormat(marks: readonly Mark[]): string {
@@ -125,6 +153,7 @@ export function readVersionBlock(
   const links: string[] = [];
   const references: string[] = [];
   const values: string[] = [JSON.stringify(attrsOf(node, true))];
+  const content: string[] = [attrsContent(node)];
   let text = '';
   let authored = '';
   node.forEach((child, offset) => {
@@ -136,7 +165,10 @@ export function readVersionBlock(
     else runs.push({ format, length: value.length });
     addTarget(links, targetOf(child.marks, 'link'));
     addTarget(references, targetOf(child.marks, 'reference'));
-    if (!child.isText) values.push(JSON.stringify(attrsOf(child, true)));
+    if (!child.isText) {
+      values.push(JSON.stringify(attrsOf(child, true)));
+      content.push(attrsContent(child));
+    }
     if (isGeneratedRun(child)) {
       values.push(value);
       if (!authored.endsWith(PLACEHOLDER)) authored += PLACEHOLDER;
@@ -152,6 +184,7 @@ export function readVersionBlock(
       positions,
       authored: '',
       format: '',
+      content: '',
       links: '',
       references: '',
       generated: text + format,
@@ -162,24 +195,34 @@ export function readVersionBlock(
     positions,
     authored,
     format,
+    content: content.join(''),
     links: links.join('\n'),
     references: references.join('\n'),
     generated: values.join(''),
   };
 }
 
-/**
- * The containers a block sits in, outermost first, by their kind and attributes, the document's
- * sections and regions aside; and whether one of them holds content the document generates.
- */
-export function containersOf($pos: ResolvedPos): { container: string; generated: boolean } {
-  const kept: string[] = [];
+/** The containers a block sits in, the document's sections and regions aside. */
+interface VersionContainers {
+  /** Outermost first, by their kind and what their attributes say they hold or how they are built. */
+  readonly container: string;
+  /** Outermost first, by their presentation. */
+  readonly containerFormat: string;
+  /** Whether one of them holds content the document generates. */
+  readonly generated: boolean;
+}
+
+/** The containers a block sits in, from its position. */
+export function containersOf($pos: ResolvedPos): VersionContainers {
+  const built: string[] = [];
+  const shown: string[] = [];
   let generated = false;
   for (let depth = 1; depth <= $pos.depth; depth += 1) {
     const node = $pos.node(depth);
     if (isStructureNode(node)) continue;
     generated ||= GENERATED_CONTAINERS.has(node.type.name);
-    kept.push(attrsFormat(node));
+    built.push(attrsContent(node));
+    shown.push(attrsFormat(node));
   }
-  return { container: kept.join('>'), generated };
+  return { container: built.join('>'), containerFormat: shown.join('>'), generated };
 }

@@ -71,10 +71,10 @@ Verification: `src/model/pagination/page-layout.test.ts`
 
 ### DOCE-PAGINATION-2.2 - Margins
 
-Blocks on a page shall take their heights plus, between two blocks, the larger of their facing margins (`stackedHeight`); the first block's top margin and the last block's bottom margin shall not count.
+Blocks on a page shall take their heights plus, between two blocks, the larger of their facing margins (`stackedHeight`); the first block's top margin and the last block's bottom margin shall not count. Measuring shall read the margins at the start and end of the block axis (`margin-block-start`, `margin-block-end`), and the reference stylesheet shall zero those of a page's first and last block, so the rule holds in any writing mode.
 
-Implementation: `src/model/pagination/page-layout.ts`
-Verification: `src/model/pagination/page-layout.test.ts`
+Implementation: `src/model/pagination/page-layout.ts`, `src/pagination/measure-cache.ts`, `labs/reference/document.css`
+Verification: `src/model/pagination/page-layout.test.ts`, `src/pagination/measure-cache.test.ts`
 
 ### DOCE-PAGINATION-2.3 - Splitting
 
@@ -173,9 +173,9 @@ Verification: `src/model/pagination/container-split.test.ts`
 
 ### DOCE-PAGINATION-4.5 - Tables
 
-A measured table shall split after its last body row that fits with its height beyond its rows (`splitTableWith`), never inside its leading header rows, never between rows a cell spans (it moves whole when no other row fits), and not when it has one body row. Its second part shall repeat the header rows when its section's `styles.table.repeatHeader` asks for it, or the template's when the section sets none (`createLayoutRules({ repeatTableHeader })`, by default it does); a layout's `rules` may be given by section for it (`SectionLayoutRules`). Joining shall drop only header rows that repeat the first part's.
+A measured table shall split after its last body row that fits with its height beyond its rows (`splitTableWith`), never inside its leading header rows, never between rows a cell spans (it moves whole when no other row fits), and not when it has one body row. Its second part shall repeat the header rows when its section's `styles.table.repeatHeader` asks for it, or the template's when the section sets none (`createLayoutRules({ repeatTableHeader })`, by default it does); a layout's `rules` may be given by section for it (`SectionLayoutRules`). Joining shall drop only header rows that repeat the first part's. In the reference stylesheet, a later part shall show the table's caption, with its continued suffix, only when it repeats the header rows.
 
-Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`, `src/pagination/layout-document.ts`, `src/components/document-editor/start-paging.ts`
+Implementation: `src/model/pagination/table-split.ts`, `src/model/pagination/page-layout.ts`, `src/model/pagination/fragments.ts`, `src/pagination/layout-document.ts`, `src/components/document-editor/start-paging.ts`, `labs/reference/document.css`
 Verification: `src/model/pagination/container-split.test.ts`, `e2e/regression.spec.ts`
 
 ### DOCE-PAGINATION-4.6 - Script blocks

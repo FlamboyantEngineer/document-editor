@@ -16,6 +16,7 @@ export {
   createAuthorship,
   type DocumentAuthor,
   documentAuthors,
+  hasUnattributedText,
   isAuthorshipShown,
   showAuthorship,
 } from './authorship.js';

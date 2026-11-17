@@ -52,13 +52,37 @@ describe('comparing versions', () => {
     ];
     const newer = [
       paragraph('a0000002', 'Two'),
-      paragraph('a0000003', 'Three', { level: 2 }),
+      {
+        type: 'paragraph',
+        attrs: { id: 'a0000003' },
+        content: [{ type: 'text', text: 'Three', marks: [{ type: 'strong' }] }],
+      },
       paragraph('a0000001', 'One'),
     ];
     expect(summary(older, newer)).toEqual([
       ['formatting', 'a0000003', 'Three'],
       ['move', 'a0000001', 'One'],
     ]);
+  });
+
+  it('DOCE-VERSIONS-1.2 counts a changed kind or object as a modification, a changed look as formatting', () => {
+    const older = [
+      paragraph('a0000001', 'One'),
+      paragraph('a0000002', 'Two'),
+      { type: 'figure', attrs: { id: 'a0000003', src: 'one.png', width: 100 } },
+    ];
+    const newer = [
+      paragraph('a0000001', 'One', { level: 2 }),
+      paragraph('a0000002', 'Two', { style: 'lead' }),
+      { type: 'figure', attrs: { id: 'a0000003', src: 'two.png', width: 100 } },
+    ];
+    expect(summary(older, newer).map(([kind]) => kind)).toEqual([
+      'modification',
+      'formatting',
+      'modification',
+    ]);
+    const resized = [{ type: 'figure', attrs: { id: 'a0000003', src: 'one.png', width: 200 } }];
+    expect(summary(older.slice(2), resized).map(([kind]) => kind)).toEqual(['formatting']);
   });
 
   it('DOCE-VERSIONS-1.3 places a deleted block before the next kept block, or after the last', () => {
@@ -235,7 +259,7 @@ describe('comparing structure, pairing and targets', () => {
       { type: 'blockquote', attrs: { id: 'b0000002' }, content: [paragraph('a0000002', 'Two')] },
     ];
     const formatting = {
-      kind: 'formatting',
+      kind: 'modification',
       structureChanged: true,
       targets: [],
       generated: false,
@@ -251,11 +275,7 @@ describe('comparing structure, pairing and targets', () => {
         content: [paragraph('a0000002', 'Two more')],
       }),
     );
-    expect(edited).toMatchObject({
-      kind: 'modification',
-      structureChanged: true,
-      formatChanged: true,
-    });
+    expect(edited).toMatchObject({ kind: 'modification', structureChanged: true });
   });
 
   it('DOCE-VERSIONS-1.7 finds a table cell merged or split', () => {
@@ -275,7 +295,7 @@ describe('comparing structure, pairing and targets', () => {
         [table(cell('a0000001', 'Left', 2))],
       ),
     ).toEqual([
-      { kind: 'formatting', text: 'Left', structureChanged: true, targets: [], generated: false },
+      { kind: 'modification', text: 'Left', structureChanged: true, targets: [], generated: false },
       {
         kind: 'deletion',
         text: 'Right',
@@ -310,6 +330,27 @@ describe('comparing structure, pairing and targets', () => {
     ).toEqual([
       ['deletion', null, 'Red green blue'],
       ['modification', null, 'Red green blue yellow!'],
+    ]);
+  });
+
+  it('DOCE-VERSIONS-1.8 compares blocks whose ids were made again by their kind and text', () => {
+    const older = [
+      paragraph('a0000001', 'Alpha'),
+      paragraph('a0000002', 'Alpha'),
+      paragraph('a0000003', 'Blue'),
+      paragraph('a0000004', 'Gamma'),
+    ];
+    const renewed = [
+      paragraph('b0000001', 'Alpha'),
+      paragraph('b0000002', 'Alpha'),
+      paragraph('b0000003', 'Blue'),
+      paragraph('b0000004', 'Gamma'),
+    ];
+    expect(summary(older, renewed)).toEqual([]);
+    // A block with an id whose text changed too is not paired by likeness.
+    expect(summary(older, [...renewed.slice(0, 3), paragraph('b0000005', 'Gamma ray')])).toEqual([
+      ['insertion', 'b0000005', 'Gamma ray'],
+      ['deletion', 'a0000004', 'Gamma'],
     ]);
   });
 

@@ -13,7 +13,7 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.2 - Moves and formatting
 
-A block both versions hold that left the longest run of blocks kept in order shall be a `move`; one whose text is unchanged but whose attributes or text formatting changed shall be `formatting`.
+A block both versions hold that left the longest run of blocks kept in order shall be a `move`. One whose kind or whose attributes saying what it holds changed (a heading's level, a paragraph's outline level, an image's or an object's source, a caption, an inline object such as a mention or a footnote) shall be a `modification`, as an edit of its text is. One whose text and content are unchanged but whose presentation changed (its text's marks, its style class, alignment, colors, size or object layout) shall be `formatting`. A move's bar takes the modification's color.
 
 Implementation: `src/engine/version-compare.ts`, `src/engine/common-subsequence.ts`
 Verification: `src/engine/version-compare.test.ts`, `src/engine/common-subsequence.test.ts`
@@ -48,14 +48,14 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.7 - Containers
 
-A block both versions hold whose containers changed (wrapped in or taken out of a list, a table or a quote, moved between them, or in a container whose kind or attributes changed, such as a list's kind or a cell's span) shall be marked `structureChanged`. With its text unchanged it shall be `formatting`; with its text changed, a `modification` whose `formatChanged` is set.
+A block both versions hold whose containers changed (wrapped in or taken out of a list, a table or a quote, moved between them, or in a container whose kind or attributes changed, such as a list's kind or a cell's span) shall be marked `structureChanged`. It shall then be a `modification`, with its text changed or not. A change of a container's presentation alone (a cell's alignment, colors, height or column widths, a table's borders) shall count as formatting, and with a text change sets the modification's `formatChanged`.
 
 Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
 Verification: `src/engine/version-compare.test.ts`
 
-### DOCE-VERSIONS-1.8 - Blocks without ids
+### DOCE-VERSIONS-1.8 - Blocks without ids or with new ones
 
-A block without an element id that the older version does not hold alike shall be paired with the block without an id of the older version whose words it is likest, when at least half of their words are shared, and compared with it as one block. A block of the same kind shall win a tie, and each older block shall pair once.
+A block whose key (its element id) the older version does not hold shall be paired with a block of the older version whose key the newer one does not hold that has the same kind and text, whatever their ids, in order, so blocks whose ids were made again compare unchanged. Otherwise, a block without an element id that the older version does not hold alike shall be paired with the block without an id of the older version whose words it is likest, when at least half of their words are shared, and compared with it as one block. A block of the same kind shall win a tie, and each older block shall pair once.
 
 Implementation: `src/engine/version-pairing.ts`, `src/engine/version-compare.ts`
 Verification: `src/engine/version-compare.test.ts`
@@ -69,10 +69,10 @@ Verification: `src/engine/version-compare.test.ts`
 
 ### DOCE-VERSIONS-1.10 - Generated values
 
-Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a footnote's number, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`), a block whose only change is in such values shall be a `modification` marked `generated`.
+Values the document generates shall not count as a change: a reference's text, a variable's value, a script's output, a footnote's number, a template block's rendered markup and a contents block's entry range. Asked to (`compareVersions(older, newer, { generated: true })`, or a comparison's `generated` in the editor), a block whose only change is in such values shall be a `modification` marked `generated`.
 
 Implementation: `src/engine/version-blocks.ts`, `src/engine/version-compare.ts`
-Verification: `src/engine/version-compare.test.ts`
+Verification: `src/engine/version-compare.test.ts`, `src/engine/version-changes.test.ts`
 
 ## DOCE-VERSIONS-2 - Showing changes
 
@@ -99,7 +99,7 @@ Verification: `e2e/versions.spec.ts`
 
 ### DOCE-VERSIONS-2.4 - Changed lines
 
-`createChangeLines()` shall draw, inside each block it is given lines for (`setChangeLines`), a bar for each line (`de-change-lines__line`) with its kind (`data-diff-line`) and its top and height from the block's top (`--de-change-line-top`, `--de-change-line-height`), and keep the lines where their blocks go until they are set again. Changes on one line merge into the strongest (`strongerChange`): a modification, then an insertion, a deletion, a formatting change and a pending suggestion. The document editor shall install it, and, while the document shows changes or the simple markup shows suggestions (DOCE-EDITOR-6.5), measure the lines of each block whose text changed, and in the simple markup of each text block holding a suggestion's text, after each render; a line holding suggested text, or where hidden suggested-deleted text sits, takes the kind `suggestion`, and the template's change bar settings never hide it; a line takes the strongest change marked on it, a deleted block's text the deletion, blocks deleted before or after a block whose text does not show its first or last line, and every line of a block whose formatting changed too at least the formatting; each line reaches halfway to the next, so the bars of successive lines meet. A kind of change the template's change bars turn off where the block is (its section's setting, or else the template's) shall not count, so it never hides a shown kind on the same line. With the lines, the editor shall measure how far each barred block, one with a bar of its own or with line bars, sits inside its page's content box (`--de-change-bar-inset-left`, `--de-change-bar-inset-right`, unscaled), so the reference sheet draws every bar in one column at the template's offset from the page's content, whatever the block's indent or nesting (a list item, a table cell, a quotation).
+`createChangeLines()` shall draw, inside each block it is given lines for (`setChangeLines`), a bar for each line (`de-change-lines__line`) with its kind (`data-diff-line`) and its top and height from the block's top (`--de-change-line-top`, `--de-change-line-height`), and keep the lines where their blocks go until they are set again. Changes on one line merge into the strongest (`strongerChange`): a modification, then an insertion, a deletion, a formatting change and a pending suggestion. The document editor shall install it, and, while the document shows changes or the simple markup shows suggestions (DOCE-EDITOR-6.5), measure the lines of each block whose text changed, and in the simple markup of each text block holding a suggestion's text, after each render; a line holding suggested text, or where hidden suggested-deleted text sits, takes the kind `suggestion`, and the template's change bar settings never hide it; a line takes the strongest change marked on it, a deleted block's text the deletion, blocks deleted before or after a block whose text does not show its first or last line, and every line of a block whose formatting changed too at least the formatting; each line reaches halfway to the next, so the bars of successive lines meet. A kind of change the template's change bars turn off where the block is (its section's setting, or else the template's) shall not count, so it never hides a shown kind on the same line. With the lines, the editor shall measure how far each barred block, one with a bar of its own or with line bars, sits inside its page's content box (`--de-change-bar-inset-left`, `--de-change-bar-inset-right`, unscaled), so the reference sheet draws every bar in one column at the template's offset from the page's content, whatever the block's indent or nesting (a list item, a table cell, a quotation). In the web layout (`data-layout="web"`) the reference sheet shall draw no bar for a change from an older version, a block's or a line's, and keep a pending suggestion's line bars.
 
 Implementation: `src/engine/change-lines.ts`, `src/components/document-editor/change-lines-measure.ts`
 Verification: `src/engine/change-lines.test.ts`, `src/components/document-editor/change-lines-measure.test.ts`, `e2e/versions.spec.ts`

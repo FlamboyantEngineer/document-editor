@@ -177,10 +177,24 @@ function edgesOf(element: HTMLElement): string {
   return `${first}|${last}`;
 }
 
-/** An element's vertical margins. */
+/**
+ * A computed style's margin at the start or end of the block axis: its top or bottom margin in a
+ * horizontal writing mode, its logical one in a vertical one.
+ */
+export function blockMargin(style: CSSStyleDeclaration | undefined, side: 'start' | 'end'): string {
+  if (/^(vertical|sideways)/.test(style?.writingMode ?? '')) {
+    return style?.getPropertyValue(`margin-block-${side}`) ?? '';
+  }
+  return (side === 'start' ? style?.marginTop : style?.marginBottom) ?? '';
+}
+
+/** An element's margins at the start and end of its block axis, in any writing mode. */
 export function margins(element: HTMLElement) {
   const style = element.ownerDocument.defaultView?.getComputedStyle(element);
-  return { marginTop: px(style?.marginTop ?? ''), marginBottom: px(style?.marginBottom ?? '') };
+  return {
+    marginTop: px(blockMargin(style, 'start')),
+    marginBottom: px(blockMargin(style, 'end')),
+  };
 }
 
 /** A block drawn as an element at a position. */

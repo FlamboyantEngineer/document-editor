@@ -115,11 +115,14 @@ describe('EditorSurface', () => {
     expect(screen.queryByText('Laying out pages')).not.toBeInTheDocument();
   });
 
-  it('DOCE-EDITOR-4.19 shows the overview beside the frame only while the editor scrolls', () => {
+  it("DOCE-EDITOR-4.19 keeps the frame's native scrollbar for the overview, only while the editor scrolls", () => {
+    const region = () => container.querySelector('.ui-scroll-region');
     const { container, rerender } = render(<Harness layout="web" scrollable overview />);
-    expect(container.querySelector('.de-document-editor__overview')).toBeInTheDocument();
+    expect(region()).toHaveAttribute('data-scrollbar', 'native');
+    rerender(<Harness layout="web" scrollable />);
+    expect(region()).toHaveAttribute('data-scrollbar', 'overlay');
     rerender(<Harness layout="web" overview />);
-    expect(container.querySelector('.de-document-editor__overview')).not.toBeInTheDocument();
+    expect(region()).not.toBeInTheDocument();
   });
 
   it('DOCE-EDITOR-4.11 keeps the document and its focus while a panel comes and goes beside it', async () => {
@@ -157,11 +160,35 @@ describe('EditorSurface', () => {
     const marked = layers.map((layer) =>
       layer.markers.map((marker) => ('element' in marker ? marker.element.textContent : null)),
     );
-    expect(marked).toEqual([['match'], ['teh'], ['new', 'old'], ['Three old']]);
+    expect(marked).toEqual([['match'], ['teh'], ['new', 'old'], [], ['Three old']]);
     expect(layers[0]?.markers[0]).toMatchObject({
       color: 'var(--de-overview-search)',
       priority: 0,
     });
-    expect(overviewLayers(dom, {})[3]?.markers).toEqual([]);
+    expect(overviewLayers(dom, {})[4]?.markers).toEqual([]);
+  });
+
+  it('DOCE-EDITOR-4.19 marks each drawn change bar in its own colour at half opacity, the strongest first', () => {
+    const dom = document.createElement('div');
+    document.body.append(dom);
+    dom.innerHTML = [
+      '<p data-diff-change="modification" data-diff-lines="kept">One',
+      '<span class="de-change-lines"><span class="de-change-lines__line" data-diff-line="insertion" style="background: rgb(0, 221, 0)"></span>',
+      '<span class="de-change-lines__line" data-diff-line="modification" style="background: rgb(0, 0, 221)"></span>',
+      '<span class="de-change-lines__line" data-diff-line="formatting" style="background: transparent"></span></span></p>',
+    ].join('');
+    const bars = overviewLayers(dom, {}).find((layer) => layer.name === 'changebars');
+    // The block's own bar gives way to its lines' bars, and a bar not drawn marks nothing.
+    expect(bars?.markers).toEqual([
+      expect.objectContaining({
+        color: 'color-mix(in srgb, rgb(0, 221, 0) 50%, transparent)',
+        priority: 1,
+      }),
+      expect.objectContaining({
+        color: 'color-mix(in srgb, rgb(0, 0, 221) 50%, transparent)',
+        priority: 0,
+      }),
+    ]);
+    dom.remove();
   });
 });
