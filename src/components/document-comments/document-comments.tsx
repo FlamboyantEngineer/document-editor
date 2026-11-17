@@ -346,6 +346,9 @@ function CommentsMargin(props: DocumentCommentsProps) {
     <AnnotationLayer
       ref={setLayer}
       className={hooks.className}
+      data-cards-open={
+        cards.markers ? String(items.some((item) => cards.openKeys.has(item.key))) : undefined
+      }
       annotations={annotations}
       currentKey={active}
       onCurrentKeyChange={setActive}

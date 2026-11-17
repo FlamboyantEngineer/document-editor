@@ -102,4 +102,39 @@ test.describe('comment layout', () => {
     await expect(page.locator('.de-document-editor')).toHaveAttribute('data-markup', 'final');
     await expect(markers).toHaveCount(count);
   });
+
+  test('DOCE-COMMENTS-2.23 centres the pages with markers until a card opens, then the pages and margin as a pair', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 2600, height: 900 });
+    await page.getByLabel('Side panels').uncheck();
+    await page.getByLabel('Comment markers').check();
+    const layer = page.locator('.de-document-comments');
+    await expect(layer).toHaveAttribute('data-cards-open', 'false');
+    // The centre of the stage and of what it shows: the first page, then the pages with the margin.
+    const centres = () =>
+      layer.evaluate((element) => {
+        const stage = element.parentElement?.getBoundingClientRect();
+        const first = element.querySelector('.pm-page')?.getBoundingClientRect();
+        const pages = element
+          .querySelector('.de-document-editor__content')
+          ?.getBoundingClientRect();
+        const strip = element.querySelector('.de-document-comments__margin');
+        const columns = getComputedStyle(element).gridTemplateColumns.split(' ');
+        return {
+          stage: stage ? (stage.left + stage.right) / 2 : 0,
+          page: first ? (first.left + first.right) / 2 : 0,
+          margin: parseFloat(columns[1] ?? '-1'),
+          pair: pages && strip ? (pages.left + strip.getBoundingClientRect().right) / 2 : 0,
+        };
+      });
+    await expect.poll(async () => (await centres()).margin).toBe(0);
+    const closed = await centres();
+    expect(Math.abs(closed.page - closed.stage)).toBeLessThan(2);
+    await margin(page).locator('.ui-annotation-layer__marker').first().click();
+    await expect(layer).toHaveAttribute('data-cards-open', 'true');
+    await expect.poll(async () => (await centres()).margin).toBeGreaterThan(0);
+    const open = await centres();
+    expect(Math.abs(open.pair - open.stage)).toBeLessThan(2);
+  });
 });

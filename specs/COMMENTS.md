@@ -274,9 +274,9 @@ Verification: `src/components/document-comments/thread-permissions.test.ts`, `sr
 
 ### DOCE-COMMENTS-2.23 - Cards that open on request
 
-With markers, no card shall be open when the document loads; a card opens only when the reader asks for it: its marker, a click on its thread's or suggestion's text, the comments panel or a link (`openThread`), or starting a thread, whose composer always shows. Opening a card from its text or a link shall focus the card, not its reply box; a click on the text of a card already open focuses its reply box. The marker offering Comment on a selection starts the thread at once. The markers stay whatever markup the document is shown with, none included.
+With markers, no card shall be open when the document loads; a card opens only when the reader asks for it: its marker, a click on its thread's or suggestion's text, the comments panel or a link (`openThread`), or starting a thread, whose composer always shows. Opening a card from its text or a link shall focus the card, not its reply box; a click on the text of a card already open focuses its reply box. The marker offering Comment on a selection starts the thread at once. The markers stay whatever markup the document is shown with, none included. With markers the root says whether a card is open (`data-cards-open`); the reference stylesheet then centres paged documents' pages and margin as one pair, giving the margin no width while no card is open, so the pages return to the centre.
 
-Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`
+Implementation: `src/components/document-comments/use-open-cards.ts`, `src/components/document-comments/document-pointer.ts`, `src/components/document-comments/comment-pointer-controls.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`, `labs/reference/document.css`
 Verification: `src/components/document-comments/comment-opening.test.tsx`, `e2e/comment-layout.spec.ts`
 
 ### DOCE-COMMENTS-2.24 - Putting a thread being started away
@@ -530,20 +530,21 @@ Verification: `src/components/document-comments/panel-rows.test.tsx`, `e2e/comme
 
 ## Hooks
 
-| Hook                             | Kind      | Values | Description                                                                                               |
-| -------------------------------- | --------- | ------ | --------------------------------------------------------------------------------------------------------- |
-| `de-document-comments`           | root      |        | The annotation layer around the document and margin.                                                      |
-| `de-document-comments__margin`   | slot      |        | The margin of cards.                                                                                      |
-| `de-document-comments__card`     | slot      |        | A card, beside its anchor's page.                                                                         |
-| `de-document-comments__change`   | slot      |        | The post a suggestion's card opens with.                                                                  |
-| `de-document-comments__decision` | slot      |        | How a decided suggestion's thread was decided, with `data-decision` (`accept`, `reject`).                 |
-| `--de-comment-offset`            | property  |        | On a card: how far it moves across to sit beside its page.                                                |
-| `de-comments-panel`              | root      |        | The comments panel.                                                                                       |
-| `de-comments-panel__list`        | slot      |        | The list of the panel's cards.                                                                            |
-| `de-comments-panel__thread`      | slot      |        | A thread of the panel, with `data-anchored`, and `data-draft` on one being started on the whole document. |
-| `de-comments-panel__suggestion`  | slot      |        | A suggestion of the panel, with `data-anchored`.                                                          |
-| `de-comments-panel__in-document` | slot      |        | The rows of the threads and suggestions beside the text (DOCE-COMMENTS-4.13).                             |
-| `de-comments-panel__heading`     | slot      |        | The heading of those rows.                                                                                |
-| `de-comments-panel__row`         | slot      |        | One of those rows, with `data-annotation` `thread` or `suggestion`.                                       |
-| `data-comment-active`            | attribute | `true` | On the text of the anchor holding the caret.                                                              |
-| `data-comment-placed`            | attribute | `true` | On an anchor placed by its thread's target, not stored.                                                   |
+| Hook                             | Kind      | Values          | Description                                                                                                    |
+| -------------------------------- | --------- | --------------- | -------------------------------------------------------------------------------------------------------------- |
+| `de-document-comments`           | root      |                 | The annotation layer around the document and margin.                                                           |
+| `de-document-comments__margin`   | slot      |                 | The margin of cards.                                                                                           |
+| `de-document-comments__card`     | slot      |                 | A card, beside its anchor's page.                                                                              |
+| `de-document-comments__change`   | slot      |                 | The post a suggestion's card opens with.                                                                       |
+| `de-document-comments__decision` | slot      |                 | How a decided suggestion's thread was decided, with `data-decision` (`accept`, `reject`).                      |
+| `--de-comment-offset`            | property  |                 | On a card: how far it moves across to sit beside its page.                                                     |
+| `de-comments-panel`              | root      |                 | The comments panel.                                                                                            |
+| `de-comments-panel__list`        | slot      |                 | The list of the panel's cards.                                                                                 |
+| `de-comments-panel__thread`      | slot      |                 | A thread of the panel, with `data-anchored`, and `data-draft` on one being started on the whole document.      |
+| `de-comments-panel__suggestion`  | slot      |                 | A suggestion of the panel, with `data-anchored`.                                                               |
+| `de-comments-panel__in-document` | slot      |                 | The rows of the threads and suggestions beside the text (DOCE-COMMENTS-4.13).                                  |
+| `de-comments-panel__heading`     | slot      |                 | The heading of those rows.                                                                                     |
+| `de-comments-panel__row`         | slot      |                 | One of those rows, with `data-annotation` `thread` or `suggestion`.                                            |
+| `data-comment-active`            | attribute | `true`          | On the text of the anchor holding the caret.                                                                   |
+| `data-comment-placed`            | attribute | `true`          | On an anchor placed by its thread's target, not stored.                                                        |
+| `data-cards-open`                | attribute | `true`, `false` | With markers, on the root: whether a card is open, so a stylesheet can give the margin no width while none is. |
