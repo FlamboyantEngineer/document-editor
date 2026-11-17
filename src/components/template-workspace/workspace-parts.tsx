@@ -160,6 +160,7 @@ export function WorkspacePreview({ workspace, labels, scope, layout, ...props }:
   const editable = viewing === null;
   const preview: TemplatePreview = {
     template: resolved,
+    own: open.draft,
     layout,
     scope,
     onRegionChange: editable
