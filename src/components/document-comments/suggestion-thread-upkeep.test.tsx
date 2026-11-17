@@ -1,9 +1,11 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { createRef } from 'react';
-import { describe, expect, it } from 'vitest';
-import { Harness, text, thread } from '../../../test/comment-fixtures.js';
+import { describe, expect, it, vi } from 'vitest';
+import { Harness, host, seen, text, thread } from '../../../test/comment-fixtures.js';
 import { installEditorDom } from '../../../test/editor-dom.js';
+import { listSuggestions } from '../../engine/index.js';
 import { createMemoryHost } from '../../host/index.js';
+import type { SessionStatus } from '../../session/status.js';
 import type { DocumentEditorHandle } from '../document-editor/editor-handle.js';
 
 installEditorDom();
@@ -99,5 +101,16 @@ describe('Suggestion threads kept', () => {
     expect(listed?.ok && listed.value.map((each) => [each.id, each.state])).toEqual([
       ['auto', 'deleted'],
     ]);
+  });
+
+  it('DOCE-COMMENTS-2.21 saves the document once a suggestion names its new thread', async () => {
+    const status: SessionStatus = { load: 'ready', save: 'idle', error: null, dirty: false };
+    const save = vi.fn(() => Promise.resolve());
+    const session = { status: { get: () => status, subscribe: () => () => undefined }, save };
+    render(
+      <Harness host={host()} session={session} options={{ suggestionThreads: { delay: 0 } }} />,
+    );
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(seen.state && listSuggestions(seen.state.doc)[0]?.thread).toEqual(expect.any(String));
   });
 });

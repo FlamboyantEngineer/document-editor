@@ -106,13 +106,16 @@ const linkQuietly =
 
 type Plan = ReturnType<typeof planSuggestionThreads>;
 
+/** What carries a plan out: the store, the editor's commands, and who hears of a new link. */
+interface Carrying {
+  readonly comments: CommentThreads;
+  readonly run: (command: Command) => void;
+  readonly linked?: (() => void) | undefined;
+}
+
 // Starts, updates, starts again and removes the threads a plan names; a suggestion whose thread is
 // being started is left to that start.
-function carryOut(
-  plan: Plan,
-  { comments, run }: { comments: CommentThreads; run: (command: Command) => void },
-  starting: Set<string>,
-) {
+function carryOut(plan: Plan, { comments, run, linked }: Carrying, starting: Set<string>) {
   for (const { suggestion, quote, change } of plan.start) {
     if (starting.has(suggestion.id)) continue;
     starting.add(suggestion.id);
@@ -120,7 +123,10 @@ function carryOut(
     const thread = { id, quote, text: '', suggestion: suggestion.id, change, automatic: true };
     void comments
       .create(thread)
-      .then(() => run(linkQuietly(suggestion.id, id)))
+      .then(() => {
+        run(linkQuietly(suggestion.id, id));
+        linked?.();
+      })
       .catch(() => undefined)
       .finally(() => starting.delete(suggestion.id));
   }
@@ -154,15 +160,18 @@ export function useSuggestionThreads({
   state: EditorState;
   comments: CommentThreads;
   run: (command: Command) => void;
-  options: Pick<DocumentCommentsOptions, 'suggestionThreads' | 'identity'>;
+  options: Pick<DocumentCommentsOptions, 'suggestionThreads' | 'identity'> & {
+    onSuggestionLinked?: (() => void) | undefined;
+  };
   editable: boolean;
 }): void {
   const asked = options.suggestionThreads;
   const delay = asked ? ((asked === true ? null : asked.delay) ?? DEFAULT_DELAY) : null;
   const me = options.identity.currentPerson().id;
-  const latest = useRef({ comments, run });
+  const linked = options.onSuggestionLinked;
+  const latest = useRef<Carrying>({ comments, run, linked });
   useLayoutEffect(() => {
-    latest.current = { comments, run };
+    latest.current = { comments, run, linked };
   });
   // The suggestions whose threads are being started, so a later pause does not start another,
   // and those the document held at the last pause.

@@ -246,10 +246,10 @@ Verification: `src/collab/comment-store.test.ts`
 
 ### DOCE-COMMENTS-2.21 - Threads for suggestions
 
-With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes (the text it formats, for a change of formatting alone), what it does (`change`: insert, delete, replace or format) and `automatic`, and name it on the suggestion's marks outside the reader's history; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions, and the threads started for them, are left to that writer's editor (`planSuggestionThreads`). The margin and the pane placement (DOCE-COMMENTS-4.7) both do so.
+With `suggestionThreads`, once the reader pauses (`delay`, 800 milliseconds by default), the margin shall start a thread for each of the reader's own suggestions that has none, with no opening comment, the text it quotes (the text it formats, for a change of formatting alone), what it does (`change`: insert, delete, replace or format) and `automatic`, and name it on the suggestion's marks outside the reader's history, then save the editor's `session` at once, so a reload keeps the thread and the marks naming it; and bring each open thread it started up to date with what its suggestion now does (`update`). Another writer's suggestions, and the threads started for them, are left to that writer's editor (`planSuggestionThreads`). The margin and the pane placement (DOCE-COMMENTS-4.7) both do so.
 
-Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`
-Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `e2e/comments.spec.ts`
+Implementation: `src/components/document-comments/use-suggestion-threads.ts`, `src/components/document-comments/document-comments.tsx`, `src/components/document-editor/editor-body.tsx`
+Verification: `src/components/document-comments/use-suggestion-threads.test.ts`, `src/components/document-comments/document-comments.test.tsx`, `src/components/document-comments/suggestion-thread-upkeep.test.tsx`, `e2e/comments.spec.ts`
 
 ### DOCE-COMMENTS-2.22 - What the reader may do in a thread
 

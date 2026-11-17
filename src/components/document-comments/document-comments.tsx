@@ -159,6 +159,8 @@ interface DocumentCommentsProps extends DocumentCommentsOptions {
   onReveal?: (() => void) | undefined;
   /** Receives what the comments do with pointer presses and clicks in the document. */
   pointerRef?: RefObject<CommentPointer | null> | undefined;
+  /** Told once a suggestion names the thread just started for it, so the document saves now. */
+  onSuggestionLinked?: (() => void) | undefined;
   /** The document's content. */
   children: ReactNode;
 }
