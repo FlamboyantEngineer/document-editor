@@ -94,6 +94,29 @@ describe('container splits', () => {
     expect(joined?.textContent).toBe(`One${text}`);
   });
 
+  it('DOCE-PAGINATION-4.2 DOCE-PAGINATION-2.6 moves a two-line item whole past a page its footnotes leave one line', () => {
+    const list = node('bullet_list', { dataId: 'l1' }, [
+      item('i1', [paragraph('One')]),
+      item('i2', [paragraph(words(4), { dataId: 'p2' })]),
+    ]);
+    const itemMeasurement = { children: [{ top: 0, bottom: 20, measurement: lines() }] };
+    const block = measured(list, 50, [
+      { top: 0, bottom: 30 },
+      { top: 30, bottom: 50, measurement: itemMeasurement },
+    ]);
+    // The list cites footnotes that take half of a 100-pixel page: 48 pixels fit, one line of the
+    // second item's two.
+    const pageHeight = (blocks: readonly LayoutBlock[]) =>
+      blocks.some((each) => each.node.type.name === 'bullet_list') ? 50 : 100;
+    const queue = [block];
+    const page = layoutNextPage(queue, 0, { pageHeight, rules: LAYOUT_RULES });
+    expect(page.map((each) => each.node.childCount)).toEqual([1]);
+    expect(page[0]?.height).toBe(30);
+    expect(queue).toHaveLength(1);
+    expect(queue[0]?.node.childCount).toBe(1);
+    expect(queue[0]?.node.firstChild?.textContent).toBe(words(4));
+  });
+
   it('DOCE-PAGINATION-4.3 opens a list item continuation that starts with another block with an empty paragraph', () => {
     const nested = node('bullet_list', null, [item('n1', [paragraph('Nested')])]);
     const listItem = item('i1', [paragraph('Lead'), nested]);

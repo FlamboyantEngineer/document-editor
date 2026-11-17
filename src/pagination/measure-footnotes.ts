@@ -10,6 +10,11 @@ export interface FootnoteArea {
   readonly overhead: number;
   /** Each entry's height, with the space before the next, by footnote id. */
   readonly entries: ReadonlyMap<string, number>;
+  /**
+   * Each entry's height without the space before the next, by footnote id, which an area's last
+   * entry takes; the height with the space where an entry has none.
+   */
+  readonly last?: ReadonlyMap<string, number> | undefined;
 }
 
 interface PlacedEntry {
@@ -40,22 +45,35 @@ export function measureFootnotes(
   const ratio = scale > 0 ? scale : 1;
   const placed = placedEntries(view, pos);
   const entries = new Map<string, number>();
+  const last = new Map<string, number>();
   placed.forEach((entry, index) => {
     const next = placed[index + 1];
     const height = (next ? next.top : entry.bottom) - entry.top;
-    if (!entries.has(entry.id)) entries.set(entry.id, Math.max(0, height) / ratio);
+    if (entries.has(entry.id)) return;
+    entries.set(entry.id, Math.max(0, height) / ratio);
+    last.set(entry.id, Math.max(0, entry.bottom - entry.top) / ratio);
   });
-  const first = placed[0];
-  const last = placed.at(-1);
+  const [first, end] = [placed[0], placed.at(-1)];
   const dom = view.nodeDOM(pos);
-  if (!first || !last || !dom || dom.nodeType !== 1) return { overhead: 0, entries };
+  if (!first || !end || !dom || dom.nodeType !== 1) return { overhead: 0, entries, last };
   const area = (dom as HTMLElement).getBoundingClientRect();
-  return { overhead: Math.max(0, area.height - (last.bottom - first.top)) / ratio, entries };
+  return { overhead: Math.max(0, area.height - (end.bottom - first.top)) / ratio, entries, last };
 }
 
-/** The height a footnote area takes holding the entries of some footnotes. */
+/**
+ * The height a footnote area takes holding the entries of some footnotes, in order: each with the
+ * space before the next, but the last without it.
+ */
 export function footnoteAreaHeight(area: FootnoteArea, ids: Iterable<string>): number {
   let height = 0;
-  for (const id of ids) height += area.entries.get(id) ?? 0;
-  return height > 0 ? height + area.overhead : 0;
+  let end: string | null = null;
+  for (const id of ids) {
+    const entry = area.entries.get(id);
+    if (entry === undefined) continue;
+    height += entry;
+    end = id;
+  }
+  if (end === null || height <= 0) return 0;
+  const space = (area.entries.get(end) ?? 0) - (area.last?.get(end) ?? area.entries.get(end) ?? 0);
+  return Math.max(0, height - Math.max(0, space)) + area.overhead;
 }

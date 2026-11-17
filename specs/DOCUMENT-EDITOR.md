@@ -71,10 +71,10 @@ Verification: `e2e/document-editor.spec.ts`
 
 ### DOCE-EDITOR-2.2 - Switching layouts
 
-Switching to the web layout shall join each section's pages into one, out of the history, and drop the measuring slot; switching back shall lay the pages out again. Only the document shall be drawn anew: the comments margin and the host's chrome inside the editor (`children`) shall stay mounted as the pages start and through each switch, keeping their state.
+Switching to the web layout shall join each section's pages into one, out of the history, and drop the measuring slot; switching back shall lay the pages out again. Another writer's changes that arrive while the layout switches shall each show once, in the editor's document and on its pages, and reach the other writer once. Only the document shall be drawn anew: the comments margin and the host's chrome inside the editor (`children`) shall stay mounted as the pages start and through each switch, keeping their state.
 
 Implementation: `src/components/document-editor/use-document-layout.ts`, `src/components/document-editor/editor-body.tsx`, `labs/src/document-editor.lab.tsx`
-Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-body.test.tsx`
+Verification: `e2e/document-editor.spec.ts`, `src/components/document-editor/editor-body.test.tsx`, `e2e/shared-room.spec.ts`
 
 ### DOCE-EDITOR-2.3 - Reading in the browser
 

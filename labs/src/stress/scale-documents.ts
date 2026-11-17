@@ -41,6 +41,51 @@ function blocks(count: number, offset = 0): StoredNode[] {
   );
 }
 
+// A short list of two to eight items, ordered or not by its index, every third with a nested list
+// of two items in its second item; each item's text is one sentence.
+function shortList(index: number): StoredNode {
+  const item = (text: string, nested?: StoredNode): StoredNode => ({
+    type: 'listItem',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text }] },
+      ...(nested ? [nested] : []),
+    ],
+  });
+  const sentence = (at: number) => blockText(at).split('. ')[0] ?? '';
+  const nested = (at: number): StoredNode => ({
+    type: 'bulletList',
+    content: [item(sentence(at)), item(sentence(at + 1))],
+  });
+  const count = 2 + (index % 7);
+  return {
+    type: index % 2 === 0 ? 'orderedList' : 'bulletList',
+    content: Array.from({ length: count }, (_, at) =>
+      item(sentence(index * 11 + at), at === 1 && index % 3 === 0 ? nested(index * 13) : undefined),
+    ),
+  };
+}
+
+/**
+ * One section of `count` short lists, a paragraph before each and a heading every twenty: lists
+ * of eight items or fewer, to profile list pagination apart from long lists.
+ */
+export function shortListsDocument(count: number): DocumentFile {
+  const content = Array.from({ length: count }, (_, index) => [
+    ...(index % 20 === 0
+      ? [
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text: `Lists ${String(index / 20 + 1)}` }],
+          },
+        ]
+      : []),
+    paragraph(index),
+    shortList(index),
+  ]).flat();
+  return { formatVersion: 1, sections: [{ name: null, content }] };
+}
+
 /** One section of `count` blocks. */
 export function singleSectionDocument(count: number): DocumentFile {
   return { formatVersion: 1, sections: [{ name: null, content: blocks(count) }] };
