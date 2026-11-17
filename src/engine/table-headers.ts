@@ -1,6 +1,6 @@
-// A table's header rows and columns: the leading rows and the leading columns whose cells are
-// header cells. Making a row or column a header makes the ones before it headers too, and making it
-// plain makes the ones after it plain, so the headers stay one block at the start.
+// A table's header cells: any row or column may be made one of header cells, and made plain again.
+// The leading rows and columns of header cells are the table's header rows and columns, which a
+// table split across pages repeats and rows or columns inserted beside them join.
 
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Command, Transaction } from 'prosemirror-state';
@@ -49,9 +49,40 @@ interface TableLines {
 
 export const headerKey = (axis: TableAxis) => (axis === 'row' ? 'rows' : 'columns');
 
+const across = (axis: TableAxis): TableAxis => (axis === 'row' ? 'column' : 'row');
+
+// The rows (or columns) of a table all of whose cells are header cells, leaving out the cells
+// that start in the lines given across them.
+function headerLines(table: ProseMirrorNode, axis: TableAxis, leaving?: TableLines): Set<number> {
+  const map = TableMap.get(table);
+  const count = axis === 'row' ? map.height : map.width;
+  const lines = new Set(Array.from({ length: count }, (_, index) => index));
+  for (const offset of new Set(map.map)) {
+    const rect = map.findCell(offset);
+    const start = leaving?.axis === 'row' ? rect.top : rect.left;
+    if (leaving && start >= leaving.from && start < leaving.to) continue;
+    if (isHeader(table.nodeAt(offset))) continue;
+    const [first, end] = axis === 'row' ? [rect.top, rect.bottom] : [rect.left, rect.right];
+    for (let line = first; line < end; line += 1) lines.delete(line);
+  }
+  return lines;
+}
+
+// Whether a cell covers one of some lines of an axis.
+function covers(
+  rect: { top: number; bottom: number; left: number; right: number },
+  axis: TableAxis,
+  lines: ReadonlySet<number>,
+) {
+  const [first, end] = axis === 'row' ? [rect.top, rect.bottom] : [rect.left, rect.right];
+  for (let line = first; line < end; line += 1) if (lines.has(line)) return true;
+  return false;
+}
+
 /**
- * Gives the cells that start in some rows or columns of the table at `pos` their type for these
- * headers: a header cell in a header row or a header column, a plain cell elsewhere.
+ * Gives the cells that start in some new rows or columns of the table at `pos` their type: a
+ * header cell inside the leading header rows (columns) given, or across a row (column) of header
+ * cells only, and a plain cell elsewhere.
  */
 export function applyHeaders(
   tr: Transaction,
@@ -62,12 +93,14 @@ export function applyHeaders(
   const { table_cell: plain, table_header: header } = tr.doc.type.schema.nodes;
   if (!table || !plain || !header) return;
   const map = TableMap.get(table);
+  const crossing = headerLines(table, across(lines.axis), lines);
+  const leading = headers[headerKey(lines.axis)];
   for (const offset of new Set(map.map)) {
     const cell = table.nodeAt(offset);
     const rect = map.findCell(offset);
     const start = lines.axis === 'row' ? rect.top : rect.left;
     if (!cell || start < lines.from || start >= lines.to) continue;
-    const type = rect.top < headers.rows || rect.left < headers.columns ? header : plain;
+    const type = start < leading || covers(rect, across(lines.axis), crossing) ? header : plain;
     if (cell.type !== type) tr.setNodeMarkup(pos + 1 + offset, type, cell.attrs);
   }
 }
@@ -80,25 +113,42 @@ export function selectedLines(
   return axis === 'row' ? [rect.top, rect.bottom] : [rect.left, rect.right];
 }
 
+// The cells of a table that cover some of its rows (columns), with their offsets and places.
+function cellsIn(table: ProseMirrorNode, axis: TableAxis, lines: ReadonlySet<number>) {
+  const map = TableMap.get(table);
+  return [...new Set(map.map)].flatMap((offset) => {
+    const node = table.nodeAt(offset);
+    const rect = map.findCell(offset);
+    return node && covers(rect, axis, lines) ? [{ offset, node, rect }] : [];
+  });
+}
+
 /**
- * Makes the rows (or columns) the selection covers header rows, with every row before them, or,
- * when the first of them is a header already, makes it and every row after it plain rows.
+ * Makes the rows (or columns) the selection covers header rows, or, when every cell in them is a
+ * header cell already, makes them plain, keeping a header cell where it crosses a column (row) of
+ * header cells only. When every column (row) is one, as in a table of header cells only, they all
+ * become plain.
  */
 export function toggleHeaderLines(axis: TableAxis): Command {
   const toggle: Command = (state, dispatch) => {
     if (!isInTable(state)) return false;
     const rect = selectedRect(state);
     const [first, end] = selectedLines(axis, rect);
-    const key = headerKey(axis);
-    const headers = tableHeaders(rect.table);
-    const count = first < headers[key] ? first : end;
+    const lines = new Set(Array.from({ length: end - first }, (_, index) => first + index));
+    const cells = cellsIn(rect.table, axis, lines);
+    const { table_cell: plain, table_header: header } = state.schema.nodes;
+    if (!plain || !header) return false;
     if (dispatch) {
+      const making = cells.some((cell) => !isHeader(cell.node));
+      const other = across(axis);
+      const kept = headerLines(rect.table, other, { axis, from: first, to: end });
+      const width = other === 'row' ? rect.map.height : rect.map.width;
+      const keep = kept.size < width ? kept : new Set<number>();
       const tr = state.tr;
-      applyHeaders(
-        tr,
-        { pos: rect.tableStart - 1, headers: { ...headers, [key]: count } },
-        { axis, from: Math.min(count, headers[key]), to: Math.max(count, headers[key]) },
-      );
+      for (const { offset, node, rect: place } of cells) {
+        const type = making || covers(place, other, keep) ? header : plain;
+        if (node.type !== type) tr.setNodeMarkup(rect.tableStart + offset, type, node.attrs);
+      }
       dispatch(tr);
     }
     return true;

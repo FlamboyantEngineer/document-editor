@@ -202,6 +202,28 @@ test.describe('selecting in tables', () => {
     await expect(last.locator('td')).toHaveCount(2);
   });
 
+  test('DOCE-TABLES-3.8 makes a row in the middle of a table a header row and plain again', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('document-editor');
+    const run = cell(page, 'Run');
+    await run.scrollIntoViewIfNeeded();
+    const row = run.locator('xpath=ancestor::tr[1]');
+    const above = row.locator('xpath=preceding-sibling::tr[1]');
+    const aboveHeaders = await above.locator('th').count();
+    const menuItem = (name: string) => page.getByRole('menuitem', { name, exact: true }).click();
+    await run.click({ button: 'right' });
+    await menuItem('Header');
+    await menuItem('Header row');
+    await expect(row.locator('td')).toHaveCount(0);
+    await expect(above.locator('th')).toHaveCount(aboveHeaders);
+    await cell(page, 'Run').click({ button: 'right' });
+    await menuItem('Header');
+    await menuItem('Header row');
+    await expect(row.locator('th')).toHaveCount(0);
+  });
+
   test('DOCE-TABLES-3.5 DOCE-TABLES-3.11 clears the selected cells when a click puts the caret outside the table', async ({
     lab,
     page,
