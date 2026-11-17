@@ -318,11 +318,11 @@ describe('the editing extension', () => {
       'trailing-paragraph',
       'keymap',
     ]);
-    expect(kit.buildPlugins(undefined)).toHaveLength(22);
+    expect(kit.buildPlugins(undefined)).toHaveLength(23);
     const shared = createDocumentKit({
       extensions: [createDocumentEditingExtension({ history: false })],
     });
-    expect(shared.buildPlugins(undefined)).toHaveLength(21);
+    expect(shared.buildPlugins(undefined)).toHaveLength(22);
   });
 
   it('DOCE-EDITING-4.2 locks the sections the template does not let be edited, beside the host lock', () => {

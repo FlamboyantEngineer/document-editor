@@ -23,6 +23,8 @@ export interface ContentsRows {
   readonly showPage: boolean;
   /** The text between an entry's number and its text, when it has both. */
   readonly separator: string;
+  /** Whether the entries are the whole list's, not yet a split part's range of them. */
+  readonly whole?: boolean | undefined;
 }
 
 // A short hash naming the rows a list draws, so pagination measures it again when they change.
@@ -58,6 +60,18 @@ export function rowsIn(decorations: readonly Decoration[]): ContentsRows {
     if (rows) return rows;
   }
   return { entries: [], empty: true, showPage: false, separator: '' };
+}
+
+/**
+ * The rows a list block shows: a whole list's rows cut to the range of entries the block holds, as
+ * a part of a list the pages split takes the decoration of the whole list in the document.
+ */
+export function partRows(rows: ContentsRows, node: ProseMirrorNode): ContentsRows {
+  if (!rows.whole) return rows;
+  const start = Number(node.attrs.entryStart) || 0;
+  const end = Number.isInteger(node.attrs.entryEnd) ? Number(node.attrs.entryEnd) : undefined;
+  if (start === 0 && end === undefined) return rows;
+  return { ...rows, entries: rows.entries.slice(start, end), whole: false };
 }
 
 function span(className: string, text: string): HTMLSpanElement {

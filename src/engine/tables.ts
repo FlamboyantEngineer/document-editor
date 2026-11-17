@@ -23,6 +23,7 @@ import { newBlockRange } from './block-place.js';
 import { appendTransaction, captureTransaction } from './table-parts.js';
 import { createTablePointer } from './table-pointer.js';
 import { createColumnResize } from './table-resize.js';
+import { createRowResize } from './table-row-resize.js';
 import { isRemoteTransaction } from './transaction-kind.js';
 
 // Where a new block goes, which the table commands share with every block command.
@@ -191,11 +192,20 @@ const addRowAtEnd: Command = (state, dispatch) => {
   return true;
 };
 
+// Tab adds a row only where the writer may change the document: a read-only view, such as a
+// historical version or reading mode, only moves between cells.
+const addRowWhereEditable: Command = (state, dispatch, view) =>
+  view?.editable !== false && addRowAtEnd(state, dispatch, view);
+
+// Inside a table, Tab and Shift-Tab with nowhere to go do nothing: they never reach the document's
+// Tab, which would indent a list or change the paragraph's level.
+const insideTable: Command = (state) => Boolean(findTable(state.selection.$from));
+
 /** The keys of tables, ahead of the document's own Tab. */
 export function tableKeys(): Record<string, Command> {
   return {
-    Tab: chainCommands(goToNextCell(1), addRowAtEnd),
-    'Shift-Tab': goToNextCell(-1),
+    Tab: chainCommands(goToNextCell(1), addRowWhereEditable, insideTable),
+    'Shift-Tab': chainCommands(goToNextCell(-1), insideTable),
     'Alt-Shift-ArrowUp': moveSelectedTableLine('row', -1),
     'Alt-Shift-ArrowDown': moveSelectedTableLine('row', 1),
     'Alt-Shift-ArrowLeft': moveSelectedTableLine('column', -1),
@@ -232,6 +242,7 @@ export function createTableEditing({
 }: TableEditingOptions = {}): Plugin[] {
   return [
     createColumnResize(),
+    createRowResize(),
     localTableEditing(isRemote),
     createTablePointer(),
     keymap(tableKeys()),

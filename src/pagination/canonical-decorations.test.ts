@@ -88,3 +88,63 @@ describe('canonicalDecorations', () => {
     expect(drawn.every((each) => each.classes.length === 1)).toBe(true);
   });
 });
+
+// A paragraph, then a list of contents that follows it split over three pages, and a paragraph
+// after the list.
+function splitList() {
+  const before = create('paragraph', { dataId: 'p1' }, [documentSchema.text('Before')]);
+  const after = create('paragraph', { dataId: 'p2' }, [documentSchema.text('After')]);
+  const list = create('toc_block', { tocType: 'toc' });
+  const page = create('page', null, [
+    create('page_header', null),
+    create('page_content', null, [before, list, after]),
+    create('page_footnotes', null, []),
+    create('page_footer', null),
+  ]);
+  const whole = create('doc', null, [create('page_section', { sectionName: 'Body' }, [page])]);
+  const part = (attrs: Record<string, unknown>) =>
+    create('toc_block', { tocType: 'toc', ...attrs });
+  const pages = [
+    [before, part({ entryEnd: 2 })],
+    [part({ entryStart: 2, entryEnd: 4, showTitle: false })],
+    [part({ entryStart: 4, showTitle: false }), after],
+  ];
+  return createProjectionMap(projectDocument(whole, [pages]));
+}
+
+describe('canonicalDecorations on a split leaf block', () => {
+  it('DOCE-PAGINATION-7.13 draws a list decoration on each part of a list that follows other blocks', () => {
+    const map = splitList();
+    let from = -1;
+    map.canonical.descendants((node, pos) => {
+      if (node.type.name === 'toc_block') from = pos;
+      return from < 0;
+    });
+    const rows = { entries: [] };
+    const listed = new Plugin({
+      props: {
+        decorations: (state) =>
+          DecorationSet.create(state.doc, [
+            Decoration.node(from, from + 1, {}, { contents: rows }),
+          ]),
+      },
+    });
+    const canonical = EditorState.create({ doc: map.canonical, plugins: [listed] });
+    const plugin = canonicalDecorations({ canonical: () => canonical, map: () => map });
+    const projection = EditorState.create({ doc: map.projection, plugins: [plugin] });
+    const set = plugin.props.decorations?.call(plugin, projection);
+    if (!(set instanceof DecorationSet)) throw new Error('no decorations');
+    const lists: number[] = [];
+    map.projection.descendants((node, pos) => {
+      if (node.type.name === 'toc_block') lists.push(pos);
+      return true;
+    });
+    expect(lists).toHaveLength(3);
+    const drawn = lists.map(
+      (pos) =>
+        set.find(pos, pos + 1, (spec) => spec.contents === rows).filter((d) => d.from === pos)
+          .length,
+    );
+    expect(drawn).toEqual([1, 1, 1]);
+  });
+});

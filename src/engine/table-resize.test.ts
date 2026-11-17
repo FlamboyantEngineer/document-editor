@@ -1,9 +1,11 @@
-import { EditorState } from 'prosemirror-state';
+import { EditorState, type Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { documentSchema } from '../../test/document-markup.js';
 import { installEditorDom } from '../../test/editor-dom.js';
 import { readDocumentFile, type StoredNode } from '../model/index.js';
+import { createEditLock } from './edit-lock.js';
+import { setObjectLayout } from './object-commands.js';
 import { createColumnResize, resizeColumns, setColumnWidths } from './table-resize.js';
 import { DEFAULT_TABLE_CELL_MIN_WIDTH } from './tables.js';
 import { markRemote } from './transaction-kind.js';
@@ -88,17 +90,21 @@ describe('column resize', () => {
 
 // A view of a paragraph and a table of two columns, every element laid out 100 pixels wide, with
 // the pointer finding the cell that holds a text.
-function tableView() {
+function tableView(attrs: Record<string, unknown> = {}, plugins: Plugin[] = []) {
   const content: StoredNode[] = [
     { type: 'paragraph', content: [{ type: 'text', text: 'Parts' }] },
-    { type: 'table', content: [row(cell('Pump'), cell('P-1')), row(cell('Valve'), cell('V-1'))] },
+    {
+      type: 'table',
+      attrs,
+      content: [row(cell('Pump'), cell('P-1')), row(cell('Valve'), cell('V-1'))],
+    },
   ];
   const { doc } = readDocumentFile(
     { formatVersion: 1, sections: [{ name: null, content }] },
     documentSchema,
   );
   const view = new EditorView(document.body.appendChild(document.createElement('div')), {
-    state: EditorState.create({ doc, plugins: [createColumnResize()] }),
+    state: EditorState.create({ doc, plugins: [createColumnResize(), ...plugins] }),
   });
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
     new DOMRect(0, 0, 100, 20),
@@ -193,6 +199,55 @@ describe('dragging a column border', () => {
     view.dispatch(markRemote(view.state.tr.delete(from, from + size)));
     document.dispatchEvent(pointer('mouseup', 128));
     expect(cellWidths(view)).toEqual([]);
+    expect(view.dom).not.toHaveClass('resize-cursor');
+    view.destroy();
+  });
+
+  const layoutOf = (view: EditorView) => view.state.doc.nodeAt(tableAt(view))?.attrs.objectLayout;
+
+  it('DOCE-TABLES-3.7 keeps a fit to the page width when an inner border moves', () => {
+    const view = tableView({ layout: 'fit-page-width' });
+    dragBorderOf(view, 'Pump');
+    document.dispatchEvent(pointer('mouseup', 128));
+    expect(cellWidths(view)).toEqual([[130], [70], [130], [70]]);
+    expect(layoutOf(view)).toBe('fit-page-width');
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-3.7 ends a fit to the page width when the outer border moves', () => {
+    const view = tableView({ layout: 'fit-page-width' });
+    dragBorderOf(view, 'P-1');
+    document.dispatchEvent(pointer('mouseup', 80));
+    expect(layoutOf(view)).toBe('left');
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-3.12 keeps the widths a fitted table is laid out at when it is aligned', () => {
+    const view = tableView({ layout: 'fit-page-width' });
+    const inside = TextSelection.near(view.state.doc.resolve(tableAt(view) + 4));
+    view.dispatch(view.state.tr.setSelection(inside));
+    expect(setObjectLayout('center')(view.state, view.dispatch, view)).toBe(true);
+    expect(layoutOf(view)).toBe('center');
+    expect(cellWidths(view)).toEqual([[100], [100], [100], [100]]);
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-2.4 forgets the border under the pointer when the page scrolls', () => {
+    const view = tableView();
+    const pressed = cellElement(view, 'Pump');
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(pressed.querySelector('p'));
+    pressed.dispatchEvent(pointer('mousemove', 98));
+    expect(view.dom).toHaveClass('resize-cursor');
+    document.dispatchEvent(new Event('scroll'));
+    expect(view.dom).not.toHaveClass('resize-cursor');
+    view.destroy();
+  });
+
+  it('DOCE-TABLES-2.4 offers no border in cells a lock covers', () => {
+    const view = tableView({}, [createEditLock({ isLocked: () => true })]);
+    const pressed = cellElement(view, 'Pump');
+    vi.spyOn(document, 'elementFromPoint').mockReturnValue(pressed.querySelector('p'));
+    pressed.dispatchEvent(pointer('mousemove', 98));
     expect(view.dom).not.toHaveClass('resize-cursor');
     view.destroy();
   });

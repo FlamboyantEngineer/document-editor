@@ -330,7 +330,7 @@ const ALL_DOCUMENTS: readonly { name: RegressionDocumentName; pages: number }[] 
   { name: 'oversized-blocks', pages: 12 },
   { name: 'page-breaks-and-rules', pages: 4 },
   { name: 'roman-and-alpha-numbering', pages: 6 },
-  { name: 'roman-numbering-coverage', pages: 14 },
+  { name: 'roman-numbering-coverage', pages: 17 },
   { name: 'roman-numbering-stress', pages: 4 },
   { name: 'table-both-header-modes', pages: 8 },
   { name: 'table-long-headerless', pages: 8 },
@@ -1050,6 +1050,30 @@ test.describe('mixed geometry', () => {
     expect(body?.[1].slice(0, 3)).toEqual(['I.', 'II.', 'III.']);
     const annex = [...bySection.values()].find((labels) => labels[0]?.startsWith('A'));
     expect(annex?.[0]).toMatch(/^A/);
+  });
+
+  test('DOCE-CONTENTS-2.2 continues a long list that follows other blocks on the pages after it', async ({
+    page,
+  }) => {
+    await openDocument(page, 'roman-and-alpha-numbering');
+    const parts = await page
+      .locator('.de-document-editor__content .de-contents')
+      .evaluateAll((lists) =>
+        lists.map((list) => {
+          const content = list.closest('.pm-page-content')?.getBoundingClientRect();
+          return {
+            rows: list.querySelectorAll('.de-contents__entry').length,
+            overflow: content ? list.getBoundingClientRect().bottom - content.bottom : 0,
+          };
+        }),
+      );
+    const whole = await page
+      .locator('.de-document-editor__measure .de-contents .de-contents__entry')
+      .count();
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts.every(({ rows }) => rows > 0)).toBe(true);
+    expect(parts.reduce((sum, { rows }) => sum + rows, 0)).toBe(whole);
+    for (const { overflow } of parts) expect(overflow).toBeLessThanOrEqual(1);
   });
 
   test('DOCE-LABS-4.11 draws row stripes, caption styles and footnote markers from the template', async ({
