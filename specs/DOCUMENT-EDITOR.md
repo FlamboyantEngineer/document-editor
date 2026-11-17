@@ -101,7 +101,7 @@ Verification: `src/components/document-editor/clipboard-entries.test.ts`, `src/c
 
 ### DOCE-EDITOR-3.3 - Suggestions and comments
 
-On a suggestion, while the editor may decide suggestions (editable and not suggesting), the menu shall first offer to accept or reject it. With comments, while the reader may comment, it shall offer Comment, which starts a thread as Mod-Alt-M does (DOCE-COMMENTS-2.6): on the selected text, which the right-click that opened the menu keeps, or, without a selection, on the text block holding the caret.
+On a suggestion, while the editor may decide suggestions (editable and not suggesting), the menu shall first offer to accept or reject it. With comments, while the reader may comment, it shall offer Comment, which starts a thread as Mod-Alt-M does (DOCE-COMMENTS-2.6): on the selected text, which the right-click that opened the menu keeps, or, when the right-click landed outside a text selection and moved the selection, still on that whole selection while the document is unchanged, or, without a selection, on the text block holding the caret.
 
 Implementation: `src/components/document-editor/context-entries.ts`, `src/components/document-comments/document-comments.tsx`
 Verification: `e2e/document-editor.spec.ts`

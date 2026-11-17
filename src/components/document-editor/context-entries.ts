@@ -6,7 +6,7 @@
 
 import { AbbreviationGlyph } from '@flamboyantengineer/ui-components/core';
 import type { MenuEntry } from '@flamboyantengineer/ui-components/menu';
-import { TextSelection } from 'prosemirror-state';
+import { type EditorState, TextSelection } from 'prosemirror-state';
 import { findTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import {
@@ -47,6 +47,11 @@ export interface ContextEntriesOptions {
   readonly suggestionPolicy: SuggestionPolicy;
   /** Starts a comment thread on the selected text, when the reader may comment. */
   readonly startComment: (() => void) | null;
+  /**
+   * The state with the selection a comment starts on, when it is not the view's: the selection a
+   * secondary click outside it moved away from.
+   */
+  readonly commentState?: EditorState | null | undefined;
   /** Hands the host a link's address to the selection's content (`onCopyLink`). */
   readonly copyLink?: ((address: EditAddress) => void) | null | undefined;
   /** Opens one of the editor's dialogs for the selection, while the editor has them. */
@@ -125,7 +130,7 @@ function editingEntries(view: EditorView, options: ContextEntriesOptions): MenuE
       id: 'comment',
       label: labels.addComment,
       shortcut: shortcutLabel(shortcutsOf(view.state), 'comment'),
-      isDisabled: !canStartComment(view.state),
+      isDisabled: !canStartComment(options.commentState ?? view.state),
       onAction: startComment,
     });
   }
