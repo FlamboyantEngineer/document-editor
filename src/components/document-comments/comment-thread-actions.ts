@@ -1,6 +1,7 @@
 // The changes the reader makes to a document's threads, each asked of the host's store and kept as
 // it returns the thread, while the store can make it.
 
+import { createElementId } from '../../engine/index.js';
 import type {
   CommentDecision,
   CommentStoreAdapter,
@@ -44,10 +45,15 @@ export function threadActions(
   state: Pick<CommentThreads, 'threads' | 'people' | 'error' | 'activity'>,
 ): CommentThreads {
   const { edit, removeEntry, react, decide, update, setTyping } = store;
-  const reply = async (threadId: string, text: string): Promise<CommentThread | null> =>
-    change(threadId, () => store.reply(documentId, threadId, text), {
+  // A reply keeps the id it was first asked with for each retry, so the store adds it once.
+  const reply = async (
+    threadId: string,
+    text: string,
+    id = createElementId(),
+  ): Promise<CommentThread | null> =>
+    change(threadId, () => store.reply(documentId, { threadId, text, id }), {
       isPending: true,
-      retry: () => void reply(threadId, text),
+      retry: () => void reply(threadId, text, id),
     }).catch(() => null);
   // Records a decision, offering Retry on the thread each time the store refuses it.
   function record(

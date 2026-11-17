@@ -146,7 +146,14 @@ export interface CommentActivity {
 export interface CommentStoreAdapter {
   list(documentId: string, signal?: AbortSignal): Promise<HostResult<CommentThread[]>>;
   create(documentId: string, thread: NewCommentThread): Promise<HostResult<CommentThread>>;
-  reply(documentId: string, threadId: string, text: string): Promise<HostResult<CommentThread>>;
+  /**
+   * Adds a reply. Its `id`, when given, is chosen by the editor once for a reply and kept for each
+   * retry of it, so a store that already holds a reply by that id returns the thread unchanged.
+   */
+  reply(
+    documentId: string,
+    reply: { threadId: string; text: string; id?: string | undefined },
+  ): Promise<HostResult<CommentThread>>;
   setState(
     documentId: string,
     threadId: string,

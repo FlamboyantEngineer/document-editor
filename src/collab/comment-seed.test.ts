@@ -91,7 +91,7 @@ describe('room comment seeds', () => {
       now: () => new Date('2026-02-01T00:00:00Z'),
     });
     expect(await store.list('doc')).toEqual({ ok: true, value: STORED });
-    await store.reply('doc', 't-3', 'New note');
+    await store.reply('doc', { threadId: 't-3', text: 'New note' });
     const [thread] = readRoomComments(doc).filter(({ id }) => id === 't-3');
     expect(thread?.entries.map(({ author, text }) => `${author}: ${text}`)).toEqual([
       'grace: Old note',
