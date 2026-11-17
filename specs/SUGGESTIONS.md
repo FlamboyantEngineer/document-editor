@@ -37,7 +37,7 @@ Verification: `src/engine/suggestions.test.ts`
 A change that does not edit content, a change a suggestion built or decided, a change outside the history, such as the pagination's, a system change (`markSystemChange`), and an undo or redo, which replays changes that were already suggestions, shall be returned as it is. A change a suggestion cannot record shall give null, and the editor shall drop it rather than make it unsuggested: splitting a list item or a block laid out across pages, a change of structure around blocks, such as wrapping them in a list, nesting or lifting them, the insertion of a block that cannot be suggested, such as a table, a change of the formatting of a block that cannot be suggested (DOCE-SUGGESTIONS-4.2), and a formatting mark set on a node itself. A command that types text with its formatting, as a link typed at a caret (DOCE-OBJECTS-1.6), makes both in one step, so the suggestion records an insertion. A mark that is not formatting, such as a comment's highlight, is made as it is. A footnote inserted while suggesting is suggested by its marker, a suggested insertion like typed text; its entry, which follows its marker (DOCE-FOOTNOTES-1.3), is inserted as it is, and the footnotes' numbers are left to the footnote plugin, so accepting the marker keeps the footnote and rejecting it removes the entry with it.
 
 Implementation: `src/engine/suggestions.ts`, `src/engine/suggested-footnotes.ts`
-Verification: `src/engine/suggestions.test.ts`, `src/engine/suggested-footnotes.test.ts`, `e2e/shared-room.spec.ts`
+Verification: `src/engine/suggestions.test.ts`, `src/engine/suggested-footnotes.test.ts`, `src/engine/template-sync.test.ts`, `e2e/shared-room.spec.ts`
 
 ### DOCE-SUGGESTIONS-1.6 - Suggestions in canonical order
 

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { useState } from 'react';
@@ -34,9 +34,11 @@ function initial(): EditorState {
 function Editor({
   variables,
   onState,
+  editable,
 }: {
   variables?: VariablesAdapter;
   onState: (state: EditorState) => void;
+  editable?: boolean;
 }) {
   const [state, setState] = useState(initial);
   onState(state);
@@ -46,6 +48,7 @@ function Editor({
       onStateChange={setState}
       template={TEMPLATE}
       variables={variables}
+      editable={editable}
       toolbar
       aria-label="Report"
     />
@@ -62,9 +65,9 @@ describe('variable menu', () => {
     };
     render(<Editor variables={variables} onState={(state) => (shown = state)} />);
     await user.click(await screen.findByRole('button', { name: 'Variable' }));
-    expect(screen.getByRole('menuitem', { name: 'Page number' })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Page count' })).toBeInTheDocument();
-    await user.click(screen.getByRole('menuitem', { name: 'Document name' }));
+    expect(screen.getByRole('menuitem', { name: /^Page number/ })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: /^Page count/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: /^Document name/ }));
     await waitFor(() =>
       expect(findNode(shown.doc, 'template_variable')?.attrs.variableKey).toBe('document.name'),
     );
@@ -74,6 +77,40 @@ describe('variable menu', () => {
   it('DOCE-TEMPLATES-8.5 is left out while the host lists no variables', async () => {
     render(<Editor variables={{ value: () => null }} onState={() => undefined} />);
     await screen.findByRole('button', { name: 'Undo' });
+    expect(screen.queryByRole('button', { name: 'Variable' })).not.toBeInTheDocument();
+  });
+
+  it('DOCE-TEMPLATES-8.5 groups the variables by namespace, each with its raw token', async () => {
+    const user = userEvent.setup();
+    const variables: VariablesAdapter = {
+      value: () => null,
+      catalog: () => [
+        { key: 'document.name', label: 'Document name' },
+        { key: 'document.owner', label: 'Owner' },
+      ],
+    };
+    render(<Editor variables={variables} onState={() => undefined} />);
+    await user.click(await screen.findByRole('button', { name: 'Variable' }));
+    const document = screen.getByRole('group', { name: 'document' });
+    expect(
+      within(document)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Document name {{document.name}}', 'Owner {{document.owner}}']);
+    expect(
+      within(screen.getByRole('group', { name: 'page' })).getByRole('menuitem', {
+        name: /Page number/,
+      }),
+    ).toHaveTextContent('{{page.current}}');
+  });
+
+  it('DOCE-TEMPLATES-8.5 is left out while the document is read only', async () => {
+    const variables: VariablesAdapter = {
+      value: () => null,
+      catalog: () => [{ key: 'document.name', label: 'Document name' }],
+    };
+    render(<Editor variables={variables} editable={false} onState={() => undefined} />);
+    await screen.findByRole('toolbar');
     expect(screen.queryByRole('button', { name: 'Variable' })).not.toBeInTheDocument();
   });
 });

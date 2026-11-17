@@ -5,6 +5,7 @@ import { documentSchema } from '../../test/document-markup.js';
 import type { CompletionAdapter, CompletionAvailability, HostResult } from '../host/index.js';
 import { readDocumentFile } from '../model/index.js';
 import { automationActor } from './automation.js';
+import { commentDraft, createCommentDraft, startCommentDraft } from './comment-draft.js';
 import { createEditLock } from './edit-lock.js';
 import {
   acceptCompletion,
@@ -400,5 +401,25 @@ describe('asking the provider', () => {
     expect(inlineCompletion(view.state)).toBeNull();
     expect(completionStatus(view.state)?.phase).toBe('idle');
     view.destroy();
+  });
+
+  it('DOCE-AUTOMATION-3.2 dismisses its offer for a comment started at the caret, leaving the comment be', () => {
+    const plain = stateAt('Recovery takes', 'Recovery takes'.length);
+    let state = EditorState.create({
+      doc: plain.doc,
+      selection: plain.selection,
+      plugins: [...plain.plugins, createCommentDraft()],
+    });
+    const pos = state.selection.head;
+    state = run(state, offerCompletion({ pos, text: ' one second.' }));
+    state = run(state, startCommentDraft('d1'));
+    expect(commentDraft(state)?.id).toBe('d1');
+    expect(inlineCompletion(state)).toBeNull();
+    // A later offer, taken or dismissed, leaves the comment being started as it is.
+    state = run(state, offerCompletion({ pos: state.selection.head, text: ' Done.' }));
+    state = run(state, dismissCompletion);
+    state = run(state, offerCompletion({ pos: state.selection.head, text: ' Done.' }));
+    state = run(state, acceptCompletion);
+    expect(commentDraft(state)?.id).toBe('d1');
   });
 });

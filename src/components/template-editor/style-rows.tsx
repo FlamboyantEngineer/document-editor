@@ -17,6 +17,7 @@ import {
   type StyleScope,
   styleValue,
 } from './style-fields.js';
+import { templateEditorHooks as hooks } from './template-editor-hooks.js';
 import {
   NUMBER_PREFIX_TIP,
   NUMBER_SUFFIX_TIP,
@@ -28,7 +29,7 @@ import {
 export function NumberingStrip({ scope }: { scope: StyleScope }) {
   const { labels } = scope.context;
   return (
-    <PropertyStrip>
+    <PropertyStrip className={hooks.slot('strip').className}>
       <PropertyStripCell letter="«" label={labels.numberPrefix}>
         <Field
           scope={scope}

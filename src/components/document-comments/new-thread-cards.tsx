@@ -5,6 +5,7 @@ import { Button } from '@flamboyantengineer/ui-components/button';
 import { CommentComposer } from '@flamboyantengineer/ui-components/comment-composer';
 import { CommentThread } from '@flamboyantengineer/ui-components/comment-thread';
 import { ChatBubblePlusGlyph } from '@flamboyantengineer/ui-components/core';
+import { useState } from 'react';
 import type { CardContext } from './comment-cards.js';
 import { useFocusOnMount } from './comment-mentions.js';
 
@@ -25,12 +26,24 @@ export function PendingCard({
   onCancel: () => void;
 }) {
   const composer = useFocusOnMount();
+  // Why the store refused the thread last, shown until it is submitted again; the text stays.
+  const [refused, setRefused] = useState<string | null>(null);
+  const submit = async (text: string) => {
+    setRefused(null);
+    try {
+      return await onSubmit(text);
+    } catch (error) {
+      setRefused(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+  };
   return (
     <CommentThread
       mentions={context.mentions}
       quote={quote || undefined}
       isSelected
       onClose={onCancel}
+      error={refused ?? undefined}
       composer={
         <CommentComposer
           ref={composer}
@@ -41,7 +54,7 @@ export function PendingCard({
             context.newText == null ? `de-comments:${context.documentId}:new:${id}` : undefined
           }
           submitLabel={context.labels.submitComment}
-          onSubmit={onSubmit}
+          onSubmit={submit}
           onCancel={onCancel}
         />
       }
