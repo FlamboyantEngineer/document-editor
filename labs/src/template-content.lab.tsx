@@ -27,6 +27,22 @@ import { markReadyWhenSettled } from './lab-ready.js';
 
 const text = (value: string) => ({ type: 'text', text: value });
 
+// A table of one row of two cells 120 pixels wide, captioned, aligned as given.
+const benchTable = (caption: string, cells: string[], layout?: string) => ({
+  type: 'table',
+  attrs: { caption, captionEnabled: true, ...(layout ? { layout } : {}) },
+  content: [
+    {
+      type: 'tableRow',
+      content: cells.map((value) => ({
+        type: 'tableCell',
+        attrs: { colwidth: [120] },
+        content: [{ type: 'paragraph', content: [text(value)] }],
+      })),
+    },
+  ],
+});
+
 const OWN: TemplateFile = {
   formatVersion: 1,
   id: 'lab-template',
@@ -77,7 +93,9 @@ const OWN: TemplateFile = {
       name: 'appendix',
       label: 'Appendix',
       editable: false,
-      styles: { table: { caption: { text: { italic: false, weight: 300 } } } },
+      styles: {
+        table: { caption: { alignment: 'center', text: { italic: false, weight: 300 } } },
+      },
       footnotes: { text: { size: '13px' } },
       content: [
         {
@@ -87,19 +105,9 @@ const OWN: TemplateFile = {
             { type: 'footnote', attrs: { id: 'appendix-note' }, content: [text('At rest.')] },
           ],
         },
-        {
-          type: 'table',
-          attrs: { caption: 'Bench limits', captionEnabled: true },
-          content: [
-            {
-              type: 'tableRow',
-              content: ['Load', 'Limit'].map((value) => ({
-                type: 'tableCell',
-                content: [{ type: 'paragraph', content: [text(value)] }],
-              })),
-            },
-          ],
-        },
+        // Narrower than the page: one as laid out, one aligned right, each caption centred on it.
+        benchTable('Bench limits', ['Load', 'Limit']),
+        benchTable('Bench steps', ['Step', 'Time'], 'right'),
       ],
     },
   ],

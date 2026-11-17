@@ -90,7 +90,7 @@ Verification: `src/engine/table-format.test.ts`, `e2e/captions.spec.ts`
 A caption line shall read the object's label and number, from the template's numbering of its kind (`--doc-<kind>-counter-content`), then its text, `Table 1.1 - Limits`; the reference stylesheet counts each kind, a later part of a split object and a table with its caption hidden excepted, places captions as the template says, and ends a later part's caption with the template's continued suffix (`--doc-<kind>-caption-continued`).
 
 Implementation: `src/model/schema/table-nodes.ts`, `labs/reference/document.css`
-Verification: `e2e/captions.spec.ts`
+Verification: `e2e/captions.spec.ts`, `e2e/template-content.spec.ts`
 
 ### DOCE-OBJECTS-2.3 - Captions edited in a field
 

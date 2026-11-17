@@ -228,4 +228,40 @@ test.describe('template content lab', () => {
       .evaluateAll((all) => all.map((marker) => marker.textContent));
     expect(markers.every((marker) => /^\d+$/.test(marker ?? ''))).toBe(true);
   });
+
+  test('DOCE-OBJECTS-2.2 DOCE-TEMPLATES-3.3 centres a table caption on exactly its table, laid out or aligned right', async ({
+    lab,
+    page,
+  }) => {
+    await lab.open('template-content');
+    const tables = content(page).locator(
+      '.pm-section[data-section-name="appendix"][data-template-part="content"] .pm-page-content table',
+    );
+    await expect(tables).toHaveCount(2);
+    const boxes = await tables.evaluateAll((all) =>
+      all.map((table) => {
+        const caption = table.querySelector('caption');
+        const body = table.querySelector('tbody')?.getBoundingClientRect();
+        const line = caption?.getBoundingClientRect();
+        const content = table.closest('.pm-page-content')?.getBoundingClientRect();
+        return {
+          align: caption ? getComputedStyle(caption).textAlign : '',
+          body: body ? [body.left, body.right] : [],
+          line: line ? [line.left, line.right] : [],
+          page: content ? [content.left, content.right] : [],
+        };
+      }),
+    );
+    for (const box of boxes) {
+      expect(box.align).toBe('center');
+      expect(Math.abs((box.line[0] ?? 0) - (box.body[0] ?? 0))).toBeLessThanOrEqual(1);
+      expect(Math.abs((box.line[1] ?? 0) - (box.body[1] ?? 0))).toBeLessThanOrEqual(1);
+    }
+    const [plain, right] = boxes;
+    expect(Math.abs((plain?.body[0] ?? 0) - (plain?.page[0] ?? 0))).toBeLessThanOrEqual(1);
+    expect(Math.abs((right?.body[1] ?? 0) - (right?.page[1] ?? 0))).toBeLessThanOrEqual(1);
+    expect((right?.body[1] ?? 0) - (right?.body[0] ?? 0)).toBeLessThan(
+      (right?.page[1] ?? 0) - (right?.page[0] ?? 0),
+    );
+  });
 });

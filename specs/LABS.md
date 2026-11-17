@@ -145,7 +145,7 @@ Verification: `e2e/panels.spec.ts`
 
 ### DOCE-LABS-3.7 - Template content in place
 
-The template content lab shall show a template's preview in parts beside the template as JSON: a read-only sample, then each template section's content and placeholder, edited in place with the toolbar and its variable menu, and the headers and footers, each edit written into the template. Its template sets caption and footnote typography, which a read-only appendix section overrides in part, citing a footnote and showing a captioned table.
+The template content lab shall show a template's preview in parts beside the template as JSON: a read-only sample, then each template section's content and placeholder, edited in place with the toolbar and its variable menu, and the headers and footers, each edit written into the template. Its template sets caption and footnote typography, which a read-only appendix section overrides in part, citing a footnote and showing two narrow captioned tables, one aligned right, their captions centred.
 
 Implementation: `labs/src/template-content.lab.tsx`, `labs/template-content.html`
 Verification: `e2e/template-content.spec.ts`
